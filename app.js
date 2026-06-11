@@ -12,6 +12,8 @@ const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
 const SEARCH_DEBOUNCE_MS = 120;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
+const DEMO_RETURN_WARNING_DAYS = 30;
+const DEMO_RETURN_CRITICAL_DAYS = 14;
 const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseKey = supabaseConfig.publishableKey || supabaseConfig.anonKey || "";
 const hasSupabaseSettings = Boolean(supabaseConfig.url && supabaseKey);
@@ -34,12 +36,14 @@ const demoDerived = new Map();
 const serialIndex = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
-let demoStats = { all: 0, available: 0, inUse: 0, review: 0 };
+let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
 let currentSupabaseUser = null;
 let supabaseRealtimeChannel = null;
 let supabaseRefreshTimeout = 0;
 let supabaseChangeTimeout = 0;
 let pendingSupabaseChanges = [];
+let demoReturnReminderShown = false;
+let demoReturnReminderTimeout = 0;
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -208,7 +212,7 @@ const repairFields = [
   "notes"
 ];
 
-const demoFields = ["receivedDate", "manufacturer", "deviceName", "serialNumber", "location", "currentUser", "notes"];
+const demoFields = ["receivedDate", "manufacturer", "status", "deviceName", "serialNumber", "location", "currentUser", "notes"];
 
 let records = [];
 let repairRecords = [];
@@ -242,6 +246,7 @@ const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
 const demoSearchInput = document.querySelector("#demoSearchInput");
 const demoStatusFilter = document.querySelector("#demoStatusFilter");
+const demoManufacturerFilter = document.querySelector("#demoManufacturerFilter");
 const demoLocationFilter = document.querySelector("#demoLocationFilter");
 const deviceNameSuggestions = document.querySelector("#deviceNameSuggestions");
 const customerNameSuggestions = document.querySelector("#customerNameSuggestions");
@@ -261,6 +266,9 @@ const demoForm = document.querySelector("#demoForm");
 const demoDialogTitle = document.querySelector("#demoDialogTitle");
 const demoRecordEyebrow = document.querySelector("#demoRecordEyebrow");
 const deleteDemoBtn = document.querySelector("#deleteDemoBtn");
+const demoReturnReminderDialog = document.querySelector("#demoReturnReminderDialog");
+const demoReturnReminderSummary = document.querySelector("#demoReturnReminderSummary");
+const demoReturnReminderList = document.querySelector("#demoReturnReminderList");
 const tabButtons = document.querySelectorAll(".tab-button");
 const viewSections = document.querySelectorAll(".view-section");
 const notebookSwitchButtons = document.querySelectorAll(".notebook-switch-button");
@@ -613,6 +621,7 @@ async function logoutFromSupabase() {
   records = [];
   repairRecords = [];
   demoRecords = [];
+  demoReturnReminderShown = false;
   rebuildDerivedData();
   render();
   setConnectionStatus("offline", "Zaloguj się");
@@ -989,6 +998,7 @@ function normalizeDemoRecordForUse(record) {
   });
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
   normalizedRecord.manufacturer = normalizedRecord.manufacturer.toLocaleUpperCase("pl-PL");
+  normalizedRecord.status = normalizeDemoStatus(normalizedRecord.status, normalizedRecord);
   normalizedRecord.sourceRow = String(normalizedRecord.sourceRow ?? "").trim();
   return normalizedRecord;
 }
@@ -1020,10 +1030,62 @@ function demoMissingStatus(record) {
   return /zgubion|brak na stanie|brak\s*-/.test(text);
 }
 
+function isPhilipsHearLink(record) {
+  return normalize(record.manufacturer).trim() === "philips" && normalize(record.deviceName).includes("hearlink");
+}
+
+function addCalendarMonths(value, months) {
+  const match = String(value ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "";
+
+  const [, yearText, monthText, dayText] = match;
+  const targetMonth = Number(monthText) - 1 + months;
+  const targetYear = Number(yearText) + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+  const day = Math.min(Number(dayText), lastDay);
+  return `${targetYear}-${String(normalizedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function daysUntilDate(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((date - today) / 86400000);
+}
+
+function demoReturnDeadline(record) {
+  if (!isPhilipsHearLink(record) || !record.receivedDate) return "";
+  return addCalendarMonths(record.receivedDate, 6);
+}
+
+function demoReturnLevel(days) {
+  if (days === null || days > DEMO_RETURN_WARNING_DAYS) return "";
+  return days <= DEMO_RETURN_CRITICAL_DAYS ? "critical" : "warning";
+}
+
+function demoReturnTimeLabel(days) {
+  if (days === null) return "";
+  if (days < 0) return `${formatDaysLabel(Math.abs(days))} po terminie`;
+  if (days === 0) return "zwrot dzisiaj";
+  return `za ${formatDaysLabel(days)}`;
+}
+
+function normalizeDemoStatus(value, record = {}) {
+  const normalizedStatus = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
+  if (["NA STANIE", "WYPOŻYCZONY", "BRAK", "DO ZWROTU"].includes(normalizedStatus)) return normalizedStatus;
+  if (demoMissingStatus(record)) return "BRAK";
+  if (String(record.currentUser ?? "").trim()) return "WYPOŻYCZONY";
+  return "NA STANIE";
+}
+
 function demoStatus(record) {
-  if (demoMissingStatus(record)) return "BRAK / ZGUBIONY";
-  if (String(record.currentUser ?? "").trim()) return "W UŻYCIU";
-  return "DOSTĘPNY";
+  const status = normalizeDemoStatus(record.status, record);
+  if (status === "BRAK") return status;
+  const returnDays = daysUntilDate(demoReturnDeadline(record));
+  return demoReturnLevel(returnDays) ? "DO ZWROTU" : status;
 }
 
 function demoQualityIssues(record, serialCounts = null) {
@@ -1117,7 +1179,7 @@ function rebuildRepairDerivedData() {
 
 function rebuildDemoDerivedData() {
   demoDerived.clear();
-  demoStats = { all: demoRecords.length, available: 0, inUse: 0, review: 0 };
+  demoStats = { all: demoRecords.length, stock: 0, loaned: 0, returnDue: 0 };
   const serialCounts = new Map();
 
   demoRecords.forEach((record) => {
@@ -1129,17 +1191,47 @@ function rebuildDemoDerivedData() {
     const status = demoStatus(record);
     const locationGroup = demoLocationGroup(record);
     const issues = demoQualityIssues(record, serialCounts);
-    if (status === "DOSTĘPNY") demoStats.available += 1;
-    if (status === "W UŻYCIU") demoStats.inUse += 1;
-    if (issues.length) demoStats.review += 1;
+    const returnDeadline = demoReturnDeadline(record);
+    const returnDays = daysUntilDate(returnDeadline);
+    const returnLevel = demoReturnLevel(returnDays);
+    if (status === "NA STANIE") demoStats.stock += 1;
+    if (status === "WYPOŻYCZONY") demoStats.loaned += 1;
+    if (status === "DO ZWROTU") demoStats.returnDue += 1;
 
     demoDerived.set(record.id, {
       status,
       locationGroup,
       issues,
-      searchBlob: [...demoFields.map((field) => record[field]), status, locationGroup, ...issues].map(normalize).join("\n")
+      manufacturer: normalize(record.manufacturer).trim(),
+      returnDeadline,
+      returnDays,
+      returnLevel,
+      searchBlob: [...demoFields.map((field) => record[field]), status, locationGroup, returnDeadline, ...issues].map(normalize).join("\n")
     });
   });
+}
+
+function rebuildDemoManufacturerFilter() {
+  if (!demoManufacturerFilter) return;
+  const selectedValue = demoManufacturerFilter.value;
+  const manufacturers = [...new Set(demoRecords.map((record) => String(record.manufacturer ?? "").trim()).filter(Boolean))].sort((left, right) =>
+    collator.compare(left, right)
+  );
+  const fragment = document.createDocumentFragment();
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "Wszyscy";
+  fragment.append(allOption);
+
+  manufacturers.forEach((manufacturer) => {
+    const option = document.createElement("option");
+    option.value = normalize(manufacturer).trim();
+    option.textContent = manufacturer;
+    fragment.append(option);
+  });
+
+  demoManufacturerFilter.replaceChildren(fragment);
+  demoManufacturerFilter.value = manufacturers.some((manufacturer) => normalize(manufacturer).trim() === selectedValue) ? selectedValue : "";
 }
 
 function rebuildSerialIndex() {
@@ -1238,6 +1330,7 @@ function rebuildDerivedData() {
   rebuildDeviceDerivedData();
   rebuildRepairDerivedData();
   rebuildDemoDerivedData();
+  rebuildDemoManufacturerFilter();
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
@@ -1293,6 +1386,7 @@ function compareByAge(left, right) {
 function render() {
   updateStats();
   updateDeviceTypeSelectStyles();
+  scheduleDemoReturnReminder();
 
   if (activeNotebook === "repairs") {
     renderRepairRecords();
@@ -1317,24 +1411,31 @@ function renderDeviceViews() {
 function filteredDemoRecords() {
   const query = normalize(demoSearchInput.value).trim();
   const selectedStatus = demoStatusFilter.value;
+  const selectedManufacturer = demoManufacturerFilter.value;
   const selectedLocation = demoLocationFilter.value;
 
   return demoRecords
     .filter((record) => {
       const meta = demoDerived.get(record.id);
-      const matchesStatus =
-        !selectedStatus ||
-        meta?.status === selectedStatus ||
-        (selectedStatus === "DO WYJAŚNIENIA" && Boolean(meta?.issues.length));
+      const matchesStatus = !selectedStatus || meta?.status === selectedStatus;
+      const matchesManufacturer = !selectedManufacturer || meta?.manufacturer === selectedManufacturer;
       const matchesLocation = !selectedLocation || meta?.locationGroup === selectedLocation;
       const matchesQuery = !query || meta?.searchBlob.includes(query);
-      return matchesStatus && matchesLocation && matchesQuery;
+      return matchesStatus && matchesManufacturer && matchesLocation && matchesQuery;
     })
     .sort((left, right) => {
       const leftValue =
-        demoSortState.key === "status" ? demoDerived.get(left.id)?.status : String(left[demoSortState.key] ?? "");
+        demoSortState.key === "status"
+          ? demoDerived.get(left.id)?.status
+          : demoSortState.key === "returnDeadline"
+            ? demoDerived.get(left.id)?.returnDeadline
+            : String(left[demoSortState.key] ?? "");
       const rightValue =
-        demoSortState.key === "status" ? demoDerived.get(right.id)?.status : String(right[demoSortState.key] ?? "");
+        demoSortState.key === "status"
+          ? demoDerived.get(right.id)?.status
+          : demoSortState.key === "returnDeadline"
+            ? demoDerived.get(right.id)?.returnDeadline
+            : String(right[demoSortState.key] ?? "");
       const compared = collator.compare(String(leftValue ?? ""), String(rightValue ?? ""));
       return demoSortState.direction === "asc" ? compared : -compared;
     });
@@ -1463,12 +1564,13 @@ function createDemoRow(record) {
   const row = document.createElement("tr");
   const meta = demoDerived.get(record.id);
   if (meta?.issues.length) row.classList.add("demo-needs-review");
-  if (meta?.status === "BRAK / ZGUBIONY") row.classList.add("demo-missing");
+  if (meta?.status === "BRAK") row.classList.add("demo-missing");
+  if (meta?.returnLevel) row.classList.add(`demo-return-${meta.returnLevel}`);
 
   const statusWrap = document.createElement("div");
   const statusPill = document.createElement("span");
-  statusPill.className = `status-pill ${meta?.status.replaceAll(" / ", "-").replaceAll(" ", "-") || "DOSTĘPNY"}`;
-  statusPill.textContent = meta?.status || "DOSTĘPNY";
+  statusPill.className = `status-pill ${meta?.status.replaceAll(" ", "-") || "NA-STANIE"}`;
+  statusPill.textContent = meta?.status || "NA STANIE";
   statusWrap.append(statusPill);
 
   if (meta?.issues.length) {
@@ -1481,6 +1583,7 @@ function createDemoRow(record) {
   const cells = [
     statusWrap,
     formatDate(record.receivedDate),
+    createDemoReturnDeadlineCell(meta),
     record.manufacturer,
     record.deviceName,
     createSerialPill(record.serialNumber),
@@ -1509,6 +1612,74 @@ function createDemoRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createDemoReturnDeadlineCell(meta) {
+  if (!meta?.returnDeadline) return "";
+
+  const wrap = document.createElement("span");
+  wrap.className = `demo-return-date ${meta.returnLevel || "regular"}`;
+
+  const date = document.createElement("strong");
+  date.textContent = formatDate(meta.returnDeadline);
+  wrap.append(date);
+
+  const time = document.createElement("small");
+  time.textContent = demoReturnTimeLabel(meta.returnDays);
+  wrap.append(time);
+  return wrap;
+}
+
+function dueDemoReturnRecords() {
+  return demoRecords
+    .map((record) => ({ record, meta: demoDerived.get(record.id) }))
+    .filter(({ meta }) => meta?.returnLevel && meta.status !== "BRAK")
+    .sort((left, right) => (left.meta.returnDays ?? Number.MAX_SAFE_INTEGER) - (right.meta.returnDays ?? Number.MAX_SAFE_INTEGER));
+}
+
+function scheduleDemoReturnReminder() {
+  if (demoReturnReminderShown || demoReturnReminderTimeout) return;
+  demoReturnReminderTimeout = window.setTimeout(() => {
+    demoReturnReminderTimeout = 0;
+    showDemoReturnReminder();
+  }, 150);
+}
+
+function showDemoReturnReminder() {
+  if (demoReturnReminderShown || !demoReturnReminderDialog || authDialog?.open || recordDialog.open || repairDialog.open || demoDialog.open) return;
+  const dueRecords = dueDemoReturnRecords();
+  if (!dueRecords.length) return;
+
+  const criticalCount = dueRecords.filter(({ meta }) => meta.returnLevel === "critical").length;
+  const warningCount = dueRecords.length - criticalCount;
+  demoReturnReminderSummary.textContent = `${dueRecords.length} aparatów Philips HearLink wymaga uwagi: ${criticalCount} pilnych, ${warningCount} z terminem w ciągu 30 dni.`;
+
+  const fragment = document.createDocumentFragment();
+  dueRecords.forEach(({ record, meta }) => {
+    const item = document.createElement("div");
+    item.className = `return-reminder-item ${meta.returnLevel}`;
+
+    const description = document.createElement("div");
+    const model = document.createElement("strong");
+    model.textContent = record.deviceName || "Philips HearLink";
+    const serial = document.createElement("span");
+    serial.textContent = [record.serialNumber, record.location].filter(Boolean).join(" · ");
+    description.append(model, serial);
+
+    const deadline = document.createElement("div");
+    deadline.className = "return-reminder-deadline";
+    const date = document.createElement("strong");
+    date.textContent = formatDate(meta.returnDeadline);
+    const time = document.createElement("span");
+    time.textContent = demoReturnTimeLabel(meta.returnDays);
+    deadline.append(date, time);
+
+    item.append(description, deadline);
+    fragment.append(item);
+  });
+  demoReturnReminderList.replaceChildren(fragment);
+  demoReturnReminderShown = true;
+  demoReturnReminderDialog.showModal();
 }
 
 function createAgePill(record) {
@@ -1808,13 +1979,13 @@ function updateStats() {
 
   if (activeDeviceView === "demo") {
     document.querySelector("#countAll").textContent = demoStats.all;
-    document.querySelector("#countSold").textContent = demoStats.available;
-    document.querySelector("#countInvoice").textContent = demoStats.inUse;
-    document.querySelector("#countStock").textContent = demoStats.review;
+    document.querySelector("#countSold").textContent = demoStats.stock;
+    document.querySelector("#countInvoice").textContent = demoStats.loaned;
+    document.querySelector("#countStock").textContent = demoStats.returnDue;
     countAllLabel.textContent = "aparatów demo";
-    countSoldLabel.textContent = "dostępne";
-    countInvoiceLabel.textContent = "w użyciu";
-    countStockLabel.textContent = "do wyjaśnienia";
+    countSoldLabel.textContent = "na stanie";
+    countInvoiceLabel.textContent = "wypożyczone";
+    countStockLabel.textContent = "do zwrotu";
     return;
   }
 
@@ -2022,6 +2193,7 @@ function openDemoDialog(record = null) {
   const fieldMap = {
     receivedDate: "#demoReceivedDate",
     manufacturer: "#demoManufacturer",
+    status: "#demoStatus",
     deviceName: "#demoDeviceName",
     serialNumber: "#demoSerialNumber",
     location: "#demoLocation",
@@ -2033,7 +2205,10 @@ function openDemoDialog(record = null) {
     document.querySelector(fieldMap[field]).value = record?.[field] ?? "";
   });
 
-  if (!record) document.querySelector("#demoReceivedDate").value = todayInputValue();
+  if (!record) {
+    document.querySelector("#demoReceivedDate").value = todayInputValue();
+    document.querySelector("#demoStatus").value = "NA STANIE";
+  }
   demoDialog.showModal();
 }
 
@@ -2094,6 +2269,7 @@ function demoFormRecord() {
   });
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
+  data.status = normalizeDemoStatus(data.status, data);
   return data;
 }
 
@@ -2643,6 +2819,7 @@ repairCategoryFilter.addEventListener("change", render);
 repairStatusFilter.addEventListener("change", render);
 demoSearchInput.addEventListener("input", debounce(renderDemoRecords, SEARCH_DEBOUNCE_MS));
 demoStatusFilter.addEventListener("change", render);
+demoManufacturerFilter.addEventListener("change", render);
 demoLocationFilter.addEventListener("change", render);
 importInput.addEventListener("change", importJson);
 importRepairInput.addEventListener("change", importRepairJson);
@@ -2653,6 +2830,15 @@ document.querySelector("#repairPickupDate").addEventListener("change", syncRepai
 authForm?.addEventListener("submit", handleAuthSubmit);
 authDialog?.addEventListener("cancel", (event) => event.preventDefault());
 logoutBtn?.addEventListener("click", logoutFromSupabase);
+document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", () => {
+  demoManufacturerFilter.value = "philips";
+  demoStatusFilter.value = "DO ZWROTU";
+  demoLocationFilter.value = "";
+  demoSearchInput.value = "";
+  demoReturnReminderDialog.close();
+  switchNotebook("devices");
+  switchView("demo", "devices");
+});
 
 notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));

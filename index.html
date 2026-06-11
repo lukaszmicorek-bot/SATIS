@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260611-6">
+    <link rel="stylesheet" href="styles.css?v=20260611-7">
   </head>
   <body>
     <main class="app-shell">
@@ -146,6 +146,12 @@
               </select>
             </label>
             <label>
+              <span>Producent</span>
+              <select id="demoManufacturerFilter">
+                <option value="">Wszyscy</option>
+              </select>
+            </label>
+            <label>
               <span>Miejsce</span>
               <select id="demoLocationFilter">
                 <option value="">Wszystkie</option>
@@ -169,7 +175,8 @@
               <thead>
                 <tr>
                   <th data-demo-sort="status">Status</th>
-                  <th data-demo-sort="receivedDate">Data</th>
+                  <th data-demo-sort="receivedDate">Data wprowadzenia</th>
+                  <th data-demo-sort="returnDeadline">Termin zwrotu</th>
                   <th data-demo-sort="manufacturer">Producent</th>
                   <th data-demo-sort="deviceName">Model aparatu</th>
                   <th data-demo-sort="serialNumber">Numer seryjny</th>
@@ -504,7 +511,7 @@
         <input id="demoId" type="hidden">
         <div class="form-grid">
           <label>
-            <span>Data</span>
+            <span>Data wprowadzenia</span>
             <div class="date-input-wrap">
               <input id="demoReceivedDate" name="receivedDate" type="date">
               <button class="clear-date-btn" type="button" data-target="demoReceivedDate" aria-label="Wyczyść datę">×</button>
@@ -553,6 +560,24 @@
       </form>
     </dialog>
 
+    <dialog id="demoReturnReminderDialog" class="return-reminder-dialog">
+      <form method="dialog" class="return-reminder-form">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Philips HearLink</p>
+            <h2>Zbliżające się terminy zwrotu</h2>
+          </div>
+          <button class="ghost close-btn" type="submit" value="close" aria-label="Zamknij">Zamknij</button>
+        </div>
+        <p id="demoReturnReminderSummary" class="return-reminder-summary"></p>
+        <div id="demoReturnReminderList" class="return-reminder-list"></div>
+        <div class="dialog-actions">
+          <span></span>
+          <button id="openDemoReturnRecordsBtn" type="button">Pokaż w Demo</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="authDialog" class="auth-dialog">
       <form id="authForm" class="auth-form">
         <div class="auth-brand">
@@ -576,8 +601,8 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260611-6"></script>
-    <script src="demo-data.js?v=20260611-6"></script>
-    <script src="app.js?v=20260611-6"></script>
+    <script src="supabase-config.js?v=20260611-7"></script>
+    <script src="demo-data.js?v=20260611-7"></script>
+    <script src="app.js?v=20260611-7"></script>
   </body>
 </html>
