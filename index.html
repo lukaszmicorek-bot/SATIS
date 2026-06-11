@@ -53,6 +53,7 @@
       <section id="devicesNotebook" class="notebook-section">
         <section class="tabs" role="tablist" aria-label="Zakładki zeszytu aparatów">
           <button id="databaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="databaseView" data-view-group="devices" data-view="database">Baza</button>
+          <button id="demoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="demoView" data-view-group="devices" data-view="demo">Demo</button>
           <button id="stockTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="stockView" data-view-group="devices" data-view="stock">Stan</button>
         </section>
 
@@ -122,6 +123,65 @@
               <tbody id="recordsBody"></tbody>
             </table>
             <p id="emptyState" class="empty-state" hidden>Brak rekordów dla wybranych filtrów.</p>
+          </section>
+        </section>
+
+        <section id="demoView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="demoTab" hidden>
+          <section class="controls demo-controls" aria-label="Narzędzia aparatów demo">
+            <label class="search-box">
+              <span>Szukaj</span>
+              <input id="demoSearchInput" type="search" placeholder="Producent, model, numer, miejsce...">
+            </label>
+            <label>
+              <span>Status</span>
+              <select id="demoStatusFilter">
+                <option value="">Wszystkie</option>
+                <option value="DOSTĘPNY">Dostępny</option>
+                <option value="W UŻYCIU">W użyciu</option>
+                <option value="BRAK / ZGUBIONY">Brak / zgubiony</option>
+                <option value="DO WYJAŚNIENIA">Do wyjaśnienia</option>
+              </select>
+            </label>
+            <label>
+              <span>Miejsce</span>
+              <select id="demoLocationFilter">
+                <option value="">Wszystkie</option>
+                <option value="T12">T12</option>
+                <option value="P50">P50</option>
+                <option value="P63">P63</option>
+                <option value="ŻYWIEC">Żywiec</option>
+                <option value="BRAK">Brak</option>
+                <option value="INNE">Inne</option>
+              </select>
+            </label>
+            <button id="addDemoBtn" type="button">Dodaj demo</button>
+            <button id="exportDemoBtn" class="icon-button" type="button" aria-label="Eksport JSON" title="Eksport JSON">
+              <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">JSON</span>
+            </button>
+          </section>
+
+          <section class="table-zone demo-zone" aria-label="Aparaty demo">
+            <table class="demo-table">
+              <thead>
+                <tr>
+                  <th data-demo-sort="status">Status</th>
+                  <th data-demo-sort="receivedDate">Data</th>
+                  <th data-demo-sort="manufacturer">Producent</th>
+                  <th data-demo-sort="deviceName">Model aparatu</th>
+                  <th data-demo-sort="serialNumber">Numer seryjny</th>
+                  <th data-demo-sort="location">Miejsce / historia</th>
+                  <th data-demo-sort="currentUser">Aktualnie używany</th>
+                  <th data-demo-sort="notes">Uwagi</th>
+                  <th class="actions-head">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="demoRecordsBody"></tbody>
+            </table>
+            <p id="demoEmptyState" class="empty-state" hidden>Brak aparatów demo dla wybranych filtrów.</p>
           </section>
         </section>
 
@@ -431,6 +491,59 @@
       </form>
     </dialog>
 
+    <dialog id="demoDialog">
+      <form id="demoForm" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p id="demoRecordEyebrow" class="eyebrow">Nowy wpis</p>
+            <h2 id="demoDialogTitle">Dodaj aparat demo</h2>
+          </div>
+          <button class="ghost close-btn" type="button" id="closeDemoDialogBtn" aria-label="Zamknij">Zamknij</button>
+        </div>
+
+        <input id="demoId" type="hidden">
+        <div class="form-grid">
+          <label>
+            <span>Data</span>
+            <div class="date-input-wrap">
+              <input id="demoReceivedDate" name="receivedDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="demoReceivedDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Producent</span>
+            <input id="demoManufacturer" name="manufacturer" type="text">
+          </label>
+          <label class="wide highlight-field">
+            <span>Model aparatu</span>
+            <input id="demoDeviceName" name="deviceName" type="text" required>
+          </label>
+          <label>
+            <span>Numer seryjny</span>
+            <input id="demoSerialNumber" name="serialNumber" type="text" required>
+          </label>
+          <label>
+            <span>Miejsce / historia</span>
+            <input id="demoLocation" name="location" type="text">
+          </label>
+          <label class="wide">
+            <span>Aktualnie używany</span>
+            <input id="demoCurrentUser" name="currentUser" type="text">
+          </label>
+          <label class="wide">
+            <span>Uwagi</span>
+            <textarea id="demoNotes" name="notes" rows="3"></textarea>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="danger" id="deleteDemoBtn" type="button" hidden>Usuń</button>
+          <button class="ghost" type="button" id="cancelDemoBtn">Anuluj</button>
+          <button type="submit">Zapisz</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="authDialog" class="auth-dialog">
       <form id="authForm" class="auth-form">
         <div class="auth-brand">
@@ -455,6 +568,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
+    <script src="demo-data.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
