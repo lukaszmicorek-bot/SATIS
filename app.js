@@ -79,7 +79,7 @@ const repairFields = [
   "notes"
 ];
 
-const demoFields = ["receivedDate", "manufacturer", "status", "deviceName", "serialNumber", "location", "currentUser", "notes"];
+const demoFields = ["receivedDate", "returnDate", "manufacturer", "status", "deviceName", "serialNumber", "location", "currentUser", "notes"];
 
 let records = [];
 let repairRecords = [];
@@ -117,6 +117,8 @@ const demoManufacturerFilter = document.querySelector("#demoManufacturerFilter")
 const demoLocationFilter = document.querySelector("#demoLocationFilter");
 const deviceNameSuggestions = document.querySelector("#deviceNameSuggestions");
 const customerNameSuggestions = document.querySelector("#customerNameSuggestions");
+const demoManufacturerSuggestions = document.querySelector("#demoManufacturerSuggestions");
+const demoDeviceNameSuggestions = document.querySelector("#demoDeviceNameSuggestions");
 const recordDialog = document.querySelector("#recordDialog");
 const recordForm = document.querySelector("#recordForm");
 const recordEyebrow = document.querySelector("#recordEyebrow");
@@ -133,6 +135,8 @@ const demoForm = document.querySelector("#demoForm");
 const demoDialogTitle = document.querySelector("#demoDialogTitle");
 const demoRecordEyebrow = document.querySelector("#demoRecordEyebrow");
 const deleteDemoBtn = document.querySelector("#deleteDemoBtn");
+const saveDemoBtn = document.querySelector("#saveDemoBtn");
+const demoFormError = document.querySelector("#demoFormError");
 const demoReturnReminderDialog = document.querySelector("#demoReturnReminderDialog");
 const demoReturnReminderSummary = document.querySelector("#demoReturnReminderSummary");
 const demoReturnReminderList = document.querySelector("#demoReturnReminderList");
@@ -865,6 +869,7 @@ function normalizeDemoRecordForUse(record) {
   });
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
   normalizedRecord.manufacturer = normalizedRecord.manufacturer.toLocaleUpperCase("pl-PL");
+  normalizedRecord.currentUser = titleCaseName(normalizedRecord.currentUser);
   normalizedRecord.status = normalizeDemoStatus(normalizedRecord.status, normalizedRecord);
   normalizedRecord.sourceRow = String(normalizedRecord.sourceRow ?? "").trim();
   return normalizedRecord;
@@ -924,6 +929,7 @@ function daysUntilDate(value) {
 }
 
 function demoReturnDeadline(record) {
+  if (record.returnDate) return record.returnDate;
   if (!isPhilipsHearLink(record) || !record.receivedDate) return "";
   return addCalendarMonths(record.receivedDate, 6);
 }
@@ -946,6 +952,10 @@ function normalizeDemoStatus(value, record = {}) {
   if (demoMissingStatus(record)) return "BRAK";
   if (String(record.currentUser ?? "").trim()) return "WYPOŻYCZONY";
   return "NA STANIE";
+}
+
+function demoStatusFromCurrentUser(currentUser) {
+  return String(currentUser ?? "").trim() ? "WYPOŻYCZONY" : "NA STANIE";
 }
 
 function demoStatus(record) {
@@ -1101,6 +1111,33 @@ function rebuildDemoManufacturerFilter() {
   demoManufacturerFilter.value = manufacturers.some((manufacturer) => normalize(manufacturer).trim() === selectedValue) ? selectedValue : "";
 }
 
+function rebuildDemoFormSuggestions() {
+  if (!demoManufacturerSuggestions || !demoDeviceNameSuggestions) return;
+
+  const manufacturers = [...new Set(demoRecords.map((record) => String(record.manufacturer ?? "").trim()).filter(Boolean))].sort((left, right) =>
+    collator.compare(left, right)
+  );
+  const models = [...new Set(demoRecords.map((record) => String(record.deviceName ?? "").trim()).filter(Boolean))].sort((left, right) =>
+    collator.compare(left, right)
+  );
+
+  const manufacturerFragment = document.createDocumentFragment();
+  manufacturers.forEach((manufacturer) => {
+    const option = document.createElement("option");
+    option.value = manufacturer;
+    manufacturerFragment.append(option);
+  });
+  demoManufacturerSuggestions.replaceChildren(manufacturerFragment);
+
+  const modelFragment = document.createDocumentFragment();
+  models.slice(0, MAX_DEVICE_NAME_SUGGESTIONS).forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model;
+    modelFragment.append(option);
+  });
+  demoDeviceNameSuggestions.replaceChildren(modelFragment);
+}
+
 function rebuildSerialIndex() {
   serialIndex.clear();
 
@@ -1198,6 +1235,7 @@ function rebuildDerivedData() {
   rebuildRepairDerivedData();
   rebuildDemoDerivedData();
   rebuildDemoManufacturerFilter();
+  rebuildDemoFormSuggestions();
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
@@ -2050,6 +2088,14 @@ function openRepairDialog(record = null) {
 
 function openDemoDialog(record = null) {
   demoForm.reset();
+  demoFormError.textContent = "";
+  saveDemoBtn.disabled = false;
+  saveDemoBtn.textContent = "Zapisz";
+  const demoSerialNumberInput = document.querySelector("#demoSerialNumber");
+  demoSerialNumberInput.required = !record;
+  demoSerialNumberInput.setAttribute("aria-required", String(!record));
+  document.querySelector("#demoSerialNumberLabel").textContent = record ? "Numer seryjny" : "Numer seryjny *";
+  document.querySelector("#demoReturnDate").dataset.autoValue = "";
   document.querySelector("#demoId").value = record?.id ?? "";
   demoDialogTitle.textContent = record ? "Edytuj aparat demo" : "Dodaj aparat demo";
   demoRecordEyebrow.textContent = record
@@ -2059,6 +2105,7 @@ function openDemoDialog(record = null) {
 
   const fieldMap = {
     receivedDate: "#demoReceivedDate",
+    returnDate: "#demoReturnDate",
     manufacturer: "#demoManufacturer",
     status: "#demoStatus",
     deviceName: "#demoDeviceName",
@@ -2072,10 +2119,23 @@ function openDemoDialog(record = null) {
     document.querySelector(fieldMap[field]).value = record?.[field] ?? "";
   });
 
+  if (record) {
+    const calculatedReturnDate = isPhilipsHearLink(record) ? addCalendarMonths(record.receivedDate, 6) : "";
+    const returnDateInput = document.querySelector("#demoReturnDate");
+    returnDateInput.value = record.returnDate || calculatedReturnDate;
+    if (returnDateInput.value === calculatedReturnDate) returnDateInput.dataset.autoValue = calculatedReturnDate;
+    const location = demoLocationGroup(record);
+    document.querySelector("#demoLocation").value = ["T12", "P50", "P63"].includes(location) ? location : "P63";
+    document.querySelector("#demoCurrentUser").value = titleCaseName(record.currentUser);
+    syncDemoStatusFromCurrentUser();
+  }
+
   if (!record) {
     document.querySelector("#demoReceivedDate").value = todayInputValue();
     document.querySelector("#demoStatus").value = "NA STANIE";
+    document.querySelector("#demoLocation").value = "P63";
   }
+  syncDemoReturnDate();
   demoDialog.showModal();
 }
 
@@ -2136,8 +2196,15 @@ function demoFormRecord() {
   });
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
-  data.status = normalizeDemoStatus(data.status, data);
+  data.location = normalizeDemoLocation(data.location);
+  data.currentUser = titleCaseName(data.currentUser);
+  data.status = demoStatusFromCurrentUser(data.currentUser);
   return data;
+}
+
+function normalizeDemoLocation(location) {
+  const normalizedLocation = String(location || "").trim().toUpperCase();
+  return ["T12", "P50", "P63"].includes(normalizedLocation) ? normalizedLocation : "P63";
 }
 
 function normalizeRepairLocation(location) {
@@ -2157,6 +2224,48 @@ function syncRepairStatusFromDates() {
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
 }
 
+function syncDemoStatusFromCurrentUser() {
+  const currentUser = document.querySelector("#demoCurrentUser").value;
+  document.querySelector("#demoStatus").value = demoStatusFromCurrentUser(currentUser);
+}
+
+function syncDemoReturnDate() {
+  const returnDateInput = document.querySelector("#demoReturnDate");
+  const record = {
+    receivedDate: document.querySelector("#demoReceivedDate").value,
+    manufacturer: document.querySelector("#demoManufacturer").value,
+    deviceName: document.querySelector("#demoDeviceName").value
+  };
+  const calculatedDate = isPhilipsHearLink(record) && record.receivedDate ? addCalendarMonths(record.receivedDate, 6) : "";
+  const previousAutoDate = returnDateInput.dataset.autoValue || "";
+
+  if (calculatedDate && (!returnDateInput.value || returnDateInput.value === previousAutoDate)) {
+    returnDateInput.value = calculatedDate;
+    returnDateInput.dataset.autoValue = calculatedDate;
+    return;
+  }
+
+  if (!calculatedDate && returnDateInput.value === previousAutoDate) {
+    returnDateInput.value = "";
+  }
+  if (!calculatedDate) returnDateInput.dataset.autoValue = "";
+}
+
+function markDemoReturnDateChange() {
+  const input = document.querySelector("#demoReturnDate");
+  if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
+}
+
+function syncDemoUppercaseInput(event) {
+  event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+  if (event.target.id === "demoManufacturer") syncDemoReturnDate();
+}
+
+function formatDemoCurrentUserInput(event) {
+  event.target.value = titleCaseName(event.target.value);
+  syncDemoStatusFromCurrentUser();
+}
+
 function syncSalesInvoiceUppercase(event) {
   event.target.value = normalizeSalesInvoiceInput(event.target.value);
   syncDeviceTypeFromFields();
@@ -2172,7 +2281,11 @@ function handleClearDateClick(event) {
 
   input.value = "";
 
-  if (targetId.startsWith("demo")) return;
+  if (targetId.startsWith("demo")) {
+    if (targetId === "demoReturnDate") input.dataset.autoValue = "";
+    syncDemoReturnDate();
+    return;
+  }
 
   if (targetId.startsWith("repair")) {
     syncRepairStatusFromDates();
@@ -2278,12 +2391,28 @@ async function deleteCurrentRepairRecord() {
 
 async function saveDemoFormRecord(event) {
   event.preventDefault();
+  demoFormError.textContent = "";
   const id = document.querySelector("#demoId").value;
   const data = demoFormRecord();
   let savedRecord;
+  if (!id && !data.serialNumber) {
+    demoFormError.textContent = "Numer seryjny jest wymagany przy dodawaniu nowego aparatu demo.";
+    document.querySelector("#demoSerialNumber").focus();
+    return;
+  }
   if (!confirmSerialNumberSave(data.serialNumber, "demo", id)) return;
+  const previousDemoRecords = demoRecords;
+  saveDemoBtn.disabled = true;
+  saveDemoBtn.textContent = "Zapisywanie...";
 
   if (id) {
+    const existingRecord = demoRecords.find((record) => record.id === id);
+    if (!existingRecord) {
+      demoFormError.textContent = "Nie znaleziono edytowanego rekordu. Zamknij okno i otwórz go ponownie.";
+      saveDemoBtn.disabled = false;
+      saveDemoBtn.textContent = "Zapisz";
+      return;
+    }
     demoRecords = demoRecords.map((record) => {
       if (record.id !== id) return record;
       savedRecord = { ...record, ...data };
@@ -2300,7 +2429,14 @@ async function saveDemoFormRecord(event) {
     render();
     closeDemoDialog();
   } catch (error) {
-    alert(error.message);
+    demoRecords = previousDemoRecords;
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    rebuildDerivedData();
+    render();
+    demoFormError.textContent = error.message || "Nie udało się zapisać rekordu.";
+  } finally {
+    saveDemoBtn.disabled = false;
+    saveDemoBtn.textContent = "Zapisz";
   }
 }
 
@@ -2694,6 +2830,12 @@ document.querySelector("#repairReceivedDate").addEventListener("change", syncRep
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
+document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoReturnDate);
+document.querySelector("#demoReturnDate").addEventListener("change", markDemoReturnDateChange);
+document.querySelector("#demoManufacturer").addEventListener("input", syncDemoUppercaseInput);
+document.querySelector("#demoDeviceName").addEventListener("input", syncDemoReturnDate);
+document.querySelector("#demoSerialNumber").addEventListener("input", syncDemoUppercaseInput);
+document.querySelector("#demoCurrentUser").addEventListener("input", formatDemoCurrentUserInput);
 authForm?.addEventListener("submit", handleAuthSubmit);
 authDialog?.addEventListener("cancel", (event) => event.preventDefault());
 logoutBtn?.addEventListener("click", logoutFromSupabase);

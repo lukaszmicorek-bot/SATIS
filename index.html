@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260611-7">
+    <link rel="stylesheet" href="styles.css?v=20260611-10">
   </head>
   <body>
     <main class="app-shell">
@@ -499,7 +499,7 @@
     </dialog>
 
     <dialog id="demoDialog">
-      <form id="demoForm" method="dialog">
+      <form id="demoForm" method="dialog" novalidate>
         <div class="dialog-head">
           <div>
             <p id="demoRecordEyebrow" class="eyebrow">Nowy wpis</p>
@@ -518,8 +518,16 @@
             </div>
           </label>
           <label>
+            <span>Data zwrotu</span>
+            <div class="date-input-wrap">
+              <input id="demoReturnDate" name="returnDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="demoReturnDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
             <span>Producent</span>
-            <input id="demoManufacturer" name="manufacturer" type="text">
+            <input id="demoManufacturer" name="manufacturer" type="text" list="demoManufacturerSuggestions">
+            <datalist id="demoManufacturerSuggestions"></datalist>
           </label>
           <label>
             <span>Status</span>
@@ -532,18 +540,23 @@
           </label>
           <label class="wide highlight-field">
             <span>Model aparatu</span>
-            <input id="demoDeviceName" name="deviceName" type="text" required>
+            <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions">
+            <datalist id="demoDeviceNameSuggestions"></datalist>
           </label>
           <label>
-            <span>Numer seryjny</span>
-            <input id="demoSerialNumber" name="serialNumber" type="text" required>
+            <span id="demoSerialNumberLabel">Numer seryjny</span>
+            <input id="demoSerialNumber" name="serialNumber" type="text">
           </label>
           <label>
-            <span>Miejsce / historia</span>
-            <input id="demoLocation" name="location" type="text">
+            <span>Miejsce</span>
+            <select id="demoLocation" name="location">
+              <option value="T12">T12</option>
+              <option value="P50">P50</option>
+              <option value="P63">P63</option>
+            </select>
           </label>
           <label class="wide">
-            <span>Aktualnie używany</span>
+            <span>Aktualnie używany przez</span>
             <input id="demoCurrentUser" name="currentUser" type="text">
           </label>
           <label class="wide">
@@ -552,10 +565,11 @@
           </label>
         </div>
 
+        <p id="demoFormError" class="form-error" role="alert"></p>
         <div class="dialog-actions">
           <button class="danger" id="deleteDemoBtn" type="button" hidden>Usuń</button>
           <button class="ghost" type="button" id="cancelDemoBtn">Anuluj</button>
-          <button type="submit">Zapisz</button>
+          <button id="saveDemoBtn" type="submit">Zapisz</button>
         </div>
       </form>
     </dialog>
@@ -601,8 +615,8 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260611-7"></script>
-    <script src="demo-data.js?v=20260611-7"></script>
-    <script src="app.js?v=20260611-7"></script>
+    <script src="supabase-config.js?v=20260611-10"></script>
+    <script src="demo-data.js?v=20260611-10"></script>
+    <script src="app.js?v=20260611-10"></script>
   </body>
 </html>
