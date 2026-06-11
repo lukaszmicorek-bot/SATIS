@@ -1,5 +1,6 @@
 const STORAGE_KEY = "baza-aparatow-records-2026-clean";
 const REPAIR_STORAGE_KEY = "zeszyt-napraw-wkladek-records-2026-clean";
+const DEMO_STORAGE_KEY = "zeszyt-aparatow-demo-records";
 const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const SERVER_REFRESH_MS = 10000;
@@ -7,6 +8,9 @@ const SUPABASE_PAGE_SIZE = 1000;
 const SUPABASE_DELETE_BATCH_SIZE = 200;
 const SUPABASE_DEVICE_TABLE = "device_records";
 const SUPABASE_REPAIR_TABLE = "repair_records";
+const SUPABASE_DEMO_TABLE = "demo_records";
+const SUPABASE_SETTINGS_TABLE = "app_settings";
+const DEMO_SEED_KEY = "demo-xlsx-import-v1";
 const SEARCH_DEBOUNCE_MS = 120;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const supabaseConfig = window.SUPABASE_CONFIG || {};
@@ -27,9 +31,11 @@ const dateFormatter = new Intl.DateTimeFormat("pl-PL");
 const collator = new Intl.Collator("pl", { sensitivity: "base", numeric: true });
 const deviceDerived = new Map();
 const repairDerived = new Map();
+const demoDerived = new Map();
 const serialIndex = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
+let demoStats = { all: 0, available: 0, inUse: 0, review: 0 };
 let currentSupabaseUser = null;
 let supabaseRealtimeChannel = null;
 let supabaseRefreshTimeout = 0;
@@ -203,11 +209,16 @@ const repairFields = [
   "notes"
 ];
 
+const demoFields = ["receivedDate", "manufacturer", "deviceName", "serialNumber", "location", "currentUser", "notes"];
+
 let records = [];
 let repairRecords = [];
+let demoRecords = [];
 let sortState = { key: "receivedDate", direction: "desc" };
 let repairSortState = { key: "receivedDate", direction: "desc" };
+let demoSortState = { key: "receivedDate", direction: "desc" };
 let activeNotebook = "devices";
+let activeDeviceView = "database";
 
 const recordsBody = document.querySelector("#recordsBody");
 const emptyState = document.querySelector("#emptyState");
@@ -215,6 +226,8 @@ const repairRecordsBody = document.querySelector("#repairRecordsBody");
 const repairEmptyState = document.querySelector("#repairEmptyState");
 const repairOpenRecordsBody = document.querySelector("#repairOpenRecordsBody");
 const repairOpenEmptyState = document.querySelector("#repairOpenEmptyState");
+const demoRecordsBody = document.querySelector("#demoRecordsBody");
+const demoEmptyState = document.querySelector("#demoEmptyState");
 const stockBody = document.querySelector("#stockBody");
 const stockEmptyState = document.querySelector("#stockEmptyState");
 const countAllLabel = document.querySelector("#countAllLabel");
@@ -228,6 +241,9 @@ const fifoFilter = document.querySelector("#fifoFilter");
 const repairSearchInput = document.querySelector("#repairSearchInput");
 const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
+const demoSearchInput = document.querySelector("#demoSearchInput");
+const demoStatusFilter = document.querySelector("#demoStatusFilter");
+const demoLocationFilter = document.querySelector("#demoLocationFilter");
 const deviceNameSuggestions = document.querySelector("#deviceNameSuggestions");
 const customerNameSuggestions = document.querySelector("#customerNameSuggestions");
 const recordDialog = document.querySelector("#recordDialog");
@@ -241,6 +257,11 @@ const repairDialog = document.querySelector("#repairDialog");
 const repairForm = document.querySelector("#repairForm");
 const repairDialogTitle = document.querySelector("#repairDialogTitle");
 const deleteRepairBtn = document.querySelector("#deleteRepairBtn");
+const demoDialog = document.querySelector("#demoDialog");
+const demoForm = document.querySelector("#demoForm");
+const demoDialogTitle = document.querySelector("#demoDialogTitle");
+const demoRecordEyebrow = document.querySelector("#demoRecordEyebrow");
+const deleteDemoBtn = document.querySelector("#deleteDemoBtn");
 const tabButtons = document.querySelectorAll(".tab-button");
 const viewSections = document.querySelectorAll(".view-section");
 const notebookSwitchButtons = document.querySelectorAll(".notebook-switch-button");
@@ -397,21 +418,50 @@ async function replaceSupabaseTable(tableName, sourceRecords) {
   setConnectionStatus("online", "Supabase");
 }
 
+async function seedDemoRecordsIfEmpty() {
+  const seedRecords = normalizeDemoRecordsForUse(window.DEMO_SEED_RECORDS || []);
+  if (demoRecords.length || !seedRecords.length) return;
+
+  const { data: seedState, error: seedStateError } = await supabaseClient
+    .from(SUPABASE_SETTINGS_TABLE)
+    .select("key")
+    .eq("key", DEMO_SEED_KEY)
+    .maybeSingle();
+  if (seedStateError) throw new Error(`Nie udało się sprawdzić importu Demo: ${seedStateError.message}`);
+  if (seedState) return;
+
+  await replaceSupabaseTable(SUPABASE_DEMO_TABLE, seedRecords);
+  const { error: markError } = await supabaseClient.from(SUPABASE_SETTINGS_TABLE).upsert({
+    key: DEMO_SEED_KEY,
+    value: { source: "demo.xlsx", records: seedRecords.length },
+    updated_at: new Date().toISOString(),
+    updated_by: currentSupabaseUser?.id || null
+  });
+  if (markError) throw new Error(`Dane Demo zapisano, ale nie udało się oznaczyć importu: ${markError.message}`);
+
+  demoRecords = seedRecords;
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  rebuildDerivedData();
+  render();
+}
+
 async function refreshRecordsFromSupabase(options = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || document.hidden) return;
-  if (recordDialog.open || repairDialog.open) {
+  if (recordDialog.open || repairDialog.open || demoDialog.open) {
     scheduleSupabaseRefresh(1000);
     return;
   }
 
   try {
     setConnectionStatus("syncing", "Synchronizacja...");
-    [records, repairRecords] = await Promise.all([
+    [records, repairRecords, demoRecords] = await Promise.all([
       loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse),
-      loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse)
+      loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse),
+      loadSupabaseTable(SUPABASE_DEMO_TABLE, normalizeDemoRecordsForUse)
     ]);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildDerivedData();
     render();
     setConnectionStatus("online", "Supabase");
@@ -462,7 +512,7 @@ function flushSupabaseChanges() {
   pendingSupabaseChanges = [];
   if (!changes.length || !currentSupabaseUser) return;
 
-  if (recordDialog.open || repairDialog.open || changes.length > 100) {
+  if (recordDialog.open || repairDialog.open || demoDialog.open || changes.length > 100) {
     scheduleSupabaseRefresh();
     return;
   }
@@ -470,13 +520,16 @@ function flushSupabaseChanges() {
   changes.forEach(({ tableName, payload }) => {
     if (tableName === SUPABASE_DEVICE_TABLE) {
       records = applySupabaseChange(records, payload, normalizeDeviceRecordsForUse);
-    } else {
+    } else if (tableName === SUPABASE_REPAIR_TABLE) {
       repairRecords = applySupabaseChange(repairRecords, payload, normalizeRepairRecordsForUse);
+    } else {
+      demoRecords = applySupabaseChange(demoRecords, payload, normalizeDemoRecordsForUse);
     }
   });
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
   render();
   setConnectionStatus("online", "Supabase");
@@ -493,6 +546,9 @@ function subscribeToSupabaseChanges() {
     .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_REPAIR_TABLE }, (payload) =>
       queueSupabaseChange(SUPABASE_REPAIR_TABLE, payload)
     )
+    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_DEMO_TABLE }, (payload) =>
+      queueSupabaseChange(SUPABASE_DEMO_TABLE, payload)
+    )
     .subscribe((status) => {
       if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -506,6 +562,7 @@ async function activateSupabaseSession(user) {
   hideAuthDialog();
   setConnectionStatus("syncing", "Łączenie...");
   await refreshRecordsFromSupabase({ throwOnError: true });
+  await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
 }
 
@@ -540,6 +597,7 @@ async function logoutFromSupabase() {
   updateConnectionUser(null);
   records = [];
   repairRecords = [];
+  demoRecords = [];
   rebuildDerivedData();
   render();
   setConnectionStatus("offline", "Zaloguj się");
@@ -622,6 +680,31 @@ async function loadRepairRecords() {
   }
 
   return normalizeRepairRecordsForUse(loadLocalRepairRecords());
+}
+
+function loadLocalDemoRecords() {
+  const stored = localStorage.getItem(DEMO_STORAGE_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return normalizeDemoRecordsForUse(parsed);
+    } catch {
+      // Użyj danych startowych poniżej.
+    }
+  }
+
+  const seedRecords = normalizeDemoRecordsForUse(window.DEMO_SEED_RECORDS || []);
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(seedRecords));
+  return seedRecords;
+}
+
+async function loadDemoRecords() {
+  if (hasSupabaseConfig && currentSupabaseUser) {
+    const sharedRecords = await loadSupabaseTable(SUPABASE_DEMO_TABLE, normalizeDemoRecordsForUse);
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(sharedRecords));
+    return sharedRecords;
+  }
+  return loadLocalDemoRecords();
 }
 
 async function refreshRecordsFromServer() {
@@ -726,6 +809,20 @@ async function persistDeletedRepairRecord(id) {
     return;
   }
   await saveRepairRecords();
+}
+
+async function persistDemoRecord(record) {
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  if (hasSupabaseConfig) {
+    await upsertSupabaseRecord(SUPABASE_DEMO_TABLE, record);
+  }
+}
+
+async function persistDeletedDemoRecord(id) {
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  if (hasSupabaseConfig) {
+    await deleteSupabaseRecord(SUPABASE_DEMO_TABLE, id);
+  }
 }
 
 function formatDate(value) {
@@ -864,12 +961,60 @@ function normalizeDeviceRecordForUse(record) {
   return normalizedRecord;
 }
 
+function normalizeDemoRecordForUse(record) {
+  const normalizedRecord = { ...record };
+  demoFields.forEach((field) => {
+    normalizedRecord[field] = String(normalizedRecord[field] ?? "").trim();
+  });
+  normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
+  normalizedRecord.manufacturer = normalizedRecord.manufacturer.toLocaleUpperCase("pl-PL");
+  normalizedRecord.sourceRow = String(normalizedRecord.sourceRow ?? "").trim();
+  return normalizedRecord;
+}
+
 function normalizeDeviceRecordsForUse(recordsToNormalize) {
   return recordsToNormalize.map(normalizeDeviceRecordForUse);
 }
 
 function normalizeRepairRecordsForUse(recordsToNormalize) {
   return recordsToNormalize.map(normalizeRepairRecordForUse);
+}
+
+function normalizeDemoRecordsForUse(recordsToNormalize) {
+  return recordsToNormalize.map(normalizeDemoRecordForUse);
+}
+
+function demoLocationGroup(record) {
+  const text = normalize(`${record.location} ${record.currentUser}`);
+  if (text.includes("t12")) return "T12";
+  if (text.includes("p50")) return "P50";
+  if (text.includes("p63")) return "P63";
+  if (text.includes("żywiec") || text.includes("zywiec")) return "ŻYWIEC";
+  if (!text.trim()) return "BRAK";
+  return "INNE";
+}
+
+function demoMissingStatus(record) {
+  const text = normalize(`${record.location} ${record.currentUser}`);
+  return /zgubion|brak na stanie|brak\s*-/.test(text);
+}
+
+function demoStatus(record) {
+  if (demoMissingStatus(record)) return "BRAK / ZGUBIONY";
+  if (String(record.currentUser ?? "").trim()) return "W UŻYCIU";
+  return "DOSTĘPNY";
+}
+
+function demoQualityIssues(record, serialCounts = null) {
+  const issues = [];
+  if (!record.receivedDate) issues.push("brak daty");
+  if (!record.manufacturer) issues.push("brak producenta");
+  if (!record.deviceName) issues.push("brak modelu");
+  if (!record.serialNumber) issues.push("brak numeru seryjnego");
+  if (record.serialNumber && serialCounts?.get(record.serialNumber) > 1) issues.push("powtórzony numer seryjny");
+  if (/[?]{2,}/.test(`${record.location} ${record.currentUser} ${record.notes}`)) issues.push("niepewna informacja");
+  if (/^\d{5}$/.test(record.location)) issues.push("miejsce zapisane jako liczba");
+  return issues;
 }
 
 function displayType(record) {
@@ -949,6 +1094,33 @@ function rebuildRepairDerivedData() {
   });
 }
 
+function rebuildDemoDerivedData() {
+  demoDerived.clear();
+  demoStats = { all: demoRecords.length, available: 0, inUse: 0, review: 0 };
+  const serialCounts = new Map();
+
+  demoRecords.forEach((record) => {
+    if (!record.serialNumber) return;
+    serialCounts.set(record.serialNumber, (serialCounts.get(record.serialNumber) || 0) + 1);
+  });
+
+  demoRecords.forEach((record) => {
+    const status = demoStatus(record);
+    const locationGroup = demoLocationGroup(record);
+    const issues = demoQualityIssues(record, serialCounts);
+    if (status === "DOSTĘPNY") demoStats.available += 1;
+    if (status === "W UŻYCIU") demoStats.inUse += 1;
+    if (issues.length) demoStats.review += 1;
+
+    demoDerived.set(record.id, {
+      status,
+      locationGroup,
+      issues,
+      searchBlob: [...demoFields.map((field) => record[field]), status, locationGroup, ...issues].map(normalize).join("\n")
+    });
+  });
+}
+
 function rebuildSerialIndex() {
   serialIndex.clear();
 
@@ -973,6 +1145,18 @@ function rebuildSerialIndex() {
       id: record.id,
       notebook: "Zeszyt napraw i wkładek",
       label: [record.customerName, record.deviceName, repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record)].filter(Boolean).join(" / ")
+    });
+  });
+
+  demoRecords.forEach((record) => {
+    const serial = normalizeSerialNumber(record.serialNumber);
+    if (!serial) return;
+    if (!serialIndex.has(serial)) serialIndex.set(serial, []);
+    serialIndex.get(serial).push({
+      source: "demo",
+      id: record.id,
+      notebook: "Aparaty demo",
+      label: [record.manufacturer, record.deviceName, demoDerived.get(record.id)?.status ?? demoStatus(record)].filter(Boolean).join(" / ")
     });
   });
 }
@@ -1032,6 +1216,7 @@ function rebuildCustomerNameSuggestions() {
 function rebuildDerivedData() {
   rebuildDeviceDerivedData();
   rebuildRepairDerivedData();
+  rebuildDemoDerivedData();
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
@@ -1093,6 +1278,11 @@ function render() {
     return;
   }
 
+  if (activeDeviceView === "demo") {
+    renderDemoRecords();
+    return;
+  }
+
   renderDeviceViews();
 }
 
@@ -1101,6 +1291,38 @@ function renderDeviceViews() {
   renderTableRows(recordsBody, visibleRecords.map(createRow));
   emptyState.hidden = visibleRecords.length > 0;
   renderStockView();
+}
+
+function filteredDemoRecords() {
+  const query = normalize(demoSearchInput.value).trim();
+  const selectedStatus = demoStatusFilter.value;
+  const selectedLocation = demoLocationFilter.value;
+
+  return demoRecords
+    .filter((record) => {
+      const meta = demoDerived.get(record.id);
+      const matchesStatus =
+        !selectedStatus ||
+        meta?.status === selectedStatus ||
+        (selectedStatus === "DO WYJAŚNIENIA" && Boolean(meta?.issues.length));
+      const matchesLocation = !selectedLocation || meta?.locationGroup === selectedLocation;
+      const matchesQuery = !query || meta?.searchBlob.includes(query);
+      return matchesStatus && matchesLocation && matchesQuery;
+    })
+    .sort((left, right) => {
+      const leftValue =
+        demoSortState.key === "status" ? demoDerived.get(left.id)?.status : String(left[demoSortState.key] ?? "");
+      const rightValue =
+        demoSortState.key === "status" ? demoDerived.get(right.id)?.status : String(right[demoSortState.key] ?? "");
+      const compared = collator.compare(String(leftValue ?? ""), String(rightValue ?? ""));
+      return demoSortState.direction === "asc" ? compared : -compared;
+    });
+}
+
+function renderDemoRecords() {
+  const visibleRecords = filteredDemoRecords();
+  renderTableRows(demoRecordsBody, visibleRecords.map(createDemoRow));
+  demoEmptyState.hidden = visibleRecords.length > 0;
 }
 
 function filteredRepairRecords() {
@@ -1211,6 +1433,58 @@ function createRow(record) {
   editButton.textContent = "Edytuj";
   editButton.addEventListener("click", () => openDialog(record));
 
+  actions.append(editButton);
+  row.append(actions);
+  return row;
+}
+
+function createDemoRow(record) {
+  const row = document.createElement("tr");
+  const meta = demoDerived.get(record.id);
+  if (meta?.issues.length) row.classList.add("demo-needs-review");
+  if (meta?.status === "BRAK / ZGUBIONY") row.classList.add("demo-missing");
+
+  const statusWrap = document.createElement("div");
+  const statusPill = document.createElement("span");
+  statusPill.className = `status-pill ${meta?.status.replaceAll(" / ", "-").replaceAll(" ", "-") || "DOSTĘPNY"}`;
+  statusPill.textContent = meta?.status || "DOSTĘPNY";
+  statusWrap.append(statusPill);
+
+  if (meta?.issues.length) {
+    const quality = document.createElement("span");
+    quality.className = "demo-quality";
+    quality.textContent = `Do poprawy: ${meta.issues.join(", ")}`;
+    statusWrap.append(quality);
+  }
+
+  const cells = [
+    statusWrap,
+    formatDate(record.receivedDate),
+    record.manufacturer,
+    record.deviceName,
+    createSerialPill(record.serialNumber),
+    record.location,
+    record.currentUser,
+    record.notes
+  ];
+
+  cells.forEach((value) => {
+    const cell = document.createElement("td");
+    if (value instanceof HTMLElement) {
+      cell.append(value);
+    } else {
+      cell.textContent = value || "-";
+      if (!value) cell.classList.add("muted-cell");
+    }
+    row.append(cell);
+  });
+
+  const actions = document.createElement("td");
+  actions.className = "row-actions";
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.textContent = "Edytuj";
+  editButton.addEventListener("click", () => openDemoDialog(record));
   actions.append(editButton);
   row.append(actions);
   return row;
@@ -1511,6 +1785,18 @@ function updateStats() {
     return;
   }
 
+  if (activeDeviceView === "demo") {
+    document.querySelector("#countAll").textContent = demoStats.all;
+    document.querySelector("#countSold").textContent = demoStats.available;
+    document.querySelector("#countInvoice").textContent = demoStats.inUse;
+    document.querySelector("#countStock").textContent = demoStats.review;
+    countAllLabel.textContent = "aparatów demo";
+    countSoldLabel.textContent = "dostępne";
+    countInvoiceLabel.textContent = "w użyciu";
+    countStockLabel.textContent = "do wyjaśnienia";
+    return;
+  }
+
   document.querySelector("#countAll").textContent = deviceStats.all;
   document.querySelector("#countSold").textContent = deviceStats.sold;
   document.querySelector("#countInvoice").textContent = deviceStats.reserved;
@@ -1613,6 +1899,12 @@ function switchView(viewName, groupName) {
     return;
   }
 
+  activeDeviceView = viewName;
+  updateStats();
+  if (viewName === "demo") {
+    renderDemoRecords();
+    return;
+  }
   renderDeviceViews();
 }
 
@@ -1636,6 +1928,11 @@ function switchNotebook(notebookName) {
     return;
   }
 
+  activeDeviceView = document.querySelector('.tab-button.active[data-view-group="devices"]')?.dataset.view || "database";
+  if (activeDeviceView === "demo") {
+    renderDemoRecords();
+    return;
+  }
   renderDeviceViews();
 }
 
@@ -1692,12 +1989,43 @@ function openRepairDialog(record = null) {
   repairDialog.showModal();
 }
 
+function openDemoDialog(record = null) {
+  demoForm.reset();
+  document.querySelector("#demoId").value = record?.id ?? "";
+  demoDialogTitle.textContent = record ? "Edytuj aparat demo" : "Dodaj aparat demo";
+  demoRecordEyebrow.textContent = record
+    ? `${demoRecords.findIndex((item) => item.id === record.id) + 1}/${demoRecords.length}`
+    : "Nowy wpis";
+  deleteDemoBtn.hidden = !record;
+
+  const fieldMap = {
+    receivedDate: "#demoReceivedDate",
+    manufacturer: "#demoManufacturer",
+    deviceName: "#demoDeviceName",
+    serialNumber: "#demoSerialNumber",
+    location: "#demoLocation",
+    currentUser: "#demoCurrentUser",
+    notes: "#demoNotes"
+  };
+
+  demoFields.forEach((field) => {
+    document.querySelector(fieldMap[field]).value = record?.[field] ?? "";
+  });
+
+  if (!record) document.querySelector("#demoReceivedDate").value = todayInputValue();
+  demoDialog.showModal();
+}
+
 function closeDialog() {
   recordDialog.close();
 }
 
 function closeRepairDialog() {
   repairDialog.close();
+}
+
+function closeDemoDialog() {
+  demoDialog.close();
 }
 
 function formRecord() {
@@ -1738,6 +2066,16 @@ function repairFormRecord() {
   return data;
 }
 
+function demoFormRecord() {
+  const data = Object.fromEntries(new FormData(demoForm).entries());
+  demoFields.forEach((field) => {
+    data[field] = String(data[field] ?? "").trim();
+  });
+  data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
+  data.serialNumber = normalizeSerialNumber(data.serialNumber);
+  return data;
+}
+
 function normalizeRepairLocation(location) {
   const normalizedLocation = String(location || "").trim().toUpperCase();
   return ["T12", "P50", "P63"].includes(normalizedLocation) ? normalizedLocation : "T12";
@@ -1769,6 +2107,8 @@ function handleClearDateClick(event) {
   if (!input) return;
 
   input.value = "";
+
+  if (targetId.startsWith("demo")) return;
 
   if (targetId.startsWith("repair")) {
     syncRepairStatusFromDates();
@@ -1872,6 +2212,53 @@ async function deleteCurrentRepairRecord() {
   }
 }
 
+async function saveDemoFormRecord(event) {
+  event.preventDefault();
+  const id = document.querySelector("#demoId").value;
+  const data = demoFormRecord();
+  let savedRecord;
+  if (!confirmSerialNumberSave(data.serialNumber, "demo", id)) return;
+
+  if (id) {
+    demoRecords = demoRecords.map((record) => {
+      if (record.id !== id) return record;
+      savedRecord = { ...record, ...data };
+      return savedRecord;
+    });
+  } else {
+    savedRecord = { id: makeId(), ...data };
+    demoRecords = [savedRecord, ...demoRecords];
+  }
+
+  try {
+    await persistDemoRecord(savedRecord);
+    rebuildDerivedData();
+    render();
+    closeDemoDialog();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function deleteCurrentDemoRecord() {
+  const id = document.querySelector("#demoId").value;
+  if (!id) return;
+  const record = demoRecords.find((item) => item.id === id);
+  const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten wpis";
+
+  if (confirm(`Usunąć ${label}?`)) {
+    demoRecords = demoRecords.filter((item) => item.id !== id);
+    try {
+      await persistDeletedDemoRecord(id);
+      rebuildDerivedData();
+      render();
+      closeDemoDialog();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+}
+
 function exportCsv() {
   const header = [
     "Data przyjęcia",
@@ -1928,6 +2315,10 @@ function csvCell(value) {
 
 function exportJson() {
   downloadJson(records, `baza-aparatow-${todayStamp()}.json`);
+}
+
+function exportDemoJson() {
+  downloadJson(demoRecords, `aparaty-demo-${todayStamp()}.json`);
 }
 
 function exportRepairCsv() {
@@ -2202,16 +2593,23 @@ document.querySelector("#addRepairBtn").addEventListener("click", () => openRepa
 document.querySelector("#exportRepairBtn").addEventListener("click", () => chooseExportFormat(exportRepairCsv, exportRepairJson));
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
 document.querySelector("#printRepairBtn").addEventListener("click", () => window.print());
+document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
+document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJson);
 document.querySelector("#closeDialogBtn").addEventListener("click", closeDialog);
 document.querySelector("#cancelBtn").addEventListener("click", closeDialog);
 document.querySelector("#closeRepairDialogBtn").addEventListener("click", closeRepairDialog);
 document.querySelector("#cancelRepairBtn").addEventListener("click", closeRepairDialog);
+document.querySelector("#closeDemoDialogBtn").addEventListener("click", closeDemoDialog);
+document.querySelector("#cancelDemoBtn").addEventListener("click", closeDemoDialog);
 deleteBtn.addEventListener("click", deleteCurrentRecord);
 deleteRepairBtn.addEventListener("click", deleteCurrentRepairRecord);
+deleteDemoBtn.addEventListener("click", deleteCurrentDemoRecord);
 recordForm.addEventListener("submit", saveFormRecord);
 repairForm.addEventListener("submit", saveRepairFormRecord);
+demoForm.addEventListener("submit", saveDemoFormRecord);
 recordForm.addEventListener("click", handleClearDateClick);
 repairForm.addEventListener("click", handleClearDateClick);
+demoForm.addEventListener("click", handleClearDateClick);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
@@ -2222,6 +2620,9 @@ fifoFilter.addEventListener("change", render);
 repairSearchInput.addEventListener("input", debounce(renderRepairRecords, SEARCH_DEBOUNCE_MS));
 repairCategoryFilter.addEventListener("change", render);
 repairStatusFilter.addEventListener("change", render);
+demoSearchInput.addEventListener("input", debounce(renderDemoRecords, SEARCH_DEBOUNCE_MS));
+demoStatusFilter.addEventListener("change", render);
+demoLocationFilter.addEventListener("change", render);
 importInput.addEventListener("change", importJson);
 importRepairInput.addEventListener("change", importRepairJson);
 document.querySelector("#repairReceivedDate").addEventListener("change", syncRepairStatusFromDates);
@@ -2262,12 +2663,24 @@ document.querySelectorAll("th[data-repair-sort]").forEach((header) => {
   });
 });
 
+document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
+  header.addEventListener("click", () => {
+    const key = header.dataset.demoSort;
+    demoSortState = {
+      key,
+      direction: demoSortState.key === key && demoSortState.direction === "asc" ? "desc" : "asc"
+    };
+    renderDemoRecords();
+  });
+});
+
 async function init() {
   setCurrentYearTitle();
 
   if (hasSupabaseSettings && !hasSupabaseConfig) {
     records = [];
     repairRecords = [];
+    demoRecords = [];
     rebuildDerivedData();
     render();
     setConnectionStatus("error", "Supabase niedostępny");
@@ -2296,6 +2709,7 @@ async function init() {
     if (!data.session?.user) {
       records = [];
       repairRecords = [];
+      demoRecords = [];
       rebuildDerivedData();
       render();
       setConnectionStatus("offline", "Zaloguj się");
@@ -2314,7 +2728,7 @@ async function init() {
   }
 
   setConnectionStatus(hasSharedServer ? "online" : "local", hasSharedServer ? "Serwer lokalny" : "Tryb lokalny");
-  [records, repairRecords] = await Promise.all([loadRecords(), loadRepairRecords()]);
+  [records, repairRecords, demoRecords] = await Promise.all([loadRecords(), loadRepairRecords(), loadDemoRecords()]);
   rebuildDerivedData();
   render();
 

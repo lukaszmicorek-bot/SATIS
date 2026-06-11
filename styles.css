@@ -64,7 +64,8 @@ button:hover {
 }
 
 #addBtn,
-#addRepairBtn {
+#addRepairBtn,
+#addDemoBtn {
   border-color: #2f8f7d;
   color: #fff;
   background: #2b8a78;
@@ -72,7 +73,8 @@ button:hover {
 }
 
 #addBtn:hover,
-#addRepairBtn:hover {
+#addRepairBtn:hover,
+#addDemoBtn:hover {
   border-color: #257867;
   color: #fff;
   background: #257867;
@@ -397,6 +399,10 @@ h2 {
 .repairs-controls {
   grid-template-columns: minmax(260px, 1fr) 180px 180px repeat(4, auto);
   margin-top: 16px;
+}
+
+.demo-controls {
+  grid-template-columns: minmax(280px, 1fr) 190px 170px auto auto;
 }
 
 label {
@@ -989,6 +995,89 @@ td {
 
 .repairs-table {
   min-width: 1300px;
+}
+
+.demo-table {
+  min-width: 1430px;
+}
+
+.demo-table th:nth-child(1),
+.demo-table td:nth-child(1) {
+  min-width: 150px;
+}
+
+.demo-table th:nth-child(2),
+.demo-table td:nth-child(2) {
+  min-width: 112px;
+}
+
+.demo-table th:nth-child(3),
+.demo-table td:nth-child(3) {
+  min-width: 140px;
+}
+
+.demo-table th:nth-child(4),
+.demo-table td:nth-child(4) {
+  min-width: 290px;
+}
+
+.demo-table th:nth-child(5),
+.demo-table td:nth-child(5) {
+  min-width: 150px;
+}
+
+.demo-table th:nth-child(6),
+.demo-table td:nth-child(6),
+.demo-table th:nth-child(7),
+.demo-table td:nth-child(7) {
+  min-width: 230px;
+}
+
+.demo-table th:nth-child(8),
+.demo-table td:nth-child(8) {
+  min-width: 220px;
+}
+
+.demo-table th:nth-child(9),
+.demo-table td:nth-child(9) {
+  width: 96px;
+  min-width: 96px;
+}
+
+.demo-quality {
+  display: block;
+  margin-top: 4px;
+  color: #9b4b20;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.status-pill.DOSTĘPNY {
+  color: #17653d;
+  background: #dbf3e5;
+}
+
+.status-pill.W-UŻYCIU {
+  color: #235c99;
+  background: #e7f1fb;
+}
+
+.status-pill.BRAK-ZGUBIONY {
+  color: #8b342b;
+  background: #ffe0db;
+}
+
+.status-pill.DO-WYJAŚNIENIA {
+  color: #745600;
+  background: #faebad;
+}
+
+tbody tr.demo-needs-review {
+  background: #fffaf0;
+}
+
+tbody tr.demo-missing {
+  background: #fff2f0;
 }
 
 .repairs-table th:nth-child(1),
