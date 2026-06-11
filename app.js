@@ -8,9 +8,8 @@ const SUPABASE_PAGE_SIZE = 1000;
 const SUPABASE_DELETE_BATCH_SIZE = 200;
 const SUPABASE_DEVICE_TABLE = "device_records";
 const SUPABASE_REPAIR_TABLE = "repair_records";
-const SUPABASE_DEMO_TABLE = "demo_records";
-const SUPABASE_SETTINGS_TABLE = "app_settings";
-const DEMO_SEED_KEY = "demo-xlsx-import-v1";
+const DEMO_ID_PREFIX = "demo-";
+const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
 const SEARCH_DEBOUNCE_MS = 120;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const supabaseConfig = window.SUPABASE_CONFIG || {};
@@ -325,13 +324,17 @@ function supabaseRecordRow(record) {
   };
 }
 
-async function loadSupabaseTable(tableName, normalizer) {
+async function loadSupabaseTable(tableName, normalizer, options = {}) {
   const loadedRecords = [];
 
   for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
-    const { data, error } = await supabaseClient
+    let query = supabaseClient
       .from(tableName)
-      .select("id,data,updated_at")
+      .select("id,data,updated_at");
+    if (options.idPrefix) query = query.like("id", `${options.idPrefix}%`);
+    if (options.excludeIdPrefix) query = query.not("id", "like", `${options.excludeIdPrefix}%`);
+
+    const { data, error } = await query
       .order("updated_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, from + SUPABASE_PAGE_SIZE - 1);
@@ -352,13 +355,17 @@ async function loadSupabaseTable(tableName, normalizer) {
   return normalizer(loadedRecords);
 }
 
-async function loadSupabaseIds(tableName) {
+async function loadSupabaseIds(tableName, options = {}) {
   const ids = [];
 
   for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
-    const { data, error } = await supabaseClient
+    let query = supabaseClient
       .from(tableName)
-      .select("id")
+      .select("id");
+    if (options.idPrefix) query = query.like("id", `${options.idPrefix}%`);
+    if (options.excludeIdPrefix) query = query.not("id", "like", `${options.excludeIdPrefix}%`);
+
+    const { data, error } = await query
       .order("id", { ascending: true })
       .range(from, from + SUPABASE_PAGE_SIZE - 1);
     if (error) throw new Error(`Nie udało się sprawdzić danych w Supabase: ${error.message}`);
@@ -391,9 +398,9 @@ async function deleteSupabaseRecord(tableName, id) {
   setConnectionStatus("online", "Supabase");
 }
 
-async function replaceSupabaseTable(tableName, sourceRecords) {
+async function replaceSupabaseTable(tableName, sourceRecords, options = {}) {
   setConnectionStatus("syncing", "Importowanie...");
-  const existingIds = await loadSupabaseIds(tableName);
+  const existingIds = await loadSupabaseIds(tableName, options);
 
   for (let from = 0; from < sourceRecords.length; from += SUPABASE_PAGE_SIZE) {
     const chunk = sourceRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
@@ -423,17 +430,22 @@ async function seedDemoRecordsIfEmpty() {
   if (demoRecords.length || !seedRecords.length) return;
 
   const { data: seedState, error: seedStateError } = await supabaseClient
-    .from(SUPABASE_SETTINGS_TABLE)
-    .select("key")
-    .eq("key", DEMO_SEED_KEY)
+    .from(SUPABASE_DEVICE_TABLE)
+    .select("id")
+    .eq("id", DEMO_SEED_MARKER_ID)
     .maybeSingle();
   if (seedStateError) throw new Error(`Nie udało się sprawdzić importu Demo: ${seedStateError.message}`);
   if (seedState) return;
 
-  await replaceSupabaseTable(SUPABASE_DEMO_TABLE, seedRecords);
-  const { error: markError } = await supabaseClient.from(SUPABASE_SETTINGS_TABLE).upsert({
-    key: DEMO_SEED_KEY,
-    value: { source: "demo.xlsx", records: seedRecords.length },
+  for (let from = 0; from < seedRecords.length; from += SUPABASE_PAGE_SIZE) {
+    const chunk = seedRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
+    const { error } = await supabaseClient.from(SUPABASE_DEVICE_TABLE).upsert(chunk, { onConflict: "id" });
+    if (error) throw new Error(`Nie udało się zaimportować danych Demo: ${error.message}`);
+  }
+
+  const { error: markError } = await supabaseClient.from(SUPABASE_DEVICE_TABLE).upsert({
+    id: DEMO_SEED_MARKER_ID,
+    data: { kind: "demo-seed-marker", source: "demo.xlsx", records: seedRecords.length },
     updated_at: new Date().toISOString(),
     updated_by: currentSupabaseUser?.id || null
   });
@@ -455,9 +467,13 @@ async function refreshRecordsFromSupabase(options = {}) {
   try {
     setConnectionStatus("syncing", "Synchronizacja...");
     [records, repairRecords, demoRecords] = await Promise.all([
-      loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse),
+      loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX }),
       loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse),
-      loadSupabaseTable(SUPABASE_DEMO_TABLE, normalizeDemoRecordsForUse)
+      loadSupabaseTable(
+        SUPABASE_DEVICE_TABLE,
+        (loadedRecords) => normalizeDemoRecordsForUse(loadedRecords.filter((record) => record.id !== DEMO_SEED_MARKER_ID)),
+        { idPrefix: DEMO_ID_PREFIX }
+      )
     ]);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
@@ -540,14 +556,13 @@ function subscribeToSupabaseChanges() {
 
   supabaseRealtimeChannel = supabaseClient
     .channel("zeszyt-live")
-    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_DEVICE_TABLE }, (payload) =>
-      queueSupabaseChange(SUPABASE_DEVICE_TABLE, payload)
-    )
+    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_DEVICE_TABLE }, (payload) => {
+      const id = payload.new?.id || payload.old?.id || "";
+      if (id === DEMO_SEED_MARKER_ID) return;
+      queueSupabaseChange(id.startsWith(DEMO_ID_PREFIX) ? "demo" : SUPABASE_DEVICE_TABLE, payload);
+    })
     .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_REPAIR_TABLE }, (payload) =>
       queueSupabaseChange(SUPABASE_REPAIR_TABLE, payload)
-    )
-    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_DEMO_TABLE }, (payload) =>
-      queueSupabaseChange(SUPABASE_DEMO_TABLE, payload)
     )
     .subscribe((status) => {
       if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
@@ -621,7 +636,9 @@ function loadLocalRecords() {
 
 async function loadRecords() {
   if (hasSupabaseConfig && currentSupabaseUser) {
-    const sharedRecords = await loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse);
+    const sharedRecords = await loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, {
+      excludeIdPrefix: DEMO_ID_PREFIX
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedRecords));
     return sharedRecords;
   }
@@ -700,7 +717,11 @@ function loadLocalDemoRecords() {
 
 async function loadDemoRecords() {
   if (hasSupabaseConfig && currentSupabaseUser) {
-    const sharedRecords = await loadSupabaseTable(SUPABASE_DEMO_TABLE, normalizeDemoRecordsForUse);
+    const sharedRecords = await loadSupabaseTable(
+      SUPABASE_DEVICE_TABLE,
+      (loadedRecords) => normalizeDemoRecordsForUse(loadedRecords.filter((record) => record.id !== DEMO_SEED_MARKER_ID)),
+      { idPrefix: DEMO_ID_PREFIX }
+    );
     localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(sharedRecords));
     return sharedRecords;
   }
@@ -757,7 +778,7 @@ async function saveRepairRecords() {
 async function saveRecords() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   if (hasSupabaseConfig) {
-    await replaceSupabaseTable(SUPABASE_DEVICE_TABLE, records);
+    await replaceSupabaseTable(SUPABASE_DEVICE_TABLE, records, { excludeIdPrefix: DEMO_ID_PREFIX });
     return;
   }
   if (!hasSharedServer) return;
@@ -814,14 +835,14 @@ async function persistDeletedRepairRecord(id) {
 async function persistDemoRecord(record) {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   if (hasSupabaseConfig) {
-    await upsertSupabaseRecord(SUPABASE_DEMO_TABLE, record);
+    await upsertSupabaseRecord(SUPABASE_DEVICE_TABLE, record);
   }
 }
 
 async function persistDeletedDemoRecord(id) {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   if (hasSupabaseConfig) {
-    await deleteSupabaseRecord(SUPABASE_DEMO_TABLE, id);
+    await deleteSupabaseRecord(SUPABASE_DEVICE_TABLE, id);
   }
 }
 
@@ -2226,7 +2247,7 @@ async function saveDemoFormRecord(event) {
       return savedRecord;
     });
   } else {
-    savedRecord = { id: makeId(), ...data };
+    savedRecord = { id: `${DEMO_ID_PREFIX}${makeId()}`, ...data };
     demoRecords = [savedRecord, ...demoRecords];
   }
 
