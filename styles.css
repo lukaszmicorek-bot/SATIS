@@ -402,7 +402,7 @@ h2 {
 }
 
 .demo-controls {
-  grid-template-columns: minmax(280px, 1fr) 190px 170px auto auto;
+  grid-template-columns: minmax(250px, 1fr) 170px 170px 150px auto auto;
 }
 
 label {
@@ -998,7 +998,7 @@ td {
 }
 
 .demo-table {
-  min-width: 1430px;
+  min-width: 1600px;
 }
 
 .demo-table th:nth-child(1),
@@ -1008,38 +1008,43 @@ td {
 
 .demo-table th:nth-child(2),
 .demo-table td:nth-child(2) {
-  min-width: 112px;
+  min-width: 145px;
 }
 
 .demo-table th:nth-child(3),
 .demo-table td:nth-child(3) {
-  min-width: 140px;
+  min-width: 170px;
 }
 
 .demo-table th:nth-child(4),
 .demo-table td:nth-child(4) {
-  min-width: 290px;
+  min-width: 140px;
 }
 
 .demo-table th:nth-child(5),
 .demo-table td:nth-child(5) {
-  min-width: 150px;
+  min-width: 290px;
 }
 
 .demo-table th:nth-child(6),
-.demo-table td:nth-child(6),
-.demo-table th:nth-child(7),
-.demo-table td:nth-child(7) {
-  min-width: 230px;
+.demo-table td:nth-child(6) {
+  min-width: 150px;
 }
 
+.demo-table th:nth-child(7),
+.demo-table td:nth-child(7),
 .demo-table th:nth-child(8),
 .demo-table td:nth-child(8) {
-  min-width: 220px;
+  min-width: 230px;
 }
 
 .demo-table th:nth-child(9),
 .demo-table td:nth-child(9) {
+  min-width: 220px;
+}
+
+.demo-table th:nth-child(10),
+.demo-table td:nth-child(10) {
   width: 96px;
   min-width: 96px;
 }
@@ -1052,24 +1057,24 @@ td {
   font-weight: 750;
 }
 
-.status-pill.DOSTĘPNY {
-  color: #17653d;
-  background: #dbf3e5;
+.status-pill.NA-STANIE {
+  color: #1f4f79;
+  background: #dbeeff;
 }
 
-.status-pill.W-UŻYCIU {
-  color: #235c99;
-  background: #e7f1fb;
+.status-pill.WYPOŻYCZONY {
+  color: #745600;
+  background: #faebad;
 }
 
-.status-pill.BRAK-ZGUBIONY {
+.status-pill.BRAK {
   color: #8b342b;
   background: #ffe0db;
 }
 
-.status-pill.DO-WYJAŚNIENIA {
-  color: #745600;
-  background: #faebad;
+.status-pill.DO-ZWROTU {
+  color: #6b4f73;
+  background: #f4ecf7;
 }
 
 tbody tr.demo-needs-review {
@@ -1078,6 +1083,51 @@ tbody tr.demo-needs-review {
 
 tbody tr.demo-missing {
   background: #fff2f0;
+}
+
+tbody tr.demo-return-warning {
+  background: #fff8dc;
+}
+
+tbody tr.demo-return-warning:hover {
+  background: #fff1bd;
+}
+
+tbody tr.demo-return-critical {
+  background: #ffe7e3;
+}
+
+tbody tr.demo-return-critical:hover {
+  background: #ffd9d3;
+}
+
+.demo-return-date {
+  display: inline-grid;
+  gap: 2px;
+  border-radius: 8px;
+  padding: 5px 8px;
+  color: #52606a;
+  background: #f1f4f5;
+}
+
+.demo-return-date strong {
+  font-size: 0.82rem;
+}
+
+.demo-return-date small {
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.demo-return-date.warning {
+  color: #735400;
+  background: #ffe9a6;
+}
+
+.demo-return-date.critical {
+  color: #93372d;
+  background: #ffcfc8;
 }
 
 .repairs-table th:nth-child(1),
@@ -1186,6 +1236,63 @@ dialog::backdrop {
 
 .auth-dialog {
   width: min(420px, calc(100% - 24px));
+}
+
+.return-reminder-dialog {
+  width: min(760px, calc(100% - 24px));
+}
+
+.return-reminder-form {
+  display: grid;
+  gap: 16px;
+}
+
+.return-reminder-summary {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.return-reminder-list {
+  display: grid;
+  gap: 7px;
+  max-height: min(54vh, 520px);
+  overflow: auto;
+}
+
+.return-reminder-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border-left: 4px solid #d7a323;
+  border-radius: 6px;
+  padding: 9px 11px;
+  background: #fff8dc;
+}
+
+.return-reminder-item.critical {
+  border-left-color: #c3483a;
+  background: #ffe7e3;
+}
+
+.return-reminder-item > div {
+  display: grid;
+  gap: 2px;
+}
+
+.return-reminder-item span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.return-reminder-deadline {
+  text-align: right;
+}
+
+.return-reminder-item.critical .return-reminder-deadline {
+  color: #93372d;
 }
 
 .auth-form {
@@ -1325,6 +1432,15 @@ textarea {
   .dialog-actions {
     align-items: stretch;
     flex-direction: column-reverse;
+  }
+
+  .return-reminder-item {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .return-reminder-deadline {
+    text-align: left;
   }
 }
 
