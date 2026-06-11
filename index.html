@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Zeszyt aparatów 2026</title>
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260611-3">
+    <link rel="stylesheet" href="styles.css?v=20260611-6">
   </head>
   <body>
     <main class="app-shell">
@@ -136,10 +139,10 @@
               <span>Status</span>
               <select id="demoStatusFilter">
                 <option value="">Wszystkie</option>
-                <option value="DOSTĘPNY">Dostępny</option>
-                <option value="W UŻYCIU">W użyciu</option>
-                <option value="BRAK / ZGUBIONY">Brak / zgubiony</option>
-                <option value="DO WYJAŚNIENIA">Do wyjaśnienia</option>
+                <option value="NA STANIE">Na stanie</option>
+                <option value="WYPOŻYCZONY">Wypożyczony</option>
+                <option value="BRAK">Brak</option>
+                <option value="DO ZWROTU">Do zwrotu</option>
               </select>
             </label>
             <label>
@@ -149,9 +152,6 @@
                 <option value="T12">T12</option>
                 <option value="P50">P50</option>
                 <option value="P63">P63</option>
-                <option value="ŻYWIEC">Żywiec</option>
-                <option value="BRAK">Brak</option>
-                <option value="INNE">Inne</option>
               </select>
             </label>
             <button id="addDemoBtn" type="button">Dodaj demo</button>
@@ -514,6 +514,15 @@
             <span>Producent</span>
             <input id="demoManufacturer" name="manufacturer" type="text">
           </label>
+          <label>
+            <span>Status</span>
+            <select id="demoStatus" name="status">
+              <option value="NA STANIE">Na stanie</option>
+              <option value="WYPOŻYCZONY">Wypożyczony</option>
+              <option value="BRAK">Brak</option>
+              <option value="DO ZWROTU">Do zwrotu</option>
+            </select>
+          </label>
           <label class="wide highlight-field">
             <span>Model aparatu</span>
             <input id="demoDeviceName" name="deviceName" type="text" required>
@@ -567,8 +576,8 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260611-3"></script>
-    <script src="demo-data.js?v=20260611-3"></script>
-    <script src="app.js?v=20260611-3"></script>
+    <script src="supabase-config.js?v=20260611-6"></script>
+    <script src="demo-data.js?v=20260611-6"></script>
+    <script src="app.js?v=20260611-6"></script>
   </body>
 </html>
