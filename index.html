@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Zeszyt aparatów 2026</title>
+    <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
+    <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
+    <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="top-panel">
+        <div class="header-brand">
+          <img class="header-logo" src="satis-monogram.png" alt="SATIS">
+          <div class="header-title-block">
+            <h1 id="appTitle">Zeszyt aparatów</h1>
+          </div>
+        </div>
+        <div class="stats" aria-label="Podsumowanie bazy">
+          <div>
+            <span id="countAll">0</span>
+            <small id="countAllLabel">rekordów</small>
+          </div>
+          <div>
+            <span id="countSold">0</span>
+            <small id="countSoldLabel">sprzedane</small>
+          </div>
+          <div>
+            <span id="countInvoice">0</span>
+            <small id="countInvoiceLabel">rezerwacje</small>
+          </div>
+          <div>
+            <span id="countStock">0</span>
+            <small id="countStockLabel">na stanie</small>
+          </div>
+        </div>
+      </section>
+
+      <div class="top-switch-row">
+        <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
+          <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
+          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
+        </div>
+        <div class="connection-panel" aria-live="polite">
+          <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
+          <span id="connectionUser" class="connection-user" hidden></span>
+          <button id="logoutBtn" class="logout-button" type="button" hidden>Wyloguj</button>
+        </div>
+      </div>
+
+      <section id="devicesNotebook" class="notebook-section">
+        <section class="tabs" role="tablist" aria-label="Zakładki zeszytu aparatów">
+          <button id="databaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="databaseView" data-view-group="devices" data-view="database">Baza</button>
+          <button id="stockTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="stockView" data-view-group="devices" data-view="stock">Stan</button>
+        </section>
+
+        <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
+          <section class="controls" aria-label="Narzędzia bazy">
+            <label class="search-box">
+              <span>Szukaj</span>
+              <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
+            </label>
+            <label>
+              <span>Status</span>
+              <select id="typeFilter" class="device-type-select">
+                <option value="">Wszystkie</option>
+                <option value="NA STANIE">Na stanie</option>
+                <option value="SPRZEDANY">Sprzedany</option>
+                <option value="REZERWACJA">Rezerwacja</option>
+                <option value="ZWROT">Zwrot</option>
+              </select>
+            </label>
+            <label>
+              <span>FIFO</span>
+              <select id="fifoFilter">
+                <option value="">Wszystkie</option>
+                <option value="fifo">Najstarsze pierwsze</option>
+                <option value="90">90+ dni</option>
+                <option value="180">180+ dni</option>
+              </select>
+            </label>
+            <button id="addBtn" type="button">Dodaj rekord</button>
+            <button id="exportBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
+              <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">CSV/JSON</span>
+            </button>
+            <button id="importBtn" class="icon-button" type="button" aria-label="Import CSV lub JSON" title="Import CSV lub JSON">
+              <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">CSV/JSON</span>
+            </button>
+            <button id="printBtn" type="button">Drukuj</button>
+            <input id="importInput" type="file" accept=".csv,text/csv,application/json,.json" hidden>
+          </section>
+
+          <section class="table-zone" aria-label="Tabela aparatów">
+            <table class="devices-table">
+              <thead>
+                <tr>
+                  <th data-sort="receivedDate">Data przyjęcia</th>
+                  <th data-sort="stockAge">FIFO</th>
+                  <th data-sort="deviceName">Nazwa aparatu</th>
+                  <th data-sort="serialNumber">Numer seryjny</th>
+                  <th data-sort="type">Typ</th>
+                  <th data-sort="location">Miejsce</th>
+                  <th data-sort="pickupDate">Data odbioru</th>
+                  <th data-sort="customerName">Imię i nazwisko</th>
+                  <th data-sort="salesInvoice">Faktura sprzedaży</th>
+                  <th data-sort="ezwm">EZWM</th>
+                  <th data-sort="waybillNumber">NR WZ</th>
+                  <th data-sort="notes">Uwagi</th>
+                  <th class="actions-head">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody"></tbody>
+            </table>
+            <p id="emptyState" class="empty-state" hidden>Brak rekordów dla wybranych filtrów.</p>
+          </section>
+        </section>
+
+        <section id="stockView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="stockTab" hidden>
+          <section class="table-zone stock-zone" aria-label="Aktualna ilość aparatów na stanie">
+            <table class="stock-table">
+              <thead>
+                <tr>
+                  <th>Nazwa aparatu</th>
+                  <th>Miejsce</th>
+                  <th>Ilość</th>
+                  <th>Najstarszy FIFO</th>
+                  <th>Numery seryjne</th>
+                </tr>
+              </thead>
+              <tbody id="stockBody"></tbody>
+            </table>
+            <p id="stockEmptyState" class="empty-state" hidden>Brak aparatów na stanie.</p>
+          </section>
+        </section>
+      </section>
+
+      <section id="repairsNotebook" class="notebook-section" hidden>
+        <section class="tabs" role="tablist" aria-label="Zakładki zeszytu napraw i wkładek">
+          <button id="repairDatabaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="repairDatabaseView" data-view-group="repairs" data-view="repairDatabase">Baza</button>
+          <button id="repairOpenTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="repairOpenView" data-view-group="repairs" data-view="repairOpen">Niedokończone</button>
+        </section>
+
+        <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
+          <section class="controls repairs-controls" aria-label="Narzędzia zeszytu napraw i wkładek">
+            <label class="search-box">
+              <span>Szukaj</span>
+              <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
+            </label>
+            <label>
+              <span>Typ</span>
+              <select id="repairCategoryFilter">
+                <option value="">Wszystkie</option>
+                <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
+                <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
+              </select>
+            </label>
+            <label>
+              <span>Status</span>
+              <select id="repairStatusFilter">
+                <option value="">Wszystkie</option>
+                <option value="PRZYJĘTE">Przyjęte</option>
+                <option value="W TRAKCIE">W trakcie</option>
+                <option value="GOTOWE">Gotowe</option>
+                <option value="ODEBRANE">Odebrane</option>
+              </select>
+            </label>
+            <button id="addRepairBtn" type="button">Dodaj wpis</button>
+            <button id="exportRepairBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
+              <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">CSV/JSON</span>
+            </button>
+            <button id="importRepairBtn" class="icon-button" type="button" aria-label="Import CSV lub JSON" title="Import CSV lub JSON">
+              <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">CSV/JSON</span>
+            </button>
+            <button id="printRepairBtn" type="button">Drukuj</button>
+            <input id="importRepairInput" type="file" accept=".csv,text/csv,application/json,.json" hidden>
+          </section>
+
+          <section class="table-zone" aria-label="Tabela napraw i wkładek">
+            <table class="repairs-table">
+              <thead>
+                <tr>
+                  <th data-repair-sort="receivedDate">Data przyjęcia</th>
+                  <th data-repair-sort="category">Typ</th>
+                  <th data-repair-sort="location">Miejsce</th>
+                  <th data-repair-sort="customerName">Imię i nazwisko</th>
+                  <th data-repair-sort="deviceName">Aparat / wkładka</th>
+                  <th data-repair-sort="serialNumber">Numer seryjny</th>
+                  <th data-repair-sort="status">Status</th>
+                  <th data-repair-sort="sentDate">Data wysłania</th>
+                  <th data-repair-sort="returnDate">Data powrotu</th>
+                  <th data-repair-sort="pickupDate">Data odbioru</th>
+                  <th data-repair-sort="notes">Uwagi</th>
+                  <th class="actions-head">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="repairRecordsBody"></tbody>
+            </table>
+            <p id="repairEmptyState" class="empty-state" hidden>Brak wpisów dla wybranych filtrów.</p>
+          </section>
+        </section>
+
+        <section id="repairOpenView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairOpenTab" hidden>
+          <section class="table-zone" aria-label="Niedokończone naprawy i wkładki">
+            <table class="repairs-table">
+              <thead>
+                <tr>
+                  <th data-repair-sort="receivedDate">Data przyjęcia</th>
+                  <th data-repair-sort="category">Typ</th>
+                  <th data-repair-sort="location">Miejsce</th>
+                  <th data-repair-sort="customerName">Imię i nazwisko</th>
+                  <th data-repair-sort="deviceName">Aparat / wkładka</th>
+                  <th data-repair-sort="serialNumber">Numer seryjny</th>
+                  <th data-repair-sort="status">Status</th>
+                  <th data-repair-sort="sentDate">Data wysłania</th>
+                  <th data-repair-sort="returnDate">Data powrotu</th>
+                  <th data-repair-sort="pickupDate">Data odbioru</th>
+                  <th data-repair-sort="notes">Uwagi</th>
+                  <th class="actions-head">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="repairOpenRecordsBody"></tbody>
+            </table>
+            <p id="repairOpenEmptyState" class="empty-state" hidden>Brak niedokończonych spraw.</p>
+          </section>
+        </section>
+      </section>
+
+    </main>
+
+    <dialog id="recordDialog">
+      <form id="recordForm" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p id="recordEyebrow" class="eyebrow">Nowy rekord</p>
+            <h2 id="dialogTitle">Dodaj aparat</h2>
+          </div>
+          <button class="ghost close-btn" type="button" id="closeDialogBtn" aria-label="Zamknij">Zamknij</button>
+        </div>
+
+        <input id="recordId" type="hidden">
+        <div class="form-grid">
+          <label>
+            <span>Data przyjęcia</span>
+            <div class="date-input-wrap">
+              <input id="receivedDate" name="receivedDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="receivedDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="type" name="type" class="device-type-select">
+              <option value="NA STANIE">Na stanie</option>
+              <option value="SPRZEDANY">Sprzedany</option>
+              <option value="REZERWACJA">Rezerwacja</option>
+              <option value="ZWROT">Zwrot</option>
+            </select>
+          </label>
+          <label>
+            <span>Miejsce</span>
+            <select id="location" name="location">
+              <option value="T12">T12</option>
+              <option value="P50">P50</option>
+              <option value="P63">P63</option>
+            </select>
+          </label>
+          <label>
+            <span>EZWM</span>
+            <select id="ezwm" name="ezwm">
+              <option value="">Brak</option>
+              <option value="POBRANE">Pobrane</option>
+              <option value="REALIZACJA">Realizacja</option>
+            </select>
+          </label>
+          <label class="wide highlight-field">
+            <span>Model aparatu</span>
+            <input id="deviceName" name="deviceName" type="text" list="deviceNameSuggestions" required>
+            <datalist id="deviceNameSuggestions"></datalist>
+          </label>
+          <label>
+            <span>Numer seryjny</span>
+            <input id="serialNumber" name="serialNumber" type="text" required>
+          </label>
+          <label>
+            <span>Data odbioru</span>
+            <div class="date-input-wrap">
+              <input id="pickupDate" name="pickupDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="pickupDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label class="wide">
+            <span>Imię i nazwisko</span>
+            <input id="customerName" name="customerName" type="text" list="customerNameSuggestions">
+            <datalist id="customerNameSuggestions"></datalist>
+          </label>
+          <label class="wide">
+            <span>Faktura sprzedaży</span>
+            <input id="salesInvoice" name="salesInvoice" type="text">
+          </label>
+          <label>
+            <span>Data zwrotu/wymiany</span>
+            <div class="date-input-wrap">
+              <input id="returnDate" name="returnDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="returnDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Nr listu przewozowego/WZ</span>
+            <input id="waybillNumber" name="waybillNumber" type="text">
+          </label>
+          <label class="wide">
+            <span>Uwagi</span>
+            <textarea id="notes" name="notes" rows="3"></textarea>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="danger" id="deleteBtn" type="button" hidden>Usuń</button>
+          <button class="ghost" type="button" id="cancelBtn">Anuluj</button>
+          <button type="submit">Zapisz</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="repairDialog">
+      <form id="repairForm" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Wpis</p>
+            <h2 id="repairDialogTitle">Dodaj naprawę lub wkładkę</h2>
+          </div>
+          <button class="ghost close-btn" type="button" id="closeRepairDialogBtn" aria-label="Zamknij">Zamknij</button>
+        </div>
+
+        <input id="repairId" type="hidden">
+        <div class="form-grid">
+          <label>
+            <span>Data przyjęcia</span>
+            <div class="date-input-wrap">
+              <input id="repairReceivedDate" name="receivedDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="repairReceivedDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Data wysłania</span>
+            <div class="date-input-wrap">
+              <input id="repairSentDate" name="sentDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="repairSentDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Data powrotu</span>
+            <div class="date-input-wrap">
+              <input id="repairReturnDate" name="returnDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="repairReturnDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Data odbioru</span>
+            <div class="date-input-wrap">
+              <input id="repairPickupDate" name="pickupDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="repairPickupDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Typ</span>
+            <select id="repairCategory" name="category">
+              <option value="WKŁADKA USZNA">Wkładka uszna</option>
+              <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
+              <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
+            </select>
+          </label>
+          <label>
+            <span>Miejsce</span>
+            <select id="repairLocation" name="location">
+              <option value="T12">T12</option>
+              <option value="P50">P50</option>
+              <option value="P63">P63</option>
+            </select>
+          </label>
+          <label class="wide">
+            <span>Imię i nazwisko</span>
+            <input id="repairCustomerName" name="customerName" type="text" list="customerNameSuggestions" required>
+          </label>
+          <label class="wide">
+            <span>Aparat / wkładka</span>
+            <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions">
+          </label>
+          <label>
+            <span>Numer seryjny</span>
+            <input id="repairSerialNumber" name="serialNumber" type="text">
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="repairStatus" name="status">
+              <option value="PRZYJĘTE">Przyjęte</option>
+              <option value="W TRAKCIE">W trakcie</option>
+              <option value="GOTOWE">Gotowe</option>
+              <option value="ODEBRANE">Odebrane</option>
+            </select>
+          </label>
+          <label class="wide">
+            <span>Uwagi</span>
+            <textarea id="repairNotes" name="notes" rows="3"></textarea>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="danger" id="deleteRepairBtn" type="button" hidden>Usuń</button>
+          <button class="ghost" type="button" id="cancelRepairBtn">Anuluj</button>
+          <button type="submit">Zapisz</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="authDialog" class="auth-dialog">
+      <form id="authForm" class="auth-form">
+        <div class="auth-brand">
+          <img src="satis-monogram.png" alt="">
+          <div>
+            <p class="eyebrow">Wspólna baza</p>
+            <h2>Zaloguj się do zeszytu</h2>
+          </div>
+        </div>
+        <label>
+          <span>Adres e-mail</span>
+          <input id="authEmail" name="email" type="email" autocomplete="username" required>
+        </label>
+        <label>
+          <span>Hasło</span>
+          <input id="authPassword" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <p id="authError" class="auth-error" role="alert"></p>
+        <button id="authSubmitBtn" type="submit">Zaloguj</button>
+      </form>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
