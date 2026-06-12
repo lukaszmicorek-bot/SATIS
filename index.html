@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260611-11">
+    <link rel="stylesheet" href="styles.css?v=20260612-3">
   </head>
   <body>
     <main class="app-shell">
@@ -143,6 +143,7 @@
                 <option value="WYPOŻYCZONY">Wypożyczony</option>
                 <option value="BRAK">Brak</option>
                 <option value="DO ZWROTU">Do zwrotu</option>
+                <option value="ZWRÓCONO">Zwrócono</option>
               </select>
             </label>
             <label>
@@ -180,8 +181,8 @@
                   <th data-demo-sort="manufacturer">Producent</th>
                   <th data-demo-sort="deviceName">Model aparatu</th>
                   <th data-demo-sort="serialNumber">Numer seryjny</th>
-                  <th data-demo-sort="location">Miejsce / historia</th>
-                  <th data-demo-sort="currentUser">Aktualnie używany</th>
+                  <th data-demo-sort="location">Miejsce</th>
+                  <th data-demo-sort="currentUser">Aktualnie używany przez</th>
                   <th data-demo-sort="notes">Uwagi</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
@@ -525,6 +526,13 @@
             </div>
           </label>
           <label>
+            <span>Data wypożyczenia</span>
+            <div class="date-input-wrap">
+              <input id="demoLoanDate" name="loanDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="demoLoanDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
             <span>Producent</span>
             <input id="demoManufacturer" name="manufacturer" type="text" list="demoManufacturerSuggestions">
             <datalist id="demoManufacturerSuggestions"></datalist>
@@ -536,6 +544,7 @@
               <option value="WYPOŻYCZONY">Wypożyczony</option>
               <option value="BRAK">Brak</option>
               <option value="DO ZWROTU">Do zwrotu</option>
+              <option value="ZWRÓCONO">Zwrócono</option>
             </select>
           </label>
           <label class="wide highlight-field">
@@ -565,6 +574,14 @@
           </label>
         </div>
 
+        <section id="demoLoanHistorySection" class="demo-loan-history" hidden>
+          <div class="demo-loan-history-head">
+            <h3>Historia wypożyczeń</h3>
+            <span id="demoLoanHistoryCount"></span>
+          </div>
+          <div id="demoLoanHistoryList" class="demo-loan-history-list"></div>
+        </section>
+
         <p id="demoFormError" class="form-error" role="alert"></p>
         <div class="dialog-actions">
           <button class="danger" id="deleteDemoBtn" type="button" hidden>Usuń</button>
@@ -578,8 +595,8 @@
       <form method="dialog" class="return-reminder-form">
         <div class="dialog-head">
           <div>
-            <p class="eyebrow">Philips HearLink</p>
-            <h2>Zbliżające się terminy zwrotu</h2>
+            <p class="eyebrow">Aparaty demo</p>
+            <h2>Terminy zwrotu</h2>
           </div>
           <button class="ghost close-btn" type="submit" value="close" aria-label="Zamknij">Zamknij</button>
         </div>
@@ -615,8 +632,8 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260611-11"></script>
-    <script src="demo-data.js?v=20260611-11"></script>
-    <script src="app.js?v=20260611-11"></script>
+    <script src="supabase-config.js?v=20260612-3"></script>
+    <script src="demo-data.js?v=20260612-3"></script>
+    <script src="app.js?v=20260612-3"></script>
   </body>
 </html>
