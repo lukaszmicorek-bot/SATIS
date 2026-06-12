@@ -1143,7 +1143,7 @@ function rebuildDeviceDerivedData() {
     const display = displayType(record);
     const sold = display === "SPRZEDANY";
     const inStock = display === "NA STANIE";
-    const age = stockAge(record);
+    const age = sold ? null : stockAge(record);
     const location = normalizeRepairLocation(record.location);
 
     if (sold) deviceStats.sold += 1;
@@ -1394,7 +1394,7 @@ function filteredRecords() {
       const age = meta?.age ?? null;
       const matchesFifo =
         !selectedFifo ||
-        selectedFifo === "fifo" ||
+        (!meta?.isSold && selectedFifo === "fifo") ||
         (!meta?.isSold && selectedFifo === "90" && age !== null && age >= 90) ||
         (!meta?.isSold && selectedFifo === "180" && age !== null && age >= 180);
       const matchesQuery = !query || meta?.searchBlob.includes(query);
@@ -1722,6 +1722,7 @@ function showDemoReturnReminder() {
 
 function createAgePill(record) {
   const meta = deviceDerived.get(record.id);
+  if (meta?.isSold ?? isSold(record)) return "";
   const age = meta?.age ?? stockAge(record);
   const pill = document.createElement("span");
   const level = meta?.ageLevel ?? ageLevel(record, age);
@@ -2609,7 +2610,7 @@ function exportCsv() {
   ];
   const rows = filteredRecords().map((record) => [
     record.receivedDate ?? "",
-    stockAge(record) ?? "",
+    isSold(record) ? "" : stockAge(record) ?? "",
     record.deviceName ?? "",
     record.serialNumber ?? "",
     displayType(record),
