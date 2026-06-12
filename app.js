@@ -1025,6 +1025,21 @@ function normalizeDemoLoanHistory(history) {
     .filter((entry) => entry.currentUser || entry.loanDate || entry.returnDate);
 }
 
+function effectiveDemoLoanHistory(record) {
+  if (!record) return [];
+  const history = normalizeDemoLoanHistory(record?.loanHistory);
+  if (history.length || normalizeDemoStatus(record?.status, record) !== "ZWRÓCONO" || !record?.returnDate) {
+    return history;
+  }
+
+  return [{
+    id: `legacy-${record.id || "demo"}-${record.loanDate || "bez-daty"}-${record.returnDate}`,
+    currentUser: titleCaseName(record.currentUser),
+    loanDate: String(record.loanDate ?? "").trim(),
+    returnDate: String(record.returnDate ?? "").trim()
+  }];
+}
+
 function normalizeDeviceRecordsForUse(recordsToNormalize) {
   return recordsToNormalize.map(normalizeDeviceRecordForUse);
 }
@@ -1711,7 +1726,7 @@ function createDemoCurrentUser(currentUser, loanDate = "") {
 }
 
 function createDemoNotesCell(record) {
-  const historyCount = normalizeDemoLoanHistory(record.loanHistory).length;
+  const historyCount = effectiveDemoLoanHistory(record).length;
   if (!record.notes && !record.loanDate && !record.returnDate && !historyCount) return "";
   const wrap = document.createElement("div");
   wrap.className = "demo-notes-cell";
@@ -2372,18 +2387,24 @@ function openDemoDialog(record = null) {
     document.querySelector("#demoStatus").value = "NA STANIE";
     document.querySelector("#demoLocation").value = "P63";
   }
-  renderDemoLoanHistory(record?.loanHistory);
+  renderDemoLoanHistory(record);
   demoDialog.showModal();
 }
 
-function renderDemoLoanHistory(history) {
-  const entries = normalizeDemoLoanHistory(history).sort((left, right) =>
+function renderDemoLoanHistory(record) {
+  const entries = effectiveDemoLoanHistory(record).sort((left, right) =>
     String(right.returnDate || right.loanDate).localeCompare(String(left.returnDate || left.loanDate))
   );
-  demoLoanHistorySection.hidden = entries.length === 0;
-  demoLoanHistoryCount.textContent = entries.length ? `${entries.length}` : "";
+  demoLoanHistorySection.hidden = !record;
+  demoLoanHistoryCount.textContent = `${entries.length}`;
 
   const fragment = document.createDocumentFragment();
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "demo-loan-history-empty";
+    empty.textContent = "Brak zakończonych wypożyczeń.";
+    fragment.append(empty);
+  }
   entries.forEach((entry) => {
     const item = document.createElement("div");
     item.className = "demo-loan-history-item";
@@ -2456,6 +2477,9 @@ function demoFormRecord() {
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.location = normalizeDemoLocation(data.location);
   data.currentUser = titleCaseName(data.currentUser);
+  if (data.returnDate && (data.currentUser || data.loanDate)) {
+    data.status = "ZWRÓCONO";
+  }
   if (data.status === "ZWRÓCONO") {
     if (!data.returnDate) data.returnDate = todayInputValue();
   } else if (data.currentUser && !data.loanDate) {
@@ -2471,7 +2495,7 @@ function completeDemoLoan(existingRecord, data) {
   const loanDate = data.loanDate || existingRecord?.loanDate || "";
   const returnDate = data.returnDate || todayInputValue();
 
-  if (currentUser) {
+  if (currentUser || loanDate || returnDate) {
     const duplicate = history.some(
       (entry) => entry.currentUser === currentUser && entry.loanDate === loanDate && entry.returnDate === returnDate
     );
@@ -2496,7 +2520,12 @@ function completeDemoLoan(existingRecord, data) {
 }
 
 function prepareDemoLoanData(existingRecord, data) {
-  if (data.status === "ZWRÓCONO") return completeDemoLoan(existingRecord, data);
+  const completesActiveLoan = Boolean(
+    data.returnDate && (data.currentUser || data.loanDate || existingRecord?.currentUser || existingRecord?.loanDate)
+  );
+  if (data.status === "ZWRÓCONO" || completesActiveLoan) {
+    return completeDemoLoan(existingRecord, { ...data, status: "ZWRÓCONO" });
+  }
   const history = normalizeDemoLoanHistory(existingRecord?.loanHistory);
   if (data.currentUser && existingRecord?.status === "ZWRÓCONO") {
     return { ...data, status: "WYPOŻYCZONY", loanDate: data.loanDate || todayInputValue(), returnDate: "", loanHistory: history };
@@ -2557,6 +2586,15 @@ function syncDemoReturnDate() {
 function markDemoReturnDateChange() {
   const input = document.querySelector("#demoReturnDate");
   if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
+  const statusInput = document.querySelector("#demoStatus");
+  const hasActiveLoan = Boolean(
+    document.querySelector("#demoCurrentUser").value.trim() || document.querySelector("#demoLoanDate").value
+  );
+  if (input.value && hasActiveLoan) {
+    statusInput.value = "ZWRÓCONO";
+  } else if (!input.value && statusInput.value === "ZWRÓCONO" && hasActiveLoan) {
+    statusInput.value = "WYPOŻYCZONY";
+  }
 }
 
 function syncDemoUppercaseInput(event) {
@@ -2585,7 +2623,7 @@ function handleClearDateClick(event) {
   input.value = "";
 
   if (targetId.startsWith("demo")) {
-    if (targetId === "demoReturnDate") input.dataset.autoValue = "";
+    if (targetId === "demoReturnDate") markDemoReturnDateChange();
     syncDemoReturnDate();
     return;
   }
