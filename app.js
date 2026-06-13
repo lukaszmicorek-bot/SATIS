@@ -15,6 +15,9 @@ const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const DEMO_RETURN_WARNING_DAYS = 30;
 const DEMO_RETURN_CRITICAL_DAYS = 14;
 const DEMO_LOAN_DAYS = 14;
+const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
+const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseKey = supabaseConfig.publishableKey || supabaseConfig.anonKey || "";
 const hasSupabaseSettings = Boolean(supabaseConfig.url && supabaseKey);
@@ -213,11 +216,25 @@ const repairFields = [
   "notes"
 ];
 
-const demoFields = ["receivedDate", "loanDate", "returnDate", "manufacturer", "status", "deviceName", "serialNumber", "location", "currentUser", "notes"];
+const demoFields = [
+  "receivedDate",
+  "manufacturerReturnDate",
+  "manufacturer",
+  "deviceName",
+  "serialNumber",
+  "status",
+  "location",
+  "currentUser",
+  "loanDate",
+  "returnDate",
+  "notes"
+];
 
 let records = [];
 let repairRecords = [];
 let demoRecords = [];
+let demoLoanHistoryDraft = [];
+let demoCurrentAttachmentsDraft = [];
 let sortState = { key: "receivedDate", direction: "desc" };
 let repairSortState = { key: "receivedDate", direction: "desc" };
 let demoSortState = { key: "receivedDate", direction: "desc" };
@@ -274,6 +291,11 @@ const demoFormError = document.querySelector("#demoFormError");
 const demoLoanHistorySection = document.querySelector("#demoLoanHistorySection");
 const demoLoanHistoryCount = document.querySelector("#demoLoanHistoryCount");
 const demoLoanHistoryList = document.querySelector("#demoLoanHistoryList");
+const demoCurrentAttachmentInput = document.querySelector("#demoCurrentAttachmentInput");
+const demoCurrentAttachmentsList = document.querySelector("#demoCurrentAttachmentsList");
+const demoAttachmentPreviewDialog = document.querySelector("#demoAttachmentPreviewDialog");
+const demoAttachmentPreviewTitle = document.querySelector("#demoAttachmentPreviewTitle");
+const demoAttachmentPreviewBody = document.querySelector("#demoAttachmentPreviewBody");
 const demoReturnReminderDialog = document.querySelector("#demoReturnReminderDialog");
 const demoReturnReminderSummary = document.querySelector("#demoReturnReminderSummary");
 const demoReturnReminderList = document.querySelector("#demoReturnReminderList");
@@ -881,6 +903,12 @@ function titleCaseName(value) {
     .replace(/(^|[\s-])(\p{L})/gu, (match, separator, letter) => separator + letter.toLocaleUpperCase("pl-PL"));
 }
 
+function titleCaseNameInput(value) {
+  return String(value ?? "")
+    .toLocaleLowerCase("pl-PL")
+    .replace(/(^|[\s-])(\p{L})/gu, (match, separator, letter) => separator + letter.toLocaleUpperCase("pl-PL"));
+}
+
 function normalizeSerialNumber(value) {
   return String(value ?? "").trim().toLocaleUpperCase("pl-PL");
 }
@@ -1009,6 +1037,7 @@ function normalizeDemoRecordForUse(record) {
   normalizedRecord.currentUser = titleCaseName(normalizedRecord.currentUser);
   normalizedRecord.status = normalizeDemoStatus(normalizedRecord.status, normalizedRecord);
   normalizedRecord.loanHistory = normalizeDemoLoanHistory(normalizedRecord.loanHistory);
+  normalizedRecord.currentAttachments = normalizeDemoAttachments(normalizedRecord.currentAttachments);
   normalizedRecord.sourceRow = String(normalizedRecord.sourceRow ?? "").trim();
   return normalizedRecord;
 }
@@ -1020,15 +1049,39 @@ function normalizeDemoLoanHistory(history) {
       id: String(entry?.id || makeId()),
       currentUser: titleCaseName(entry?.currentUser),
       loanDate: String(entry?.loanDate ?? "").trim(),
-      returnDate: String(entry?.returnDate ?? "").trim()
+      returnDate: String(entry?.returnDate ?? "").trim(),
+      attachments: normalizeDemoAttachments(entry?.attachments)
     }))
     .filter((entry) => entry.currentUser || entry.loanDate || entry.returnDate);
+}
+
+function normalizeDemoAttachments(attachments) {
+  if (!Array.isArray(attachments)) return [];
+  return attachments
+    .map((attachment) => {
+      const normalizedAttachment = {
+        id: String(attachment?.id || makeId()),
+        name: String(attachment?.name || "Załącznik").trim(),
+        type: String(attachment?.type || "").trim(),
+        size: Number(attachment?.size) || 0,
+        path: String(attachment?.path || "").trim(),
+        dataUrl: String(attachment?.dataUrl || "").trim()
+      };
+      if (typeof File !== "undefined" && attachment?.file instanceof File) normalizedAttachment.file = attachment.file;
+      return normalizedAttachment;
+    })
+    .filter((attachment) => attachment.path || attachment.dataUrl || attachment.file);
+}
+
+function demoAttachmentDrafts(attachments) {
+  if (!Array.isArray(attachments)) return [];
+  return attachments.map((attachment) => ({ ...attachment }));
 }
 
 function effectiveDemoLoanHistory(record) {
   if (!record) return [];
   const history = normalizeDemoLoanHistory(record?.loanHistory);
-  if (history.length || normalizeDemoStatus(record?.status, record) !== "ZWRÓCONO" || !record?.returnDate) {
+  if (history.length || record.loanHistoryManaged === true || normalizeDemoStatus(record?.status, record) !== "ZWRÓCONO" || !record?.returnDate) {
     return history;
   }
 
@@ -1036,8 +1089,181 @@ function effectiveDemoLoanHistory(record) {
     id: `legacy-${record.id || "demo"}-${record.loanDate || "bez-daty"}-${record.returnDate}`,
     currentUser: titleCaseName(record.currentUser),
     loanDate: String(record.loanDate ?? "").trim(),
-    returnDate: String(record.returnDate ?? "").trim()
+    returnDate: String(record.returnDate ?? "").trim(),
+    attachments: []
   }];
+}
+
+function validateDemoAttachmentFile(file) {
+  if (!DEMO_ATTACHMENT_TYPES.has(file.type)) return "Dozwolone formaty: PDF, JPG i PNG.";
+  if (file.size > DEMO_ATTACHMENT_MAX_BYTES) return "Maksymalny rozmiar jednego pliku to 10 MB.";
+  return "";
+}
+
+function demoAttachmentFromFile(file) {
+  return {
+    id: makeId(),
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    path: "",
+    dataUrl: "",
+    file
+  };
+}
+
+function addDemoAttachmentFiles(files, target) {
+  const attachments = target();
+  const errors = [];
+  for (const file of files) {
+    const error = validateDemoAttachmentFile(file);
+    if (error) {
+      errors.push(`${file.name}: ${error}`);
+      continue;
+    }
+    attachments.push(demoAttachmentFromFile(file));
+  }
+  demoFormError.textContent = errors.join(" ");
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error(`Nie udało się odczytać pliku ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function safeAttachmentFileName(value) {
+  return String(value || "zalacznik")
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 100);
+}
+
+async function uploadDemoAttachment(recordId, attachment) {
+  if (!attachment.file) {
+    const { file, ...storedAttachment } = attachment;
+    return storedAttachment;
+  }
+
+  if (!hasSupabaseConfig) {
+    const { file, ...storedAttachment } = attachment;
+    return { ...storedAttachment, dataUrl: await fileToDataUrl(file) };
+  }
+
+  const path = `${currentSupabaseUser?.id || "shared"}/${recordId}/${attachment.id}-${safeAttachmentFileName(attachment.name)}`;
+  const { error } = await supabaseClient.storage.from(DEMO_ATTACHMENTS_BUCKET).upload(path, attachment.file, {
+    cacheControl: "3600",
+    contentType: attachment.type,
+    upsert: true
+  });
+  if (error) throw new Error(`Nie udało się wysłać załącznika ${attachment.name}: ${error.message}`);
+  return { id: attachment.id, name: attachment.name, type: attachment.type, size: attachment.size, path, dataUrl: "" };
+}
+
+async function prepareDemoAttachmentsForSave(recordId) {
+  demoCurrentAttachmentsDraft = await Promise.all(demoCurrentAttachmentsDraft.map((attachment) => uploadDemoAttachment(recordId, attachment)));
+  demoLoanHistoryDraft = await Promise.all(
+    demoLoanHistoryDraft.map(async (entry) => ({
+      ...entry,
+      attachments: await Promise.all(normalizeDemoAttachments(entry.attachments).map((attachment) => uploadDemoAttachment(recordId, attachment)))
+    }))
+  );
+}
+
+function demoAttachmentPaths(record) {
+  return [
+    ...normalizeDemoAttachments(record?.currentAttachments),
+    ...normalizeDemoLoanHistory(record?.loanHistory).flatMap((entry) => entry.attachments)
+  ]
+    .map((attachment) => attachment.path)
+    .filter(Boolean);
+}
+
+async function removeDemoAttachmentPaths(paths) {
+  if (!hasSupabaseConfig || !paths.length) return;
+  const { error } = await supabaseClient.storage.from(DEMO_ATTACHMENTS_BUCKET).remove(paths);
+  if (error) throw new Error(`Nie udało się usunąć załączników: ${error.message}`);
+}
+
+async function demoAttachmentUrl(attachment) {
+  if (attachment.file) return URL.createObjectURL(attachment.file);
+  if (attachment.dataUrl) return attachment.dataUrl;
+  if (!attachment.path || !hasSupabaseConfig) throw new Error("Załącznik nie jest dostępny.");
+  const { data, error } = await supabaseClient.storage.from(DEMO_ATTACHMENTS_BUCKET).createSignedUrl(attachment.path, 3600);
+  if (error || !data?.signedUrl) throw new Error(`Nie udało się otworzyć załącznika: ${error?.message || "brak adresu"}`);
+  return data.signedUrl;
+}
+
+async function openDemoAttachment(attachment, preview = false) {
+  const openedWindow = preview ? null : window.open("", "_blank");
+  try {
+    const url = await demoAttachmentUrl(attachment);
+    if (!preview) {
+      if (openedWindow) openedWindow.location.href = url;
+      else window.open(url, "_blank", "noopener");
+      return;
+    }
+    demoAttachmentPreviewTitle.textContent = attachment.name;
+    const media = document.createElement(attachment.type === "application/pdf" ? "iframe" : "img");
+    media.src = url;
+    media.title = attachment.name;
+    demoAttachmentPreviewBody.replaceChildren(media);
+    demoAttachmentPreviewDialog.showModal();
+  } catch (error) {
+    openedWindow?.close();
+    demoFormError.textContent = error.message;
+  }
+}
+
+function renderDemoAttachments(container, attachments, onRemove) {
+  const fragment = document.createDocumentFragment();
+  if (!attachments.length) {
+    const empty = document.createElement("span");
+    empty.className = "demo-attachments-empty";
+    empty.textContent = "Brak załączników";
+    fragment.append(empty);
+  }
+  attachments.forEach((attachment) => {
+    const item = document.createElement("div");
+    item.className = "demo-attachment-item";
+    const name = document.createElement("strong");
+    name.textContent = attachment.name;
+    const size = document.createElement("small");
+    size.textContent = formatFileSize(attachment.size);
+    const previewButton = document.createElement("button");
+    previewButton.type = "button";
+    previewButton.textContent = "Podgląd";
+    previewButton.addEventListener("click", () => openDemoAttachment(attachment, true));
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.textContent = "Otwórz";
+    openButton.addEventListener("click", () => openDemoAttachment(attachment));
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "attachment-remove";
+    removeButton.textContent = "Usuń";
+    removeButton.addEventListener("click", () => onRemove(attachment.id));
+    item.append(name, size, previewButton, openButton, removeButton);
+    fragment.append(item);
+  });
+  container.replaceChildren(fragment);
+}
+
+function renderDemoCurrentAttachments() {
+  renderDemoAttachments(demoCurrentAttachmentsList, demoCurrentAttachmentsDraft, (attachmentId) => {
+    demoCurrentAttachmentsDraft = demoCurrentAttachmentsDraft.filter((attachment) => attachment.id !== attachmentId);
+    renderDemoCurrentAttachments();
+  });
 }
 
 function normalizeDeviceRecordsForUse(recordsToNormalize) {
@@ -1105,6 +1331,9 @@ function demoReturnDeadlineInfo(record) {
   if (status === "ZWRÓCONO" && record.returnDate) return { date: record.returnDate, source: "returned" };
   if (String(record.currentUser ?? "").trim() && record.loanDate) {
     return { date: addCalendarDays(record.loanDate, DEMO_LOAN_DAYS), source: "loan" };
+  }
+  if (record.manufacturerReturnDate) {
+    return { date: record.manufacturerReturnDate, source: "manufacturer" };
   }
   if (isPhilipsHearLink(record) && record.receivedDate) {
     return { date: addCalendarMonths(record.receivedDate, 6), source: "philips" };
@@ -1727,7 +1956,10 @@ function createDemoCurrentUser(currentUser, loanDate = "") {
 
 function createDemoNotesCell(record) {
   const historyCount = effectiveDemoLoanHistory(record).length;
-  if (!record.notes && !record.loanDate && !record.returnDate && !historyCount) return "";
+  const attachmentCount =
+    normalizeDemoAttachments(record.currentAttachments).length +
+    normalizeDemoLoanHistory(record.loanHistory).reduce((count, entry) => count + entry.attachments.length, 0);
+  if (!record.notes && !record.loanDate && !record.returnDate && !historyCount && !attachmentCount) return "";
   const wrap = document.createElement("div");
   wrap.className = "demo-notes-cell";
 
@@ -1755,6 +1987,12 @@ function createDemoNotesCell(record) {
     history.className = "demo-notes-history";
     history.textContent = `Historia wypożyczeń: ${historyCount}`;
     wrap.append(history);
+  }
+  if (attachmentCount) {
+    const attachments = document.createElement("span");
+    attachments.className = "demo-notes-history";
+    attachments.textContent = `Załączniki: ${attachmentCount}`;
+    wrap.append(attachments);
   }
   return wrap;
 }
@@ -2341,6 +2579,8 @@ function openRepairDialog(record = null) {
 
 function openDemoDialog(record = null) {
   demoForm.reset();
+  demoLoanHistoryDraft = record ? effectiveDemoLoanHistory(record) : [];
+  demoCurrentAttachmentsDraft = record ? demoAttachmentDrafts(record.currentAttachments) : [];
   demoFormError.textContent = "";
   saveDemoBtn.disabled = false;
   saveDemoBtn.textContent = "Zapisz";
@@ -2349,6 +2589,7 @@ function openDemoDialog(record = null) {
   demoSerialNumberInput.setAttribute("aria-required", String(!record));
   document.querySelector("#demoSerialNumberLabel").textContent = record ? "Numer seryjny" : "Numer seryjny *";
   document.querySelector("#demoReturnDate").dataset.autoValue = "";
+  document.querySelector("#demoManufacturerReturnDate").dataset.autoValue = "";
   document.querySelector("#demoId").value = record?.id ?? "";
   demoDialogTitle.textContent = record ? "Edytuj aparat demo" : "Dodaj aparat demo";
   demoRecordEyebrow.textContent = record
@@ -2358,6 +2599,7 @@ function openDemoDialog(record = null) {
 
   const fieldMap = {
     receivedDate: "#demoReceivedDate",
+    manufacturerReturnDate: "#demoManufacturerReturnDate",
     loanDate: "#demoLoanDate",
     returnDate: "#demoReturnDate",
     manufacturer: "#demoManufacturer",
@@ -2387,12 +2629,20 @@ function openDemoDialog(record = null) {
     document.querySelector("#demoStatus").value = "NA STANIE";
     document.querySelector("#demoLocation").value = "P63";
   }
+  const calculatedManufacturerReturnDate = calculateDemoManufacturerReturnDate();
+  const manufacturerReturnDateInput = document.querySelector("#demoManufacturerReturnDate");
+  if (!manufacturerReturnDateInput.value) {
+    syncDemoManufacturerReturnDate();
+  } else if (manufacturerReturnDateInput.value === calculatedManufacturerReturnDate) {
+    manufacturerReturnDateInput.dataset.autoValue = calculatedManufacturerReturnDate;
+  }
+  renderDemoCurrentAttachments();
   renderDemoLoanHistory(record);
   demoDialog.showModal();
 }
 
 function renderDemoLoanHistory(record) {
-  const entries = effectiveDemoLoanHistory(record).sort((left, right) =>
+  const entries = normalizeDemoLoanHistory(demoLoanHistoryDraft).sort((left, right) =>
     String(right.returnDate || right.loanDate).localeCompare(String(left.returnDate || left.loanDate))
   );
   demoLoanHistorySection.hidden = !record;
@@ -2412,7 +2662,39 @@ function renderDemoLoanHistory(record) {
     person.textContent = entry.currentUser || "Brak osoby";
     const dates = document.createElement("span");
     dates.textContent = `${entry.loanDate ? formatDate(entry.loanDate) : "brak daty"} → ${entry.returnDate ? formatDate(entry.returnDate) : "brak daty zwrotu"}`;
-    item.append(person, dates);
+    const removeButton = document.createElement("button");
+    removeButton.className = "demo-loan-history-remove";
+    removeButton.type = "button";
+    removeButton.textContent = "Usuń";
+    removeButton.setAttribute("aria-label", `Usuń wypożyczenie: ${entry.currentUser || "brak osoby"}`);
+    removeButton.addEventListener("click", () => {
+      demoLoanHistoryDraft = demoLoanHistoryDraft.filter((historyEntry) => historyEntry.id !== entry.id);
+      renderDemoLoanHistory(record);
+    });
+    const attachmentArea = document.createElement("div");
+    attachmentArea.className = "demo-history-attachments";
+    const attachmentList = document.createElement("div");
+    attachmentList.className = "demo-attachments-list";
+    renderDemoAttachments(attachmentList, entry.attachments, (attachmentId) => {
+      entry.attachments = entry.attachments.filter((attachment) => attachment.id !== attachmentId);
+      demoLoanHistoryDraft = demoLoanHistoryDraft.map((historyEntry) => (historyEntry.id === entry.id ? entry : historyEntry));
+      renderDemoLoanHistory(record);
+    });
+    const addLabel = document.createElement("label");
+    addLabel.className = "demo-attachment-add";
+    addLabel.textContent = "Dodaj pliki";
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+    input.multiple = true;
+    input.addEventListener("change", () => {
+      addDemoAttachmentFiles(input.files, () => entry.attachments);
+      demoLoanHistoryDraft = demoLoanHistoryDraft.map((historyEntry) => (historyEntry.id === entry.id ? entry : historyEntry));
+      renderDemoLoanHistory(record);
+    });
+    addLabel.prepend(input);
+    attachmentArea.append(attachmentList, addLabel);
+    item.append(person, dates, removeButton, attachmentArea);
     fragment.append(item);
   });
   demoLoanHistoryList.replaceChildren(fragment);
@@ -2477,6 +2759,9 @@ function demoFormRecord() {
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.location = normalizeDemoLocation(data.location);
   data.currentUser = titleCaseName(data.currentUser);
+  data.loanHistory = normalizeDemoLoanHistory(demoLoanHistoryDraft);
+  data.currentAttachments = normalizeDemoAttachments(demoCurrentAttachmentsDraft);
+  data.loanHistoryManaged = true;
   if (data.returnDate && (data.currentUser || data.loanDate)) {
     data.status = "ZWRÓCONO";
   }
@@ -2490,12 +2775,12 @@ function demoFormRecord() {
 }
 
 function completeDemoLoan(existingRecord, data) {
-  const history = normalizeDemoLoanHistory(existingRecord?.loanHistory);
+  const history = normalizeDemoLoanHistory(data.loanHistory ?? existingRecord?.loanHistory);
   const currentUser = titleCaseName(data.currentUser || existingRecord?.currentUser);
   const loanDate = data.loanDate || existingRecord?.loanDate || "";
   const returnDate = data.returnDate || todayInputValue();
 
-  if (currentUser || loanDate || returnDate) {
+  if (currentUser || loanDate) {
     const duplicate = history.some(
       (entry) => entry.currentUser === currentUser && entry.loanDate === loanDate && entry.returnDate === returnDate
     );
@@ -2504,7 +2789,8 @@ function completeDemoLoan(existingRecord, data) {
         id: makeId(),
         currentUser,
         loanDate,
-        returnDate
+        returnDate,
+        attachments: normalizeDemoAttachments(data.currentAttachments)
       });
     }
   }
@@ -2515,6 +2801,7 @@ function completeDemoLoan(existingRecord, data) {
     currentUser: "",
     loanDate: "",
     returnDate,
+    currentAttachments: [],
     loanHistory: history
   };
 }
@@ -2526,7 +2813,7 @@ function prepareDemoLoanData(existingRecord, data) {
   if (data.status === "ZWRÓCONO" || completesActiveLoan) {
     return completeDemoLoan(existingRecord, { ...data, status: "ZWRÓCONO" });
   }
-  const history = normalizeDemoLoanHistory(existingRecord?.loanHistory);
+  const history = normalizeDemoLoanHistory(data.loanHistory ?? existingRecord?.loanHistory);
   if (data.currentUser && existingRecord?.status === "ZWRÓCONO") {
     return { ...data, status: "WYPOŻYCZONY", loanDate: data.loanDate || todayInputValue(), returnDate: "", loanHistory: history };
   }
@@ -2579,8 +2866,26 @@ function syncDemoReturnedStatus() {
   returnDateInput.dataset.autoValue = "";
 }
 
-function syncDemoReturnDate() {
-  document.querySelector("#demoReturnDate").dataset.autoValue = "";
+function calculateDemoManufacturerReturnDate() {
+  const record = {
+    receivedDate: document.querySelector("#demoReceivedDate").value,
+    manufacturer: document.querySelector("#demoManufacturer").value,
+    deviceName: document.querySelector("#demoDeviceName").value
+  };
+  return isPhilipsHearLink(record) && record.receivedDate ? addCalendarMonths(record.receivedDate, 6) : "";
+}
+
+function syncDemoManufacturerReturnDate() {
+  const input = document.querySelector("#demoManufacturerReturnDate");
+  const previousAutoValue = input.dataset.autoValue || "";
+  const nextAutoValue = calculateDemoManufacturerReturnDate();
+  if (!input.value || input.value === previousAutoValue) input.value = nextAutoValue;
+  input.dataset.autoValue = nextAutoValue;
+}
+
+function markDemoManufacturerReturnDateChange() {
+  const input = document.querySelector("#demoManufacturerReturnDate");
+  if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
 }
 
 function markDemoReturnDateChange() {
@@ -2599,12 +2904,16 @@ function markDemoReturnDateChange() {
 
 function syncDemoUppercaseInput(event) {
   event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
-  if (event.target.id === "demoManufacturer") syncDemoReturnDate();
+  if (event.target.id === "demoManufacturer") syncDemoManufacturerReturnDate();
 }
 
 function formatDemoCurrentUserInput(event) {
-  event.target.value = titleCaseName(event.target.value);
+  event.target.value = titleCaseNameInput(event.target.value);
   syncDemoStatusFromCurrentUser({ setLoanDate: true });
+}
+
+function finalizeDemoCurrentUserInput(event) {
+  event.target.value = titleCaseName(event.target.value);
 }
 
 function syncSalesInvoiceUppercase(event) {
@@ -2624,7 +2933,7 @@ function handleClearDateClick(event) {
 
   if (targetId.startsWith("demo")) {
     if (targetId === "demoReturnDate") markDemoReturnDateChange();
-    syncDemoReturnDate();
+    if (targetId === "demoManufacturerReturnDate") markDemoManufacturerReturnDateChange();
     return;
   }
 
@@ -2734,6 +3043,7 @@ async function saveDemoFormRecord(event) {
   event.preventDefault();
   demoFormError.textContent = "";
   const id = document.querySelector("#demoId").value;
+  const recordId = id || `${DEMO_ID_PREFIX}${makeId()}`;
   let data = demoFormRecord();
   let savedRecord;
   if (!id && !data.serialNumber) {
@@ -2743,31 +3053,29 @@ async function saveDemoFormRecord(event) {
   }
   if (!confirmSerialNumberSave(data.serialNumber, "demo", id)) return;
   const previousDemoRecords = demoRecords;
+  const existingRecord = id ? demoRecords.find((record) => record.id === id) : null;
+  const previousAttachmentPaths = demoAttachmentPaths(existingRecord);
   saveDemoBtn.disabled = true;
-  saveDemoBtn.textContent = "Zapisywanie...";
-
-  if (id) {
-    const existingRecord = demoRecords.find((record) => record.id === id);
-    if (!existingRecord) {
-      demoFormError.textContent = "Nie znaleziono edytowanego rekordu. Zamknij okno i otwórz go ponownie.";
-      saveDemoBtn.disabled = false;
-      saveDemoBtn.textContent = "Zapisz";
-      return;
-    }
-    data = prepareDemoLoanData(existingRecord, data);
-    demoRecords = demoRecords.map((record) => {
-      if (record.id !== id) return record;
-      savedRecord = { ...record, ...data };
-      return savedRecord;
-    });
-  } else {
-    data = prepareDemoLoanData(null, data);
-    savedRecord = { id: `${DEMO_ID_PREFIX}${makeId()}`, ...data };
-    demoRecords = [savedRecord, ...demoRecords];
-  }
+  saveDemoBtn.textContent = "Wysyłanie załączników...";
 
   try {
+    if (id && !existingRecord) throw new Error("Nie znaleziono edytowanego rekordu. Zamknij okno i otwórz go ponownie.");
+    await prepareDemoAttachmentsForSave(recordId);
+    data = prepareDemoLoanData(existingRecord, demoFormRecord());
+    savedRecord = { ...(existingRecord || {}), id: recordId, ...data };
+    if (id) {
+      demoRecords = demoRecords.map((record) => (record.id === id ? savedRecord : record));
+    } else {
+      demoRecords = [savedRecord, ...demoRecords];
+    }
+    saveDemoBtn.textContent = "Zapisywanie...";
     await persistDemoRecord(savedRecord);
+    const savedPaths = new Set(demoAttachmentPaths(savedRecord));
+    try {
+      await removeDemoAttachmentPaths(previousAttachmentPaths.filter((path) => !savedPaths.has(path)));
+    } catch (cleanupError) {
+      console.warn(cleanupError);
+    }
     rebuildDerivedData();
     render();
     closeDemoDialog();
@@ -2793,6 +3101,7 @@ async function deleteCurrentDemoRecord() {
     demoRecords = demoRecords.filter((item) => item.id !== id);
     try {
       await persistDeletedDemoRecord(id);
+      await removeDemoAttachmentPaths(demoAttachmentPaths(record));
       rebuildDerivedData();
       render();
       closeDemoDialog();
@@ -3173,13 +3482,21 @@ document.querySelector("#repairReceivedDate").addEventListener("change", syncRep
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
-document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoReturnDate);
+document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
+document.querySelector("#demoManufacturerReturnDate").addEventListener("change", markDemoManufacturerReturnDateChange);
 document.querySelector("#demoReturnDate").addEventListener("change", markDemoReturnDateChange);
 document.querySelector("#demoManufacturer").addEventListener("input", syncDemoUppercaseInput);
-document.querySelector("#demoDeviceName").addEventListener("input", syncDemoReturnDate);
+document.querySelector("#demoDeviceName").addEventListener("input", syncDemoManufacturerReturnDate);
 document.querySelector("#demoSerialNumber").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoCurrentUser").addEventListener("input", formatDemoCurrentUserInput);
+document.querySelector("#demoCurrentUser").addEventListener("blur", finalizeDemoCurrentUserInput);
 document.querySelector("#demoStatus").addEventListener("change", syncDemoReturnedStatus);
+demoCurrentAttachmentInput.addEventListener("change", () => {
+  addDemoAttachmentFiles(demoCurrentAttachmentInput.files, () => demoCurrentAttachmentsDraft);
+  demoCurrentAttachmentInput.value = "";
+  renderDemoCurrentAttachments();
+});
+document.querySelector("#closeDemoAttachmentPreviewBtn").addEventListener("click", () => demoAttachmentPreviewDialog.close());
 authForm?.addEventListener("submit", handleAuthSubmit);
 authDialog?.addEventListener("cancel", (event) => event.preventDefault());
 logoutBtn?.addEventListener("click", logoutFromSupabase);

@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260612-5">
+    <link rel="stylesheet" href="styles.css?v=20260613-2">
   </head>
   <body>
     <main class="app-shell">
@@ -519,23 +519,25 @@
             </div>
           </label>
           <label>
-            <span>Data zwrotu z wypożyczenia</span>
+            <span>Data zwrotu do producenta</span>
             <div class="date-input-wrap">
-              <input id="demoReturnDate" name="returnDate" type="date">
-              <button class="clear-date-btn" type="button" data-target="demoReturnDate" aria-label="Wyczyść datę">×</button>
-            </div>
-          </label>
-          <label>
-            <span>Data wypożyczenia</span>
-            <div class="date-input-wrap">
-              <input id="demoLoanDate" name="loanDate" type="date">
-              <button class="clear-date-btn" type="button" data-target="demoLoanDate" aria-label="Wyczyść datę">×</button>
+              <input id="demoManufacturerReturnDate" name="manufacturerReturnDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="demoManufacturerReturnDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
           <label>
             <span>Producent</span>
             <input id="demoManufacturer" name="manufacturer" type="text" list="demoManufacturerSuggestions">
             <datalist id="demoManufacturerSuggestions"></datalist>
+          </label>
+          <label class="highlight-field">
+            <span>Model aparatu</span>
+            <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions">
+            <datalist id="demoDeviceNameSuggestions"></datalist>
+          </label>
+          <label>
+            <span id="demoSerialNumberLabel">Numer seryjny</span>
+            <input id="demoSerialNumber" name="serialNumber" type="text">
           </label>
           <label>
             <span>Status</span>
@@ -547,15 +549,6 @@
               <option value="ZWRÓCONO">Zwrócono</option>
             </select>
           </label>
-          <label class="wide highlight-field">
-            <span>Model aparatu</span>
-            <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions">
-            <datalist id="demoDeviceNameSuggestions"></datalist>
-          </label>
-          <label>
-            <span id="demoSerialNumberLabel">Numer seryjny</span>
-            <input id="demoSerialNumber" name="serialNumber" type="text">
-          </label>
           <label>
             <span>Miejsce</span>
             <select id="demoLocation" name="location">
@@ -564,9 +557,33 @@
               <option value="P63">P63</option>
             </select>
           </label>
-          <label class="wide">
+          <label>
             <span>Aktualnie używany przez</span>
             <input id="demoCurrentUser" name="currentUser" type="text">
+          </label>
+          <div class="wide demo-attachments-field">
+            <div class="demo-attachments-head">
+              <span>Załączniki aktualnej osoby</span>
+              <label class="demo-attachment-add">
+                <input id="demoCurrentAttachmentInput" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
+                Dodaj pliki
+              </label>
+            </div>
+            <div id="demoCurrentAttachmentsList" class="demo-attachments-list"></div>
+          </div>
+          <label>
+            <span>Data wypożyczenia</span>
+            <div class="date-input-wrap">
+              <input id="demoLoanDate" name="loanDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="demoLoanDate" aria-label="Wyczyść datę">×</button>
+            </div>
+          </label>
+          <label>
+            <span>Data zwrotu z wypożyczenia</span>
+            <div class="date-input-wrap">
+              <input id="demoReturnDate" name="returnDate" type="date">
+              <button class="clear-date-btn" type="button" data-target="demoReturnDate" aria-label="Wyczyść datę">×</button>
+            </div>
           </label>
           <label class="wide">
             <span>Uwagi</span>
@@ -589,6 +606,16 @@
           <button id="saveDemoBtn" type="submit">Zapisz</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="demoAttachmentPreviewDialog" class="attachment-preview-dialog">
+      <div class="attachment-preview-shell">
+        <div class="dialog-head">
+          <h2 id="demoAttachmentPreviewTitle">Podgląd załącznika</h2>
+          <button class="ghost close-btn" type="button" id="closeDemoAttachmentPreviewBtn" aria-label="Zamknij">Zamknij</button>
+        </div>
+        <div id="demoAttachmentPreviewBody" class="attachment-preview-body"></div>
+      </div>
     </dialog>
 
     <dialog id="demoReturnReminderDialog" class="return-reminder-dialog">
@@ -632,8 +659,8 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260612-5"></script>
-    <script src="demo-data.js?v=20260612-5"></script>
-    <script src="app.js?v=20260612-5"></script>
+    <script src="supabase-config.js?v=20260613-2"></script>
+    <script src="demo-data.js?v=20260613-2"></script>
+    <script src="app.js?v=20260613-2"></script>
   </body>
 </html>
