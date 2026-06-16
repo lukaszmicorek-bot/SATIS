@@ -1134,7 +1134,6 @@ function normalizeDeviceRecordForUse(record) {
   normalizedRecord.salesInvoice = normalizeSalesInvoice(normalizedRecord.salesInvoice);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.type = normalizeDeviceType(normalizedRecord.type || "NA STANIE");
-  if (normalizedRecord.type === "NA STANIE") normalizedRecord.location = "P63";
   normalizedRecord.ezwm = normalizeEzwmStatus(normalizedRecord.ezwm);
   return normalizedRecord;
 }
@@ -1431,7 +1430,7 @@ function normalizeDemoRecordsForUse(recordsToNormalize) {
 }
 
 function demoLocationGroup(record) {
-  const text = normalize(`${record.location} ${record.currentUser}`);
+  const text = normalize(record.location);
   if (text.includes("t12")) return "T12";
   if (text.includes("p50")) return "P50";
   if (text.includes("p63")) return "P63";
@@ -2922,8 +2921,7 @@ function openDemoDialog(record = null) {
   if (record) {
     const returnDateInput = document.querySelector("#demoReturnDate");
     returnDateInput.value = record.returnDate || "";
-    const location = demoLocationGroup(record);
-    document.querySelector("#demoLocation").value = ["T12", "P50", "P63"].includes(location) ? location : "P63";
+    document.querySelector("#demoLocation").value = normalizeDemoLocation(record.location);
     document.querySelector("#demoCurrentUser").value = titleCaseName(record.currentUser);
     syncDemoStatusFromCurrentUser();
   }
@@ -3036,7 +3034,6 @@ function formRecord() {
   data.salesInvoice = normalizeSalesInvoice(data.salesInvoice);
   data.location = normalizeRepairLocation(data.location);
   data.type = normalizeDeviceType(data.type || "NA STANIE");
-  if (data.type === "NA STANIE") data.location = "P63";
   data.ezwm = normalizeEzwmStatus(data.ezwm);
   return data;
 }
@@ -3049,12 +3046,12 @@ function syncDeviceTypeFromFields() {
   const currentType = normalizeDeviceType(typeInput.value || "NA STANIE");
   const nextType = shouldAutoSetDeviceType(data) ? suggestedDeviceType(data, currentType) : "NA STANIE";
   typeInput.value = nextType;
-  if (nextType === "NA STANIE") document.querySelector("#location").value = "P63";
+  if (nextType === "NA STANIE" && !document.querySelector("#location").value) document.querySelector("#location").value = "P63";
   updateDeviceTypeSelectStyles();
 }
 
 function syncStockLocationFromType() {
-  if (normalizeDeviceType(typeSelect.value) === "NA STANIE") {
+  if (normalizeDeviceType(typeSelect.value) === "NA STANIE" && !document.querySelector("#location").value) {
     document.querySelector("#location").value = "P63";
   }
   updateDeviceTypeSelectStyles();
