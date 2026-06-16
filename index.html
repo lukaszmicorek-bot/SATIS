@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260613-2">
+    <link rel="stylesheet" href="styles.css?v=20260616-5">
   </head>
   <body>
     <main class="app-shell">
@@ -74,6 +74,15 @@
                 <option value="SPRZEDANY">Sprzedany</option>
                 <option value="REZERWACJA">Rezerwacja</option>
                 <option value="ZWROT">Zwrot</option>
+              </select>
+            </label>
+            <label>
+              <span>EZWM</span>
+              <select id="ezwmFilter">
+                <option value="">Wszystkie</option>
+                <option value="POBRANE">Pobrane</option>
+                <option value="REALIZACJA">Realizacja</option>
+                <option value="BRAK">Brak</option>
               </select>
             </label>
             <label>
@@ -169,6 +178,7 @@
               </svg>
               <span class="icon-button-label">JSON</span>
             </button>
+            <button id="printDemoChecklistBtn" type="button">Drukuj checklistę</button>
           </section>
 
           <section class="table-zone demo-zone" aria-label="Aparaty demo">
@@ -191,9 +201,45 @@
             </table>
             <p id="demoEmptyState" class="empty-state" hidden>Brak aparatów demo dla wybranych filtrów.</p>
           </section>
+          <section id="demoChecklist" class="demo-checklist" aria-label="Checklista aparatów demo">
+            <header class="demo-checklist-head">
+              <div>
+                <h1>Checklista aparatów demo</h1>
+                <p id="demoChecklistMeta"></p>
+              </div>
+              <img src="satis-monogram.png" alt="SATIS">
+            </header>
+            <table class="demo-checklist-table">
+              <thead>
+                <tr>
+                  <th>Lp.</th>
+                  <th>Sprawdzone</th>
+                  <th>Status</th>
+                  <th>Producent / model</th>
+                  <th>Numer seryjny</th>
+                  <th>Miejsce</th>
+                  <th>Aktualnie używany przez</th>
+                  <th>Uwagi</th>
+                </tr>
+              </thead>
+              <tbody id="demoChecklistBody"></tbody>
+            </table>
+            <footer class="demo-checklist-footer">
+              <span>Sprawdził(a):</span>
+              <span>Data:</span>
+              <span>Podpis:</span>
+            </footer>
+          </section>
         </section>
 
         <section id="stockView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="stockTab" hidden>
+          <section class="stock-toolbar" aria-label="Narzędzia stanu magazynowego">
+            <div>
+              <strong>Stan magazynowy</strong>
+              <span id="stockSummary">0 aparatów</span>
+            </div>
+            <button id="printStockChecklistBtn" type="button">Drukuj checklistę</button>
+          </section>
           <section class="table-zone stock-zone" aria-label="Aktualna ilość aparatów na stanie">
             <table class="stock-table">
               <thead>
@@ -208,6 +254,33 @@
               <tbody id="stockBody"></tbody>
             </table>
             <p id="stockEmptyState" class="empty-state" hidden>Brak aparatów na stanie.</p>
+          </section>
+          <section id="stockChecklist" class="stock-checklist" aria-label="Checklista stanu magazynowego">
+            <header class="stock-checklist-head">
+              <div>
+                <h1>Checklista stanu aparatów</h1>
+                <p id="stockChecklistMeta"></p>
+              </div>
+              <img src="satis-monogram.png" alt="SATIS">
+            </header>
+            <table class="stock-checklist-table">
+              <thead>
+                <tr>
+                  <th>Lp.</th>
+                  <th>Sprawdzone</th>
+                  <th>Model aparatu</th>
+                  <th>Numer seryjny</th>
+                  <th>Miejsce</th>
+                  <th>Uwagi</th>
+                </tr>
+              </thead>
+              <tbody id="stockChecklistBody"></tbody>
+            </table>
+            <footer class="stock-checklist-footer">
+              <span>Sprawdził(a):</span>
+              <span>Data:</span>
+              <span>Podpis:</span>
+            </footer>
           </section>
         </section>
       </section>
@@ -241,6 +314,15 @@
                 <option value="W TRAKCIE">W trakcie</option>
                 <option value="GOTOWE">Gotowe</option>
                 <option value="ODEBRANE">Odebrane</option>
+              </select>
+            </label>
+            <label>
+              <span>Miejsce</span>
+              <select id="repairLocationFilter">
+                <option value="">Wszystkie</option>
+                <option value="T12">T12</option>
+                <option value="P50">P50</option>
+                <option value="P63">P63</option>
               </select>
             </label>
             <button id="addRepairBtn" type="button">Dodaj wpis</button>
@@ -659,8 +741,8 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260613-2"></script>
-    <script src="demo-data.js?v=20260613-2"></script>
-    <script src="app.js?v=20260613-2"></script>
+    <script src="supabase-config.js?v=20260613-5"></script>
+    <script src="demo-data.js?v=20260613-5"></script>
+    <script src="app.js?v=20260614-13"></script>
   </body>
 </html>
