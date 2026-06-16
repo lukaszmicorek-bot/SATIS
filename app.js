@@ -2799,7 +2799,7 @@ function switchNotebook(notebookName) {
 function openDialog(record = null) {
   recordForm.reset();
   document.querySelector("#recordId").value = record?.id ?? "";
-  dialogTitle.textContent = record ? "Edytuj aparat" : "Dodaj aparat";
+  dialogTitle.textContent = record ? modelTitleForRecord(record, "Aparat") : "Dodaj aparat";
   recordEyebrow.textContent = record ? `${records.findIndex((item) => item.id === record.id) + 1}/${records.length}` : "Nowy rekord";
   deleteBtn.hidden = !record;
 
@@ -2914,8 +2914,12 @@ function openDemoDialog(record = null) {
 }
 
 function demoDialogTitleForRecord(record) {
+  return modelTitleForRecord(record, "Aparat demo");
+}
+
+function modelTitleForRecord(record, fallbackTitle) {
   const model = String(record?.deviceName || "").trim();
-  return model || "Aparat demo";
+  return model || fallbackTitle;
 }
 
 function renderDemoLoanHistory(record) {
