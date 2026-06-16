@@ -2226,15 +2226,17 @@ function createDemoReturnDeadlineCell(meta) {
   wrap.append(date);
 
   const time = document.createElement("small");
-  if (meta.status === "ZWRÓCONO") {
-    time.textContent = "zwrócono";
-  } else if (meta.returnSource === "loan" && meta.returnDays <= 0) {
-    time.textContent = meta.returnDays === 0 ? "mija 14 dni" : `${formatDaysLabel(Math.abs(meta.returnDays))} po terminie`;
-  } else {
-    time.textContent = demoReturnTimeLabel(meta.returnDays);
-  }
+  time.textContent = demoReturnDeadlineLabel(meta);
   wrap.append(time);
   return wrap;
+}
+
+function demoReturnDeadlineLabel(meta) {
+  if (!meta) return "";
+  if (meta.returnDays === null || meta.returnDays === undefined) return "do zwrotu";
+  if (meta.returnDays < 0) return `po terminie: ${formatDaysLabel(Math.abs(meta.returnDays))}`;
+  if (meta.returnDays === 0) return meta.returnSource === "loan" ? "mija 14 dni" : "do zwrotu dzisiaj";
+  return `do zwrotu · ${demoReturnTimeLabel(meta.returnDays)}`;
 }
 
 function dueDemoReturnRecords() {
