@@ -15,6 +15,8 @@ const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const DEMO_RETURN_WARNING_DAYS = 30;
 const DEMO_RETURN_CRITICAL_DAYS = 14;
 const DEMO_LOAN_DAYS = 14;
+const DEMO_RETURN_REMINDER_STORAGE_KEY = "zeszyt-aparatow-demo-return-reminder-last-shown";
+const DEMO_RETURN_REMINDER_INTERVAL_MS = 60 * 60 * 1000;
 const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
@@ -1476,6 +1478,11 @@ function daysUntilDate(value) {
   return Math.round((date - today) / 86400000);
 }
 
+function isPastDate(value) {
+  const days = daysUntilDate(value);
+  return days !== null && days < 0;
+}
+
 function demoReturnDeadlineInfo(record) {
   const status = normalizeDemoStatus(record.status, record);
   if (status === "ZWRÓCONO" && record.returnDate) return { date: record.returnDate, source: "returned" };
@@ -1522,10 +1529,15 @@ function demoStatusFromCurrentUser(currentUser) {
 
 function demoStatus(record) {
   const status = normalizeDemoStatus(record.status, record);
-  if (status === "BRAK" || status === "ZWRÓCONO") return status;
+  if (status === "BRAK") return status;
+  if (status === "ZWRÓCONO") {
+    if (isPastDate(record.manufacturerReturnDate) || record.returnDate) return "ZWRÓCONO";
+    return demoStatusFromCurrentUser(record.currentUser);
+  }
   const deadline = demoReturnDeadlineInfo(record);
   const returnDays = daysUntilDate(deadline.date);
-  return demoReturnLevel(returnDays, deadline.source) ? "DO ZWROTU" : status;
+  if (deadline.source === "loan" && demoReturnLevel(returnDays, deadline.source)) return "DO ZWROTU";
+  return status;
 }
 
 function demoQualityIssues(record, serialCounts = null) {
@@ -2247,7 +2259,7 @@ function dueDemoReturnRecords() {
 }
 
 function scheduleDemoReturnReminder() {
-  if (demoReturnReminderShown || demoReturnReminderTimeout) return;
+  if (demoReturnReminderShown || demoReturnReminderTimeout || !canShowDemoReturnReminder()) return;
   demoReturnReminderTimeout = window.setTimeout(() => {
     demoReturnReminderTimeout = 0;
     showDemoReturnReminder();
@@ -2255,7 +2267,15 @@ function scheduleDemoReturnReminder() {
 }
 
 function showDemoReturnReminder() {
-  if (demoReturnReminderShown || !demoReturnReminderDialog || authDialog?.open || recordDialog.open || repairDialog.open || demoDialog.open) return;
+  if (
+    demoReturnReminderShown ||
+    !canShowDemoReturnReminder() ||
+    !demoReturnReminderDialog ||
+    authDialog?.open ||
+    recordDialog.open ||
+    repairDialog.open ||
+    demoDialog.open
+  ) return;
   const dueRecords = dueDemoReturnRecords();
   if (!dueRecords.length) return;
 
@@ -2294,7 +2314,17 @@ function showDemoReturnReminder() {
   });
   demoReturnReminderList.replaceChildren(fragment);
   demoReturnReminderShown = true;
+  markDemoReturnReminderShown();
   demoReturnReminderDialog.showModal();
+}
+
+function canShowDemoReturnReminder() {
+  const lastShownAt = Number(localStorage.getItem(DEMO_RETURN_REMINDER_STORAGE_KEY) || 0);
+  return !lastShownAt || Date.now() - lastShownAt >= DEMO_RETURN_REMINDER_INTERVAL_MS;
+}
+
+function markDemoReturnReminderShown() {
+  localStorage.setItem(DEMO_RETURN_REMINDER_STORAGE_KEY, String(Date.now()));
 }
 
 function createAgePill(record) {
@@ -3055,7 +3085,7 @@ function demoFormRecord() {
   data.loanHistory = normalizeDemoLoanHistory(demoLoanHistoryDraft);
   data.currentAttachments = normalizeDemoAttachments(demoCurrentAttachmentsDraft);
   data.loanHistoryManaged = true;
-  if (data.manufacturerReturnDate) {
+  if (isPastDate(data.manufacturerReturnDate)) {
     data.status = "ZWRÓCONO";
   } else if (data.returnDate && data.currentUser) {
     data.status = "ZWRÓCONO";
@@ -3065,7 +3095,7 @@ function demoFormRecord() {
   } else if (data.currentUser && !data.loanDate) {
     data.loanDate = todayInputValue();
   }
-  data.status = data.manufacturerReturnDate || (data.status === "ZWRÓCONO" && data.currentUser)
+  data.status = isPastDate(data.manufacturerReturnDate) || (data.status === "ZWRÓCONO" && data.currentUser)
     ? "ZWRÓCONO"
     : demoStatusFromCurrentUser(data.currentUser);
   return data;
@@ -3105,7 +3135,7 @@ function completeDemoLoan(existingRecord, data) {
 
 function prepareDemoLoanData(existingRecord, data) {
   const history = normalizeDemoLoanHistory(data.loanHistory ?? existingRecord?.loanHistory);
-  if (data.manufacturerReturnDate) {
+  if (isPastDate(data.manufacturerReturnDate)) {
     return { ...data, status: "ZWRÓCONO", loanHistory: history };
   }
   const completesActiveLoan = Boolean(
@@ -3145,7 +3175,7 @@ function syncRepairStatusFromDates() {
 function syncDemoStatusFromCurrentUser(options = {}) {
   const currentUser = document.querySelector("#demoCurrentUser").value;
   const statusInput = document.querySelector("#demoStatus");
-  const manufacturerReturned = Boolean(document.querySelector("#demoManufacturerReturnDate").value);
+  const manufacturerReturned = isPastDate(document.querySelector("#demoManufacturerReturnDate").value);
   const hasCurrentUser = Boolean(String(currentUser).trim());
   if (options.setLoanDate && hasCurrentUser && !document.querySelector("#demoLoanDate").value) {
     document.querySelector("#demoLoanDate").value = todayInputValue();
