@@ -249,19 +249,28 @@ const repairOpenRecordsBody = document.querySelector("#repairOpenRecordsBody");
 const repairOpenEmptyState = document.querySelector("#repairOpenEmptyState");
 const demoRecordsBody = document.querySelector("#demoRecordsBody");
 const demoEmptyState = document.querySelector("#demoEmptyState");
+const demoChecklistBody = document.querySelector("#demoChecklistBody");
+const demoChecklistMeta = document.querySelector("#demoChecklistMeta");
+const printDemoChecklistBtn = document.querySelector("#printDemoChecklistBtn");
 const stockBody = document.querySelector("#stockBody");
 const stockEmptyState = document.querySelector("#stockEmptyState");
+const stockSummary = document.querySelector("#stockSummary");
+const stockChecklistBody = document.querySelector("#stockChecklistBody");
+const stockChecklistMeta = document.querySelector("#stockChecklistMeta");
+const printStockChecklistBtn = document.querySelector("#printStockChecklistBtn");
 const countAllLabel = document.querySelector("#countAllLabel");
 const countSoldLabel = document.querySelector("#countSoldLabel");
 const countInvoiceLabel = document.querySelector("#countInvoiceLabel");
 const countStockLabel = document.querySelector("#countStockLabel");
 const searchInput = document.querySelector("#searchInput");
 const typeFilter = document.querySelector("#typeFilter");
+const ezwmFilter = document.querySelector("#ezwmFilter");
 const typeSelect = document.querySelector("#type");
 const fifoFilter = document.querySelector("#fifoFilter");
 const repairSearchInput = document.querySelector("#repairSearchInput");
 const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
+const repairLocationFilter = document.querySelector("#repairLocationFilter");
 const demoSearchInput = document.querySelector("#demoSearchInput");
 const demoStatusFilter = document.querySelector("#demoStatusFilter");
 const demoManufacturerFilter = document.querySelector("#demoManufacturerFilter");
@@ -418,7 +427,13 @@ async function loadSupabaseIds(tableName, options = {}) {
 
 async function upsertSupabaseRecord(tableName, record) {
   setConnectionStatus("syncing", "Zapisywanie...");
-  const { error } = await supabaseClient.from(tableName).upsert(supabaseRecordRow(record), { onConflict: "id" });
+  let error;
+  try {
+    ({ error } = await supabaseClient.from(tableName).upsert(supabaseRecordRow(record), { onConflict: "id" }));
+  } catch (requestError) {
+    setConnectionStatus("error", "Brak połączenia");
+    throw new Error(`Nie udało się połączyć z Supabase podczas zapisu. Sprawdź internet i spróbuj ponownie. Szczegóły: ${requestError.message}`);
+  }
   if (error) {
     setConnectionStatus("error", "Błąd zapisu");
     throw new Error(`Nie udało się zapisać danych w Supabase: ${error.message}`);
@@ -921,6 +936,95 @@ function normalizeSalesInvoiceInput(value) {
   return String(value ?? "").toLocaleUpperCase("pl-PL");
 }
 
+function normalizeDeviceName(value) {
+  return String(value ?? "")
+    .replace(/[-‐‑‒–—]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function damerauLevenshtein(leftValue, rightValue) {
+  const left = [...String(leftValue)];
+  const right = [...String(rightValue)];
+  const matrix = Array.from({ length: left.length + 1 }, () => Array(right.length + 1).fill(0));
+
+  for (let row = 0; row <= left.length; row += 1) matrix[row][0] = row;
+  for (let column = 0; column <= right.length; column += 1) matrix[0][column] = column;
+
+  for (let row = 1; row <= left.length; row += 1) {
+    for (let column = 1; column <= right.length; column += 1) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      matrix[row][column] = Math.min(
+        matrix[row - 1][column] + 1,
+        matrix[row][column - 1] + 1,
+        matrix[row - 1][column - 1] + cost
+      );
+      if (
+        row > 1 &&
+        column > 1 &&
+        left[row - 1] === right[column - 2] &&
+        left[row - 2] === right[column - 1]
+      ) {
+        matrix[row][column] = Math.min(matrix[row][column], matrix[row - 2][column - 2] + cost);
+      }
+    }
+  }
+
+  return matrix[left.length][right.length];
+}
+
+function deviceNameTokenCandidates(currentId = "") {
+  const candidates = new Map();
+
+  records.forEach((record) => {
+    if (record.id === currentId) return;
+    const displayToken = normalizeDeviceName(record.deviceName).split(" ")[0];
+    const token = displayToken.toLocaleUpperCase("pl-PL");
+    if (!/^\p{L}{4,}$/u.test(token)) return;
+    const candidate = candidates.get(token) || { token, count: 0, displayForms: new Map() };
+    candidate.count += 1;
+    candidate.displayForms.set(displayToken, (candidate.displayForms.get(displayToken) || 0) + 1);
+    candidates.set(token, candidate);
+  });
+
+  return [...candidates.values()]
+    .filter((candidate) => candidate.count >= 3)
+    .map((candidate) => ({
+      token: candidate.token,
+      count: candidate.count,
+      displayToken: [...candidate.displayForms.entries()]
+        .sort((left, right) => right[1] - left[1])[0][0]
+    }));
+}
+
+function correctDeviceNameFromHistory(value, currentId = "") {
+  const name = normalizeDeviceName(value);
+  if (!name) return "";
+
+  const parts = name.split(" ");
+  const enteredToken = parts[0].toLocaleUpperCase("pl-PL");
+  if (!/^\p{L}{4,}$/u.test(enteredToken)) return name;
+
+  const candidates = deviceNameTokenCandidates(currentId);
+  if (candidates.some((candidate) => candidate.token === enteredToken)) return name;
+
+  const maximumDistance = enteredToken.length >= 7 ? 2 : 1;
+  const matches = candidates
+    .map((candidate) => ({
+      ...candidate,
+      distance: damerauLevenshtein(enteredToken, candidate.token)
+    }))
+    .filter((candidate) => candidate.distance <= maximumDistance)
+    .sort((left, right) => left.distance - right.distance || right.count - left.count);
+
+  const best = matches[0];
+  const runnerUp = matches[1];
+  if (!best || (runnerUp && runnerUp.distance === best.distance)) return name;
+
+  parts[0] = best.displayToken;
+  return parts.join(" ");
+}
+
 function serialMatches(serialNumber, source, currentId) {
   const checkedSerial = normalizeSerialNumber(serialNumber);
   if (!checkedSerial) return [];
@@ -966,7 +1070,7 @@ function formatDaysLabel(days) {
 }
 
 function fifoLevel(record) {
-  if (isSold(record)) return "";
+  if (isFifoExcluded(record)) return "";
   const age = stockAge(record);
   if (age === null) return "";
   if (age >= 180) return "critical";
@@ -980,6 +1084,10 @@ function isInStock(record) {
 
 function isSold(record) {
   return normalizeDeviceType(record.type) === "SPRZEDANY";
+}
+
+function isFifoExcluded(record) {
+  return ["SPRZEDANY", "ZWROT"].includes(displayType(record));
 }
 
 function normalizeDeviceType(type) {
@@ -1018,11 +1126,13 @@ function normalizeRepairRecordForUse(record) {
 
 function normalizeDeviceRecordForUse(record) {
   const normalizedRecord = { ...record };
+  normalizedRecord.deviceName = normalizeDeviceName(normalizedRecord.deviceName);
   normalizedRecord.customerName = titleCaseName(normalizedRecord.customerName);
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
   normalizedRecord.salesInvoice = normalizeSalesInvoice(normalizedRecord.salesInvoice);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.type = normalizeDeviceType(normalizedRecord.type || "NA STANIE");
+  if (normalizedRecord.type === "NA STANIE") normalizedRecord.location = "P63";
   normalizedRecord.ezwm = normalizeEzwmStatus(normalizedRecord.ezwm);
   return normalizedRecord;
 }
@@ -1141,6 +1251,16 @@ function fileToDataUrl(file) {
   });
 }
 
+function dataUrlToBlob(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) throw new Error("Nie udało się odczytać lokalnego załącznika.");
+  const [, type, encoded] = match;
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type });
+}
+
 function safeAttachmentFileName(value) {
   return String(value || "zalacznik")
     .normalize("NFKD")
@@ -1150,24 +1270,41 @@ function safeAttachmentFileName(value) {
 }
 
 async function uploadDemoAttachment(recordId, attachment) {
-  if (!attachment.file) {
+  if (attachment.path && !attachment.file) {
     const { file, ...storedAttachment } = attachment;
-    return storedAttachment;
+    return { ...storedAttachment, dataUrl: "" };
   }
 
   if (!hasSupabaseConfig) {
+    if (!attachment.file) return attachment;
     const { file, ...storedAttachment } = attachment;
     return { ...storedAttachment, dataUrl: await fileToDataUrl(file) };
   }
 
+  const uploadBody = attachment.file || dataUrlToBlob(attachment.dataUrl);
+  if (!DEMO_ATTACHMENT_TYPES.has(uploadBody.type) || uploadBody.size > DEMO_ATTACHMENT_MAX_BYTES) {
+    throw new Error(`${attachment.name}: nieprawidłowy format lub plik większy niż 10 MB.`);
+  }
   const path = `${currentSupabaseUser?.id || "shared"}/${recordId}/${attachment.id}-${safeAttachmentFileName(attachment.name)}`;
-  const { error } = await supabaseClient.storage.from(DEMO_ATTACHMENTS_BUCKET).upload(path, attachment.file, {
-    cacheControl: "3600",
-    contentType: attachment.type,
-    upsert: true
-  });
-  if (error) throw new Error(`Nie udało się wysłać załącznika ${attachment.name}: ${error.message}`);
-  return { id: attachment.id, name: attachment.name, type: attachment.type, size: attachment.size, path, dataUrl: "" };
+  let error;
+  try {
+    ({ error } = await supabaseClient.storage.from(DEMO_ATTACHMENTS_BUCKET).upload(path, uploadBody, {
+      cacheControl: "3600",
+      contentType: uploadBody.type || attachment.type,
+      upsert: true
+    }));
+  } catch (requestError) {
+    throw new Error(`Nie udało się połączyć z Supabase Storage podczas wysyłania ${attachment.name}. Szczegóły: ${requestError.message}`);
+  }
+  if (error) {
+    const bucketMissing = /bucket not found/i.test(error.message || "");
+    throw new Error(
+      bucketMissing
+        ? "Brak magazynu załączników w Supabase. Uruchom plik supabase-attachments.sql w Supabase SQL Editor."
+        : `Nie udało się wysłać załącznika ${attachment.name}: ${error.message}`
+    );
+  }
+  return { id: attachment.id, name: attachment.name, type: uploadBody.type || attachment.type, size: uploadBody.size || attachment.size, path, dataUrl: "" };
 }
 
 async function prepareDemoAttachmentsForSave(recordId) {
@@ -1178,6 +1315,17 @@ async function prepareDemoAttachmentsForSave(recordId) {
       attachments: await Promise.all(normalizeDemoAttachments(entry.attachments).map((attachment) => uploadDemoAttachment(recordId, attachment)))
     }))
   );
+}
+
+function assertDemoRecordReadyForSupabase(record) {
+  if (!hasSupabaseConfig) return;
+  const attachments = [
+    ...normalizeDemoAttachments(record.currentAttachments),
+    ...normalizeDemoLoanHistory(record.loanHistory).flatMap((entry) => entry.attachments)
+  ];
+  if (attachments.some((attachment) => attachment.dataUrl || attachment.file || !attachment.path)) {
+    throw new Error("Nie wszystkie załączniki zostały wysłane do Supabase Storage. Spróbuj zapisać ponownie.");
+  }
 }
 
 function demoAttachmentPaths(record) {
@@ -1267,7 +1415,9 @@ function renderDemoCurrentAttachments() {
 }
 
 function normalizeDeviceRecordsForUse(recordsToNormalize) {
-  return recordsToNormalize.map(normalizeDeviceRecordForUse);
+  return recordsToNormalize
+    .map(normalizeDeviceRecordForUse)
+    .filter(hasValidDeviceIdentity);
 }
 
 function normalizeRepairRecordsForUse(recordsToNormalize) {
@@ -1394,6 +1544,18 @@ function displayType(record) {
   return normalizeDeviceType(record.type);
 }
 
+function hasValidStockIdentity(record) {
+  const deviceName = String(record.deviceName ?? "").trim();
+  const serialNumber = normalizeSerialNumber(record.serialNumber);
+  return Boolean(deviceName && serialNumber && !/^(BRAK NUMERU|FV)$/u.test(serialNumber));
+}
+
+function hasValidDeviceIdentity(record) {
+  const deviceName = normalizeDeviceName(record.deviceName);
+  const serialNumber = normalizeSerialNumber(record.serialNumber);
+  return Boolean(deviceName || (serialNumber && !/^(BRAK NUMERU|FV)$/u.test(serialNumber)));
+}
+
 function shouldAutoSetDeviceType(data) {
   return Boolean(String(data.returnDate ?? "").trim() || String(data.customerName ?? "").trim() || String(data.salesInvoice ?? "").trim());
 }
@@ -1422,8 +1584,9 @@ function rebuildDeviceDerivedData() {
   records.forEach((record) => {
     const display = displayType(record);
     const sold = display === "SPRZEDANY";
-    const inStock = display === "NA STANIE";
-    const age = sold ? null : stockAge(record);
+    const fifoExcluded = sold || display === "ZWROT";
+    const inStock = display === "NA STANIE" && hasValidStockIdentity(record);
+    const age = fifoExcluded ? null : stockAge(record);
     const location = normalizeRepairLocation(record.location);
 
     if (sold) deviceStats.sold += 1;
@@ -1433,10 +1596,11 @@ function rebuildDeviceDerivedData() {
     deviceDerived.set(record.id, {
       displayType: display,
       isSold: sold,
+      fifoExcluded,
       isInStock: inStock,
       age,
-      fifoLevel: sold ? "" : age === null ? "" : age >= 180 ? "critical" : age >= 90 ? "warning" : "",
-      ageLevel: sold ? "sold" : age === null ? "missing" : age >= 180 ? "critical" : age >= 90 ? "warning" : age >= 30 ? "aging" : "fresh",
+      fifoLevel: fifoExcluded ? "" : age === null ? "" : age >= 180 ? "critical" : age >= 90 ? "warning" : "",
+      ageLevel: fifoExcluded ? "" : age === null ? "missing" : age >= 180 ? "critical" : age >= 90 ? "warning" : age >= 30 ? "aging" : "fresh",
       location,
       searchBlob: fields.map((field) => normalize(record[field])).join("\n")
     });
@@ -1670,20 +1834,23 @@ function deviceSortValue(record, key) {
 function filteredRecords() {
   const query = normalize(searchInput.value).trim();
   const selectedType = typeFilter.value;
+  const selectedEzwm = ezwmFilter.value;
   const selectedFifo = fifoFilter.value;
 
   return records
     .filter((record) => {
       const meta = deviceDerived.get(record.id);
       const matchesType = !selectedType || meta?.displayType === selectedType;
+      const ezwm = normalizeEzwmStatus(record.ezwm);
+      const matchesEzwm = !selectedEzwm || (selectedEzwm === "BRAK" ? !ezwm : ezwm === selectedEzwm);
       const age = meta?.age ?? null;
       const matchesFifo =
         !selectedFifo ||
-        (!meta?.isSold && selectedFifo === "fifo") ||
-        (!meta?.isSold && selectedFifo === "90" && age !== null && age >= 90) ||
-        (!meta?.isSold && selectedFifo === "180" && age !== null && age >= 180);
+        (!meta?.fifoExcluded && selectedFifo === "fifo") ||
+        (!meta?.fifoExcluded && selectedFifo === "90" && age !== null && age >= 90) ||
+        (!meta?.fifoExcluded && selectedFifo === "180" && age !== null && age >= 180);
       const matchesQuery = !query || meta?.searchBlob.includes(query);
-      return matchesType && matchesFifo && matchesQuery;
+      return matchesType && matchesEzwm && matchesFifo && matchesQuery;
     })
     .sort((left, right) => {
       if (selectedFifo) {
@@ -1768,22 +1935,73 @@ function renderDemoRecords() {
   const visibleRecords = filteredDemoRecords();
   renderTableRows(demoRecordsBody, visibleRecords.map(createDemoRow));
   demoEmptyState.hidden = visibleRecords.length > 0;
+  renderDemoChecklist(visibleRecords);
+}
+
+function renderDemoChecklist(visibleRecords) {
+  demoChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${visibleRecords.length} aparatów demo zgodnych z filtrami`;
+  printDemoChecklistBtn.disabled = visibleRecords.length === 0;
+
+  const rows = visibleRecords.map((record, index) => {
+    const meta = demoDerived.get(record.id);
+    const row = document.createElement("tr");
+    const checkbox = document.createElement("span");
+    checkbox.className = "checklist-box";
+    checkbox.setAttribute("aria-hidden", "true");
+    const model = [record.manufacturer, record.deviceName].filter(Boolean).join(" · ");
+
+    const values = [
+      String(index + 1),
+      checkbox,
+      meta?.status ?? demoStatus(record),
+      model,
+      record.serialNumber,
+      meta?.locationGroup ?? demoLocationGroup(record),
+      record.currentUser,
+      ""
+    ];
+
+    values.forEach((value) => {
+      const cell = document.createElement("td");
+      if (value instanceof HTMLElement) {
+        cell.append(value);
+      } else {
+        cell.textContent = value || "";
+      }
+      row.append(cell);
+    });
+    return row;
+  });
+
+  renderTableRows(demoChecklistBody, rows);
+}
+
+function printDemoChecklist() {
+  if (printDemoChecklistBtn.disabled) return;
+
+  const cleanup = () => document.body.classList.remove("demo-checklist-print");
+  document.body.classList.add("demo-checklist-print");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  window.print();
 }
 
 function filteredRepairRecords() {
   const query = normalize(repairSearchInput.value).trim();
   const selectedCategory = repairCategoryFilter.value;
   const selectedStatus = repairStatusFilter.value;
+  const selectedLocation = repairLocationFilter.value;
 
   const matchingRecords = repairRecords
     .filter((record) => {
       const meta = repairDerived.get(record.id);
       const category = meta?.category ?? normalizeRepairCategory(record.category);
       const status = meta?.status ?? effectiveRepairStatus(record);
+      const location = meta?.location ?? normalizeRepairLocation(record.location);
       const matchesCategory = !selectedCategory || category === selectedCategory;
       const matchesStatus = !selectedStatus || status === selectedStatus;
+      const matchesLocation = !selectedLocation || location === selectedLocation;
       const matchesQuery = !query || meta?.searchBlob.includes(query);
-      return matchesCategory && matchesStatus && matchesQuery;
+      return matchesCategory && matchesStatus && matchesLocation && matchesQuery;
     });
 
   return sortRepairRecords(matchingRecords);
@@ -2079,7 +2297,7 @@ function showDemoReturnReminder() {
 
 function createAgePill(record) {
   const meta = deviceDerived.get(record.id);
-  if (meta?.isSold ?? isSold(record)) return "";
+  if (meta?.fifoExcluded ?? isFifoExcluded(record)) return "";
   const age = meta?.age ?? stockAge(record);
   const pill = document.createElement("span");
   const level = meta?.ageLevel ?? ageLevel(record, age);
@@ -2089,7 +2307,7 @@ function createAgePill(record) {
 }
 
 function ageLevel(record, age = stockAge(record)) {
-  if (isSold(record)) return "sold";
+  if (isFifoExcluded(record)) return "";
   if (age === null) return "missing";
   if (age >= 180) return "critical";
   if (age >= 90) return "warning";
@@ -2401,6 +2619,59 @@ function renderStockView() {
 
   renderTableRows(stockBody, groups.map(createStockRow));
   stockEmptyState.hidden = groups.length > 0;
+  renderStockChecklist(stockRecords);
+}
+
+function renderStockChecklist(stockRecords) {
+  const sortedRecords = [...stockRecords].sort((left, right) => {
+    const byName = collator.compare(left.deviceName, right.deviceName);
+    if (byName) return byName;
+    const byLocation = collator.compare(normalizeRepairLocation(left.location), normalizeRepairLocation(right.location));
+    if (byLocation) return byLocation;
+    return collator.compare(left.serialNumber, right.serialNumber);
+  });
+
+  stockSummary.textContent = `${sortedRecords.length} aparatów`;
+  stockChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${sortedRecords.length} aparatów na stanie`;
+  printStockChecklistBtn.disabled = sortedRecords.length === 0;
+
+  const rows = sortedRecords.map((record, index) => {
+    const row = document.createElement("tr");
+    const checkbox = document.createElement("span");
+    checkbox.className = "checklist-box";
+    checkbox.setAttribute("aria-hidden", "true");
+
+    const values = [
+      String(index + 1),
+      checkbox,
+      record.deviceName,
+      record.serialNumber,
+      normalizeRepairLocation(record.location),
+      ""
+    ];
+
+    values.forEach((value) => {
+      const cell = document.createElement("td");
+      if (value instanceof HTMLElement) {
+        cell.append(value);
+      } else {
+        cell.textContent = value;
+      }
+      row.append(cell);
+    });
+    return row;
+  });
+
+  renderTableRows(stockChecklistBody, rows);
+}
+
+function printStockChecklist() {
+  if (printStockChecklistBtn.disabled) return;
+
+  const cleanup = () => document.body.classList.remove("stock-checklist-print");
+  document.body.classList.add("stock-checklist-print");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  window.print();
 }
 
 function groupStockRecords(stockRecords) {
@@ -2409,7 +2680,8 @@ function groupStockRecords(stockRecords) {
   stockRecords.forEach((record) => {
     const name = String(record.deviceName ?? "").trim() || "Bez nazwy";
     const location = normalizeRepairLocation(record.location);
-    const key = `${name}__${location}`;
+    const normalizedName = normalize(name).replace(/[\s_-]+/g, " ").trim();
+    const key = `${normalizedName}__${location}`;
     if (!groups.has(key)) {
       groups.set(key, {
         deviceName: name,
@@ -2591,7 +2863,7 @@ function openDemoDialog(record = null) {
   document.querySelector("#demoReturnDate").dataset.autoValue = "";
   document.querySelector("#demoManufacturerReturnDate").dataset.autoValue = "";
   document.querySelector("#demoId").value = record?.id ?? "";
-  demoDialogTitle.textContent = record ? "Edytuj aparat demo" : "Dodaj aparat demo";
+  demoDialogTitle.textContent = record ? demoDialogTitleForRecord(record) : "Dodaj aparat demo";
   demoRecordEyebrow.textContent = record
     ? `${demoRecords.findIndex((item) => item.id === record.id) + 1}/${demoRecords.length}`
     : "Nowy wpis";
@@ -2639,6 +2911,11 @@ function openDemoDialog(record = null) {
   renderDemoCurrentAttachments();
   renderDemoLoanHistory(record);
   demoDialog.showModal();
+}
+
+function demoDialogTitleForRecord(record) {
+  const model = String(record?.deviceName || "").trim();
+  return model || "Aparat demo";
 }
 
 function renderDemoLoanHistory(record) {
@@ -2717,11 +2994,13 @@ function formRecord() {
   fields.forEach((field) => {
     data[field] = String(data[field] ?? "").trim();
   });
+  data.deviceName = correctDeviceNameFromHistory(data.deviceName, document.querySelector("#recordId").value);
   data.customerName = titleCaseName(data.customerName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.salesInvoice = normalizeSalesInvoice(data.salesInvoice);
   data.location = normalizeRepairLocation(data.location);
   data.type = normalizeDeviceType(data.type || "NA STANIE");
+  if (data.type === "NA STANIE") data.location = "P63";
   data.ezwm = normalizeEzwmStatus(data.ezwm);
   return data;
 }
@@ -2734,6 +3013,14 @@ function syncDeviceTypeFromFields() {
   const currentType = normalizeDeviceType(typeInput.value || "NA STANIE");
   const nextType = shouldAutoSetDeviceType(data) ? suggestedDeviceType(data, currentType) : "NA STANIE";
   typeInput.value = nextType;
+  if (nextType === "NA STANIE") document.querySelector("#location").value = "P63";
+  updateDeviceTypeSelectStyles();
+}
+
+function syncStockLocationFromType() {
+  if (normalizeDeviceType(typeSelect.value) === "NA STANIE") {
+    document.querySelector("#location").value = "P63";
+  }
   updateDeviceTypeSelectStyles();
 }
 
@@ -2762,15 +3049,19 @@ function demoFormRecord() {
   data.loanHistory = normalizeDemoLoanHistory(demoLoanHistoryDraft);
   data.currentAttachments = normalizeDemoAttachments(demoCurrentAttachmentsDraft);
   data.loanHistoryManaged = true;
-  if (data.returnDate && (data.currentUser || data.loanDate)) {
+  if (data.manufacturerReturnDate) {
+    data.status = "ZWRÓCONO";
+  } else if (data.returnDate && data.currentUser) {
     data.status = "ZWRÓCONO";
   }
-  if (data.status === "ZWRÓCONO") {
+  if (!data.manufacturerReturnDate && data.status === "ZWRÓCONO" && data.currentUser) {
     if (!data.returnDate) data.returnDate = todayInputValue();
   } else if (data.currentUser && !data.loanDate) {
     data.loanDate = todayInputValue();
   }
-  data.status = data.status === "ZWRÓCONO" ? "ZWRÓCONO" : demoStatusFromCurrentUser(data.currentUser);
+  data.status = data.manufacturerReturnDate || (data.status === "ZWRÓCONO" && data.currentUser)
+    ? "ZWRÓCONO"
+    : demoStatusFromCurrentUser(data.currentUser);
   return data;
 }
 
@@ -2797,7 +3088,7 @@ function completeDemoLoan(existingRecord, data) {
 
   return {
     ...data,
-    status: "ZWRÓCONO",
+    status: "NA STANIE",
     currentUser: "",
     loanDate: "",
     returnDate,
@@ -2807,13 +3098,16 @@ function completeDemoLoan(existingRecord, data) {
 }
 
 function prepareDemoLoanData(existingRecord, data) {
+  const history = normalizeDemoLoanHistory(data.loanHistory ?? existingRecord?.loanHistory);
+  if (data.manufacturerReturnDate) {
+    return { ...data, status: "ZWRÓCONO", loanHistory: history };
+  }
   const completesActiveLoan = Boolean(
-    data.returnDate && (data.currentUser || data.loanDate || existingRecord?.currentUser || existingRecord?.loanDate)
+    data.returnDate && (data.currentUser || existingRecord?.currentUser)
   );
   if (data.status === "ZWRÓCONO" || completesActiveLoan) {
     return completeDemoLoan(existingRecord, { ...data, status: "ZWRÓCONO" });
   }
-  const history = normalizeDemoLoanHistory(data.loanHistory ?? existingRecord?.loanHistory);
   if (data.currentUser && existingRecord?.status === "ZWRÓCONO") {
     return { ...data, status: "WYPOŻYCZONY", loanDate: data.loanDate || todayInputValue(), returnDate: "", loanHistory: history };
   }
@@ -2845,14 +3139,17 @@ function syncRepairStatusFromDates() {
 function syncDemoStatusFromCurrentUser(options = {}) {
   const currentUser = document.querySelector("#demoCurrentUser").value;
   const statusInput = document.querySelector("#demoStatus");
-  if (statusInput.value === "ZWRÓCONO" && !String(currentUser).trim()) return;
-  if (options.setLoanDate && String(currentUser).trim() && !document.querySelector("#demoLoanDate").value) {
+  const manufacturerReturned = Boolean(document.querySelector("#demoManufacturerReturnDate").value);
+  const hasCurrentUser = Boolean(String(currentUser).trim());
+  if (options.setLoanDate && hasCurrentUser && !document.querySelector("#demoLoanDate").value) {
     document.querySelector("#demoLoanDate").value = todayInputValue();
   }
-  if (String(currentUser).trim() && statusInput.value === "ZWRÓCONO") {
+  if (hasCurrentUser) {
     document.querySelector("#demoReturnDate").value = "";
+  } else if (options.clearLoanWhenEmpty) {
+    document.querySelector("#demoLoanDate").value = "";
   }
-  statusInput.value = demoStatusFromCurrentUser(currentUser);
+  statusInput.value = manufacturerReturned ? "ZWRÓCONO" : demoStatusFromCurrentUser(currentUser);
 }
 
 function syncDemoReturnedStatus() {
@@ -2881,20 +3178,20 @@ function syncDemoManufacturerReturnDate() {
   const nextAutoValue = calculateDemoManufacturerReturnDate();
   if (!input.value || input.value === previousAutoValue) input.value = nextAutoValue;
   input.dataset.autoValue = nextAutoValue;
+  syncDemoStatusFromCurrentUser();
 }
 
 function markDemoManufacturerReturnDateChange() {
   const input = document.querySelector("#demoManufacturerReturnDate");
   if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
+  syncDemoStatusFromCurrentUser();
 }
 
 function markDemoReturnDateChange() {
   const input = document.querySelector("#demoReturnDate");
   if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
   const statusInput = document.querySelector("#demoStatus");
-  const hasActiveLoan = Boolean(
-    document.querySelector("#demoCurrentUser").value.trim() || document.querySelector("#demoLoanDate").value
-  );
+  const hasActiveLoan = Boolean(document.querySelector("#demoCurrentUser").value.trim());
   if (input.value && hasActiveLoan) {
     statusInput.value = "ZWRÓCONO";
   } else if (!input.value && statusInput.value === "ZWRÓCONO" && hasActiveLoan) {
@@ -2909,7 +3206,7 @@ function syncDemoUppercaseInput(event) {
 
 function formatDemoCurrentUserInput(event) {
   event.target.value = titleCaseNameInput(event.target.value);
-  syncDemoStatusFromCurrentUser({ setLoanDate: true });
+  syncDemoStatusFromCurrentUser({ setLoanDate: true, clearLoanWhenEmpty: true });
 }
 
 function finalizeDemoCurrentUserInput(event) {
@@ -2920,6 +3217,13 @@ function syncSalesInvoiceUppercase(event) {
   event.target.value = normalizeSalesInvoiceInput(event.target.value);
   syncDeviceTypeFromFields();
 }
+
+function correctDeviceNameInput() {
+  const input = document.querySelector("#deviceName");
+  input.value = correctDeviceNameFromHistory(input.value, document.querySelector("#recordId").value);
+}
+
+const scheduleDeviceNameCorrection = debounce(correctDeviceNameInput, 450);
 
 function handleClearDateClick(event) {
   const button = event.target.closest(".clear-date-btn");
@@ -3063,6 +3367,7 @@ async function saveDemoFormRecord(event) {
     await prepareDemoAttachmentsForSave(recordId);
     data = prepareDemoLoanData(existingRecord, demoFormRecord());
     savedRecord = { ...(existingRecord || {}), id: recordId, ...data };
+    assertDemoRecordReadyForSupabase(savedRecord);
     if (id) {
       demoRecords = demoRecords.map((record) => (record.id === id ? savedRecord : record));
     } else {
@@ -3128,7 +3433,7 @@ function exportCsv() {
   ];
   const rows = filteredRecords().map((record) => [
     record.receivedDate ?? "",
-    isSold(record) ? "" : stockAge(record) ?? "",
+    isFifoExcluded(record) ? "" : stockAge(record) ?? "",
     record.deviceName ?? "",
     record.serialNumber ?? "",
     displayType(record),
@@ -3386,6 +3691,9 @@ function normalizeImportedRecordFields(record, allowedFields) {
   if ("type" in normalizedRecord) {
     normalizedRecord.type = normalizeDeviceType(normalizedRecord.type || "NA STANIE");
   }
+  if ("deviceName" in normalizedRecord) {
+    normalizedRecord.deviceName = normalizeDeviceName(normalizedRecord.deviceName);
+  }
 
   ["receivedDate", "sentDate", "returnDate", "pickupDate"].forEach((field) => {
     if (field in normalizedRecord) {
@@ -3441,12 +3749,14 @@ document.querySelector("#addBtn").addEventListener("click", () => openDialog());
 document.querySelector("#exportBtn").addEventListener("click", () => chooseExportFormat(exportCsv, exportJson));
 document.querySelector("#importBtn").addEventListener("click", () => importInput.click());
 document.querySelector("#printBtn").addEventListener("click", () => window.print());
+printStockChecklistBtn.addEventListener("click", printStockChecklist);
 document.querySelector("#addRepairBtn").addEventListener("click", () => openRepairDialog());
 document.querySelector("#exportRepairBtn").addEventListener("click", () => chooseExportFormat(exportRepairCsv, exportRepairJson));
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
 document.querySelector("#printRepairBtn").addEventListener("click", () => window.print());
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
 document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJson);
+printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 document.querySelector("#closeDialogBtn").addEventListener("click", closeDialog);
 document.querySelector("#cancelBtn").addEventListener("click", closeDialog);
 document.querySelector("#closeRepairDialogBtn").addEventListener("click", closeRepairDialog);
@@ -3464,14 +3774,18 @@ repairForm.addEventListener("click", handleClearDateClick);
 demoForm.addEventListener("click", handleClearDateClick);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
+document.querySelector("#deviceName").addEventListener("input", scheduleDeviceNameCorrection);
+document.querySelector("#deviceName").addEventListener("blur", correctDeviceNameInput);
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
-typeSelect.addEventListener("change", updateDeviceTypeSelectStyles);
+typeSelect.addEventListener("change", syncStockLocationFromType);
 searchInput.addEventListener("input", debounce(renderDeviceViews, SEARCH_DEBOUNCE_MS));
 typeFilter.addEventListener("change", render);
+ezwmFilter.addEventListener("change", render);
 fifoFilter.addEventListener("change", render);
 repairSearchInput.addEventListener("input", debounce(renderRepairRecords, SEARCH_DEBOUNCE_MS));
 repairCategoryFilter.addEventListener("change", render);
 repairStatusFilter.addEventListener("change", render);
+repairLocationFilter.addEventListener("change", render);
 demoSearchInput.addEventListener("input", debounce(renderDemoRecords, SEARCH_DEBOUNCE_MS));
 demoStatusFilter.addEventListener("change", render);
 demoManufacturerFilter.addEventListener("change", render);
