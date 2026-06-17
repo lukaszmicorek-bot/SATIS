@@ -1139,6 +1139,22 @@ td.row-actions {
   font-weight: 750;
 }
 
+.demo-purpose-pill {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 20px;
+  align-items: center;
+  border-radius: 7px;
+  padding: 2px 6px;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.demo-purpose-pill.replacement {
+  color: #5e6040;
+  background: #eef1d8;
+}
+
 .status-pill.NA-STANIE {
   color: #1f4f79;
   background: #dbeeff;
