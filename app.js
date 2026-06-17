@@ -17,6 +17,8 @@ const DEMO_RETURN_CRITICAL_DAYS = 14;
 const DEMO_LOAN_DAYS = 14;
 const DEMO_RETURN_REMINDER_STORAGE_KEY = "zeszyt-aparatow-demo-return-reminder-last-shown";
 const DEMO_RETURN_REMINDER_INTERVAL_MS = 60 * 60 * 1000;
+const DEMO_PURPOSE_TEST = "DO TESTOWANIA";
+const DEMO_PURPOSE_REPLACEMENT = "APARAT ZASTĘPCZY";
 const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
@@ -225,6 +227,7 @@ const demoFields = [
   "deviceName",
   "serialNumber",
   "status",
+  "purpose",
   "location",
   "currentUser",
   "loanDate",
@@ -1147,10 +1150,25 @@ function normalizeDemoRecordForUse(record) {
   normalizedRecord.manufacturer = normalizedRecord.manufacturer.toLocaleUpperCase("pl-PL");
   normalizedRecord.currentUser = titleCaseName(normalizedRecord.currentUser);
   normalizedRecord.status = normalizeDemoStatus(normalizedRecord.status, normalizedRecord);
+  normalizedRecord.purpose = normalizeDemoPurpose(normalizedRecord.purpose);
+  normalizedRecord.location = normalizeDemoLocation(normalizedRecord.location);
   normalizedRecord.loanHistory = normalizeDemoLoanHistory(normalizedRecord.loanHistory);
   normalizedRecord.currentAttachments = normalizeDemoAttachments(normalizedRecord.currentAttachments);
   normalizedRecord.sourceRow = String(normalizedRecord.sourceRow ?? "").trim();
   return normalizedRecord;
+}
+
+function normalizeDemoPurpose(value) {
+  const normalizedPurpose = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
+  if (
+    normalizedPurpose === DEMO_PURPOSE_REPLACEMENT ||
+    normalizedPurpose.includes("ZASTĘPC") ||
+    normalizedPurpose.includes("ZASTEPC") ||
+    normalizedPurpose.includes("ZAMIEN")
+  ) {
+    return DEMO_PURPOSE_REPLACEMENT;
+  }
+  return DEMO_PURPOSE_TEST;
 }
 
 function normalizeDemoLoanHistory(history) {
@@ -1660,6 +1678,7 @@ function rebuildDemoDerivedData() {
     const returnDeadline = deadline.date;
     const returnDays = daysUntilDate(returnDeadline);
     const returnLevel = status === "ZWRÓCONO" ? "" : demoReturnLevel(returnDays, deadline.source);
+    const purpose = normalizeDemoPurpose(record.purpose);
     const historyText = normalizeDemoLoanHistory(record.loanHistory)
       .flatMap((entry) => [entry.currentUser, entry.loanDate, entry.returnDate])
       .join(" ");
@@ -1672,11 +1691,12 @@ function rebuildDemoDerivedData() {
       locationGroup,
       issues,
       manufacturer: normalize(record.manufacturer).trim(),
+      purpose,
       returnDeadline,
       returnDays,
       returnLevel,
       returnSource: deadline.source,
-      searchBlob: [...demoFields.map((field) => record[field]), historyText, status, locationGroup, returnDeadline, ...issues].map(normalize).join("\n")
+      searchBlob: [...demoFields.map((field) => record[field]), historyText, status, purpose, locationGroup, returnDeadline, ...issues].map(normalize).join("\n")
     });
   });
 }
@@ -2125,6 +2145,9 @@ function createDemoRow(record) {
   statusPill.textContent = meta?.status || "NA STANIE";
   statusWrap.append(statusPill);
 
+  const purposePill = createDemoPurposePill(meta?.purpose ?? record.purpose);
+  if (purposePill) statusWrap.append(purposePill);
+
   if (meta?.issues.length) {
     const quality = document.createElement("span");
     quality.className = "demo-quality";
@@ -2164,6 +2187,15 @@ function createDemoRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createDemoPurposePill(value) {
+  const purpose = normalizeDemoPurpose(value);
+  if (purpose !== DEMO_PURPOSE_REPLACEMENT) return null;
+  const pill = document.createElement("span");
+  pill.className = "demo-purpose-pill replacement";
+  pill.textContent = "Aparat zastępczy";
+  return pill;
 }
 
 function createDemoCurrentUser(currentUser, loanDate = "") {
@@ -2907,6 +2939,7 @@ function openDemoDialog(record = null) {
     returnDate: "#demoReturnDate",
     manufacturer: "#demoManufacturer",
     status: "#demoStatus",
+    purpose: "#demoPurpose",
     deviceName: "#demoDeviceName",
     serialNumber: "#demoSerialNumber",
     location: "#demoLocation",
@@ -2915,7 +2948,7 @@ function openDemoDialog(record = null) {
   };
 
   demoFields.forEach((field) => {
-    document.querySelector(fieldMap[field]).value = record?.[field] ?? "";
+    document.querySelector(fieldMap[field]).value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
   });
 
   if (record) {
@@ -2929,6 +2962,7 @@ function openDemoDialog(record = null) {
   if (!record) {
     document.querySelector("#demoReceivedDate").value = todayInputValue();
     document.querySelector("#demoStatus").value = "NA STANIE";
+    document.querySelector("#demoPurpose").value = DEMO_PURPOSE_TEST;
     document.querySelector("#demoLocation").value = "P63";
   }
   const calculatedManufacturerReturnDate = calculateDemoManufacturerReturnDate();
@@ -3077,6 +3111,7 @@ function demoFormRecord() {
   });
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
+  data.purpose = normalizeDemoPurpose(data.purpose);
   data.location = normalizeDemoLocation(data.location);
   data.currentUser = titleCaseName(data.currentUser);
   data.loanHistory = normalizeDemoLoanHistory(demoLoanHistoryDraft);
