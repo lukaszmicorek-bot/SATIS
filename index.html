@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260617-1">
+    <link rel="stylesheet" href="styles.css?v=20260618-1">
   </head>
   <body>
     <main class="app-shell">
@@ -142,7 +142,7 @@
           <section class="controls demo-controls" aria-label="Narzędzia aparatów demo">
             <label class="search-box">
               <span>Szukaj</span>
-              <input id="demoSearchInput" type="search" placeholder="Producent, model, numer, miejsce...">
+              <input id="demoSearchInput" type="search" placeholder="Producent, nazwa aparatu, numer, miejsce...">
             </label>
             <label>
               <span>Status</span>
@@ -186,10 +186,10 @@
               <thead>
                 <tr>
                   <th data-demo-sort="status">Status</th>
-                  <th data-demo-sort="receivedDate">Data wprowadzenia</th>
+                  <th data-demo-sort="receivedDate">Data przyjęcia</th>
                   <th data-demo-sort="returnDeadline">Termin zwrotu</th>
                   <th data-demo-sort="manufacturer">Producent</th>
-                  <th data-demo-sort="deviceName">Model aparatu</th>
+                  <th data-demo-sort="deviceName">Nazwa aparatu</th>
                   <th data-demo-sort="serialNumber">Numer seryjny</th>
                   <th data-demo-sort="location">Miejsce</th>
                   <th data-demo-sort="currentUser">Aktualnie używany przez</th>
@@ -215,7 +215,7 @@
                   <th>Lp.</th>
                   <th>Sprawdzone</th>
                   <th>Status</th>
-                  <th>Producent / model</th>
+                  <th>Producent / nazwa aparatu</th>
                   <th>Numer seryjny</th>
                   <th>Miejsce</th>
                   <th>Aktualnie używany przez</th>
@@ -234,10 +234,11 @@
 
         <section id="stockView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="stockTab" hidden>
           <section class="stock-toolbar" aria-label="Narzędzia stanu magazynowego">
-            <div>
+            <div class="stock-toolbar-title">
               <strong>Stan magazynowy</strong>
               <span id="stockSummary">0 aparatów</span>
             </div>
+            <div id="stockLocationSummary" class="stock-location-summary" aria-label="Stan według miejsca"></div>
             <button id="printStockChecklistBtn" type="button">Drukuj checklistę</button>
           </section>
           <section class="table-zone stock-zone" aria-label="Aktualna ilość aparatów na stanie">
@@ -592,9 +593,10 @@
         </div>
 
         <input id="demoId" type="hidden">
+        <input id="demoManufacturerReturnDateCleared" name="manufacturerReturnDateCleared" type="hidden">
         <div class="form-grid">
           <label>
-            <span>Data wprowadzenia</span>
+            <span>Data przyjęcia</span>
             <div class="date-input-wrap">
               <input id="demoReceivedDate" name="receivedDate" type="date">
               <button class="clear-date-btn" type="button" data-target="demoReceivedDate" aria-label="Wyczyść datę">×</button>
@@ -613,7 +615,7 @@
             <datalist id="demoManufacturerSuggestions"></datalist>
           </label>
           <label class="highlight-field">
-            <span>Model aparatu</span>
+            <span>Nazwa aparatu</span>
             <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions">
             <datalist id="demoDeviceNameSuggestions"></datalist>
           </label>
@@ -750,6 +752,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260617-1"></script>
+    <script src="app.js?v=20260618-2"></script>
   </body>
 </html>
