@@ -6,6 +6,7 @@ const REPAIR_API_URL = "/api/repair-records";
 const SERVER_REFRESH_MS = 10000;
 const SUPABASE_PAGE_SIZE = 1000;
 const SUPABASE_DELETE_BATCH_SIZE = 200;
+const SUPABASE_WRITE_RETRY_DELAYS = [600, 1600];
 const SUPABASE_DEVICE_TABLE = "device_records";
 const SUPABASE_REPAIR_TABLE = "repair_records";
 const DEMO_ID_PREFIX = "demo-";
@@ -379,6 +380,52 @@ function supabaseRecordRow(record) {
   };
 }
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function errorText(error) {
+  return String(error?.message || error || "");
+}
+
+function isTransientSupabaseError(error) {
+  const message = errorText(error).toLowerCase();
+  return (
+    message.includes("load failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("network error") ||
+    message.includes("fetch") ||
+    message.includes("timeout")
+  );
+}
+
+function supabaseWriteErrorMessage(error) {
+  if (isTransientSupabaseError(error)) {
+    return "Nie udało się połączyć z Supabase podczas zapisu. Sprawdź internet, odśwież stronę i spróbuj ponownie.";
+  }
+  return `Nie udało się zapisać danych w Supabase: ${errorText(error) || "nieznany błąd"}`;
+}
+
+async function retrySupabaseWrite(action) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= SUPABASE_WRITE_RETRY_DELAYS.length; attempt += 1) {
+    try {
+      return await action();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientSupabaseError(error) || attempt === SUPABASE_WRITE_RETRY_DELAYS.length) break;
+      setConnectionStatus("syncing", "Ponawiam zapis...");
+      await wait(SUPABASE_WRITE_RETRY_DELAYS[attempt]);
+    }
+  }
+
+  throw lastError;
+}
+
 async function loadSupabaseTable(tableName, normalizer, options = {}) {
   const loadedRecords = [];
 
@@ -435,28 +482,34 @@ async function loadSupabaseIds(tableName, options = {}) {
 
 async function upsertSupabaseRecord(tableName, record) {
   setConnectionStatus("syncing", "Zapisywanie...");
-  let error;
   try {
-    ({ error } = await supabaseClient.from(tableName).upsert(supabaseRecordRow(record), { onConflict: "id" }));
-  } catch (requestError) {
-    setConnectionStatus("error", "Brak połączenia");
-    throw new Error(`Nie udało się połączyć z Supabase podczas zapisu. Sprawdź internet i spróbuj ponownie. Szczegóły: ${requestError.message}`);
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(tableName).upsert(supabaseRecordRow(record), { onConflict: "id" });
+      if (error) throw error;
+    });
+    setConnectionStatus("online", "Supabase");
+  } catch (error) {
+    setConnectionStatus("error", isTransientSupabaseError(error) ? "Brak połączenia" : "Błąd zapisu");
+    throw new Error(supabaseWriteErrorMessage(error));
   }
-  if (error) {
-    setConnectionStatus("error", "Błąd zapisu");
-    throw new Error(`Nie udało się zapisać danych w Supabase: ${error.message}`);
-  }
-  setConnectionStatus("online", "Supabase");
 }
 
 async function deleteSupabaseRecord(tableName, id) {
   setConnectionStatus("syncing", "Usuwanie...");
-  const { error } = await supabaseClient.from(tableName).delete().eq("id", id);
-  if (error) {
-    setConnectionStatus("error", "Błąd zapisu");
-    throw new Error(`Nie udało się usunąć danych z Supabase: ${error.message}`);
+  try {
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(tableName).delete().eq("id", id);
+      if (error) throw error;
+    });
+    setConnectionStatus("online", "Supabase");
+  } catch (error) {
+    setConnectionStatus("error", isTransientSupabaseError(error) ? "Brak połączenia" : "Błąd zapisu");
+    throw new Error(
+      isTransientSupabaseError(error)
+        ? "Nie udało się połączyć z Supabase podczas usuwania. Sprawdź internet, odśwież stronę i spróbuj ponownie."
+        : `Nie udało się usunąć danych z Supabase: ${errorText(error) || "nieznany błąd"}`
+    );
   }
-  setConnectionStatus("online", "Supabase");
 }
 
 async function replaceSupabaseTable(tableName, sourceRecords, options = {}) {
@@ -3451,6 +3504,7 @@ async function saveFormRecord(event) {
   const data = formRecord();
   let savedRecord;
   if (!confirmSerialNumberSave(data.serialNumber, "devices", id)) return;
+  const previousRecords = records;
 
   if (id) {
     records = records.map((record) => {
@@ -3469,6 +3523,10 @@ async function saveFormRecord(event) {
     render();
     closeDialog();
   } catch (error) {
+    records = previousRecords;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    rebuildDerivedData();
+    render();
     alert(error.message);
   }
 }
@@ -3480,6 +3538,7 @@ async function deleteCurrentRecord() {
   const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten rekord";
 
   if (confirm(`Usunąć ${label}?`)) {
+    const previousRecords = records;
     records = records.filter((item) => item.id !== id);
     try {
       await persistDeletedDeviceRecord(id);
@@ -3487,6 +3546,10 @@ async function deleteCurrentRecord() {
       render();
       closeDialog();
     } catch (error) {
+      records = previousRecords;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      rebuildDerivedData();
+      render();
       alert(error.message);
     }
   }
@@ -3498,6 +3561,7 @@ async function saveRepairFormRecord(event) {
   const data = repairFormRecord();
   let savedRecord;
   if (!confirmSerialNumberSave(data.serialNumber, "repairs", id)) return;
+  const previousRepairRecords = repairRecords;
 
   if (id) {
     repairRecords = repairRecords.map((record) => {
@@ -3516,6 +3580,10 @@ async function saveRepairFormRecord(event) {
     render();
     closeRepairDialog();
   } catch (error) {
+    repairRecords = previousRepairRecords;
+    localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    rebuildDerivedData();
+    render();
     alert(error.message);
   }
 }
@@ -3527,6 +3595,7 @@ async function deleteCurrentRepairRecord() {
   const label = record ? `${record.customerName} (${record.category})` : "ten wpis";
 
   if (confirm(`Usunąć ${label}?`)) {
+    const previousRepairRecords = repairRecords;
     repairRecords = repairRecords.filter((item) => item.id !== id);
     try {
       await persistDeletedRepairRecord(id);
@@ -3534,6 +3603,10 @@ async function deleteCurrentRepairRecord() {
       render();
       closeRepairDialog();
     } catch (error) {
+      repairRecords = previousRepairRecords;
+      localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+      rebuildDerivedData();
+      render();
       alert(error.message);
     }
   }
