@@ -1028,21 +1028,52 @@ td.row-actions {
   margin-bottom: 10px;
 }
 
-.stock-toolbar > div {
+.stock-toolbar-title {
   display: flex;
   align-items: baseline;
   gap: 10px;
 }
 
-.stock-toolbar strong {
+.stock-toolbar-title strong {
   color: #003f5a;
   font-size: 0.94rem;
 }
 
-.stock-toolbar span {
+.stock-toolbar-title span {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.stock-location-summary {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stock-location-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #d4dde4;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: #526271;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.stock-location-card strong {
+  color: #003f5a;
+  font-size: 0.9rem;
+}
+
+.stock-location-card span:not(.location-pill) {
+  color: var(--muted);
 }
 
 #printStockChecklistBtn {
@@ -1557,6 +1588,32 @@ tbody tr.demo-return-critical:hover {
 
 .stock-table th {
   cursor: default;
+}
+
+.stock-location-row td {
+  padding: 8px 10px;
+  border-top: 1px solid #cbd7de;
+  border-bottom: 1px solid #dbe3e8;
+  background: #f5f8fa;
+}
+
+.stock-location-row-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stock-location-row-content strong {
+  color: #003f5a;
+  font-size: 0.82rem;
+}
+
+.stock-location-empty td {
+  color: var(--muted);
+  background: #fbfcfd;
+  font-size: 0.78rem;
+  font-style: italic;
 }
 
 .devices-table,
@@ -2233,6 +2290,15 @@ textarea {
     color: #233b4a;
     background: #eef3f6;
     font-size: 7.5pt;
+    text-transform: uppercase;
+  }
+
+  .stock-checklist-location-row td {
+    height: auto;
+    padding: 1.8mm 2mm;
+    color: #003f5a;
+    background: #e8f0f4;
+    font-weight: 800;
     text-transform: uppercase;
   }
 

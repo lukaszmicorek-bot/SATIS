@@ -22,6 +22,7 @@ const DEMO_PURPOSE_REPLACEMENT = "APARAT ZASTĘPCZY";
 const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const STOCK_LOCATIONS = ["T12", "P50", "P63"];
 const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseKey = supabaseConfig.publishableKey || supabaseConfig.anonKey || "";
 const hasSupabaseSettings = Boolean(supabaseConfig.url && supabaseKey);
@@ -223,6 +224,7 @@ const repairFields = [
 const demoFields = [
   "receivedDate",
   "manufacturerReturnDate",
+  "manufacturerReturnDateCleared",
   "manufacturer",
   "deviceName",
   "serialNumber",
@@ -260,6 +262,7 @@ const printDemoChecklistBtn = document.querySelector("#printDemoChecklistBtn");
 const stockBody = document.querySelector("#stockBody");
 const stockEmptyState = document.querySelector("#stockEmptyState");
 const stockSummary = document.querySelector("#stockSummary");
+const stockLocationSummary = document.querySelector("#stockLocationSummary");
 const stockChecklistBody = document.querySelector("#stockChecklistBody");
 const stockChecklistMeta = document.querySelector("#stockChecklistMeta");
 const printStockChecklistBtn = document.querySelector("#printStockChecklistBtn");
@@ -1150,6 +1153,7 @@ function normalizeDemoRecordForUse(record) {
   normalizedRecord.manufacturer = normalizedRecord.manufacturer.toLocaleUpperCase("pl-PL");
   normalizedRecord.currentUser = titleCaseName(normalizedRecord.currentUser);
   normalizedRecord.status = normalizeDemoStatus(normalizedRecord.status, normalizedRecord);
+  normalizedRecord.manufacturerReturnDateCleared = normalizeBooleanFlag(normalizedRecord.manufacturerReturnDateCleared);
   normalizedRecord.purpose = normalizeDemoPurpose(normalizedRecord.purpose);
   normalizedRecord.location = normalizeDemoLocation(normalizedRecord.location);
   normalizedRecord.loanHistory = normalizeDemoLoanHistory(normalizedRecord.loanHistory);
@@ -1169,6 +1173,10 @@ function normalizeDemoPurpose(value) {
     return DEMO_PURPOSE_REPLACEMENT;
   }
   return DEMO_PURPOSE_TEST;
+}
+
+function normalizeBooleanFlag(value) {
+  return value === true || String(value ?? "").trim() === "1" ? "1" : "";
 }
 
 function normalizeDemoLoanHistory(history) {
@@ -1509,10 +1517,17 @@ function demoReturnDeadlineInfo(record) {
   if (record.manufacturerReturnDate) {
     return { date: record.manufacturerReturnDate, source: "manufacturer" };
   }
+  if (isDemoManufacturerReturnDateCleared(record)) {
+    return { date: "", source: "" };
+  }
   if (isPhilipsHearLink(record) && record.receivedDate) {
     return { date: addCalendarMonths(record.receivedDate, 6), source: "philips" };
   }
   return { date: "", source: "" };
+}
+
+function isDemoManufacturerReturnDateCleared(record) {
+  return normalizeBooleanFlag(record?.manufacturerReturnDateCleared) === "1";
 }
 
 function demoReturnDeadline(record) {
@@ -1561,7 +1576,7 @@ function demoQualityIssues(record, serialCounts = null) {
   const issues = [];
   if (!record.receivedDate) issues.push("brak daty");
   if (!record.manufacturer) issues.push("brak producenta");
-  if (!record.deviceName) issues.push("brak modelu");
+  if (!record.deviceName) issues.push("brak nazwy aparatu");
   if (!record.serialNumber) issues.push("brak numeru seryjnego");
   if (record.serialNumber && serialCounts?.get(record.serialNumber) > 1) issues.push("powtórzony numer seryjny");
   if (/[?]{2,}/.test(`${record.location} ${record.currentUser} ${record.notes}`)) issues.push("niepewna informacja");
@@ -2678,51 +2693,71 @@ function updateStats() {
 
 function renderStockView() {
   const stockRecords = records.filter((record) => deviceDerived.get(record.id)?.isInStock);
-  const groups = groupStockRecords(stockRecords);
+  const sections = stockLocationSections(stockRecords);
+  const rows = [];
 
-  renderTableRows(stockBody, groups.map(createStockRow));
-  stockEmptyState.hidden = groups.length > 0;
-  renderStockChecklist(stockRecords);
-}
-
-function renderStockChecklist(stockRecords) {
-  const sortedRecords = [...stockRecords].sort((left, right) => {
-    const byName = collator.compare(left.deviceName, right.deviceName);
-    if (byName) return byName;
-    const byLocation = collator.compare(normalizeRepairLocation(left.location), normalizeRepairLocation(right.location));
-    if (byLocation) return byLocation;
-    return collator.compare(left.serialNumber, right.serialNumber);
+  sections.forEach((section) => {
+    rows.push(createStockLocationHeaderRow(section.location, section.records.length));
+    if (section.groups.length) {
+      rows.push(...section.groups.map(createStockRow));
+    } else {
+      rows.push(createStockLocationEmptyRow());
+    }
   });
 
-  stockSummary.textContent = `${sortedRecords.length} aparatów`;
-  stockChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${sortedRecords.length} aparatów na stanie`;
-  printStockChecklistBtn.disabled = sortedRecords.length === 0;
+  renderTableRows(stockBody, stockRecords.length ? rows : []);
+  stockEmptyState.hidden = stockRecords.length > 0;
+  renderStockLocationSummary(sections);
+  renderStockChecklist(stockRecords, sections);
+}
 
-  const rows = sortedRecords.map((record, index) => {
-    const row = document.createElement("tr");
-    const checkbox = document.createElement("span");
-    checkbox.className = "checklist-box";
-    checkbox.setAttribute("aria-hidden", "true");
+function renderStockChecklist(stockRecords, sections = stockLocationSections(stockRecords)) {
+  const locationCounts = new Map(sections.map((section) => [section.location, section.records.length]));
+  const stockBreakdown = STOCK_LOCATIONS.map((location) => `${location}: ${locationCounts.get(location) || 0}`).join(" · ");
 
-    const values = [
-      String(index + 1),
-      checkbox,
-      record.deviceName,
-      record.serialNumber,
-      normalizeRepairLocation(record.location),
-      ""
-    ];
+  stockSummary.textContent = formatDeviceCount(stockRecords.length);
+  stockChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${formatDeviceCount(stockRecords.length)} na stanie · ${stockBreakdown}`;
+  printStockChecklistBtn.disabled = stockRecords.length === 0;
 
-    values.forEach((value) => {
-      const cell = document.createElement("td");
-      if (value instanceof HTMLElement) {
-        cell.append(value);
-      } else {
-        cell.textContent = value;
-      }
-      row.append(cell);
+  const rows = [];
+  let rowNumber = 0;
+
+  sections.forEach((section) => {
+    if (!section.records.length) return;
+    rows.push(createStockChecklistLocationRow(section.location, section.records.length));
+    const sectionRecords = [...section.records].sort((left, right) => {
+      const byName = collator.compare(left.deviceName, right.deviceName);
+      if (byName) return byName;
+      return collator.compare(left.serialNumber, right.serialNumber);
     });
-    return row;
+
+    sectionRecords.forEach((record) => {
+      rowNumber += 1;
+      const row = document.createElement("tr");
+      const checkbox = document.createElement("span");
+      checkbox.className = "checklist-box";
+      checkbox.setAttribute("aria-hidden", "true");
+
+      const values = [
+        String(rowNumber),
+        checkbox,
+        record.deviceName,
+        record.serialNumber,
+        normalizeRepairLocation(record.location),
+        ""
+      ];
+
+      values.forEach((value) => {
+        const cell = document.createElement("td");
+        if (value instanceof HTMLElement) {
+          cell.append(value);
+        } else {
+          cell.textContent = value;
+        }
+        row.append(cell);
+      });
+      rows.push(row);
+    });
   });
 
   renderTableRows(stockChecklistBody, rows);
@@ -2769,6 +2804,88 @@ function groupStockRecords(stockRecords) {
     if (byName) return byName;
     return collator.compare(left.location, right.location);
   });
+}
+
+function stockLocationSections(stockRecords) {
+  const recordsByLocation = new Map(STOCK_LOCATIONS.map((location) => [location, []]));
+
+  stockRecords.forEach((record) => {
+    const location = normalizeRepairLocation(record.location);
+    if (!recordsByLocation.has(location)) recordsByLocation.set(location, []);
+    recordsByLocation.get(location).push(record);
+  });
+
+  return STOCK_LOCATIONS.map((location) => {
+    const locationRecords = recordsByLocation.get(location) || [];
+    return {
+      location,
+      records: locationRecords,
+      groups: groupStockRecords(locationRecords)
+    };
+  });
+}
+
+function renderStockLocationSummary(sections) {
+  if (!stockLocationSummary) return;
+  const fragment = document.createDocumentFragment();
+
+  sections.forEach((section) => {
+    const item = document.createElement("div");
+    item.className = "stock-location-card";
+    const count = document.createElement("strong");
+    count.textContent = String(section.records.length);
+    const label = document.createElement("span");
+    label.textContent = section.records.length === 1 ? "aparat" : "aparatów";
+
+    item.append(createLocationPill(section.location), count, label);
+    fragment.append(item);
+  });
+
+  stockLocationSummary.replaceChildren(fragment);
+}
+
+function formatDeviceCount(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (count === 1) return "1 aparat";
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} aparaty`;
+  return `${count} aparatów`;
+}
+
+function createStockLocationHeaderRow(location, count) {
+  const row = document.createElement("tr");
+  row.className = "stock-location-row";
+  const cell = document.createElement("td");
+  const content = document.createElement("div");
+  const countText = document.createElement("strong");
+
+  cell.colSpan = 5;
+  content.className = "stock-location-row-content";
+  countText.textContent = formatDeviceCount(count);
+  content.append(createLocationPill(location), countText);
+  cell.append(content);
+  row.append(cell);
+  return row;
+}
+
+function createStockLocationEmptyRow() {
+  const row = document.createElement("tr");
+  row.className = "stock-location-empty";
+  const cell = document.createElement("td");
+  cell.colSpan = 5;
+  cell.textContent = "Brak aparatów w tym miejscu.";
+  row.append(cell);
+  return row;
+}
+
+function createStockChecklistLocationRow(location, count) {
+  const row = document.createElement("tr");
+  row.className = "stock-checklist-location-row";
+  const cell = document.createElement("td");
+  cell.colSpan = 6;
+  cell.textContent = `${location} · ${formatDeviceCount(count)}`;
+  row.append(cell);
+  return row;
 }
 
 function createStockRow(group) {
@@ -2935,6 +3052,7 @@ function openDemoDialog(record = null) {
   const fieldMap = {
     receivedDate: "#demoReceivedDate",
     manufacturerReturnDate: "#demoManufacturerReturnDate",
+    manufacturerReturnDateCleared: "#demoManufacturerReturnDateCleared",
     loanDate: "#demoLoanDate",
     returnDate: "#demoReturnDate",
     manufacturer: "#demoManufacturer",
@@ -2967,7 +3085,7 @@ function openDemoDialog(record = null) {
   }
   const calculatedManufacturerReturnDate = calculateDemoManufacturerReturnDate();
   const manufacturerReturnDateInput = document.querySelector("#demoManufacturerReturnDate");
-  if (!manufacturerReturnDateInput.value) {
+  if (!manufacturerReturnDateInput.value && !isDemoManufacturerReturnDateClearedForm()) {
     syncDemoManufacturerReturnDate();
   } else if (manufacturerReturnDateInput.value === calculatedManufacturerReturnDate) {
     manufacturerReturnDateInput.dataset.autoValue = calculatedManufacturerReturnDate;
@@ -3111,6 +3229,7 @@ function demoFormRecord() {
   });
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
+  data.manufacturerReturnDateCleared = data.manufacturerReturnDate ? "" : normalizeBooleanFlag(data.manufacturerReturnDateCleared);
   data.purpose = normalizeDemoPurpose(data.purpose);
   data.location = normalizeDemoLocation(data.location);
   data.currentUser = titleCaseName(data.currentUser);
@@ -3241,6 +3360,10 @@ function calculateDemoManufacturerReturnDate() {
 }
 
 function syncDemoManufacturerReturnDate() {
+  if (isDemoManufacturerReturnDateClearedForm()) {
+    syncDemoStatusFromCurrentUser();
+    return;
+  }
   const input = document.querySelector("#demoManufacturerReturnDate");
   const previousAutoValue = input.dataset.autoValue || "";
   const nextAutoValue = calculateDemoManufacturerReturnDate();
@@ -3251,8 +3374,13 @@ function syncDemoManufacturerReturnDate() {
 
 function markDemoManufacturerReturnDateChange() {
   const input = document.querySelector("#demoManufacturerReturnDate");
+  document.querySelector("#demoManufacturerReturnDateCleared").value = input.value ? "" : "1";
   if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
   syncDemoStatusFromCurrentUser();
+}
+
+function isDemoManufacturerReturnDateClearedForm() {
+  return document.querySelector("#demoManufacturerReturnDateCleared").value === "1";
 }
 
 function markDemoReturnDateChange() {
