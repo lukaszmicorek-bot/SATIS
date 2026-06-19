@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260619-2">
+    <link rel="stylesheet" href="styles.css?v=20260619-3">
   </head>
   <body>
     <main class="app-shell">
@@ -136,6 +136,10 @@
               <tbody id="recordsBody"></tbody>
             </table>
             <p id="emptyState" class="empty-state" hidden>Brak rekordów dla wybranych filtrów.</p>
+            <div id="databaseRenderNotice" class="render-limit-notice" hidden>
+              <span id="databaseRenderText"></span>
+              <button id="showMoreRecordsBtn" type="button">Pokaż więcej</button>
+            </div>
           </section>
         </section>
 
@@ -201,6 +205,10 @@
               <tbody id="demoRecordsBody"></tbody>
             </table>
             <p id="demoEmptyState" class="empty-state" hidden>Brak aparatów demo dla wybranych filtrów.</p>
+            <div id="demoRenderNotice" class="render-limit-notice" hidden>
+              <span id="demoRenderText"></span>
+              <button id="showMoreDemoBtn" type="button">Pokaż więcej</button>
+            </div>
           </section>
           <section id="demoChecklist" class="demo-checklist" aria-label="Checklista aparatów demo">
             <header class="demo-checklist-head">
@@ -310,6 +318,10 @@
               <tbody id="dataControlBody"></tbody>
             </table>
             <p id="dataControlEmptyState" class="empty-state" hidden>Nie znaleziono spraw do sprawdzenia.</p>
+            <div id="dataControlRenderNotice" class="render-limit-notice" hidden>
+              <span id="dataControlRenderText"></span>
+              <button id="showMoreDataControlBtn" type="button">Pokaż więcej</button>
+            </div>
           </section>
         </section>
       </section>
@@ -394,6 +406,10 @@
               <tbody id="repairRecordsBody"></tbody>
             </table>
             <p id="repairEmptyState" class="empty-state" hidden>Brak wpisów dla wybranych filtrów.</p>
+            <div id="repairRenderNotice" class="render-limit-notice" hidden>
+              <span id="repairRenderText"></span>
+              <button id="showMoreRepairBtn" type="button">Pokaż więcej</button>
+            </div>
           </section>
         </section>
 
@@ -419,6 +435,10 @@
               <tbody id="repairOpenRecordsBody"></tbody>
             </table>
             <p id="repairOpenEmptyState" class="empty-state" hidden>Brak niedokończonych spraw.</p>
+            <div id="repairOpenRenderNotice" class="render-limit-notice" hidden>
+              <span id="repairOpenRenderText"></span>
+              <button id="showMoreRepairOpenBtn" type="button">Pokaż więcej</button>
+            </div>
           </section>
         </section>
       </section>
@@ -780,6 +800,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260619-5"></script>
+    <script src="app.js?v=20260619-7"></script>
   </body>
 </html>

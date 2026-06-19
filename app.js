@@ -12,6 +12,7 @@ const SUPABASE_REPAIR_TABLE = "repair_records";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
 const SEARCH_DEBOUNCE_MS = 120;
+const TABLE_RENDER_BATCH_SIZE = 500;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const DEMO_RETURN_WARNING_DAYS = 30;
 const DEMO_RETURN_CRITICAL_DAYS = 14;
@@ -254,6 +255,13 @@ let repairSortState = { key: "receivedDate", direction: "desc" };
 let demoSortState = { key: "receivedDate", direction: "desc" };
 let activeNotebook = "devices";
 let activeDeviceView = "database";
+const tableRenderLimits = {
+  devices: TABLE_RENDER_BATCH_SIZE,
+  demo: TABLE_RENDER_BATCH_SIZE,
+  repairs: TABLE_RENDER_BATCH_SIZE,
+  repairOpen: TABLE_RENDER_BATCH_SIZE,
+  dataControl: TABLE_RENDER_BATCH_SIZE
+};
 
 const recordsBody = document.querySelector("#recordsBody");
 const emptyState = document.querySelector("#emptyState");
@@ -277,6 +285,21 @@ const dataControlBody = document.querySelector("#dataControlBody");
 const dataControlEmptyState = document.querySelector("#dataControlEmptyState");
 const dataControlSummary = document.querySelector("#dataControlSummary");
 const dataControlStats = document.querySelector("#dataControlStats");
+const databaseRenderNotice = document.querySelector("#databaseRenderNotice");
+const databaseRenderText = document.querySelector("#databaseRenderText");
+const showMoreRecordsBtn = document.querySelector("#showMoreRecordsBtn");
+const demoRenderNotice = document.querySelector("#demoRenderNotice");
+const demoRenderText = document.querySelector("#demoRenderText");
+const showMoreDemoBtn = document.querySelector("#showMoreDemoBtn");
+const repairRenderNotice = document.querySelector("#repairRenderNotice");
+const repairRenderText = document.querySelector("#repairRenderText");
+const showMoreRepairBtn = document.querySelector("#showMoreRepairBtn");
+const repairOpenRenderNotice = document.querySelector("#repairOpenRenderNotice");
+const repairOpenRenderText = document.querySelector("#repairOpenRenderText");
+const showMoreRepairOpenBtn = document.querySelector("#showMoreRepairOpenBtn");
+const dataControlRenderNotice = document.querySelector("#dataControlRenderNotice");
+const dataControlRenderText = document.querySelector("#dataControlRenderText");
+const showMoreDataControlBtn = document.querySelector("#showMoreDataControlBtn");
 const countAllLabel = document.querySelector("#countAllLabel");
 const countSoldLabel = document.querySelector("#countSoldLabel");
 const countInvoiceLabel = document.querySelector("#countInvoiceLabel");
@@ -1699,6 +1722,28 @@ function renderTableRows(body, rows) {
   body.replaceChildren(fragment);
 }
 
+function visibleTableItems(items, tableKey) {
+  return items.slice(0, tableRenderLimits[tableKey] || TABLE_RENDER_BATCH_SIZE);
+}
+
+function resetTableRenderLimit(tableKey) {
+  tableRenderLimits[tableKey] = TABLE_RENDER_BATCH_SIZE;
+}
+
+function showMoreTableRows(tableKey, renderAction) {
+  tableRenderLimits[tableKey] = (tableRenderLimits[tableKey] || TABLE_RENDER_BATCH_SIZE) + TABLE_RENDER_BATCH_SIZE;
+  renderAction();
+}
+
+function renderLimitNotice(notice, textNode, totalCount, visibleCount, itemLabel) {
+  if (!notice || !textNode) return;
+  const isLimited = totalCount > visibleCount;
+  notice.hidden = !isLimited;
+  if (!isLimited) return;
+
+  textNode.textContent = `Pokazano ${visibleCount} z ${totalCount} ${itemLabel}. Użyj wyszukiwarki albo pokaż kolejne.`;
+}
+
 function rebuildDeviceDerivedData() {
   deviceDerived.clear();
   deviceStats = { all: records.length, sold: 0, reserved: 0, stock: 0 };
@@ -2017,14 +2062,20 @@ function render() {
     return;
   }
 
+  if (activeDeviceView === "stock") {
+    renderStockView();
+    return;
+  }
+
   renderDeviceViews();
 }
 
 function renderDeviceViews() {
   const visibleRecords = filteredRecords();
-  renderTableRows(recordsBody, visibleRecords.map(createRow));
+  const renderedRecords = visibleTableItems(visibleRecords, "devices");
+  renderTableRows(recordsBody, renderedRecords.map(createRow));
   emptyState.hidden = visibleRecords.length > 0;
-  renderStockView();
+  renderLimitNotice(databaseRenderNotice, databaseRenderText, visibleRecords.length, renderedRecords.length, "rekordów");
 }
 
 function filteredDemoRecords() {
@@ -2062,14 +2113,20 @@ function filteredDemoRecords() {
 
 function renderDemoRecords() {
   const visibleRecords = filteredDemoRecords();
-  renderTableRows(demoRecordsBody, visibleRecords.map(createDemoRow));
+  const renderedRecords = visibleTableItems(visibleRecords, "demo");
+  renderTableRows(demoRecordsBody, renderedRecords.map(createDemoRow));
   demoEmptyState.hidden = visibleRecords.length > 0;
-  renderDemoChecklist(visibleRecords);
+  renderLimitNotice(demoRenderNotice, demoRenderText, visibleRecords.length, renderedRecords.length, "aparatów demo");
+  updateDemoChecklistState(visibleRecords);
+}
+
+function updateDemoChecklistState(visibleRecords) {
+  demoChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${visibleRecords.length} aparatów demo zgodnych z filtrami`;
+  printDemoChecklistBtn.disabled = visibleRecords.length === 0;
 }
 
 function renderDemoChecklist(visibleRecords) {
-  demoChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${visibleRecords.length} aparatów demo zgodnych z filtrami`;
-  printDemoChecklistBtn.disabled = visibleRecords.length === 0;
+  updateDemoChecklistState(visibleRecords);
 
   const rows = visibleRecords.map((record, index) => {
     const meta = demoDerived.get(record.id);
@@ -2108,6 +2165,7 @@ function renderDemoChecklist(visibleRecords) {
 function printDemoChecklist() {
   if (printDemoChecklistBtn.disabled) return;
 
+  renderDemoChecklist(filteredDemoRecords());
   const cleanup = () => document.body.classList.remove("demo-checklist-print");
   document.body.classList.add("demo-checklist-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -2116,11 +2174,13 @@ function printDemoChecklist() {
 
 function renderDataControlView() {
   const issues = buildDataControlIssues();
+  const renderedIssues = visibleTableItems(issues, "dataControl");
 
   dataControlSummary.textContent = formatDataIssueCount(issues.length);
   renderDataControlStats(issues);
-  renderTableRows(dataControlBody, issues.map(createDataControlRow));
+  renderTableRows(dataControlBody, renderedIssues.map(createDataControlRow));
   dataControlEmptyState.hidden = issues.length > 0;
+  renderLimitNotice(dataControlRenderNotice, dataControlRenderText, issues.length, renderedIssues.length, "spraw");
 }
 
 function buildDataControlIssues() {
@@ -2394,10 +2454,14 @@ function isRepairClosed(record) {
 function renderRepairRecords() {
   const visibleRecords = filteredRepairRecords();
   const openRecords = openRepairRecords();
-  renderTableRows(repairRecordsBody, visibleRecords.map(createRepairRow));
-  renderTableRows(repairOpenRecordsBody, openRecords.map(createRepairRow));
+  const renderedRecords = visibleTableItems(visibleRecords, "repairs");
+  const renderedOpenRecords = visibleTableItems(openRecords, "repairOpen");
+  renderTableRows(repairRecordsBody, renderedRecords.map(createRepairRow));
+  renderTableRows(repairOpenRecordsBody, renderedOpenRecords.map(createRepairRow));
   repairEmptyState.hidden = visibleRecords.length > 0;
   repairOpenEmptyState.hidden = openRecords.length > 0;
+  renderLimitNotice(repairRenderNotice, repairRenderText, visibleRecords.length, renderedRecords.length, "wpisów");
+  renderLimitNotice(repairOpenRenderNotice, repairOpenRenderText, openRecords.length, renderedOpenRecords.length, "spraw");
 }
 
 function openRepairRecords() {
@@ -3316,6 +3380,10 @@ function switchView(viewName, groupName) {
     renderDataControlView();
     return;
   }
+  if (viewName === "stock") {
+    renderStockView();
+    return;
+  }
   renderDeviceViews();
 }
 
@@ -3346,6 +3414,10 @@ function switchNotebook(notebookName) {
   }
   if (activeDeviceView === "dataControl") {
     renderDataControlView();
+    return;
+  }
+  if (activeDeviceView === "stock") {
+    renderStockView();
     return;
   }
   renderDeviceViews();
@@ -4371,18 +4443,39 @@ function debounce(callback, wait) {
   };
 }
 
+function resetAndRenderDeviceViews() {
+  resetTableRenderLimit("devices");
+  renderDeviceViews();
+}
+
+function resetAndRenderDemoRecords() {
+  resetTableRenderLimit("demo");
+  renderDemoRecords();
+}
+
+function resetAndRenderRepairRecords() {
+  resetTableRenderLimit("repairs");
+  resetTableRenderLimit("repairOpen");
+  renderRepairRecords();
+}
+
 document.querySelector("#addBtn").addEventListener("click", () => openDialog());
 document.querySelector("#exportBtn").addEventListener("click", () => chooseExportFormat(exportCsv, exportJson));
 document.querySelector("#importBtn").addEventListener("click", () => importInput.click());
 document.querySelector("#printBtn").addEventListener("click", () => window.print());
 printStockChecklistBtn.addEventListener("click", printStockChecklist);
+showMoreRecordsBtn.addEventListener("click", () => showMoreTableRows("devices", renderDeviceViews));
 document.querySelector("#addRepairBtn").addEventListener("click", () => openRepairDialog());
 document.querySelector("#exportRepairBtn").addEventListener("click", () => chooseExportFormat(exportRepairCsv, exportRepairJson));
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
 document.querySelector("#printRepairBtn").addEventListener("click", () => window.print());
+showMoreRepairBtn.addEventListener("click", () => showMoreTableRows("repairs", renderRepairRecords));
+showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairOpen", renderRepairRecords));
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
 document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJson);
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
+showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
+showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
 document.querySelector("#closeDialogBtn").addEventListener("click", closeDialog);
 document.querySelector("#cancelBtn").addEventListener("click", closeDialog);
 document.querySelector("#closeRepairDialogBtn").addEventListener("click", closeRepairDialog);
@@ -4404,18 +4497,18 @@ document.querySelector("#deviceName").addEventListener("input", scheduleDeviceNa
 document.querySelector("#deviceName").addEventListener("blur", correctDeviceNameInput);
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
 typeSelect.addEventListener("change", syncStockLocationFromType);
-searchInput.addEventListener("input", debounce(renderDeviceViews, SEARCH_DEBOUNCE_MS));
-typeFilter.addEventListener("change", render);
-ezwmFilter.addEventListener("change", render);
-fifoFilter.addEventListener("change", render);
-repairSearchInput.addEventListener("input", debounce(renderRepairRecords, SEARCH_DEBOUNCE_MS));
-repairCategoryFilter.addEventListener("change", render);
-repairStatusFilter.addEventListener("change", render);
-repairLocationFilter.addEventListener("change", render);
-demoSearchInput.addEventListener("input", debounce(renderDemoRecords, SEARCH_DEBOUNCE_MS));
-demoStatusFilter.addEventListener("change", render);
-demoManufacturerFilter.addEventListener("change", render);
-demoLocationFilter.addEventListener("change", render);
+searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH_DEBOUNCE_MS));
+typeFilter.addEventListener("change", resetAndRenderDeviceViews);
+ezwmFilter.addEventListener("change", resetAndRenderDeviceViews);
+fifoFilter.addEventListener("change", resetAndRenderDeviceViews);
+repairSearchInput.addEventListener("input", debounce(resetAndRenderRepairRecords, SEARCH_DEBOUNCE_MS));
+repairCategoryFilter.addEventListener("change", resetAndRenderRepairRecords);
+repairStatusFilter.addEventListener("change", resetAndRenderRepairRecords);
+repairLocationFilter.addEventListener("change", resetAndRenderRepairRecords);
+demoSearchInput.addEventListener("input", debounce(resetAndRenderDemoRecords, SEARCH_DEBOUNCE_MS));
+demoStatusFilter.addEventListener("change", resetAndRenderDemoRecords);
+demoManufacturerFilter.addEventListener("change", resetAndRenderDemoRecords);
+demoLocationFilter.addEventListener("change", resetAndRenderDemoRecords);
 importInput.addEventListener("change", importJson);
 importRepairInput.addEventListener("change", importRepairJson);
 document.querySelector("#repairReceivedDate").addEventListener("change", syncRepairStatusFromDates);
@@ -4465,6 +4558,7 @@ document.querySelectorAll("th[data-sort]").forEach((header) => {
       key,
       direction: sortState.key === key && sortState.direction === "asc" ? "desc" : "asc"
     };
+    resetTableRenderLimit("devices");
     render();
   });
 });
@@ -4476,6 +4570,8 @@ document.querySelectorAll("th[data-repair-sort]").forEach((header) => {
       key,
       direction: repairSortState.key === key && repairSortState.direction === "asc" ? "desc" : "asc"
     };
+    resetTableRenderLimit("repairs");
+    resetTableRenderLimit("repairOpen");
     render();
   });
 });
@@ -4487,6 +4583,7 @@ document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
       key,
       direction: demoSortState.key === key && demoSortState.direction === "asc" ? "desc" : "asc"
     };
+    resetTableRenderLimit("demo");
     renderDemoRecords();
   });
 });

@@ -1007,6 +1007,37 @@ td.row-actions {
   text-align: center;
 }
 
+.render-limit-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  color: #5a6874;
+  background: #fbfcfd;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.render-limit-notice[hidden] {
+  display: none;
+}
+
+.render-limit-notice button {
+  min-height: 30px;
+  padding: 0 10px;
+  color: #315d54;
+  background: #eef5f3;
+  border-color: #cbdcd7;
+  font-size: 0.76rem;
+}
+
+.render-limit-notice button:hover {
+  color: #123f38;
+  background: #e2eeeb;
+}
+
 .data-control-toolbar {
   display: flex;
   align-items: center;
