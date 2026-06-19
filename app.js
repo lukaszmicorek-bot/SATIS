@@ -342,6 +342,7 @@ const recordDialog = document.querySelector("#recordDialog");
 const recordForm = document.querySelector("#recordForm");
 const recordEyebrow = document.querySelector("#recordEyebrow");
 const dialogTitle = document.querySelector("#dialogTitle");
+const dialogSerial = document.querySelector("#dialogSerial");
 const deleteBtn = document.querySelector("#deleteBtn");
 const importInput = document.querySelector("#importInput");
 const importRepairInput = document.querySelector("#importRepairInput");
@@ -3630,6 +3631,9 @@ function openDialog(record = null) {
   recordForm.reset();
   document.querySelector("#recordId").value = record?.id ?? "";
   dialogTitle.textContent = record ? modelTitleForRecord(record, "Aparat") : "Dodaj aparat";
+  const serialNumber = normalizeSerialNumber(record?.serialNumber);
+  dialogSerial.textContent = serialNumber ? `nr ser. ${serialNumber}` : "";
+  dialogSerial.hidden = !serialNumber;
   recordEyebrow.textContent = record ? `${records.findIndex((item) => item.id === record.id) + 1}/${records.length}` : "Nowy rekord";
   deleteBtn.hidden = !record;
 
