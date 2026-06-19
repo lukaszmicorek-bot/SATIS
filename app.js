@@ -61,6 +61,9 @@ let supabaseChangeTimeout = 0;
 let pendingSupabaseChanges = [];
 let demoReturnReminderShown = false;
 let demoReturnReminderTimeout = 0;
+let activeDateInput = null;
+let datePickerMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let datePicker = null;
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -244,6 +247,10 @@ const demoFields = [
   "returnDate",
   "notes"
 ];
+
+const DEVICE_DATE_FIELDS = ["receivedDate", "pickupDate", "returnDate"];
+const REPAIR_DATE_FIELDS = ["receivedDate", "sentDate", "returnDate", "pickupDate"];
+const DEMO_DATE_FIELDS = ["receivedDate", "manufacturerReturnDate", "loanDate", "returnDate"];
 
 let records = [];
 let repairRecords = [];
@@ -996,6 +1003,59 @@ async function persistDeletedDemoRecord(id) {
   if (hasSupabaseConfig) {
     await deleteSupabaseRecord(SUPABASE_DEVICE_TABLE, id);
   }
+}
+
+function isoDateFromParts(year, month, day) {
+  const numericYear = Number(year);
+  const numericMonth = Number(month);
+  const numericDay = Number(day);
+  const date = new Date(numericYear, numericMonth - 1, numericDay);
+  if (
+    date.getFullYear() !== numericYear ||
+    date.getMonth() !== numericMonth - 1 ||
+    date.getDate() !== numericDay
+  ) {
+    return "";
+  }
+  return `${numericYear}-${String(numericMonth).padStart(2, "0")}-${String(numericDay).padStart(2, "0")}`;
+}
+
+function isoDateForSave(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+
+  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) return isoDateFromParts(isoMatch[1], isoMatch[2], isoMatch[3]);
+
+  const displayMatch = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (displayMatch) return isoDateFromParts(displayMatch[3], displayMatch[2], displayMatch[1]);
+
+  return "";
+}
+
+function parseIsoDate(value) {
+  const isoDate = isoDateForSave(value);
+  if (!isoDate) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function displayDateForInput(value) {
+  const date = parseIsoDate(value);
+  if (!date) return String(value ?? "").trim();
+  return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
+}
+
+function normalizeFormDateFields(data, dateFields) {
+  dateFields.forEach((field) => {
+    data[field] = isoDateForSave(data[field]);
+  });
+  return data;
+}
+
+function setDateInputValue(selectorOrInput, value) {
+  const input = typeof selectorOrInput === "string" ? document.querySelector(selectorOrInput) : selectorOrInput;
+  if (input) input.value = displayDateForInput(value);
 }
 
 function formatDate(value) {
@@ -3567,11 +3627,12 @@ function openDialog(record = null) {
 
   fields.forEach((field) => {
     const input = document.querySelector(`#${field}`);
-    input.value = field === "type" && record ? displayType(record) : record?.[field] ?? "";
+    const value = field === "type" && record ? displayType(record) : record?.[field] ?? "";
+    input.value = DEVICE_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
 
   if (!record) {
-    document.querySelector("#receivedDate").value = todayInputValue();
+    setDateInputValue("#receivedDate", todayInputValue());
     document.querySelector("#type").value = "NA STANIE";
     document.querySelector("#location").value = "P63";
   }
@@ -3601,7 +3662,8 @@ function openRepairDialog(record = null) {
 
   repairFields.forEach((field) => {
     const input = document.querySelector(fieldMap[field]);
-    input.value = normalizedRecord?.[field] ?? "";
+    const value = normalizedRecord?.[field] ?? "";
+    input.value = REPAIR_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
 
   if (!record) {
@@ -3648,19 +3710,21 @@ function openDemoDialog(record = null) {
   };
 
   demoFields.forEach((field) => {
-    document.querySelector(fieldMap[field]).value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
+    const input = document.querySelector(fieldMap[field]);
+    const value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
+    input.value = DEMO_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
 
   if (record) {
     const returnDateInput = document.querySelector("#demoReturnDate");
-    returnDateInput.value = record.returnDate || "";
+    setDateInputValue(returnDateInput, record.returnDate || "");
     document.querySelector("#demoLocation").value = normalizeDemoLocation(record.location);
     document.querySelector("#demoCurrentUser").value = titleCaseName(record.currentUser);
     syncDemoStatusFromCurrentUser();
   }
 
   if (!record) {
-    document.querySelector("#demoReceivedDate").value = todayInputValue();
+    setDateInputValue("#demoReceivedDate", todayInputValue());
     document.querySelector("#demoStatus").value = "NA STANIE";
     document.querySelector("#demoPurpose").value = DEMO_PURPOSE_TEST;
     document.querySelector("#demoLocation").value = "P63";
@@ -3669,7 +3733,7 @@ function openDemoDialog(record = null) {
   const manufacturerReturnDateInput = document.querySelector("#demoManufacturerReturnDate");
   if (!manufacturerReturnDateInput.value && !isDemoManufacturerReturnDateClearedForm()) {
     syncDemoManufacturerReturnDate();
-  } else if (manufacturerReturnDateInput.value === calculatedManufacturerReturnDate) {
+  } else if (isoDateForSave(manufacturerReturnDateInput.value) === calculatedManufacturerReturnDate) {
     manufacturerReturnDateInput.dataset.autoValue = calculatedManufacturerReturnDate;
   }
   renderDemoCurrentAttachments();
@@ -3746,14 +3810,17 @@ function renderDemoLoanHistory(record) {
 }
 
 function closeDialog() {
+  closeDatePicker();
   recordDialog.close();
 }
 
 function closeRepairDialog() {
+  closeDatePicker();
   repairDialog.close();
 }
 
 function closeDemoDialog() {
+  closeDatePicker();
   demoDialog.close();
 }
 
@@ -3762,6 +3829,7 @@ function formRecord() {
   fields.forEach((field) => {
     data[field] = String(data[field] ?? "").trim();
   });
+  normalizeFormDateFields(data, DEVICE_DATE_FIELDS);
   data.deviceName = correctDeviceNameFromHistory(data.deviceName, document.querySelector("#recordId").value);
   data.customerName = titleCaseName(data.customerName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
@@ -3777,6 +3845,7 @@ function syncDeviceTypeFromFields() {
   if (!typeInput) return;
 
   const data = Object.fromEntries(new FormData(recordForm).entries());
+  normalizeFormDateFields(data, DEVICE_DATE_FIELDS);
   const currentType = normalizeDeviceType(typeInput.value || "NA STANIE");
   const nextType = shouldAutoSetDeviceType(data) ? suggestedDeviceType(data, currentType) : "NA STANIE";
   typeInput.value = nextType;
@@ -3796,6 +3865,7 @@ function repairFormRecord() {
   repairFields.forEach((field) => {
     data[field] = String(data[field] ?? "").trim();
   });
+  normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   data.customerName = titleCaseName(data.customerName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.category = normalizeRepairCategory(data.category);
@@ -3809,6 +3879,7 @@ function demoFormRecord() {
   demoFields.forEach((field) => {
     data[field] = String(data[field] ?? "").trim();
   });
+  normalizeFormDateFields(data, DEMO_DATE_FIELDS);
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.manufacturerReturnDateCleared = data.manufacturerReturnDate ? "" : normalizeBooleanFlag(data.manufacturerReturnDateCleared);
@@ -3909,16 +3980,17 @@ function statusFromRepairDates(data) {
 
 function syncRepairStatusFromDates() {
   const data = Object.fromEntries(new FormData(repairForm).entries());
+  normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
 }
 
 function syncDemoStatusFromCurrentUser(options = {}) {
   const currentUser = document.querySelector("#demoCurrentUser").value;
   const statusInput = document.querySelector("#demoStatus");
-  const manufacturerReturned = isPastDate(document.querySelector("#demoManufacturerReturnDate").value);
+  const manufacturerReturned = isPastDate(isoDateForSave(document.querySelector("#demoManufacturerReturnDate").value));
   const hasCurrentUser = Boolean(String(currentUser).trim());
   if (options.setLoanDate && hasCurrentUser && !document.querySelector("#demoLoanDate").value) {
-    document.querySelector("#demoLoanDate").value = todayInputValue();
+    setDateInputValue("#demoLoanDate", todayInputValue());
   }
   if (hasCurrentUser) {
     document.querySelector("#demoReturnDate").value = "";
@@ -3932,13 +4004,13 @@ function syncDemoReturnedStatus() {
   if (document.querySelector("#demoStatus").value !== "ZWRÓCONO") return;
 
   const returnDateInput = document.querySelector("#demoReturnDate");
-  if (!returnDateInput.value) returnDateInput.value = todayInputValue();
+  if (!returnDateInput.value) setDateInputValue(returnDateInput, todayInputValue());
   returnDateInput.dataset.autoValue = "";
 }
 
 function calculateDemoManufacturerReturnDate() {
   const record = {
-    receivedDate: document.querySelector("#demoReceivedDate").value,
+    receivedDate: isoDateForSave(document.querySelector("#demoReceivedDate").value),
     manufacturer: document.querySelector("#demoManufacturer").value,
     deviceName: document.querySelector("#demoDeviceName").value
   };
@@ -3953,15 +4025,17 @@ function syncDemoManufacturerReturnDate() {
   const input = document.querySelector("#demoManufacturerReturnDate");
   const previousAutoValue = input.dataset.autoValue || "";
   const nextAutoValue = calculateDemoManufacturerReturnDate();
-  if (!input.value || input.value === previousAutoValue) input.value = nextAutoValue;
+  const currentValue = isoDateForSave(input.value);
+  if (!currentValue || currentValue === previousAutoValue) setDateInputValue(input, nextAutoValue);
   input.dataset.autoValue = nextAutoValue;
   syncDemoStatusFromCurrentUser();
 }
 
 function markDemoManufacturerReturnDateChange() {
   const input = document.querySelector("#demoManufacturerReturnDate");
-  document.querySelector("#demoManufacturerReturnDateCleared").value = input.value ? "" : "1";
-  if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
+  const currentValue = isoDateForSave(input.value);
+  document.querySelector("#demoManufacturerReturnDateCleared").value = currentValue ? "" : "1";
+  if (currentValue !== input.dataset.autoValue) input.dataset.autoValue = "";
   syncDemoStatusFromCurrentUser();
 }
 
@@ -3971,12 +4045,13 @@ function isDemoManufacturerReturnDateClearedForm() {
 
 function markDemoReturnDateChange() {
   const input = document.querySelector("#demoReturnDate");
-  if (input.value !== input.dataset.autoValue) input.dataset.autoValue = "";
+  const currentValue = isoDateForSave(input.value);
+  if (currentValue !== input.dataset.autoValue) input.dataset.autoValue = "";
   const statusInput = document.querySelector("#demoStatus");
   const hasActiveLoan = Boolean(document.querySelector("#demoCurrentUser").value.trim());
-  if (input.value && hasActiveLoan) {
+  if (currentValue && hasActiveLoan) {
     statusInput.value = "ZWRÓCONO";
-  } else if (!input.value && statusInput.value === "ZWRÓCONO" && hasActiveLoan) {
+  } else if (!currentValue && statusInput.value === "ZWRÓCONO" && hasActiveLoan) {
     statusInput.value = "WYPOŻYCZONY";
   }
 }
@@ -4561,13 +4636,206 @@ function normalizeImportedRecordFields(record, allowedFields) {
 function normalizeDateInput(value) {
   const text = String(value ?? "").trim();
   if (!text) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  return isoDateForSave(text) || text;
+}
 
-  const match = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
-  if (!match) return text;
+function ensureDatePicker() {
+  if (datePicker) return datePicker;
+  datePicker = document.createElement("div");
+  datePicker.className = "two-month-picker";
+  datePicker.hidden = true;
+  document.body.append(datePicker);
+  return datePicker;
+}
 
-  const [, day, month, year] = match;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+function setupDatePickers() {
+  ensureDatePicker();
+  document.querySelectorAll("input[data-date-picker]").forEach((input) => {
+    input.addEventListener("focus", () => openDatePicker(input));
+    input.addEventListener("click", () => openDatePicker(input));
+    input.addEventListener("blur", () => {
+      const isoDate = isoDateForSave(input.value);
+      if (isoDate) input.value = displayDateForInput(isoDate);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDatePicker();
+    });
+  });
+
+  document.addEventListener("mousedown", (event) => {
+    const picker = ensureDatePicker();
+    if (
+      !picker.hidden &&
+      activeDateInput &&
+      !picker.contains(event.target) &&
+      event.target !== activeDateInput
+    ) {
+      closeDatePicker();
+    }
+  });
+
+  window.addEventListener("resize", positionDatePicker);
+  window.addEventListener("scroll", positionDatePicker, true);
+}
+
+function openDatePicker(input) {
+  const picker = ensureDatePicker();
+  activeDateInput = input;
+
+  const selectedDate = parseIsoDate(input.value);
+  const baseDate = selectedDate || new Date();
+  datePickerMonth = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+
+  const hostDialog = input.closest("dialog");
+  if (hostDialog && picker.parentElement !== hostDialog) {
+    hostDialog.append(picker);
+  } else if (!hostDialog && picker.parentElement !== document.body) {
+    document.body.append(picker);
+  }
+
+  renderDatePicker();
+  picker.hidden = false;
+  positionDatePicker();
+}
+
+function closeDatePicker() {
+  const picker = ensureDatePicker();
+  picker.hidden = true;
+  activeDateInput = null;
+}
+
+function positionDatePicker() {
+  const picker = ensureDatePicker();
+  if (picker.hidden || !activeDateInput) return;
+
+  const rect = activeDateInput.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const pickerWidth = Math.min(620, viewportWidth - 24);
+  picker.style.width = `${pickerWidth}px`;
+
+  const left = Math.max(12, Math.min(rect.left, viewportWidth - pickerWidth - 12));
+  const measuredHeight = picker.offsetHeight || 360;
+  const belowTop = rect.bottom + 8;
+  const aboveTop = rect.top - measuredHeight - 8;
+  const top = belowTop + measuredHeight <= viewportHeight - 12 ? belowTop : Math.max(12, aboveTop);
+
+  picker.style.left = `${left}px`;
+  picker.style.top = `${top}px`;
+}
+
+function renderDatePicker() {
+  const picker = ensureDatePicker();
+  const selectedDate = parseIsoDate(activeDateInput?.value);
+  const today = new Date();
+  const currentMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth(), 1);
+  const nextMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() + 1, 1);
+
+  const head = document.createElement("div");
+  head.className = "date-picker-head";
+
+  const previousButton = document.createElement("button");
+  previousButton.className = "date-picker-nav";
+  previousButton.type = "button";
+  previousButton.textContent = "‹";
+  previousButton.setAttribute("aria-label", "Poprzedni miesiąc");
+  previousButton.addEventListener("click", () => {
+    datePickerMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() - 1, 1);
+    renderDatePicker();
+  });
+
+  const title = document.createElement("strong");
+  title.textContent = "Wybierz datę";
+
+  const nextButton = document.createElement("button");
+  nextButton.className = "date-picker-nav";
+  nextButton.type = "button";
+  nextButton.textContent = "›";
+  nextButton.setAttribute("aria-label", "Następny miesiąc");
+  nextButton.addEventListener("click", () => {
+    datePickerMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() + 1, 1);
+    renderDatePicker();
+  });
+
+  const clearButton = document.createElement("button");
+  clearButton.className = "date-picker-clear";
+  clearButton.type = "button";
+  clearButton.textContent = "Wyczyść";
+  clearButton.addEventListener("click", () => {
+    if (!activeDateInput) return;
+    activeDateInput.value = "";
+    activeDateInput.dispatchEvent(new Event("input", { bubbles: true }));
+    activeDateInput.dispatchEvent(new Event("change", { bubbles: true }));
+    closeDatePicker();
+  });
+
+  head.append(previousButton, title, nextButton, clearButton);
+
+  const months = document.createElement("div");
+  months.className = "date-picker-months";
+  months.append(
+    createDatePickerMonth(currentMonth, selectedDate, today),
+    createDatePickerMonth(nextMonth, selectedDate, today)
+  );
+
+  picker.replaceChildren(head, months);
+  positionDatePicker();
+}
+
+function createDatePickerMonth(monthDate, selectedDate, today) {
+  const month = document.createElement("section");
+  month.className = "date-picker-month";
+  const selectedIsoDate = selectedDate
+    ? isoDateFromParts(selectedDate.getFullYear(), selectedDate.getMonth() + 1, selectedDate.getDate())
+    : "";
+  const todayIsoDate = isoDateFromParts(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+  const title = document.createElement("h3");
+  title.textContent = monthDate.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  month.append(title);
+
+  const grid = document.createElement("div");
+  grid.className = "date-picker-grid";
+  ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach((weekday) => {
+    const item = document.createElement("span");
+    item.className = "date-picker-weekday";
+    item.textContent = weekday;
+    grid.append(item);
+  });
+
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const leadingEmptyCells = (firstDay.getDay() + 6) % 7;
+  for (let index = 0; index < leadingEmptyCells; index += 1) {
+    const empty = document.createElement("span");
+    empty.className = "date-picker-empty";
+    grid.append(empty);
+  }
+
+  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const isoDate = isoDateFromParts(monthDate.getFullYear(), monthDate.getMonth() + 1, day);
+    const button = document.createElement("button");
+    button.className = "date-picker-day";
+    button.type = "button";
+    button.textContent = String(day);
+    button.dataset.value = isoDate;
+
+    if (isoDate === selectedIsoDate) button.classList.add("selected");
+    if (isoDate === todayIsoDate) button.classList.add("today");
+
+    button.addEventListener("click", () => {
+      if (!activeDateInput) return;
+      activeDateInput.value = displayDateForInput(isoDate);
+      activeDateInput.dispatchEvent(new Event("input", { bubbles: true }));
+      activeDateInput.dispatchEvent(new Event("change", { bubbles: true }));
+      closeDatePicker();
+    });
+
+    grid.append(button);
+  }
+
+  month.append(grid);
+  return month;
 }
 
 function debounce(callback, wait) {
@@ -4621,6 +4889,7 @@ document.querySelector("#closeRepairDialogBtn").addEventListener("click", closeR
 document.querySelector("#cancelRepairBtn").addEventListener("click", closeRepairDialog);
 document.querySelector("#closeDemoDialogBtn").addEventListener("click", closeDemoDialog);
 document.querySelector("#cancelDemoBtn").addEventListener("click", closeDemoDialog);
+[recordDialog, repairDialog, demoDialog].forEach((dialog) => dialog.addEventListener("close", closeDatePicker));
 deleteBtn.addEventListener("click", deleteCurrentRecord);
 deleteRepairBtn.addEventListener("click", deleteCurrentRepairRecord);
 deleteDemoBtn.addEventListener("click", deleteCurrentDemoRecord);
@@ -4681,6 +4950,8 @@ document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", (
   switchNotebook("devices");
   switchView("demo", "devices");
 });
+
+setupDatePickers();
 
 notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));
