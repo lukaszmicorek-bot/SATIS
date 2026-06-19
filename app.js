@@ -285,6 +285,7 @@ const dataControlBody = document.querySelector("#dataControlBody");
 const dataControlEmptyState = document.querySelector("#dataControlEmptyState");
 const dataControlSummary = document.querySelector("#dataControlSummary");
 const dataControlStats = document.querySelector("#dataControlStats");
+const dataControlSearchInput = document.querySelector("#dataControlSearchInput");
 const databaseRenderNotice = document.querySelector("#databaseRenderNotice");
 const databaseRenderText = document.querySelector("#databaseRenderText");
 const showMoreRecordsBtn = document.querySelector("#showMoreRecordsBtn");
@@ -2173,14 +2174,35 @@ function printDemoChecklist() {
 }
 
 function renderDataControlView() {
-  const issues = buildDataControlIssues();
+  const allIssues = buildDataControlIssues();
+  const issues = filteredDataControlIssues(allIssues);
   const renderedIssues = visibleTableItems(issues, "dataControl");
 
   dataControlSummary.textContent = formatDataIssueCount(issues.length);
-  renderDataControlStats(issues);
+  renderDataControlStats(issues, allIssues.length);
   renderTableRows(dataControlBody, renderedIssues.map(createDataControlRow));
   dataControlEmptyState.hidden = issues.length > 0;
   renderLimitNotice(dataControlRenderNotice, dataControlRenderText, issues.length, renderedIssues.length, "spraw");
+}
+
+function filteredDataControlIssues(issues) {
+  const query = normalize(dataControlSearchInput.value).trim();
+  if (!query) return issues;
+  return issues.filter((issue) => dataControlSearchBlob(issue).includes(query));
+}
+
+function dataControlSearchBlob(issue) {
+  return [
+    DATA_CONTROL_SEVERITY_LABELS[issue.severity],
+    dataControlNotebookLabel(issue.source),
+    dataControlRecordLabel(issue),
+    issue.serialNumber,
+    issue.title,
+    issue.detail,
+    issue.kind
+  ]
+    .map(normalize)
+    .join("\n");
 }
 
 function buildDataControlIssues() {
@@ -2381,16 +2403,18 @@ function openDataControlIssue(issue) {
   openDialog(record);
 }
 
-function renderDataControlStats(issues) {
+function renderDataControlStats(issues, totalCount = issues.length) {
   const counts = {
     duplicate: issues.filter((issue) => issue.kind === "duplicate").length,
     critical: issues.filter((issue) => issue.severity === "critical").length,
     warning: issues.filter((issue) => issue.severity === "warning").length,
-    demo: issues.filter((issue) => issue.source === "demo").length
+    demo: issues.filter((issue) => issue.source === "demo").length,
+    all: totalCount
   };
 
   const fragment = document.createDocumentFragment();
   [
+    ["Wszystkie", counts.all],
     ["Duplikaty", counts.duplicate],
     ["Pilne", counts.critical],
     ["Do sprawdzenia", counts.warning],
@@ -3097,7 +3121,7 @@ function updateStats() {
   }
 
   if (activeDeviceView === "dataControl") {
-    const issues = buildDataControlIssues();
+    const issues = filteredDataControlIssues(buildDataControlIssues());
     const duplicateCount = issues.filter((issue) => issue.kind === "duplicate").length;
     const criticalCount = issues.filter((issue) => issue.severity === "critical").length;
     const warningCount = issues.filter((issue) => issue.severity === "warning").length;
@@ -4476,6 +4500,11 @@ document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJso
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
+dataControlSearchInput.addEventListener("input", debounce(() => {
+  resetTableRenderLimit("dataControl");
+  updateStats();
+  renderDataControlView();
+}, SEARCH_DEBOUNCE_MS));
 document.querySelector("#closeDialogBtn").addEventListener("click", closeDialog);
 document.querySelector("#cancelBtn").addEventListener("click", closeDialog);
 document.querySelector("#closeRepairDialogBtn").addEventListener("click", closeRepairDialog);
