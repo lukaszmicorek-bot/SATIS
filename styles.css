@@ -659,34 +659,34 @@ textarea:focus {
 
 .device-type-select[data-type-value="NA STANIE"],
 .device-type-select.type-select-stock {
-  color: #1f4f79;
-  background: #dbeeff;
-  border-color: #6ea8d5;
-  box-shadow: inset 4px 0 0 #4a91c8;
+  color: #075f61;
+  background: #e1f4f2;
+  border-color: #76bbb5;
+  box-shadow: inset 4px 0 0 #198f8b;
 }
 
 .device-type-select[data-type-value="SPRZEDANY"],
 .device-type-select.type-select-sold {
-  color: #17653d;
-  background: #dbf3e5;
-  border-color: #78c29a;
-  box-shadow: inset 4px 0 0 #2f9b63;
+  color: #2f6b2f;
+  background: #e8f4df;
+  border-color: #9cc47d;
+  box-shadow: inset 4px 0 0 #68a64b;
 }
 
 .device-type-select[data-type-value="REZERWACJA"],
 .device-type-select.type-select-reserved {
-  color: #6b5b12;
-  background: #faefc5;
-  border-color: #d7ba58;
-  box-shadow: inset 4px 0 0 #b8962a;
+  color: #755118;
+  background: #fff0d8;
+  border-color: #d9a75a;
+  box-shadow: inset 4px 0 0 #c8852c;
 }
 
 .device-type-select[data-type-value="ZWROT"],
 .device-type-select.type-select-return {
-  color: #43586a;
-  background: #e8eef3;
-  border-color: #9aabba;
-  box-shadow: inset 4px 0 0 #627b90;
+  color: #8b3434;
+  background: #fde8e3;
+  border-color: #df9a90;
+  box-shadow: inset 4px 0 0 #c85b4e;
 }
 
 .table-zone {
@@ -843,7 +843,7 @@ tbody tr.repair-open td:first-child {
 }
 
 .repair-status-progress {
-  background: #fff9e8;
+  background: #f0f7f5;
 }
 
 .repair-status-ready {
@@ -859,7 +859,7 @@ tbody tr.repair-status-received:hover {
 }
 
 tbody tr.repair-status-progress:hover {
-  background: #fff2c9;
+  background: #e5f1ee;
 }
 
 tbody tr.repair-status-ready:hover {
@@ -1006,8 +1006,8 @@ td {
 }
 
 .date-pill.sent {
-  color: #6f5a12;
-  background: #fff5cf;
+  color: #3f6d68;
+  background: #e7f3f0;
 }
 
 .date-pill.return {
@@ -1057,38 +1057,45 @@ tbody tr.device-sold-row .serial-pill.duplicate {
 }
 
 .type-pill.REPAIR {
-  color: #285c7f;
-  background: #e5f1f8;
+  color: #255d78;
+  background: #e5f2f7;
+  box-shadow: inset 0 0 0 1px #9fc7d8;
 }
 
 .type-pill.INSERT {
-  color: #746025;
-  background: #f6edcf;
+  color: #5a6428;
+  background: #eef4dc;
+  box-shadow: inset 0 0 0 1px #bbc983;
 }
 
 .type-pill.OUT-OF-WARRANTY {
-  color: #8b342b;
-  background: #fff0ee;
+  color: #8b3b34;
+  background: #fde9e5;
+  box-shadow: inset 0 0 0 1px #e3a399;
 }
 
 .status-pill.PRZYJĘTE {
-  color: var(--muted);
-  background: #edf0f2;
+  color: #58636d;
+  background: #eef1f3;
+  box-shadow: inset 0 0 0 1px #cfd7dd;
 }
 
 .status-pill.W-TRAKCIE {
-  color: #6b4f0c;
-  background: #f8ecc9;
+  color: #3f6d68;
+  background: #e7f3f0;
+  box-shadow: inset 0 0 0 1px #a7c9c2;
 }
 
 .status-pill.GOTOWE {
   color: #235c99;
-  background: #e7f1fb;
+  background: #e2f0fc;
+  box-shadow: inset 0 0 0 1px #9dc6e8;
 }
 
 .status-pill.ODEBRANE {
-  color: #74808a;
-  background: #edf0f2;
+  color: #4d675c;
+  background: #e9f2ed;
+  box-shadow: inset 0 0 0 1px #b8cbbf;
 }
 
 .age-pill.fresh {
@@ -1122,27 +1129,27 @@ tbody tr.device-sold-row .serial-pill.duplicate {
 }
 
 .type-pill.type-stock {
-  color: #1f4f79;
-  background: #dbeeff;
-  box-shadow: inset 0 0 0 1px #8eb8da;
+  color: #075f61;
+  background: #e1f4f2;
+  box-shadow: inset 0 0 0 1px #8ac9c4;
 }
 
 .type-pill.type-sold {
-  color: #17653d;
-  background: #dbf3e5;
-  box-shadow: inset 0 0 0 1px #8fc8a9;
+  color: #2f6b2f;
+  background: #e8f4df;
+  box-shadow: inset 0 0 0 1px #aacb8f;
 }
 
 .type-pill.type-reserved {
-  color: #745600;
-  background: #faebad;
-  box-shadow: inset 0 0 0 1px #d8bb49;
+  color: #755118;
+  background: #fff0d8;
+  box-shadow: inset 0 0 0 1px #dfb16b;
 }
 
 .type-pill.type-return {
-  color: #43586a;
-  background: #e8eef3;
-  box-shadow: inset 0 0 0 1px #aab8c4;
+  color: #8b3434;
+  background: #fde8e3;
+  box-shadow: inset 0 0 0 1px #e3a299;
 }
 
 .row-actions {
@@ -2341,6 +2348,24 @@ form {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.dialog-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dialog-title-row h2 {
+  margin: 0;
+}
+
+.dialog-title-serial {
+  color: #5c707b;
+  font-size: 0.82rem;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 
 .form-grid {
