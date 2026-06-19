@@ -1130,34 +1130,46 @@ function duplicateSerialMatches(record, source) {
   return serialMatches(record.serialNumber, source, record.id);
 }
 
-function dataControlDuplicateSerialMatches(record, source) {
+function createDataControlDuplicateIndex() {
+  const index = new Map();
+  const addRecord = (record, source, notebook, label) => {
+    const serial = normalizeSerialNumber(record.serialNumber);
+    if (!serial) return;
+    if (!index.has(serial)) index.set(serial, []);
+    index.get(serial).push({
+      source,
+      id: record.id,
+      notebook,
+      label
+    });
+  };
+
+  records.forEach((record) => {
+    addRecord(
+      record,
+      "devices",
+      "Zeszyt aparatów",
+      [record.deviceName, deviceDerived.get(record.id)?.displayType ?? displayType(record), record.customerName].filter(Boolean).join(" / ")
+    );
+  });
+
+  demoRecords.forEach((record) => {
+    addRecord(
+      record,
+      "demo",
+      "Aparaty demo",
+      [record.manufacturer, record.deviceName, demoDerived.get(record.id)?.status ?? demoStatus(record)].filter(Boolean).join(" / ")
+    );
+  });
+
+  return index;
+}
+
+function dataControlDuplicateSerialMatches(record, source, duplicateIndex) {
   const checkedSerial = normalizeSerialNumber(record.serialNumber);
   if (!checkedSerial) return [];
-
-  const matches = [];
-  records.forEach((item) => {
-    if (source === "devices" && item.id === record.id) return;
-    if (normalizeSerialNumber(item.serialNumber) !== checkedSerial) return;
-    matches.push({
-      source: "devices",
-      id: item.id,
-      notebook: "Zeszyt aparatów",
-      label: [item.deviceName, deviceDerived.get(item.id)?.displayType ?? displayType(item), item.customerName].filter(Boolean).join(" / ")
-    });
-  });
-
-  demoRecords.forEach((item) => {
-    if (source === "demo" && item.id === record.id) return;
-    if (normalizeSerialNumber(item.serialNumber) !== checkedSerial) return;
-    matches.push({
-      source: "demo",
-      id: item.id,
-      notebook: "Aparaty demo",
-      label: [item.manufacturer, item.deviceName, demoDerived.get(item.id)?.status ?? demoStatus(item)].filter(Boolean).join(" / ")
-    });
-  });
-
-  return matches;
+  const index = duplicateIndex || createDataControlDuplicateIndex();
+  return (index.get(checkedSerial) || []).filter((match) => !(match.source === source && match.id === record.id));
 }
 
 function duplicateSerialTitle(matches) {
@@ -2074,22 +2086,24 @@ function compareByAge(left, right) {
 }
 
 function render() {
-  updateStats();
   updateDeviceTypeSelectStyles();
   scheduleDemoReturnReminder();
 
   if (activeNotebook === "repairs") {
+    updateStats();
     renderRepairRecords();
-    return;
-  }
-
-  if (activeDeviceView === "demo") {
-    renderDemoRecords();
     return;
   }
 
   if (activeDeviceView === "dataControl") {
     renderDataControlView();
+    return;
+  }
+
+  updateStats();
+
+  if (activeDeviceView === "demo") {
+    renderDemoRecords();
     return;
   }
 
@@ -2208,6 +2222,7 @@ function renderDataControlView() {
   const issues = filteredDataControlIssues(allIssues);
   const renderedIssues = visibleTableItems(issues, "dataControl");
 
+  updateDataControlTopStats(issues);
   dataControlSummary.textContent = formatDataIssueCount(issues.length);
   renderDataControlStats(issues, allIssues.length);
   renderTableRows(dataControlBody, renderedIssues.map(createDataControlRow));
@@ -2237,9 +2252,10 @@ function dataControlSearchBlob(issue) {
 
 function buildDataControlIssues() {
   const issues = [];
+  const duplicateIndex = createDataControlDuplicateIndex();
 
   records.forEach((record) => {
-    const duplicateMatches = dataControlDuplicateSerialMatches(record, "devices");
+    const duplicateMatches = dataControlDuplicateSerialMatches(record, "devices", duplicateIndex);
     const type = displayType(record);
     const hasCustomer = Boolean(String(record.customerName ?? "").trim());
     const hasInvoice = Boolean(String(record.salesInvoice ?? "").trim());
@@ -2260,7 +2276,8 @@ function buildDataControlIssues() {
         "critical",
         "duplicate",
         "Duplikat numeru seryjnego",
-        duplicateSerialSummary(duplicateMatches)
+        duplicateSerialSummary(duplicateMatches),
+        { duplicateMatches }
       );
     }
     if (invoiceIssue) {
@@ -2284,7 +2301,7 @@ function buildDataControlIssues() {
   });
 
   demoRecords.forEach((record) => {
-    const duplicateMatches = dataControlDuplicateSerialMatches(record, "demo");
+    const duplicateMatches = dataControlDuplicateSerialMatches(record, "demo", duplicateIndex);
     const meta = demoDerived.get(record.id);
     const status = meta?.status ?? demoStatus(record);
     const qualityIssues = (meta?.issues || demoQualityIssues(record)).filter((issue) => issue !== "powtórzony numer seryjny");
@@ -2297,7 +2314,8 @@ function buildDataControlIssues() {
         "critical",
         "duplicate",
         "Duplikat numeru seryjnego",
-        duplicateSerialSummary(duplicateMatches)
+        duplicateSerialSummary(duplicateMatches),
+        { duplicateMatches }
       );
     }
     qualityIssues.forEach((issue) => {
@@ -2327,7 +2345,7 @@ function buildDataControlIssues() {
   return issues.sort(compareDataControlIssues);
 }
 
-function addDataControlIssue(issues, record, source, severity, kind, title, detail) {
+function addDataControlIssue(issues, record, source, severity, kind, title, detail, extra = {}) {
   issues.push({
     id: `${source}-${record.id}-${kind}-${title}`,
     record,
@@ -2336,8 +2354,23 @@ function addDataControlIssue(issues, record, source, severity, kind, title, deta
     kind,
     title,
     detail,
-    serialNumber: normalizeSerialNumber(record.serialNumber)
+    serialNumber: normalizeSerialNumber(record.serialNumber),
+    ...extra
   });
+}
+
+function updateDataControlTopStats(issues) {
+  const duplicateCount = issues.filter((issue) => issue.kind === "duplicate").length;
+  const criticalCount = issues.filter((issue) => issue.severity === "critical").length;
+  const warningCount = issues.filter((issue) => issue.severity === "warning").length;
+  document.querySelector("#countAll").textContent = issues.length;
+  document.querySelector("#countSold").textContent = duplicateCount;
+  document.querySelector("#countInvoice").textContent = criticalCount;
+  document.querySelector("#countStock").textContent = warningCount;
+  countAllLabel.textContent = "spraw";
+  countSoldLabel.textContent = "duplikaty";
+  countInvoiceLabel.textContent = "pilne";
+  countStockLabel.textContent = "do sprawdzenia";
 }
 
 function compareDataControlIssues(left, right) {
@@ -2384,7 +2417,7 @@ function createDataControlRow(issue) {
     createDataSeverityPill(issue.severity),
     dataControlNotebookLabel(issue.source),
     dataControlRecordLabel(issue),
-    issue.serialNumber ? createSerialPill(issue.serialNumber, issue.kind === "duplicate" ? dataControlDuplicateSerialMatches(issue.record, issue.source) : []) : "",
+    issue.serialNumber ? createSerialPill(issue.serialNumber, issue.kind === "duplicate" ? issue.duplicateMatches || [] : []) : "",
     issue.title,
     issue.detail
   ];
@@ -3425,13 +3458,14 @@ function switchView(viewName, groupName) {
   }
 
   activeDeviceView = viewName;
+  if (viewName === "dataControl") {
+    renderDataControlView();
+    return;
+  }
+
   updateStats();
   if (viewName === "demo") {
     renderDemoRecords();
-    return;
-  }
-  if (viewName === "dataControl") {
-    renderDataControlView();
     return;
   }
   if (viewName === "stock") {
@@ -3454,15 +3488,16 @@ function switchNotebook(notebookName) {
   });
 
   setCurrentYearTitle();
-  updateStats();
 
   if (activeNotebook === "repairs") {
+    updateStats();
     renderRepairRecords();
     return;
   }
 
   activeDeviceView = document.querySelector('.tab-button.active[data-view-group="devices"]')?.dataset.view || "database";
   if (activeDeviceView === "demo") {
+    updateStats();
     renderDemoRecords();
     return;
   }
@@ -3471,9 +3506,11 @@ function switchNotebook(notebookName) {
     return;
   }
   if (activeDeviceView === "stock") {
+    updateStats();
     renderStockView();
     return;
   }
+  updateStats();
   renderDeviceViews();
 }
 
@@ -4532,7 +4569,6 @@ showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", render
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
 dataControlSearchInput.addEventListener("input", debounce(() => {
   resetTableRenderLimit("dataControl");
-  updateStats();
   renderDataControlView();
 }, SEARCH_DEBOUNCE_MS));
 document.querySelector("#closeDialogBtn").addEventListener("click", closeDialog);
