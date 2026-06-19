@@ -122,6 +122,9 @@ let repairSortState = { key: "receivedDate", direction: "desc" };
 let demoSortState = { key: "receivedDate", direction: "desc" };
 let activeNotebook = "devices";
 let activeDeviceView = "database";
+let dataControlIssuesCache = null;
+let dataControlRenderToken = 0;
+let dataControlBuildScheduled = false;
 const tableRenderLimits = {
   devices: TABLE_RENDER_BATCH_SIZE,
   demo: TABLE_RENDER_BATCH_SIZE,
@@ -1892,6 +1895,7 @@ function rebuildCustomerNameSuggestions() {
 }
 
 function rebuildDerivedData() {
+  invalidateDataControlCache();
   rebuildDeviceDerivedData();
   rebuildRepairDerivedData();
   rebuildDemoDerivedData();
@@ -1900,6 +1904,12 @@ function rebuildDerivedData() {
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
+}
+
+function invalidateDataControlCache() {
+  dataControlIssuesCache = null;
+  dataControlRenderToken += 1;
+  dataControlBuildScheduled = false;
 }
 
 function deviceSortValue(record, key) {
@@ -2085,7 +2095,41 @@ function printDemoChecklist() {
 }
 
 function renderDataControlView() {
-  const allIssues = buildDataControlIssues();
+  if (!dataControlIssuesCache) {
+    renderDataControlLoading();
+    if (dataControlBuildScheduled) return;
+    dataControlBuildScheduled = true;
+    const token = dataControlRenderToken;
+    const startBuild = () => {
+      window.setTimeout(() => {
+        dataControlBuildScheduled = false;
+        if (token !== dataControlRenderToken) return;
+        dataControlIssuesCache = buildDataControlIssues();
+        renderDataControlResults(dataControlIssuesCache);
+      }, 0);
+    };
+
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(startBuild);
+    } else {
+      startBuild();
+    }
+    return;
+  }
+
+  renderDataControlResults(dataControlIssuesCache);
+}
+
+function renderDataControlLoading() {
+  dataControlSummary.textContent = "Sprawdzam dane...";
+  dataControlStats.replaceChildren();
+  renderTableRows(dataControlBody, []);
+  dataControlEmptyState.hidden = true;
+  renderLimitNotice(dataControlRenderNotice, dataControlRenderText, 0, 0, "spraw");
+  updateDataControlTopStats([]);
+}
+
+function renderDataControlResults(allIssues) {
   const issues = filteredDataControlIssues(allIssues);
   const renderedIssues = visibleTableItems(issues, "dataControl");
 
