@@ -451,6 +451,11 @@ textarea:focus {
   min-width: 0;
 }
 
+.date-input-wrap.invalid-date input {
+  border-color: #c84b3f;
+  background: #fff7f5;
+}
+
 .clear-date-btn {
   min-height: 34px;
   padding: 0;
@@ -491,6 +496,21 @@ textarea:focus {
   color: var(--ink);
   font-size: 0.9rem;
   text-align: center;
+}
+
+.date-picker-hint {
+  margin: -4px 0 10px;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: #9b3327;
+  background: #fff1ee;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.date-picker-hint:empty {
+  display: none;
 }
 
 .date-picker-nav,
@@ -585,10 +605,28 @@ textarea:focus {
   background: #f1f8f5;
 }
 
+.date-picker-day.invalid-order {
+  border-color: #e7aaa3;
+  color: #983428;
+  background: #fff0ed;
+}
+
+.date-picker-day.invalid-order:hover {
+  border-color: #c84b3f;
+  color: #8f2f24;
+  background: #ffe3df;
+}
+
 .date-picker-day.selected {
   border-color: var(--accent);
   color: #fff;
   background: var(--accent);
+}
+
+.date-picker-day.invalid-order.selected {
+  border-color: #c84b3f;
+  color: #fff;
+  background: #c84b3f;
 }
 
 @media (max-width: 720px) {
@@ -2183,6 +2221,7 @@ dialog {
   width: min(920px, calc(100% - 24px));
   border: 0;
   border-radius: 8px;
+  overflow: visible;
   padding: 0;
   box-shadow: var(--shadow);
 }

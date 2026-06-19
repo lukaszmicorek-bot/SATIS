@@ -251,6 +251,12 @@ const demoFields = [
 const DEVICE_DATE_FIELDS = ["receivedDate", "pickupDate", "returnDate"];
 const REPAIR_DATE_FIELDS = ["receivedDate", "sentDate", "returnDate", "pickupDate"];
 const DEMO_DATE_FIELDS = ["receivedDate", "manufacturerReturnDate", "loanDate", "returnDate"];
+const REPAIR_DATE_ORDER = [
+  { field: "receivedDate", label: "Data przyjęcia", selector: "#repairReceivedDate" },
+  { field: "sentDate", label: "Data wysłania", selector: "#repairSentDate" },
+  { field: "returnDate", label: "Data powrotu", selector: "#repairReturnDate" },
+  { field: "pickupDate", label: "Data odbioru", selector: "#repairPickupDate" }
+];
 
 let records = [];
 let repairRecords = [];
@@ -343,6 +349,7 @@ const repairDialog = document.querySelector("#repairDialog");
 const repairForm = document.querySelector("#repairForm");
 const repairDialogTitle = document.querySelector("#repairDialogTitle");
 const deleteRepairBtn = document.querySelector("#deleteRepairBtn");
+const repairFormError = document.querySelector("#repairFormError");
 const demoDialog = document.querySelector("#demoDialog");
 const demoForm = document.querySelector("#demoForm");
 const demoDialogTitle = document.querySelector("#demoDialogTitle");
@@ -3641,6 +3648,7 @@ function openDialog(record = null) {
 
 function openRepairDialog(record = null) {
   repairForm.reset();
+  clearRepairDateOrderError();
   document.querySelector("#repairId").value = record?.id ?? "";
   repairDialogTitle.textContent = record ? "Edytuj wpis" : "Dodaj naprawę lub wkładkę";
   deleteRepairBtn.hidden = !record;
@@ -3978,10 +3986,58 @@ function statusFromRepairDates(data) {
   return data.receivedDate ? "PRZYJĘTE" : data.status || "PRZYJĘTE";
 }
 
+function repairDateOrderViolation(data) {
+  for (let currentIndex = 1; currentIndex < REPAIR_DATE_ORDER.length; currentIndex += 1) {
+    const current = REPAIR_DATE_ORDER[currentIndex];
+    const currentDate = data[current.field];
+    if (!currentDate) continue;
+
+    for (let previousIndex = 0; previousIndex < currentIndex; previousIndex += 1) {
+      const previous = REPAIR_DATE_ORDER[previousIndex];
+      const previousDate = data[previous.field];
+      if (previousDate && currentDate < previousDate) {
+        return {
+          field: current.field,
+          selector: current.selector,
+          message: `${current.label} nie może być wcześniejsza niż ${previous.label.toLocaleLowerCase("pl-PL")}. Kolejność: przyjęcie, wysłanie, powrót, odbiór.`
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function clearRepairDateOrderError() {
+  if (repairFormError) repairFormError.textContent = "";
+  REPAIR_DATE_ORDER.forEach(({ selector }) => {
+    const input = document.querySelector(selector);
+    input?.removeAttribute("aria-invalid");
+    input?.closest(".date-input-wrap")?.classList.remove("invalid-date");
+  });
+}
+
+function showRepairDateOrderError(violation, options = {}) {
+  clearRepairDateOrderError();
+  if (!violation) return true;
+
+  const input = document.querySelector(violation.selector);
+  if (repairFormError) repairFormError.textContent = violation.message;
+  input?.setAttribute("aria-invalid", "true");
+  input?.closest(".date-input-wrap")?.classList.add("invalid-date");
+  if (options.focus) input?.focus();
+  return false;
+}
+
+function validateRepairDateOrder(data = repairFormRecord(), options = {}) {
+  return showRepairDateOrderError(repairDateOrderViolation(data), options);
+}
+
 function syncRepairStatusFromDates() {
   const data = Object.fromEntries(new FormData(repairForm).entries());
   normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
+  validateRepairDateOrder(data);
 }
 
 function syncDemoStatusFromCurrentUser(options = {}) {
@@ -4168,6 +4224,7 @@ async function saveRepairFormRecord(event) {
   const id = document.querySelector("#repairId").value;
   const data = repairFormRecord();
   let savedRecord;
+  if (!validateRepairDateOrder(data, { focus: true })) return;
   if (!confirmSerialNumberSave(data.serialNumber, "repairs", id)) return;
   const previousRepairRecords = repairRecords;
 
@@ -4716,12 +4773,34 @@ function positionDatePicker() {
 
   const left = Math.max(12, Math.min(rect.left, viewportWidth - pickerWidth - 12));
   const measuredHeight = picker.offsetHeight || 360;
+  const hostDialog = activeDateInput.closest("dialog");
+  const hostRect = hostDialog?.getBoundingClientRect();
+  const bottomLimit = Math.min(viewportHeight - 12, hostRect ? hostRect.bottom - 12 : viewportHeight - 12);
   const belowTop = rect.bottom + 8;
   const aboveTop = rect.top - measuredHeight - 8;
-  const top = belowTop + measuredHeight <= viewportHeight - 12 ? belowTop : Math.max(12, aboveTop);
+  const top = belowTop + measuredHeight <= bottomLimit ? belowTop : Math.max(12, aboveTop);
 
   picker.style.left = `${left}px`;
   picker.style.top = `${top}px`;
+}
+
+function activeRepairDateMinimumInfo() {
+  if (!activeDateInput) return null;
+
+  const currentIndex = REPAIR_DATE_ORDER.findIndex(({ selector }) => document.querySelector(selector) === activeDateInput);
+  if (currentIndex <= 0) return null;
+
+  const previousDates = REPAIR_DATE_ORDER.slice(0, currentIndex)
+    .map(({ field, label, selector }) => ({
+      field,
+      label,
+      date: isoDateForSave(document.querySelector(selector)?.value)
+    }))
+    .filter(({ date }) => date);
+
+  if (!previousDates.length) return null;
+
+  return previousDates.reduce((latest, item) => (item.date > latest.date ? item : latest), previousDates[0]);
 }
 
 function renderDatePicker() {
@@ -4730,6 +4809,7 @@ function renderDatePicker() {
   const today = new Date();
   const currentMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth(), 1);
   const nextMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() + 1, 1);
+  const repairMinimum = activeRepairDateMinimumInfo();
 
   const head = document.createElement("div");
   head.className = "date-picker-head";
@@ -4771,18 +4851,24 @@ function renderDatePicker() {
 
   head.append(previousButton, title, nextButton, clearButton);
 
+  const hint = document.createElement("p");
+  hint.className = "date-picker-hint";
+  if (repairMinimum) {
+    hint.textContent = `Czerwone daty są wcześniejsze niż ${repairMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(repairMinimum.date)}).`;
+  }
+
   const months = document.createElement("div");
   months.className = "date-picker-months";
   months.append(
-    createDatePickerMonth(currentMonth, selectedDate, today),
-    createDatePickerMonth(nextMonth, selectedDate, today)
+    createDatePickerMonth(currentMonth, selectedDate, today, repairMinimum),
+    createDatePickerMonth(nextMonth, selectedDate, today, repairMinimum)
   );
 
-  picker.replaceChildren(head, months);
+  picker.replaceChildren(head, hint, months);
   positionDatePicker();
 }
 
-function createDatePickerMonth(monthDate, selectedDate, today) {
+function createDatePickerMonth(monthDate, selectedDate, today, repairMinimum = null) {
   const month = document.createElement("section");
   month.className = "date-picker-month";
   const selectedIsoDate = selectedDate
@@ -4822,6 +4908,10 @@ function createDatePickerMonth(monthDate, selectedDate, today) {
 
     if (isoDate === selectedIsoDate) button.classList.add("selected");
     if (isoDate === todayIsoDate) button.classList.add("today");
+    if (repairMinimum && isoDate < repairMinimum.date) {
+      button.classList.add("invalid-order");
+      button.title = `Ta data jest wcześniejsza niż ${repairMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(repairMinimum.date)}).`;
+    }
 
     button.addEventListener("click", () => {
       if (!activeDateInput) return;
