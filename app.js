@@ -1130,6 +1130,36 @@ function duplicateSerialMatches(record, source) {
   return serialMatches(record.serialNumber, source, record.id);
 }
 
+function dataControlDuplicateSerialMatches(record, source) {
+  const checkedSerial = normalizeSerialNumber(record.serialNumber);
+  if (!checkedSerial) return [];
+
+  const matches = [];
+  records.forEach((item) => {
+    if (source === "devices" && item.id === record.id) return;
+    if (normalizeSerialNumber(item.serialNumber) !== checkedSerial) return;
+    matches.push({
+      source: "devices",
+      id: item.id,
+      notebook: "Zeszyt aparatów",
+      label: [item.deviceName, deviceDerived.get(item.id)?.displayType ?? displayType(item), item.customerName].filter(Boolean).join(" / ")
+    });
+  });
+
+  demoRecords.forEach((item) => {
+    if (source === "demo" && item.id === record.id) return;
+    if (normalizeSerialNumber(item.serialNumber) !== checkedSerial) return;
+    matches.push({
+      source: "demo",
+      id: item.id,
+      notebook: "Aparaty demo",
+      label: [item.manufacturer, item.deviceName, demoDerived.get(item.id)?.status ?? demoStatus(item)].filter(Boolean).join(" / ")
+    });
+  });
+
+  return matches;
+}
+
 function duplicateSerialTitle(matches) {
   if (!matches.length) return "";
 
@@ -2209,7 +2239,7 @@ function buildDataControlIssues() {
   const issues = [];
 
   records.forEach((record) => {
-    const duplicateMatches = duplicateSerialMatches(record, "devices");
+    const duplicateMatches = dataControlDuplicateSerialMatches(record, "devices");
     const type = displayType(record);
     const hasCustomer = Boolean(String(record.customerName ?? "").trim());
     const hasInvoice = Boolean(String(record.salesInvoice ?? "").trim());
@@ -2254,7 +2284,7 @@ function buildDataControlIssues() {
   });
 
   demoRecords.forEach((record) => {
-    const duplicateMatches = duplicateSerialMatches(record, "demo");
+    const duplicateMatches = dataControlDuplicateSerialMatches(record, "demo");
     const meta = demoDerived.get(record.id);
     const status = meta?.status ?? demoStatus(record);
     const qualityIssues = (meta?.issues || demoQualityIssues(record)).filter((issue) => issue !== "powtórzony numer seryjny");
@@ -2354,7 +2384,7 @@ function createDataControlRow(issue) {
     createDataSeverityPill(issue.severity),
     dataControlNotebookLabel(issue.source),
     dataControlRecordLabel(issue),
-    issue.serialNumber ? createSerialPill(issue.serialNumber, issue.kind === "duplicate" ? duplicateSerialMatches(issue.record, issue.source) : []) : "",
+    issue.serialNumber ? createSerialPill(issue.serialNumber, issue.kind === "duplicate" ? dataControlDuplicateSerialMatches(issue.record, issue.source) : []) : "",
     issue.title,
     issue.detail
   ];
