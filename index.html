@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260619-4">
+    <link rel="stylesheet" href="styles.css?v=20260619-5">
   </head>
   <body>
     <main class="app-shell">
@@ -464,7 +464,7 @@
           <label>
             <span>Data przyjęcia</span>
             <div class="date-input-wrap">
-              <input id="receivedDate" name="receivedDate" type="date">
+              <input id="receivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="receivedDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
@@ -505,7 +505,7 @@
           <label>
             <span>Data odbioru</span>
             <div class="date-input-wrap">
-              <input id="pickupDate" name="pickupDate" type="date">
+              <input id="pickupDate" name="pickupDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="pickupDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
@@ -521,7 +521,7 @@
           <label>
             <span>Data zwrotu/wymiany</span>
             <div class="date-input-wrap">
-              <input id="returnDate" name="returnDate" type="date">
+              <input id="returnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="returnDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
@@ -558,28 +558,28 @@
           <label>
             <span>Data przyjęcia</span>
             <div class="date-input-wrap">
-              <input id="repairReceivedDate" name="receivedDate" type="date">
+              <input id="repairReceivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="repairReceivedDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
           <label>
             <span>Data wysłania</span>
             <div class="date-input-wrap">
-              <input id="repairSentDate" name="sentDate" type="date">
+              <input id="repairSentDate" name="sentDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="repairSentDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
           <label>
             <span>Data powrotu</span>
             <div class="date-input-wrap">
-              <input id="repairReturnDate" name="returnDate" type="date">
+              <input id="repairReturnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="repairReturnDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
           <label>
             <span>Data odbioru</span>
             <div class="date-input-wrap">
-              <input id="repairPickupDate" name="pickupDate" type="date">
+              <input id="repairPickupDate" name="pickupDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="repairPickupDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
@@ -650,14 +650,14 @@
           <label>
             <span>Data przyjęcia</span>
             <div class="date-input-wrap">
-              <input id="demoReceivedDate" name="receivedDate" type="date">
+              <input id="demoReceivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="demoReceivedDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
           <label>
             <span>Data zwrotu do producenta</span>
             <div class="date-input-wrap">
-              <input id="demoManufacturerReturnDate" name="manufacturerReturnDate" type="date">
+              <input id="demoManufacturerReturnDate" name="manufacturerReturnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="demoManufacturerReturnDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
@@ -717,14 +717,14 @@
           <label>
             <span>Data wypożyczenia</span>
             <div class="date-input-wrap">
-              <input id="demoLoanDate" name="loanDate" type="date">
+              <input id="demoLoanDate" name="loanDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="demoLoanDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
           <label>
             <span>Data zwrotu z wypożyczenia</span>
             <div class="date-input-wrap">
-              <input id="demoReturnDate" name="returnDate" type="date">
+              <input id="demoReturnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
               <button class="clear-date-btn" type="button" data-target="demoReturnDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
@@ -804,6 +804,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260619-12"></script>
+    <script src="app.js?v=20260619-13"></script>
   </body>
 </html>

@@ -468,6 +468,139 @@ textarea:focus {
   background: #eceff1;
 }
 
+.two-month-picker {
+  position: fixed;
+  z-index: 1200;
+  width: min(620px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid rgba(192, 202, 210, 0.96);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 42px rgba(28, 31, 36, 0.18);
+}
+
+.date-picker-head {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.date-picker-head strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.date-picker-nav,
+.date-picker-clear {
+  min-height: 32px;
+  padding: 0 10px;
+  border-color: #d9e0e5;
+  color: #35505d;
+  background: #f7f9fa;
+  box-shadow: none;
+}
+
+.date-picker-nav {
+  width: 34px;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.date-picker-clear {
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.date-picker-nav:hover,
+.date-picker-clear:hover {
+  color: var(--accent);
+  background: #eef4f2;
+  transform: none;
+}
+
+.date-picker-months {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.date-picker-month {
+  min-width: 0;
+}
+
+.date-picker-month h3 {
+  margin: 0 0 8px;
+  color: #003f5a;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.date-picker-weekday {
+  display: grid;
+  min-height: 24px;
+  place-items: center;
+  color: #74828c;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.date-picker-empty {
+  min-height: 30px;
+}
+
+.date-picker-day {
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.date-picker-day:hover {
+  border-color: rgba(22, 108, 95, 0.2);
+  color: var(--accent);
+  background: #eef7f4;
+  transform: none;
+}
+
+.date-picker-day.today {
+  border-color: #b8d2ca;
+  color: #0f685c;
+  background: #f1f8f5;
+}
+
+.date-picker-day.selected {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .two-month-picker {
+    width: calc(100vw - 24px);
+  }
+
+  .date-picker-months {
+    grid-template-columns: 1fr;
+  }
+}
+
 .device-type-select {
   appearance: none;
   font-weight: 800;
