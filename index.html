@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260619-3">
+    <link rel="stylesheet" href="styles.css?v=20260619-4">
   </head>
   <body>
     <main class="app-shell">
@@ -300,6 +300,10 @@
               <strong>Kontrola danych</strong>
               <span id="dataControlSummary">0 spraw do sprawdzenia</span>
             </div>
+            <label class="search-box data-control-search">
+              <span>Szukaj</span>
+              <input id="dataControlSearchInput" type="search" placeholder="Rekord, numer, faktura, sprawa...">
+            </label>
             <div id="dataControlStats" class="data-control-stats"></div>
           </section>
           <section class="table-zone data-control-zone" aria-label="Sprawy do sprawdzenia w danych">
@@ -800,6 +804,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260619-7"></script>
+    <script src="app.js?v=20260619-9"></script>
   </body>
 </html>

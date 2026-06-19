@@ -1042,6 +1042,7 @@ td.row-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 10px;
 }
@@ -1061,6 +1062,11 @@ td.row-actions {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.data-control-search {
+  flex: 1 1 340px;
+  max-width: 560px;
 }
 
 .data-control-stats {
