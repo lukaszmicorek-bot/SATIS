@@ -347,6 +347,7 @@ const importInput = document.querySelector("#importInput");
 const importRepairInput = document.querySelector("#importRepairInput");
 const repairDialog = document.querySelector("#repairDialog");
 const repairForm = document.querySelector("#repairForm");
+const repairRecordEyebrow = document.querySelector("#repairRecordEyebrow");
 const repairDialogTitle = document.querySelector("#repairDialogTitle");
 const deleteRepairBtn = document.querySelector("#deleteRepairBtn");
 const repairFormError = document.querySelector("#repairFormError");
@@ -3650,9 +3651,10 @@ function openRepairDialog(record = null) {
   repairForm.reset();
   clearRepairDateOrderError();
   document.querySelector("#repairId").value = record?.id ?? "";
-  repairDialogTitle.textContent = record ? "Edytuj wpis" : "Dodaj naprawę lub wkładkę";
   deleteRepairBtn.hidden = !record;
   const normalizedRecord = record ? normalizeRepairRecordForUse(record) : null;
+  repairRecordEyebrow.textContent = normalizedRecord ? repairDialogProductLabel(normalizedRecord) : "Produkt";
+  repairDialogTitle.textContent = normalizedRecord ? repairDialogCustomerTitle(normalizedRecord) : "Dodaj naprawę lub wkładkę";
 
   const fieldMap = {
     receivedDate: "#repairReceivedDate",
@@ -3679,6 +3681,20 @@ function openRepairDialog(record = null) {
   }
 
   repairDialog.showModal();
+}
+
+function repairDialogProductLabel(record) {
+  const product = normalizeDeviceName(record?.deviceName);
+  if (product) return product;
+
+  const category = normalizeRepairCategory(record?.category);
+  if (category === "WKŁADKA USZNA") return "Wkładka uszna";
+  if (category === "NAPRAWA GWARANCYJNA" || category === "NAPRAWA POGWARANCYJNA") return "Aparat";
+  return "Produkt";
+}
+
+function repairDialogCustomerTitle(record) {
+  return titleCaseName(record?.customerName) || "Brak imienia i nazwiska";
 }
 
 function openDemoDialog(record = null) {
