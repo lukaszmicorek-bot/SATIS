@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="satis-monogram.png?v=20260609">
     <link rel="shortcut icon" href="satis-monogram.png?v=20260609">
     <link rel="apple-touch-icon" href="satis-monogram.png?v=20260609">
-    <link rel="stylesheet" href="styles.css?v=20260618-1">
+    <link rel="stylesheet" href="styles.css?v=20260619-2">
   </head>
   <body>
     <main class="app-shell">
@@ -58,6 +58,7 @@
           <button id="databaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="databaseView" data-view-group="devices" data-view="database">Baza</button>
           <button id="demoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="demoView" data-view-group="devices" data-view="demo">Demo</button>
           <button id="stockTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="stockView" data-view-group="devices" data-view="stock">Stan</button>
+          <button id="dataControlTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="dataControlView" data-view-group="devices" data-view="dataControl">Kontrola danych</button>
         </section>
 
         <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
@@ -282,6 +283,33 @@
               <span>Data:</span>
               <span>Podpis:</span>
             </footer>
+          </section>
+        </section>
+
+        <section id="dataControlView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="dataControlTab" hidden>
+          <section class="data-control-toolbar" aria-label="Podsumowanie kontroli danych">
+            <div class="data-control-title">
+              <strong>Kontrola danych</strong>
+              <span id="dataControlSummary">0 spraw do sprawdzenia</span>
+            </div>
+            <div id="dataControlStats" class="data-control-stats"></div>
+          </section>
+          <section class="table-zone data-control-zone" aria-label="Sprawy do sprawdzenia w danych">
+            <table class="data-control-table">
+              <thead>
+                <tr>
+                  <th>Priorytet</th>
+                  <th>Zeszyt</th>
+                  <th>Rekord</th>
+                  <th>Numer seryjny</th>
+                  <th>Sprawa</th>
+                  <th>Szczegóły</th>
+                  <th class="actions-head">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="dataControlBody"></tbody>
+            </table>
+            <p id="dataControlEmptyState" class="empty-state" hidden>Nie znaleziono spraw do sprawdzenia.</p>
           </section>
         </section>
       </section>
@@ -752,6 +780,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260618-3"></script>
+    <script src="app.js?v=20260619-5"></script>
   </body>
 </html>
