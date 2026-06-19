@@ -24,6 +24,12 @@ const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const STOCK_LOCATIONS = ["T12", "P50", "P63"];
+const DATA_CONTROL_SEVERITY_LABELS = {
+  critical: "Pilne",
+  warning: "Do sprawdzenia",
+  info: "Informacja"
+};
+const DATA_CONTROL_SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseKey = supabaseConfig.publishableKey || supabaseConfig.anonKey || "";
 const hasSupabaseSettings = Boolean(supabaseConfig.url && supabaseKey);
@@ -267,6 +273,10 @@ const stockLocationSummary = document.querySelector("#stockLocationSummary");
 const stockChecklistBody = document.querySelector("#stockChecklistBody");
 const stockChecklistMeta = document.querySelector("#stockChecklistMeta");
 const printStockChecklistBtn = document.querySelector("#printStockChecklistBtn");
+const dataControlBody = document.querySelector("#dataControlBody");
+const dataControlEmptyState = document.querySelector("#dataControlEmptyState");
+const dataControlSummary = document.querySelector("#dataControlSummary");
+const dataControlStats = document.querySelector("#dataControlStats");
 const countAllLabel = document.querySelector("#countAllLabel");
 const countSoldLabel = document.querySelector("#countSoldLabel");
 const countInvoiceLabel = document.querySelector("#countInvoiceLabel");
@@ -1090,6 +1100,21 @@ function serialMatches(serialNumber, source, currentId) {
   const checkedSerial = normalizeSerialNumber(serialNumber);
   if (!checkedSerial) return [];
   return (serialIndex.get(checkedSerial) || []).filter((match) => !(match.source === source && match.id === currentId));
+}
+
+function duplicateSerialMatches(record, source) {
+  return serialMatches(record.serialNumber, source, record.id);
+}
+
+function duplicateSerialTitle(matches) {
+  if (!matches.length) return "";
+
+  const matchList = matches
+    .slice(0, 5)
+    .map((match) => `${match.notebook}: ${match.label || "bez opisu"}`)
+    .join("\n");
+  const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
+  return `Duplikat numeru seryjnego:\n${matchList}${extraCount}`;
 }
 
 function confirmSerialNumberSave(serialNumber, source, currentId) {
@@ -1987,6 +2012,11 @@ function render() {
     return;
   }
 
+  if (activeDeviceView === "dataControl") {
+    renderDataControlView();
+    return;
+  }
+
   renderDeviceViews();
 }
 
@@ -2084,6 +2114,249 @@ function printDemoChecklist() {
   window.print();
 }
 
+function renderDataControlView() {
+  const issues = buildDataControlIssues();
+
+  dataControlSummary.textContent = formatDataIssueCount(issues.length);
+  renderDataControlStats(issues);
+  renderTableRows(dataControlBody, issues.map(createDataControlRow));
+  dataControlEmptyState.hidden = issues.length > 0;
+}
+
+function buildDataControlIssues() {
+  const issues = [];
+
+  records.forEach((record) => {
+    const duplicateMatches = duplicateSerialMatches(record, "devices");
+    const type = displayType(record);
+    const hasCustomer = Boolean(String(record.customerName ?? "").trim());
+    const hasInvoice = Boolean(String(record.salesInvoice ?? "").trim());
+    const ezwm = normalizeEzwmStatus(record.ezwm);
+    const invoiceIssue = suspiciousSalesInvoiceReason(record.salesInvoice);
+
+    if (!String(record.deviceName ?? "").trim()) {
+      addDataControlIssue(issues, record, "devices", "critical", "missing", "Brak nazwy aparatu", "Rekord w bazie nie ma wpisanego modelu aparatu.");
+    }
+    if (!normalizeSerialNumber(record.serialNumber)) {
+      addDataControlIssue(issues, record, "devices", "critical", "missing", "Brak numeru seryjnego", "Bez numeru seryjnego trudniej wykryć duplikaty i sprawdzić stan.");
+    }
+    if (duplicateMatches.length) {
+      addDataControlIssue(
+        issues,
+        record,
+        "devices",
+        "critical",
+        "duplicate",
+        "Duplikat numeru seryjnego",
+        duplicateSerialSummary(duplicateMatches)
+      );
+    }
+    if (invoiceIssue) {
+      addDataControlIssue(issues, record, "devices", "warning", "invoice", "Podejrzana faktura sprzedaży", invoiceIssue);
+    }
+    if (type === "SPRZEDANY" && !hasInvoice) {
+      addDataControlIssue(issues, record, "devices", "critical", "status", "Sprzedany bez faktury", "Status wskazuje sprzedaż, ale faktura sprzedaży jest pusta.");
+    }
+    if (type === "SPRZEDANY" && !hasCustomer) {
+      addDataControlIssue(issues, record, "devices", "warning", "status", "Sprzedany bez klienta", "Status wskazuje sprzedaż, ale imię i nazwisko jest puste.");
+    }
+    if (type === "SPRZEDANY" && ezwm !== "REALIZACJA") {
+      addDataControlIssue(issues, record, "devices", "warning", "ezwm", "Sprzedany bez EZWM realizacja", "Dla sprzedanego aparatu EZWM nie ma statusu realizacja.");
+    }
+    if (type === "NA STANIE" && (hasCustomer || hasInvoice)) {
+      addDataControlIssue(issues, record, "devices", "warning", "status", "Na stanie z klientem lub fakturą", "Rekord wygląda na rezerwację albo sprzedaż, ale status to na stanie.");
+    }
+    if (type === "ZWROT" && !record.returnDate) {
+      addDataControlIssue(issues, record, "devices", "info", "status", "Zwrot bez daty zwrotu", "Status to zwrot, ale data zwrotu/wymiany jest pusta.");
+    }
+  });
+
+  demoRecords.forEach((record) => {
+    const duplicateMatches = duplicateSerialMatches(record, "demo");
+    const meta = demoDerived.get(record.id);
+    const status = meta?.status ?? demoStatus(record);
+    const qualityIssues = (meta?.issues || demoQualityIssues(record)).filter((issue) => issue !== "powtórzony numer seryjny");
+
+    if (duplicateMatches.length) {
+      addDataControlIssue(
+        issues,
+        record,
+        "demo",
+        "critical",
+        "duplicate",
+        "Duplikat numeru seryjnego",
+        duplicateSerialSummary(duplicateMatches)
+      );
+    }
+    qualityIssues.forEach((issue) => {
+      const severity = issue.includes("brak numeru") || issue.includes("brak nazwy") ? "critical" : "warning";
+      addDataControlIssue(issues, record, "demo", severity, "demo-quality", "Demo do poprawy", issue);
+    });
+    if (record.currentUser && !record.loanDate) {
+      addDataControlIssue(issues, record, "demo", "warning", "demo-loan", "Wypożyczony bez daty wypożyczenia", "Jest wpisana osoba, ale brakuje daty wypożyczenia.");
+    }
+    if (!record.currentUser && record.loanDate && status !== "ZWRÓCONO") {
+      addDataControlIssue(issues, record, "demo", "warning", "demo-loan", "Data wypożyczenia bez osoby", "Data wypożyczenia jest wpisana, ale pole aktualnie używany jest puste.");
+    }
+    if (meta?.returnLevel) {
+      const severity = meta.returnLevel === "critical" ? "critical" : "warning";
+      addDataControlIssue(
+        issues,
+        record,
+        "demo",
+        severity,
+        "demo-return",
+        meta.returnSource === "loan" ? "Przekroczony termin wypożyczenia" : "Zbliża się termin zwrotu",
+        demoReturnDeadlineLabel(meta)
+      );
+    }
+  });
+
+  return issues.sort(compareDataControlIssues);
+}
+
+function addDataControlIssue(issues, record, source, severity, kind, title, detail) {
+  issues.push({
+    id: `${source}-${record.id}-${kind}-${title}`,
+    record,
+    source,
+    severity,
+    kind,
+    title,
+    detail,
+    serialNumber: normalizeSerialNumber(record.serialNumber)
+  });
+}
+
+function compareDataControlIssues(left, right) {
+  const bySeverity = DATA_CONTROL_SEVERITY_ORDER[left.severity] - DATA_CONTROL_SEVERITY_ORDER[right.severity];
+  if (bySeverity) return bySeverity;
+  const byKind = collator.compare(left.kind, right.kind);
+  if (byKind) return byKind;
+  return collator.compare(dataControlRecordLabel(left), dataControlRecordLabel(right));
+}
+
+function suspiciousSalesInvoiceReason(value) {
+  const invoice = normalizeSalesInvoice(value);
+  if (!invoice) return "";
+  if (/[?]{2,}/.test(invoice)) return "W polu faktury są znaki zapytania.";
+  if (/^(T12|P50|P63)(\s|$)/u.test(invoice)) return "W polu faktury wygląda na wpisane miejsce lub datę, nie numer faktury.";
+  if (/(ŻYWIEC|ZYWIEC)/u.test(invoice)) return "W polu faktury wygląda na wpisany oddział lub uwagę.";
+  return "";
+}
+
+function duplicateSerialSummary(matches) {
+  return matches
+    .slice(0, 4)
+    .map((match) => `${match.notebook}: ${match.label || "bez opisu"}`)
+    .join(" · ");
+}
+
+function dataControlRecordLabel(issue) {
+  const record = issue.record;
+  if (issue.source === "demo") {
+    return [record.manufacturer, record.deviceName, record.currentUser].filter(Boolean).join(" · ") || "Aparat demo";
+  }
+  return [record.deviceName, record.customerName].filter(Boolean).join(" · ") || "Aparat";
+}
+
+function dataControlNotebookLabel(source) {
+  return source === "demo" ? "Demo" : "Baza";
+}
+
+function createDataControlRow(issue) {
+  const row = document.createElement("tr");
+  row.className = `data-control-row ${issue.severity}`;
+
+  const cells = [
+    createDataSeverityPill(issue.severity),
+    dataControlNotebookLabel(issue.source),
+    dataControlRecordLabel(issue),
+    issue.serialNumber ? createSerialPill(issue.serialNumber, issue.kind === "duplicate" ? duplicateSerialMatches(issue.record, issue.source) : []) : "",
+    issue.title,
+    issue.detail
+  ];
+
+  cells.forEach((value) => {
+    const cell = document.createElement("td");
+    if (value instanceof HTMLElement) {
+      cell.append(value);
+    } else {
+      cell.textContent = value || "-";
+      if (!value) cell.classList.add("muted-cell");
+    }
+    row.append(cell);
+  });
+
+  const actions = document.createElement("td");
+  actions.className = "row-actions";
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.textContent = "Edytuj";
+  editButton.addEventListener("click", () => openDataControlIssue(issue));
+  actions.append(editButton);
+  row.append(actions);
+  return row;
+}
+
+function createDataSeverityPill(severity) {
+  const pill = document.createElement("span");
+  pill.className = `data-severity-pill ${severity}`;
+  pill.textContent = DATA_CONTROL_SEVERITY_LABELS[severity] || "Do sprawdzenia";
+  return pill;
+}
+
+function openDataControlIssue(issue) {
+  if (issue.source === "demo") {
+    const record = demoRecords.find((item) => item.id === issue.record.id);
+    if (!record) return;
+    switchView("demo", "devices");
+    openDemoDialog(record);
+    return;
+  }
+
+  const record = records.find((item) => item.id === issue.record.id);
+  if (!record) return;
+  switchView("database", "devices");
+  openDialog(record);
+}
+
+function renderDataControlStats(issues) {
+  const counts = {
+    duplicate: issues.filter((issue) => issue.kind === "duplicate").length,
+    critical: issues.filter((issue) => issue.severity === "critical").length,
+    warning: issues.filter((issue) => issue.severity === "warning").length,
+    demo: issues.filter((issue) => issue.source === "demo").length
+  };
+
+  const fragment = document.createDocumentFragment();
+  [
+    ["Duplikaty", counts.duplicate],
+    ["Pilne", counts.critical],
+    ["Do sprawdzenia", counts.warning],
+    ["Demo", counts.demo]
+  ].forEach(([label, value]) => {
+    const item = document.createElement("div");
+    item.className = "data-control-stat";
+    const number = document.createElement("strong");
+    number.textContent = String(value);
+    const text = document.createElement("span");
+    text.textContent = label;
+    item.append(number, text);
+    fragment.append(item);
+  });
+
+  dataControlStats.replaceChildren(fragment);
+}
+
+function formatDataIssueCount(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (count === 1) return "1 sprawa do sprawdzenia";
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} sprawy do sprawdzenia`;
+  return `${count} spraw do sprawdzenia`;
+}
+
 function filteredRepairRecords() {
   const query = normalize(repairSearchInput.value).trim();
   const selectedCategory = repairCategoryFilter.value;
@@ -2155,6 +2428,11 @@ function sortOpenRepairRecords(recordsToSort) {
 
 function createRow(record) {
   const row = document.createElement("tr");
+  const duplicateMatches = duplicateSerialMatches(record, "devices");
+  if (duplicateMatches.length) {
+    row.classList.add("serial-duplicate-row");
+    row.title = duplicateSerialTitle(duplicateMatches);
+  }
   if (displayType(record) === "SPRZEDANY") {
     row.classList.add("device-sold-row");
   }
@@ -2165,7 +2443,7 @@ function createRow(record) {
     formatDate(record.receivedDate),
     createAgePill(record),
     record.deviceName,
-    createSerialPill(record.serialNumber),
+    createSerialPill(record.serialNumber, duplicateMatches),
     createTypePill(displayType(record)),
     createLocationPill(record.location),
     formatDate(record.pickupDate),
@@ -2203,6 +2481,11 @@ function createRow(record) {
 function createDemoRow(record) {
   const row = document.createElement("tr");
   const meta = demoDerived.get(record.id);
+  const duplicateMatches = duplicateSerialMatches(record, "demo");
+  if (duplicateMatches.length) {
+    row.classList.add("serial-duplicate-row");
+    row.title = duplicateSerialTitle(duplicateMatches);
+  }
   if (meta?.issues.length) row.classList.add("demo-needs-review");
   if (meta?.status === "BRAK") row.classList.add("demo-missing");
   if (meta?.returnLevel) row.classList.add(`demo-return-${meta.returnLevel}`);
@@ -2229,7 +2512,7 @@ function createDemoRow(record) {
     createDemoReturnDeadlineCell(meta),
     record.manufacturer,
     record.deviceName,
-    createSerialPill(record.serialNumber),
+    createSerialPill(record.serialNumber, duplicateMatches),
     record.location,
     createDemoCurrentUser(record.currentUser, record.loanDate),
     createDemoNotesCell(record)
@@ -2446,10 +2729,25 @@ function ageLevel(record, age = stockAge(record)) {
   return "fresh";
 }
 
-function createSerialPill(serialNumber) {
+function createSerialPill(serialNumber, duplicateMatches = []) {
   const pill = document.createElement("span");
   pill.className = "serial-pill";
-  pill.textContent = serialNumber || "brak numeru";
+  const serialText = serialNumber || "brak numeru";
+
+  if (!duplicateMatches.length) {
+    pill.textContent = serialText;
+    return pill;
+  }
+
+  pill.classList.add("duplicate");
+  pill.title = duplicateSerialTitle(duplicateMatches);
+
+  const number = document.createElement("span");
+  number.textContent = serialText;
+  const marker = document.createElement("small");
+  marker.className = "serial-duplicate-marker";
+  marker.textContent = "duplikat";
+  pill.append(number, marker);
   return pill;
 }
 
@@ -2685,7 +2983,7 @@ function createCategoryPill(category) {
 
 function createLocationPill(location) {
   const pill = document.createElement("span");
-  const normalizedLocation = String(location || "T12").trim().toUpperCase();
+  const normalizedLocation = normalizeRepairLocation(location);
   pill.className = `location-pill ${normalizedLocation}`;
   pill.textContent = normalizedLocation;
   return pill;
@@ -2731,6 +3029,22 @@ function updateStats() {
     countSoldLabel.textContent = "na stanie";
     countInvoiceLabel.textContent = "wypożyczone";
     countStockLabel.textContent = "do zwrotu";
+    return;
+  }
+
+  if (activeDeviceView === "dataControl") {
+    const issues = buildDataControlIssues();
+    const duplicateCount = issues.filter((issue) => issue.kind === "duplicate").length;
+    const criticalCount = issues.filter((issue) => issue.severity === "critical").length;
+    const warningCount = issues.filter((issue) => issue.severity === "warning").length;
+    document.querySelector("#countAll").textContent = issues.length;
+    document.querySelector("#countSold").textContent = duplicateCount;
+    document.querySelector("#countInvoice").textContent = criticalCount;
+    document.querySelector("#countStock").textContent = warningCount;
+    countAllLabel.textContent = "spraw";
+    countSoldLabel.textContent = "duplikaty";
+    countInvoiceLabel.textContent = "pilne";
+    countStockLabel.textContent = "do sprawdzenia";
     return;
   }
 
@@ -2998,6 +3312,10 @@ function switchView(viewName, groupName) {
     renderDemoRecords();
     return;
   }
+  if (viewName === "dataControl") {
+    renderDataControlView();
+    return;
+  }
   renderDeviceViews();
 }
 
@@ -3024,6 +3342,10 @@ function switchNotebook(notebookName) {
   activeDeviceView = document.querySelector('.tab-button.active[data-view-group="devices"]')?.dataset.view || "database";
   if (activeDeviceView === "demo") {
     renderDemoRecords();
+    return;
+  }
+  if (activeDeviceView === "dataControl") {
+    renderDataControlView();
     return;
   }
   renderDeviceViews();
@@ -3289,6 +3611,7 @@ function demoFormRecord() {
   data.loanHistory = normalizeDemoLoanHistory(demoLoanHistoryDraft);
   data.currentAttachments = normalizeDemoAttachments(demoCurrentAttachmentsDraft);
   data.loanHistoryManaged = true;
+  const selectedStatus = normalizeDemoStatus(data.status, data);
   if (isPastDate(data.manufacturerReturnDate)) {
     data.status = "ZWRÓCONO";
   } else if (data.returnDate && data.currentUser) {
@@ -3299,9 +3622,15 @@ function demoFormRecord() {
   } else if (data.currentUser && !data.loanDate) {
     data.loanDate = todayInputValue();
   }
-  data.status = isPastDate(data.manufacturerReturnDate) || (data.status === "ZWRÓCONO" && data.currentUser)
-    ? "ZWRÓCONO"
-    : demoStatusFromCurrentUser(data.currentUser);
+  if (isPastDate(data.manufacturerReturnDate) || (data.status === "ZWRÓCONO" && data.currentUser)) {
+    data.status = "ZWRÓCONO";
+  } else if (data.currentUser) {
+    data.status = "WYPOŻYCZONY";
+  } else if (["BRAK", "DO ZWROTU"].includes(selectedStatus)) {
+    data.status = selectedStatus;
+  } else {
+    data.status = "NA STANIE";
+  }
   return data;
 }
 
@@ -3361,7 +3690,7 @@ function normalizeDemoLocation(location) {
 
 function normalizeRepairLocation(location) {
   const normalizedLocation = String(location || "").trim().toUpperCase();
-  return ["T12", "P50", "P63"].includes(normalizedLocation) ? normalizedLocation : "T12";
+  return ["T12", "P50", "P63"].includes(normalizedLocation) ? normalizedLocation : "P63";
 }
 
 function statusFromRepairDates(data) {
@@ -3393,10 +3722,7 @@ function syncDemoStatusFromCurrentUser(options = {}) {
 }
 
 function syncDemoReturnedStatus() {
-  if (document.querySelector("#demoStatus").value !== "ZWRÓCONO") {
-    syncDemoStatusFromCurrentUser();
-    return;
-  }
+  if (document.querySelector("#demoStatus").value !== "ZWRÓCONO") return;
 
   const returnDateInput = document.querySelector("#demoReturnDate");
   if (!returnDateInput.value) returnDateInput.value = todayInputValue();
@@ -3672,14 +3998,23 @@ async function deleteCurrentDemoRecord() {
   const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten wpis";
 
   if (confirm(`Usunąć ${label}?`)) {
+    const previousDemoRecords = demoRecords;
     demoRecords = demoRecords.filter((item) => item.id !== id);
     try {
       await persistDeletedDemoRecord(id);
-      await removeDemoAttachmentPaths(demoAttachmentPaths(record));
+      try {
+        await removeDemoAttachmentPaths(demoAttachmentPaths(record));
+      } catch (cleanupError) {
+        console.warn(cleanupError);
+      }
       rebuildDerivedData();
       render();
       closeDemoDialog();
     } catch (error) {
+      demoRecords = previousDemoRecords;
+      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+      rebuildDerivedData();
+      render();
       alert(error.message);
     }
   }
@@ -3818,16 +4153,27 @@ function importJson(event) {
 
   const reader = new FileReader();
   reader.addEventListener("load", async () => {
+    const previousRecords = records;
     try {
       const imported = parseImportFile(file, reader.result);
       if (!Array.isArray(imported)) throw new Error("Import musi być listą rekordów.");
 
-      records = normalizeImportedRecords(imported, fields);
+      const importedRecords = normalizeImportedRecords(imported, fields);
+      if (!confirm(`Import zastąpi obecną bazę aparatów (${records.length}) rekordami z pliku (${importedRecords.length}). Kontynuować?`)) {
+        importInput.value = "";
+        return;
+      }
+
+      records = importedRecords;
       await saveRecords();
       rebuildDerivedData();
       render();
       importInput.value = "";
     } catch (error) {
+      records = previousRecords;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      rebuildDerivedData();
+      render();
       alert(`Nie udało się zaimportować pliku: ${error.message}`);
     }
   });
@@ -3840,16 +4186,27 @@ function importRepairJson(event) {
 
   const reader = new FileReader();
   reader.addEventListener("load", async () => {
+    const previousRepairRecords = repairRecords;
     try {
       const imported = parseImportFile(file, reader.result);
       if (!Array.isArray(imported)) throw new Error("Import musi być listą wpisów.");
 
-      repairRecords = normalizeImportedRecords(imported, repairFields);
+      const importedRepairRecords = normalizeImportedRecords(imported, repairFields);
+      if (!confirm(`Import zastąpi obecny zeszyt napraw i wkładek (${repairRecords.length}) wpisami z pliku (${importedRepairRecords.length}). Kontynuować?`)) {
+        importRepairInput.value = "";
+        return;
+      }
+
+      repairRecords = importedRepairRecords;
       await saveRepairRecords();
       rebuildDerivedData();
       render();
       importRepairInput.value = "";
     } catch (error) {
+      repairRecords = previousRepairRecords;
+      localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+      rebuildDerivedData();
+      render();
       alert(`Nie udało się zaimportować pliku: ${error.message}`);
     }
   });
