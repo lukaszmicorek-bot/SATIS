@@ -299,6 +299,7 @@ const stockLocationSummary = document.querySelector("#stockLocationSummary");
 const stockChecklistBody = document.querySelector("#stockChecklistBody");
 const stockChecklistMeta = document.querySelector("#stockChecklistMeta");
 const stockAuditSummary = document.querySelector("#stockAuditSummary");
+const stockAuditPreview = document.querySelector("#stockAuditPreview");
 const stockAuditPersonInput = document.querySelector("#stockAuditPerson");
 const stockAuditDateInput = document.querySelector("#stockAuditDate");
 const saveStockAuditBtn = document.querySelector("#saveStockAuditBtn");
@@ -803,11 +804,41 @@ function loadStockAudit() {
       checkedAt: isoDateForSave(parsed.checkedAt) || "",
       checkedBy: titleCaseName(parsed.checkedBy || ""),
       savedAt: String(parsed.savedAt || ""),
-      checkedItems: Array.isArray(parsed.checkedItems) ? [...new Set(parsed.checkedItems.map(String).filter(Boolean))] : []
+      checkedItems: Array.isArray(parsed.checkedItems) ? [...new Set(parsed.checkedItems.map(String).filter(Boolean))] : [],
+      items: normalizeStockAuditItems(parsed.items)
     };
   } catch {
-    return { checkedAt: "", checkedBy: "", savedAt: "", checkedItems: [] };
+    return { checkedAt: "", checkedBy: "", savedAt: "", checkedItems: [], items: [] };
   }
+}
+
+function normalizeStockAuditItems(items) {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  const normalizedItems = [];
+
+  items.forEach((item) => {
+    const id = String(item?.id || "").trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    normalizedItems.push({
+      id,
+      deviceName: String(item?.deviceName || "Bez nazwy").trim() || "Bez nazwy",
+      serialNumber: String(item?.serialNumber || "brak numeru").trim() || "brak numeru",
+      location: normalizeRepairLocation(item?.location)
+    });
+  });
+
+  return normalizedItems;
+}
+
+function stockAuditSnapshotItems(stockRecords = stockAuditRecords()) {
+  return stockRecords.map((record) => ({
+    id: String(record.id),
+    deviceName: String(record.deviceName || "Bez nazwy").trim() || "Bez nazwy",
+    serialNumber: String(record.serialNumber || "brak numeru").trim() || "brak numeru",
+    location: normalizeRepairLocation(record.location)
+  }));
 }
 
 function persistStockAudit(audit) {
@@ -817,7 +848,8 @@ function persistStockAudit(audit) {
     savedAt: audit.savedAt || new Date().toISOString(),
     checkedItems: Array.isArray(audit.checkedItems)
       ? [...new Set(audit.checkedItems.map(String).filter(Boolean))]
-      : [...new Set((stockAudit.checkedItems || []).map(String).filter(Boolean))]
+      : [...new Set((stockAudit.checkedItems || []).map(String).filter(Boolean))],
+    items: normalizeStockAuditItems(Array.isArray(audit.items) ? audit.items : stockAudit.items)
   };
   localStorage.setItem(STOCK_AUDIT_STORAGE_KEY, JSON.stringify(stockAudit));
 }
@@ -828,11 +860,14 @@ function stockAuditRecords() {
 
 function stockAuditCheckedCount(stockRecords = stockAuditRecords()) {
   const checkedItems = new Set(stockAudit.checkedItems || []);
-  return stockRecords.filter((record) => checkedItems.has(record.id)).length;
+  const auditItems = stockAuditResultItems(stockRecords);
+  return auditItems.filter((item) => checkedItems.has(item.id)).length;
 }
 
 function stockAuditProgressLabel(stockRecords = stockAuditRecords()) {
-  return `sprawdzone ${stockAuditCheckedCount(stockRecords)}/${stockRecords.length}`;
+  const stats = stockAuditResultStats(stockRecords);
+  const missingLabel = stats.active ? ` · brak ${stats.missing}` : "";
+  return `sprawdzone ${stats.checked}/${stats.total}${missingLabel}`;
 }
 
 function stockAuditLabel(stockRecords = stockAuditRecords()) {
@@ -847,6 +882,108 @@ function renderStockAudit(stockRecords = stockAuditRecords()) {
   if (stockAuditSummary) stockAuditSummary.textContent = stockAuditLabel(stockRecords);
   if (stockChecklistPerson) stockChecklistPerson.textContent = `Sprawdził(a): ${stockAudit.checkedBy || ""}`;
   if (stockChecklistDate) stockChecklistDate.textContent = `Data: ${stockAudit.checkedAt ? formatDate(stockAudit.checkedAt) : ""}`;
+  renderStockAuditPreview(stockRecords);
+}
+
+function stockAuditResultItems(stockRecords = stockAuditRecords()) {
+  return stockAudit.items?.length ? stockAudit.items : stockAuditSnapshotItems(stockRecords);
+}
+
+function isStockAuditActive() {
+  return Boolean(stockAudit.checkedItems?.length || stockAudit.items?.length);
+}
+
+function stockAuditResultStats(stockRecords = stockAuditRecords()) {
+  const active = isStockAuditActive();
+  const items = active ? stockAuditResultItems(stockRecords) : stockAuditSnapshotItems(stockRecords);
+  const checkedItems = new Set(stockAudit.checkedItems || []);
+  const checked = items.filter((item) => checkedItems.has(item.id)).length;
+  return {
+    active,
+    checked,
+    missing: Math.max(0, items.length - checked),
+    total: items.length,
+    items
+  };
+}
+
+function renderStockAuditPreview(stockRecords = stockAuditRecords()) {
+  if (!stockAuditPreview) return;
+  const stats = stockAuditResultStats(stockRecords);
+
+  if (!stats.active || !stats.total) {
+    stockAuditPreview.hidden = true;
+    stockAuditPreview.replaceChildren();
+    return;
+  }
+
+  const checkedItems = new Set(stockAudit.checkedItems || []);
+  const missingItems = stats.items.filter((item) => !checkedItems.has(item.id));
+  const presentItems = stats.items.filter((item) => checkedItems.has(item.id));
+  const missingPreviewLimit = 24;
+  const presentPreviewLimit = 18;
+
+  const header = document.createElement("div");
+  header.className = "stock-audit-preview-head";
+  header.append(
+    createStockAuditPreviewCard("Było", stats.checked, "present"),
+    createStockAuditPreviewCard("Nie było", stats.missing, "missing")
+  );
+
+  const lists = document.createElement("div");
+  lists.className = "stock-audit-preview-lists";
+  lists.append(
+    createStockAuditPreviewList("Było", presentItems, "present", presentPreviewLimit),
+    createStockAuditPreviewList("Nie było", missingItems, "missing", missingPreviewLimit)
+  );
+
+  stockAuditPreview.hidden = false;
+  stockAuditPreview.replaceChildren(header, lists);
+}
+
+function createStockAuditPreviewCard(label, count, type) {
+  const card = document.createElement("div");
+  card.className = `stock-audit-preview-card ${type}`;
+  const title = document.createElement("span");
+  const value = document.createElement("strong");
+  title.textContent = label;
+  value.textContent = String(count);
+  card.append(title, value);
+  return card;
+}
+
+function createStockAuditPreviewList(label, items, type, limit) {
+  const section = document.createElement("section");
+  section.className = `stock-audit-preview-list ${type}`;
+  const title = document.createElement("strong");
+  const list = document.createElement("div");
+
+  title.textContent = `${label}: ${items.length}`;
+  list.className = "stock-audit-preview-items";
+
+  items.slice(0, limit).forEach((item) => {
+    const chip = document.createElement("span");
+    chip.className = `stock-audit-preview-chip ${type}`;
+    chip.textContent = `${item.serialNumber} · ${item.deviceName} · ${item.location}`;
+    list.append(chip);
+  });
+
+  if (items.length > limit) {
+    const more = document.createElement("span");
+    more.className = "stock-audit-preview-more";
+    more.textContent = `+ ${items.length - limit} więcej`;
+    list.append(more);
+  }
+
+  if (!items.length) {
+    const empty = document.createElement("span");
+    empty.className = "stock-audit-preview-empty";
+    empty.textContent = "Brak pozycji.";
+    list.append(empty);
+  }
+
+  section.append(title, list);
+  return section;
 }
 
 function fillStockAuditForm() {
@@ -865,31 +1002,48 @@ function saveStockAuditFromForm() {
     return;
   }
 
-  persistStockAudit({ checkedAt, checkedBy, checkedItems: stockAudit.checkedItems || [] });
+  persistStockAudit({
+    checkedAt,
+    checkedBy,
+    checkedItems: stockAudit.checkedItems || [],
+    items: stockAuditSnapshotItems()
+  });
   fillStockAuditForm();
   renderStockView();
 }
 
 function isStockAuditItemChecked(recordId) {
-  return new Set(stockAudit.checkedItems || []).has(recordId);
+  return new Set(stockAudit.checkedItems || []).has(String(recordId));
 }
 
 function toggleStockAuditItem(recordId) {
   if (!recordId) return;
   const checkedItems = new Set(stockAudit.checkedItems || []);
-  if (checkedItems.has(recordId)) {
-    checkedItems.delete(recordId);
+  const recordIdText = String(recordId);
+  if (checkedItems.has(recordIdText)) {
+    checkedItems.delete(recordIdText);
   } else {
-    checkedItems.add(recordId);
+    checkedItems.add(recordIdText);
   }
-  persistStockAudit({ ...stockAudit, checkedItems: [...checkedItems] });
+
+  const auditItems = stockAudit.items?.length ? [...stockAudit.items] : stockAuditSnapshotItems();
+  if (!auditItems.some((item) => item.id === recordIdText)) {
+    const stockRecord = records.find((record) => String(record.id) === recordIdText);
+    if (stockRecord) auditItems.push(stockAuditSnapshotItems([stockRecord])[0]);
+  }
+
+  persistStockAudit({
+    ...stockAudit,
+    checkedItems: [...checkedItems],
+    items: auditItems
+  });
   renderStockView();
 }
 
 function clearStockAuditItems() {
-  if (!stockAudit.checkedItems?.length) return;
+  if (!stockAudit.checkedItems?.length && !stockAudit.items?.length) return;
   if (!confirm("Wyczyścić zaznaczenia remanentu?")) return;
-  persistStockAudit({ ...stockAudit, checkedItems: [] });
+  persistStockAudit({ ...stockAudit, checkedItems: [], items: [] });
   renderStockView();
 }
 
@@ -3452,6 +3606,7 @@ function renderStockView() {
 function renderStockChecklist(stockRecords, sections = stockLocationSections(stockRecords)) {
   const locationCounts = new Map(sections.map((section) => [section.location, section.records.length]));
   const stockBreakdown = STOCK_LOCATIONS.map((location) => `${location}: ${locationCounts.get(location) || 0}`).join(" · ");
+  const auditActive = isStockAuditActive();
 
   stockSummary.textContent = formatDeviceCount(stockRecords.length);
   stockChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${formatDeviceCount(stockRecords.length)} na stanie · ${stockBreakdown}`;
@@ -3475,7 +3630,9 @@ function renderStockChecklist(stockRecords, sections = stockLocationSections(sto
       const row = document.createElement("tr");
       const checkbox = document.createElement("span");
       checkbox.className = "checklist-box";
-      if (isStockAuditItemChecked(record.id)) checkbox.classList.add("checked");
+      const checked = isStockAuditItemChecked(record.id);
+      if (checked) checkbox.classList.add("checked");
+      if (auditActive) row.classList.add(checked ? "stock-audit-row-present" : "stock-audit-row-missing");
       checkbox.setAttribute("aria-hidden", "true");
 
       const values = [
@@ -3484,7 +3641,7 @@ function renderStockChecklist(stockRecords, sections = stockLocationSections(sto
         record.deviceName,
         record.serialNumber,
         normalizeRepairLocation(record.location),
-        ""
+        auditActive ? (checked ? "BYŁO" : "NIE BYŁO") : ""
       ];
 
       values.forEach((value) => {
@@ -3652,6 +3809,7 @@ function createStockRow(group) {
 function createSerialList(serialItems) {
   const list = document.createElement("div");
   list.className = "serial-list";
+  const auditActive = isStockAuditActive();
 
   serialItems
     .sort((left, right) => collator.compare(left.serialNumber, right.serialNumber))
@@ -3662,8 +3820,13 @@ function createSerialList(serialItems) {
       item.type = "button";
       item.textContent = serialNumber;
       item.setAttribute("aria-pressed", String(checked));
-      item.title = checked ? "Pozycja zaznaczona w remanencie" : "Kliknij, aby zaznaczyć w remanencie";
+      item.title = checked
+        ? "Było w remanencie"
+        : auditActive
+          ? "Nie było w remanencie"
+          : "Kliknij, aby zaznaczyć w remanencie";
       if (checked) item.classList.add("checked");
+      if (auditActive && !checked) item.classList.add("missing");
       item.addEventListener("click", () => toggleStockAuditItem(id));
       list.append(item);
     });
