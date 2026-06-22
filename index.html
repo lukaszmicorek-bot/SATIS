@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260622-5">
+    <link rel="stylesheet" href="styles.css?v=20260622-6">
   </head>
   <body>
     <main class="app-shell">
@@ -266,6 +266,7 @@
             </label>
             <div class="stock-audit-actions">
               <button id="saveStockAuditBtn" type="button">Zapisz remanent</button>
+              <button id="exportStockAuditPdfBtn" type="button">Eksport PDF</button>
               <button id="clearStockAuditBtn" type="button">Wyczyść zaznaczenia</button>
             </div>
             <div id="stockAuditPreview" class="stock-audit-preview" hidden></div>
@@ -309,6 +310,33 @@
             <footer class="stock-checklist-footer">
               <span id="stockChecklistPerson">Sprawdził(a):</span>
               <span id="stockChecklistDate">Data:</span>
+              <span>Podpis:</span>
+            </footer>
+          </section>
+          <section id="stockAuditReport" class="stock-audit-report" aria-label="Raport remanentu">
+            <header class="stock-audit-report-head">
+              <div>
+                <h1>Remanent stanu aparatów</h1>
+                <p id="stockAuditReportMeta"></p>
+              </div>
+              <img src="satis-monogram.png" alt="SATIS">
+            </header>
+            <div id="stockAuditReportSummary" class="stock-audit-report-summary"></div>
+            <table class="stock-audit-report-table">
+              <thead>
+                <tr>
+                  <th>Lp.</th>
+                  <th>Status</th>
+                  <th>Model aparatu</th>
+                  <th>Numer seryjny</th>
+                  <th>Miejsce</th>
+                </tr>
+              </thead>
+              <tbody id="stockAuditReportBody"></tbody>
+            </table>
+            <footer class="stock-audit-report-footer">
+              <span id="stockAuditReportPerson">Sprawdził(a):</span>
+              <span id="stockAuditReportDate">Data:</span>
               <span>Podpis:</span>
             </footer>
           </section>
@@ -828,6 +856,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260622-5"></script>
+    <script src="app.js?v=20260622-6"></script>
   </body>
 </html>
