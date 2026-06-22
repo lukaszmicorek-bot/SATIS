@@ -1481,6 +1481,105 @@ td.row-actions {
   align-items: center;
 }
 
+.stock-audit-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.stock-audit-preview-head {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.stock-audit-preview-card {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.stock-audit-preview-card strong {
+  font-size: 1rem;
+}
+
+.stock-audit-preview-card.present {
+  color: #075f61;
+  border-color: #aad3cc;
+  background: #eaf7f4;
+}
+
+.stock-audit-preview-card.missing {
+  color: #8b3a31;
+  border-color: #e7b4a7;
+  background: #fff0ec;
+}
+
+.stock-audit-preview-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stock-audit-preview-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stock-audit-preview-list > strong {
+  color: #003f5a;
+  font-size: 0.76rem;
+}
+
+.stock-audit-preview-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.stock-audit-preview-chip,
+.stock-audit-preview-more,
+.stock-audit-preview-empty {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 23px;
+  align-items: center;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.stock-audit-preview-chip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-audit-preview-chip.present {
+  color: #075f61;
+  background: #dff2ee;
+}
+
+.stock-audit-preview-chip.missing {
+  color: #8b3a31;
+  background: #ffe2da;
+}
+
+.stock-audit-preview-more,
+.stock-audit-preview-empty {
+  color: var(--muted);
+  background: rgba(236, 241, 243, 0.82);
+}
+
 #saveStockAuditBtn,
 #clearStockAuditBtn {
   min-height: 38px;
@@ -2310,6 +2409,18 @@ tbody tr.demo-return-critical:hover {
   font-weight: 900;
 }
 
+.stock-audit-serial.missing {
+  border-color: #e7b4a7;
+  color: #8b3a31;
+  background: #ffece7;
+}
+
+.stock-audit-serial.missing::before {
+  content: "!";
+  margin-right: 5px;
+  font-weight: 900;
+}
+
 dialog {
   width: min(920px, calc(100% - 24px));
   border: 0;
@@ -2610,6 +2721,8 @@ textarea {
     .controls,
     .repairs-controls,
   .stock-audit-panel,
+  .stock-audit-preview-head,
+  .stock-audit-preview-lists,
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -2841,6 +2954,24 @@ textarea {
   .stock-checklist-table th:nth-child(6),
   .stock-checklist-table td:nth-child(6) {
     width: 35mm;
+  }
+
+  .stock-audit-row-present td {
+    background: #f0faf7;
+  }
+
+  .stock-audit-row-missing td {
+    background: #fff0ec;
+  }
+
+  .stock-audit-row-present td:nth-child(6) {
+    color: #075f61;
+    font-weight: 800;
+  }
+
+  .stock-audit-row-missing td:nth-child(6) {
+    color: #8b3a31;
+    font-weight: 850;
   }
 
   .checklist-box {
