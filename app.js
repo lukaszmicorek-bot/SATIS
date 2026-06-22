@@ -303,10 +303,16 @@ const stockAuditPreview = document.querySelector("#stockAuditPreview");
 const stockAuditPersonInput = document.querySelector("#stockAuditPerson");
 const stockAuditDateInput = document.querySelector("#stockAuditDate");
 const saveStockAuditBtn = document.querySelector("#saveStockAuditBtn");
+const exportStockAuditPdfBtn = document.querySelector("#exportStockAuditPdfBtn");
 const clearStockAuditBtn = document.querySelector("#clearStockAuditBtn");
 const stockChecklistPerson = document.querySelector("#stockChecklistPerson");
 const stockChecklistDate = document.querySelector("#stockChecklistDate");
 const printStockChecklistBtn = document.querySelector("#printStockChecklistBtn");
+const stockAuditReportMeta = document.querySelector("#stockAuditReportMeta");
+const stockAuditReportSummary = document.querySelector("#stockAuditReportSummary");
+const stockAuditReportBody = document.querySelector("#stockAuditReportBody");
+const stockAuditReportPerson = document.querySelector("#stockAuditReportPerson");
+const stockAuditReportDate = document.querySelector("#stockAuditReportDate");
 const dataControlBody = document.querySelector("#dataControlBody");
 const dataControlEmptyState = document.querySelector("#dataControlEmptyState");
 const dataControlSummary = document.querySelector("#dataControlSummary");
@@ -882,7 +888,9 @@ function renderStockAudit(stockRecords = stockAuditRecords()) {
   if (stockAuditSummary) stockAuditSummary.textContent = stockAuditLabel(stockRecords);
   if (stockChecklistPerson) stockChecklistPerson.textContent = `Sprawdził(a): ${stockAudit.checkedBy || ""}`;
   if (stockChecklistDate) stockChecklistDate.textContent = `Data: ${stockAudit.checkedAt ? formatDate(stockAudit.checkedAt) : ""}`;
+  if (exportStockAuditPdfBtn) exportStockAuditPdfBtn.disabled = !isStockAuditActive();
   renderStockAuditPreview(stockRecords);
+  renderStockAuditReport(stockRecords);
 }
 
 function stockAuditResultItems(stockRecords = stockAuditRecords()) {
@@ -984,6 +992,100 @@ function createStockAuditPreviewList(label, items, type, limit) {
 
   section.append(title, list);
   return section;
+}
+
+function sortedStockAuditReportItems(stockRecords = stockAuditRecords()) {
+  const stats = stockAuditResultStats(stockRecords);
+  const checkedItems = new Set(stockAudit.checkedItems || []);
+  return stats.items
+    .map((item) => ({
+      ...item,
+      status: checkedItems.has(item.id) ? "BYŁO" : "NIE BYŁO"
+    }))
+    .sort((left, right) => {
+      const byStatus = left.status === right.status ? 0 : left.status === "NIE BYŁO" ? -1 : 1;
+      if (byStatus) return byStatus;
+      const byLocation = collator.compare(left.location, right.location);
+      if (byLocation) return byLocation;
+      const byName = collator.compare(left.deviceName, right.deviceName);
+      if (byName) return byName;
+      return collator.compare(left.serialNumber, right.serialNumber);
+    });
+}
+
+function renderStockAuditReport(stockRecords = stockAuditRecords()) {
+  if (!stockAuditReportBody) return;
+
+  const stats = stockAuditResultStats(stockRecords);
+  const reportItems = sortedStockAuditReportItems(stockRecords);
+  const dateText = stockAudit.checkedAt ? formatDate(stockAudit.checkedAt) : "brak daty";
+  const personText = stockAudit.checkedBy || "brak osoby";
+
+  if (stockAuditReportMeta) {
+    stockAuditReportMeta.textContent = [
+      `Data remanentu: ${dateText}`,
+      `Sprawdzał(a): ${personText}`,
+      `Razem: ${stats.total}`,
+      `Było: ${stats.checked}`,
+      `Nie było: ${stats.missing}`
+    ].join(" · ");
+  }
+
+  if (stockAuditReportPerson) stockAuditReportPerson.textContent = `Sprawdził(a): ${stockAudit.checkedBy || ""}`;
+  if (stockAuditReportDate) stockAuditReportDate.textContent = `Data: ${stockAudit.checkedAt ? formatDate(stockAudit.checkedAt) : ""}`;
+
+  if (stockAuditReportSummary) {
+    const summaryItems = [
+      ["Było", stats.checked, "present"],
+      ["Nie było", stats.missing, "missing"],
+      ["Razem", stats.total, "total"]
+    ];
+
+    stockAuditReportSummary.replaceChildren(...summaryItems.map(([label, value, type]) => {
+      const item = document.createElement("div");
+      const title = document.createElement("span");
+      const count = document.createElement("strong");
+      item.className = `stock-audit-report-stat ${type}`;
+      title.textContent = label;
+      count.textContent = String(value);
+      item.append(title, count);
+      return item;
+    }));
+  }
+
+  const rows = reportItems.map((item, index) => {
+    const row = document.createElement("tr");
+    row.className = item.status === "BYŁO" ? "stock-audit-report-present" : "stock-audit-report-missing";
+
+    [
+      String(index + 1),
+      item.status,
+      item.deviceName,
+      item.serialNumber,
+      item.location
+    ].forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    });
+
+    return row;
+  });
+
+  renderTableRows(stockAuditReportBody, rows);
+}
+
+function exportStockAuditPdf() {
+  if (!isStockAuditActive()) {
+    alert("Najpierw zapisz albo zaznacz remanent.");
+    return;
+  }
+
+  renderStockAuditReport();
+  const cleanup = () => document.body.classList.remove("stock-audit-pdf-print");
+  document.body.classList.add("stock-audit-pdf-print");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  window.print();
 }
 
 function fillStockAuditForm() {
@@ -5260,6 +5362,7 @@ document.querySelector("#importBtn").addEventListener("click", () => importInput
 document.querySelector("#printBtn").addEventListener("click", () => window.print());
 printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
+exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
 stockAuditPersonInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
