@@ -188,6 +188,7 @@ const dataControlSearchInput = document.querySelector("#dataControlSearchInput")
 const databaseRenderNotice = document.querySelector("#databaseRenderNotice");
 const databaseRenderText = document.querySelector("#databaseRenderText");
 const showMoreRecordsBtn = document.querySelector("#showMoreRecordsBtn");
+const scrollTopBtn = document.querySelector("#scrollTopBtn");
 const demoRenderNotice = document.querySelector("#demoRenderNotice");
 const demoRenderText = document.querySelector("#demoRenderText");
 const showMoreDemoBtn = document.querySelector("#showMoreDemoBtn");
@@ -5228,6 +5229,15 @@ function resetAndRenderRepairRecords() {
   renderRepairRecords();
 }
 
+function updateScrollTopButton() {
+  if (!scrollTopBtn) return;
+  scrollTopBtn.hidden = window.scrollY < 700;
+}
+
+function scrollToPageTop() {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 document.querySelector("#addBtn").addEventListener("click", () => openDialog());
 document.querySelector("#exportBtn").addEventListener("click", () => chooseExportFormat(exportCsv, exportJson));
 document.querySelector("#importBtn").addEventListener("click", () => importInput.click());
@@ -5236,6 +5246,8 @@ printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
+scrollTopBtn?.addEventListener("click", scrollToPageTop);
+window.addEventListener("scroll", updateScrollTopButton, { passive: true });
 stockAuditPersonInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
 });
@@ -5328,6 +5340,7 @@ document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", (
 
 setupDatePickers();
 fillStockAuditForm();
+updateScrollTopButton();
 
 notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));

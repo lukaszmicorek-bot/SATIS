@@ -127,6 +127,31 @@ button.danger:hover {
   border-color: #c5897b;
 }
 
+.scroll-top-btn {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  min-height: 36px;
+  border-color: #b9cbd3;
+  padding: 0 12px;
+  color: #29485e;
+  background: rgba(243, 248, 250, 0.95);
+  box-shadow: 0 10px 22px rgba(28, 31, 36, 0.12);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.scroll-top-btn:hover {
+  color: #003f5a;
+  background: #e8f1f5;
+  transform: none;
+}
+
+.scroll-top-btn[hidden] {
+  display: none;
+}
+
 .icon-button {
   display: inline-flex;
   min-width: 54px;
@@ -2800,6 +2825,7 @@ textarea {
   .stock-toolbar,
   .stock-audit-panel,
   .stock-head,
+  .scroll-top-btn,
   .row-actions,
   .actions-head {
     display: none;
@@ -3117,10 +3143,13 @@ textarea {
   }
 
   .stock-audit-report-table {
-    width: 100%;
+    width: calc(100% - 1.5mm);
+    margin-right: 1.5mm;
     border: 1.2px solid #7f8c95;
-    border-right: 1.2px solid #7f8c95;
+    border-right: 1.6px solid #64747e;
     border-collapse: collapse;
+    box-shadow: inset -1.4px 0 0 #64747e;
+    box-sizing: border-box;
     table-layout: fixed;
     font-size: 8.3pt;
   }
@@ -3184,13 +3213,15 @@ textarea {
   .stock-audit-report-table th:nth-child(5),
   .stock-audit-report-table td:nth-child(5) {
     width: 18mm;
-    border-right: 1.2px solid #7f8c95;
+    border-right: 1.6px solid #64747e;
+    box-shadow: inset -1.2px 0 0 #64747e;
     text-align: center;
   }
 
   .stock-audit-report-table tr th:last-child,
   .stock-audit-report-table tr td:last-child {
-    border-right: 1.2px solid #7f8c95;
+    border-right: 1.6px solid #64747e;
+    box-shadow: inset -1.2px 0 0 #64747e;
   }
 
   .stock-audit-report-long-name .audit-report-device-name {
