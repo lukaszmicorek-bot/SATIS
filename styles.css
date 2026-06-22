@@ -3118,6 +3118,8 @@ textarea {
 
   .stock-audit-report-table {
     width: 100%;
+    border: 1.2px solid #7f8c95;
+    border-right: 1.2px solid #7f8c95;
     border-collapse: collapse;
     table-layout: fixed;
     font-size: 8.3pt;
@@ -3129,15 +3131,19 @@ textarea {
 
   .stock-audit-report-table tr {
     break-inside: avoid;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
   }
 
   .stock-audit-report-table th,
   .stock-audit-report-table td {
-    height: 8mm;
-    padding: 1.5mm 2mm;
+    min-height: 8mm;
+    padding: 1.4mm 1.8mm;
     border: 1px solid #9aa5ad;
     text-align: left;
     vertical-align: middle;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .stock-audit-report-table th {
@@ -3149,15 +3155,24 @@ textarea {
 
   .stock-audit-report-table th:nth-child(1),
   .stock-audit-report-table td:nth-child(1) {
-    width: 8mm;
+    width: 11mm;
+    padding-left: 1mm;
+    padding-right: 1mm;
     text-align: center;
+    white-space: nowrap;
   }
 
   .stock-audit-report-table th:nth-child(2),
   .stock-audit-report-table td:nth-child(2) {
-    width: 24mm;
+    width: 26mm;
     text-align: center;
     font-weight: 850;
+  }
+
+  .stock-audit-report-table th:nth-child(3),
+  .stock-audit-report-table td:nth-child(3) {
+    overflow-wrap: anywhere;
+    line-height: 1.12;
   }
 
   .stock-audit-report-table th:nth-child(4),
@@ -3169,7 +3184,23 @@ textarea {
   .stock-audit-report-table th:nth-child(5),
   .stock-audit-report-table td:nth-child(5) {
     width: 18mm;
+    border-right: 1.2px solid #7f8c95;
     text-align: center;
+  }
+
+  .stock-audit-report-table tr th:last-child,
+  .stock-audit-report-table tr td:last-child {
+    border-right: 1.2px solid #7f8c95;
+  }
+
+  .stock-audit-report-long-name .audit-report-device-name {
+    font-size: 7.4pt;
+    line-height: 1.08;
+  }
+
+  .stock-audit-report-very-long-name .audit-report-device-name {
+    font-size: 6.8pt;
+    line-height: 1.05;
   }
 
   .stock-audit-report-present td {

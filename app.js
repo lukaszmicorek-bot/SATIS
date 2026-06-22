@@ -1000,10 +1000,10 @@ function sortedStockAuditReportItems(stockRecords = stockAuditRecords()) {
   return stats.items
     .map((item) => ({
       ...item,
-      status: checkedItems.has(item.id) ? "BYŁO" : "NIE BYŁO"
+      status: checkedItems.has(item.id) ? "NA STANIE" : "BRAK"
     }))
     .sort((left, right) => {
-      const byStatus = left.status === right.status ? 0 : left.status === "NIE BYŁO" ? -1 : 1;
+      const byStatus = left.status === right.status ? 0 : left.status === "BRAK" ? -1 : 1;
       if (byStatus) return byStatus;
       const byLocation = collator.compare(left.location, right.location);
       if (byLocation) return byLocation;
@@ -1026,8 +1026,8 @@ function renderStockAuditReport(stockRecords = stockAuditRecords()) {
       `Data remanentu: ${dateText}`,
       `Sprawdzał(a): ${personText}`,
       `Razem: ${stats.total}`,
-      `Było: ${stats.checked}`,
-      `Nie było: ${stats.missing}`
+      `Na stanie: ${stats.checked}`,
+      `Brak: ${stats.missing}`
     ].join(" · ");
   }
 
@@ -1036,8 +1036,8 @@ function renderStockAuditReport(stockRecords = stockAuditRecords()) {
 
   if (stockAuditReportSummary) {
     const summaryItems = [
-      ["Było", stats.checked, "present"],
-      ["Nie było", stats.missing, "missing"],
+      ["Na stanie", stats.checked, "present"],
+      ["Brak", stats.missing, "missing"],
       ["Razem", stats.total, "total"]
     ];
 
@@ -1055,16 +1055,21 @@ function renderStockAuditReport(stockRecords = stockAuditRecords()) {
 
   const rows = reportItems.map((item, index) => {
     const row = document.createElement("tr");
-    row.className = item.status === "BYŁO" ? "stock-audit-report-present" : "stock-audit-report-missing";
+    row.className = item.status === "NA STANIE" ? "stock-audit-report-present" : "stock-audit-report-missing";
+
+    const nameLength = String(item.deviceName || "").length;
+    if (nameLength > 42) row.classList.add("stock-audit-report-long-name");
+    if (nameLength > 62) row.classList.add("stock-audit-report-very-long-name");
 
     [
-      String(index + 1),
-      item.status,
-      item.deviceName,
-      item.serialNumber,
-      item.location
-    ].forEach((value) => {
+      { value: String(index + 1), className: "audit-report-index" },
+      { value: item.status, className: "audit-report-status" },
+      { value: item.deviceName, className: "audit-report-device-name" },
+      { value: item.serialNumber, className: "audit-report-serial" },
+      { value: item.location, className: "audit-report-location" }
+    ].forEach(({ value, className }) => {
       const cell = document.createElement("td");
+      cell.className = className;
       cell.textContent = value;
       row.append(cell);
     });
