@@ -185,16 +185,20 @@ const dataControlEmptyState = document.querySelector("#dataControlEmptyState");
 const dataControlSummary = document.querySelector("#dataControlSummary");
 const dataControlStats = document.querySelector("#dataControlStats");
 const dataControlSearchInput = document.querySelector("#dataControlSearchInput");
+const resetDataControlFiltersBtn = document.querySelector("#resetDataControlFiltersBtn");
 const databaseRenderNotice = document.querySelector("#databaseRenderNotice");
 const databaseRenderText = document.querySelector("#databaseRenderText");
 const showMoreRecordsBtn = document.querySelector("#showMoreRecordsBtn");
+const resetDeviceFiltersBtn = document.querySelector("#resetDeviceFiltersBtn");
 const scrollTopBtn = document.querySelector("#scrollTopBtn");
 const demoRenderNotice = document.querySelector("#demoRenderNotice");
 const demoRenderText = document.querySelector("#demoRenderText");
 const showMoreDemoBtn = document.querySelector("#showMoreDemoBtn");
+const resetDemoFiltersBtn = document.querySelector("#resetDemoFiltersBtn");
 const repairRenderNotice = document.querySelector("#repairRenderNotice");
 const repairRenderText = document.querySelector("#repairRenderText");
 const showMoreRepairBtn = document.querySelector("#showMoreRepairBtn");
+const resetRepairFiltersBtn = document.querySelector("#resetRepairFiltersBtn");
 const repairOpenRenderNotice = document.querySelector("#repairOpenRenderNotice");
 const repairOpenRenderText = document.querySelector("#repairOpenRenderText");
 const showMoreRepairOpenBtn = document.querySelector("#showMoreRepairOpenBtn");
@@ -210,6 +214,7 @@ const typeFilter = document.querySelector("#typeFilter");
 const ezwmFilter = document.querySelector("#ezwmFilter");
 const typeSelect = document.querySelector("#type");
 const fifoFilter = document.querySelector("#fifoFilter");
+const locationFilter = document.querySelector("#locationFilter");
 const repairSearchInput = document.querySelector("#repairSearchInput");
 const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
@@ -2343,6 +2348,30 @@ function rebuildDerivedData() {
   rebuildCustomerNameSuggestions();
 }
 
+function rebuildAfterDeviceChange() {
+  invalidateDataControlCache();
+  rebuildDeviceDerivedData();
+  rebuildSerialIndex();
+  rebuildDeviceNameSuggestions();
+  rebuildCustomerNameSuggestions();
+}
+
+function rebuildAfterRepairChange() {
+  invalidateDataControlCache();
+  rebuildRepairDerivedData();
+  rebuildSerialIndex();
+  rebuildDeviceNameSuggestions();
+  rebuildCustomerNameSuggestions();
+}
+
+function rebuildAfterDemoChange() {
+  invalidateDataControlCache();
+  rebuildDemoDerivedData();
+  rebuildDemoManufacturerFilter();
+  rebuildDemoFormSuggestions();
+  rebuildSerialIndex();
+}
+
 function invalidateDataControlCache() {
   dataControlIssuesCache = null;
   dataControlRenderToken += 1;
@@ -2362,11 +2391,13 @@ function filteredRecords() {
   const selectedType = typeFilter.value;
   const selectedEzwm = ezwmFilter.value;
   const selectedFifo = fifoFilter.value;
+  const selectedLocation = locationFilter.value;
 
   return records
     .filter((record) => {
       const meta = deviceDerived.get(record.id);
       const matchesType = !selectedType || meta?.displayType === selectedType;
+      const matchesLocation = !selectedLocation || (meta?.location ?? normalizeRepairLocation(record.location)) === selectedLocation;
       const ezwm = normalizeEzwmStatus(record.ezwm);
       const matchesEzwm = !selectedEzwm || (selectedEzwm === "BRAK" ? !ezwm : ezwm === selectedEzwm);
       const age = meta?.age ?? null;
@@ -2376,7 +2407,7 @@ function filteredRecords() {
         (!meta?.fifoExcluded && selectedFifo === "90" && age !== null && age >= 90) ||
         (!meta?.fifoExcluded && selectedFifo === "180" && age !== null && age >= 180);
       const matchesQuery = !query || meta?.searchBlob.includes(query);
-      return matchesType && matchesEzwm && matchesFifo && matchesQuery;
+      return matchesType && matchesLocation && matchesEzwm && matchesFifo && matchesQuery;
     })
     .sort((left, right) => {
       if (selectedFifo) {
@@ -4459,14 +4490,17 @@ async function saveFormRecord(event) {
   }
 
   try {
-    await persistDeviceRecord(savedRecord);
-    rebuildDerivedData();
-    render();
     closeDialog();
+    await nextFrame();
+    const persistPromise = persistDeviceRecord(savedRecord);
+    persistPromise.catch(() => {});
+    rebuildAfterDeviceChange();
+    render();
+    await persistPromise;
   } catch (error) {
     records = previousRecords;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    rebuildDerivedData();
+    rebuildAfterDeviceChange();
     render();
     alert(error.message);
   }
@@ -4517,14 +4551,17 @@ async function saveRepairFormRecord(event) {
   }
 
   try {
-    await persistRepairRecord(savedRecord);
-    rebuildDerivedData();
-    render();
     closeRepairDialog();
+    await nextFrame();
+    const persistPromise = persistRepairRecord(savedRecord);
+    persistPromise.catch(() => {});
+    rebuildAfterRepairChange();
+    render();
+    await persistPromise;
   } catch (error) {
     repairRecords = previousRepairRecords;
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-    rebuildDerivedData();
+    rebuildAfterRepairChange();
     render();
     alert(error.message);
   }
@@ -4585,22 +4622,29 @@ async function saveDemoFormRecord(event) {
       demoRecords = [savedRecord, ...demoRecords];
     }
     saveDemoBtn.textContent = "Zapisywanie...";
-    await persistDemoRecord(savedRecord);
+    closeDemoDialog();
+    await nextFrame();
+    const persistPromise = persistDemoRecord(savedRecord);
+    persistPromise.catch(() => {});
+    rebuildAfterDemoChange();
+    render();
+    await persistPromise;
     const savedPaths = new Set(demoAttachmentPaths(savedRecord));
     try {
       await removeDemoAttachmentPaths(previousAttachmentPaths.filter((path) => !savedPaths.has(path)));
     } catch (cleanupError) {
       console.warn(cleanupError);
     }
-    rebuildDerivedData();
-    render();
-    closeDemoDialog();
   } catch (error) {
     demoRecords = previousDemoRecords;
     localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
-    rebuildDerivedData();
+    rebuildAfterDemoChange();
     render();
-    demoFormError.textContent = error.message || "Nie udało się zapisać rekordu.";
+    if (demoDialog.open) {
+      demoFormError.textContent = error.message || "Nie udało się zapisać rekordu.";
+    } else {
+      alert(error.message || "Nie udało się zapisać rekordu.");
+    }
   } finally {
     saveDemoBtn.disabled = false;
     saveDemoBtn.textContent = "Zapisz";
@@ -5229,6 +5273,37 @@ function resetAndRenderRepairRecords() {
   renderRepairRecords();
 }
 
+function resetDeviceFilters() {
+  searchInput.value = "";
+  typeFilter.value = "";
+  ezwmFilter.value = "";
+  fifoFilter.value = "";
+  locationFilter.value = "";
+  resetAndRenderDeviceViews();
+}
+
+function resetDemoFilters() {
+  demoSearchInput.value = "";
+  demoStatusFilter.value = "";
+  demoManufacturerFilter.value = "";
+  demoLocationFilter.value = "";
+  resetAndRenderDemoRecords();
+}
+
+function resetRepairFilters() {
+  repairSearchInput.value = "";
+  repairCategoryFilter.value = "";
+  repairStatusFilter.value = "";
+  repairLocationFilter.value = "";
+  resetAndRenderRepairRecords();
+}
+
+function resetDataControlFilters() {
+  dataControlSearchInput.value = "";
+  resetTableRenderLimit("dataControl");
+  renderDataControlView();
+}
+
 function updateScrollTopButton() {
   if (!scrollTopBtn) return;
   scrollTopBtn.hidden = window.scrollY < 700;
@@ -5236,6 +5311,10 @@ function updateScrollTopButton() {
 
 function scrollToPageTop() {
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function nextFrame() {
+  return new Promise((resolve) => window.requestAnimationFrame(resolve));
 }
 
 document.querySelector("#addBtn").addEventListener("click", () => openDialog());
@@ -5266,6 +5345,10 @@ document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJso
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
+resetDeviceFiltersBtn?.addEventListener("click", resetDeviceFilters);
+resetDemoFiltersBtn?.addEventListener("click", resetDemoFilters);
+resetRepairFiltersBtn?.addEventListener("click", resetRepairFilters);
+resetDataControlFiltersBtn?.addEventListener("click", resetDataControlFilters);
 dataControlSearchInput.addEventListener("input", debounce(() => {
   resetTableRenderLimit("dataControl");
   renderDataControlView();
@@ -5296,6 +5379,7 @@ searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH
 typeFilter.addEventListener("change", resetAndRenderDeviceViews);
 ezwmFilter.addEventListener("change", resetAndRenderDeviceViews);
 fifoFilter.addEventListener("change", resetAndRenderDeviceViews);
+locationFilter.addEventListener("change", resetAndRenderDeviceViews);
 repairSearchInput.addEventListener("input", debounce(resetAndRenderRepairRecords, SEARCH_DEBOUNCE_MS));
 repairCategoryFilter.addEventListener("change", resetAndRenderRepairRecords);
 repairStatusFilter.addEventListener("change", resetAndRenderRepairRecords);

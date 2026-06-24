@@ -434,7 +434,7 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 180px 160px 190px repeat(5, auto);
+  grid-template-columns: minmax(260px, 1fr) 180px 160px 190px repeat(6, auto);
   gap: 12px;
   align-items: end;
   margin: 0 0 18px;
@@ -445,13 +445,35 @@ h2 {
   box-shadow: 0 10px 30px rgba(28, 31, 36, 0.08);
 }
 
+.database-controls {
+  grid-template-columns: minmax(220px, 1fr) 145px 125px 140px 120px auto auto auto auto auto;
+  gap: 9px;
+}
+
 .repairs-controls {
-  grid-template-columns: minmax(220px, 1fr) 170px 170px 140px repeat(4, auto);
+  grid-template-columns: minmax(220px, 1fr) 170px 170px 140px repeat(5, auto);
   margin-top: 16px;
 }
 
 .demo-controls {
-  grid-template-columns: minmax(250px, 1fr) 170px 170px 150px auto auto auto;
+  grid-template-columns: minmax(250px, 1fr) 170px 170px 150px auto auto auto auto;
+}
+
+.reset-filters-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  color: #003f5a;
+  background: #e9f3f6;
+  border-color: #9fbdc9;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.reset-filters-btn:hover {
+  color: #fff;
+  background: #003f5a;
+  border-color: #003f5a;
+  transform: none;
 }
 
 label {

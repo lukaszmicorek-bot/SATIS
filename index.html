@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260622-9">
+    <link rel="stylesheet" href="styles.css?v=20260624-2">
   </head>
   <body>
     <main class="app-shell">
@@ -63,7 +63,7 @@
         </section>
 
         <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
-          <section class="controls" aria-label="Narzędzia bazy">
+          <section class="controls database-controls" aria-label="Narzędzia bazy">
             <label class="search-box">
               <span>Szukaj</span>
               <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
@@ -96,6 +96,16 @@
                 <option value="180">180+ dni</option>
               </select>
             </label>
+            <label>
+              <span>Miejsce</span>
+              <select id="locationFilter">
+                <option value="">Wszystkie</option>
+                <option value="T12">T12</option>
+                <option value="P50">P50</option>
+                <option value="P63">P63</option>
+              </select>
+            </label>
+            <button id="resetDeviceFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addBtn" type="button">Dodaj rekord</button>
             <button id="exportBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
               <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
@@ -176,6 +186,7 @@
                 <option value="P63">P63</option>
               </select>
             </label>
+            <button id="resetDemoFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addDemoBtn" type="button">Dodaj demo</button>
             <button id="exportDemoBtn" class="icon-button" type="button" aria-label="Eksport JSON" title="Eksport JSON">
               <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
@@ -352,6 +363,7 @@
               <span>Szukaj</span>
               <input id="dataControlSearchInput" type="search" placeholder="Rekord, numer, faktura, sprawa...">
             </label>
+            <button id="resetDataControlFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <div id="dataControlStats" class="data-control-stats"></div>
           </section>
           <section class="table-zone data-control-zone" aria-label="Sprawy do sprawdzenia w danych">
@@ -418,6 +430,7 @@
                 <option value="P63">P63</option>
               </select>
             </label>
+            <button id="resetRepairFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addRepairBtn" type="button">Dodaj wpis</button>
             <button id="exportRepairBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
               <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
@@ -861,6 +874,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260622-9"></script>
+    <script src="app.js?v=20260624-2"></script>
   </body>
 </html>
