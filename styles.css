@@ -460,19 +460,20 @@ h2 {
 }
 
 .reset-filters-btn {
-  min-height: 36px;
-  padding: 0 12px;
-  color: #003f5a;
-  background: #e9f3f6;
-  border-color: #9fbdc9;
-  font-size: 0.76rem;
-  font-weight: 850;
+  min-height: 28px;
+  align-self: end;
+  padding: 0 8px;
+  color: #48616d;
+  background: #f3f7f8;
+  border-color: #cbd8de;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .reset-filters-btn:hover {
-  color: #fff;
-  background: #003f5a;
-  border-color: #003f5a;
+  color: #003f5a;
+  background: #e7f0f3;
+  border-color: #aebfc8;
   transform: none;
 }
 
