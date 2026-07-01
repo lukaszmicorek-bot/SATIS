@@ -84,6 +84,8 @@ let demoReturnReminderTimeout = 0;
 let activeDateInput = null;
 let datePickerMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let datePicker = null;
+let pricingPriceIndex = null;
+let pricingPriceMemo = new Map();
 let stockAudit = loadStockAudit();
 let deviceNameCorrectionCandidates = [];
 
@@ -1859,6 +1861,130 @@ function formatPricingPrice(value) {
   }).format(number);
 }
 
+function resetPricingPriceLookup() {
+  pricingPriceIndex = null;
+  pricingPriceMemo = new Map();
+}
+
+function pricingLookupText(value) {
+  return normalizeDeviceName(value)
+    .toLocaleLowerCase("pl-PL")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function addPricingLookupVariant(variants, value) {
+  const baseKey = pricingLookupText(value);
+  if (!baseKey) return;
+
+  const keys = new Set([baseKey]);
+  const withoutGeneric = baseKey.replace(/^aparat sluchowy\s+(zauszny|wewnatrzuszny)?\s*/u, "").trim();
+  if (withoutGeneric) keys.add(withoutGeneric);
+
+  [...keys].forEach((key) => {
+    const tokens = key.split(" ").filter(Boolean);
+    if (tokens.length >= 3) variants.add(tokens.slice(1).join(" "));
+    variants.add(key);
+  });
+}
+
+function pricingLookupVariants(record) {
+  const variants = new Set();
+  addPricingLookupVariant(variants, record?.model);
+  addPricingLookupVariant(variants, record?.tradeName);
+  return [...variants].filter((key) => key.length >= 4);
+}
+
+function addPricingPriceIndexEntry(entriesByKey, key, record) {
+  const price = normalizePricingPrice(record?.grossPrice);
+  if (!key || price === "") return;
+
+  const info = entriesByKey.get(key) || {
+    prices: new Map(),
+    sampleName: String(record?.tradeName || record?.model || "").trim(),
+    recordsCount: 0
+  };
+  info.prices.set(price, (info.prices.get(price) || 0) + 1);
+  info.recordsCount += 1;
+  entriesByKey.set(key, info);
+}
+
+function buildPricingPriceIndex() {
+  const entriesByKey = new Map();
+  pricingRecords.forEach((record) => {
+    pricingLookupVariants(record).forEach((key) => addPricingPriceIndexEntry(entriesByKey, key, record));
+  });
+
+  const entries = [...entriesByKey.entries()]
+    .map(([key, info]) => ({ key, info, tokens: key.split(" ").filter(Boolean) }))
+    .sort((left, right) => right.key.length - left.key.length || right.tokens.length - left.tokens.length);
+
+  return { entriesByKey, entries };
+}
+
+function getPricingPriceIndex() {
+  if (!pricingPriceIndex) pricingPriceIndex = buildPricingPriceIndex();
+  return pricingPriceIndex;
+}
+
+function summarizePricingPriceInfo(info) {
+  const prices = [...info.prices.keys()].sort((left, right) => left - right);
+  if (!prices.length) return null;
+
+  const firstPrice = prices[0];
+  const lastPrice = prices[prices.length - 1];
+  const priceText = firstPrice === lastPrice
+    ? formatPricingPrice(firstPrice)
+    : `${formatPricingPrice(firstPrice)} - ${formatPricingPrice(lastPrice)}`;
+  const details = [`Cena aparatu: ${priceText}`];
+
+  if (prices.length > 1) details.push(`Kilka wariantów w cenniku: ${prices.length} ceny`);
+  if (info.sampleName) details.push(`Cennik: ${info.sampleName}`);
+
+  return {
+    priceText,
+    tooltip: details.join("\n")
+  };
+}
+
+function findLoosePricingPriceInfo(deviceKey, entries) {
+  const deviceTokens = new Set(deviceKey.split(" ").filter(Boolean));
+  let bestMatch = null;
+
+  entries.forEach((entry) => {
+    if (entry.key.length < 7 || entry.tokens.length < 2) return;
+
+    const entryInDevice = deviceKey.includes(entry.key);
+    const deviceInEntry = deviceKey.length >= 7 && entry.key.includes(deviceKey);
+    if (!entryInDevice && !deviceInEntry) return;
+
+    const commonTokens = entry.tokens.filter((token) => deviceTokens.has(token)).length;
+    const tokenCoverage = commonTokens / Math.max(1, Math.min(entry.tokens.length, deviceTokens.size));
+    if (tokenCoverage < 0.75) return;
+
+    const score = (entryInDevice ? 200 : 100) + commonTokens * 12 + Math.min(entry.key.length, deviceKey.length);
+    if (!bestMatch || score > bestMatch.score) bestMatch = { score, info: entry.info };
+  });
+
+  return bestMatch?.info || null;
+}
+
+function pricingPriceInfoForDeviceName(deviceName) {
+  const deviceKey = pricingLookupText(deviceName);
+  if (!deviceKey) return null;
+  if (pricingPriceMemo.has(deviceKey)) return pricingPriceMemo.get(deviceKey);
+
+  const index = getPricingPriceIndex();
+  const exactInfo = index.entriesByKey.get(deviceKey);
+  const info = exactInfo || findLoosePricingPriceInfo(deviceKey, index.entries);
+  const result = info ? summarizePricingPriceInfo(info) : null;
+  pricingPriceMemo.set(deviceKey, result);
+  return result;
+}
+
 function pricingSeedRecords() {
   return normalizePricingRecordsForUse(window.PRICING_SEED_RECORDS || PRICING_EMBEDDED_RECORDS || []);
 }
@@ -1879,6 +2005,7 @@ function loadPricingRecords() {
 }
 
 function savePricingRecords() {
+  resetPricingPriceLookup();
   localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricingRecords));
 }
 
@@ -3345,6 +3472,25 @@ function sortOpenRepairRecords(recordsToSort) {
   });
 }
 
+function createDeviceNameCell(record) {
+  const deviceName = String(record?.deviceName || "").trim();
+  if (!deviceName) return "";
+
+  const name = document.createElement("span");
+  name.className = "device-name-cell";
+  name.textContent = deviceName;
+
+  const priceInfo = pricingPriceInfoForDeviceName(deviceName);
+  if (priceInfo) {
+    name.classList.add("has-price");
+    name.title = priceInfo.tooltip;
+    name.dataset.priceTooltip = priceInfo.tooltip;
+    name.setAttribute("aria-label", `${deviceName}. ${priceInfo.tooltip.replace(/\n/gu, " ")}`);
+  }
+
+  return name;
+}
+
 function createRow(record) {
   const row = document.createElement("tr");
   const duplicateMatches = duplicateSerialMatches(record, "devices");
@@ -3361,7 +3507,7 @@ function createRow(record) {
   const cells = [
     formatDate(record.receivedDate),
     createAgePill(record),
-    record.deviceName,
+    createDeviceNameCell(record),
     createSerialPill(record.serialNumber, duplicateMatches),
     createTypePill(displayType(record)),
     createLocationPill(record.location),
