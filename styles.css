@@ -1245,14 +1245,13 @@ td.row-actions {
   font-size: 0.7rem;
 }
 
-.row-actions .move-record-btn {
+.move-record-btn {
   color: #315b6b;
   background: #edf5f8;
   border-color: #c4d6de;
-  font-size: 0.66rem;
 }
 
-.row-actions .move-record-btn:hover {
+.move-record-btn:hover {
   color: #003f5a;
   background: #e2eef3;
   border-color: #9fbdc9;
@@ -2680,6 +2679,24 @@ form {
   gap: 12px;
 }
 
+.dialog-secondary-actions,
+.dialog-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dialog-primary-actions {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.dialog-secondary-actions button,
+.dialog-primary-actions button {
+  min-height: 34px;
+}
+
 .dialog-title-row {
   display: flex;
   flex-wrap: wrap;
@@ -2856,6 +2873,17 @@ textarea {
   .dialog-actions {
     align-items: stretch;
     flex-direction: column-reverse;
+  }
+
+  .dialog-secondary-actions,
+  .dialog-primary-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .dialog-secondary-actions button,
+  .dialog-primary-actions button {
+    flex: 1 1 auto;
   }
 
   .return-reminder-item {
