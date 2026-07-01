@@ -1239,9 +1239,24 @@ td.row-actions {
 
 .row-actions button {
   min-height: 29px;
-  width: 100%;
-  padding: 0 6px;
-  font-size: 0.74rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 5px;
+  font-size: 0.7rem;
+}
+
+.row-actions .move-record-btn {
+  color: #315b6b;
+  background: #edf5f8;
+  border-color: #c4d6de;
+  font-size: 0.66rem;
+}
+
+.row-actions .move-record-btn:hover {
+  color: #003f5a;
+  background: #e2eef3;
+  border-color: #9fbdc9;
+  transform: none;
 }
 
 .empty-state {

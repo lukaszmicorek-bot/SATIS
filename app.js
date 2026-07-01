@@ -1480,8 +1480,10 @@ function normalizeSalesInvoiceInput(value) {
 
 function normalizeDeviceName(value) {
   return String(value ?? "")
-    .replace(/[-‐‑‒–—]+/gu, " ")
+    .replace(/[-‐‑‒–—]+/gu, " - ")
     .replace(/\s+/gu, " ")
+    .replace(/^\s*-\s*/u, "")
+    .replace(/\s*-\s*$/u, "")
     .trim();
 }
 
@@ -3184,7 +3186,14 @@ function createRow(record) {
   editButton.textContent = "Edytuj";
   editButton.addEventListener("click", () => openDialog(record));
 
-  actions.append(editButton);
+  const moveButton = document.createElement("button");
+  moveButton.type = "button";
+  moveButton.className = "move-record-btn";
+  moveButton.textContent = "Do demo";
+  moveButton.title = "Przenieś do aparatów demo";
+  moveButton.addEventListener("click", () => moveDeviceRecordToDemo(record));
+
+  actions.append(editButton, moveButton);
   row.append(actions);
   return row;
 }
@@ -3246,7 +3255,13 @@ function createDemoRow(record) {
   editButton.type = "button";
   editButton.textContent = "Edytuj";
   editButton.addEventListener("click", () => openDemoDialog(record));
-  actions.append(editButton);
+  const moveButton = document.createElement("button");
+  moveButton.type = "button";
+  moveButton.className = "move-record-btn";
+  moveButton.textContent = "Do bazy";
+  moveButton.title = "Przenieś do zeszytu aparatów";
+  moveButton.addEventListener("click", () => moveDemoRecordToDevices(record));
+  actions.append(editButton, moveButton);
   row.append(actions);
   return row;
 }
@@ -4468,6 +4483,80 @@ function normalizeRepairLocation(location) {
   return ["T12", "P50", "P63"].includes(normalizedLocation) ? normalizedLocation : "P63";
 }
 
+function joinTransferNotes(...parts) {
+  return parts
+    .map((part) => String(part ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function deviceRecordToDemoRecord(record) {
+  const status = displayType(record);
+  return normalizeDemoRecordForUse({
+    id: `${DEMO_ID_PREFIX}${makeId()}`,
+    receivedDate: record.receivedDate || todayInputValue(),
+    manufacturerReturnDate: record.manufacturerReturnDate || "",
+    manufacturerReturnDateCleared: record.manufacturerReturnDateCleared || "",
+    manufacturer: String(record.manufacturer || "").trim(),
+    deviceName: record.deviceName,
+    serialNumber: record.serialNumber,
+    status: "NA STANIE",
+    purpose: DEMO_PURPOSE_TEST,
+    location: normalizeRepairLocation(record.location),
+    currentUser: "",
+    loanDate: "",
+    returnDate: "",
+    notes: joinTransferNotes(
+      record.notes,
+      status && status !== "NA STANIE" ? `Przeniesiono z bazy. Status: ${status}.` : "Przeniesiono z bazy.",
+      record.customerName ? `Klient: ${record.customerName}.` : "",
+      record.salesInvoice ? `Faktura: ${record.salesInvoice}.` : "",
+      record.ezwm ? `EZWM: ${normalizeEzwmStatus(record.ezwm)}.` : "",
+      record.waybillNumber ? `NR WZ: ${record.waybillNumber}.` : ""
+    ),
+    loanHistory: normalizeDemoLoanHistory(record.loanHistory),
+    currentAttachments: normalizeDemoAttachments(record.currentAttachments),
+    sourceRow: String(record.id || "")
+  });
+}
+
+function demoRecordToDeviceRecord(record) {
+  const demoStatusText = demoStatus(record);
+  const deadline = demoReturnDeadline(record);
+  return normalizeDeviceRecordForUse({
+    id: makeId(),
+    receivedDate: record.receivedDate || todayInputValue(),
+    deviceName: record.deviceName,
+    serialNumber: record.serialNumber,
+    type: "NA STANIE",
+    location: normalizeDemoLocation(record.location),
+    pickupDate: "",
+    customerName: "",
+    salesInvoice: "",
+    returnDate: "",
+    waybillNumber: "",
+    ezwm: "",
+    notes: joinTransferNotes(
+      record.notes,
+      "Przeniesiono z demo.",
+      record.manufacturer ? `Producent: ${record.manufacturer}.` : "",
+      demoStatusText ? `Status demo: ${demoStatusText}.` : "",
+      record.purpose ? `Charakter: ${normalizeDemoPurpose(record.purpose)}.` : "",
+      record.currentUser ? `Ostatnio używany przez: ${record.currentUser}.` : "",
+      record.loanDate ? `Data wypożyczenia: ${formatDate(record.loanDate)}.` : "",
+      record.returnDate ? `Data zwrotu z wypożyczenia: ${formatDate(record.returnDate)}.` : "",
+      deadline ? `Termin zwrotu do producenta: ${formatDate(deadline)}.` : ""
+    ),
+    manufacturer: record.manufacturer,
+    manufacturerReturnDate: record.manufacturerReturnDate,
+    manufacturerReturnDateCleared: record.manufacturerReturnDateCleared,
+    purpose: record.purpose,
+    loanHistory: normalizeDemoLoanHistory(record.loanHistory),
+    currentAttachments: normalizeDemoAttachments(record.currentAttachments),
+    sourceRow: String(record.id || "")
+  });
+}
+
 function statusFromRepairDates(data) {
   if (data.pickupDate) return "ODEBRANE";
   if (data.returnDate) return "GOTOWE";
@@ -4858,6 +4947,70 @@ async function deleteCurrentDemoRecord() {
       render();
       alert(error.message);
     }
+  }
+}
+
+async function moveDeviceRecordToDemo(record) {
+  if (!record?.id) return;
+  const label = `${record.deviceName || "Aparat"}${record.serialNumber ? ` (${record.serialNumber})` : ""}`;
+  if (!confirm(`Przenieść ${label} z Bazy do Demo?`)) return;
+
+  const previousRecords = records;
+  const previousDemoRecords = demoRecords;
+  const movedRecord = deviceRecordToDemoRecord(record);
+
+  records = records.filter((item) => item.id !== record.id);
+  demoRecords = [movedRecord, ...demoRecords];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  rebuildDerivedData();
+  render();
+
+  try {
+    await Promise.all([
+      persistDemoRecord(movedRecord),
+      persistDeletedDeviceRecord(record.id)
+    ]);
+  } catch (error) {
+    records = previousRecords;
+    demoRecords = previousDemoRecords;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    rebuildDerivedData();
+    render();
+    alert(error.message || "Nie udało się przenieść rekordu do Demo.");
+  }
+}
+
+async function moveDemoRecordToDevices(record) {
+  if (!record?.id) return;
+  const label = `${record.deviceName || "Aparat demo"}${record.serialNumber ? ` (${record.serialNumber})` : ""}`;
+  if (!confirm(`Przenieść ${label} z Demo do Zeszytu aparatów?`)) return;
+
+  const previousRecords = records;
+  const previousDemoRecords = demoRecords;
+  const movedRecord = demoRecordToDeviceRecord(record);
+
+  demoRecords = demoRecords.filter((item) => item.id !== record.id);
+  records = [movedRecord, ...records];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  rebuildDerivedData();
+  render();
+
+  try {
+    await Promise.all([
+      persistDeviceRecord(movedRecord),
+      persistDeletedDemoRecord(record.id)
+    ]);
+  } catch (error) {
+    records = previousRecords;
+    demoRecords = previousDemoRecords;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    rebuildDerivedData();
+    render();
+    alert(error.message || "Nie udało się przenieść rekordu do Bazy.");
   }
 }
 
