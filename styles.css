@@ -484,6 +484,75 @@ h2 {
   font-size: 1rem;
 }
 
+.pricing-controls {
+  grid-template-columns: minmax(320px, 1fr) auto;
+  margin-bottom: 0;
+}
+
+.pricing-table {
+  table-layout: fixed;
+  min-width: 1180px;
+}
+
+.pricing-table th:nth-child(1),
+.pricing-table td:nth-child(1) {
+  width: 48px;
+  text-align: right;
+}
+
+.pricing-table th:nth-child(2),
+.pricing-table td:nth-child(2) {
+  width: 100px;
+}
+
+.pricing-table th:nth-child(3),
+.pricing-table td:nth-child(3) {
+  width: 110px;
+}
+
+.pricing-table th:nth-child(4),
+.pricing-table td:nth-child(4) {
+  width: 34%;
+}
+
+.pricing-table th:nth-child(5),
+.pricing-table td:nth-child(5) {
+  width: 150px;
+}
+
+.pricing-table th:nth-child(6),
+.pricing-table td:nth-child(6) {
+  width: 160px;
+}
+
+.pricing-table th:nth-child(7),
+.pricing-table td:nth-child(7) {
+  width: 62px;
+  text-align: center;
+}
+
+.pricing-table th:nth-child(8),
+.pricing-table td:nth-child(8) {
+  width: 110px;
+  text-align: right;
+}
+
+.pricing-table th:nth-child(9),
+.pricing-table td:nth-child(9) {
+  width: 105px;
+}
+
+.pricing-name-cell {
+  color: #173f55;
+  font-weight: 750;
+}
+
+.pricing-price-cell {
+  color: #2d5f42;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .controls {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 180px 160px 190px repeat(6, auto);
