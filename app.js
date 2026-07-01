@@ -15,6 +15,7 @@ const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
 const SEARCH_DEBOUNCE_MS = 120;
 const TABLE_RENDER_BATCH_SIZE = 500;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
+const MAX_MODEL_NAME_SUGGESTIONS = 120;
 const DEMO_RETURN_WARNING_DAYS = 30;
 const DEMO_RETURN_CRITICAL_DAYS = 14;
 const DEMO_LOAN_DAYS = 14;
@@ -66,6 +67,7 @@ let activeDateInput = null;
 let datePickerMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let datePicker = null;
 let stockAudit = loadStockAudit();
+let deviceNameCorrectionCandidates = [];
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -1514,27 +1516,7 @@ function damerauLevenshtein(leftValue, rightValue) {
 }
 
 function deviceNameTokenCandidates(currentId = "") {
-  const candidates = new Map();
-
-  records.forEach((record) => {
-    if (record.id === currentId) return;
-    const displayToken = normalizeDeviceName(record.deviceName).split(" ")[0];
-    const token = displayToken.toLocaleUpperCase("pl-PL");
-    if (!/^\p{L}{4,}$/u.test(token)) return;
-    const candidate = candidates.get(token) || { token, count: 0, displayForms: new Map() };
-    candidate.count += 1;
-    candidate.displayForms.set(displayToken, (candidate.displayForms.get(displayToken) || 0) + 1);
-    candidates.set(token, candidate);
-  });
-
-  return [...candidates.values()]
-    .filter((candidate) => candidate.count >= 3)
-    .map((candidate) => ({
-      token: candidate.token,
-      count: candidate.count,
-      displayToken: [...candidate.displayForms.entries()]
-        .sort((left, right) => right[1] - left[1])[0][0]
-    }));
+  return deviceNameCorrectionCandidates;
 }
 
 function correctDeviceNameFromHistory(value, currentId = "") {
@@ -2350,15 +2332,93 @@ function rebuildDemoManufacturerFilter() {
   demoManufacturerFilter.value = manufacturers.some((manufacturer) => normalize(manufacturer).trim() === selectedValue) ? selectedValue : "";
 }
 
+function modelSuggestionSourceRecords() {
+  return [...records, ...demoRecords];
+}
+
+function customerNameSuggestionKeys() {
+  const keys = new Set();
+  [...records, ...repairRecords].forEach((record) => {
+    const name = normalizeDeviceName(record.customerName).toLocaleLowerCase("pl-PL");
+    if (name) keys.add(name);
+  });
+  return keys;
+}
+
+function cleanModelSuggestion(value) {
+  return normalizeDeviceName(value).replace(/\s{2,}/gu, " ").trim();
+}
+
+function isLikelyModelSuggestion(value, customerKeys = customerNameSuggestionKeys()) {
+  const name = cleanModelSuggestion(value);
+  if (name.length < 2 || name.length > 90) return false;
+  const normalizedName = name.toLocaleLowerCase("pl-PL");
+  if (customerKeys.has(normalizedName)) return false;
+  if (/https?:\/\//iu.test(name) || /\bwww\./iu.test(name) || /@/u.test(name)) return false;
+  if (/\.(pl|com|eu|net|org)\b/iu.test(name)) return false;
+  if (/\b(ul|ulica|al|aleja|os|osiedle|tel|telefon|mail|email|nip|regon)\b/iu.test(normalizedName)) return false;
+  if (/^\d+([/\s-]\d+)*$/u.test(name)) return false;
+  return true;
+}
+
+function rankedModelSuggestions(sourceRecords) {
+  const customerKeys = customerNameSuggestionKeys();
+  const suggestions = new Map();
+
+  sourceRecords.forEach((record) => {
+    const name = cleanModelSuggestion(record.deviceName);
+    if (!isLikelyModelSuggestion(name, customerKeys)) return;
+
+    const key = name.toLocaleUpperCase("pl-PL");
+    const suggestion = suggestions.get(key) || { count: 0, displayForms: new Map() };
+    suggestion.count += 1;
+    suggestion.displayForms.set(name, (suggestion.displayForms.get(name) || 0) + 1);
+    suggestions.set(key, suggestion);
+  });
+
+  return [...suggestions.values()]
+    .map((suggestion) => ({
+      count: suggestion.count,
+      name: [...suggestion.displayForms.entries()].sort((left, right) => right[1] - left[1] || collator.compare(left[0], right[0]))[0][0]
+    }))
+    .sort((left, right) => right.count - left.count || collator.compare(left.name, right.name))
+    .slice(0, MAX_MODEL_NAME_SUGGESTIONS)
+    .map((suggestion) => suggestion.name);
+}
+
+function rebuildDeviceNameCorrectionCandidates() {
+  const candidates = new Map();
+  const customerKeys = customerNameSuggestionKeys();
+
+  records.forEach((record) => {
+    const name = cleanModelSuggestion(record.deviceName);
+    if (!isLikelyModelSuggestion(name, customerKeys)) return;
+    const displayToken = name.split(" ")[0];
+    const token = displayToken.toLocaleUpperCase("pl-PL");
+    if (!/^\p{L}{4,}$/u.test(token)) return;
+    const candidate = candidates.get(token) || { token, count: 0, displayForms: new Map() };
+    candidate.count += 1;
+    candidate.displayForms.set(displayToken, (candidate.displayForms.get(displayToken) || 0) + 1);
+    candidates.set(token, candidate);
+  });
+
+  deviceNameCorrectionCandidates = [...candidates.values()]
+    .filter((candidate) => candidate.count >= 3)
+    .map((candidate) => ({
+      token: candidate.token,
+      count: candidate.count,
+      displayToken: [...candidate.displayForms.entries()]
+        .sort((left, right) => right[1] - left[1] || collator.compare(left[0], right[0]))[0][0]
+    }));
+}
+
 function rebuildDemoFormSuggestions() {
   if (!demoManufacturerSuggestions || !demoDeviceNameSuggestions) return;
 
   const manufacturers = [...new Set(demoRecords.map((record) => String(record.manufacturer ?? "").trim()).filter(Boolean))].sort((left, right) =>
     collator.compare(left, right)
   );
-  const models = [...new Set(demoRecords.map((record) => String(record.deviceName ?? "").trim()).filter(Boolean))].sort((left, right) =>
-    collator.compare(left, right)
-  );
+  const models = rankedModelSuggestions(modelSuggestionSourceRecords());
 
   const manufacturerFragment = document.createDocumentFragment();
   manufacturers.forEach((manufacturer) => {
@@ -2369,7 +2429,7 @@ function rebuildDemoFormSuggestions() {
   demoManufacturerSuggestions.replaceChildren(manufacturerFragment);
 
   const modelFragment = document.createDocumentFragment();
-  models.slice(0, MAX_DEVICE_NAME_SUGGESTIONS).forEach((model) => {
+  models.forEach((model) => {
     const option = document.createElement("option");
     option.value = model;
     modelFragment.append(option);
@@ -2418,27 +2478,15 @@ function rebuildSerialIndex() {
 }
 
 function rebuildDeviceNameSuggestions() {
-  const uniqueNames = new Set();
-
-  records.forEach((record) => {
-    const name = String(record.deviceName ?? "").trim();
-    if (name) uniqueNames.add(name);
-  });
-
-  repairRecords.forEach((record) => {
-    const name = String(record.deviceName ?? "").trim();
-    if (name) uniqueNames.add(name);
-  });
+  const names = rankedModelSuggestions(modelSuggestionSourceRecords());
+  rebuildDeviceNameCorrectionCandidates();
 
   const fragment = document.createDocumentFragment();
-  [...uniqueNames]
-    .sort((left, right) => collator.compare(left, right))
-    .slice(0, MAX_DEVICE_NAME_SUGGESTIONS)
-    .forEach((name) => {
-      const option = document.createElement("option");
-      option.value = name;
-      fragment.append(option);
-    });
+  names.forEach((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    fragment.append(option);
+  });
 
   deviceNameSuggestions.replaceChildren(fragment);
 }
