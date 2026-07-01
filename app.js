@@ -2,6 +2,7 @@ const STORAGE_KEY = "baza-aparatow-records-2026-clean";
 const REPAIR_STORAGE_KEY = "zeszyt-napraw-wkladek-records-2026-clean";
 const DEMO_STORAGE_KEY = "zeszyt-aparatow-demo-records";
 const STOCK_AUDIT_STORAGE_KEY = "zeszyt-aparatow-remanent";
+const PRICING_STORAGE_KEY = "cennik-records-2026-04";
 const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const SERVER_REFRESH_MS = 10000;
@@ -27,7 +28,7 @@ const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const STOCK_LOCATIONS = ["T12", "P50", "P63"];
-const PRICING_UPDATED_MONTH = 7;
+const PRICING_UPDATED_MONTH = 4;
 const PRICING_UPDATED_YEAR = 2026;
 const PRICING_MONTH_NAMES = [
   "styczeń",
@@ -268,6 +269,17 @@ const demoFields = [
   "notes"
 ];
 
+const pricingFields = [
+  "idProduct",
+  "nfzCode",
+  "tradeName",
+  "model",
+  "manufacturer",
+  "orderIndex",
+  "grossPrice",
+  "swdCode"
+];
+
 const DEVICE_DATE_FIELDS = ["receivedDate", "pickupDate", "returnDate"];
 const REPAIR_DATE_FIELDS = ["receivedDate", "sentDate", "returnDate", "pickupDate"];
 const DEMO_DATE_FIELDS = ["receivedDate", "manufacturerReturnDate", "loanDate", "returnDate"];
@@ -281,6 +293,7 @@ const REPAIR_DATE_ORDER = [
 let records = [];
 let repairRecords = [];
 let demoRecords = [];
+let pricingRecords = [];
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
 let sortState = { key: "receivedDate", direction: "desc" };
@@ -307,6 +320,13 @@ const repairOpenRecordsBody = document.querySelector("#repairOpenRecordsBody");
 const repairOpenEmptyState = document.querySelector("#repairOpenEmptyState");
 const demoRecordsBody = document.querySelector("#demoRecordsBody");
 const demoEmptyState = document.querySelector("#demoEmptyState");
+const pricingRecordsBody = document.querySelector("#pricingRecordsBody");
+const pricingEmptyState = document.querySelector("#pricingEmptyState");
+const pricingSearchInput = document.querySelector("#pricingSearchInput");
+const pricingSummary = document.querySelector("#pricingSummary");
+const pricingVersion = document.querySelector("#pricingVersion");
+const importPricingBtn = document.querySelector("#importPricingBtn");
+const pricingImportInput = document.querySelector("#pricingImportInput");
 const demoChecklistBody = document.querySelector("#demoChecklistBody");
 const demoChecklistMeta = document.querySelector("#demoChecklistMeta");
 const printDemoChecklistBtn = document.querySelector("#printDemoChecklistBtn");
@@ -1760,6 +1780,64 @@ function normalizeDemoRecordForUse(record) {
   return normalizedRecord;
 }
 
+function normalizePricingRecordsForUse(recordsToNormalize) {
+  if (!Array.isArray(recordsToNormalize)) return [];
+  return recordsToNormalize
+    .map(normalizePricingRecordForUse)
+    .filter((record) => record.idProduct || record.tradeName || record.model || record.manufacturer);
+}
+
+function normalizePricingRecordForUse(record) {
+  const normalizedRecord = {};
+  pricingFields.forEach((field) => {
+    normalizedRecord[field] = String(record?.[field] ?? "").trim();
+  });
+  normalizedRecord.grossPrice = normalizePricingPrice(record?.grossPrice);
+  return normalizedRecord;
+}
+
+function normalizePricingPrice(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const text = String(value ?? "")
+    .replace(/\s/g, "")
+    .replace(/zł|pln/gi, "")
+    .replace(",", ".")
+    .trim();
+  if (!text) return "";
+  const number = Number(text);
+  return Number.isFinite(number) ? number : "";
+}
+
+function formatPricingPrice(value) {
+  const number = normalizePricingPrice(value);
+  if (number === "") return "";
+  return new Intl.NumberFormat("pl-PL", {
+    style: "currency",
+    currency: "PLN",
+    maximumFractionDigits: Number.isInteger(number) ? 0 : 2
+  }).format(number);
+}
+
+function pricingSeedRecords() {
+  return normalizePricingRecordsForUse(window.PRICING_SEED_RECORDS || []);
+}
+
+function loadPricingRecords() {
+  try {
+    const storedRecords = JSON.parse(localStorage.getItem(PRICING_STORAGE_KEY) || "null");
+    if (Array.isArray(storedRecords) && storedRecords.length) {
+      return normalizePricingRecordsForUse(storedRecords);
+    }
+  } catch (error) {
+    console.warn(error);
+  }
+  return pricingSeedRecords();
+}
+
+function savePricingRecords() {
+  localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricingRecords));
+}
+
 function normalizeDemoPurpose(value) {
   const normalizedPurpose = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
   if (
@@ -2649,7 +2727,7 @@ function render() {
   }
 
   if (activeNotebook === "pricing") {
-    updateStats();
+    renderPricingRecords();
     return;
   }
 
@@ -2721,6 +2799,32 @@ function renderDemoRecords() {
   demoEmptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(demoRenderNotice, demoRenderText, visibleRecords.length, renderedRecords.length, "aparatów demo");
   updateDemoChecklistState(visibleRecords);
+}
+
+function filteredPricingRecords() {
+  const query = normalize(pricingSearchInput?.value || "").trim();
+  if (!query) return pricingRecords;
+  return pricingRecords.filter((record) => pricingSearchBlob(record).includes(query));
+}
+
+function pricingSearchBlob(record) {
+  return pricingFields
+    .map((field) => (field === "grossPrice" ? formatPricingPrice(record[field]) : record[field]))
+    .map(normalize)
+    .join("\n");
+}
+
+function renderPricingRecords() {
+  const visibleRecords = filteredPricingRecords();
+  renderTableRows(pricingRecordsBody, visibleRecords.map(createPricingRow));
+  pricingEmptyState.hidden = visibleRecords.length > 0;
+  if (pricingSummary) {
+    pricingSummary.textContent = `Wczytano ${pricingRecords.length} pozycji cennika.`;
+  }
+  if (pricingVersion) {
+    pricingVersion.textContent = `Wersja: ${String(PRICING_UPDATED_MONTH).padStart(2, "0")}.${PRICING_UPDATED_YEAR}`;
+  }
+  updateStats();
 }
 
 function updateDemoChecklistState(visibleRecords) {
@@ -3283,6 +3387,32 @@ function createDemoRow(record) {
   return row;
 }
 
+function createPricingRow(record, index) {
+  const row = document.createElement("tr");
+  const cells = [
+    String(index + 1),
+    record.idProduct,
+    record.nfzCode,
+    record.tradeName,
+    record.model,
+    record.manufacturer,
+    record.orderIndex,
+    formatPricingPrice(record.grossPrice),
+    record.swdCode
+  ];
+
+  cells.forEach((value, cellIndex) => {
+    const cell = document.createElement("td");
+    cell.textContent = value || "-";
+    if (!value) cell.classList.add("muted-cell");
+    if (cellIndex === 3) cell.classList.add("pricing-name-cell");
+    if (cellIndex === 7) cell.classList.add("pricing-price-cell");
+    row.append(cell);
+  });
+
+  return row;
+}
+
 function createDemoPurposePill(value) {
   const purpose = normalizeDemoPurpose(value);
   if (purpose !== DEMO_PURPOSE_REPLACEMENT) return null;
@@ -3752,14 +3882,15 @@ function createDatePill(value, type, activeType = "") {
 
 function updateStats() {
   if (activeNotebook === "pricing") {
+    const visibleCount = filteredPricingRecords().length;
     document.querySelector("#countAll").textContent = String(PRICING_UPDATED_MONTH).padStart(2, "0");
     document.querySelector("#countSold").textContent = PRICING_UPDATED_YEAR;
-    document.querySelector("#countInvoice").textContent = "0";
-    document.querySelector("#countStock").textContent = "aktualny";
+    document.querySelector("#countInvoice").textContent = pricingRecords.length;
+    document.querySelector("#countStock").textContent = visibleCount;
     countAllLabel.textContent = "miesiąc";
     countSoldLabel.textContent = "rok";
     countInvoiceLabel.textContent = "pozycji";
-    countStockLabel.textContent = "status";
+    countStockLabel.textContent = "widoczne";
     return;
   }
 
@@ -4122,7 +4253,7 @@ function switchNotebook(notebookName) {
   }
 
   if (activeNotebook === "pricing") {
-    updateStats();
+    renderPricingRecords();
     return;
   }
 
@@ -5355,6 +5486,64 @@ function importRepairJson(event) {
   reader.readAsText(file);
 }
 
+function importPricingCsv(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    const previousPricingRecords = pricingRecords;
+    try {
+      const imported = parseCsv(reader.result);
+      const importedPricingRecords = normalizePricingRecordsForUse(imported);
+      if (!importedPricingRecords.length) throw new Error("CSV nie zawiera pozycji cennika.");
+
+      const merged = mergePricingRecords(pricingRecords, importedPricingRecords);
+      if (!confirm(`Import CSV: nowe pozycje ${merged.added}, aktualizacje ${merged.updated}. Kontynuować?`)) {
+        pricingImportInput.value = "";
+        return;
+      }
+
+      pricingRecords = merged.records;
+      savePricingRecords();
+      renderPricingRecords();
+      pricingImportInput.value = "";
+    } catch (error) {
+      pricingRecords = previousPricingRecords;
+      savePricingRecords();
+      renderPricingRecords();
+      alert(`Nie udało się zaimportować cennika: ${error.message}`);
+    }
+  });
+  reader.readAsText(file);
+}
+
+function pricingRecordKey(record) {
+  if (record.idProduct) return `id:${normalize(record.idProduct)}`;
+  return `name:${normalize([record.nfzCode, record.tradeName, record.model, record.manufacturer].join("|"))}`;
+}
+
+function mergePricingRecords(existingRecords, importedRecords) {
+  const recordsToMerge = normalizePricingRecordsForUse(existingRecords);
+  const indexByKey = new Map(recordsToMerge.map((record, index) => [pricingRecordKey(record), index]));
+  let added = 0;
+  let updated = 0;
+
+  importedRecords.forEach((record) => {
+    const key = pricingRecordKey(record);
+    if (indexByKey.has(key)) {
+      recordsToMerge[indexByKey.get(key)] = record;
+      updated += 1;
+      return;
+    }
+    indexByKey.set(key, recordsToMerge.length);
+    recordsToMerge.push(record);
+    added += 1;
+  });
+
+  return { records: recordsToMerge, added, updated };
+}
+
 function parseImportFile(file, content) {
   const fileName = normalize(file.name);
   if (fileName.endsWith(".csv") || file.type === "text/csv") {
@@ -5365,6 +5554,7 @@ function parseImportFile(file, content) {
 
 function parseCsv(content) {
   const normalizedContent = String(content).replace(/^\ufeff/, "");
+  const delimiter = detectCsvDelimiter(normalizedContent);
   const rows = [];
   let row = [];
   let cell = "";
@@ -5379,7 +5569,7 @@ function parseCsv(content) {
       index += 1;
     } else if (char === '"') {
       inQuotes = !inQuotes;
-    } else if ((char === ";" || char === ",") && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       row.push(cell);
       cell = "";
     } else if ((char === "\n" || char === "\r") && !inQuotes) {
@@ -5405,6 +5595,13 @@ function parseCsv(content) {
     });
     return record;
   });
+}
+
+function detectCsvDelimiter(content) {
+  const firstLine = String(content).split(/\r?\n/).find((line) => line.trim()) || "";
+  const semicolons = (firstLine.match(/;/g) || []).length;
+  const commas = (firstLine.match(/,/g) || []).length;
+  return semicolons >= commas ? ";" : ",";
 }
 
 function normalizeImportHeader(header) {
@@ -5435,7 +5632,20 @@ function normalizeImportHeader(header) {
     "data wysłania": "sentDate",
     "data wyslania": "sentDate",
     "data powrotu": "returnDate",
-    "status": "status"
+    "status": "status",
+    "id prod handl": "idProduct",
+    "id produktu": "idProduct",
+    "kod srodka nfz": "nfzCode",
+    "kod środka nfz": "nfzCode",
+    "kod nfz": "nfzCode",
+    "nazwa handlowa": "tradeName",
+    "model": "model",
+    "producent": "manufacturer",
+    "ind zamow": "orderIndex",
+    "ind zamów": "orderIndex",
+    "cena brutto": "grossPrice",
+    "kod prod swd": "swdCode",
+    "kod swd": "swdCode"
   };
 
   return aliases[key] ?? key;
@@ -5824,6 +6034,9 @@ showMoreRepairBtn.addEventListener("click", () => showMoreTableRows("repairs", r
 showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairOpen", renderRepairRecords));
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
 document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJson);
+importPricingBtn?.addEventListener("click", () => pricingImportInput.click());
+pricingImportInput?.addEventListener("change", importPricingCsv);
+pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
@@ -5958,6 +6171,7 @@ document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
 });
 
 async function init() {
+  pricingRecords = loadPricingRecords();
   setCurrentYearTitle();
 
   if (hasSupabaseSettings && !hasSupabaseConfig) {

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260701-6">
+    <link rel="stylesheet" href="styles.css?v=20260701-7">
   </head>
   <body>
     <main class="app-shell">
@@ -46,7 +46,7 @@
         <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
           <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
-          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik 07.2026</button>
+          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -518,12 +518,48 @@
             </div>
             <div class="pricing-update">
               <span>Aktualizacja</span>
-              <time datetime="2026-07">lipiec 2026</time>
+              <time datetime="2026-04">kwiecień 2026</time>
             </div>
           </div>
+
+          <section class="controls pricing-controls" aria-label="Narzędzia cennika">
+            <label class="search-box">
+              <span>Szukaj</span>
+              <input id="pricingSearchInput" type="search" placeholder="Nazwa, model, producent, kod...">
+            </label>
+            <button id="importPricingBtn" class="icon-button" type="button" aria-label="Import nowych pozycji CSV" title="Import nowych pozycji CSV">
+              <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">CSV</span>
+            </button>
+            <input id="pricingImportInput" type="file" accept=".csv,text/csv" hidden>
+          </section>
+
+          <section class="table-zone" aria-label="Tabela cennika">
+            <table class="pricing-table">
+              <thead>
+                <tr>
+                  <th>LP</th>
+                  <th>ID produktu</th>
+                  <th>Kod NFZ</th>
+                  <th>Nazwa handlowa</th>
+                  <th>Model</th>
+                  <th>Producent</th>
+                  <th>Ind.</th>
+                  <th>Cena brutto</th>
+                  <th>Kod SWD</th>
+                </tr>
+              </thead>
+              <tbody id="pricingRecordsBody"></tbody>
+            </table>
+            <p id="pricingEmptyState" class="empty-state" hidden>Brak pozycji cennika dla wybranego wyszukiwania.</p>
+          </section>
+
           <div class="pricing-empty">
-            <strong>Brak pozycji cennika.</strong>
-            <span>Wersja: 07.2026</span>
+            <strong id="pricingSummary">Wczytano cennik.</strong>
+            <span id="pricingVersion">Wersja: 04.2026</span>
           </div>
         </section>
       </section>
@@ -906,6 +942,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260701-6"></script>
+    <script src="pricing-data.js?v=20260701-7"></script>
+    <script src="app.js?v=20260701-7"></script>
   </body>
 </html>
