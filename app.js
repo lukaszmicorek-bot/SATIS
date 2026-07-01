@@ -326,6 +326,7 @@ const pricingSearchInput = document.querySelector("#pricingSearchInput");
 const pricingSummary = document.querySelector("#pricingSummary");
 const pricingVersion = document.querySelector("#pricingVersion");
 const importPricingBtn = document.querySelector("#importPricingBtn");
+const resetPricingBtn = document.querySelector("#resetPricingBtn");
 const pricingImportInput = document.querySelector("#pricingImportInput");
 const demoChecklistBody = document.querySelector("#demoChecklistBody");
 const demoChecklistMeta = document.querySelector("#demoChecklistMeta");
@@ -1826,16 +1827,27 @@ function loadPricingRecords() {
   try {
     const storedRecords = JSON.parse(localStorage.getItem(PRICING_STORAGE_KEY) || "null");
     if (Array.isArray(storedRecords) && storedRecords.length) {
-      return normalizePricingRecordsForUse(storedRecords);
+      const normalizedStoredRecords = normalizePricingRecordsForUse(storedRecords);
+      if (normalizedStoredRecords.length) return normalizedStoredRecords;
+      localStorage.removeItem(PRICING_STORAGE_KEY);
     }
   } catch (error) {
     console.warn(error);
+    localStorage.removeItem(PRICING_STORAGE_KEY);
   }
   return pricingSeedRecords();
 }
 
 function savePricingRecords() {
   localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricingRecords));
+}
+
+function ensurePricingRecordsLoaded() {
+  if (pricingRecords.length) return;
+  const seedRecords = pricingSeedRecords();
+  if (!seedRecords.length) return;
+  pricingRecords = seedRecords;
+  savePricingRecords();
 }
 
 function normalizeDemoPurpose(value) {
@@ -2815,11 +2827,14 @@ function pricingSearchBlob(record) {
 }
 
 function renderPricingRecords() {
+  ensurePricingRecordsLoaded();
   const visibleRecords = filteredPricingRecords();
   renderTableRows(pricingRecordsBody, visibleRecords.map(createPricingRow));
   pricingEmptyState.hidden = visibleRecords.length > 0;
   if (pricingSummary) {
-    pricingSummary.textContent = `Wczytano ${pricingRecords.length} pozycji cennika.`;
+    pricingSummary.textContent = pricingRecords.length
+      ? `Wczytano ${pricingRecords.length} pozycji cennika.`
+      : "Brak danych cennika. Sprawdź, czy plik pricing-data.js jest obok index.html.";
   }
   if (pricingVersion) {
     pricingVersion.textContent = `Wersja: ${String(PRICING_UPDATED_MONTH).padStart(2, "0")}.${PRICING_UPDATED_YEAR}`;
@@ -5544,6 +5559,19 @@ function mergePricingRecords(existingRecords, importedRecords) {
   return { records: recordsToMerge, added, updated };
 }
 
+function resetPricingRecords() {
+  const seedRecords = pricingSeedRecords();
+  if (!seedRecords.length) {
+    alert("Nie udało się wczytać cennika. Sprawdź, czy plik pricing-data.js jest wrzucony obok index.html.");
+    return;
+  }
+  if (pricingRecords.length && !confirm(`Przywrócić cennik z pliku (${seedRecords.length} pozycji)?`)) return;
+  pricingRecords = seedRecords;
+  savePricingRecords();
+  if (pricingSearchInput) pricingSearchInput.value = "";
+  renderPricingRecords();
+}
+
 function parseImportFile(file, content) {
   const fileName = normalize(file.name);
   if (fileName.endsWith(".csv") || file.type === "text/csv") {
@@ -6035,6 +6063,7 @@ showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairO
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
 document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJson);
 importPricingBtn?.addEventListener("click", () => pricingImportInput.click());
+resetPricingBtn?.addEventListener("click", resetPricingRecords);
 pricingImportInput?.addEventListener("change", importPricingCsv);
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
