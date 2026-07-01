@@ -432,6 +432,58 @@ h2 {
   padding-top: 16px;
 }
 
+.pricing-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid rgba(216, 221, 227, 0.78);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.pricing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pricing-update {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #eaf3f1;
+}
+
+.pricing-update span,
+.pricing-empty span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pricing-update time {
+  color: #003f5a;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.pricing-empty {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid rgba(216, 221, 227, 0.76);
+  padding-top: 18px;
+}
+
+.pricing-empty strong {
+  color: #31515f;
+  font-size: 1rem;
+}
+
 .controls {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 180px 160px 190px repeat(6, auto);
@@ -2855,6 +2907,7 @@ textarea {
   }
 
   .tabs,
+  .pricing-head,
   .stock-toolbar,
   .stock-head {
     align-items: stretch;

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260701-5">
+    <link rel="stylesheet" href="styles.css?v=20260701-6">
   </head>
   <body>
     <main class="app-shell">
@@ -46,6 +46,7 @@
         <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
           <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
+          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik 07.2026</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -508,6 +509,25 @@
         </section>
       </section>
 
+      <section id="pricingNotebook" class="notebook-section" hidden>
+        <section class="pricing-panel" aria-label="Cennik">
+          <div class="pricing-head">
+            <div>
+              <p class="eyebrow">Cennik</p>
+              <h2>Cennik</h2>
+            </div>
+            <div class="pricing-update">
+              <span>Aktualizacja</span>
+              <time datetime="2026-07">lipiec 2026</time>
+            </div>
+          </div>
+          <div class="pricing-empty">
+            <strong>Brak pozycji cennika.</strong>
+            <span>Wersja: 07.2026</span>
+          </div>
+        </section>
+      </section>
+
     </main>
 
     <button id="scrollTopBtn" class="scroll-top-btn" type="button" hidden aria-label="Wróć do góry">
@@ -886,6 +906,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260701-5"></script>
+    <script src="app.js?v=20260701-6"></script>
   </body>
 </html>

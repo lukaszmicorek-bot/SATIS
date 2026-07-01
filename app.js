@@ -27,6 +27,22 @@ const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const STOCK_LOCATIONS = ["T12", "P50", "P63"];
+const PRICING_UPDATED_MONTH = 7;
+const PRICING_UPDATED_YEAR = 2026;
+const PRICING_MONTH_NAMES = [
+  "styczeń",
+  "luty",
+  "marzec",
+  "kwiecień",
+  "maj",
+  "czerwiec",
+  "lipiec",
+  "sierpień",
+  "wrzesień",
+  "październik",
+  "listopad",
+  "grudzień"
+];
 const DATA_CONTROL_SEVERITY_LABELS = {
   critical: "Pilne",
   warning: "Do sprawdzenia",
@@ -413,11 +429,16 @@ const authPassword = document.querySelector("#authPassword");
 const authError = document.querySelector("#authError");
 const authSubmitBtn = document.querySelector("#authSubmitBtn");
 
+function pricingUpdatedLabel() {
+  return `${PRICING_MONTH_NAMES[PRICING_UPDATED_MONTH - 1]} ${PRICING_UPDATED_YEAR}`;
+}
+
 function setCurrentYearTitle() {
   const year = new Date().getFullYear();
   const deviceTitle = `Zeszyt aparatów ${year}`;
   const repairTitle = `Zeszyt napraw i wkładek usznych ${year}`;
-  const title = activeNotebook === "repairs" ? repairTitle : deviceTitle;
+  const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
+  const title = activeNotebook === "repairs" ? repairTitle : activeNotebook === "pricing" ? pricingTitle : deviceTitle;
 
   appTitle.textContent = title;
   document.title = title;
@@ -2627,6 +2648,11 @@ function render() {
     return;
   }
 
+  if (activeNotebook === "pricing") {
+    updateStats();
+    return;
+  }
+
   if (activeDeviceView === "dataControl") {
     renderDataControlView();
     return;
@@ -3725,6 +3751,18 @@ function createDatePill(value, type, activeType = "") {
 }
 
 function updateStats() {
+  if (activeNotebook === "pricing") {
+    document.querySelector("#countAll").textContent = String(PRICING_UPDATED_MONTH).padStart(2, "0");
+    document.querySelector("#countSold").textContent = PRICING_UPDATED_YEAR;
+    document.querySelector("#countInvoice").textContent = "0";
+    document.querySelector("#countStock").textContent = "aktualny";
+    countAllLabel.textContent = "miesiąc";
+    countSoldLabel.textContent = "rok";
+    countInvoiceLabel.textContent = "pozycji";
+    countStockLabel.textContent = "status";
+    return;
+  }
+
   if (activeNotebook === "repairs") {
     document.querySelector("#countAll").textContent = repairStats.all;
     document.querySelector("#countSold").textContent = repairStats.repairs;
@@ -4080,6 +4118,11 @@ function switchNotebook(notebookName) {
   if (activeNotebook === "repairs") {
     updateStats();
     renderRepairRecords();
+    return;
+  }
+
+  if (activeNotebook === "pricing") {
+    updateStats();
     return;
   }
 
