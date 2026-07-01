@@ -993,6 +993,44 @@ tbody tr.device-sold-row:hover {
   background: #f3f5f5;
 }
 
+.device-name-cell.has-price {
+  position: relative;
+  color: #174f64;
+  cursor: help;
+  text-decoration: underline dotted rgba(23, 79, 100, 0.42);
+  text-underline-offset: 3px;
+}
+
+.device-name-cell.has-price::after {
+  content: attr(data-price-tooltip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  min-width: 190px;
+  max-width: 280px;
+  padding: 8px 10px;
+  border: 1px solid #c9d8d4;
+  border-radius: 8px;
+  color: #20343b;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(28, 31, 36, 0.14);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: pre-line;
+}
+
+.device-name-cell.has-price:hover::after,
+.device-name-cell.has-price:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 tbody tr.serial-duplicate-row {
   background: #fff7f2;
 }
