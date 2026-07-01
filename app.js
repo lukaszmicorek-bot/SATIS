@@ -324,6 +324,7 @@ const demoEmptyState = document.querySelector("#demoEmptyState");
 const pricingRecordsBody = document.querySelector("#pricingRecordsBody");
 const pricingEmptyState = document.querySelector("#pricingEmptyState");
 const pricingSearchInput = document.querySelector("#pricingSearchInput");
+const pricingNfzFilter = document.querySelector("#pricingNfzFilter");
 const pricingSummary = document.querySelector("#pricingSummary");
 const pricingVersion = document.querySelector("#pricingVersion");
 const importPricingBtn = document.querySelector("#importPricingBtn");
@@ -1790,12 +1791,50 @@ function normalizePricingRecordsForUse(recordsToNormalize) {
 }
 
 function normalizePricingRecordForUse(record) {
+  const repairedRecord = repairPricingRecordColumns(record);
   const normalizedRecord = {};
   pricingFields.forEach((field) => {
-    normalizedRecord[field] = String(record?.[field] ?? "").trim();
+    normalizedRecord[field] = String(repairedRecord?.[field] ?? "").trim();
   });
-  normalizedRecord.grossPrice = normalizePricingPrice(record?.grossPrice);
+  normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
+  normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
   return normalizedRecord;
+}
+
+function repairPricingRecordColumns(record) {
+  const repairedRecord = { ...(record || {}) };
+  const looksLikeAudibelCicSplit =
+    normalize(repairedRecord.tradeName).startsWith("audibel arc ai") &&
+    normalize(repairedRecord.model).includes(" cic 2") &&
+    normalize(repairedRecord.manufacturer) === "4 ghz" &&
+    normalize(repairedRecord.orderIndex).includes("starkey") &&
+    normalize(repairedRecord.grossPrice) === "n" &&
+    String(repairedRecord.swdCode ?? "").trim();
+
+  if (looksLikeAudibelCicSplit) {
+    repairedRecord.model = `${String(repairedRecord.model ?? "").trim()},4 GHz`;
+    repairedRecord.manufacturer = repairedRecord.orderIndex;
+    repairedRecord.orderIndex = "N";
+    repairedRecord.grossPrice = repairedRecord.swdCode;
+    repairedRecord.swdCode = "";
+  }
+
+  return repairedRecord;
+}
+
+function normalizeAudibelTradeName(record) {
+  const tradeName = String(record.tradeName || "").trim();
+  const model = String(record.model || "").trim();
+
+  if (tradeName.startsWith("AUDIBEL ")) {
+    return `Audibel ${tradeName.slice("AUDIBEL ".length)}`;
+  }
+
+  if (tradeName.startsWith("Signature Series") && model.startsWith("Audibel Signature Series")) {
+    return `Audibel ${tradeName}`;
+  }
+
+  return tradeName;
 }
 
 function normalizePricingPrice(value) {
@@ -2814,10 +2853,26 @@ function renderDemoRecords() {
   updateDemoChecklistState(visibleRecords);
 }
 
+function updatePricingNfzFilterOptions() {
+  if (!pricingNfzFilter) return;
+  const selectedValue = pricingNfzFilter.value;
+  const codes = [...new Set(pricingRecords.map((record) => record.nfzCode).filter(Boolean))]
+    .sort((left, right) => collator.compare(left, right));
+  const currentOptions = [...pricingNfzFilter.options].slice(1).map((option) => option.value).join("|");
+  if (currentOptions === codes.join("|")) return;
+
+  pricingNfzFilter.replaceChildren(new Option("Wszystkie", ""));
+  codes.forEach((code) => pricingNfzFilter.append(new Option(code, code)));
+  pricingNfzFilter.value = codes.includes(selectedValue) ? selectedValue : "";
+}
+
 function filteredPricingRecords() {
   const query = normalize(pricingSearchInput?.value || "").trim();
-  if (!query) return pricingRecords;
-  return pricingRecords.filter((record) => pricingSearchBlob(record).includes(query));
+  const selectedNfzCode = pricingNfzFilter?.value || "";
+  return pricingRecords.filter((record) => {
+    if (selectedNfzCode && record.nfzCode !== selectedNfzCode) return false;
+    return !query || pricingSearchBlob(record).includes(query);
+  });
 }
 
 function pricingSearchBlob(record) {
@@ -2829,12 +2884,13 @@ function pricingSearchBlob(record) {
 
 function renderPricingRecords() {
   ensurePricingRecordsLoaded();
+  updatePricingNfzFilterOptions();
   const visibleRecords = filteredPricingRecords();
   renderTableRows(pricingRecordsBody, visibleRecords.map(createPricingRow));
   pricingEmptyState.hidden = visibleRecords.length > 0;
   if (pricingSummary) {
     pricingSummary.textContent = pricingRecords.length
-      ? `Wczytano ${pricingRecords.length} pozycji cennika.`
+      ? `Wczytano ${pricingRecords.length} pozycji cennika. Widoczne: ${visibleRecords.length}.`
       : "Brak danych cennika. Odśwież stronę po wgraniu najnowszego app.js.";
   }
   if (pricingVersion) {
@@ -5570,6 +5626,7 @@ function resetPricingRecords() {
   pricingRecords = seedRecords;
   savePricingRecords();
   if (pricingSearchInput) pricingSearchInput.value = "";
+  if (pricingNfzFilter) pricingNfzFilter.value = "";
   renderPricingRecords();
 }
 
@@ -6067,6 +6124,7 @@ importPricingBtn?.addEventListener("click", () => pricingImportInput.click());
 resetPricingBtn?.addEventListener("click", resetPricingRecords);
 pricingImportInput?.addEventListener("change", importPricingCsv);
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
+pricingNfzFilter?.addEventListener("change", renderPricingRecords);
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
