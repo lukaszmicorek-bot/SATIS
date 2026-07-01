@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260624-3">
+    <link rel="stylesheet" href="styles.css?v=20260701-2">
   </head>
   <body>
     <main class="app-shell">
@@ -564,7 +564,7 @@
           </label>
           <label class="wide highlight-field">
             <span>Model aparatu</span>
-            <input id="deviceName" name="deviceName" type="text" list="deviceNameSuggestions" required>
+            <input id="deviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
             <datalist id="deviceNameSuggestions"></datalist>
           </label>
           <label>
@@ -674,7 +674,7 @@
           </label>
           <label class="wide">
             <span>Aparat / wkładka</span>
-            <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions">
+            <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </label>
           <label>
             <span>Numer seryjny</span>
@@ -738,7 +738,7 @@
           </label>
           <label class="highlight-field">
             <span>Nazwa aparatu</span>
-            <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions">
+            <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <datalist id="demoDeviceNameSuggestions"></datalist>
           </label>
           <label>
@@ -874,6 +874,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260624-3"></script>
+    <script src="app.js?v=20260701-2"></script>
   </body>
 </html>
