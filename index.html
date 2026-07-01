@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260701-4">
+    <link rel="stylesheet" href="styles.css?v=20260701-5">
   </head>
   <body>
     <main class="app-shell">
@@ -605,9 +605,15 @@
         </div>
 
         <div class="dialog-actions">
-          <button class="danger" id="deleteBtn" type="button" hidden>Usuń</button>
-          <button class="ghost" type="button" id="cancelBtn">Anuluj</button>
-          <button type="submit">Zapisz</button>
+          <div class="dialog-secondary-actions">
+            <button class="danger" id="deleteBtn" type="button" hidden>Usuń</button>
+            <button class="ghost" id="duplicateRecordBtn" type="button" hidden>Dodaj podobny</button>
+            <button class="move-record-btn" id="moveToDemoBtn" type="button" hidden>Przenieś do demo</button>
+          </div>
+          <div class="dialog-primary-actions">
+            <button class="ghost" type="button" id="cancelBtn">Anuluj</button>
+            <button type="submit">Zapisz</button>
+          </div>
         </div>
       </form>
     </dialog>
@@ -814,9 +820,15 @@
 
         <p id="demoFormError" class="form-error" role="alert"></p>
         <div class="dialog-actions">
-          <button class="danger" id="deleteDemoBtn" type="button" hidden>Usuń</button>
-          <button class="ghost" type="button" id="cancelDemoBtn">Anuluj</button>
-          <button id="saveDemoBtn" type="submit">Zapisz</button>
+          <div class="dialog-secondary-actions">
+            <button class="danger" id="deleteDemoBtn" type="button" hidden>Usuń</button>
+            <button class="ghost" id="duplicateDemoBtn" type="button" hidden>Dodaj podobny</button>
+            <button class="move-record-btn" id="moveToDevicesBtn" type="button" hidden>Przenieś do bazy</button>
+          </div>
+          <div class="dialog-primary-actions">
+            <button class="ghost" type="button" id="cancelDemoBtn">Anuluj</button>
+            <button id="saveDemoBtn" type="submit">Zapisz</button>
+          </div>
         </div>
       </form>
     </dialog>
@@ -874,6 +886,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260701-4"></script>
+    <script src="app.js?v=20260701-5"></script>
   </body>
 </html>

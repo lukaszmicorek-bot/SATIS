@@ -235,6 +235,8 @@ const recordEyebrow = document.querySelector("#recordEyebrow");
 const dialogTitle = document.querySelector("#dialogTitle");
 const dialogSerial = document.querySelector("#dialogSerial");
 const deleteBtn = document.querySelector("#deleteBtn");
+const duplicateRecordBtn = document.querySelector("#duplicateRecordBtn");
+const moveToDemoBtn = document.querySelector("#moveToDemoBtn");
 const importInput = document.querySelector("#importInput");
 const importRepairInput = document.querySelector("#importRepairInput");
 const repairDialog = document.querySelector("#repairDialog");
@@ -248,6 +250,8 @@ const demoForm = document.querySelector("#demoForm");
 const demoDialogTitle = document.querySelector("#demoDialogTitle");
 const demoRecordEyebrow = document.querySelector("#demoRecordEyebrow");
 const deleteDemoBtn = document.querySelector("#deleteDemoBtn");
+const duplicateDemoBtn = document.querySelector("#duplicateDemoBtn");
+const moveToDevicesBtn = document.querySelector("#moveToDevicesBtn");
 const saveDemoBtn = document.querySelector("#saveDemoBtn");
 const demoFormError = document.querySelector("#demoFormError");
 const demoLoanHistorySection = document.querySelector("#demoLoanHistorySection");
@@ -3053,14 +3057,7 @@ function createRow(record) {
   editButton.textContent = "Edytuj";
   editButton.addEventListener("click", () => openDialog(record));
 
-  const moveButton = document.createElement("button");
-  moveButton.type = "button";
-  moveButton.className = "move-record-btn";
-  moveButton.textContent = "Do demo";
-  moveButton.title = "Przenieś do aparatów demo";
-  moveButton.addEventListener("click", () => moveDeviceRecordToDemo(record));
-
-  actions.append(editButton, moveButton);
+  actions.append(editButton);
   row.append(actions);
   return row;
 }
@@ -3122,13 +3119,7 @@ function createDemoRow(record) {
   editButton.type = "button";
   editButton.textContent = "Edytuj";
   editButton.addEventListener("click", () => openDemoDialog(record));
-  const moveButton = document.createElement("button");
-  moveButton.type = "button";
-  moveButton.className = "move-record-btn";
-  moveButton.textContent = "Do bazy";
-  moveButton.title = "Przenieś do zeszytu aparatów";
-  moveButton.addEventListener("click", () => moveDemoRecordToDevices(record));
-  actions.append(editButton, moveButton);
+  actions.append(editButton);
   row.append(actions);
   return row;
 }
@@ -3978,6 +3969,38 @@ function switchNotebook(notebookName) {
   renderDeviceViews();
 }
 
+function fillDeviceFormValues(record = {}) {
+  fields.forEach((field) => {
+    const input = document.querySelector(`#${field}`);
+    const value = field === "type" && record ? displayType(record) : record?.[field] ?? "";
+    input.value = DEVICE_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
+  });
+}
+
+function fillDemoFormValues(record = {}) {
+  const fieldMap = {
+    receivedDate: "#demoReceivedDate",
+    manufacturerReturnDate: "#demoManufacturerReturnDate",
+    manufacturerReturnDateCleared: "#demoManufacturerReturnDateCleared",
+    loanDate: "#demoLoanDate",
+    returnDate: "#demoReturnDate",
+    manufacturer: "#demoManufacturer",
+    status: "#demoStatus",
+    purpose: "#demoPurpose",
+    deviceName: "#demoDeviceName",
+    serialNumber: "#demoSerialNumber",
+    location: "#demoLocation",
+    currentUser: "#demoCurrentUser",
+    notes: "#demoNotes"
+  };
+
+  demoFields.forEach((field) => {
+    const input = document.querySelector(fieldMap[field]);
+    const value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
+    input.value = DEMO_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
+  });
+}
+
 function openDialog(record = null) {
   recordForm.reset();
   document.querySelector("#recordId").value = record?.id ?? "";
@@ -3987,12 +4010,10 @@ function openDialog(record = null) {
   dialogSerial.hidden = !serialNumber;
   recordEyebrow.textContent = record ? `${records.findIndex((item) => item.id === record.id) + 1}/${records.length}` : "Nowy rekord";
   deleteBtn.hidden = !record;
+  duplicateRecordBtn.hidden = !record;
+  moveToDemoBtn.hidden = !record;
 
-  fields.forEach((field) => {
-    const input = document.querySelector(`#${field}`);
-    const value = field === "type" && record ? displayType(record) : record?.[field] ?? "";
-    input.value = DEVICE_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
-  });
+  fillDeviceFormValues(record);
 
   if (!record) {
     setDateInputValue("#receivedDate", todayInputValue());
@@ -4071,28 +4092,10 @@ function openDemoDialog(record = null) {
     ? `${demoRecords.findIndex((item) => item.id === record.id) + 1}/${demoRecords.length}`
     : "Nowy wpis";
   deleteDemoBtn.hidden = !record;
+  duplicateDemoBtn.hidden = !record;
+  moveToDevicesBtn.hidden = !record;
 
-  const fieldMap = {
-    receivedDate: "#demoReceivedDate",
-    manufacturerReturnDate: "#demoManufacturerReturnDate",
-    manufacturerReturnDateCleared: "#demoManufacturerReturnDateCleared",
-    loanDate: "#demoLoanDate",
-    returnDate: "#demoReturnDate",
-    manufacturer: "#demoManufacturer",
-    status: "#demoStatus",
-    purpose: "#demoPurpose",
-    deviceName: "#demoDeviceName",
-    serialNumber: "#demoSerialNumber",
-    location: "#demoLocation",
-    currentUser: "#demoCurrentUser",
-    notes: "#demoNotes"
-  };
-
-  demoFields.forEach((field) => {
-    const input = document.querySelector(fieldMap[field]);
-    const value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
-    input.value = DEMO_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
-  });
+  fillDemoFormValues(record);
 
   if (record) {
     const returnDateInput = document.querySelector("#demoReturnDate");
@@ -4817,10 +4820,108 @@ async function deleteCurrentDemoRecord() {
   }
 }
 
+function currentDeviceRecordFromDialog() {
+  const id = document.querySelector("#recordId").value;
+  return id ? records.find((record) => record.id === id) : null;
+}
+
+function currentDemoRecordFromDialog() {
+  const id = document.querySelector("#demoId").value;
+  return id ? demoRecords.find((record) => record.id === id) : null;
+}
+
+function deviceDuplicateDraft(record) {
+  return normalizeDeviceRecordForUse({
+    receivedDate: todayInputValue(),
+    deviceName: record?.deviceName || "",
+    serialNumber: "",
+    type: "NA STANIE",
+    location: normalizeRepairLocation(record?.location),
+    pickupDate: "",
+    customerName: "",
+    salesInvoice: "",
+    returnDate: "",
+    waybillNumber: "",
+    ezwm: "",
+    notes: ""
+  });
+}
+
+function demoDuplicateDraft(record) {
+  return normalizeDemoRecordForUse({
+    receivedDate: todayInputValue(),
+    manufacturerReturnDate: "",
+    manufacturerReturnDateCleared: "",
+    manufacturer: record?.manufacturer || "",
+    deviceName: record?.deviceName || "",
+    serialNumber: "",
+    status: "NA STANIE",
+    purpose: normalizeDemoPurpose(record?.purpose),
+    location: normalizeDemoLocation(record?.location),
+    currentUser: "",
+    loanDate: "",
+    returnDate: "",
+    notes: "",
+    loanHistory: [],
+    currentAttachments: [],
+    sourceRow: String(record?.id || "")
+  });
+}
+
+function duplicateCurrentDeviceRecord() {
+  const record = currentDeviceRecordFromDialog();
+  if (!record) return;
+  const draft = deviceDuplicateDraft(record);
+  closeDialog();
+  window.setTimeout(() => {
+    openDialog();
+    fillDeviceFormValues(draft);
+    document.querySelector("#recordId").value = "";
+    dialogTitle.textContent = draft.deviceName || "Dodaj podobny aparat";
+    recordEyebrow.textContent = "Nowy rekord";
+    dialogSerial.textContent = "";
+    dialogSerial.hidden = true;
+    syncDeviceTypeFromFields();
+  }, 0);
+}
+
+function duplicateCurrentDemoRecord() {
+  const record = currentDemoRecordFromDialog();
+  if (!record) return;
+  const draft = demoDuplicateDraft(record);
+  closeDemoDialog();
+  window.setTimeout(() => {
+    openDemoDialog();
+    fillDemoFormValues(draft);
+    document.querySelector("#demoId").value = "";
+    demoDialogTitle.textContent = draft.deviceName || "Dodaj podobny aparat demo";
+    demoRecordEyebrow.textContent = "Nowy wpis";
+    demoLoanHistoryDraft = [];
+    demoCurrentAttachmentsDraft = [];
+    renderDemoCurrentAttachments();
+    renderDemoLoanHistory(null);
+    syncDemoManufacturerReturnDate();
+  }, 0);
+}
+
+async function moveCurrentDeviceRecordToDemo() {
+  const record = currentDeviceRecordFromDialog();
+  if (!record) return;
+  const moved = await moveDeviceRecordToDemo(record);
+  if (moved) closeDialog();
+}
+
+async function moveCurrentDemoRecordToDevices() {
+  const record = currentDemoRecordFromDialog();
+  if (!record) return;
+  const moved = await moveDemoRecordToDevices(record);
+  if (moved) closeDemoDialog();
+}
+
 async function moveDeviceRecordToDemo(record) {
-  if (!record?.id) return;
+  if (!record?.id) return false;
   const label = `${record.deviceName || "Aparat"}${record.serialNumber ? ` (${record.serialNumber})` : ""}`;
-  if (!confirm(`Przenieść ${label} z Bazy do Demo?`)) return;
+  if (!confirm(`Przenieść ${label} z Bazy do Demo?`)) return false;
 
   const previousRecords = records;
   const previousDemoRecords = demoRecords;
@@ -4838,6 +4939,7 @@ async function moveDeviceRecordToDemo(record) {
       persistDemoRecord(movedRecord),
       persistDeletedDeviceRecord(record.id)
     ]);
+    return true;
   } catch (error) {
     records = previousRecords;
     demoRecords = previousDemoRecords;
@@ -4846,13 +4948,14 @@ async function moveDeviceRecordToDemo(record) {
     rebuildDerivedData();
     render();
     alert(error.message || "Nie udało się przenieść rekordu do Demo.");
+    return false;
   }
 }
 
 async function moveDemoRecordToDevices(record) {
-  if (!record?.id) return;
+  if (!record?.id) return false;
   const label = `${record.deviceName || "Aparat demo"}${record.serialNumber ? ` (${record.serialNumber})` : ""}`;
-  if (!confirm(`Przenieść ${label} z Demo do Zeszytu aparatów?`)) return;
+  if (!confirm(`Przenieść ${label} z Demo do Zeszytu aparatów?`)) return false;
 
   const previousRecords = records;
   const previousDemoRecords = demoRecords;
@@ -4870,6 +4973,7 @@ async function moveDemoRecordToDevices(record) {
       persistDeviceRecord(movedRecord),
       persistDeletedDemoRecord(record.id)
     ]);
+    return true;
   } catch (error) {
     records = previousRecords;
     demoRecords = previousDemoRecords;
@@ -4878,6 +4982,7 @@ async function moveDemoRecordToDevices(record) {
     rebuildDerivedData();
     render();
     alert(error.message || "Nie udało się przenieść rekordu do Bazy.");
+    return false;
   }
 }
 
@@ -5562,8 +5667,12 @@ document.querySelector("#closeDemoDialogBtn").addEventListener("click", closeDem
 document.querySelector("#cancelDemoBtn").addEventListener("click", closeDemoDialog);
 [recordDialog, repairDialog, demoDialog].forEach((dialog) => dialog.addEventListener("close", closeDatePicker));
 deleteBtn.addEventListener("click", deleteCurrentRecord);
+duplicateRecordBtn.addEventListener("click", duplicateCurrentDeviceRecord);
+moveToDemoBtn.addEventListener("click", moveCurrentDeviceRecordToDemo);
 deleteRepairBtn.addEventListener("click", deleteCurrentRepairRecord);
 deleteDemoBtn.addEventListener("click", deleteCurrentDemoRecord);
+duplicateDemoBtn.addEventListener("click", duplicateCurrentDemoRecord);
+moveToDevicesBtn.addEventListener("click", moveCurrentDemoRecordToDevices);
 recordForm.addEventListener("submit", saveFormRecord);
 repairForm.addEventListener("submit", saveRepairFormRecord);
 demoForm.addEventListener("submit", saveDemoFormRecord);
