@@ -450,6 +450,21 @@ h2 {
   background: #f3f7f6;
 }
 
+.pricing-restore-stack {
+  display: grid;
+  gap: 6px;
+  align-self: end;
+  min-width: 150px;
+}
+
+.pricing-restore-stack .pricing-update {
+  width: 100%;
+}
+
+.pricing-restore-stack .reset-filters-btn {
+  width: 100%;
+}
+
 .pricing-update span,
 .pricing-empty span {
   color: var(--muted);
@@ -465,10 +480,7 @@ h2 {
 }
 
 .pricing-empty {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: block;
   border-top: 1px solid rgba(216, 221, 227, 0.62);
   padding: 10px 2px 0;
 }
