@@ -547,6 +547,111 @@ h2 {
   font-weight: 750;
 }
 
+.pricing-table tbody tr.pricing-manufacturer-row {
+  --pricing-tone-bg: #f7faf9;
+  --pricing-tone-bg-strong: #eef5f3;
+  --pricing-tone-accent: #8facaa;
+  --pricing-tone-text: #315760;
+  background: linear-gradient(90deg, var(--pricing-tone-bg), #fff 76%);
+}
+
+.pricing-table tbody tr.pricing-manufacturer-row:hover {
+  background: linear-gradient(90deg, var(--pricing-tone-bg-strong), #f8fbfb 76%);
+}
+
+.pricing-table tbody tr.pricing-manufacturer-row td:first-child {
+  border-left: 4px solid var(--pricing-tone-accent);
+}
+
+.pricing-manufacturer-cell {
+  color: var(--pricing-tone-text);
+  font-weight: 800;
+}
+
+.pricing-manufacturer-tone-0 {
+  --pricing-tone-bg: #f0faf7;
+  --pricing-tone-bg-strong: #e3f2ee;
+  --pricing-tone-accent: #75afa2;
+  --pricing-tone-text: #236058;
+}
+
+.pricing-manufacturer-tone-1 {
+  --pricing-tone-bg: #f4f9ee;
+  --pricing-tone-bg-strong: #e9f1de;
+  --pricing-tone-accent: #9bb36a;
+  --pricing-tone-text: #526832;
+}
+
+.pricing-manufacturer-tone-2 {
+  --pricing-tone-bg: #eef8fb;
+  --pricing-tone-bg-strong: #e0eff5;
+  --pricing-tone-accent: #79aec9;
+  --pricing-tone-text: #2d5d72;
+}
+
+.pricing-manufacturer-tone-3 {
+  --pricing-tone-bg: #fff3f5;
+  --pricing-tone-bg-strong: #f7e7eb;
+  --pricing-tone-accent: #d28b99;
+  --pricing-tone-text: #7a4652;
+}
+
+.pricing-manufacturer-tone-4 {
+  --pricing-tone-bg: #f7f4fb;
+  --pricing-tone-bg-strong: #ece7f3;
+  --pricing-tone-accent: #b09aca;
+  --pricing-tone-text: #5d4d72;
+}
+
+.pricing-manufacturer-tone-5 {
+  --pricing-tone-bg: #fff8eb;
+  --pricing-tone-bg-strong: #f4ead3;
+  --pricing-tone-accent: #caa363;
+  --pricing-tone-text: #6d5426;
+}
+
+.pricing-manufacturer-tone-6 {
+  --pricing-tone-bg: #f0f9f1;
+  --pricing-tone-bg-strong: #e4f1e6;
+  --pricing-tone-accent: #82b987;
+  --pricing-tone-text: #3d6747;
+}
+
+.pricing-manufacturer-tone-7 {
+  --pricing-tone-bg: #fff2ed;
+  --pricing-tone-bg-strong: #f6e5dd;
+  --pricing-tone-accent: #d29579;
+  --pricing-tone-text: #7a4c3d;
+}
+
+.pricing-manufacturer-tone-8 {
+  --pricing-tone-bg: #f3f7f8;
+  --pricing-tone-bg-strong: #e6eef1;
+  --pricing-tone-accent: #8ba9b4;
+  --pricing-tone-text: #486470;
+}
+
+.pricing-manufacturer-tone-9 {
+  --pricing-tone-bg: #f8faef;
+  --pricing-tone-bg-strong: #eef2df;
+  --pricing-tone-accent: #b1bd6f;
+  --pricing-tone-text: #5e6b34;
+}
+
+.pricing-manufacturer-tone-10 {
+  --pricing-tone-bg: #effafa;
+  --pricing-tone-bg-strong: #e1f2f1;
+  --pricing-tone-accent: #72b8b4;
+  --pricing-tone-text: #2c6461;
+}
+
+.pricing-manufacturer-tone-11 {
+  --pricing-tone-bg: #fbf3f8;
+  --pricing-tone-bg-strong: #f2e6ee;
+  --pricing-tone-accent: #cb92b3;
+  --pricing-tone-text: #774f67;
+}
+
 .pricing-price-cell {
   color: #2d5f42;
   font-weight: 800;

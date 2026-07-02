@@ -1985,6 +1985,15 @@ function pricingPriceInfoForDeviceName(deviceName) {
   return result;
 }
 
+function pricingManufacturerToneClass(manufacturer) {
+  const key = pricingLookupText(manufacturer) || "bez producenta";
+  let hash = 0;
+  [...key].forEach((character) => {
+    hash = (hash * 31 + character.codePointAt(0)) % 100000;
+  });
+  return `pricing-manufacturer-tone-${hash % 12}`;
+}
+
 function pricingSeedRecords() {
   return normalizePricingRecordsForUse(window.PRICING_SEED_RECORDS || PRICING_EMBEDDED_RECORDS || []);
 }
@@ -3607,6 +3616,7 @@ function createDemoRow(record) {
 
 function createPricingRow(record, index) {
   const row = document.createElement("tr");
+  row.classList.add("pricing-manufacturer-row", pricingManufacturerToneClass(record.manufacturer));
   const cells = [
     String(index + 1),
     record.idProduct,
@@ -3624,6 +3634,7 @@ function createPricingRow(record, index) {
     cell.textContent = value || "-";
     if (!value) cell.classList.add("muted-cell");
     if (cellIndex === 3) cell.classList.add("pricing-name-cell");
+    if (cellIndex === 5) cell.classList.add("pricing-manufacturer-cell");
     if (cellIndex === 7) cell.classList.add("pricing-price-cell");
     row.append(cell);
   });
