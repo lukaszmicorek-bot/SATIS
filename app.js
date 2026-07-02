@@ -3093,7 +3093,8 @@ function renderPricingRecords() {
       : "Brak danych cennika. Odśwież stronę po wgraniu najnowszego app.js.";
   }
   if (pricingVersion) {
-    pricingVersion.textContent = `Wersja: ${String(PRICING_UPDATED_MONTH).padStart(2, "0")}.${PRICING_UPDATED_YEAR}`;
+    pricingVersion.textContent = pricingUpdatedLabel();
+    pricingVersion.dateTime = `${PRICING_UPDATED_YEAR}-${String(PRICING_UPDATED_MONTH).padStart(2, "0")}`;
   }
   updateStats();
 }
