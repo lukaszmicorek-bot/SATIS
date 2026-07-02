@@ -485,7 +485,7 @@ h2 {
 }
 
 .pricing-controls {
-  grid-template-columns: minmax(320px, 1fr) 180px auto auto;
+  grid-template-columns: minmax(320px, 1fr) 180px 220px auto auto;
   margin-bottom: 0;
 }
 
@@ -552,11 +552,11 @@ h2 {
   --pricing-tone-bg-strong: #eef5f3;
   --pricing-tone-accent: #8facaa;
   --pricing-tone-text: #315760;
-  background: linear-gradient(90deg, var(--pricing-tone-bg), #fff 76%);
+  background: linear-gradient(90deg, var(--pricing-tone-bg) 0, #fff 62%);
 }
 
 .pricing-table tbody tr.pricing-manufacturer-row:hover {
-  background: linear-gradient(90deg, var(--pricing-tone-bg-strong), #f8fbfb 76%);
+  background: linear-gradient(90deg, var(--pricing-tone-bg-strong) 0, #f8fbfb 62%);
 }
 
 .pricing-table tbody tr.pricing-manufacturer-row td:first-child {
@@ -565,7 +565,9 @@ h2 {
 
 .pricing-manufacturer-cell {
   color: var(--pricing-tone-text);
+  background: var(--pricing-tone-bg-strong);
   font-weight: 800;
+  box-shadow: inset 4px 0 0 var(--pricing-tone-accent);
 }
 
 .pricing-manufacturer-tone-0 {
