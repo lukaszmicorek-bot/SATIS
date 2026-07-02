@@ -565,9 +565,9 @@ h2 {
 
 .pricing-manufacturer-cell {
   color: var(--pricing-tone-text);
-  background: var(--pricing-tone-bg-strong);
+  background: linear-gradient(90deg, var(--pricing-tone-bg-strong), var(--pricing-tone-bg));
   font-weight: 800;
-  box-shadow: inset 4px 0 0 var(--pricing-tone-accent);
+  box-shadow: inset 5px 0 0 var(--pricing-tone-accent), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
 .pricing-manufacturer-tone-0 {

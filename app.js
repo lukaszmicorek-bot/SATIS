@@ -45,6 +45,32 @@ const PRICING_MONTH_NAMES = [
   "listopad",
   "grudzień"
 ];
+const PRICING_MANUFACTURER_TONES = [
+  { bg: "#e8f6f2", strong: "#d6ece6", accent: "#4f9b8e", text: "#1f5d55" },
+  { bg: "#eef6df", strong: "#dfedc7", accent: "#82a747", text: "#4f682b" },
+  { bg: "#e7f2f8", strong: "#d5e8f2", accent: "#5798bd", text: "#285f7b" },
+  { bg: "#f9e9ef", strong: "#f0d6e0", accent: "#bd6d8b", text: "#734259" },
+  { bg: "#f0ecf8", strong: "#e4dcf0", accent: "#8e78b8", text: "#554a78" },
+  { bg: "#fff1d9", strong: "#f3dfb8", accent: "#bc8a35", text: "#72521f" },
+  { bg: "#e7f5e8", strong: "#d6ead8", accent: "#65a86e", text: "#376c40" },
+  { bg: "#fde9df", strong: "#f2d6c9", accent: "#c67b5f", text: "#784635" },
+  { bg: "#eaf1f4", strong: "#d9e6eb", accent: "#729cac", text: "#456777" },
+  { bg: "#f4f5dc", strong: "#e7e9c3", accent: "#a5aa4f", text: "#626727" },
+  { bg: "#e4f5f5", strong: "#d1eaea", accent: "#52a5a5", text: "#286567" },
+  { bg: "#f7e8f5", strong: "#ecd4e8", accent: "#b76ba9", text: "#704165" },
+  { bg: "#edf0fb", strong: "#dce2f4", accent: "#7484c4", text: "#45527d" },
+  { bg: "#f7efe2", strong: "#eadcc7", accent: "#aa8556", text: "#664f31" },
+  { bg: "#e6f3ec", strong: "#d3e7dc", accent: "#5a9d76", text: "#315f48" },
+  { bg: "#fae7e7", strong: "#f0d2d2", accent: "#bd6a6a", text: "#743f3f" },
+  { bg: "#e8f4ff", strong: "#d4e9fa", accent: "#5d9bcf", text: "#315f88" },
+  { bg: "#f0f0e4", strong: "#e1e2cf", accent: "#92976b", text: "#555a39" },
+  { bg: "#e9f7ed", strong: "#d7eddc", accent: "#59a66c", text: "#2f6740" },
+  { bg: "#fbe9dd", strong: "#efd3c0", accent: "#c27f52", text: "#754b2e" },
+  { bg: "#edf7fa", strong: "#d8edf3", accent: "#60a6b8", text: "#346773" },
+  { bg: "#f8ebf0", strong: "#eed5de", accent: "#be7890", text: "#744859" },
+  { bg: "#eff3e3", strong: "#e0e7cb", accent: "#90a55a", text: "#586733" },
+  { bg: "#ebeefa", strong: "#dbe0f3", accent: "#7b87c0", text: "#4b537b" }
+];
 const DATA_CONTROL_SEVERITY_LABELS = {
   critical: "Pilne",
   warning: "Do sprawdzenia",
@@ -86,6 +112,7 @@ let datePickerMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 
 let datePicker = null;
 let pricingPriceIndex = null;
 let pricingPriceMemo = new Map();
+let pricingManufacturerToneMap = null;
 let stockAudit = loadStockAudit();
 let deviceNameCorrectionCandidates = [];
 
@@ -1865,6 +1892,7 @@ function formatPricingPrice(value) {
 function resetPricingPriceLookup() {
   pricingPriceIndex = null;
   pricingPriceMemo = new Map();
+  pricingManufacturerToneMap = null;
 }
 
 function pricingLookupText(value) {
@@ -1986,13 +2014,23 @@ function pricingPriceInfoForDeviceName(deviceName) {
   return result;
 }
 
-function pricingManufacturerToneClass(manufacturer) {
-  const key = pricingLookupText(manufacturer) || "bez producenta";
-  let hash = 0;
-  [...key].forEach((character) => {
-    hash = (hash * 31 + character.codePointAt(0)) % 100000;
-  });
-  return `pricing-manufacturer-tone-${hash % 12}`;
+function buildPricingManufacturerToneMap() {
+  const manufacturerValues = [...new Set(
+    pricingRecords
+      .map((record) => normalize(record.manufacturer).trim())
+      .filter(Boolean)
+  )].sort((left, right) => collator.compare(left, right));
+
+  return new Map(manufacturerValues.map((manufacturer, index) => [
+    manufacturer,
+    PRICING_MANUFACTURER_TONES[index % PRICING_MANUFACTURER_TONES.length]
+  ]));
+}
+
+function pricingManufacturerTone(manufacturer) {
+  if (!pricingManufacturerToneMap) pricingManufacturerToneMap = buildPricingManufacturerToneMap();
+  const key = normalize(manufacturer).trim();
+  return pricingManufacturerToneMap.get(key) || PRICING_MANUFACTURER_TONES[0];
 }
 
 function pricingSeedRecords() {
@@ -3641,7 +3679,12 @@ function createDemoRow(record) {
 
 function createPricingRow(record, index) {
   const row = document.createElement("tr");
-  row.classList.add("pricing-manufacturer-row", pricingManufacturerToneClass(record.manufacturer));
+  const manufacturerTone = pricingManufacturerTone(record.manufacturer);
+  row.classList.add("pricing-manufacturer-row");
+  row.style.setProperty("--pricing-tone-bg", manufacturerTone.bg);
+  row.style.setProperty("--pricing-tone-bg-strong", manufacturerTone.strong);
+  row.style.setProperty("--pricing-tone-accent", manufacturerTone.accent);
+  row.style.setProperty("--pricing-tone-text", manufacturerTone.text);
   const cells = [
     String(index + 1),
     record.idProduct,
