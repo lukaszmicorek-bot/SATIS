@@ -434,28 +434,20 @@ h2 {
 
 .pricing-panel {
   display: grid;
-  gap: 18px;
-  margin-top: 16px;
-  padding: 18px;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
   border: 1px solid rgba(216, 221, 227, 0.78);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.pricing-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .pricing-update {
-  display: grid;
-  gap: 3px;
-  min-width: 150px;
+  display: inline-grid;
+  gap: 2px;
   border-radius: 8px;
-  padding: 10px 12px;
-  background: #eaf3f1;
+  padding: 7px 10px;
+  background: #f3f7f6;
 }
 
 .pricing-update span,
@@ -468,20 +460,22 @@ h2 {
 
 .pricing-update time {
   color: #003f5a;
-  font-size: 1rem;
+  font-size: 0.88rem;
   font-weight: 850;
 }
 
 .pricing-empty {
-  display: grid;
-  gap: 5px;
-  border-top: 1px solid rgba(216, 221, 227, 0.76);
-  padding-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(216, 221, 227, 0.62);
+  padding: 10px 2px 0;
 }
 
 .pricing-empty strong {
   color: #31515f;
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .pricing-controls {
@@ -3122,7 +3116,6 @@ textarea {
   }
 
   .tabs,
-  .pricing-head,
   .stock-toolbar,
   .stock-head {
     align-items: stretch;
