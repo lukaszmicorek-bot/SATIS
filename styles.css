@@ -552,21 +552,21 @@ h2 {
   --pricing-tone-bg-strong: #eef5f3;
   --pricing-tone-accent: #8facaa;
   --pricing-tone-text: #315760;
-  background: linear-gradient(90deg, var(--pricing-tone-bg) 0, #fff 62%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pricing-tone-bg) 46%, #fff) 0, #fff 58%);
 }
 
 .pricing-table tbody tr.pricing-manufacturer-row:hover {
-  background: linear-gradient(90deg, var(--pricing-tone-bg-strong) 0, #f8fbfb 62%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pricing-tone-bg-strong) 50%, #fff) 0, #fbfcfc 58%);
 }
 
 .pricing-table tbody tr.pricing-manufacturer-row td:first-child {
-  box-shadow: inset 5px 0 0 var(--pricing-tone-accent);
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--pricing-tone-accent) 72%, #fff);
 }
 
 .pricing-manufacturer-cell {
   color: var(--pricing-tone-text);
-  background: linear-gradient(90deg, var(--pricing-tone-bg-strong), var(--pricing-tone-bg));
-  font-weight: 800;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pricing-tone-bg-strong) 58%, #fff), color-mix(in srgb, var(--pricing-tone-bg) 42%, #fff));
+  font-weight: 760;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
@@ -657,6 +657,7 @@ h2 {
 .pricing-price-cell {
   color: #2d5f42;
   font-weight: 800;
+  font-size: 0.94rem;
   white-space: nowrap;
 }
 
