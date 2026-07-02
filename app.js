@@ -327,6 +327,7 @@ const pricingRecordsBody = document.querySelector("#pricingRecordsBody");
 const pricingEmptyState = document.querySelector("#pricingEmptyState");
 const pricingSearchInput = document.querySelector("#pricingSearchInput");
 const pricingNfzFilter = document.querySelector("#pricingNfzFilter");
+const pricingManufacturerFilter = document.querySelector("#pricingManufacturerFilter");
 const pricingSummary = document.querySelector("#pricingSummary");
 const pricingVersion = document.querySelector("#pricingVersion");
 const importPricingBtn = document.querySelector("#importPricingBtn");
@@ -3002,11 +3003,34 @@ function updatePricingNfzFilterOptions() {
   pricingNfzFilter.value = codes.includes(selectedValue) ? selectedValue : "";
 }
 
+function updatePricingManufacturerFilterOptions() {
+  if (!pricingManufacturerFilter) return;
+  const selectedValue = pricingManufacturerFilter.value;
+  const manufacturersByValue = new Map();
+  pricingRecords.forEach((record) => {
+    const manufacturer = String(record.manufacturer ?? "").trim();
+    const value = normalize(manufacturer).trim();
+    if (manufacturer && !manufacturersByValue.has(value)) manufacturersByValue.set(value, manufacturer);
+  });
+  const manufacturers = [...manufacturersByValue.entries()].sort((left, right) => collator.compare(left[1], right[1]));
+  const currentOptions = [...pricingManufacturerFilter.options].slice(1).map((option) => option.value).join("|");
+  const manufacturerValues = manufacturers.map(([value]) => value);
+  if (currentOptions === manufacturerValues.join("|")) return;
+
+  pricingManufacturerFilter.replaceChildren(new Option("Wszyscy", ""));
+  manufacturers.forEach(([value, manufacturer]) => {
+    pricingManufacturerFilter.append(new Option(manufacturer, value));
+  });
+  pricingManufacturerFilter.value = manufacturerValues.includes(selectedValue) ? selectedValue : "";
+}
+
 function filteredPricingRecords() {
   const query = normalize(pricingSearchInput?.value || "").trim();
   const selectedNfzCode = pricingNfzFilter?.value || "";
+  const selectedManufacturer = pricingManufacturerFilter?.value || "";
   return pricingRecords.filter((record) => {
     if (selectedNfzCode && record.nfzCode !== selectedNfzCode) return false;
+    if (selectedManufacturer && normalize(record.manufacturer).trim() !== selectedManufacturer) return false;
     return !query || pricingSearchBlob(record).includes(query);
   });
 }
@@ -3021,6 +3045,7 @@ function pricingSearchBlob(record) {
 function renderPricingRecords() {
   ensurePricingRecordsLoaded();
   updatePricingNfzFilterOptions();
+  updatePricingManufacturerFilterOptions();
   const visibleRecords = filteredPricingRecords();
   renderTableRows(pricingRecordsBody, visibleRecords.map(createPricingRow));
   pricingEmptyState.hidden = visibleRecords.length > 0;
@@ -5784,6 +5809,7 @@ function resetPricingRecords() {
   savePricingRecords();
   if (pricingSearchInput) pricingSearchInput.value = "";
   if (pricingNfzFilter) pricingNfzFilter.value = "";
+  if (pricingManufacturerFilter) pricingManufacturerFilter.value = "";
   renderPricingRecords();
 }
 
@@ -6282,6 +6308,7 @@ resetPricingBtn?.addEventListener("click", resetPricingRecords);
 pricingImportInput?.addEventListener("change", importPricingCsv);
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
 pricingNfzFilter?.addEventListener("change", renderPricingRecords);
+pricingManufacturerFilter?.addEventListener("change", renderPricingRecords);
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
