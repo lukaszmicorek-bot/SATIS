@@ -88,12 +88,12 @@ button:disabled {
 
 #printBtn,
 #printRepairBtn {
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 10px;
   color: var(--muted);
   background: #f6f7f8;
   border-color: #d7dde1;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
@@ -172,23 +172,23 @@ button.danger:hover {
 
 .icon-button {
   display: inline-flex;
-  min-width: 54px;
-  min-height: 34px;
+  min-width: 48px;
+  min-height: 30px;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 0 9px;
+  gap: 4px;
+  padding: 0 7px;
 }
 
 .icon-button-label {
   color: var(--muted);
-  font-size: 0.66rem;
+  font-size: 0.61rem;
   font-weight: 850;
 }
 
 .io-glyph {
-  width: 20px;
-  height: 18px;
+  width: 18px;
+  height: 16px;
   color: #4d746b;
   overflow: visible;
 }
@@ -2061,21 +2061,21 @@ td.row-actions {
 }
 
 #printStockChecklistBtn {
-  min-height: 34px;
-  padding: 6px 11px;
+  min-height: 31px;
+  padding: 5px 10px;
   color: #43586a;
   background: #f3f6f8;
   border-color: #c9d3dc;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 #printDemoChecklistBtn {
-  min-height: 34px;
-  padding: 6px 11px;
+  min-height: 31px;
+  padding: 5px 10px;
   color: #43586a;
   background: #f3f6f8;
   border-color: #c9d3dc;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 #printStockChecklistBtn:hover,
