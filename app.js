@@ -113,6 +113,7 @@ let datePicker = null;
 let pricingPriceIndex = null;
 let pricingPriceMemo = new Map();
 let pricingManufacturerToneMap = null;
+let serialCopyToastTimeout = 0;
 let stockAudit = loadStockAudit();
 let deviceNameCorrectionCandidates = [];
 
@@ -3901,25 +3902,140 @@ function ageLevel(record, age = stockAge(record)) {
 }
 
 function createSerialPill(serialNumber, duplicateMatches = []) {
-  const pill = document.createElement("span");
+  const pill = document.createElement("button");
   pill.className = "serial-pill";
-  const serialText = serialNumber || "brak numeru";
+  pill.type = "button";
+  const hasSerialNumber = Boolean(String(serialNumber ?? "").trim());
+  const serialText = hasSerialNumber ? String(serialNumber).trim() : "brak numeru";
+  const duplicateTitle = duplicateMatches.length ? duplicateSerialTitle(duplicateMatches) : "";
+  const defaultTitle = duplicateTitle
+    ? `Kliknij, aby skopiować numer seryjny. ${duplicateTitle}`
+    : "Kliknij, aby skopiować numer seryjny";
+  pill.title = defaultTitle;
+  pill.setAttribute("aria-label", `Kopiuj numer seryjny ${serialText}`);
 
-  if (!duplicateMatches.length) {
-    pill.textContent = serialText;
+  const number = document.createElement("span");
+  number.className = "serial-pill-number";
+  number.textContent = serialText;
+  const icon = createCopyIcon();
+  pill.append(number, icon);
+
+  if (!hasSerialNumber) {
+    pill.classList.add("empty");
+    pill.disabled = true;
+    pill.title = "Brak numeru seryjnego do skopiowania";
+    pill.setAttribute("aria-label", "Brak numeru seryjnego do skopiowania");
     return pill;
   }
 
-  pill.classList.add("duplicate");
-  pill.title = duplicateSerialTitle(duplicateMatches);
+  if (duplicateMatches.length) {
+    pill.classList.add("duplicate");
+  }
 
-  const number = document.createElement("span");
-  number.textContent = serialText;
+  pill.addEventListener("click", (event) => {
+    event.stopPropagation();
+    copySerialNumber(serialText, pill, defaultTitle);
+  });
+
+  if (!duplicateMatches.length) return pill;
+
   const marker = document.createElement("small");
   marker.className = "serial-duplicate-marker";
   marker.textContent = "duplikat";
-  pill.append(number, marker);
+  pill.append(marker);
   return pill;
+}
+
+function createCopyIcon() {
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.classList.add("serial-copy-icon");
+  icon.setAttribute("viewBox", "0 0 20 20");
+  icon.setAttribute("aria-hidden", "true");
+
+  const back = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  back.setAttribute("x", "5");
+  back.setAttribute("y", "5");
+  back.setAttribute("width", "9");
+  back.setAttribute("height", "11");
+  back.setAttribute("rx", "1.6");
+
+  const front = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  front.setAttribute("x", "8");
+  front.setAttribute("y", "3");
+  front.setAttribute("width", "7");
+  front.setAttribute("height", "10");
+  front.setAttribute("rx", "1.4");
+
+  [back, front].forEach((shape) => {
+    shape.setAttribute("fill", "none");
+    shape.setAttribute("stroke", "currentColor");
+    shape.setAttribute("stroke-width", "1.5");
+  });
+
+  icon.append(back, front);
+  return icon;
+}
+
+async function copySerialNumber(serialText, pill, defaultTitle) {
+  if (!serialText || serialText === "brak numeru") return;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(serialText);
+    } else {
+      copyTextWithFallback(serialText);
+    }
+    showSerialCopied(pill, defaultTitle);
+  } catch (error) {
+    pill.title = "Nie udało się skopiować numeru";
+  }
+}
+
+function copyTextWithFallback(text) {
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.top = "-1000px";
+  input.style.opacity = "0";
+  document.body.append(input);
+  input.select();
+  document.execCommand("copy");
+  input.remove();
+}
+
+function showSerialCopied(pill, defaultTitle) {
+  pill.classList.add("copied");
+  pill.title = "Skopiowano numer seryjny";
+  pill.setAttribute("aria-label", "Skopiowano numer seryjny");
+  const copiedNumber = pill.querySelector(".serial-pill-number")?.textContent || "";
+  if (copiedNumber) showSerialCopyToast(`Skopiowano: ${copiedNumber}`);
+  window.clearTimeout(Number(pill.dataset.copyTimer || 0));
+  pill.dataset.copyTimer = String(window.setTimeout(() => {
+    pill.classList.remove("copied");
+    pill.title = defaultTitle;
+    const number = pill.querySelector(".serial-pill-number")?.textContent || "";
+    pill.setAttribute("aria-label", `Kopiuj numer seryjny ${number}`);
+    delete pill.dataset.copyTimer;
+  }, 1100));
+}
+
+function showSerialCopyToast(message) {
+  let toast = document.querySelector(".serial-copy-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "serial-copy-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.append(toast);
+  }
+
+  toast.textContent = message;
+  toast.classList.add("visible");
+  window.clearTimeout(serialCopyToastTimeout);
+  serialCopyToastTimeout = window.setTimeout(() => {
+    toast.classList.remove("visible");
+  }, 1300);
 }
 
 function createWaybillCell(waybillNumber) {
@@ -4042,7 +4158,7 @@ function createRepairRow(record) {
     createLocationPill(record.location),
     createRepairCustomerName(record.customerName, status),
     record.deviceName,
-    record.serialNumber,
+    createSerialPill(record.serialNumber),
     createStatusPill(status),
     createDatePill(record.sentDate, "sent", activeDateType),
     createDatePill(record.returnDate, "return", activeDateType),
