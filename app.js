@@ -1828,22 +1828,23 @@ function normalizePricingRecordForUse(record) {
     normalizedRecord[field] = String(repairedRecord?.[field] ?? "").trim();
   });
   normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
+  normalizedRecord.manufacturer = normalizePricingManufacturerName(normalizedRecord.manufacturer);
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
   return normalizedRecord;
 }
 
 function repairPricingRecordColumns(record) {
   const repairedRecord = { ...(record || {}) };
-  const looksLikeAudibelCicSplit =
-    normalize(repairedRecord.tradeName).startsWith("audibel arc ai") &&
-    normalize(repairedRecord.model).includes(" cic 2") &&
-    normalize(repairedRecord.manufacturer) === "4 ghz" &&
-    normalize(repairedRecord.orderIndex).includes("starkey") &&
+  const misplacedManufacturerValue = String(repairedRecord.manufacturer ?? "").trim();
+  const misplacedManufacturerKey = normalize(misplacedManufacturerValue).trim();
+  const looksLikeShiftedManufacturer =
+    ["4 ghz", "sm-3p"].includes(misplacedManufacturerKey) &&
+    String(repairedRecord.orderIndex ?? "").trim() &&
     normalize(repairedRecord.grossPrice) === "n" &&
     String(repairedRecord.swdCode ?? "").trim();
 
-  if (looksLikeAudibelCicSplit) {
-    repairedRecord.model = `${String(repairedRecord.model ?? "").trim()},4 GHz`;
+  if (looksLikeShiftedManufacturer) {
+    repairedRecord.model = repairShiftedPricingModel(repairedRecord.model, misplacedManufacturerValue);
     repairedRecord.manufacturer = repairedRecord.orderIndex;
     repairedRecord.orderIndex = "N";
     repairedRecord.grossPrice = repairedRecord.swdCode;
@@ -1851,6 +1852,22 @@ function repairPricingRecordColumns(record) {
   }
 
   return repairedRecord;
+}
+
+function repairShiftedPricingModel(model, shiftedValue) {
+  const modelText = String(model ?? "").trim();
+  const shiftedText = String(shiftedValue ?? "").trim();
+  if (!modelText || !shiftedText) return modelText;
+  if (normalize(modelText).includes(normalize(shiftedText).trim())) return modelText;
+  if (normalize(shiftedText).trim() === "4 ghz" && /\b2$/u.test(modelText)) return `${modelText},4 GHz`;
+  return `${modelText} ${shiftedText}`;
+}
+
+function normalizePricingManufacturerName(manufacturer) {
+  return String(manufacturer || "")
+    .replace(/\s+/gu, " ")
+    .replace(/ZajLc/gu, "Zając")
+    .trim();
 }
 
 function normalizeAudibelTradeName(record) {
