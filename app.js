@@ -2,7 +2,8 @@ const STORAGE_KEY = "baza-aparatow-records-2026-clean";
 const REPAIR_STORAGE_KEY = "zeszyt-napraw-wkladek-records-2026-clean";
 const DEMO_STORAGE_KEY = "zeszyt-aparatow-demo-records";
 const STOCK_AUDIT_STORAGE_KEY = "zeszyt-aparatow-remanent";
-const PRICING_STORAGE_KEY = "cennik-records-2026-04";
+const PRICING_STORAGE_KEY = "cennik-records-2026-04-v2";
+const PRICING_LEGACY_STORAGE_KEYS = ["cennik-records-2026-04"];
 const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const SERVER_REFRESH_MS = 10000;
@@ -846,6 +847,7 @@ async function activateSupabaseSession(user) {
   updateConnectionUser(user);
   hideAuthDialog();
   setConnectionStatus("syncing", "Łączenie...");
+  renderCachedRecordsBeforeSupabaseSync();
   await refreshRecordsFromSupabase({ throwOnError: true });
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
@@ -1348,6 +1350,21 @@ async function loadDemoRecords() {
     return sharedRecords;
   }
   return loadLocalDemoRecords();
+}
+
+function renderCachedRecordsBeforeSupabaseSync() {
+  const cachedRecords = loadLocalRecords();
+  const cachedRepairRecords = normalizeRepairRecordsForUse(loadLocalRepairRecords());
+  const cachedDemoRecords = loadLocalDemoRecords();
+  const hasCachedRecords = cachedRecords.length || cachedRepairRecords.length || cachedDemoRecords.length;
+  if (!hasCachedRecords) return;
+
+  records = cachedRecords;
+  repairRecords = cachedRepairRecords;
+  demoRecords = cachedDemoRecords;
+  rebuildDerivedData();
+  render();
+  setConnectionStatus("syncing", "Odświeżam dane...");
 }
 
 async function refreshRecordsFromServer() {
@@ -1961,8 +1978,12 @@ function addPricingPriceIndexEntry(entriesByKey, key, record) {
   const info = entriesByKey.get(key) || {
     prices: new Map(),
     sampleName: String(record?.tradeName || record?.model || "").trim(),
+    sampleModel: String(record?.model || "").trim(),
+    sampleTradeName: String(record?.tradeName || "").trim(),
     recordsCount: 0
   };
+  if (!info.sampleModel && record?.model) info.sampleModel = String(record.model).trim();
+  if (!info.sampleTradeName && record?.tradeName) info.sampleTradeName = String(record.tradeName).trim();
   info.prices.set(price, (info.prices.get(price) || 0) + 1);
   info.recordsCount += 1;
   entriesByKey.set(key, info);
@@ -1997,8 +2018,9 @@ function summarizePricingPriceInfo(info) {
     : `${formatPricingPrice(firstPrice)} - ${formatPricingPrice(lastPrice)}`;
   const details = [`Cena aparatu: ${priceText}`];
 
-  if (prices.length > 1) details.push(`Kilka wariantów w cenniku: ${prices.length} ceny`);
-  if (info.sampleName) details.push(`Cennik: ${info.sampleName}`);
+  if (info.sampleModel) details.push(`Model: ${info.sampleModel}`);
+  if (info.sampleTradeName && info.sampleTradeName !== info.sampleModel) details.push(`Nazwa: ${info.sampleTradeName}`);
+  if (!info.sampleTradeName && info.sampleName && info.sampleName !== info.sampleModel) details.push(`Nazwa: ${info.sampleName}`);
 
   return {
     priceText,
@@ -2065,6 +2087,8 @@ function pricingSeedRecords() {
 }
 
 function loadPricingRecords() {
+  PRICING_LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+
   try {
     const storedRecords = JSON.parse(localStorage.getItem(PRICING_STORAGE_KEY) || "null");
     if (Array.isArray(storedRecords) && storedRecords.length) {
