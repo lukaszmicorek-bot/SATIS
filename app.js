@@ -1416,6 +1416,15 @@ function normalizeSerialNumber(value) {
   return String(value ?? "").trim().toLocaleUpperCase("pl-PL");
 }
 
+function serialDuplicateKey(value) {
+  const serial = normalizeSerialNumber(value);
+  if (!serial) return "";
+
+  const compact = serial.replace(/[\s-]+/gu, "");
+  if (compact.startsWith("21") && compact.length > 2) return compact.slice(2);
+  return compact;
+}
+
 function normalizeSalesInvoice(value) {
   return String(value ?? "").trim().toLocaleUpperCase("pl-PL");
 }
@@ -1496,7 +1505,7 @@ function correctDeviceNameFromHistory(value, currentId = "") {
 }
 
 function serialMatches(serialNumber, source, currentId) {
-  const checkedSerial = normalizeSerialNumber(serialNumber);
+  const checkedSerial = serialDuplicateKey(serialNumber);
   if (!checkedSerial) return [];
   return (serialIndex.get(checkedSerial) || []).filter((match) => !(match.source === source && match.id === currentId));
 }
@@ -1508,7 +1517,7 @@ function duplicateSerialMatches(record, source) {
 function createDataControlDuplicateIndex() {
   const index = new Map();
   const addRecord = (record, source, notebook, label) => {
-    const serial = normalizeSerialNumber(record.serialNumber);
+    const serial = serialDuplicateKey(record.serialNumber);
     if (!serial) return;
     if (!index.has(serial)) index.set(serial, []);
     index.get(serial).push({
@@ -1541,7 +1550,7 @@ function createDataControlDuplicateIndex() {
 }
 
 function dataControlDuplicateSerialMatches(record, source, duplicateIndex) {
-  const checkedSerial = normalizeSerialNumber(record.serialNumber);
+  const checkedSerial = serialDuplicateKey(record.serialNumber);
   if (!checkedSerial) return [];
   const index = duplicateIndex || createDataControlDuplicateIndex();
   return (index.get(checkedSerial) || []).filter((match) => !(match.source === source && match.id === record.id));
@@ -2366,7 +2375,7 @@ function demoQualityIssues(record, serialCounts = null) {
   if (!record.manufacturer) issues.push("brak producenta");
   if (!record.deviceName) issues.push("brak nazwy aparatu");
   if (!record.serialNumber) issues.push("brak numeru seryjnego");
-  if (record.serialNumber && serialCounts?.get(record.serialNumber) > 1) issues.push("powtórzony numer seryjny");
+  if (record.serialNumber && serialCounts?.get(serialDuplicateKey(record.serialNumber)) > 1) issues.push("powtórzony numer seryjny");
   if (/[?]{2,}/.test(`${record.location} ${record.currentUser} ${record.notes}`)) issues.push("niepewna informacja");
   if (/^\d{5}$/.test(record.location)) issues.push("miejsce zapisane jako liczba");
   return issues;
@@ -2491,8 +2500,9 @@ function rebuildDemoDerivedData() {
   const serialCounts = new Map();
 
   demoRecords.forEach((record) => {
-    if (!record.serialNumber) return;
-    serialCounts.set(record.serialNumber, (serialCounts.get(record.serialNumber) || 0) + 1);
+    const serial = serialDuplicateKey(record.serialNumber);
+    if (!serial) return;
+    serialCounts.set(serial, (serialCounts.get(serial) || 0) + 1);
   });
 
   demoRecords.forEach((record) => {
@@ -2658,7 +2668,7 @@ function rebuildSerialIndex() {
   serialIndex.clear();
 
   records.forEach((record) => {
-    const serial = normalizeSerialNumber(record.serialNumber);
+    const serial = serialDuplicateKey(record.serialNumber);
     if (!serial) return;
     if (!serialIndex.has(serial)) serialIndex.set(serial, []);
     serialIndex.get(serial).push({
@@ -2670,7 +2680,7 @@ function rebuildSerialIndex() {
   });
 
   repairRecords.forEach((record) => {
-    const serial = normalizeSerialNumber(record.serialNumber);
+    const serial = serialDuplicateKey(record.serialNumber);
     if (!serial) return;
     if (!serialIndex.has(serial)) serialIndex.set(serial, []);
     serialIndex.get(serial).push({
@@ -2682,7 +2692,7 @@ function rebuildSerialIndex() {
   });
 
   demoRecords.forEach((record) => {
-    const serial = normalizeSerialNumber(record.serialNumber);
+    const serial = serialDuplicateKey(record.serialNumber);
     if (!serial) return;
     if (!serialIndex.has(serial)) serialIndex.set(serial, []);
     serialIndex.get(serial).push({
