@@ -1387,6 +1387,15 @@ td {
   pointer-events: none;
 }
 
+.devices-table td:nth-child(4) .serial-pill {
+  padding: 2px 4px;
+  font-size: 0.98rem;
+}
+
+.devices-table td:nth-child(4) .serial-pill.duplicate {
+  font-size: 1rem;
+}
+
 .serial-pill:hover,
 .serial-pill:focus-visible {
   border-color: transparent;
@@ -1568,6 +1577,13 @@ tbody tr.device-sold-row .serial-pill.duplicate {
   color: #8b3434;
   background: #fde8e3;
   box-shadow: inset 0 0 0 1px #e3a299;
+}
+
+.devices-table td:nth-child(5) .type-pill {
+  min-height: 20px;
+  padding: 1px 6px;
+  font-size: 0.66rem;
+  font-weight: 820;
 }
 
 .row-actions {
@@ -3160,6 +3176,16 @@ textarea {
 
   .serial-pill {
     font-size: 0.82rem;
+  }
+
+  .devices-table td:nth-child(4) .serial-pill {
+    font-size: 0.9rem;
+  }
+
+  .devices-table td:nth-child(5) .type-pill {
+    min-height: 19px;
+    padding: 1px 4px;
+    font-size: 0.61rem;
   }
 
   .row-actions button {
