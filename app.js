@@ -1789,6 +1789,7 @@ function normalizeEzwmStatus(value) {
   const normalizedValue = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
   if (normalizedValue === "POBRANE") return "POBRANE";
   if (normalizedValue === "REALIZACJA") return "REALIZACJA";
+  if (normalizedValue === "BEZ ZLECENIA") return "BEZ ZLECENIA";
   return "";
 }
 
@@ -3309,7 +3310,7 @@ function buildDataControlIssues() {
     if (type === "SPRZEDANY" && !hasCustomer) {
       addDataControlIssue(issues, record, "devices", "warning", "status", "Sprzedany bez klienta", "Status wskazuje sprzedaż, ale imię i nazwisko jest puste.");
     }
-    if (type === "SPRZEDANY" && ezwm !== "REALIZACJA") {
+    if (type === "SPRZEDANY" && !["REALIZACJA", "BEZ ZLECENIA"].includes(ezwm)) {
       addDataControlIssue(issues, record, "devices", "warning", "ezwm", "Sprzedany bez EZWM realizacja", "Dla sprzedanego aparatu EZWM nie ma statusu realizacja.");
     }
     if (type === "NA STANIE" && (hasCustomer || hasInvoice)) {
@@ -4115,17 +4116,27 @@ function createWaybillCell(waybillNumber) {
 
 function createEzwmCell(record) {
   const normalizedValue = normalizeEzwmStatus(record?.ezwm);
-  const soldWithoutRealization = displayType(record) === "SPRZEDANY" && normalizedValue !== "REALIZACJA";
+  const soldWithoutRealization = displayType(record) === "SPRZEDANY" && !["REALIZACJA", "BEZ ZLECENIA"].includes(normalizedValue);
 
   if (!normalizedValue && !soldWithoutRealization) return "";
 
   const wrap = document.createElement("span");
-  wrap.className = `ezwm-cell ${soldWithoutRealization ? "ezwm-alert" : normalizedValue === "POBRANE" ? "ezwm-progress" : "ezwm-picked"}`;
+  wrap.className = `ezwm-cell ${
+    soldWithoutRealization
+      ? "ezwm-alert"
+      : normalizedValue === "POBRANE"
+        ? "ezwm-progress"
+        : normalizedValue === "BEZ ZLECENIA"
+          ? "ezwm-none"
+          : "ezwm-picked"
+  }`;
   wrap.title = soldWithoutRealization
     ? "Sprzedany bez EZWM realizacja"
     : normalizedValue === "POBRANE"
       ? "EZWM pobrane"
-      : "EZWM realizacja";
+      : normalizedValue === "BEZ ZLECENIA"
+        ? "EZWM bez zlecenia"
+        : "EZWM realizacja";
   wrap.setAttribute("aria-label", wrap.title);
 
   const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -4138,6 +4149,8 @@ function createEzwmCell(record) {
     path.setAttribute("d", "M10 3.5 17 16.5H3zM10 7.2v4.6M10 14.3h.01");
   } else if (normalizedValue === "POBRANE") {
     path.setAttribute("d", "M10 4.5a5.5 5.5 0 1 1-4.1 1.8M10 2.5v3.2M10 10l2.2 2.2");
+  } else if (normalizedValue === "BEZ ZLECENIA") {
+    path.setAttribute("d", "M5.2 5.2 14.8 14.8M7 4.5h6l2 2V15a1.2 1.2 0 0 1-1.2 1.2H6.2A1.2 1.2 0 0 1 5 15V5.7A1.2 1.2 0 0 1 6.2 4.5H13v2h2");
   } else {
     path.setAttribute("d", "M5 10.5 8.2 13.5 15 6.8");
   }
