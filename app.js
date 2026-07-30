@@ -289,6 +289,8 @@ const demoFields = [
   "receivedDate",
   "manufacturerReturnDate",
   "manufacturerReturnDateCleared",
+  "manufacturerReturned",
+  "manufacturerReturnedDate",
   "manufacturer",
   "deviceName",
   "serialNumber",
@@ -314,7 +316,7 @@ const pricingFields = [
 
 const DEVICE_DATE_FIELDS = ["receivedDate", "pickupDate", "returnDate"];
 const REPAIR_DATE_FIELDS = ["receivedDate", "sentDate", "returnDate", "pickupDate"];
-const DEMO_DATE_FIELDS = ["receivedDate", "manufacturerReturnDate", "loanDate", "returnDate"];
+const DEMO_DATE_FIELDS = ["receivedDate", "manufacturerReturnDate", "manufacturerReturnedDate", "loanDate", "returnDate"];
 const REPAIR_DATE_ORDER = [
   { field: "receivedDate", label: "Data przyjęcia", selector: "#repairReceivedDate" },
   { field: "sentDate", label: "Data wysłania", selector: "#repairSentDate" },
@@ -1831,6 +1833,17 @@ function normalizeDemoRecordForUse(record) {
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
   normalizedRecord.manufacturer = normalizedRecord.manufacturer.toLocaleUpperCase("pl-PL");
   normalizedRecord.currentUser = titleCaseName(normalizedRecord.currentUser);
+  if (
+    !normalizedRecord.manufacturerReturnedDate &&
+    normalizeDemoStatus(normalizedRecord.status, normalizedRecord) === "ZWRÓCONO" &&
+    normalizedRecord.manufacturerReturnDate &&
+    !normalizedRecord.returnDate
+  ) {
+    normalizedRecord.manufacturerReturnedDate = normalizedRecord.manufacturerReturnDate;
+  }
+  normalizedRecord.manufacturerReturned = normalizeBooleanFlag(
+    normalizedRecord.manufacturerReturned || normalizedRecord.manufacturerReturnedDate
+  );
   normalizedRecord.status = normalizeDemoStatus(normalizedRecord.status, normalizedRecord);
   normalizedRecord.manufacturerReturnDateCleared = normalizeBooleanFlag(normalizedRecord.manufacturerReturnDateCleared);
   normalizedRecord.purpose = normalizeDemoPurpose(normalizedRecord.purpose);
@@ -2465,6 +2478,8 @@ function isPastDate(value) {
 
 function demoReturnDeadlineInfo(record) {
   const status = normalizeDemoStatus(record.status, record);
+  if (record.manufacturerReturnedDate) return { date: record.manufacturerReturnedDate, source: "manufacturerReturned" };
+  if (normalizeBooleanFlag(record.manufacturerReturned) === "1") return { date: "", source: "manufacturerReturned" };
   if (status === "ZWRÓCONO" && record.returnDate) return { date: record.returnDate, source: "returned" };
   if (String(record.currentUser ?? "").trim() && record.loanDate) {
     return { date: addCalendarDays(record.loanDate, DEMO_LOAN_DAYS), source: "loan" };
@@ -2490,6 +2505,7 @@ function demoReturnDeadline(record) {
 }
 
 function demoReturnLevel(days, source = "") {
+  if (["manufacturerReturned", "returned"].includes(source)) return "";
   if (source === "loan") return days !== null && days <= 0 ? "critical" : "";
   if (days === null || days > DEMO_RETURN_WARNING_DAYS) return "";
   return days <= DEMO_RETURN_CRITICAL_DAYS ? "critical" : "warning";
@@ -2504,6 +2520,7 @@ function demoReturnTimeLabel(days) {
 
 function normalizeDemoStatus(value, record = {}) {
   const normalizedStatus = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
+  if (record.manufacturerReturnedDate || normalizeBooleanFlag(record.manufacturerReturned) === "1") return "ZWRÓCONO";
   if (["NA STANIE", "WYPOŻYCZONY", "BRAK", "DO ZWROTU", "ZWRÓCONO"].includes(normalizedStatus)) return normalizedStatus;
   if (demoMissingStatus(record)) return "BRAK";
   if (String(record.currentUser ?? "").trim()) return "WYPOŻYCZONY";
@@ -2517,8 +2534,9 @@ function demoStatusFromCurrentUser(currentUser) {
 function demoStatus(record) {
   const status = normalizeDemoStatus(record.status, record);
   if (status === "BRAK") return status;
+  if (record.manufacturerReturnedDate) return "ZWRÓCONO";
   if (status === "ZWRÓCONO") {
-    if (isPastDate(record.manufacturerReturnDate) || record.returnDate) return "ZWRÓCONO";
+    if (record.returnDate) return "ZWRÓCONO";
     return demoStatusFromCurrentUser(record.currentUser);
   }
   const deadline = demoReturnDeadlineInfo(record);
@@ -3795,7 +3813,7 @@ function createDemoNotesCell(record) {
   const attachmentCount =
     normalizeDemoAttachments(record.currentAttachments).length +
     normalizeDemoLoanHistory(record.loanHistory).reduce((count, entry) => count + entry.attachments.length, 0);
-  if (!record.notes && !record.loanDate && !record.returnDate && !historyCount && !attachmentCount) return "";
+  if (!record.notes && !record.loanDate && !record.returnDate && !record.manufacturerReturnedDate && !historyCount && !attachmentCount) return "";
   const wrap = document.createElement("div");
   wrap.className = "demo-notes-cell";
 
@@ -3811,6 +3829,13 @@ function createDemoNotesCell(record) {
     returnDate.className = "demo-notes-return-date";
     returnDate.textContent = `Zwrócono: ${formatDate(record.returnDate)}`;
     wrap.append(returnDate);
+  }
+
+  if (record.manufacturerReturnedDate) {
+    const manufacturerReturnedDate = document.createElement("span");
+    manufacturerReturnedDate.className = "demo-notes-return-date";
+    manufacturerReturnedDate.textContent = `Do producenta: ${formatDate(record.manufacturerReturnedDate)}`;
+    wrap.append(manufacturerReturnedDate);
   }
 
   if (record.notes) {
@@ -3851,6 +3876,8 @@ function createDemoReturnDeadlineCell(meta) {
 
 function demoReturnDeadlineLabel(meta) {
   if (!meta) return "";
+  if (meta.returnSource === "manufacturerReturned") return "zwrócono do producenta";
+  if (meta.returnSource === "returned") return "zwrócono";
   if (meta.returnDays === null || meta.returnDays === undefined) return "do zwrotu";
   if (meta.returnDays < 0) return `po terminie: ${formatDaysLabel(Math.abs(meta.returnDays))}`;
   if (meta.returnDays === 0) return meta.returnSource === "loan" ? "mija 14 dni" : "do zwrotu dzisiaj";
@@ -4767,6 +4794,8 @@ function fillDemoFormValues(record = {}) {
     receivedDate: "#demoReceivedDate",
     manufacturerReturnDate: "#demoManufacturerReturnDate",
     manufacturerReturnDateCleared: "#demoManufacturerReturnDateCleared",
+    manufacturerReturned: "#demoManufacturerReturned",
+    manufacturerReturnedDate: "#demoManufacturerReturnedDate",
     loanDate: "#demoLoanDate",
     returnDate: "#demoReturnDate",
     manufacturer: "#demoManufacturer",
@@ -4781,7 +4810,12 @@ function fillDemoFormValues(record = {}) {
 
   demoFields.forEach((field) => {
     const input = document.querySelector(fieldMap[field]);
+    if (!input) return;
     const value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
+    if (input.type === "checkbox") {
+      input.checked = normalizeBooleanFlag(value) === "1" || Boolean(record?.manufacturerReturnedDate);
+      return;
+    }
     input.value = DEMO_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
 }
@@ -4871,6 +4905,7 @@ function openDemoDialog(record = null) {
   document.querySelector("#demoSerialNumberLabel").textContent = record ? "Numer seryjny" : "Numer seryjny *";
   document.querySelector("#demoReturnDate").dataset.autoValue = "";
   document.querySelector("#demoManufacturerReturnDate").dataset.autoValue = "";
+  document.querySelector("#demoManufacturerReturnedDate").dataset.autoValue = "";
   document.querySelector("#demoId").value = record?.id ?? "";
   demoDialogTitle.textContent = record ? demoDialogTitleForRecord(record) : "Dodaj aparat demo";
   demoRecordEyebrow.textContent = record
@@ -4895,6 +4930,8 @@ function openDemoDialog(record = null) {
     document.querySelector("#demoStatus").value = "NA STANIE";
     document.querySelector("#demoPurpose").value = DEMO_PURPOSE_TEST;
     document.querySelector("#demoLocation").value = "P63";
+    document.querySelector("#demoManufacturerReturned").checked = false;
+    setDateInputValue("#demoManufacturerReturnedDate", "");
   }
   const calculatedManufacturerReturnDate = calculateDemoManufacturerReturnDate();
   const manufacturerReturnDateInput = document.querySelector("#demoManufacturerReturnDate");
@@ -5050,6 +5087,10 @@ function demoFormRecord() {
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.manufacturerReturnDateCleared = data.manufacturerReturnDate ? "" : normalizeBooleanFlag(data.manufacturerReturnDateCleared);
+  data.manufacturerReturned = normalizeBooleanFlag(data.manufacturerReturned);
+  if (data.manufacturerReturnedDate) data.manufacturerReturned = "1";
+  if (data.manufacturerReturned === "1" && !data.manufacturerReturnedDate) data.manufacturerReturnedDate = todayInputValue();
+  if (data.manufacturerReturned !== "1") data.manufacturerReturnedDate = "";
   data.purpose = normalizeDemoPurpose(data.purpose);
   data.location = normalizeDemoLocation(data.location);
   data.currentUser = titleCaseName(data.currentUser);
@@ -5057,17 +5098,21 @@ function demoFormRecord() {
   data.currentAttachments = normalizeDemoAttachments(demoCurrentAttachmentsDraft);
   data.loanHistoryManaged = true;
   const selectedStatus = normalizeDemoStatus(data.status, data);
-  if (isPastDate(data.manufacturerReturnDate)) {
+  if (selectedStatus === "ZWRÓCONO" && !data.currentUser && !data.returnDate && !data.manufacturerReturnedDate) {
+    data.manufacturerReturned = "1";
+    data.manufacturerReturnedDate = todayInputValue();
+  }
+  if (data.manufacturerReturnedDate) {
     data.status = "ZWRÓCONO";
   } else if (data.returnDate && data.currentUser) {
     data.status = "ZWRÓCONO";
   }
-  if (!data.manufacturerReturnDate && data.status === "ZWRÓCONO" && data.currentUser) {
+  if (!data.manufacturerReturnedDate && !data.manufacturerReturnDate && data.status === "ZWRÓCONO" && data.currentUser) {
     if (!data.returnDate) data.returnDate = todayInputValue();
   } else if (data.currentUser && !data.loanDate) {
     data.loanDate = todayInputValue();
   }
-  if (isPastDate(data.manufacturerReturnDate) || (data.status === "ZWRÓCONO" && data.currentUser)) {
+  if (data.manufacturerReturnedDate || (data.status === "ZWRÓCONO" && data.currentUser)) {
     data.status = "ZWRÓCONO";
   } else if (data.currentUser) {
     data.status = "WYPOŻYCZONY";
@@ -5113,8 +5158,30 @@ function completeDemoLoan(existingRecord, data) {
 
 function prepareDemoLoanData(existingRecord, data) {
   const history = normalizeDemoLoanHistory(data.loanHistory ?? existingRecord?.loanHistory);
-  if (isPastDate(data.manufacturerReturnDate)) {
-    return { ...data, status: "ZWRÓCONO", loanHistory: history };
+  if (data.manufacturerReturnedDate) {
+    const hasActiveLoan = Boolean(data.currentUser || existingRecord?.currentUser || data.loanDate || existingRecord?.loanDate);
+    if (hasActiveLoan) {
+      const completed = completeDemoLoan(existingRecord, {
+        ...data,
+        status: "ZWRÓCONO",
+        returnDate: data.returnDate || data.manufacturerReturnedDate
+      });
+      return {
+        ...completed,
+        status: "ZWRÓCONO",
+        manufacturerReturned: "1",
+        manufacturerReturnedDate: data.manufacturerReturnedDate
+      };
+    }
+    return {
+      ...data,
+      status: "ZWRÓCONO",
+      manufacturerReturned: "1",
+      loanHistory: history,
+      currentUser: "",
+      loanDate: "",
+      returnDate: ""
+    };
   }
   const completesActiveLoan = Boolean(
     data.returnDate && (data.currentUser || existingRecord?.currentUser)
@@ -5152,6 +5219,8 @@ function deviceRecordToDemoRecord(record) {
     receivedDate: record.receivedDate || todayInputValue(),
     manufacturerReturnDate: record.manufacturerReturnDate || "",
     manufacturerReturnDateCleared: record.manufacturerReturnDateCleared || "",
+    manufacturerReturned: "",
+    manufacturerReturnedDate: "",
     manufacturer: String(record.manufacturer || "").trim(),
     deviceName: record.deviceName,
     serialNumber: record.serialNumber,
@@ -5200,11 +5269,14 @@ function demoRecordToDeviceRecord(record) {
       record.currentUser ? `Ostatnio używany przez: ${record.currentUser}.` : "",
       record.loanDate ? `Data wypożyczenia: ${formatDate(record.loanDate)}.` : "",
       record.returnDate ? `Data zwrotu z wypożyczenia: ${formatDate(record.returnDate)}.` : "",
-      deadline ? `Termin zwrotu do producenta: ${formatDate(deadline)}.` : ""
+      record.manufacturerReturnedDate ? `Zwrócono do producenta: ${formatDate(record.manufacturerReturnedDate)}.` : "",
+      deadline && !record.manufacturerReturnedDate ? `Termin zwrotu do producenta: ${formatDate(deadline)}.` : ""
     ),
     manufacturer: record.manufacturer,
     manufacturerReturnDate: record.manufacturerReturnDate,
     manufacturerReturnDateCleared: record.manufacturerReturnDateCleared,
+    manufacturerReturned: record.manufacturerReturned,
+    manufacturerReturnedDate: record.manufacturerReturnedDate,
     purpose: record.purpose,
     loanHistory: normalizeDemoLoanHistory(record.loanHistory),
     currentAttachments: normalizeDemoAttachments(record.currentAttachments),
@@ -5276,7 +5348,7 @@ function syncRepairStatusFromDates() {
 function syncDemoStatusFromCurrentUser(options = {}) {
   const currentUser = document.querySelector("#demoCurrentUser").value;
   const statusInput = document.querySelector("#demoStatus");
-  const manufacturerReturned = isPastDate(isoDateForSave(document.querySelector("#demoManufacturerReturnDate").value));
+  const manufacturerReturned = isDemoManufacturerReturnedForm();
   const hasCurrentUser = Boolean(String(currentUser).trim());
   if (options.setLoanDate && hasCurrentUser && !document.querySelector("#demoLoanDate").value) {
     setDateInputValue("#demoLoanDate", todayInputValue());
@@ -5290,11 +5362,56 @@ function syncDemoStatusFromCurrentUser(options = {}) {
 }
 
 function syncDemoReturnedStatus() {
-  if (document.querySelector("#demoStatus").value !== "ZWRÓCONO") return;
+  const statusInput = document.querySelector("#demoStatus");
+  const hasActiveLoan = Boolean(document.querySelector("#demoCurrentUser").value.trim() || document.querySelector("#demoLoanDate").value);
+  if (statusInput.value !== "ZWRÓCONO") {
+    if (!hasActiveLoan) syncDemoManufacturerReturned(false);
+    return;
+  }
 
-  const returnDateInput = document.querySelector("#demoReturnDate");
-  if (!returnDateInput.value) setDateInputValue(returnDateInput, todayInputValue());
-  returnDateInput.dataset.autoValue = "";
+  if (hasActiveLoan) {
+    const returnDateInput = document.querySelector("#demoReturnDate");
+    if (!returnDateInput.value) setDateInputValue(returnDateInput, todayInputValue());
+    returnDateInput.dataset.autoValue = "";
+  } else {
+    syncDemoManufacturerReturned(true);
+  }
+}
+
+function isDemoManufacturerReturnedForm() {
+  return Boolean(
+    document.querySelector("#demoManufacturerReturned")?.checked ||
+    isoDateForSave(document.querySelector("#demoManufacturerReturnedDate")?.value)
+  );
+}
+
+function syncDemoManufacturerReturned(checked) {
+  const checkbox = document.querySelector("#demoManufacturerReturned");
+  const dateInput = document.querySelector("#demoManufacturerReturnedDate");
+  if (!checkbox || !dateInput) return;
+
+  checkbox.checked = Boolean(checked);
+  if (checkbox.checked) {
+    if (!dateInput.value) {
+      setDateInputValue(dateInput, todayInputValue());
+      dateInput.dataset.autoValue = todayInputValue();
+    }
+    document.querySelector("#demoStatus").value = "ZWRÓCONO";
+    return;
+  }
+
+  setDateInputValue(dateInput, "");
+  dateInput.dataset.autoValue = "";
+  syncDemoStatusFromCurrentUser();
+}
+
+function markDemoManufacturerReturnedDateChange() {
+  const input = document.querySelector("#demoManufacturerReturnedDate");
+  const checkbox = document.querySelector("#demoManufacturerReturned");
+  const currentValue = isoDateForSave(input.value);
+  checkbox.checked = Boolean(currentValue);
+  if (currentValue !== input.dataset.autoValue) input.dataset.autoValue = "";
+  syncDemoStatusFromCurrentUser();
 }
 
 function calculateDemoManufacturerReturnDate() {
@@ -5384,6 +5501,7 @@ function handleClearDateClick(event) {
   if (targetId.startsWith("demo")) {
     if (targetId === "demoReturnDate") markDemoReturnDateChange();
     if (targetId === "demoManufacturerReturnDate") markDemoManufacturerReturnDateChange();
+    if (targetId === "demoManufacturerReturnedDate") markDemoManufacturerReturnedDateChange();
     return;
   }
 
@@ -5637,6 +5755,8 @@ function demoDuplicateDraft(record) {
     receivedDate: todayInputValue(),
     manufacturerReturnDate: "",
     manufacturerReturnDateCleared: "",
+    manufacturerReturned: "",
+    manufacturerReturnedDate: "",
     manufacturer: record?.manufacturer || "",
     deviceName: record?.deviceName || "",
     serialNumber: "",
@@ -6591,6 +6711,8 @@ document.querySelector("#repairReturnDate").addEventListener("change", syncRepai
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
 document.querySelector("#demoManufacturerReturnDate").addEventListener("change", markDemoManufacturerReturnDateChange);
+document.querySelector("#demoManufacturerReturned").addEventListener("change", (event) => syncDemoManufacturerReturned(event.target.checked));
+document.querySelector("#demoManufacturerReturnedDate").addEventListener("change", markDemoManufacturerReturnedDateChange);
 document.querySelector("#demoReturnDate").addEventListener("change", markDemoReturnDateChange);
 document.querySelector("#demoManufacturer").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoDeviceName").addEventListener("input", syncDemoManufacturerReturnDate);
