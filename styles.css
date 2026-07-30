@@ -774,6 +774,33 @@ textarea:focus {
   background: #eceff1;
 }
 
+.checkbox-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #526271;
+  background: #fbfcfd;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.checkbox-control input {
+  width: 16px;
+  height: 16px;
+  accent-color: #166c5f;
+}
+
+.checkbox-control:has(input:checked) {
+  color: #0f5148;
+  border-color: #9bcac3;
+  background: #edf7f5;
+}
+
 .two-month-picker {
   position: fixed;
   z-index: 1200;
