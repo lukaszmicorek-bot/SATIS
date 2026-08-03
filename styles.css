@@ -1172,6 +1172,12 @@ tbody tr.device-sold-row:hover {
   transform: translateY(0);
 }
 
+.devices-table tbody tr:first-child .device-name-cell.has-price::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+  z-index: 40;
+}
+
 tbody tr.serial-duplicate-row {
   background: #fff7f2;
 }
