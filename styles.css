@@ -1561,16 +1561,19 @@ tbody tr.device-sold-row .serial-pill.service {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
+  min-width: 20px;
   height: 16px;
+  border: 1px solid #9ab171;
+  border-radius: 4px;
+  padding: 0 3px;
   color: #607b3d;
+  background: #f8fbf2;
   flex: 0 0 auto;
-}
-
-.serial-sale-icon {
-  width: 15px;
-  height: 15px;
-  display: block;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .type-pill.REPAIR {
