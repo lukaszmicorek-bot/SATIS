@@ -1669,6 +1669,13 @@ function serviceSerialMatches(record, source) {
     .sort(compareServiceSerialMatches);
 }
 
+function saleSerialMatches(record, source) {
+  if (source !== "repairs") return [];
+  return serialMatches(record.serialNumber, source, record.id)
+    .filter((match) => match.source === "devices" && match.isSold)
+    .sort(compareSaleSerialMatches);
+}
+
 function duplicateSerialMatches(record, source) {
   if (source === "repairs") return [];
   return serialMatches(record.serialNumber, source, record.id).filter((match) => match.source !== "repairs");
@@ -1764,8 +1771,35 @@ function serviceSerialTitle(matches) {
   return `Historia serwisu:\n${matchList}${extraCount}`;
 }
 
-function serialRelationTitle(duplicateMatches = [], serviceMatches = []) {
-  return [duplicateSerialTitle(duplicateMatches), serviceSerialTitle(serviceMatches)].filter(Boolean).join("\n\n");
+function saleSerialSortValue(match) {
+  return match.pickupDate || match.receivedDate || "";
+}
+
+function compareSaleSerialMatches(left, right) {
+  return String(saleSerialSortValue(right)).localeCompare(String(saleSerialSortValue(left))) || collator.compare(left.label || "", right.label || "");
+}
+
+function saleSerialHistoryLine(match) {
+  return [
+    `Sprzedaż/odbiór: ${match.pickupDate ? formatDate(match.pickupDate) : "brak daty odbioru"}`,
+    `Miejsce: ${match.location || "brak"}`,
+    `FV: ${match.salesInvoice || "brak"}`
+  ].join(" | ");
+}
+
+function saleSerialTitle(matches) {
+  if (!matches.length) return "";
+
+  const matchList = matches
+    .slice(0, 5)
+    .map(saleSerialHistoryLine)
+    .join("\n");
+  const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
+  return `Sprzedaż aparatu:\n${matchList}${extraCount}`;
+}
+
+function serialRelationTitle(duplicateMatches = [], serviceMatches = [], saleMatches = []) {
+  return [duplicateSerialTitle(duplicateMatches), serviceSerialTitle(serviceMatches), saleSerialTitle(saleMatches)].filter(Boolean).join("\n\n");
 }
 
 function confirmSerialNumberSave(serialNumber, source, currentId) {
@@ -2900,6 +2934,13 @@ function rebuildSerialIndex() {
       source: "devices",
       id: record.id,
       notebook: "Zeszyt aparatów",
+      receivedDate: record.receivedDate,
+      pickupDate: record.pickupDate,
+      deviceName: record.deviceName,
+      customerName: record.customerName,
+      salesInvoice: record.salesInvoice,
+      location: record.location,
+      isSold: displayType(record) === "SPRZEDANY" || Boolean(String(record.salesInvoice ?? "").trim()),
       label: [record.deviceName, deviceDerived.get(record.id)?.displayType ?? displayType(record), record.customerName].filter(Boolean).join(" / ")
     });
   });
@@ -4043,13 +4084,13 @@ function ageLevel(record, age = stockAge(record)) {
   return "fresh";
 }
 
-function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = []) {
+function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = [], saleMatches = []) {
   const pill = document.createElement("button");
   pill.className = "serial-pill";
   pill.type = "button";
   const hasSerialNumber = Boolean(String(serialNumber ?? "").trim());
   const serialText = hasSerialNumber ? String(serialNumber).trim() : "brak numeru";
-  const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches);
+  const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches, saleMatches);
   const defaultTitle = relationTitle
     ? `Kliknij, aby skopiować numer seryjny. ${relationTitle}`
     : "Kliknij, aby skopiować numer seryjny";
@@ -4074,6 +4115,8 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
     pill.classList.add("duplicate");
   } else if (serviceMatches.length) {
     pill.classList.add("service");
+  } else if (saleMatches.length) {
+    pill.classList.add("sale");
   }
 
   pill.addEventListener("click", (event) => {
@@ -4081,11 +4124,11 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
     copySerialNumber(serialText, pill, defaultTitle);
   });
 
-  if (!duplicateMatches.length && !serviceMatches.length) return pill;
+  if (!duplicateMatches.length && !serviceMatches.length && !saleMatches.length) return pill;
 
   const marker = document.createElement("small");
-  marker.className = duplicateMatches.length ? "serial-duplicate-marker" : "serial-service-marker";
-  marker.textContent = duplicateMatches.length ? "duplikat" : "serwis";
+  marker.className = duplicateMatches.length ? "serial-duplicate-marker" : serviceMatches.length ? "serial-service-marker" : "serial-sale-marker";
+  marker.textContent = duplicateMatches.length ? "duplikat" : serviceMatches.length ? "serwis" : "sprzedaż";
   pill.append(marker);
 
   if (duplicateMatches.length && serviceMatches.length) {
@@ -4093,6 +4136,13 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
     serviceMarker.className = "serial-service-marker";
     serviceMarker.textContent = "serwis";
     pill.append(serviceMarker);
+  }
+
+  if ((duplicateMatches.length || serviceMatches.length) && saleMatches.length) {
+    const saleMarker = document.createElement("small");
+    saleMarker.className = "serial-sale-marker";
+    saleMarker.textContent = "sprzedaż";
+    pill.append(saleMarker);
   }
   return pill;
 }
@@ -4315,13 +4365,14 @@ function createRepairRow(record) {
   const overdueClass = repairOverdueClass(record, status);
   if (overdueClass) row.classList.add(overdueClass);
   const activeDateType = activeRepairDateType(record);
+  const saleMatches = saleSerialMatches(record, "repairs");
   const cells = [
     formatDate(record.receivedDate),
     createCategoryPill(record.category),
     createLocationPill(record.location),
     createRepairCustomerName(record.customerName, status),
     record.deviceName,
-    createSerialPill(record.serialNumber),
+    createSerialPill(record.serialNumber, [], [], saleMatches),
     createStatusPill(status),
     createDatePill(record.sentDate, "sent", activeDateType),
     createDatePill(record.returnDate, "return", activeDateType),
