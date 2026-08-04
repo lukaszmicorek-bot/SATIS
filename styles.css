@@ -1528,6 +1528,14 @@ td {
   font-size: 0.9rem;
 }
 
+.serial-pill.sale {
+  gap: 6px;
+  padding: 2px 7px;
+  color: #4f6533;
+  background: #eef5e8;
+  font-size: 0.9rem;
+}
+
 tbody tr.device-sold-row .serial-pill.duplicate,
 tbody tr.device-sold-row .serial-pill.service {
   opacity: 1;
@@ -1543,6 +1551,14 @@ tbody tr.device-sold-row .serial-pill.service {
 
 .serial-service-marker {
   color: #2c7c7f;
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.serial-sale-marker {
+  color: #607b3d;
   font-family: inherit;
   font-size: 0.64rem;
   font-weight: 850;
