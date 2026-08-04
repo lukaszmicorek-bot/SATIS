@@ -1664,7 +1664,9 @@ function serialMatches(serialNumber, source, currentId) {
 
 function serviceSerialMatches(record, source) {
   if (source === "repairs") return [];
-  return serialMatches(record.serialNumber, source, record.id).filter((match) => match.source === "repairs");
+  return serialMatches(record.serialNumber, source, record.id)
+    .filter((match) => match.source === "repairs")
+    .sort(compareServiceSerialMatches);
 }
 
 function duplicateSerialMatches(record, source) {
@@ -1725,15 +1727,41 @@ function duplicateSerialTitle(matches) {
   return `Duplikat numeru seryjnego:\n${matchList}${extraCount}`;
 }
 
+function serviceSerialLastStage(match) {
+  if (match.pickupDate) return { label: "Odbiór", date: match.pickupDate };
+  if (match.returnDate) return { label: "Powrót", date: match.returnDate };
+  if (match.sentDate) return { label: "Wysłanie", date: match.sentDate };
+  return null;
+}
+
+function serviceSerialSortValue(match) {
+  return match.pickupDate || match.returnDate || match.sentDate || match.receivedDate || "";
+}
+
+function compareServiceSerialMatches(left, right) {
+  return String(serviceSerialSortValue(right)).localeCompare(String(serviceSerialSortValue(left))) || collator.compare(left.label || "", right.label || "");
+}
+
+function serviceSerialHistoryLine(match) {
+  const parts = [];
+  if (match.receivedDate) parts.push(`Przyjęcie: ${formatDate(match.receivedDate)}`);
+  if (match.deviceName) parts.push(`Model: ${match.deviceName}`);
+
+  const stage = serviceSerialLastStage(match);
+  if (stage) parts.push(`${stage.label}: ${formatDate(stage.date)}`);
+
+  return parts.length ? parts.join(" | ") : `${match.notebook}: ${match.label || "bez opisu"}`;
+}
+
 function serviceSerialTitle(matches) {
   if (!matches.length) return "";
 
   const matchList = matches
     .slice(0, 5)
-    .map((match) => `${match.notebook}: ${match.label || "bez opisu"}`)
+    .map(serviceSerialHistoryLine)
     .join("\n");
   const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
-  return `Powiązany serwis:\n${matchList}${extraCount}`;
+  return `Historia serwisu:\n${matchList}${extraCount}`;
 }
 
 function serialRelationTitle(duplicateMatches = [], serviceMatches = []) {
@@ -2884,6 +2912,12 @@ function rebuildSerialIndex() {
       source: "repairs",
       id: record.id,
       notebook: "Zeszyt napraw i wkładek",
+      receivedDate: record.receivedDate,
+      sentDate: record.sentDate,
+      returnDate: record.returnDate,
+      pickupDate: record.pickupDate,
+      deviceName: record.deviceName,
+      customerName: record.customerName,
       label: [record.customerName, record.deviceName, repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record)].filter(Boolean).join(" / ")
     });
   });
