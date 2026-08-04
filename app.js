@@ -1662,8 +1662,14 @@ function serialMatches(serialNumber, source, currentId) {
   return (serialIndex.get(checkedSerial) || []).filter((match) => !(match.source === source && match.id === currentId));
 }
 
+function serviceSerialMatches(record, source) {
+  if (source === "repairs") return [];
+  return serialMatches(record.serialNumber, source, record.id).filter((match) => match.source === "repairs");
+}
+
 function duplicateSerialMatches(record, source) {
-  return serialMatches(record.serialNumber, source, record.id);
+  if (source === "repairs") return [];
+  return serialMatches(record.serialNumber, source, record.id).filter((match) => match.source !== "repairs");
 }
 
 function createDataControlDuplicateIndex() {
@@ -1719,8 +1725,23 @@ function duplicateSerialTitle(matches) {
   return `Duplikat numeru seryjnego:\n${matchList}${extraCount}`;
 }
 
+function serviceSerialTitle(matches) {
+  if (!matches.length) return "";
+
+  const matchList = matches
+    .slice(0, 5)
+    .map((match) => `${match.notebook}: ${match.label || "bez opisu"}`)
+    .join("\n");
+  const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
+  return `Powiązany serwis:\n${matchList}${extraCount}`;
+}
+
+function serialRelationTitle(duplicateMatches = [], serviceMatches = []) {
+  return [duplicateSerialTitle(duplicateMatches), serviceSerialTitle(serviceMatches)].filter(Boolean).join("\n\n");
+}
+
 function confirmSerialNumberSave(serialNumber, source, currentId) {
-  const matches = serialMatches(serialNumber, source, currentId);
+  const matches = serialMatches(serialNumber, source, currentId).filter((match) => match.source !== "repairs" && source !== "repairs");
   if (matches.length === 0) return true;
 
   const matchList = matches
@@ -3638,9 +3659,13 @@ function createDeviceNameCell(record) {
 function createRow(record) {
   const row = document.createElement("tr");
   const duplicateMatches = duplicateSerialMatches(record, "devices");
+  const serviceMatches = serviceSerialMatches(record, "devices");
   if (duplicateMatches.length) {
     row.classList.add("serial-duplicate-row");
-    row.title = duplicateSerialTitle(duplicateMatches);
+    row.title = serialRelationTitle(duplicateMatches, serviceMatches);
+  } else if (serviceMatches.length) {
+    row.classList.add("serial-service-row");
+    row.title = serviceSerialTitle(serviceMatches);
   }
   if (displayType(record) === "SPRZEDANY") {
     row.classList.add("device-sold-row");
@@ -3652,7 +3677,7 @@ function createRow(record) {
     formatDate(record.receivedDate),
     createAgePill(record),
     createDeviceNameCell(record),
-    createSerialPill(record.serialNumber, duplicateMatches),
+    createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
     createTypePill(displayType(record)),
     createLocationPill(record.location),
     formatDate(record.pickupDate),
@@ -3691,9 +3716,13 @@ function createDemoRow(record) {
   const row = document.createElement("tr");
   const meta = demoDerived.get(record.id);
   const duplicateMatches = duplicateSerialMatches(record, "demo");
+  const serviceMatches = serviceSerialMatches(record, "demo");
   if (duplicateMatches.length) {
     row.classList.add("serial-duplicate-row");
-    row.title = duplicateSerialTitle(duplicateMatches);
+    row.title = serialRelationTitle(duplicateMatches, serviceMatches);
+  } else if (serviceMatches.length) {
+    row.classList.add("serial-service-row");
+    row.title = serviceSerialTitle(serviceMatches);
   }
   if (meta?.issues.length) row.classList.add("demo-needs-review");
   if (meta?.status === "BRAK") row.classList.add("demo-missing");
@@ -3721,7 +3750,7 @@ function createDemoRow(record) {
     createDemoReturnDeadlineCell(meta),
     record.manufacturer,
     record.deviceName,
-    createSerialPill(record.serialNumber, duplicateMatches),
+    createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
     record.location,
     createDemoCurrentUser(record.currentUser, record.loanDate),
     createDemoNotesCell(record)
@@ -3980,15 +4009,15 @@ function ageLevel(record, age = stockAge(record)) {
   return "fresh";
 }
 
-function createSerialPill(serialNumber, duplicateMatches = []) {
+function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = []) {
   const pill = document.createElement("button");
   pill.className = "serial-pill";
   pill.type = "button";
   const hasSerialNumber = Boolean(String(serialNumber ?? "").trim());
   const serialText = hasSerialNumber ? String(serialNumber).trim() : "brak numeru";
-  const duplicateTitle = duplicateMatches.length ? duplicateSerialTitle(duplicateMatches) : "";
-  const defaultTitle = duplicateTitle
-    ? `Kliknij, aby skopiować numer seryjny. ${duplicateTitle}`
+  const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches);
+  const defaultTitle = relationTitle
+    ? `Kliknij, aby skopiować numer seryjny. ${relationTitle}`
     : "Kliknij, aby skopiować numer seryjny";
   pill.title = defaultTitle;
   pill.setAttribute("aria-label", `Kopiuj numer seryjny ${serialText}`);
@@ -4009,6 +4038,8 @@ function createSerialPill(serialNumber, duplicateMatches = []) {
 
   if (duplicateMatches.length) {
     pill.classList.add("duplicate");
+  } else if (serviceMatches.length) {
+    pill.classList.add("service");
   }
 
   pill.addEventListener("click", (event) => {
@@ -4016,12 +4047,19 @@ function createSerialPill(serialNumber, duplicateMatches = []) {
     copySerialNumber(serialText, pill, defaultTitle);
   });
 
-  if (!duplicateMatches.length) return pill;
+  if (!duplicateMatches.length && !serviceMatches.length) return pill;
 
   const marker = document.createElement("small");
-  marker.className = "serial-duplicate-marker";
-  marker.textContent = "duplikat";
+  marker.className = duplicateMatches.length ? "serial-duplicate-marker" : "serial-service-marker";
+  marker.textContent = duplicateMatches.length ? "duplikat" : "serwis";
   pill.append(marker);
+
+  if (duplicateMatches.length && serviceMatches.length) {
+    const serviceMarker = document.createElement("small");
+    serviceMarker.className = "serial-service-marker";
+    serviceMarker.textContent = "serwis";
+    pill.append(serviceMarker);
+  }
   return pill;
 }
 
