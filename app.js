@@ -1649,7 +1649,7 @@ function compareSaleSerialMatches(left, right) {
 function saleSerialHistoryLine(match) {
   return [
     `Miejsce: ${match.location || "brak"}`,
-    `Sprzedaż/odbiór: ${match.pickupDate ? formatDate(match.pickupDate) : "brak daty odbioru"}`,
+    `Sprzedaż: ${match.pickupDate ? formatDate(match.pickupDate) : "brak daty"}`,
     `FV: ${match.salesInvoice || "brak"}`
   ].join(" | ");
 }
