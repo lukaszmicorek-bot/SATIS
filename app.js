@@ -4126,9 +4126,13 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
 
   if (!duplicateMatches.length && !serviceMatches.length && !saleMatches.length) return pill;
 
-  const marker = document.createElement("small");
-  marker.className = duplicateMatches.length ? "serial-duplicate-marker" : serviceMatches.length ? "serial-service-marker" : "serial-sale-marker";
-  marker.textContent = duplicateMatches.length ? "duplikat" : serviceMatches.length ? "serwis" : "sprzedaż";
+  const marker = saleMatches.length && !duplicateMatches.length && !serviceMatches.length
+    ? createSaleSerialMarker()
+    : document.createElement("small");
+  if (duplicateMatches.length || serviceMatches.length) {
+    marker.className = duplicateMatches.length ? "serial-duplicate-marker" : "serial-service-marker";
+    marker.textContent = duplicateMatches.length ? "duplikat" : "serwis";
+  }
   pill.append(marker);
 
   if (duplicateMatches.length && serviceMatches.length) {
@@ -4139,12 +4143,52 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
   }
 
   if ((duplicateMatches.length || serviceMatches.length) && saleMatches.length) {
-    const saleMarker = document.createElement("small");
-    saleMarker.className = "serial-sale-marker";
-    saleMarker.textContent = "sprzedaż";
-    pill.append(saleMarker);
+    pill.append(createSaleSerialMarker());
   }
   return pill;
+}
+
+function createSaleSerialMarker() {
+  const marker = document.createElement("small");
+  marker.className = "serial-sale-marker";
+  marker.title = "Sprzedaż aparatu";
+  marker.setAttribute("aria-hidden", "true");
+
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.classList.add("serial-sale-icon");
+  icon.setAttribute("viewBox", "0 0 20 20");
+
+  const sheet = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  sheet.setAttribute("d", "M5 3.5h7.4L15 6.1v10.4H5z");
+  sheet.setAttribute("fill", "none");
+  sheet.setAttribute("stroke", "currentColor");
+  sheet.setAttribute("stroke-width", "1.7");
+  sheet.setAttribute("stroke-linejoin", "round");
+
+  const fold = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  fold.setAttribute("d", "M12.4 3.5v2.8H15");
+  fold.setAttribute("fill", "none");
+  fold.setAttribute("stroke", "currentColor");
+  fold.setAttribute("stroke-width", "1.7");
+  fold.setAttribute("stroke-linejoin", "round");
+
+  const firstLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  firstLine.setAttribute("d", "M7.4 9h5.2");
+  firstLine.setAttribute("fill", "none");
+  firstLine.setAttribute("stroke", "currentColor");
+  firstLine.setAttribute("stroke-width", "1.5");
+  firstLine.setAttribute("stroke-linecap", "round");
+
+  const secondLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  secondLine.setAttribute("d", "M7.4 12h4.2");
+  secondLine.setAttribute("fill", "none");
+  secondLine.setAttribute("stroke", "currentColor");
+  secondLine.setAttribute("stroke-width", "1.5");
+  secondLine.setAttribute("stroke-linecap", "round");
+
+  icon.append(sheet, fold, firstLine, secondLine);
+  marker.append(icon);
+  return marker;
 }
 
 function createCopyIcon() {
