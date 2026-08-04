@@ -1186,6 +1186,14 @@ tbody tr.serial-duplicate-row:hover {
   background: #fff0e8;
 }
 
+tbody tr.serial-service-row {
+  background: #f3faf9;
+}
+
+tbody tr.serial-service-row:hover {
+  background: #e9f5f3;
+}
+
 tbody tr.fifo-warning {
   background: var(--fifo-yellow);
 }
@@ -1433,6 +1441,10 @@ td {
   font-size: 1rem;
 }
 
+.devices-table td:nth-child(4) .serial-pill.service {
+  font-size: 0.98rem;
+}
+
 .serial-pill:hover,
 .serial-pill:focus-visible {
   border-color: transparent;
@@ -1508,12 +1520,29 @@ td {
   font-size: 0.92rem;
 }
 
-tbody tr.device-sold-row .serial-pill.duplicate {
+.serial-pill.service {
+  gap: 6px;
+  padding: 2px 7px;
+  color: #236d73;
+  background: #e9f5f3;
+  font-size: 0.9rem;
+}
+
+tbody tr.device-sold-row .serial-pill.duplicate,
+tbody tr.device-sold-row .serial-pill.service {
   opacity: 1;
 }
 
 .serial-duplicate-marker {
   color: #b65a36;
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.serial-service-marker {
+  color: #2c7c7f;
   font-family: inherit;
   font-size: 0.64rem;
   font-weight: 850;
