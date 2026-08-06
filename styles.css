@@ -741,6 +741,11 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+select.location-suggested {
+  border-color: #9aa66d;
+  background: #fbfcf4;
+}
+
 .date-input-wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;
