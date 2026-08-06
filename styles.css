@@ -741,8 +741,15 @@ textarea:focus {
   border-color: var(--accent);
 }
 
-input.today-date-input,
+input.today-date-input {
+  border-color: #7fb9ae;
+  color: #003f5a;
+  background: #f3faf8;
+  font-weight: 950;
+}
+
 .today-date {
+  color: #003f5a;
   font-weight: 950;
 }
 
@@ -941,7 +948,9 @@ select.location-suggested {
   border-color: #b8d2ca;
   color: #0f685c;
   background: #f1f8f5;
-  font-weight: 950;
+  box-shadow: inset 0 0 0 2px rgba(15, 104, 92, 0.18);
+  font-size: 0.84rem;
+  font-weight: 1000;
 }
 
 .date-picker-day.invalid-order {
@@ -1419,6 +1428,22 @@ td {
 .date-pill.past {
   opacity: 0.42;
   filter: saturate(0.45);
+}
+
+.date-text.today-date {
+  display: inline-block;
+  font-size: 1.08em;
+  font-weight: 1000;
+}
+
+.date-pill.today-date {
+  opacity: 1;
+  filter: none;
+  color: #003f5a;
+  background: #e4f5f1;
+  box-shadow: inset 0 0 0 1px #7fb9ae;
+  font-size: 0.79rem;
+  font-weight: 1000;
 }
 
 .serial-pill {
