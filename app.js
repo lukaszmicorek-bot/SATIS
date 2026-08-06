@@ -978,9 +978,20 @@ function stockAuditLabel(stockRecords = stockAuditRecords()) {
 }
 
 function renderStockAudit(stockRecords = stockAuditRecords()) {
-  if (stockAuditSummary) stockAuditSummary.textContent = stockAuditLabel(stockRecords);
+  if (stockAuditSummary) {
+    const progress = stockAuditProgressLabel(stockRecords);
+    if (!stockAudit.checkedAt && !stockAudit.checkedBy) {
+      stockAuditSummary.textContent = `Brak zapisanego remanentu. · ${progress}`;
+    } else {
+      stockAuditSummary.replaceChildren(
+        "Ostatni remanent: ",
+        createDateText(stockAudit.checkedAt) || "brak daty",
+        ` · ${stockAudit.checkedBy || "brak osoby"} · ${progress}`
+      );
+    }
+  }
   if (stockChecklistPerson) stockChecklistPerson.textContent = `Sprawdził(a): ${stockAudit.checkedBy || ""}`;
-  if (stockChecklistDate) stockChecklistDate.textContent = `Data: ${stockAudit.checkedAt ? formatDate(stockAudit.checkedAt) : ""}`;
+  setLabeledDateContent(stockChecklistDate, "Data: ", stockAudit.checkedAt, "");
   if (exportStockAuditPdfBtn) exportStockAuditPdfBtn.disabled = !isStockAuditActive();
   renderStockAuditPreview(stockRecords);
   renderStockAuditReport(stockRecords);
@@ -1115,17 +1126,15 @@ function renderStockAuditReport(stockRecords = stockAuditRecords()) {
   const personText = stockAudit.checkedBy || "brak osoby";
 
   if (stockAuditReportMeta) {
-    stockAuditReportMeta.textContent = [
-      `Data remanentu: ${dateText}`,
-      `Sprawdzał(a): ${personText}`,
-      `Razem: ${stats.total}`,
-      `Na stanie: ${stats.checked}`,
-      `Brak: ${stats.missing}`
-    ].join(" · ");
+    stockAuditReportMeta.replaceChildren(
+      "Data remanentu: ",
+      createDateText(stockAudit.checkedAt) || dateText,
+      ` · Sprawdzał(a): ${personText} · Razem: ${stats.total} · Na stanie: ${stats.checked} · Brak: ${stats.missing}`
+    );
   }
 
   if (stockAuditReportPerson) stockAuditReportPerson.textContent = `Sprawdził(a): ${stockAudit.checkedBy || ""}`;
-  if (stockAuditReportDate) stockAuditReportDate.textContent = `Data: ${stockAudit.checkedAt ? formatDate(stockAudit.checkedAt) : ""}`;
+  setLabeledDateContent(stockAuditReportDate, "Data: ", stockAudit.checkedAt, "");
 
   if (stockAuditReportSummary) {
     const summaryItems = [
@@ -1188,7 +1197,7 @@ function exportStockAuditPdf() {
 
 function fillStockAuditForm() {
   if (stockAuditPersonInput) stockAuditPersonInput.value = stockAudit.checkedBy || "";
-  if (stockAuditDateInput) stockAuditDateInput.value = displayDateForInput(stockAudit.checkedAt || todayInputValue());
+  if (stockAuditDateInput) setDateInputValue(stockAuditDateInput, stockAudit.checkedAt || todayInputValue());
   renderStockAudit();
 }
 
@@ -1539,7 +1548,10 @@ function normalizeFormDateFields(data, dateFields) {
 
 function setDateInputValue(selectorOrInput, value) {
   const input = typeof selectorOrInput === "string" ? document.querySelector(selectorOrInput) : selectorOrInput;
-  if (input) input.value = displayDateForInput(value);
+  if (input) {
+    input.value = displayDateForInput(value);
+    updateDateInputTodayState(input);
+  }
 }
 
 function formatDate(value) {
@@ -1547,6 +1559,37 @@ function formatDate(value) {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return dateFormatter.format(date);
+}
+
+function isTodayDate(value) {
+  const isoDate = isoDateForSave(value);
+  return Boolean(isoDate && isoDate === todayInputValue());
+}
+
+function createDateText(value) {
+  const formattedDate = formatDate(value);
+  if (!formattedDate) return "";
+
+  const date = document.createElement("span");
+  date.className = "date-text";
+  if (isTodayDate(value)) date.classList.add("today-date");
+  date.textContent = formattedDate;
+  return date;
+}
+
+function setLabeledDateContent(element, label, value, fallback = "") {
+  if (!element) return;
+  element.replaceChildren(label);
+  element.append(createDateText(value) || fallback);
+}
+
+function updateDateInputTodayState(input) {
+  if (!input) return;
+  input.classList.toggle("today-date-input", isTodayDate(input.value));
+}
+
+function updateDateInputsTodayState(root = document) {
+  root.querySelectorAll?.("input[data-date-picker]").forEach(updateDateInputTodayState);
 }
 
 function normalize(value) {
@@ -3878,13 +3921,13 @@ function createRow(record) {
   if (level) row.classList.add(`fifo-${level}`);
 
   const cells = [
-    formatDate(record.receivedDate),
+    createDateText(record.receivedDate),
     createAgePill(record),
     createDeviceNameCell(record),
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches, [], deviceSerialWarrantyTitle(record)),
     createTypePill(displayType(record)),
     createLocationPill(record.location),
-    formatDate(record.pickupDate),
+    createDateText(record.pickupDate),
     record.customerName,
     record.salesInvoice,
     createEzwmCell(record),
@@ -3950,7 +3993,7 @@ function createDemoRow(record) {
 
   const cells = [
     statusWrap,
-    formatDate(record.receivedDate),
+    createDateText(record.receivedDate),
     createDemoReturnDeadlineCell(meta),
     record.manufacturer,
     record.deviceName,
@@ -4035,7 +4078,7 @@ function createDemoCurrentUser(currentUser, loanDate = "") {
   wrap.append(label, name);
   if (loanDate) {
     const date = document.createElement("span");
-    date.textContent = `od ${formatDate(loanDate)}`;
+    date.append("od ", createDateText(loanDate) || formatDate(loanDate));
     wrap.append(date);
   }
   return wrap;
@@ -4053,21 +4096,21 @@ function createDemoNotesCell(record) {
   if (record.loanDate) {
     const loanDate = document.createElement("span");
     loanDate.className = "demo-notes-loan-date";
-    loanDate.textContent = `Wypożyczono: ${formatDate(record.loanDate)}`;
+    loanDate.append("Wypożyczono: ", createDateText(record.loanDate) || formatDate(record.loanDate));
     wrap.append(loanDate);
   }
 
   if (record.returnDate) {
     const returnDate = document.createElement("span");
     returnDate.className = "demo-notes-return-date";
-    returnDate.textContent = `Zwrócono: ${formatDate(record.returnDate)}`;
+    returnDate.append("Zwrócono: ", createDateText(record.returnDate) || formatDate(record.returnDate));
     wrap.append(returnDate);
   }
 
   if (record.manufacturerReturnedDate) {
     const manufacturerReturnedDate = document.createElement("span");
     manufacturerReturnedDate.className = "demo-notes-return-date";
-    manufacturerReturnedDate.textContent = `Do producenta: ${formatDate(record.manufacturerReturnedDate)}`;
+    manufacturerReturnedDate.append("Do producenta: ", createDateText(record.manufacturerReturnedDate) || formatDate(record.manufacturerReturnedDate));
     wrap.append(manufacturerReturnedDate);
   }
 
@@ -4099,6 +4142,7 @@ function createDemoReturnDeadlineCell(meta) {
 
   const date = document.createElement("strong");
   date.textContent = formatDate(meta.returnDeadline);
+  if (isTodayDate(meta.returnDeadline)) date.classList.add("today-date");
   wrap.append(date);
 
   const time = document.createElement("small");
@@ -4166,6 +4210,7 @@ function showDemoReturnReminder() {
     deadline.className = "return-reminder-deadline";
     const date = document.createElement("strong");
     date.textContent = formatDate(meta.returnDeadline);
+    if (isTodayDate(meta.returnDeadline)) date.classList.add("today-date");
     const time = document.createElement("span");
     time.textContent =
       meta.returnSource === "loan"
@@ -4512,7 +4557,7 @@ function createRepairRow(record) {
   if (overdueClass) row.classList.add(overdueClass);
   const activeDateType = activeRepairDateType(record);
   const cells = [
-    formatDate(record.receivedDate),
+    createDateText(record.receivedDate),
     createCategoryPill(record.category, record),
     createLocationPill(record.location),
     createRepairCustomerName(record.customerName, status),
@@ -4670,6 +4715,7 @@ function createDatePill(value, type, activeType = "") {
 
   pill.className = `date-pill ${type}`;
   if (activeType && type !== activeType) pill.classList.add("past");
+  if (isTodayDate(value)) pill.classList.add("today-date");
   pill.textContent = formatDate(value);
   return pill;
 }
@@ -5128,6 +5174,7 @@ function openDialog(record = null) {
     document.querySelector("#type").value = "NA STANIE";
     document.querySelector("#location").value = "P63";
   }
+  updateDateInputsTodayState(recordForm);
   recordDialog.showModal();
 }
 
@@ -5171,6 +5218,7 @@ function openRepairDialog(record = null) {
   } else {
     repairLocationInput.dataset.userChanged = "1";
   }
+  updateDateInputsTodayState(repairForm);
   updateRepairWarrantyHint();
 
   repairDialog.showModal();
@@ -5239,6 +5287,7 @@ function openDemoDialog(record = null) {
   } else if (isoDateForSave(manufacturerReturnDateInput.value) === calculatedManufacturerReturnDate) {
     manufacturerReturnDateInput.dataset.autoValue = calculatedManufacturerReturnDate;
   }
+  updateDateInputsTodayState(demoForm);
   renderDemoCurrentAttachments();
   renderDemoLoanHistory(record);
   demoDialog.showModal();
@@ -5273,7 +5322,11 @@ function renderDemoLoanHistory(record) {
     const person = document.createElement("strong");
     person.textContent = entry.currentUser || "Brak osoby";
     const dates = document.createElement("span");
-    dates.textContent = `${entry.loanDate ? formatDate(entry.loanDate) : "brak daty"} → ${entry.returnDate ? formatDate(entry.returnDate) : "brak daty zwrotu"}`;
+    dates.append(
+      createDateText(entry.loanDate) || "brak daty",
+      " → ",
+      createDateText(entry.returnDate) || "brak daty zwrotu"
+    );
     const removeButton = document.createElement("button");
     removeButton.className = "demo-loan-history-remove";
     removeButton.type = "button";
@@ -5917,6 +5970,7 @@ function handleClearDateClick(event) {
   if (!input) return;
 
   input.value = "";
+  updateDateInputTodayState(input);
 
   if (targetId.startsWith("demo")) {
     if (targetId === "demoReturnDate") markDemoReturnDateChange();
@@ -6768,12 +6822,16 @@ function ensureDatePicker() {
 function setupDatePickers() {
   ensureDatePicker();
   document.querySelectorAll("input[data-date-picker]").forEach((input) => {
+    updateDateInputTodayState(input);
     input.addEventListener("focus", () => openDatePicker(input));
     input.addEventListener("click", () => openDatePicker(input));
     input.addEventListener("blur", () => {
       const isoDate = isoDateForSave(input.value);
       if (isoDate) input.value = displayDateForInput(isoDate);
+      updateDateInputTodayState(input);
     });
+    input.addEventListener("input", () => updateDateInputTodayState(input));
+    input.addEventListener("change", () => updateDateInputTodayState(input));
     input.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeDatePicker();
     });
