@@ -1172,7 +1172,8 @@ tbody tr.device-sold-row:hover {
   transform: translateY(0);
 }
 
-.devices-table tbody tr:first-child .device-name-cell.has-price::after {
+.devices-table tbody tr:first-child .device-name-cell.has-price::after,
+.repairs-table tbody tr:first-child .device-name-cell.has-price::after {
   top: calc(100% + 8px);
   bottom: auto;
   z-index: 40;
@@ -1606,6 +1607,12 @@ tbody tr.device-sold-row .serial-pill.service {
   color: #8b3b34;
   background: #fde9e5;
   box-shadow: inset 0 0 0 1px #e3a399;
+}
+
+.type-pill.warranty-warning {
+  box-shadow:
+    inset 0 0 0 1px #d08a35,
+    0 0 0 1px rgba(208, 138, 53, 0.16);
 }
 
 .status-pill.PRZYJĘTE {

@@ -191,6 +191,7 @@ const REPAIR_DATE_ORDER = [
   { field: "returnDate", label: "Data powrotu", selector: "#repairReturnDate" },
   { field: "pickupDate", label: "Data odbioru", selector: "#repairPickupDate" }
 ];
+const REPAIR_WARRANTY_MONTHS = 36;
 
 let records = [];
 let repairRecords = [];
@@ -1676,6 +1677,106 @@ function saleSerialTitle(matches) {
     .join("\n");
   const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
   return `Sprzedaż aparatu:\n${matchList}${extraCount}`;
+}
+
+function addMonthsToIsoDate(value, months) {
+  const date = parseIsoDate(value);
+  if (!date) return "";
+
+  const originalDay = date.getDate();
+  date.setMonth(date.getMonth() + months);
+  if (date.getDate() !== originalDay) date.setDate(0);
+  return isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
+}
+
+function repairWarrantyCheckEntries(record, currentId = "") {
+  const checkDate = isoDateForSave(record?.receivedDate) || todayInputValue();
+  return repairSerialNumbers(record).map((serialNumber) => {
+    const saleMatches = saleSerialMatchesForSerial(serialNumber, "repairs", currentId);
+    const saleMatch = saleMatches.find((match) => match.pickupDate) || saleMatches[0];
+    const saleDate = saleMatch?.pickupDate || "";
+    const warrantyEnd = saleDate ? addMonthsToIsoDate(saleDate, REPAIR_WARRANTY_MONTHS) : "";
+    return {
+      serialNumber,
+      hasSaleMatch: Boolean(saleMatch),
+      saleDate,
+      warrantyEnd,
+      checkDate,
+      inWarranty: Boolean(saleDate && warrantyEnd && checkDate <= warrantyEnd)
+    };
+  });
+}
+
+function repairWarrantyEntryLabel(entry) {
+  if (!entry.saleDate) return `${entry.serialNumber}: brak daty sprzedaży w Bazie`;
+  return `${entry.serialNumber}: sprzedaż ${formatDate(entry.saleDate)}, gwarancja do ${formatDate(entry.warrantyEnd)}`;
+}
+
+function repairWarrantyWarning(record, currentId = "") {
+  const category = normalizeRepairCategory(record?.category);
+  if (category !== "NAPRAWA GWARANCYJNA" && category !== "NAPRAWA POGWARANCYJNA") return "";
+
+  const entries = repairWarrantyCheckEntries(record, currentId);
+  if (!entries.length) return "";
+
+  const missingSaleDate = entries.filter((entry) => !entry.saleDate);
+  const outOfWarranty = entries.filter((entry) => entry.saleDate && !entry.inWarranty);
+  const inWarranty = entries.filter((entry) => entry.saleDate && entry.inWarranty);
+  const checkedAt = formatDate(entries[0].checkDate);
+
+  if (category === "NAPRAWA GWARANCYJNA" && outOfWarranty.length) {
+    return `Wybrano naprawę gwarancyjną, ale wg Bazy gwarancja minęła (${REPAIR_WARRANTY_MONTHS} mies.). Data przyjęcia: ${checkedAt}. ${outOfWarranty.map(repairWarrantyEntryLabel).join(" | ")}`;
+  }
+
+  if (category === "NAPRAWA POGWARANCYJNA" && inWarranty.length) {
+    return `Wybrano naprawę pogwarancyjną, ale wg Bazy aparat jest jeszcze w gwarancji. Data przyjęcia: ${checkedAt}. ${inWarranty.map(repairWarrantyEntryLabel).join(" | ")}`;
+  }
+
+  if (missingSaleDate.length) {
+    return `Nie mogę potwierdzić gwarancji, bo brakuje daty sprzedaży w Bazie. ${missingSaleDate.map(repairWarrantyEntryLabel).join(" | ")}`;
+  }
+
+  return "";
+}
+
+function soldDeviceSaleDate(record) {
+  const isSold = displayType(record) === "SPRZEDANY" || Boolean(String(record?.salesInvoice ?? "").trim());
+  if (!isSold) return "";
+  return isoDateForSave(record?.pickupDate);
+}
+
+function deviceWarrantyTooltip(record) {
+  const saleDate = soldDeviceSaleDate(record);
+  const isSold = displayType(record) === "SPRZEDANY" || Boolean(String(record?.salesInvoice ?? "").trim());
+  if (!isSold) return "";
+  if (!saleDate) return "Gwarancja: brak daty sprzedaży w Bazie";
+
+  const warrantyEnd = addMonthsToIsoDate(saleDate, REPAIR_WARRANTY_MONTHS);
+  const invoice = normalizeSalesInvoice(record?.salesInvoice);
+  const location = String(record?.location || "").trim();
+
+  return [
+    `Sprzedaż: ${formatDate(saleDate)}`,
+    warrantyEnd ? `Gwarancja do: ${formatDate(warrantyEnd)}` : "",
+    invoice ? `FV: ${invoice}` : "",
+    location ? `Miejsce: ${normalizeRepairLocation(location)}` : ""
+  ].filter(Boolean).join("\n");
+}
+
+function repairModelWarrantyTooltip(record) {
+  const entries = repairWarrantyCheckEntries(record, record?.id).filter((entry) => entry.saleDate || entry.hasSaleMatch);
+  if (!entries.length) return "";
+
+  const lines = entries.map(repairWarrantyEntryLabel);
+  return `Gwarancja wg Bazy (${REPAIR_WARRANTY_MONTHS} mies.):\n${lines.join("\n")}`;
+}
+
+function applyModelTooltip(element, tooltip, label) {
+  if (!tooltip) return;
+  element.classList.add("has-price");
+  element.title = tooltip;
+  element.dataset.priceTooltip = tooltip;
+  element.setAttribute("aria-label", `${label}. ${tooltip.replace(/\n/gu, " ")}`);
 }
 
 function serialRelationTitle(duplicateMatches = [], serviceMatches = [], saleMatches = []) {
@@ -3609,12 +3710,8 @@ function createDeviceNameCell(record) {
   name.textContent = deviceName;
 
   const priceInfo = pricingPriceInfoForDeviceName(deviceName);
-  if (priceInfo) {
-    name.classList.add("has-price");
-    name.title = priceInfo.tooltip;
-    name.dataset.priceTooltip = priceInfo.tooltip;
-    name.setAttribute("aria-label", `${deviceName}. ${priceInfo.tooltip.replace(/\n/gu, " ")}`);
-  }
+  const tooltip = [priceInfo?.tooltip, deviceWarrantyTooltip(record)].filter(Boolean).join("\n\n");
+  applyModelTooltip(name, tooltip, deviceName);
 
   return name;
 }
@@ -4253,6 +4350,17 @@ function updateDeviceTypeSelectStyles() {
   });
 }
 
+function createRepairDeviceNameCell(record) {
+  const deviceName = String(record?.deviceName || "").trim();
+  if (!deviceName) return "";
+
+  const name = document.createElement("span");
+  name.className = "device-name-cell";
+  name.textContent = deviceName;
+  applyModelTooltip(name, repairModelWarrantyTooltip(record), deviceName);
+  return name;
+}
+
 function createRepairRow(record) {
   const row = document.createElement("tr");
   const status = repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record);
@@ -4262,10 +4370,10 @@ function createRepairRow(record) {
   const activeDateType = activeRepairDateType(record);
   const cells = [
     formatDate(record.receivedDate),
-    createCategoryPill(record.category),
+    createCategoryPill(record.category, record),
     createLocationPill(record.location),
     createRepairCustomerName(record.customerName, status),
-    record.deviceName,
+    createRepairDeviceNameCell(record),
     createRepairSerialCell(record),
     createStatusPill(status),
     createDatePill(record.sentDate, "sent", activeDateType),
@@ -4374,7 +4482,7 @@ function effectiveRepairStatus(record) {
   });
 }
 
-function createCategoryPill(category) {
+function createCategoryPill(category, record = null) {
   const pill = document.createElement("span");
   const normalizedCategory = normalizeRepairCategory(category);
   const className =
@@ -4387,6 +4495,13 @@ function createCategoryPill(category) {
         : "REPAIR";
   pill.className = `type-pill ${className}`;
   pill.textContent = normalizedCategory;
+  if (record) {
+    const warrantyWarning = repairWarrantyWarning(record, record.id);
+    if (warrantyWarning) {
+      pill.classList.add("warranty-warning");
+      pill.title = warrantyWarning;
+    }
+  }
   return pill;
 }
 
@@ -4907,6 +5022,7 @@ function openRepairDialog(record = null) {
     document.querySelector("#repairLocation").value = "P63";
     syncRepairDeviceNameFromCategory({ force: true });
   }
+  updateRepairWarrantyHint();
 
   repairDialog.showModal();
 }
@@ -5111,6 +5227,16 @@ function syncRepairDeviceNameFromCategory({ force = false } = {}) {
   if (force || !currentValue || currentUpper === "WKŁADKA USZNA" || currentUpper === "WKŁADKA PRZECIWWODNA") {
     deviceNameInput.value = suggestedName;
   }
+}
+
+function syncRepairCategoryInput() {
+  syncRepairDeviceNameFromCategory({ force: true });
+  updateRepairWarrantyHint();
+}
+
+function syncRepairSerialInput(event) {
+  syncDemoUppercaseInput(event);
+  updateRepairWarrantyHint();
 }
 
 function repairFormRecord() {
@@ -5388,11 +5514,22 @@ function validateRepairDateOrder(data = repairFormRecord(), options = {}) {
   return showRepairDateOrderError(repairDateOrderViolation(data), options);
 }
 
+function updateRepairWarrantyHint(data = repairFormRecord()) {
+  if (!repairFormError || repairDateOrderViolation(data)) return;
+  repairFormError.textContent = repairWarrantyWarning(data, document.querySelector("#repairId").value);
+}
+
+function confirmRepairWarrantySave(data, currentId = "") {
+  const warning = repairWarrantyWarning(data, currentId);
+  if (!warning) return true;
+  return confirm(`${warning}\n\nZapisać mimo to?`);
+}
+
 function syncRepairStatusFromDates() {
   const data = Object.fromEntries(new FormData(repairForm).entries());
   normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
-  validateRepairDateOrder(data);
+  if (validateRepairDateOrder(data)) updateRepairWarrantyHint(data);
 }
 
 function syncDemoStatusFromCurrentUser(options = {}) {
@@ -5630,6 +5767,7 @@ async function saveRepairFormRecord(event) {
   let savedRecord;
   if (!validateRepairDateOrder(data, { focus: true })) return;
   if (!confirmSerialNumberSave(data.serialNumber, "repairs", id)) return;
+  if (!confirmRepairWarrantySave(data, id)) return;
   const previousRepairRecords = repairRecords;
 
   if (id) {
@@ -6772,9 +6910,9 @@ document.querySelector("#repairReceivedDate").addEventListener("change", syncRep
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
-document.querySelector("#repairCategory").addEventListener("change", () => syncRepairDeviceNameFromCategory({ force: true }));
-document.querySelector("#repairSerialNumber").addEventListener("input", syncDemoUppercaseInput);
-document.querySelector("#repairSerialNumber2").addEventListener("input", syncDemoUppercaseInput);
+document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
+document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
+document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
 document.querySelector("#demoManufacturerReturnDate").addEventListener("change", markDemoManufacturerReturnDateChange);
 document.querySelector("#demoManufacturerReturned").addEventListener("change", (event) => syncDemoManufacturerReturned(event.target.checked));
