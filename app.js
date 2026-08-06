@@ -1798,9 +1798,11 @@ function compareSaleSerialMatches(left, right) {
 }
 
 function saleSerialHistoryLine(match) {
+  const warrantyEnd = match.pickupDate ? addMonthsToIsoDate(match.pickupDate, REPAIR_WARRANTY_MONTHS) : "";
   return [
     `Miejsce: ${match.location || "brak"}`,
     `Sprzedaż: ${match.pickupDate ? formatDate(match.pickupDate) : "brak daty"}`,
+    warrantyEnd ? `Gwarancja do: ${formatDate(warrantyEnd)}` : "Gwarancja: brak daty sprzedaży",
     `FV: ${match.salesInvoice || "brak"}`
   ].join(" | ");
 }
@@ -1900,6 +1902,12 @@ function deviceWarrantyTooltip(record) {
   ].filter(Boolean).join("\n");
 }
 
+function deviceSerialWarrantyTitle(record) {
+  const tooltip = deviceWarrantyTooltip(record);
+  if (!tooltip) return "";
+  return `Gwarancja aparatu (${REPAIR_WARRANTY_MONTHS} mies.):\n${tooltip}`;
+}
+
 function repairModelWarrantyTooltip(record) {
   const entries = repairWarrantyCheckEntries(record, record?.id).filter((entry) => entry.saleDate || entry.hasSaleMatch);
   if (!entries.length) return "";
@@ -1916,8 +1924,8 @@ function applyModelTooltip(element, tooltip, label) {
   element.setAttribute("aria-label", `${label}. ${tooltip.replace(/\n/gu, " ")}`);
 }
 
-function serialRelationTitle(duplicateMatches = [], serviceMatches = [], saleMatches = []) {
-  return [duplicateSerialTitle(duplicateMatches), serviceSerialTitle(serviceMatches), saleSerialTitle(saleMatches)].filter(Boolean).join("\n\n");
+function serialRelationTitle(duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "") {
+  return [extraTitle, duplicateSerialTitle(duplicateMatches), serviceSerialTitle(serviceMatches), saleSerialTitle(saleMatches)].filter(Boolean).join("\n\n");
 }
 
 function confirmSerialNumberSave(serialNumber, source, currentId) {
@@ -3847,8 +3855,7 @@ function createDeviceNameCell(record) {
   name.textContent = deviceName;
 
   const priceInfo = pricingPriceInfoForDeviceName(deviceName);
-  const tooltip = [priceInfo?.tooltip, deviceWarrantyTooltip(record)].filter(Boolean).join("\n\n");
-  applyModelTooltip(name, tooltip, deviceName);
+  applyModelTooltip(name, priceInfo?.tooltip || "", deviceName);
 
   return name;
 }
@@ -3874,7 +3881,7 @@ function createRow(record) {
     formatDate(record.receivedDate),
     createAgePill(record),
     createDeviceNameCell(record),
-    createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
+    createSerialPill(record.serialNumber, duplicateMatches, serviceMatches, [], deviceSerialWarrantyTitle(record)),
     createTypePill(displayType(record)),
     createLocationPill(record.location),
     formatDate(record.pickupDate),
@@ -4206,13 +4213,13 @@ function ageLevel(record, age = stockAge(record)) {
   return "fresh";
 }
 
-function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = [], saleMatches = []) {
+function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "") {
   const pill = document.createElement("button");
   pill.className = "serial-pill";
   pill.type = "button";
   const hasSerialNumber = Boolean(String(serialNumber ?? "").trim());
   const serialText = hasSerialNumber ? String(serialNumber).trim() : "brak numeru";
-  const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches, saleMatches);
+  const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches, saleMatches, extraTitle);
   const defaultTitle = relationTitle
     ? `Kliknij, aby skopiować numer seryjny. ${relationTitle}`
     : "Kliknij, aby skopiować numer seryjny";
@@ -4239,7 +4246,7 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
     pill.classList.add("duplicate");
   } else if (serviceMatches.length) {
     pill.classList.add("service");
-  } else if (saleMatches.length) {
+  } else if (saleMatches.length || extraTitle) {
     pill.classList.add("sale");
   }
 
@@ -4248,7 +4255,7 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
     copySerialNumber(serialText, pill, defaultTitle);
   });
 
-  if (!duplicateMatches.length && !serviceMatches.length && !saleMatches.length) return pill;
+  if (!duplicateMatches.length && !serviceMatches.length && !saleMatches.length && !extraTitle) return pill;
 
   const marker = document.createElement("small");
   if (duplicateMatches.length || serviceMatches.length) {
@@ -4494,7 +4501,6 @@ function createRepairDeviceNameCell(record) {
   const name = document.createElement("span");
   name.className = "device-name-cell";
   name.textContent = deviceName;
-  applyModelTooltip(name, repairModelWarrantyTooltip(record), deviceName);
   return name;
 }
 
