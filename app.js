@@ -1566,6 +1566,10 @@ function titleCaseNameInput(value) {
     .replace(/(^|[\s-])(\p{L})/gu, (match, separator, letter) => separator + letter.toLocaleUpperCase("pl-PL"));
 }
 
+function customerNameLookupKey(value) {
+  return normalize(titleCaseName(value).replace(/\s+/gu, " ")).trim();
+}
+
 function normalizeSerialNumber(value) {
   return String(value ?? "").trim().toLocaleUpperCase("pl-PL");
 }
@@ -1988,7 +1992,7 @@ function normalizeEzwmStatus(value) {
   const normalizedValue = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
   if (normalizedValue === "POBRANE") return "POBRANE";
   if (normalizedValue === "REALIZACJA") return "REALIZACJA";
-  if (normalizedValue === "BEZ ZLECENIA") return "BEZ ZLECENIA";
+  if (normalizedValue === "BEZ REFUNDACJI" || normalizedValue === "BEZ ZLECENIA") return "BEZ REFUNDACJI";
   return "";
 }
 
@@ -3545,7 +3549,7 @@ function buildDataControlIssues() {
     if (type === "SPRZEDANY" && !hasCustomer) {
       addDataControlIssue(issues, record, "devices", "warning", "status", "Sprzedany bez klienta", "Status wskazuje sprzedaż, ale imię i nazwisko jest puste.");
     }
-    if (type === "SPRZEDANY" && !["REALIZACJA", "BEZ ZLECENIA"].includes(ezwm)) {
+    if (type === "SPRZEDANY" && !["REALIZACJA", "BEZ REFUNDACJI"].includes(ezwm)) {
       addDataControlIssue(issues, record, "devices", "warning", "ezwm", "Sprzedany bez EZWM realizacja", "Dla sprzedanego aparatu EZWM nie ma statusu realizacja.");
     }
     if (type === "NA STANIE" && (hasCustomer || hasInvoice)) {
@@ -4390,7 +4394,7 @@ function createWaybillCell(waybillNumber) {
 
 function createEzwmCell(record) {
   const normalizedValue = normalizeEzwmStatus(record?.ezwm);
-  const soldWithoutRealization = displayType(record) === "SPRZEDANY" && !["REALIZACJA", "BEZ ZLECENIA"].includes(normalizedValue);
+  const soldWithoutRealization = displayType(record) === "SPRZEDANY" && !["REALIZACJA", "BEZ REFUNDACJI"].includes(normalizedValue);
 
   if (!normalizedValue && !soldWithoutRealization) return "";
 
@@ -4400,7 +4404,7 @@ function createEzwmCell(record) {
       ? "ezwm-alert"
       : normalizedValue === "POBRANE"
         ? "ezwm-progress"
-        : normalizedValue === "BEZ ZLECENIA"
+        : normalizedValue === "BEZ REFUNDACJI"
           ? "ezwm-none"
           : "ezwm-picked"
   }`;
@@ -4408,8 +4412,8 @@ function createEzwmCell(record) {
     ? "Sprzedany bez EZWM realizacja"
     : normalizedValue === "POBRANE"
       ? "EZWM pobrane"
-      : normalizedValue === "BEZ ZLECENIA"
-        ? "EZWM bez zlecenia"
+      : normalizedValue === "BEZ REFUNDACJI"
+        ? "EZWM bez refundacji"
         : "EZWM realizacja";
   wrap.setAttribute("aria-label", wrap.title);
 
@@ -4423,7 +4427,7 @@ function createEzwmCell(record) {
     path.setAttribute("d", "M10 3.5 17 16.5H3zM10 7.2v4.6M10 14.3h.01");
   } else if (normalizedValue === "POBRANE") {
     path.setAttribute("d", "M10 4.5a5.5 5.5 0 1 1-4.1 1.8M10 2.5v3.2M10 10l2.2 2.2");
-  } else if (normalizedValue === "BEZ ZLECENIA") {
+  } else if (normalizedValue === "BEZ REFUNDACJI") {
     path.setAttribute("d", "M5.2 5.2 14.8 14.8M7 4.5h6l2 2V15a1.2 1.2 0 0 1-1.2 1.2H6.2A1.2 1.2 0 0 1 5 15V5.7A1.2 1.2 0 0 1 6.2 4.5H13v2h2");
   } else {
     path.setAttribute("d", "M5 10.5 8.2 13.5 15 6.8");
@@ -5126,6 +5130,9 @@ function openRepairDialog(record = null) {
   clearRepairDateOrderError();
   document.querySelector("#repairId").value = record?.id ?? "";
   deleteRepairBtn.hidden = !record;
+  const repairLocationInput = document.querySelector("#repairLocation");
+  delete repairLocationInput.dataset.userChanged;
+  clearRepairLocationSuggestion(repairLocationInput);
   const normalizedRecord = record ? normalizeRepairRecordForUse(record) : null;
   repairRecordEyebrow.textContent = normalizedRecord ? repairDialogProductLabel(normalizedRecord) : "Produkt";
   repairDialogTitle.textContent = normalizedRecord ? repairDialogCustomerTitle(normalizedRecord) : "Dodaj naprawę lub wkładkę";
@@ -5152,8 +5159,10 @@ function openRepairDialog(record = null) {
   });
 
   if (!record) {
-    document.querySelector("#repairLocation").value = "P63";
+    repairLocationInput.value = "P63";
     syncRepairDeviceNameFromCategory({ force: true });
+  } else {
+    repairLocationInput.dataset.userChanged = "1";
   }
   updateRepairWarrantyHint();
 
@@ -5347,16 +5356,77 @@ function syncStockLocationFromType() {
   updateDeviceTypeSelectStyles();
 }
 
+function repairLocationSuggestionSortValue(record) {
+  return isoDateForSave(record?.pickupDate) || isoDateForSave(record?.returnDate) || isoDateForSave(record?.receivedDate) || "";
+}
+
+function suggestedRepairLocationForCustomer(customerName) {
+  const customerKey = customerNameLookupKey(customerName);
+  if (!customerKey) return "";
+
+  const matches = records
+    .filter((record) => customerNameLookupKey(record.customerName) === customerKey)
+    .sort((left, right) =>
+      String(repairLocationSuggestionSortValue(right)).localeCompare(String(repairLocationSuggestionSortValue(left)))
+    );
+
+  return matches.length ? normalizeRepairLocation(matches[0].location) : "";
+}
+
+function clearRepairLocationSuggestion(locationInput = document.querySelector("#repairLocation")) {
+  if (!locationInput) return;
+  locationInput.classList.remove("location-suggested");
+  locationInput.removeAttribute("title");
+  delete locationInput.dataset.suggestedLocation;
+}
+
+function syncRepairLocationFromCustomerName({ force = false } = {}) {
+  const idInput = document.querySelector("#repairId");
+  const customerInput = document.querySelector("#repairCustomerName");
+  const locationInput = document.querySelector("#repairLocation");
+  if (!idInput || !customerInput || !locationInput) return;
+  if (idInput.value) {
+    clearRepairLocationSuggestion(locationInput);
+    return;
+  }
+
+  const suggestedLocation = suggestedRepairLocationForCustomer(customerInput.value);
+  if (!suggestedLocation) {
+    clearRepairLocationSuggestion(locationInput);
+    return;
+  }
+
+  locationInput.dataset.suggestedLocation = suggestedLocation;
+  locationInput.title = `Podpowiedź z Bazy dla tej osoby: ${suggestedLocation}`;
+  locationInput.classList.add("location-suggested");
+  if (force || locationInput.dataset.userChanged !== "1") {
+    locationInput.value = suggestedLocation;
+  }
+}
+
+function markRepairLocationManualChange(event) {
+  const locationInput = event?.target || document.querySelector("#repairLocation");
+  if (!locationInput) return;
+  locationInput.dataset.userChanged = "1";
+  clearRepairLocationSuggestion(locationInput);
+}
+
 function syncRepairDeviceNameFromCategory({ force = false } = {}) {
   const categoryInput = document.querySelector("#repairCategory");
   const deviceNameInput = document.querySelector("#repairDeviceName");
   if (!categoryInput || !deviceNameInput) return;
   const category = normalizeRepairCategory(categoryInput.value);
-  if (!category.startsWith("WKŁADKA")) return;
-
   const currentValue = normalizeDeviceName(deviceNameInput.value);
-  const suggestedName = category === "WKŁADKA PRZECIWWODNA" ? "Wkładka przeciwwodna" : "Wkładka uszna";
   const currentUpper = currentValue.toLocaleUpperCase("pl-PL");
+
+  if (!category.startsWith("WKŁADKA")) {
+    if (force && (currentUpper === "WKŁADKA USZNA" || currentUpper === "WKŁADKA PRZECIWWODNA")) {
+      deviceNameInput.value = "";
+    }
+    return;
+  }
+
+  const suggestedName = category === "WKŁADKA PRZECIWWODNA" ? "Wkładka przeciwwodna" : "Wkładka uszna";
   if (force || !currentValue || currentUpper === "WKŁADKA USZNA" || currentUpper === "WKŁADKA PRZECIWWODNA") {
     deviceNameInput.value = suggestedName;
   }
@@ -5365,6 +5435,16 @@ function syncRepairDeviceNameFromCategory({ force = false } = {}) {
 function syncRepairCategoryInput() {
   syncRepairDeviceNameFromCategory({ force: true });
   updateRepairWarrantyHint();
+}
+
+function syncRepairCustomerNameInput(event) {
+  event.target.value = titleCaseNameInput(event.target.value);
+  syncRepairLocationFromCustomerName();
+}
+
+function finalizeRepairCustomerNameInput(event) {
+  event.target.value = titleCaseName(event.target.value);
+  syncRepairLocationFromCustomerName({ force: true });
 }
 
 function syncRepairSerialInput(event) {
@@ -7044,6 +7124,9 @@ document.querySelector("#repairSentDate").addEventListener("change", syncRepairS
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
+document.querySelector("#repairCustomerName").addEventListener("input", syncRepairCustomerNameInput);
+document.querySelector("#repairCustomerName").addEventListener("blur", finalizeRepairCustomerNameInput);
+document.querySelector("#repairLocation").addEventListener("change", markRepairLocationManualChange);
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
