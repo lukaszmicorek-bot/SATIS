@@ -1591,27 +1591,35 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .type-pill.REPAIR {
-  color: #255d78;
-  background: #e5f2f7;
-  box-shadow: inset 0 0 0 1px #9fc7d8;
+  color: #234f86;
+  background: #e8f2ff;
+  box-shadow:
+    inset 0 0 0 1px #aac6e8,
+    inset 4px 0 0 #6f9fd5;
 }
 
 .type-pill.INSERT {
-  color: #5a6428;
-  background: #eef4dc;
-  box-shadow: inset 0 0 0 1px #bbc983;
+  color: #745d16;
+  background: #fff4cf;
+  box-shadow:
+    inset 0 0 0 1px #dcc26d,
+    inset 4px 0 0 #c69b2c;
 }
 
 .type-pill.WATER-INSERT {
-  color: #2d6472;
-  background: #e8f4f5;
-  box-shadow: inset 0 0 0 1px #a8ccd1;
+  color: #00645d;
+  background: #e1f6f2;
+  box-shadow:
+    inset 0 0 0 1px #91ccc5,
+    inset 4px 0 0 #38a89d;
 }
 
 .type-pill.OUT-OF-WARRANTY {
-  color: #8b3b34;
-  background: #fde9e5;
-  box-shadow: inset 0 0 0 1px #e3a399;
+  color: #8a334b;
+  background: #fde8ef;
+  box-shadow:
+    inset 0 0 0 1px #df9aac,
+    inset 4px 0 0 #c45d78;
 }
 
 .type-pill.warranty-warning {
