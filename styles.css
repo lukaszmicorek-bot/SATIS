@@ -1432,6 +1432,14 @@ td {
   pointer-events: none;
 }
 
+.repair-serial-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  max-width: 100%;
+}
+
 .devices-table td:nth-child(4) .serial-pill {
   padding: 2px 4px;
   font-size: 0.98rem;

@@ -278,6 +278,7 @@ const repairFields = [
   "customerName",
   "deviceName",
   "serialNumber",
+  "serialNumber2",
   "status",
   "sentDate",
   "returnDate",
@@ -1577,6 +1578,18 @@ function serialDuplicateKey(value) {
   return compact;
 }
 
+function repairSerialNumbers(record) {
+  const seen = new Set();
+  return [record?.serialNumber, record?.serialNumber2]
+    .map(normalizeSerialNumber)
+    .filter((serial) => {
+      const key = serialDuplicateKey(serial);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function normalizeSalesInvoice(value) {
   return String(value ?? "").trim().toLocaleUpperCase("pl-PL");
 }
@@ -1669,9 +1682,9 @@ function serviceSerialMatches(record, source) {
     .sort(compareServiceSerialMatches);
 }
 
-function saleSerialMatches(record, source) {
+function saleSerialMatchesForSerial(serialNumber, source, currentId) {
   if (source !== "repairs") return [];
-  return serialMatches(record.serialNumber, source, record.id)
+  return serialMatches(serialNumber, source, currentId)
     .filter((match) => match.source === "devices" && match.isSold)
     .sort(compareSaleSerialMatches);
 }
@@ -1892,6 +1905,8 @@ function normalizeRepairRecordForUse(record) {
   normalizedRecord.category = normalizeRepairCategory(normalizedRecord.category);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.customerName = titleCaseName(normalizedRecord.customerName);
+  normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
+  normalizedRecord.serialNumber2 = normalizeSerialNumber(normalizedRecord.serialNumber2);
   normalizedRecord.status = effectiveRepairStatus(normalizedRecord);
   return normalizedRecord;
 }
@@ -2946,20 +2961,23 @@ function rebuildSerialIndex() {
   });
 
   repairRecords.forEach((record) => {
-    const serial = serialDuplicateKey(record.serialNumber);
-    if (!serial) return;
-    if (!serialIndex.has(serial)) serialIndex.set(serial, []);
-    serialIndex.get(serial).push({
-      source: "repairs",
-      id: record.id,
-      notebook: "Zeszyt napraw i wkładek",
-      receivedDate: record.receivedDate,
-      sentDate: record.sentDate,
-      returnDate: record.returnDate,
-      pickupDate: record.pickupDate,
-      deviceName: record.deviceName,
-      customerName: record.customerName,
-      label: [record.customerName, record.deviceName, repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record)].filter(Boolean).join(" / ")
+    repairSerialNumbers(record).forEach((serialNumber) => {
+      const serial = serialDuplicateKey(serialNumber);
+      if (!serial) return;
+      if (!serialIndex.has(serial)) serialIndex.set(serial, []);
+      serialIndex.get(serial).push({
+        source: "repairs",
+        id: record.id,
+        notebook: "Zeszyt napraw i wkładek",
+        serialNumber,
+        receivedDate: record.receivedDate,
+        sentDate: record.sentDate,
+        returnDate: record.returnDate,
+        pickupDate: record.pickupDate,
+        deviceName: record.deviceName,
+        customerName: record.customerName,
+        label: [record.customerName, record.deviceName, repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record)].filter(Boolean).join(" / ")
+      });
     });
   });
 
@@ -3666,6 +3684,7 @@ function repairSortValue(record, key) {
   if (key === "category") return meta?.category ?? normalizeRepairCategory(record.category);
   if (key === "location") return meta?.location ?? normalizeRepairLocation(record.location);
   if (key === "status") return meta?.status ?? effectiveRepairStatus(record);
+  if (key === "serialNumber") return repairSerialNumbers(record).join(" ");
   return record[key];
 }
 
@@ -4372,14 +4391,13 @@ function createRepairRow(record) {
   const overdueClass = repairOverdueClass(record, status);
   if (overdueClass) row.classList.add(overdueClass);
   const activeDateType = activeRepairDateType(record);
-  const saleMatches = saleSerialMatches(record, "repairs");
   const cells = [
     formatDate(record.receivedDate),
     createCategoryPill(record.category),
     createLocationPill(record.location),
     createRepairCustomerName(record.customerName, status),
     record.deviceName,
-    createSerialPill(record.serialNumber, [], [], saleMatches),
+    createRepairSerialCell(record),
     createStatusPill(status),
     createDatePill(record.sentDate, "sent", activeDateType),
     createDatePill(record.returnDate, "return", activeDateType),
@@ -4412,6 +4430,18 @@ function createRepairRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createRepairSerialCell(record) {
+  const serials = repairSerialNumbers(record);
+  if (!serials.length) return "";
+
+  const wrap = document.createElement("div");
+  wrap.className = "repair-serial-list";
+  serials.forEach((serialNumber) => {
+    wrap.append(createSerialPill(serialNumber, [], [], saleSerialMatchesForSerial(serialNumber, "repairs", record.id)));
+  });
+  return wrap;
 }
 
 function createRepairCustomerName(customerName, status) {
@@ -4988,6 +5018,7 @@ function openRepairDialog(record = null) {
     customerName: "#repairCustomerName",
     deviceName: "#repairDeviceName",
     serialNumber: "#repairSerialNumber",
+    serialNumber2: "#repairSerialNumber2",
     status: "#repairStatus",
     sentDate: "#repairSentDate",
     returnDate: "#repairReturnDate",
@@ -5202,6 +5233,7 @@ function repairFormRecord() {
   normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   data.customerName = titleCaseName(data.customerName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
+  data.serialNumber2 = normalizeSerialNumber(data.serialNumber2);
   data.category = normalizeRepairCategory(data.category);
   data.location = normalizeRepairLocation(data.location);
   data.status = statusFromRepairDates(data);
@@ -6090,7 +6122,8 @@ function exportRepairCsv() {
     "Miejsce",
     "Imię i nazwisko",
     "Aparat / wkładka",
-    "Numer seryjny",
+    "Numer seryjny 1",
+    "Numer seryjny 2",
     "Status",
     "Data wysłania",
     "Data powrotu",
@@ -6104,6 +6137,7 @@ function exportRepairCsv() {
     record.customerName ?? "",
     record.deviceName ?? "",
     record.serialNumber ?? "",
+    record.serialNumber2 ?? "",
     effectiveRepairStatus(record),
     record.sentDate ?? "",
     record.returnDate ?? "",
@@ -6363,6 +6397,14 @@ function normalizeImportHeader(header) {
     "aparat wkładka": "deviceName",
     "aparat wkladka": "deviceName",
     "numer seryjny": "serialNumber",
+    "numer seryjny 1": "serialNumber",
+    "nr seryjny 1": "serialNumber",
+    "numer seryjny 2": "serialNumber2",
+    "nr seryjny 2": "serialNumber2",
+    "drugi numer seryjny": "serialNumber2",
+    "drugi nr seryjny": "serialNumber2",
+    "numer seryjny wkładki 2": "serialNumber2",
+    "numer seryjny wkladki 2": "serialNumber2",
     "typ": "type",
     "miejsce": "location",
     "data odbioru": "pickupDate",
@@ -6427,6 +6469,9 @@ function normalizeImportedRecordFields(record, allowedFields) {
   }
   if ("serialNumber" in normalizedRecord) {
     normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
+  }
+  if ("serialNumber2" in normalizedRecord) {
+    normalizedRecord.serialNumber2 = normalizeSerialNumber(normalizedRecord.serialNumber2);
   }
   if ("salesInvoice" in normalizedRecord) {
     normalizedRecord.salesInvoice = normalizeSalesInvoice(normalizedRecord.salesInvoice);
@@ -6839,6 +6884,8 @@ document.querySelector("#repairReceivedDate").addEventListener("change", syncRep
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
+document.querySelector("#repairSerialNumber").addEventListener("input", syncDemoUppercaseInput);
+document.querySelector("#repairSerialNumber2").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
 document.querySelector("#demoManufacturerReturnDate").addEventListener("change", markDemoManufacturerReturnDateChange);
 document.querySelector("#demoManufacturerReturned").addEventListener("change", (event) => syncDemoManufacturerReturned(event.target.checked));
