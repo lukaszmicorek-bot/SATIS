@@ -1750,7 +1750,7 @@ function duplicateSerialTitle(matches) {
 function serviceSerialLastStage(match) {
   if (match.pickupDate) return { label: "Odbiór", date: match.pickupDate };
   if (match.returnDate) return { label: "Powrót", date: match.returnDate };
-  if (match.sentDate) return { label: "Wysłanie", date: match.sentDate };
+  if (match.sentDate) return { label: "Wysłane", date: match.sentDate };
   return null;
 }
 
@@ -1764,7 +1764,7 @@ function compareServiceSerialMatches(left, right) {
 
 function serviceSerialHistoryLine(match) {
   const parts = [];
-  if (match.receivedDate) parts.push(`Przyjęcie: ${formatDate(match.receivedDate)}`);
+  if (match.receivedDate) parts.push(`Przyjęte: ${formatDate(match.receivedDate)}`);
   if (match.deviceName) parts.push(`Model: ${match.deviceName}`);
 
   const stage = serviceSerialLastStage(match);
@@ -5034,6 +5034,7 @@ function openRepairDialog(record = null) {
 
   if (!record) {
     document.querySelector("#repairLocation").value = "P63";
+    syncRepairDeviceNameFromCategory({ force: true });
   }
 
   repairDialog.showModal();
@@ -5223,6 +5224,18 @@ function syncStockLocationFromType() {
     document.querySelector("#location").value = "P63";
   }
   updateDeviceTypeSelectStyles();
+}
+
+function syncRepairDeviceNameFromCategory({ force = false } = {}) {
+  const categoryInput = document.querySelector("#repairCategory");
+  const deviceNameInput = document.querySelector("#repairDeviceName");
+  if (!categoryInput || !deviceNameInput) return;
+  if (normalizeRepairCategory(categoryInput.value) !== "WKŁADKA USZNA") return;
+
+  const currentValue = normalizeDeviceName(deviceNameInput.value);
+  if (force || !currentValue || currentValue.toLocaleUpperCase("pl-PL") === "WKŁADKA USZNA") {
+    deviceNameInput.value = "Wkładka uszna";
+  }
 }
 
 function repairFormRecord() {
@@ -6884,6 +6897,7 @@ document.querySelector("#repairReceivedDate").addEventListener("change", syncRep
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
+document.querySelector("#repairCategory").addEventListener("change", () => syncRepairDeviceNameFromCategory({ force: true }));
 document.querySelector("#repairSerialNumber").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
