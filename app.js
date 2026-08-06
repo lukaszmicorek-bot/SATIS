@@ -5032,6 +5032,7 @@ function openRepairDialog(record = null) {
   });
 
   if (!record) {
+    setDateInputValue("#repairReceivedDate", todayInputValue());
     repairLocationInput.value = "P63";
     syncRepairDeviceNameFromCategory({ force: true });
   } else {
@@ -5575,6 +5576,19 @@ function repairDateOrderViolation(data) {
   return null;
 }
 
+function repairRequiredDateViolation(data) {
+  if (data?.receivedDate) return null;
+  return {
+    field: "receivedDate",
+    selector: "#repairReceivedDate",
+    message: "Data przyjęcia jest wymagana. Bez daty przyjęcia nie można zapisać naprawy ani wkładki."
+  };
+}
+
+function repairDateValidationViolation(data) {
+  return repairRequiredDateViolation(data) || repairDateOrderViolation(data);
+}
+
 function clearRepairDateOrderError() {
   if (repairFormError) repairFormError.textContent = "";
   REPAIR_DATE_ORDER.forEach(({ selector }) => {
@@ -5597,11 +5611,11 @@ function showRepairDateOrderError(violation, options = {}) {
 }
 
 function validateRepairDateOrder(data = repairFormRecord(), options = {}) {
-  return showRepairDateOrderError(repairDateOrderViolation(data), options);
+  return showRepairDateOrderError(repairDateValidationViolation(data), options);
 }
 
 function updateRepairWarrantyHint(data = repairFormRecord()) {
-  if (!repairFormError || repairDateOrderViolation(data)) return;
+  if (!repairFormError || repairDateValidationViolation(data)) return;
   repairFormError.textContent = repairWarrantyWarning(data, document.querySelector("#repairId").value);
 }
 
