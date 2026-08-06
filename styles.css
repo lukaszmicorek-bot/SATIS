@@ -741,6 +741,11 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+input.today-date-input,
+.today-date {
+  font-weight: 950;
+}
+
 select.location-suggested {
   border-color: #9aa66d;
   background: #fbfcf4;
@@ -936,6 +941,7 @@ select.location-suggested {
   border-color: #b8d2ca;
   color: #0f685c;
   background: #f1f8f5;
+  font-weight: 950;
 }
 
 .date-picker-day.invalid-order {
