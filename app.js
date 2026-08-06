@@ -1520,8 +1520,11 @@ function isoDateForSave(value) {
   const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (isoMatch) return isoDateFromParts(isoMatch[1], isoMatch[2], isoMatch[3]);
 
-  const displayMatch = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
-  if (displayMatch) return isoDateFromParts(displayMatch[3], displayMatch[2], displayMatch[1]);
+  const displayMatch = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/);
+  if (displayMatch) {
+    const year = displayMatch[3].length === 2 ? 2000 + Number(displayMatch[3]) : displayMatch[3];
+    return isoDateFromParts(year, displayMatch[2], displayMatch[1]);
+  }
 
   return "";
 }
@@ -1556,8 +1559,8 @@ function setDateInputValue(selectorOrInput, value) {
 
 function formatDate(value) {
   if (!value) return "";
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
+  const date = parseIsoDate(value);
+  if (!date) return String(value ?? "").trim();
   return dateFormatter.format(date);
 }
 
