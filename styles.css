@@ -1596,6 +1596,12 @@ tbody tr.device-sold-row .serial-pill.service {
   box-shadow: inset 0 0 0 1px #bbc983;
 }
 
+.type-pill.WATER-INSERT {
+  color: #2d6472;
+  background: #e8f4f5;
+  box-shadow: inset 0 0 0 1px #a8ccd1;
+}
+
 .type-pill.OUT-OF-WARRANTY {
   color: #8b3b34;
   background: #fde9e5;

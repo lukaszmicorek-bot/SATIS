@@ -1764,6 +1764,8 @@ function normalizeRepairCategory(category) {
   if (normalizedCategory === "NAPRAWA GWARANCYJNA") return "NAPRAWA GWARANCYJNA";
   if (normalizedCategory === "NAPRAWA POGWARANCYJNA") return "NAPRAWA POGWARANCYJNA";
   if (normalizedCategory === "WKŁADKA USZNA") return "WKŁADKA USZNA";
+  if (normalizedCategory === "WKŁADKA PRZECIWWODNA") return "WKŁADKA PRZECIWWODNA";
+  if (normalizedCategory === "WKLADKA PRZECIWWODNA") return "WKŁADKA PRZECIWWODNA";
   return "WKŁADKA USZNA";
 }
 
@@ -2622,7 +2624,7 @@ function rebuildRepairDerivedData() {
     const closed = status === "ODEBRANE";
 
     if (category.startsWith("NAPRAWA")) repairStats.repairs += 1;
-    if (category === "WKŁADKA USZNA") repairStats.inserts += 1;
+    if (category.startsWith("WKŁADKA")) repairStats.inserts += 1;
     if (!closed) repairStats.open += 1;
 
     repairDerived.set(record.id, {
@@ -4378,6 +4380,8 @@ function createCategoryPill(category) {
   const className =
     normalizedCategory === "WKŁADKA USZNA"
       ? "INSERT"
+      : normalizedCategory === "WKŁADKA PRZECIWWODNA"
+        ? "WATER-INSERT"
       : normalizedCategory === "NAPRAWA POGWARANCYJNA"
         ? "OUT-OF-WARRANTY"
         : "REPAIR";
@@ -4913,6 +4917,7 @@ function repairDialogProductLabel(record) {
 
   const category = normalizeRepairCategory(record?.category);
   if (category === "WKŁADKA USZNA") return "Wkładka uszna";
+  if (category === "WKŁADKA PRZECIWWODNA") return "Wkładka przeciwwodna";
   if (category === "NAPRAWA GWARANCYJNA" || category === "NAPRAWA POGWARANCYJNA") return "Aparat";
   return "Produkt";
 }
@@ -5097,11 +5102,14 @@ function syncRepairDeviceNameFromCategory({ force = false } = {}) {
   const categoryInput = document.querySelector("#repairCategory");
   const deviceNameInput = document.querySelector("#repairDeviceName");
   if (!categoryInput || !deviceNameInput) return;
-  if (normalizeRepairCategory(categoryInput.value) !== "WKŁADKA USZNA") return;
+  const category = normalizeRepairCategory(categoryInput.value);
+  if (!category.startsWith("WKŁADKA")) return;
 
   const currentValue = normalizeDeviceName(deviceNameInput.value);
-  if (force || !currentValue || currentValue.toLocaleUpperCase("pl-PL") === "WKŁADKA USZNA") {
-    deviceNameInput.value = "Wkładka uszna";
+  const suggestedName = category === "WKŁADKA PRZECIWWODNA" ? "Wkładka przeciwwodna" : "Wkładka uszna";
+  const currentUpper = currentValue.toLocaleUpperCase("pl-PL");
+  if (force || !currentValue || currentUpper === "WKŁADKA USZNA" || currentUpper === "WKŁADKA PRZECIWWODNA") {
+    deviceNameInput.value = suggestedName;
   }
 }
 
