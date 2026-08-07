@@ -1447,13 +1447,8 @@ function createDateText(value) {
   return date;
 }
 
-function containsTodayDateElement(value) {
-  return value instanceof HTMLElement && (value.classList.contains("today-date") || Boolean(value.querySelector?.(".today-date")));
-}
-
 function fillTableCell(cell, value, emptyPlaceholder = "-") {
   if (value instanceof HTMLElement) {
-    if (containsTodayDateElement(value)) cell.classList.add("today-date-cell");
     cell.append(value);
     return;
   }
