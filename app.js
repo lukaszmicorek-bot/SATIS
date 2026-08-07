@@ -1517,10 +1517,10 @@ function isoDateForSave(value) {
   const text = String(value ?? "").trim();
   if (!text) return "";
 
-  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?$/);
   if (isoMatch) return isoDateFromParts(isoMatch[1], isoMatch[2], isoMatch[3]);
 
-  const displayMatch = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/);
+  const displayMatch = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})(?:\s.*)?$/);
   if (displayMatch) {
     const year = displayMatch[3].length === 2 ? 2000 + Number(displayMatch[3]) : displayMatch[3];
     return isoDateFromParts(year, displayMatch[2], displayMatch[1]);
@@ -1578,6 +1578,21 @@ function createDateText(value) {
   if (isTodayDate(value)) date.classList.add("today-date");
   date.textContent = formattedDate;
   return date;
+}
+
+function containsTodayDateElement(value) {
+  return value instanceof HTMLElement && (value.classList.contains("today-date") || Boolean(value.querySelector?.(".today-date")));
+}
+
+function fillTableCell(cell, value, emptyPlaceholder = "-") {
+  if (value instanceof HTMLElement) {
+    if (containsTodayDateElement(value)) cell.classList.add("today-date-cell");
+    cell.append(value);
+    return;
+  }
+
+  cell.textContent = value || emptyPlaceholder;
+  if (!value) cell.classList.add("muted-cell");
 }
 
 function setLabeledDateContent(element, label, value, fallback = "") {
@@ -3738,12 +3753,7 @@ function createDataControlRow(issue) {
 
   cells.forEach((value) => {
     const cell = document.createElement("td");
-    if (value instanceof HTMLElement) {
-      cell.append(value);
-    } else {
-      cell.textContent = value || "-";
-      if (!value) cell.classList.add("muted-cell");
-    }
+    fillTableCell(cell, value);
     row.append(cell);
   });
 
@@ -3940,12 +3950,7 @@ function createRow(record) {
 
   cells.forEach((value) => {
     const cell = document.createElement("td");
-    if (value instanceof HTMLElement) {
-      cell.append(value);
-    } else {
-      cell.textContent = value || "-";
-      if (!value) cell.classList.add("muted-cell");
-    }
+    fillTableCell(cell, value);
     row.append(cell);
   });
 
@@ -4578,12 +4583,7 @@ function createRepairRow(record) {
     if (index === 3 && status === "GOTOWE") {
       cell.classList.add("pickup-customer-cell");
     }
-    if (value instanceof HTMLElement) {
-      cell.append(value);
-    } else {
-      cell.textContent = value || "-";
-      if (!value) cell.classList.add("muted-cell");
-    }
+    fillTableCell(cell, value);
     row.append(cell);
   });
 

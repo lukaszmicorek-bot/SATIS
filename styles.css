@@ -1134,6 +1134,16 @@ tbody tr:hover {
   background: #f5f8f7;
 }
 
+td.today-date-cell {
+  background: #eaf7f4 !important;
+  box-shadow: inset 4px 0 0 #0f685c;
+}
+
+td.today-date-cell .date-text.today-date,
+td.today-date-cell .date-pill.today-date {
+  font-size: 0.94rem;
+}
+
 tbody tr.device-sold-row {
   color: #7e878f;
   background: #fbfcfc;
@@ -1455,6 +1465,12 @@ tbody tr.device-sold-row .date-text.today-date {
   opacity: 1 !important;
   filter: none !important;
   color: #003f5a !important;
+}
+
+tbody tr.repair-closed > td.today-date-cell,
+tbody tr.device-sold-row > td.today-date-cell {
+  color: #003f5a !important;
+  background: #eaf7f4 !important;
 }
 
 .serial-pill {
