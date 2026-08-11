@@ -357,6 +357,7 @@ const devicesTable = document.querySelector(".devices-table");
 const privatePaymentColumnHeader = document.querySelector("[data-private-payment-column]");
 const privatePaymentField = document.querySelector("#privatePaymentField");
 const paymentReceivedAmountInput = document.querySelector("#paymentReceivedAmount");
+const paymentReceivedDateInput = document.querySelector("#paymentReceivedDate");
 const emptyState = document.querySelector("#emptyState");
 const repairRecordsBody = document.querySelector("#repairRecordsBody");
 const repairEmptyState = document.querySelector("#repairEmptyState");
@@ -535,7 +536,19 @@ function canViewPrivatePayments() {
 function updatePrivatePaymentVisibility() {
   const visible = canViewPrivatePayments();
   if (privatePaymentColumnHeader) privatePaymentColumnHeader.hidden = !visible;
-  if (privatePaymentField) privatePaymentField.hidden = !visible;
+  if (privatePaymentField) {
+    privatePaymentField.hidden = !visible;
+    privatePaymentField.style.display = visible ? "" : "none";
+    privatePaymentField.setAttribute("aria-hidden", visible ? "false" : "true");
+  }
+  if (paymentReceivedAmountInput) {
+    paymentReceivedAmountInput.disabled = !visible;
+    if (!visible) paymentReceivedAmountInput.value = "";
+  }
+  if (paymentReceivedDateInput) {
+    paymentReceivedDateInput.disabled = !visible;
+    if (!visible) paymentReceivedDateInput.value = "";
+  }
   devicesTable?.classList.toggle("private-payments-enabled", visible);
 }
 
@@ -566,14 +579,130 @@ function normalizePaymentAmount(value) {
   return String(value ?? "").replace(/\s+/gu, " ").trim();
 }
 
+function normalizePrivatePaymentEntry(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const amount = normalizePaymentAmount(value.amount);
+    const receivedDate = normalizeDateInput(value.receivedDate ?? value.received_date ?? "");
+    return amount || receivedDate ? { amount, receivedDate } : null;
+  }
+
+  const amount = normalizePaymentAmount(value);
+  return amount ? { amount, receivedDate: "" } : null;
+}
+
+function privatePaymentEntry(recordId) {
+  return normalizePrivatePaymentEntry(privatePayments[String(recordId)] || null) || { amount: "", receivedDate: "" };
+}
+
+function privatePaymentHasValue(entry) {
+  const normalizedEntry = normalizePrivatePaymentEntry(entry);
+  return Boolean(normalizedEntry?.amount || normalizedEntry?.receivedDate);
+}
+
+function setPrivatePaymentEntry(recordId, entry) {
+  if (!recordId) return;
+  const normalizedEntry = normalizePrivatePaymentEntry(entry);
+  if (normalizedEntry) {
+    privatePayments[String(recordId)] = normalizedEntry;
+  } else {
+    delete privatePayments[String(recordId)];
+  }
+}
+
+function paymentAmountToCents(value) {
+  const text = normalizePaymentAmount(value)
+    .replace(/\s+/gu, "")
+    .replace(/(zł|pln)/giu, "")
+    .replace(",", ".")
+    .replace(/[^\d.-]/gu, "");
+  if (!text) return null;
+  const amount = Number.parseFloat(text);
+  if (!Number.isFinite(amount)) return null;
+  return Math.round(amount * 100);
+}
+
+function formatPaymentCents(cents) {
+  const sign = cents < 0 ? "-" : "";
+  const absolute = Math.abs(cents);
+  const full = Math.floor(absolute / 100);
+  const rest = absolute % 100;
+  return rest ? `${sign}${full},${String(rest).padStart(2, "0")}` : `${sign}${full}`;
+}
+
+function privatePaymentInvoiceGroup(record) {
+  const invoice = normalizeSalesInvoice(record?.salesInvoice);
+  if (!invoice) return record?.id ? [record] : [];
+
+  const customerKey = customerNameLookupKey(record?.customerName);
+  const matches = records.filter((item) => {
+    if (!item?.id || normalizeSalesInvoice(item.salesInvoice) !== invoice) return false;
+    if (customerKey && customerNameLookupKey(item.customerName) !== customerKey) return false;
+    return true;
+  });
+
+  return matches.length ? matches : record?.id ? [record] : [];
+}
+
+function privatePaymentUpdatesForRecord(record, entry) {
+  if (!record?.id) return [];
+  const normalizedEntry = normalizePrivatePaymentEntry(entry);
+  const group = privatePaymentInvoiceGroup(record);
+  if (group.length <= 1) return [{ recordId: record.id, entry: normalizedEntry }];
+
+  const cents = paymentAmountToCents(normalizedEntry?.amount);
+  if (cents === null) {
+    return group.map((item) => ({ recordId: item.id, entry: normalizedEntry }));
+  }
+
+  const base = Math.trunc(cents / group.length);
+  let remainder = cents - base * group.length;
+  return group.map((item) => {
+    const extra = remainder === 0 ? 0 : remainder > 0 ? 1 : -1;
+    remainder -= extra;
+    return {
+      recordId: item.id,
+      entry: {
+        amount: formatPaymentCents(base + extra),
+        receivedDate: normalizedEntry?.receivedDate || ""
+      }
+    };
+  });
+}
+
+function privatePaymentFormEntry(record) {
+  const entry = record?.id ? privatePaymentEntry(record.id) : { amount: "", receivedDate: "" };
+  const group = privatePaymentInvoiceGroup(record);
+  if (group.length <= 1) return entry;
+
+  const centsValues = group
+    .map((item) => paymentAmountToCents(privatePaymentEntry(item.id).amount))
+    .filter((value) => value !== null);
+  const totalAmount = centsValues.length ? formatPaymentCents(centsValues.reduce((sum, value) => sum + value, 0)) : entry.amount;
+  const dates = group
+    .map((item) => privatePaymentEntry(item.id).receivedDate)
+    .filter(Boolean);
+  const receivedDate = dates.every((date) => date === dates[0]) ? dates[0] || entry.receivedDate : entry.receivedDate;
+
+  return { amount: totalAmount, receivedDate };
+}
+
+function applyPrivatePaymentUpdates(updates) {
+  updates.forEach(({ recordId, entry }) => setPrivatePaymentEntry(recordId, entry));
+  saveLocalPrivatePayments();
+}
+
+function persistPrivatePaymentUpdates(updates) {
+  return Promise.all(updates.map(({ recordId, entry }) => persistPrivatePayment(recordId, entry)));
+}
+
 function loadLocalPrivatePayments() {
   try {
     const parsed = JSON.parse(localStorage.getItem(PRIVATE_PAYMENTS_STORAGE_KEY) || "{}");
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     return Object.fromEntries(
       Object.entries(parsed)
-        .map(([recordId, amount]) => [String(recordId), normalizePaymentAmount(amount)])
-        .filter(([, amount]) => amount)
+        .map(([recordId, entry]) => [String(recordId), normalizePrivatePaymentEntry(entry)])
+        .filter(([, entry]) => entry)
     );
   } catch {
     return {};
@@ -589,9 +718,17 @@ async function loadPrivatePayments() {
   if (!canViewPrivatePayments()) return privatePayments;
 
   if (hasSupabaseConfig) {
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
       .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
-      .select("record_id, amount");
+      .select("record_id, amount, received_date");
+
+    if (error && /received_date/iu.test(error.message || "")) {
+      const fallback = await supabaseClient
+        .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
+        .select("record_id, amount");
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.warn("Nie udało się pobrać prywatnych płatności:", error.message);
@@ -600,8 +737,8 @@ async function loadPrivatePayments() {
 
     privatePayments = Object.fromEntries(
       (data || [])
-        .map((row) => [String(row.record_id), normalizePaymentAmount(row.amount)])
-        .filter(([, amount]) => amount)
+        .map((row) => [String(row.record_id), normalizePrivatePaymentEntry({ amount: row.amount, receivedDate: row.received_date })])
+        .filter(([, entry]) => entry)
     );
     saveLocalPrivatePayments();
   }
@@ -609,27 +746,33 @@ async function loadPrivatePayments() {
   return privatePayments;
 }
 
-async function persistPrivatePayment(recordId, amount) {
+async function persistPrivatePayment(recordId, entry) {
   if (!canViewPrivatePayments() || !recordId) return;
 
-  const normalizedAmount = normalizePaymentAmount(amount);
-  if (normalizedAmount) {
-    privatePayments[String(recordId)] = normalizedAmount;
-  } else {
-    delete privatePayments[String(recordId)];
-  }
+  const normalizedEntry = normalizePrivatePaymentEntry(entry);
+  setPrivatePaymentEntry(recordId, normalizedEntry);
   saveLocalPrivatePayments();
 
   if (!hasSupabaseConfig) return;
 
   try {
-    if (normalizedAmount) {
-      const { error } = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
+    if (normalizedEntry) {
+      let { error } = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
         record_id: String(recordId),
-        amount: normalizedAmount,
+        amount: normalizedEntry.amount,
+        received_date: normalizedEntry.receivedDate,
         updated_at: new Date().toISOString(),
         updated_by: currentSupabaseUser?.id || null
       }, { onConflict: "record_id" });
+      if (error && /received_date/iu.test(error.message || "")) {
+        const fallback = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
+          record_id: String(recordId),
+          amount: normalizedEntry.amount,
+          updated_at: new Date().toISOString(),
+          updated_by: currentSupabaseUser?.id || null
+        }, { onConflict: "record_id" });
+        error = fallback.error;
+      }
       if (error) throw error;
       return;
     }
@@ -645,7 +788,7 @@ async function persistPrivatePayment(recordId, amount) {
 }
 
 async function deletePrivatePayment(recordId) {
-  await persistPrivatePayment(recordId, "");
+  await persistPrivatePayment(recordId, null);
 }
 
 function wait(ms) {
@@ -942,7 +1085,7 @@ function flushSupabaseChanges() {
 function subscribeToSupabaseChanges() {
   if (!hasSupabaseConfig || supabaseRealtimeChannel) return;
 
-  supabaseRealtimeChannel = supabaseClient
+  let channel = supabaseClient
     .channel("zeszyt-live")
     .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_DEVICE_TABLE }, (payload) => {
       const id = payload.new?.id || payload.old?.id || "";
@@ -951,19 +1094,23 @@ function subscribeToSupabaseChanges() {
     })
     .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_REPAIR_TABLE }, (payload) =>
       queueSupabaseChange(SUPABASE_REPAIR_TABLE, payload)
-    )
-    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PRIVATE_PAYMENTS_TABLE }, () => {
+    );
+
+  if (canViewPrivatePayments()) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PRIVATE_PAYMENTS_TABLE }, () => {
       if (!canViewPrivatePayments()) return;
       loadPrivatePayments()
         .then(() => renderDeviceViews())
         .catch((error) => console.warn("Nie udało się odświeżyć prywatnych płatności:", error.message));
-    })
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
-      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        setConnectionStatus("error", "Brak synchronizacji");
-      }
     });
+  }
+
+  supabaseRealtimeChannel = channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      setConnectionStatus("error", "Brak synchronizacji");
+    }
+  });
 }
 
 async function activateSupabaseSession(user) {
@@ -4620,17 +4767,22 @@ function createEzwmCell(record) {
 }
 
 function privatePaymentAmount(recordId) {
-  return normalizePaymentAmount(privatePayments[String(recordId)] || "");
+  return privatePaymentEntry(recordId).amount;
+}
+
+function privatePaymentReceivedDate(recordId) {
+  return privatePaymentEntry(recordId).receivedDate;
 }
 
 function createPrivatePaymentCell(record) {
   const amount = privatePaymentAmount(record?.id);
   if (!amount) return "";
+  const receivedDate = privatePaymentReceivedDate(record?.id);
 
   const wrap = document.createElement("span");
   wrap.className = "private-payment-cell";
   wrap.textContent = "$";
-  wrap.title = `Odebrałem pieniądze: ${amount}`;
+  wrap.title = [`Odebrałem pieniądze: ${amount}`, receivedDate ? `Kiedy: ${displayDateForInput(receivedDate)}` : ""].filter(Boolean).join("\n");
   wrap.setAttribute("aria-label", wrap.title);
   return wrap;
 }
@@ -5261,12 +5413,20 @@ function fillDeviceFormValues(record = {}) {
 
 function fillPrivatePaymentForm(record = {}) {
   updatePrivatePaymentVisibility();
-  if (!paymentReceivedAmountInput) return;
-  paymentReceivedAmountInput.value = canViewPrivatePayments() && record?.id ? privatePaymentAmount(record.id) : "";
+  const entry = canViewPrivatePayments() && record?.id ? privatePaymentFormEntry(record) : { amount: "", receivedDate: "" };
+  if (paymentReceivedAmountInput) paymentReceivedAmountInput.value = entry.amount;
+  if (paymentReceivedDateInput) {
+    paymentReceivedDateInput.value = displayDateForInput(entry.receivedDate);
+    updateDateInputTodayState(paymentReceivedDateInput);
+  }
 }
 
 function privatePaymentFormValue() {
-  return canViewPrivatePayments() ? normalizePaymentAmount(paymentReceivedAmountInput?.value) : "";
+  if (!canViewPrivatePayments()) return null;
+  return normalizePrivatePaymentEntry({
+    amount: paymentReceivedAmountInput?.value,
+    receivedDate: paymentReceivedDateInput?.value
+  });
 }
 
 function fillDemoFormValues(record = {}) {
@@ -6118,6 +6278,8 @@ function handleClearDateClick(event) {
   input.value = "";
   updateDateInputTodayState(input);
 
+  if (targetId === "paymentReceivedDate") return;
+
   if (targetId.startsWith("demo")) {
     if (targetId === "demoReturnDate") markDemoReturnDateChange();
     if (targetId === "demoManufacturerReturnDate") markDemoManufacturerReturnDateChange();
@@ -6137,11 +6299,12 @@ async function saveFormRecord(event) {
   event.preventDefault();
   const id = document.querySelector("#recordId").value;
   const data = formRecord();
-  const privatePaymentAmountValue = privatePaymentFormValue();
+  const privatePaymentValue = privatePaymentFormValue();
   let savedRecord;
   if (!confirmSerialNumberSave(data.serialNumber, "devices", id)) return;
   const previousRecords = records;
   const previousPrivatePayments = { ...privatePayments };
+  let privatePaymentUpdates = [];
 
   if (id) {
     records = records.map((record) => {
@@ -6154,12 +6317,8 @@ async function saveFormRecord(event) {
     records = [savedRecord, ...records];
   }
   if (canViewPrivatePayments()) {
-    if (privatePaymentAmountValue) {
-      privatePayments[String(savedRecord.id)] = privatePaymentAmountValue;
-    } else {
-      delete privatePayments[String(savedRecord.id)];
-    }
-    saveLocalPrivatePayments();
+    privatePaymentUpdates = privatePaymentUpdatesForRecord(savedRecord, privatePaymentValue);
+    applyPrivatePaymentUpdates(privatePaymentUpdates);
   }
 
   try {
@@ -6167,7 +6326,7 @@ async function saveFormRecord(event) {
     await nextFrame();
     const persistPromise = persistDeviceRecord(savedRecord);
     const privatePaymentPromise = canViewPrivatePayments()
-      ? persistPrivatePayment(savedRecord.id, privatePaymentAmountValue)
+      ? persistPrivatePaymentUpdates(privatePaymentUpdates)
       : Promise.resolve();
     persistPromise.catch(() => {});
     privatePaymentPromise.catch(() => {});

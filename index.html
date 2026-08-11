@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260811-2">
+    <link rel="stylesheet" href="styles.css?v=20260811-4">
   </head>
   <body>
     <main class="app-shell">
@@ -665,10 +665,19 @@
             <span>Nr listu przewozowego/WZ</span>
             <input id="waybillNumber" name="waybillNumber" type="text">
           </label>
-          <label id="privatePaymentField" data-private-payment-field hidden>
-            <span>Odebrałem pieniądze</span>
-            <input id="paymentReceivedAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="Kwota">
-          </label>
+          <div id="privatePaymentField" class="wide private-payment-field" data-private-payment-field hidden>
+            <label>
+              <span>Odebrałem pieniądze</span>
+              <input id="paymentReceivedAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="Kwota">
+            </label>
+            <label>
+              <span>Kiedy odebrałem</span>
+              <div class="date-input-wrap">
+                <input id="paymentReceivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                <button class="clear-date-btn" type="button" data-target="paymentReceivedDate" aria-label="Wyczyść datę">×</button>
+              </div>
+            </label>
+          </div>
           <label class="wide">
             <span>Uwagi</span>
             <textarea id="notes" name="notes" rows="3"></textarea>
@@ -976,6 +985,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260811-4"></script>
+    <script src="app.js?v=20260811-7"></script>
   </body>
 </html>
