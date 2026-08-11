@@ -717,6 +717,10 @@ label {
   gap: 6px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 label span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -1352,6 +1356,12 @@ td {
 .private-payment-column,
 .private-payment-cell {
   text-align: center;
+}
+
+.private-payment-field {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .private-payment-cell {
@@ -3432,10 +3442,11 @@ textarea {
   .stats,
     .controls,
     .repairs-controls,
-  .stock-audit-panel,
+    .stock-audit-panel,
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
-  .form-grid {
+  .form-grid,
+  .private-payment-field {
     grid-template-columns: 1fr;
   }
 
