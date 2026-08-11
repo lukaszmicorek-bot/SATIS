@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260807-2">
+    <link rel="stylesheet" href="styles.css?v=20260811-2">
   </head>
   <body>
     <main class="app-shell">
@@ -143,6 +143,7 @@
                   <th data-sort="ezwm">EZWM</th>
                   <th data-sort="waybillNumber">NR WZ</th>
                   <th data-sort="notes">Uwagi</th>
+                  <th class="private-payment-column" data-private-payment-column hidden title="Odebrałem pieniądze">$</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
               </thead>
@@ -664,6 +665,10 @@
             <span>Nr listu przewozowego/WZ</span>
             <input id="waybillNumber" name="waybillNumber" type="text">
           </label>
+          <label id="privatePaymentField" data-private-payment-field hidden>
+            <span>Odebrałem pieniądze</span>
+            <input id="paymentReceivedAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="Kwota">
+          </label>
           <label class="wide">
             <span>Uwagi</span>
             <textarea id="notes" name="notes" rows="3"></textarea>
@@ -971,6 +976,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260807-2"></script>
+    <script src="app.js?v=20260811-4"></script>
   </body>
 </html>

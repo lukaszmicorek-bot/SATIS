@@ -4,6 +4,7 @@ const DEMO_STORAGE_KEY = "zeszyt-aparatow-demo-records";
 const STOCK_AUDIT_STORAGE_KEY = "zeszyt-aparatow-remanent";
 const PRICING_STORAGE_KEY = "cennik-records-2026-04-v2";
 const PRICING_LEGACY_STORAGE_KEYS = ["cennik-records-2026-04"];
+const PRIVATE_PAYMENTS_STORAGE_KEY = "zeszyt-aparatow-private-payments-v1";
 const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const SERVER_REFRESH_MS = 10000;
@@ -12,6 +13,8 @@ const SUPABASE_DELETE_BATCH_SIZE = 200;
 const SUPABASE_WRITE_RETRY_DELAYS = [600, 1600];
 const SUPABASE_DEVICE_TABLE = "device_records";
 const SUPABASE_REPAIR_TABLE = "repair_records";
+const SUPABASE_PRIVATE_PAYMENTS_TABLE = "device_private_payments";
+const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
 const SEARCH_DEBOUNCE_MS = 120;
@@ -330,6 +333,7 @@ let records = [];
 let repairRecords = [];
 let demoRecords = [];
 let pricingRecords = [];
+let privatePayments = {};
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
 let sortState = { key: "receivedDate", direction: "desc" };
@@ -349,6 +353,10 @@ const tableRenderLimits = {
 };
 
 const recordsBody = document.querySelector("#recordsBody");
+const devicesTable = document.querySelector(".devices-table");
+const privatePaymentColumnHeader = document.querySelector("[data-private-payment-column]");
+const privatePaymentField = document.querySelector("#privatePaymentField");
+const paymentReceivedAmountInput = document.querySelector("#paymentReceivedAmount");
 const emptyState = document.querySelector("#emptyState");
 const repairRecordsBody = document.querySelector("#repairRecordsBody");
 const repairEmptyState = document.querySelector("#repairEmptyState");
@@ -511,11 +519,24 @@ function setConnectionStatus(state, text) {
 
 function updateConnectionUser(user) {
   currentSupabaseUser = user || null;
+  if (!canViewPrivatePayments()) privatePayments = {};
   if (connectionUser) {
     connectionUser.textContent = currentSupabaseUser?.email || "";
     connectionUser.hidden = !currentSupabaseUser;
   }
   if (logoutBtn) logoutBtn.hidden = !currentSupabaseUser;
+  updatePrivatePaymentVisibility();
+}
+
+function canViewPrivatePayments() {
+  return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
+function updatePrivatePaymentVisibility() {
+  const visible = canViewPrivatePayments();
+  if (privatePaymentColumnHeader) privatePaymentColumnHeader.hidden = !visible;
+  if (privatePaymentField) privatePaymentField.hidden = !visible;
+  devicesTable?.classList.toggle("private-payments-enabled", visible);
 }
 
 function showAuthDialog(message = "") {
@@ -539,6 +560,92 @@ function supabaseRecordRow(record) {
     updated_at: new Date().toISOString(),
     updated_by: currentSupabaseUser?.id || null
   };
+}
+
+function normalizePaymentAmount(value) {
+  return String(value ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function loadLocalPrivatePayments() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PRIVATE_PAYMENTS_STORAGE_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .map(([recordId, amount]) => [String(recordId), normalizePaymentAmount(amount)])
+        .filter(([, amount]) => amount)
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalPrivatePayments() {
+  localStorage.setItem(PRIVATE_PAYMENTS_STORAGE_KEY, JSON.stringify(privatePayments));
+}
+
+async function loadPrivatePayments() {
+  privatePayments = canViewPrivatePayments() ? loadLocalPrivatePayments() : {};
+  if (!canViewPrivatePayments()) return privatePayments;
+
+  if (hasSupabaseConfig) {
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
+      .select("record_id, amount");
+
+    if (error) {
+      console.warn("Nie udało się pobrać prywatnych płatności:", error.message);
+      return privatePayments;
+    }
+
+    privatePayments = Object.fromEntries(
+      (data || [])
+        .map((row) => [String(row.record_id), normalizePaymentAmount(row.amount)])
+        .filter(([, amount]) => amount)
+    );
+    saveLocalPrivatePayments();
+  }
+
+  return privatePayments;
+}
+
+async function persistPrivatePayment(recordId, amount) {
+  if (!canViewPrivatePayments() || !recordId) return;
+
+  const normalizedAmount = normalizePaymentAmount(amount);
+  if (normalizedAmount) {
+    privatePayments[String(recordId)] = normalizedAmount;
+  } else {
+    delete privatePayments[String(recordId)];
+  }
+  saveLocalPrivatePayments();
+
+  if (!hasSupabaseConfig) return;
+
+  try {
+    if (normalizedAmount) {
+      const { error } = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
+        record_id: String(recordId),
+        amount: normalizedAmount,
+        updated_at: new Date().toISOString(),
+        updated_by: currentSupabaseUser?.id || null
+      }, { onConflict: "record_id" });
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
+      .delete()
+      .eq("record_id", String(recordId));
+    if (error) throw error;
+  } catch (error) {
+    console.warn("Płatność zapisana lokalnie, ale bez synchronizacji Supabase:", error.message);
+  }
+}
+
+async function deletePrivatePayment(recordId) {
+  await persistPrivatePayment(recordId, "");
 }
 
 function wait(ms) {
@@ -750,6 +857,7 @@ async function refreshRecordsFromSupabase(options = {}) {
         { idPrefix: DEMO_ID_PREFIX }
       )
     ]);
+    await loadPrivatePayments();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
@@ -823,6 +931,11 @@ function flushSupabaseChanges() {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
   render();
+  if (canViewPrivatePayments()) {
+    loadPrivatePayments()
+      .then(() => renderDeviceViews())
+      .catch((error) => console.warn("Nie udało się odświeżyć prywatnych płatności:", error.message));
+  }
   setConnectionStatus("online", "Supabase");
 }
 
@@ -839,6 +952,12 @@ function subscribeToSupabaseChanges() {
     .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_REPAIR_TABLE }, (payload) =>
       queueSupabaseChange(SUPABASE_REPAIR_TABLE, payload)
     )
+    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PRIVATE_PAYMENTS_TABLE }, () => {
+      if (!canViewPrivatePayments()) return;
+      loadPrivatePayments()
+        .then(() => renderDeviceViews())
+        .catch((error) => console.warn("Nie udało się odświeżyć prywatnych płatności:", error.message));
+    })
     .subscribe((status) => {
       if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -3335,6 +3454,7 @@ function render() {
 }
 
 function renderDeviceViews() {
+  updatePrivatePaymentVisibility();
   const visibleRecords = filteredRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
   renderTableRows(recordsBody, renderedRecords.map(createRow));
@@ -3940,7 +4060,8 @@ function createRow(record) {
     record.salesInvoice,
     createEzwmCell(record),
     createWaybillCell(record.waybillNumber),
-    record.notes
+    record.notes,
+    ...(canViewPrivatePayments() ? [createPrivatePaymentCell(record)] : [])
   ];
 
   cells.forEach((value) => {
@@ -4495,6 +4616,22 @@ function createEzwmCell(record) {
   icon.append(path);
 
   wrap.append(icon);
+  return wrap;
+}
+
+function privatePaymentAmount(recordId) {
+  return normalizePaymentAmount(privatePayments[String(recordId)] || "");
+}
+
+function createPrivatePaymentCell(record) {
+  const amount = privatePaymentAmount(record?.id);
+  if (!amount) return "";
+
+  const wrap = document.createElement("span");
+  wrap.className = "private-payment-cell";
+  wrap.textContent = "$";
+  wrap.title = `Odebrałem pieniądze: ${amount}`;
+  wrap.setAttribute("aria-label", wrap.title);
   return wrap;
 }
 
@@ -5122,6 +5259,16 @@ function fillDeviceFormValues(record = {}) {
   });
 }
 
+function fillPrivatePaymentForm(record = {}) {
+  updatePrivatePaymentVisibility();
+  if (!paymentReceivedAmountInput) return;
+  paymentReceivedAmountInput.value = canViewPrivatePayments() && record?.id ? privatePaymentAmount(record.id) : "";
+}
+
+function privatePaymentFormValue() {
+  return canViewPrivatePayments() ? normalizePaymentAmount(paymentReceivedAmountInput?.value) : "";
+}
+
 function fillDemoFormValues(record = {}) {
   const fieldMap = {
     receivedDate: "#demoReceivedDate",
@@ -5166,6 +5313,7 @@ function openDialog(record = null) {
   moveToDemoBtn.hidden = !record;
 
   fillDeviceFormValues(record);
+  fillPrivatePaymentForm(record);
 
   if (!record) {
     setDateInputValue("#receivedDate", todayInputValue());
@@ -5989,9 +6137,11 @@ async function saveFormRecord(event) {
   event.preventDefault();
   const id = document.querySelector("#recordId").value;
   const data = formRecord();
+  const privatePaymentAmountValue = privatePaymentFormValue();
   let savedRecord;
   if (!confirmSerialNumberSave(data.serialNumber, "devices", id)) return;
   const previousRecords = records;
+  const previousPrivatePayments = { ...privatePayments };
 
   if (id) {
     records = records.map((record) => {
@@ -6003,18 +6153,32 @@ async function saveFormRecord(event) {
     savedRecord = { id: makeId(), ...data };
     records = [savedRecord, ...records];
   }
+  if (canViewPrivatePayments()) {
+    if (privatePaymentAmountValue) {
+      privatePayments[String(savedRecord.id)] = privatePaymentAmountValue;
+    } else {
+      delete privatePayments[String(savedRecord.id)];
+    }
+    saveLocalPrivatePayments();
+  }
 
   try {
     closeDialog();
     await nextFrame();
     const persistPromise = persistDeviceRecord(savedRecord);
+    const privatePaymentPromise = canViewPrivatePayments()
+      ? persistPrivatePayment(savedRecord.id, privatePaymentAmountValue)
+      : Promise.resolve();
     persistPromise.catch(() => {});
+    privatePaymentPromise.catch(() => {});
     rebuildAfterDeviceChange();
     render();
-    await persistPromise;
+    await Promise.all([persistPromise, privatePaymentPromise]);
   } catch (error) {
     records = previousRecords;
+    privatePayments = previousPrivatePayments;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    saveLocalPrivatePayments();
     rebuildAfterDeviceChange();
     render();
     alert(error.message);
@@ -6029,15 +6193,25 @@ async function deleteCurrentRecord() {
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRecords = records;
+    const previousPrivatePayments = { ...privatePayments };
     records = records.filter((item) => item.id !== id);
+    if (canViewPrivatePayments()) {
+      delete privatePayments[String(id)];
+      saveLocalPrivatePayments();
+    }
     try {
-      await persistDeletedDeviceRecord(id);
+      await Promise.all([
+        persistDeletedDeviceRecord(id),
+        canViewPrivatePayments() ? deletePrivatePayment(id) : Promise.resolve()
+      ]);
       rebuildDerivedData();
       render();
       closeDialog();
     } catch (error) {
       records = previousRecords;
+      privatePayments = previousPrivatePayments;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      saveLocalPrivatePayments();
       rebuildDerivedData();
       render();
       alert(error.message);
@@ -6303,10 +6477,15 @@ async function moveDeviceRecordToDemo(record) {
 
   const previousRecords = records;
   const previousDemoRecords = demoRecords;
+  const previousPrivatePayments = { ...privatePayments };
   const movedRecord = deviceRecordToDemoRecord(record);
 
   records = records.filter((item) => item.id !== record.id);
   demoRecords = [movedRecord, ...demoRecords];
+  if (canViewPrivatePayments()) {
+    delete privatePayments[String(record.id)];
+    saveLocalPrivatePayments();
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
@@ -6315,14 +6494,17 @@ async function moveDeviceRecordToDemo(record) {
   try {
     await Promise.all([
       persistDemoRecord(movedRecord),
-      persistDeletedDeviceRecord(record.id)
+      persistDeletedDeviceRecord(record.id),
+      canViewPrivatePayments() ? deletePrivatePayment(record.id) : Promise.resolve()
     ]);
     return true;
   } catch (error) {
     records = previousRecords;
     demoRecords = previousDemoRecords;
+    privatePayments = previousPrivatePayments;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    saveLocalPrivatePayments();
     rebuildDerivedData();
     render();
     alert(error.message || "Nie udało się przenieść rekordu do Demo.");
@@ -7339,6 +7521,8 @@ async function init() {
   }
 
   setConnectionStatus(hasSharedServer ? "online" : "local", hasSharedServer ? "Serwer lokalny" : "Tryb lokalny");
+  privatePayments = loadLocalPrivatePayments();
+  updatePrivatePaymentVisibility();
   [records, repairRecords, demoRecords] = await Promise.all([loadRecords(), loadRepairRecords(), loadDemoRecords()]);
   rebuildDerivedData();
   render();
