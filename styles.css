@@ -1104,6 +1104,24 @@ table {
   min-width: 96px;
 }
 
+.devices-table th.actions-head {
+  width: 96px;
+  min-width: 96px;
+}
+
+.devices-table.private-payments-enabled th.private-payment-column,
+.devices-table.private-payments-enabled td:nth-child(13) {
+  width: 46px;
+  min-width: 46px;
+  text-align: center;
+}
+
+.devices-table.private-payments-enabled th:nth-child(14),
+.devices-table.private-payments-enabled td:nth-child(14) {
+  width: 96px;
+  min-width: 96px;
+}
+
 th,
 td {
   border-bottom: 1px solid var(--line);
@@ -1329,6 +1347,24 @@ td {
   height: 18px;
   color: #1f4f79;
   flex: 0 0 auto;
+}
+
+.private-payment-column,
+.private-payment-cell {
+  text-align: center;
+}
+
+.private-payment-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+  color: #0f5c48;
+  background: #e5f4ee;
+  font-size: 0.82rem;
+  font-weight: 950;
 }
 
 .ezwm-cell {
@@ -2861,6 +2897,21 @@ tbody tr.demo-return-critical:hover {
 
 .devices-table th:nth-child(13),
 .devices-table td:nth-child(13) {
+  width: 4.6%;
+}
+
+.devices-table.private-payments-enabled th:nth-child(12),
+.devices-table.private-payments-enabled td:nth-child(12) {
+  width: 7%;
+}
+
+.devices-table.private-payments-enabled th.private-payment-column,
+.devices-table.private-payments-enabled td:nth-child(13) {
+  width: 3.2%;
+}
+
+.devices-table.private-payments-enabled th:nth-child(14),
+.devices-table.private-payments-enabled td:nth-child(14) {
   width: 4.6%;
 }
 
