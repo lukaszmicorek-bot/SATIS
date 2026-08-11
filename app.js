@@ -201,6 +201,7 @@ let repairRecords = [];
 let demoRecords = [];
 let pricingRecords = [];
 let privatePayments = {};
+let privatePaymentSyncWarningShown = false;
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
 let sortState = { key: "receivedDate", direction: "desc" };
@@ -585,17 +586,9 @@ async function loadPrivatePayments() {
   if (!canViewPrivatePayments()) return privatePayments;
 
   if (hasSupabaseConfig) {
-    let { data, error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
       .select("record_id, amount, received_date");
-
-    if (error && /received_date/iu.test(error.message || "")) {
-      const fallback = await supabaseClient
-        .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
-        .select("record_id, amount");
-      data = fallback.data;
-      error = fallback.error;
-    }
 
     if (error) {
       console.warn("Nie udało się pobrać prywatnych płatności:", error.message);
@@ -624,22 +617,13 @@ async function persistPrivatePayment(recordId, entry) {
 
   try {
     if (normalizedEntry) {
-      let { error } = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
+      const { error } = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
         record_id: String(recordId),
         amount: normalizedEntry.amount,
         received_date: normalizedEntry.receivedDate,
         updated_at: new Date().toISOString(),
         updated_by: currentSupabaseUser?.id || null
       }, { onConflict: "record_id" });
-      if (error && /received_date/iu.test(error.message || "")) {
-        const fallback = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
-          record_id: String(recordId),
-          amount: normalizedEntry.amount,
-          updated_at: new Date().toISOString(),
-          updated_by: currentSupabaseUser?.id || null
-        }, { onConflict: "record_id" });
-        error = fallback.error;
-      }
       if (error) throw error;
       return;
     }
@@ -651,6 +635,10 @@ async function persistPrivatePayment(recordId, entry) {
     if (error) throw error;
   } catch (error) {
     console.warn("Płatność zapisana lokalnie, ale bez synchronizacji Supabase:", error.message);
+    if (!privatePaymentSyncWarningShown) {
+      privatePaymentSyncWarningShown = true;
+      alert("Płatność zapisana lokalnie, ale Supabase nie przyjął zapisu daty. Uruchom ponownie plik supabase-private-payments.sql w SQL Editor.");
+    }
   }
 }
 
