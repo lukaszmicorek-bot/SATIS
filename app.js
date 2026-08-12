@@ -5,6 +5,8 @@ const STOCK_AUDIT_STORAGE_KEY = "zeszyt-aparatow-remanent";
 const PRICING_STORAGE_KEY = "cennik-records-2026-04-v2";
 const PRICING_LEGACY_STORAGE_KEYS = ["cennik-records-2026-04"];
 const PRIVATE_PAYMENTS_STORAGE_KEY = "zeszyt-aparatow-private-payments-v1";
+const AUDIT_LOG_STORAGE_KEY = "zeszyt-aparatow-audit-log-v1";
+const WORKSTATION_STORAGE_KEY = "zeszyt-aparatow-workstation-name-v1";
 const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const SERVER_REFRESH_MS = 10000;
@@ -14,6 +16,7 @@ const SUPABASE_WRITE_RETRY_DELAYS = [600, 1600];
 const SUPABASE_DEVICE_TABLE = "device_records";
 const SUPABASE_REPAIR_TABLE = "repair_records";
 const SUPABASE_PRIVATE_PAYMENTS_TABLE = "device_private_payments";
+const SUPABASE_AUDIT_TABLE = "record_audit_logs";
 const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
@@ -96,6 +99,7 @@ const supabaseClient = hasSupabaseConfig
   : null;
 const hasSharedServer = !hasSupabaseSettings && window.location.protocol !== "file:";
 const dateFormatter = new Intl.DateTimeFormat("pl-PL");
+const dateTimeFormatter = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "short" });
 const collator = new Intl.Collator("pl", { sensitivity: "base", numeric: true });
 const deviceDerived = new Map();
 const repairDerived = new Map();
@@ -334,7 +338,9 @@ let repairRecords = [];
 let demoRecords = [];
 let pricingRecords = [];
 let privatePayments = {};
+let auditLogs = [];
 let privatePaymentSyncWarningShown = false;
+let auditLogSyncWarningShown = false;
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
 let sortState = { key: "receivedDate", direction: "desc" };
@@ -490,6 +496,7 @@ const notebookSections = document.querySelectorAll(".notebook-section");
 const appTitle = document.querySelector("#appTitle");
 const connectionStatus = document.querySelector("#connectionStatus");
 const connectionUser = document.querySelector("#connectionUser");
+const workstationBtn = document.querySelector("#workstationBtn");
 const logoutBtn = document.querySelector("#logoutBtn");
 const authDialog = document.querySelector("#authDialog");
 const authForm = document.querySelector("#authForm");
@@ -497,6 +504,23 @@ const authEmail = document.querySelector("#authEmail");
 const authPassword = document.querySelector("#authPassword");
 const authError = document.querySelector("#authError");
 const authSubmitBtn = document.querySelector("#authSubmitBtn");
+const auditTrailTargets = {
+  devices: {
+    section: document.querySelector("#recordAuditTrail"),
+    count: document.querySelector("#recordAuditTrailCount"),
+    list: document.querySelector("#recordAuditTrailList")
+  },
+  repairs: {
+    section: document.querySelector("#repairAuditTrail"),
+    count: document.querySelector("#repairAuditTrailCount"),
+    list: document.querySelector("#repairAuditTrailList")
+  },
+  demo: {
+    section: document.querySelector("#demoAuditTrail"),
+    count: document.querySelector("#demoAuditTrailCount"),
+    list: document.querySelector("#demoAuditTrailList")
+  }
+};
 
 function pricingUpdatedLabel() {
   return `${PRICING_MONTH_NAMES[PRICING_UPDATED_MONTH - 1]} ${PRICING_UPDATED_YEAR}`;
@@ -527,7 +551,42 @@ function updateConnectionUser(user) {
     connectionUser.hidden = !currentSupabaseUser;
   }
   if (logoutBtn) logoutBtn.hidden = !currentSupabaseUser;
+  updateWorkstationButton();
   updatePrivatePaymentVisibility();
+}
+
+function normalizeWorkstationName(value) {
+  return String(value ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function currentWorkstationName() {
+  return normalizeWorkstationName(localStorage.getItem(WORKSTATION_STORAGE_KEY));
+}
+
+function updateWorkstationButton() {
+  if (!workstationBtn) return;
+  workstationBtn.hidden = !currentSupabaseUser;
+  const name = currentWorkstationName();
+  workstationBtn.textContent = name ? `Stanowisko: ${name}` : "Ustaw stanowisko";
+  workstationBtn.title = name ? `To stanowisko: ${name}` : "Ustaw nazwę tego komputera";
+}
+
+function promptForWorkstationName({ force = false } = {}) {
+  const currentName = currentWorkstationName();
+  if (currentName && !force) return currentName;
+
+  const value = prompt("Podaj nazwę tego stanowiska/komputera, np. P63 laptop, T12 komputer, Dom.", currentName || "");
+  if (value === null) {
+    const fallbackName = currentName || "Nie ustawiono";
+    if (!currentName) localStorage.setItem(WORKSTATION_STORAGE_KEY, fallbackName);
+    updateWorkstationButton();
+    return fallbackName;
+  }
+
+  const normalizedName = normalizeWorkstationName(value) || currentName || "Nie ustawiono";
+  localStorage.setItem(WORKSTATION_STORAGE_KEY, normalizedName);
+  updateWorkstationButton();
+  return normalizedName;
 }
 
 function canViewPrivatePayments() {
@@ -777,6 +836,305 @@ async function persistPrivatePayment(recordId, entry) {
 
 async function deletePrivatePayment(recordId) {
   await persistPrivatePayment(recordId, null);
+}
+
+function normalizeAuditLogEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const id = String(entry.id || makeId());
+  const recordId = String(entry.recordId ?? entry.record_id ?? "").trim();
+  const notebook = String(entry.notebook || "").trim();
+  const action = String(entry.action || "").trim();
+  if (!recordId || !notebook || !action) return null;
+
+  return {
+    id,
+    recordId,
+    notebook,
+    action,
+    recordLabel: String(entry.recordLabel ?? entry.record_label ?? "").trim(),
+    workstation: normalizeWorkstationName(entry.workstation),
+    userEmail: String(entry.userEmail ?? entry.user_email ?? "").trim(),
+    createdAt: String(entry.createdAt ?? entry.created_at ?? new Date().toISOString()),
+    data: entry.data && typeof entry.data === "object" ? entry.data : {}
+  };
+}
+
+function loadLocalAuditLogs() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AUDIT_LOG_STORAGE_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeAuditLogEntry).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalAuditLogs() {
+  auditLogs = auditLogs
+    .map(normalizeAuditLogEntry)
+    .filter(Boolean)
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+    .slice(0, 1500);
+  localStorage.setItem(AUDIT_LOG_STORAGE_KEY, JSON.stringify(auditLogs));
+}
+
+function appendLocalAuditLog(entry) {
+  const normalizedEntry = normalizeAuditLogEntry(entry);
+  if (!normalizedEntry) return null;
+  auditLogs = [normalizedEntry, ...auditLogs.filter((item) => item.id !== normalizedEntry.id)];
+  saveLocalAuditLogs();
+  return normalizedEntry;
+}
+
+function auditActionLabel(action) {
+  if (action === "add") return "Dodano";
+  if (action === "edit") return "Edytowano";
+  if (action === "delete") return "Usunięto";
+  if (action === "move") return "Przeniesiono";
+  return "Zmieniono";
+}
+
+function auditNotebookFields(notebook) {
+  if (notebook === "repairs") return repairFields;
+  if (notebook === "demo") return demoFields;
+  return fields;
+}
+
+function auditFieldLabel(field) {
+  const labels = {
+    receivedDate: "Data przyjęcia",
+    deviceName: "Model/nazwa",
+    serialNumber: "Numer seryjny",
+    serialNumber2: "Numer seryjny 2",
+    type: "Status",
+    status: "Status",
+    category: "Typ",
+    location: "Miejsce",
+    pickupDate: "Data odbioru",
+    customerName: "Imię i nazwisko",
+    salesInvoice: "Faktura sprzedaży",
+    returnDate: "Data powrotu/zwrotu",
+    sentDate: "Data wysłania",
+    waybillNumber: "NR WZ",
+    ezwm: "EZWM",
+    manufacturer: "Producent",
+    manufacturerReturnDate: "Termin zwrotu do producenta",
+    manufacturerReturnedDate: "Data zwrotu do producenta",
+    manufacturerReturned: "Zwrócono do producenta",
+    currentUser: "Aktualnie używany",
+    loanDate: "Data wypożyczenia",
+    purpose: "Charakter",
+    notes: "Uwagi"
+  };
+  return labels[field] || field;
+}
+
+function auditCompareValue(value) {
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return String(value ?? "").trim();
+}
+
+function changedAuditFields(notebook, beforeRecord, afterRecord) {
+  if (!beforeRecord || !afterRecord) return [];
+  return auditNotebookFields(notebook)
+    .filter((field) => auditCompareValue(beforeRecord[field]) !== auditCompareValue(afterRecord[field]))
+    .map(auditFieldLabel);
+}
+
+function auditSnapshot(record) {
+  if (!record) return null;
+  try {
+    return JSON.parse(JSON.stringify(record));
+  } catch {
+    return { ...record };
+  }
+}
+
+function auditRecordLabel(notebook, record = {}) {
+  if (notebook === "repairs") {
+    return [
+      titleCaseName(record.customerName),
+      normalizeRepairCategory(record.category),
+      normalizeDeviceName(record.deviceName),
+      repairSerialNumbers(record).join(", ")
+    ].filter(Boolean).join(" / ");
+  }
+  if (notebook === "demo") {
+    return [normalizeDeviceName(record.deviceName), normalizeSerialNumber(record.serialNumber), normalizeDemoLocation(record.location)]
+      .filter(Boolean)
+      .join(" / ");
+  }
+  return [normalizeDeviceName(record.deviceName), normalizeSerialNumber(record.serialNumber), normalizeRepairLocation(record.location)]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function createAuditLogEntry({ notebook, action, recordId, beforeRecord = null, afterRecord = null }) {
+  const record = afterRecord || beforeRecord || {};
+  const changedFields = action === "edit" ? changedAuditFields(notebook, beforeRecord, afterRecord) : [];
+  return normalizeAuditLogEntry({
+    id: makeId(),
+    recordId,
+    notebook,
+    action,
+    recordLabel: auditRecordLabel(notebook, record),
+    workstation: promptForWorkstationName(),
+    userEmail: currentSupabaseUser?.email || "",
+    createdAt: new Date().toISOString(),
+    data: {
+      changedFields,
+      browser: navigator.userAgent || "",
+      url: window.location.href || ""
+    }
+  });
+}
+
+function supabaseAuditLogRow(entry) {
+  return {
+    id: entry.id,
+    record_id: entry.recordId,
+    notebook: entry.notebook,
+    action: entry.action,
+    record_label: entry.recordLabel,
+    workstation: entry.workstation,
+    user_email: entry.userEmail,
+    user_id: currentSupabaseUser?.id || null,
+    created_at: entry.createdAt,
+    data: entry.data || {}
+  };
+}
+
+function auditLogFromSupabaseRow(row) {
+  return normalizeAuditLogEntry({
+    id: row.id,
+    recordId: row.record_id,
+    notebook: row.notebook,
+    action: row.action,
+    recordLabel: row.record_label,
+    workstation: row.workstation,
+    userEmail: row.user_email,
+    createdAt: row.created_at,
+    data: row.data
+  });
+}
+
+function showAuditLogSyncWarning(error) {
+  console.warn("Nie udało się zapisać historii zmian:", error?.message || error);
+  if (auditLogSyncWarningShown) return;
+  auditLogSyncWarningShown = true;
+  alert("Rekord zapisany, ale historia zmian nie zapisała się w Supabase. Uruchom plik supabase-audit-log.sql w SQL Editor.");
+}
+
+async function persistAuditLog(entry) {
+  const normalizedEntry = appendLocalAuditLog(entry);
+  if (!normalizedEntry || !hasSupabaseConfig) return;
+
+  try {
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(SUPABASE_AUDIT_TABLE).insert(supabaseAuditLogRow(normalizedEntry));
+      if (error) throw error;
+    });
+  } catch (error) {
+    showAuditLogSyncWarning(error);
+  }
+}
+
+function logAuditEvent(options) {
+  const entry = createAuditLogEntry(options);
+  if (!entry) return;
+  persistAuditLog(entry).catch(showAuditLogSyncWarning);
+}
+
+async function loadAuditLogsForRecord(notebook, recordId) {
+  const localLogs = auditLogs
+    .filter((entry) => entry.notebook === notebook && entry.recordId === recordId)
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+    .slice(0, 20);
+
+  if (!hasSupabaseConfig) return localLogs;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_AUDIT_TABLE)
+      .select("id,record_id,notebook,action,record_label,workstation,user_email,created_at,data")
+      .eq("notebook", notebook)
+      .eq("record_id", recordId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return (data || []).map(auditLogFromSupabaseRow).filter(Boolean);
+  } catch (error) {
+    console.warn("Nie udało się pobrać historii zmian:", error?.message || error);
+    return localLogs;
+  }
+}
+
+function formatAuditDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "");
+  return dateTimeFormatter.format(date);
+}
+
+function createAuditTrailItem(entry) {
+  const item = document.createElement("div");
+  item.className = "audit-trail-item";
+
+  const title = document.createElement("strong");
+  title.textContent = `${auditActionLabel(entry.action)} · ${formatAuditDateTime(entry.createdAt)}`;
+
+  const meta = document.createElement("span");
+  meta.textContent = [
+    entry.userEmail || "brak użytkownika",
+    entry.workstation || "brak stanowiska"
+  ].join(" · ");
+
+  const changedFields = Array.isArray(entry.data?.changedFields) ? entry.data.changedFields : [];
+  if (changedFields.length) {
+    const details = document.createElement("span");
+    details.textContent = `Zmieniono: ${changedFields.join(", ")}`;
+    item.append(title, meta, details);
+  } else {
+    item.append(title, meta);
+  }
+
+  return item;
+}
+
+function renderAuditTrailLoading(notebook) {
+  const target = auditTrailTargets[notebook];
+  if (!target?.section || !target.list || !target.count) return;
+  target.section.hidden = false;
+  target.count.textContent = "";
+  target.list.innerHTML = '<p class="audit-trail-empty">Ładowanie historii...</p>';
+}
+
+function renderAuditTrailEntries(notebook, entries) {
+  const target = auditTrailTargets[notebook];
+  if (!target?.section || !target.list || !target.count) return;
+  target.section.hidden = false;
+  target.count.textContent = entries.length ? `${entries.length}` : "";
+  if (!entries.length) {
+    target.list.innerHTML = '<p class="audit-trail-empty">Brak historii zmian.</p>';
+    return;
+  }
+  target.list.replaceChildren(...entries.map(createAuditTrailItem));
+}
+
+function renderAuditTrail(notebook, recordId) {
+  const target = auditTrailTargets[notebook];
+  if (!target?.section || !target.list || !target.count) return;
+  if (!recordId) {
+    target.section.hidden = true;
+    target.count.textContent = "";
+    target.list.replaceChildren();
+    return;
+  }
+
+  renderAuditTrailLoading(notebook);
+  loadAuditLogsForRecord(notebook, recordId).then((entries) => {
+    renderAuditTrailEntries(notebook, entries);
+  });
 }
 
 function wait(ms) {
@@ -1109,6 +1467,7 @@ async function activateSupabaseSession(user) {
   await refreshRecordsFromSupabase({ throwOnError: true });
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
+  window.setTimeout(() => promptForWorkstationName(), 250);
 }
 
 async function handleAuthSubmit(event) {
@@ -5469,6 +5828,7 @@ function openDialog(record = null) {
     document.querySelector("#location").value = "P63";
   }
   updateDateInputsTodayState(recordForm);
+  renderAuditTrail("devices", record?.id || "");
   recordDialog.showModal();
 }
 
@@ -5514,6 +5874,7 @@ function openRepairDialog(record = null) {
   }
   updateDateInputsTodayState(repairForm);
   updateRepairWarrantyHint();
+  renderAuditTrail("repairs", record?.id || "");
 
   repairDialog.showModal();
 }
@@ -5584,6 +5945,7 @@ function openDemoDialog(record = null) {
   updateDateInputsTodayState(demoForm);
   renderDemoCurrentAttachments();
   renderDemoLoanHistory(record);
+  renderAuditTrail("demo", record?.id || "");
   demoDialog.showModal();
 }
 
@@ -6314,6 +6676,7 @@ async function saveFormRecord(event) {
   const privatePaymentValue = privatePaymentFormValue();
   let savedRecord;
   if (!confirmSerialNumberSave(data.serialNumber, "devices", id)) return;
+  const previousDeviceRecord = id ? auditSnapshot(records.find((record) => record.id === id)) : null;
   const previousRecords = records;
   const previousPrivatePayments = { ...privatePayments };
   let privatePaymentUpdates = [];
@@ -6345,6 +6708,13 @@ async function saveFormRecord(event) {
     rebuildAfterDeviceChange();
     render();
     await Promise.all([persistPromise, privatePaymentPromise]);
+    logAuditEvent({
+      notebook: "devices",
+      action: id ? "edit" : "add",
+      recordId: savedRecord.id,
+      beforeRecord: previousDeviceRecord,
+      afterRecord: savedRecord
+    });
   } catch (error) {
     records = previousRecords;
     privatePayments = previousPrivatePayments;
@@ -6361,6 +6731,7 @@ async function deleteCurrentRecord() {
   if (!id) return;
   const record = records.find((item) => item.id === id);
   const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten rekord";
+  const deletedRecord = auditSnapshot(record);
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRecords = records;
@@ -6377,6 +6748,12 @@ async function deleteCurrentRecord() {
       ]);
       rebuildDerivedData();
       render();
+      logAuditEvent({
+        notebook: "devices",
+        action: "delete",
+        recordId: id,
+        beforeRecord: deletedRecord
+      });
       closeDialog();
     } catch (error) {
       records = previousRecords;
@@ -6398,6 +6775,7 @@ async function saveRepairFormRecord(event) {
   if (!validateRepairDateOrder(data, { focus: true })) return;
   if (!confirmSerialNumberSave(data.serialNumber, "repairs", id)) return;
   if (!confirmRepairWarrantySave(data, id)) return;
+  const previousRepairRecord = id ? auditSnapshot(repairRecords.find((record) => record.id === id)) : null;
   const previousRepairRecords = repairRecords;
 
   if (id) {
@@ -6419,6 +6797,13 @@ async function saveRepairFormRecord(event) {
     rebuildAfterRepairChange();
     render();
     await persistPromise;
+    logAuditEvent({
+      notebook: "repairs",
+      action: id ? "edit" : "add",
+      recordId: savedRecord.id,
+      beforeRecord: previousRepairRecord,
+      afterRecord: savedRecord
+    });
   } catch (error) {
     repairRecords = previousRepairRecords;
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
@@ -6433,6 +6818,7 @@ async function deleteCurrentRepairRecord() {
   if (!id) return;
   const record = repairRecords.find((item) => item.id === id);
   const label = record ? `${record.customerName} (${record.category})` : "ten wpis";
+  const deletedRecord = auditSnapshot(record);
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRepairRecords = repairRecords;
@@ -6441,6 +6827,12 @@ async function deleteCurrentRepairRecord() {
       await persistDeletedRepairRecord(id);
       rebuildDerivedData();
       render();
+      logAuditEvent({
+        notebook: "repairs",
+        action: "delete",
+        recordId: id,
+        beforeRecord: deletedRecord
+      });
       closeRepairDialog();
     } catch (error) {
       repairRecords = previousRepairRecords;
@@ -6467,6 +6859,7 @@ async function saveDemoFormRecord(event) {
   if (!confirmSerialNumberSave(data.serialNumber, "demo", id)) return;
   const previousDemoRecords = demoRecords;
   const existingRecord = id ? demoRecords.find((record) => record.id === id) : null;
+  const previousDemoRecord = auditSnapshot(existingRecord);
   const previousAttachmentPaths = demoAttachmentPaths(existingRecord);
   saveDemoBtn.disabled = true;
   saveDemoBtn.textContent = "Wysyłanie załączników...";
@@ -6490,6 +6883,13 @@ async function saveDemoFormRecord(event) {
     rebuildAfterDemoChange();
     render();
     await persistPromise;
+    logAuditEvent({
+      notebook: "demo",
+      action: id ? "edit" : "add",
+      recordId: savedRecord.id,
+      beforeRecord: previousDemoRecord,
+      afterRecord: savedRecord
+    });
     const savedPaths = new Set(demoAttachmentPaths(savedRecord));
     try {
       await removeDemoAttachmentPaths(previousAttachmentPaths.filter((path) => !savedPaths.has(path)));
@@ -6517,6 +6917,7 @@ async function deleteCurrentDemoRecord() {
   if (!id) return;
   const record = demoRecords.find((item) => item.id === id);
   const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten wpis";
+  const deletedRecord = auditSnapshot(record);
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousDemoRecords = demoRecords;
@@ -6530,6 +6931,12 @@ async function deleteCurrentDemoRecord() {
       }
       rebuildDerivedData();
       render();
+      logAuditEvent({
+        notebook: "demo",
+        action: "delete",
+        recordId: id,
+        beforeRecord: deletedRecord
+      });
       closeDemoDialog();
     } catch (error) {
       demoRecords = previousDemoRecords;
@@ -6668,6 +7075,13 @@ async function moveDeviceRecordToDemo(record) {
       persistDeletedDeviceRecord(record.id),
       canViewPrivatePayments() ? deletePrivatePayment(record.id) : Promise.resolve()
     ]);
+    logAuditEvent({
+      notebook: "demo",
+      action: "move",
+      recordId: movedRecord.id,
+      beforeRecord: record,
+      afterRecord: movedRecord
+    });
     return true;
   } catch (error) {
     records = previousRecords;
@@ -6704,6 +7118,13 @@ async function moveDemoRecordToDevices(record) {
       persistDeviceRecord(movedRecord),
       persistDeletedDemoRecord(record.id)
     ]);
+    logAuditEvent({
+      notebook: "devices",
+      action: "move",
+      recordId: movedRecord.id,
+      beforeRecord: record,
+      afterRecord: movedRecord
+    });
     return true;
   } catch (error) {
     records = previousRecords;
@@ -7474,6 +7895,7 @@ saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
 scrollTopBtn?.addEventListener("click", scrollToPageTop);
+workstationBtn?.addEventListener("click", () => promptForWorkstationName({ force: true }));
 window.addEventListener("scroll", updateScrollTopButton, { passive: true });
 stockAuditPersonInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
@@ -7639,6 +8061,7 @@ document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
 
 async function init() {
   pricingRecords = loadPricingRecords();
+  auditLogs = loadLocalAuditLogs();
   setCurrentYearTitle();
 
   if (hasSupabaseSettings && !hasSupabaseConfig) {

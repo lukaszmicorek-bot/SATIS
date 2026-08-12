@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260812-3">
+    <link rel="stylesheet" href="styles.css?v=20260812-4">
   </head>
   <body>
     <main class="app-shell">
@@ -51,6 +51,7 @@
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
           <span id="connectionUser" class="connection-user" hidden></span>
+          <button id="workstationBtn" class="workstation-button" type="button" hidden>Stanowisko</button>
           <button id="logoutBtn" class="logout-button" type="button" hidden>Wyloguj</button>
         </div>
       </div>
@@ -684,6 +685,14 @@
           </label>
         </div>
 
+        <section id="recordAuditTrail" class="audit-trail" hidden>
+          <div class="audit-trail-head">
+            <h3>Historia zmian</h3>
+            <span id="recordAuditTrailCount"></span>
+          </div>
+          <div id="recordAuditTrailList" class="audit-trail-list"></div>
+        </section>
+
         <div class="dialog-actions">
           <div class="dialog-secondary-actions">
             <button class="danger" id="deleteBtn" type="button" hidden>Usuń</button>
@@ -785,6 +794,14 @@
             <textarea id="repairNotes" name="notes" rows="3"></textarea>
           </label>
         </div>
+
+        <section id="repairAuditTrail" class="audit-trail" hidden>
+          <div class="audit-trail-head">
+            <h3>Historia zmian</h3>
+            <span id="repairAuditTrailCount"></span>
+          </div>
+          <div id="repairAuditTrailList" class="audit-trail-list"></div>
+        </section>
 
         <p id="repairFormError" class="form-error" role="alert"></p>
         <div class="dialog-actions">
@@ -917,6 +934,14 @@
           <div id="demoLoanHistoryList" class="demo-loan-history-list"></div>
         </section>
 
+        <section id="demoAuditTrail" class="audit-trail" hidden>
+          <div class="audit-trail-head">
+            <h3>Historia zmian</h3>
+            <span id="demoAuditTrailCount"></span>
+          </div>
+          <div id="demoAuditTrailList" class="audit-trail-list"></div>
+        </section>
+
         <p id="demoFormError" class="form-error" role="alert"></p>
         <div class="dialog-actions">
           <div class="dialog-secondary-actions">
@@ -985,6 +1010,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260812-1"></script>
+    <script src="app.js?v=20260812-3"></script>
   </body>
 </html>
