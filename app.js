@@ -919,7 +919,7 @@ function logAuditEvent(options) {
 
 async function loadAuditLogsForRecord(notebook, recordId) {
   const localLogs = auditLogs
-    .filter((entry) => entry.notebook === notebook && entry.recordId === recordId)
+    .filter((entry) => entry.action !== "delete" && entry.notebook === notebook && entry.recordId === recordId)
     .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
     .slice(0, 20);
 
@@ -934,7 +934,9 @@ async function loadAuditLogsForRecord(notebook, recordId) {
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
-    return (data || []).map(auditLogFromSupabaseRow).filter(Boolean);
+    return (data || [])
+      .map(auditLogFromSupabaseRow)
+      .filter((entry) => entry && entry.action !== "delete");
   } catch (error) {
     console.warn("Nie udało się pobrać historii zmian:", error?.message || error);
     return localLogs;
@@ -6639,7 +6641,6 @@ async function deleteCurrentRecord() {
   if (!id) return;
   const record = records.find((item) => item.id === id);
   const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten rekord";
-  const deletedRecord = auditSnapshot(record);
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRecords = records;
@@ -6656,12 +6657,6 @@ async function deleteCurrentRecord() {
       ]);
       rebuildDerivedData();
       render();
-      logAuditEvent({
-        notebook: "devices",
-        action: "delete",
-        recordId: id,
-        beforeRecord: deletedRecord
-      });
       closeDialog();
     } catch (error) {
       records = previousRecords;
@@ -6726,7 +6721,6 @@ async function deleteCurrentRepairRecord() {
   if (!id) return;
   const record = repairRecords.find((item) => item.id === id);
   const label = record ? `${record.customerName} (${record.category})` : "ten wpis";
-  const deletedRecord = auditSnapshot(record);
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRepairRecords = repairRecords;
@@ -6735,12 +6729,6 @@ async function deleteCurrentRepairRecord() {
       await persistDeletedRepairRecord(id);
       rebuildDerivedData();
       render();
-      logAuditEvent({
-        notebook: "repairs",
-        action: "delete",
-        recordId: id,
-        beforeRecord: deletedRecord
-      });
       closeRepairDialog();
     } catch (error) {
       repairRecords = previousRepairRecords;
@@ -6825,7 +6813,6 @@ async function deleteCurrentDemoRecord() {
   if (!id) return;
   const record = demoRecords.find((item) => item.id === id);
   const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten wpis";
-  const deletedRecord = auditSnapshot(record);
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousDemoRecords = demoRecords;
@@ -6839,12 +6826,6 @@ async function deleteCurrentDemoRecord() {
       }
       rebuildDerivedData();
       render();
-      logAuditEvent({
-        notebook: "demo",
-        action: "delete",
-        recordId: id,
-        beforeRecord: deletedRecord
-      });
       closeDemoDialog();
     } catch (error) {
       demoRecords = previousDemoRecords;
