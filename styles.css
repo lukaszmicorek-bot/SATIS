@@ -1577,11 +1577,12 @@ tbody tr.device-sold-row .date-text.today-date {
 .serial-pill.empty {
   cursor: default;
   opacity: 0.58;
+  background: transparent;
 }
 
 .serial-pill.empty:hover {
   color: #003f5a;
-  background: #eef6f8;
+  background: transparent;
 }
 
 .serial-copy-icon {
