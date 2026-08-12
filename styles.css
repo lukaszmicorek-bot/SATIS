@@ -365,12 +365,22 @@ h2 {
   white-space: nowrap;
 }
 
-.logout-button {
+.logout-button,
+.workstation-button {
   min-height: 28px;
   padding: 0 9px;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.7);
   font-size: 0.72rem;
+}
+
+.workstation-button {
+  max-width: 190px;
+  overflow: hidden;
+  color: #315f48;
+  background: #eef7f0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notebook-switch-button {
@@ -2577,6 +2587,64 @@ tbody tr.demo-return-critical:hover {
 .demo-loan-history-item span {
   color: var(--muted);
   font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.audit-trail {
+  margin: 0 0 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.audit-trail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.audit-trail-head h3 {
+  margin: 0;
+  color: #003f5a;
+  font-size: 0.94rem;
+  font-weight: 900;
+}
+
+.audit-trail-head span {
+  border-radius: 6px;
+  padding: 2px 7px;
+  color: #52606a;
+  background: #edf0f2;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.audit-trail-list {
+  display: grid;
+  gap: 6px;
+  max-height: 190px;
+  overflow: auto;
+}
+
+.audit-trail-item {
+  display: grid;
+  gap: 3px;
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: #f4f7f8;
+}
+
+.audit-trail-item strong {
+  color: #284d5f;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.audit-trail-item span,
+.audit-trail-empty {
+  color: var(--muted);
+  font-size: 0.74rem;
   font-weight: 700;
 }
 
