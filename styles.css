@@ -958,7 +958,7 @@ input[aria-invalid="true"] {
   color: #0f685c;
   background: #f1f8f5;
   box-shadow: inset 0 0 0 2px rgba(15, 104, 92, 0.18);
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 1000;
 }
 
@@ -1545,6 +1545,19 @@ tbody tr.device-sold-row .date-text.today-date {
   color: #003f5a;
   background: #e9f3f6;
   font-weight: 920;
+}
+
+.devices-table tbody tr.device-sold-row td:nth-child(4) .serial-pill {
+  color: #2f6347;
+  background: #eff7f0;
+  opacity: 0.9;
+}
+
+.devices-table tbody tr.device-sold-row td:nth-child(4) .serial-pill:hover,
+.devices-table tbody tr.device-sold-row td:nth-child(4) .serial-pill:focus-visible {
+  color: #24543a;
+  background: #e4f1e7;
+  opacity: 1;
 }
 
 .devices-table td:nth-child(4) .serial-pill.duplicate {
