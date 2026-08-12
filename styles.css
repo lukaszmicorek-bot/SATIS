@@ -3253,12 +3253,14 @@ dialog::backdrop {
 }
 
 #recordDialog,
+#repairDialog,
 #demoDialog {
   width: min(980px, calc(100% - 24px));
   max-height: calc(100dvh - 24px);
 }
 
 #recordForm,
+#repairForm,
 #demoForm {
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
@@ -3266,6 +3268,7 @@ dialog::backdrop {
 }
 
 #recordForm .dialog-head,
+#repairForm .dialog-head,
 #demoForm .dialog-head {
   position: sticky;
   top: 0;
@@ -3277,6 +3280,7 @@ dialog::backdrop {
 }
 
 #recordForm .dialog-actions,
+#repairForm .dialog-actions,
 #demoForm .dialog-actions {
   position: sticky;
   bottom: 0;
