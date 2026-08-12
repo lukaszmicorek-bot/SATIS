@@ -5670,7 +5670,7 @@ function finalizeRepairCustomerNameInput(event) {
 
 function syncRepairSerialInput(event) {
   syncDemoUppercaseInput(event);
-  updateRepairWarrantyHint();
+  if (validateRepairDateOrder()) updateRepairWarrantyHint();
 }
 
 function repairFormRecord() {
@@ -5932,8 +5932,18 @@ function repairRequiredDateViolation(data) {
   };
 }
 
+function repairRequiredSerialViolation(data) {
+  if (!data?.returnDate) return null;
+  if (normalizeSerialNumber(data.serialNumber) || normalizeSerialNumber(data.serialNumber2)) return null;
+  return {
+    field: "serialNumber",
+    selector: "#repairSerialNumber",
+    message: "Jeśli wpisana jest data powrotu, wpisz numer seryjny aparatu lub wkładki."
+  };
+}
+
 function repairDateValidationViolation(data) {
-  return repairRequiredDateViolation(data) || repairDateOrderViolation(data);
+  return repairRequiredDateViolation(data) || repairDateOrderViolation(data) || repairRequiredSerialViolation(data);
 }
 
 function clearRepairDateOrderError() {
@@ -5942,6 +5952,9 @@ function clearRepairDateOrderError() {
     const input = document.querySelector(selector);
     input?.removeAttribute("aria-invalid");
     input?.closest(".date-input-wrap")?.classList.remove("invalid-date");
+  });
+  ["#repairSerialNumber", "#repairSerialNumber2"].forEach((selector) => {
+    document.querySelector(selector)?.removeAttribute("aria-invalid");
   });
 }
 
@@ -5975,6 +5988,8 @@ function confirmRepairWarrantySave(data, currentId = "") {
 function syncRepairStatusFromDates() {
   const data = Object.fromEntries(new FormData(repairForm).entries());
   normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
+  data.serialNumber = normalizeSerialNumber(data.serialNumber);
+  data.serialNumber2 = normalizeSerialNumber(data.serialNumber2);
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
   if (validateRepairDateOrder(data)) updateRepairWarrantyHint(data);
 }
@@ -6096,8 +6111,19 @@ function markDemoReturnDateChange() {
   }
 }
 
+function syncUppercaseTextInput(event) {
+  const input = event?.target;
+  if (!input) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  input.value = input.value.toLocaleUpperCase("pl-PL");
+  if (typeof start === "number" && typeof end === "number") {
+    input.setSelectionRange(start, end);
+  }
+}
+
 function syncDemoUppercaseInput(event) {
-  event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+  syncUppercaseTextInput(event);
   if (event.target.id === "demoManufacturer") syncDemoManufacturerReturnDate();
 }
 
@@ -6119,8 +6145,6 @@ function correctDeviceNameInput() {
   const input = document.querySelector("#deviceName");
   input.value = correctDeviceNameFromHistory(input.value, document.querySelector("#recordId").value);
 }
-
-const scheduleDeviceNameCorrection = debounce(correctDeviceNameInput, 450);
 
 function handleClearDateClick(event) {
   const button = event.target.closest(".clear-date-btn");
@@ -7372,8 +7396,8 @@ repairForm.addEventListener("click", handleClearDateClick);
 demoForm.addEventListener("click", handleClearDateClick);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
-document.querySelector("#deviceName").addEventListener("input", scheduleDeviceNameCorrection);
 document.querySelector("#deviceName").addEventListener("blur", correctDeviceNameInput);
+document.querySelector("#serialNumber").addEventListener("input", syncUppercaseTextInput);
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
 typeSelect.addEventListener("change", syncStockLocationFromType);
 searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH_DEBOUNCE_MS));
