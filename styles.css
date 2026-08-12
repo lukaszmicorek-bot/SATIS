@@ -501,7 +501,7 @@ h2 {
 }
 
 .pricing-controls {
-  grid-template-columns: minmax(320px, 1fr) 180px 220px auto auto;
+  grid-template-columns: minmax(300px, 1fr) 170px 210px auto auto auto;
   margin-bottom: 0;
 }
 

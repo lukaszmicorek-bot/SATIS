@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260812-7">
+    <link rel="stylesheet" href="styles.css?v=20260812-8">
   </head>
   <body>
     <main class="app-shell">
@@ -539,6 +539,13 @@
               </svg>
               <span class="icon-button-label">CSV</span>
             </button>
+            <button id="replacePricingBtn" class="icon-button pricing-replace-btn" type="button" aria-label="Wyczyść i wgraj nowy cennik CSV" title="Wyczyść i wgraj nowy cennik CSV">
+              <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+              </svg>
+              <span class="icon-button-label">Nowy</span>
+            </button>
             <div class="pricing-restore-stack">
               <div class="pricing-update">
                 <span>Aktualizacja</span>
@@ -547,6 +554,7 @@
               <button id="resetPricingBtn" class="reset-filters-btn" type="button">Przywróć cennik</button>
             </div>
             <input id="pricingImportInput" type="file" accept=".csv,text/csv" hidden>
+            <input id="pricingReplaceInput" type="file" accept=".csv,text/csv" hidden>
           </section>
 
           <section class="table-zone" aria-label="Tabela cennika">
@@ -1016,6 +1024,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260812-9"></script>
+    <script src="app.js?v=20260812-10"></script>
   </body>
 </html>
