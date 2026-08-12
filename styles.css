@@ -778,6 +778,11 @@ select.location-suggested {
   background: #fff7f5;
 }
 
+input[aria-invalid="true"] {
+  border-color: #c84b3f;
+  background: #fff7f5;
+}
+
 .clear-date-btn {
   min-height: 34px;
   padding: 0;
@@ -953,7 +958,7 @@ select.location-suggested {
   color: #0f685c;
   background: #f1f8f5;
   box-shadow: inset 0 0 0 2px rgba(15, 104, 92, 0.18);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 1000;
 }
 
@@ -1479,7 +1484,7 @@ td {
 .date-text.today-date {
   display: inline-block;
   color: #003f5a !important;
-  font-size: 1.12em;
+  font-size: 1.06em;
   font-weight: 1000 !important;
 }
 
@@ -1487,7 +1492,7 @@ td {
   opacity: 1 !important;
   filter: none !important;
   color: #003f5a !important;
-  font-size: 0.84rem;
+  font-size: 0.79rem;
   font-weight: 1000 !important;
 }
 
@@ -1503,11 +1508,11 @@ tbody tr.device-sold-row .date-text.today-date {
   border: 0;
   gap: 5px;
   padding: 2px 5px;
-  color: #225f83;
-  background: transparent;
+  color: #003f5a;
+  background: #eef6f8;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 0.9rem;
-  font-weight: 850;
+  font-weight: 920;
   letter-spacing: 0;
   cursor: pointer;
   transform: none;
@@ -1531,7 +1536,15 @@ tbody tr.device-sold-row .date-text.today-date {
 
 .devices-table td:nth-child(4) .serial-pill {
   padding: 2px 4px;
+  color: #003f5a;
+  background: #e9f3f6;
   font-size: 0.98rem;
+}
+
+.repairs-table td:nth-child(6) .serial-pill {
+  color: #003f5a;
+  background: #e9f3f6;
+  font-weight: 920;
 }
 
 .devices-table td:nth-child(4) .serial-pill.duplicate {
@@ -1545,8 +1558,8 @@ tbody tr.device-sold-row .date-text.today-date {
 .serial-pill:hover,
 .serial-pill:focus-visible {
   border-color: transparent;
-  color: #164c6c;
-  background: #e7f2f8;
+  color: #002f43;
+  background: #dcecf1;
   transform: none;
 }
 
@@ -1567,8 +1580,8 @@ tbody tr.device-sold-row .date-text.today-date {
 }
 
 .serial-pill.empty:hover {
-  color: #225f83;
-  background: transparent;
+  color: #003f5a;
+  background: #eef6f8;
 }
 
 .serial-copy-icon {
