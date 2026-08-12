@@ -568,14 +568,14 @@ function updateWorkstationButton() {
   workstationBtn.hidden = !currentSupabaseUser;
   const name = currentWorkstationName();
   workstationBtn.textContent = name ? `Stanowisko: ${name}` : "Ustaw stanowisko";
-  workstationBtn.title = name ? `To stanowisko: ${name}` : "Ustaw nazwę tego komputera";
+  workstationBtn.title = name ? `To stanowisko: ${name}` : "Podaj T12, P50, P63 lub inicjały";
 }
 
 function promptForWorkstationName({ force = false } = {}) {
   const currentName = currentWorkstationName();
   if (currentName && !force) return currentName;
 
-  const value = prompt("Podaj nazwę tego stanowiska/komputera, np. P63 laptop, T12 komputer, Dom.", currentName || "");
+  const value = prompt("Podaj stanowisko: T12, P50, P63 lub inicjały.", currentName || "");
   if (value === null) {
     const fallbackName = currentName || "Nie ustawiono";
     if (!currentName) localStorage.setItem(WORKSTATION_STORAGE_KEY, fallbackName);
@@ -590,6 +590,10 @@ function promptForWorkstationName({ force = false } = {}) {
 }
 
 function canViewPrivatePayments() {
+  return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
+function canManageAuditLogs() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
 
@@ -1076,7 +1080,35 @@ function formatAuditDateTime(value) {
   return dateTimeFormatter.format(date);
 }
 
-function createAuditTrailItem(entry) {
+async function deleteAuditLogEntry(entry, notebook) {
+  if (!canManageAuditLogs() || !entry?.id) return;
+  if (!confirm("Usunąć ten wpis historii zmian?")) return;
+
+  const previousLogs = auditLogs;
+  auditLogs = auditLogs.filter((item) => item.id !== entry.id);
+  saveLocalAuditLogs();
+  renderAuditTrailEntries(notebook, auditLogs
+    .filter((item) => item.notebook === notebook && item.recordId === entry.recordId)
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+    .slice(0, 20));
+
+  if (!hasSupabaseConfig) return;
+
+  try {
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(SUPABASE_AUDIT_TABLE).delete().eq("id", entry.id);
+      if (error) throw error;
+    });
+    renderAuditTrail(notebook, entry.recordId);
+  } catch (error) {
+    auditLogs = previousLogs;
+    saveLocalAuditLogs();
+    renderAuditTrail(notebook, entry.recordId);
+    alert(`Nie udało się usunąć historii zmian: ${errorText(error) || "nieznany błąd"}`);
+  }
+}
+
+function createAuditTrailItem(entry, notebook) {
   const item = document.createElement("div");
   item.className = "audit-trail-item";
 
@@ -1096,6 +1128,15 @@ function createAuditTrailItem(entry) {
     item.append(title, meta, details);
   } else {
     item.append(title, meta);
+  }
+
+  if (canManageAuditLogs()) {
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "audit-trail-delete";
+    deleteButton.textContent = "Usuń";
+    deleteButton.addEventListener("click", () => deleteAuditLogEntry(entry, notebook));
+    item.append(deleteButton);
   }
 
   return item;
@@ -1118,7 +1159,7 @@ function renderAuditTrailEntries(notebook, entries) {
     target.list.innerHTML = '<p class="audit-trail-empty">Brak historii zmian.</p>';
     return;
   }
-  target.list.replaceChildren(...entries.map(createAuditTrailItem));
+  target.list.replaceChildren(...entries.map((entry) => createAuditTrailItem(entry, notebook)));
 }
 
 function renderAuditTrail(notebook, recordId) {

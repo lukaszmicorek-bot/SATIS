@@ -2629,6 +2629,7 @@ tbody tr.demo-return-critical:hover {
 
 .audit-trail-item {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px;
   border-radius: 6px;
   padding: 7px 9px;
@@ -2636,6 +2637,7 @@ tbody tr.demo-return-critical:hover {
 }
 
 .audit-trail-item strong {
+  grid-column: 1;
   color: #284d5f;
   font-size: 0.78rem;
   font-weight: 900;
@@ -2646,6 +2648,29 @@ tbody tr.demo-return-critical:hover {
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 700;
+}
+
+.audit-trail-item span {
+  grid-column: 1;
+}
+
+.audit-trail-delete {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: center;
+  min-height: 24px;
+  padding: 2px 7px;
+  border-color: #dccccc;
+  color: #8b4c4c;
+  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.audit-trail-delete:hover {
+  color: #733838;
+  background: #fff1f1;
+  transform: none;
 }
 
 .demo-loan-history-remove {
