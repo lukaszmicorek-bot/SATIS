@@ -24,6 +24,7 @@ const SEARCH_DEBOUNCE_MS = 120;
 const TABLE_RENDER_BATCH_SIZE = 500;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const MAX_MODEL_NAME_SUGGESTIONS = 120;
+const MAX_QUALITY_HINT_CANDIDATES = 320;
 const DEMO_RETURN_WARNING_DAYS = 30;
 const DEMO_RETURN_CRITICAL_DAYS = 14;
 const DEMO_LOAN_DAYS = 14;
@@ -124,6 +125,9 @@ let pricingManufacturerToneMap = null;
 let serialCopyToastTimeout = 0;
 let stockAudit = loadStockAudit();
 let deviceNameCorrectionCandidates = [];
+let modelQualityCandidates = [];
+let personQualityCandidates = [];
+let serialLengthProfiles = new Map();
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -2386,6 +2390,354 @@ function correctDeviceNameFromHistory(value, currentId = "") {
   return parts.join(" ");
 }
 
+function compactQualityKey(value) {
+  return normalize(value).replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function compactSerialForLength(value) {
+  return normalizeSerialNumber(value).replace(/[\s-]+/gu, "");
+}
+
+function serialLengthLabel(length) {
+  if (length === 1) return "1 znak";
+  if ([2, 3, 4].includes(length)) return `${length} znaki`;
+  return `${length} znaków`;
+}
+
+function qualityDistanceLimit(length) {
+  if (length >= 14) return 3;
+  if (length >= 8) return 2;
+  return 1;
+}
+
+function bestDisplayForm(displayForms) {
+  return [...displayForms.entries()].sort((left, right) => right[1] - left[1] || collator.compare(left[0], right[0]))[0]?.[0] || "";
+}
+
+function buildTextQualityCandidates(values, normalizer, validator) {
+  const candidates = new Map();
+
+  values.forEach((value) => {
+    const display = normalizer(value);
+    if (!validator(display)) return;
+    const key = compactQualityKey(display);
+    if (key.length < 4) return;
+    const entry = candidates.get(key) || { key, count: 0, displayForms: new Map(), length: key.length };
+    entry.count += 1;
+    entry.displayForms.set(display, (entry.displayForms.get(display) || 0) + 1);
+    candidates.set(key, entry);
+  });
+
+  return [...candidates.values()]
+    .map((candidate) => ({
+      key: candidate.key,
+      count: candidate.count,
+      length: candidate.length,
+      display: bestDisplayForm(candidate.displayForms)
+    }))
+    .sort((left, right) => right.count - left.count || collator.compare(left.display, right.display))
+    .slice(0, MAX_QUALITY_HINT_CANDIDATES);
+}
+
+function isLikelyPersonSuggestion(value) {
+  const name = titleCaseName(value).replace(/\s+/gu, " ").trim();
+  if (name.length < 6 || name.length > 70) return false;
+  if (!/\p{L}/u.test(name) || /\d/u.test(name)) return false;
+  if (/https?:\/\//iu.test(name) || /\bwww\./iu.test(name) || /@/u.test(name)) return false;
+  return name.split(/\s+/u).length >= 2;
+}
+
+function modelQualitySourceValues() {
+  return [...records, ...demoRecords, ...repairRecords].map((record) => record.deviceName);
+}
+
+function personQualitySourceValues() {
+  const values = [];
+  records.forEach((record) => values.push(record.customerName));
+  repairRecords.forEach((record) => values.push(record.customerName));
+  demoRecords.forEach((record) => {
+    values.push(record.currentUser);
+    normalizeDemoLoanHistory(record.loanHistory).forEach((entry) => values.push(entry.currentUser));
+  });
+  return values;
+}
+
+function addSerialLengthProfile(profiles, key, label, serialNumber) {
+  const serial = compactSerialForLength(serialNumber);
+  if (key.length < 4 || serial.length < 3) return;
+  const profile = profiles.get(key) || { key, label, count: 0, lengths: new Map() };
+  profile.count += 1;
+  profile.lengths.set(serial.length, (profile.lengths.get(serial.length) || 0) + 1);
+  profiles.set(key, profile);
+}
+
+function serialProfileKeysForModel(deviceName) {
+  const model = cleanModelSuggestion(deviceName);
+  const modelKey = compactQualityKey(model);
+  const firstToken = compactQualityKey(model.split(/\s+/u)[0] || "");
+  return {
+    exact: modelKey ? `model:${modelKey}` : "",
+    family: firstToken ? `family:${firstToken}` : "",
+    label: model
+  };
+}
+
+function rebuildQualityHintCandidates() {
+  const customerKeys = customerNameSuggestionKeys();
+  modelQualityCandidates = buildTextQualityCandidates(
+    modelQualitySourceValues(),
+    cleanModelSuggestion,
+    (value) => isLikelyModelSuggestion(value, customerKeys)
+  );
+  personQualityCandidates = buildTextQualityCandidates(personQualitySourceValues(), titleCaseName, isLikelyPersonSuggestion);
+
+  const profiles = new Map();
+  const addRecord = (record) => {
+    const keys = serialProfileKeysForModel(record?.deviceName);
+    [record?.serialNumber, record?.serialNumber2].forEach((serialNumber) => {
+      if (keys.exact) addSerialLengthProfile(profiles, keys.exact, keys.label, serialNumber);
+      if (keys.family) addSerialLengthProfile(profiles, keys.family, keys.label.split(/\s+/u)[0] || keys.label, serialNumber);
+    });
+  };
+
+  records.forEach(addRecord);
+  demoRecords.forEach(addRecord);
+  repairRecords.forEach(addRecord);
+  serialLengthProfiles = profiles;
+}
+
+function findTextQualitySuggestion(value, candidates, options = {}) {
+  const enteredDisplay = options.normalizer ? options.normalizer(value) : String(value ?? "").trim();
+  const enteredKey = compactQualityKey(enteredDisplay);
+  if (enteredKey.length < (options.minLength || 5)) return null;
+  if (candidates.some((candidate) => candidate.key === enteredKey)) return null;
+
+  const limit = qualityDistanceLimit(enteredKey.length);
+  const matches = candidates
+    .map((candidate) => {
+      const lengthGap = Math.abs(candidate.length - enteredKey.length);
+      const distance = damerauLevenshtein(enteredKey, candidate.key);
+      const sharesEdge =
+        Math.min(candidate.length, enteredKey.length) >= (options.edgeMinLength || 6) &&
+        (candidate.key.startsWith(enteredKey) || enteredKey.startsWith(candidate.key));
+      const typoMatch = distance <= limit && lengthGap <= limit + 2;
+      const lengthMatch = sharesEdge && lengthGap >= 2 && lengthGap <= (options.maxLengthGap || 8) && candidate.count >= (options.minPrefixCount || 2);
+      if (!typoMatch && !lengthMatch) return null;
+      return {
+        ...candidate,
+        distance,
+        lengthGap,
+        score: distance + lengthGap * 0.12 - Math.min(candidate.count, 12) * 0.03
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.score - right.score || right.count - left.count || collator.compare(left.display, right.display));
+
+  const best = matches[0];
+  if (!best) return null;
+  if (normalize(best.display).trim() === normalize(enteredDisplay).trim()) return null;
+  return best;
+}
+
+function modelQualitySuggestion(value, currentId = "") {
+  const normalizedValue = normalizeDeviceName(value);
+  if (!normalizedValue) return null;
+
+  const tokenCorrected = correctDeviceNameFromHistory(normalizedValue, currentId);
+  if (tokenCorrected && tokenCorrected !== normalizedValue) {
+    return {
+      value: tokenCorrected,
+      message: `Model wygląda podobnie do wcześniejszych wpisów. Sprawdź, czy chodzi o: ${tokenCorrected}.`
+    };
+  }
+
+  const suggestion = findTextQualitySuggestion(normalizedValue, modelQualityCandidates, {
+    normalizer: cleanModelSuggestion,
+    minLength: 5,
+    edgeMinLength: 5,
+    maxLengthGap: 10,
+    minPrefixCount: 2
+  });
+  if (!suggestion) return null;
+
+  const lengthText = suggestion.lengthGap >= 3 ? " Długość nazwy różni się od podobnych wpisów." : "";
+  return {
+    value: suggestion.display,
+    message: `Model jest podobny do wpisu z historii: ${suggestion.display}.${lengthText}`
+  };
+}
+
+function personQualitySuggestion(value) {
+  const normalizedValue = titleCaseName(value).replace(/\s+/gu, " ").trim();
+  if (!normalizedValue) return null;
+  const suggestion = findTextQualitySuggestion(normalizedValue, personQualityCandidates, {
+    normalizer: titleCaseName,
+    minLength: 7,
+    edgeMinLength: 7,
+    maxLengthGap: 8,
+    minPrefixCount: 1
+  });
+  if (!suggestion) return null;
+
+  return {
+    value: suggestion.display,
+    message: `Imię i nazwisko jest podobne do wcześniejszego wpisu: ${suggestion.display}.`
+  };
+}
+
+function serialLengthProfileForModel(deviceName) {
+  const keys = serialProfileKeysForModel(deviceName);
+  const exact = keys.exact ? serialLengthProfiles.get(keys.exact) : null;
+  if (exact && exact.count >= 3) return exact;
+  const family = keys.family ? serialLengthProfiles.get(keys.family) : null;
+  if (family && family.count >= 5) return family;
+  return null;
+}
+
+function typicalSerialLengths(profile) {
+  if (!profile || profile.count < 3) return [];
+  const lengths = [...profile.lengths.entries()].sort((left, right) => right[1] - left[1] || left[0] - right[0]);
+  const strongestCount = lengths[0]?.[1] || 0;
+  if (strongestCount < 3 || strongestCount / profile.count < 0.42) return [];
+  return lengths
+    .filter(([, count]) => count >= Math.max(2, strongestCount * 0.55))
+    .slice(0, 3)
+    .map(([length]) => length)
+    .sort((left, right) => left - right);
+}
+
+function serialQualitySuggestion(serialNumber, deviceName) {
+  const serial = compactSerialForLength(serialNumber);
+  if (serial.length < 4) return null;
+  const profile = serialLengthProfileForModel(deviceName);
+  const typicalLengths = typicalSerialLengths(profile);
+  if (!typicalLengths.length || typicalLengths.includes(serial.length)) return null;
+
+  const nearestGap = Math.min(...typicalLengths.map((length) => Math.abs(length - serial.length)));
+  if (nearestGap < 2) return null;
+
+  const typicalText = typicalLengths.map(serialLengthLabel).join(" lub ");
+  return {
+    message: `Numer seryjny ma ${serialLengthLabel(serial.length)}. Dla podobnych wpisów ${profile.label || "tego modelu"} najczęściej występuje ${typicalText}. Sprawdź, czy numer jest pełny.`
+  };
+}
+
+function clearQualityHintInputs(form) {
+  form?.querySelectorAll(".quality-suggestion-input").forEach((input) => input.classList.remove("quality-suggestion-input"));
+}
+
+function createQualityHintItem(hint, context) {
+  const item = document.createElement("div");
+  item.className = "quality-hint";
+  const text = document.createElement("span");
+  text.textContent = hint.message;
+  item.append(text);
+
+  if (hint.suggestion && hint.selector) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `Użyj: ${hint.suggestion}`;
+    button.addEventListener("click", () => {
+      const input = document.querySelector(hint.selector);
+      if (!input) return;
+      input.value = hint.suggestion;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      renderQualityHints(context);
+    });
+    item.append(button);
+  }
+
+  return item;
+}
+
+function qualityHintConfig(context) {
+  if (context === "devices") {
+    return {
+      form: recordForm,
+      container: document.querySelector("#recordQualityHints"),
+      currentId: document.querySelector("#recordId")?.value || "",
+      fields: [
+        { kind: "model", selector: "#deviceName", label: "Model aparatu" },
+        { kind: "serial", selector: "#serialNumber", label: "Numer seryjny", modelSelector: "#deviceName" },
+        { kind: "person", selector: "#customerName", label: "Imię i nazwisko" }
+      ]
+    };
+  }
+
+  if (context === "repairs") {
+    return {
+      form: repairForm,
+      container: document.querySelector("#repairQualityHints"),
+      currentId: document.querySelector("#repairId")?.value || "",
+      fields: [
+        { kind: "person", selector: "#repairCustomerName", label: "Imię i nazwisko" },
+        { kind: "model", selector: "#repairDeviceName", label: "Aparat / wkładka" },
+        { kind: "serial", selector: "#repairSerialNumber", label: "Numer seryjny 1", modelSelector: "#repairDeviceName" },
+        { kind: "serial", selector: "#repairSerialNumber2", label: "Numer seryjny 2", modelSelector: "#repairDeviceName" }
+      ]
+    };
+  }
+
+  if (context === "demo") {
+    return {
+      form: demoForm,
+      container: document.querySelector("#demoQualityHints"),
+      currentId: document.querySelector("#demoId")?.value || "",
+      fields: [
+        { kind: "model", selector: "#demoDeviceName", label: "Nazwa aparatu" },
+        { kind: "serial", selector: "#demoSerialNumber", label: "Numer seryjny", modelSelector: "#demoDeviceName" },
+        { kind: "person", selector: "#demoCurrentUser", label: "Aktualnie używany" }
+      ]
+    };
+  }
+
+  return null;
+}
+
+function collectQualityHints(config) {
+  const hints = [];
+  config.fields.forEach((field) => {
+    const input = document.querySelector(field.selector);
+    if (!input) return;
+    const value = String(input.value ?? "").trim();
+    if (!value) return;
+
+    let suggestion = null;
+    if (field.kind === "model") suggestion = modelQualitySuggestion(value, config.currentId);
+    if (field.kind === "person") suggestion = personQualitySuggestion(value);
+    if (field.kind === "serial") {
+      const modelValue = document.querySelector(field.modelSelector)?.value || "";
+      suggestion = serialQualitySuggestion(value, modelValue);
+    }
+    if (!suggestion) return;
+
+    input.classList.add("quality-suggestion-input");
+    hints.push({
+      selector: field.selector,
+      suggestion: suggestion.value,
+      message: `${field.label}: ${suggestion.message}`
+    });
+  });
+  return hints;
+}
+
+function renderQualityHints(context) {
+  const config = qualityHintConfig(context);
+  if (!config?.container) return;
+  clearQualityHintInputs(config.form);
+  const hints = collectQualityHints(config).slice(0, 4);
+  config.container.hidden = !hints.length;
+  if (!hints.length) {
+    config.container.replaceChildren();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  hints.forEach((hint) => fragment.append(createQualityHintItem(hint, context)));
+  config.container.replaceChildren(fragment);
+}
+
 function serialMatches(serialNumber, source, currentId) {
   const checkedSerial = serialDuplicateKey(serialNumber);
   if (!checkedSerial) return [];
@@ -3871,6 +4223,7 @@ function rebuildDerivedData() {
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
+  rebuildQualityHintCandidates();
 }
 
 function rebuildAfterDeviceChange() {
@@ -3879,6 +4232,7 @@ function rebuildAfterDeviceChange() {
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
+  rebuildQualityHintCandidates();
 }
 
 function rebuildAfterRepairChange() {
@@ -3887,6 +4241,7 @@ function rebuildAfterRepairChange() {
   rebuildSerialIndex();
   rebuildDeviceNameSuggestions();
   rebuildCustomerNameSuggestions();
+  rebuildQualityHintCandidates();
 }
 
 function rebuildAfterDemoChange() {
@@ -3895,6 +4250,7 @@ function rebuildAfterDemoChange() {
   rebuildDemoManufacturerFilter();
   rebuildDemoFormSuggestions();
   rebuildSerialIndex();
+  rebuildQualityHintCandidates();
 }
 
 function invalidateDataControlCache() {
@@ -5871,6 +6227,7 @@ function openDialog(record = null) {
     document.querySelector("#location").value = "P63";
   }
   updateDateInputsTodayState(recordForm);
+  renderQualityHints("devices");
   renderAuditTrail("devices", record?.id || "");
   recordDialog.showModal();
 }
@@ -5917,6 +6274,7 @@ function openRepairDialog(record = null) {
   }
   updateDateInputsTodayState(repairForm);
   updateRepairWarrantyHint();
+  renderQualityHints("repairs");
   renderAuditTrail("repairs", record?.id || "");
 
   repairDialog.showModal();
@@ -5986,6 +6344,7 @@ function openDemoDialog(record = null) {
     manufacturerReturnDateInput.dataset.autoValue = calculatedManufacturerReturnDate;
   }
   updateDateInputsTodayState(demoForm);
+  renderQualityHints("demo");
   renderDemoCurrentAttachments();
   renderDemoLoanHistory(record);
   renderAuditTrail("demo", record?.id || "");
@@ -7848,6 +8207,15 @@ function debounce(callback, wait) {
   };
 }
 
+function registerQualityHintListeners(context, selectors) {
+  const update = debounce(() => renderQualityHints(context), SEARCH_DEBOUNCE_MS);
+  selectors.forEach((selector) => {
+    const input = document.querySelector(selector);
+    if (!input) return;
+    ["input", "change", "blur"].forEach((eventName) => input.addEventListener(eventName, update));
+  });
+}
+
 function resetAndRenderDeviceViews() {
   resetTableRenderLimit("devices");
   renderDeviceViews();
@@ -7971,6 +8339,9 @@ demoForm.addEventListener("submit", saveDemoFormRecord);
 recordForm.addEventListener("click", handleClearDateClick);
 repairForm.addEventListener("click", handleClearDateClick);
 demoForm.addEventListener("click", handleClearDateClick);
+registerQualityHintListeners("devices", ["#deviceName", "#serialNumber", "#customerName"]);
+registerQualityHintListeners("repairs", ["#repairCustomerName", "#repairDeviceName", "#repairSerialNumber", "#repairSerialNumber2"]);
+registerQualityHintListeners("demo", ["#demoDeviceName", "#demoSerialNumber", "#demoCurrentUser"]);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
 document.querySelector("#deviceName").addEventListener("blur", correctDeviceNameInput);

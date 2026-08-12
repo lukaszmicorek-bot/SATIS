@@ -3378,6 +3378,49 @@ dialog::backdrop {
   font-weight: 750;
 }
 
+.quality-hints {
+  display: grid;
+  gap: 7px;
+  margin: -2px 0 14px;
+}
+
+.quality-hints[hidden] {
+  display: none;
+}
+
+.quality-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-left: 3px solid #8da7ad;
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: #36505a;
+  background: #edf5f5;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.quality-hint span {
+  line-height: 1.35;
+}
+
+.quality-hint button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  border-color: #c7d7d9;
+  padding: 4px 8px;
+  color: #2f5963;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.74rem;
+}
+
+.quality-suggestion-input {
+  border-color: #9dbdc2;
+  background: #f6fbfb;
+}
+
 .auth-form button[type="submit"] {
   color: #fff;
   background: var(--accent);

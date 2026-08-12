@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260812-6">
+    <link rel="stylesheet" href="styles.css?v=20260812-7">
   </head>
   <body>
     <main class="app-shell">
@@ -685,6 +685,8 @@
           </label>
         </div>
 
+        <section id="recordQualityHints" class="quality-hints" hidden aria-live="polite"></section>
+
         <section id="recordAuditTrail" class="audit-trail" hidden>
           <div class="audit-trail-head">
             <h3>Historia zmian</h3>
@@ -794,6 +796,8 @@
             <textarea id="repairNotes" name="notes" rows="3"></textarea>
           </label>
         </div>
+
+        <section id="repairQualityHints" class="quality-hints" hidden aria-live="polite"></section>
 
         <section id="repairAuditTrail" class="audit-trail" hidden>
           <div class="audit-trail-head">
@@ -926,6 +930,8 @@
           </label>
         </div>
 
+        <section id="demoQualityHints" class="quality-hints" hidden aria-live="polite"></section>
+
         <section id="demoLoanHistorySection" class="demo-loan-history" hidden>
           <div class="demo-loan-history-head">
             <h3>Historia wypożyczeń</h3>
@@ -1010,6 +1016,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260812-6"></script>
+    <script src="app.js?v=20260812-7"></script>
   </body>
 </html>
