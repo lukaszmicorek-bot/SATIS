@@ -410,6 +410,7 @@ const pricingListView = document.querySelector("#pricingListView");
 const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList");
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
+const offerAgeInput = document.querySelector("#offerAgeInput");
 const offerDateInput = document.querySelector("#offerDateInput");
 const offerPfronInput = document.querySelector("#offerPfronInput");
 const offerPfronEnabledInput = document.querySelector("#offerPfronEnabledInput");
@@ -421,6 +422,7 @@ const printPricingOfferBtn = document.querySelector("#printPricingOfferBtn");
 const offerTitle = document.querySelector("#offerTitle");
 const offerMeta = document.querySelector("#offerMeta");
 const offerEmptyState = document.querySelector("#offerEmptyState");
+const offerAgeWarning = document.querySelector("#offerAgeWarning");
 const offerContent = document.querySelector("#offerContent");
 const offerItemsBody = document.querySelector("#offerItemsBody");
 const offerPaymentsBody = document.querySelector("#offerPaymentsBody");
@@ -4796,6 +4798,42 @@ function normalizePricingNfzCode(value) {
   return String(value ?? "").trim().replace(/\s+/g, "").toLocaleUpperCase("pl-PL");
 }
 
+function pricingOfferAgeValue() {
+  const value = Number.parseInt(String(offerAgeInput?.value ?? "").trim(), 10);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function formatOfferAge(age) {
+  if (age === null) return "";
+  if (age === 1) return "1 rok";
+  const lastDigit = age % 10;
+  const lastTwoDigits = age % 100;
+  return lastDigit >= 2 && lastDigit <= 4 && !(lastTwoDigits >= 12 && lastTwoDigits <= 14)
+    ? `${age} lata`
+    : `${age} lat`;
+}
+
+function pricingOfferNfzSuffixForAge() {
+  const age = pricingOfferAgeValue();
+  if (age === null) return "";
+  return age <= 26 ? "01" : "00";
+}
+
+function pricingOfferNfzCodeMatchesAge(record) {
+  const suffix = pricingOfferNfzSuffixForAge();
+  if (!suffix) return true;
+  const code = normalizePricingNfzCode(record?.nfzCode);
+  return code.endsWith(`.${suffix}`) || (!code.includes(".") && code.endsWith(suffix));
+}
+
+function pricingOfferPricedRecords() {
+  return pricingRecords.filter((record) => normalizePricingPrice(record.grossPrice) !== "");
+}
+
+function pricingOfferSuggestedRecords() {
+  return pricingOfferPricedRecords().filter(pricingOfferNfzCodeMatchesAge);
+}
+
 function pricingOfferDeviceName(record) {
   return record?.model || record?.tradeName || "aparat";
 }
@@ -4832,8 +4870,7 @@ function pricingOfferRecordSearchText(record) {
 function renderPricingOfferDeviceList() {
   if (!pricingOfferDeviceList) return;
   const fragment = document.createDocumentFragment();
-  pricingRecords
-    .filter((record) => normalizePricingPrice(record.grossPrice) !== "")
+  pricingOfferSuggestedRecords()
     .slice()
     .sort((left, right) => collator.compare(left.model || left.tradeName, right.model || right.tradeName))
     .forEach((record) => {
@@ -4845,11 +4882,10 @@ function renderPricingOfferDeviceList() {
   pricingOfferDeviceList.replaceChildren(fragment);
 }
 
-function findPricingOfferRecord(value) {
+function findPricingOfferRecordInCandidates(value, candidates) {
   const text = String(value ?? "").trim();
   if (!text) return null;
   const query = normalize(text);
-  const candidates = pricingRecords.filter((record) => normalizePricingPrice(record.grossPrice) !== "");
   return (
     candidates.find((record) => normalize(pricingOfferDeviceLabel(record)) === query) ||
     candidates.find((record) => normalize(record.idProduct) === query) ||
@@ -4858,6 +4894,11 @@ function findPricingOfferRecord(value) {
     candidates.find((record) => pricingOfferRecordSearchText(record).includes(query)) ||
     null
   );
+}
+
+function findPricingOfferRecord(value) {
+  const suggestedRecord = findPricingOfferRecordInCandidates(value, pricingOfferSuggestedRecords());
+  return suggestedRecord || findPricingOfferRecordInCandidates(value, pricingOfferPricedRecords());
 }
 
 function selectedPricingOfferItems() {
@@ -4933,6 +4974,10 @@ function renderPricingOfferItems(items) {
   const rows = items.map((item, index) => {
     const record = item.record;
     const row = document.createElement("tr");
+    if (!pricingOfferNfzCodeMatchesAge(record)) {
+      row.classList.add("offer-age-mismatch");
+      row.title = "Kod NFZ tej pozycji nie pasuje do wpisanego wieku.";
+    }
     appendOfferCell(row, String(index + 1));
 
     const nameCell = document.createElement("td");
@@ -4957,6 +5002,33 @@ function renderPricingOfferItems(items) {
     return row;
   });
   offerItemsBody.replaceChildren(...rows);
+}
+
+function renderPricingOfferAgeWarning(items) {
+  if (!offerAgeWarning) return;
+  const suffix = pricingOfferNfzSuffixForAge();
+  const age = pricingOfferAgeValue();
+  if (!suffix || !items.length) {
+    offerAgeWarning.hidden = true;
+    offerAgeWarning.textContent = "";
+    return;
+  }
+
+  const mismatches = items
+    .map((item) => item.record)
+    .filter((record) => !pricingOfferNfzCodeMatchesAge(record));
+
+  if (!mismatches.length) {
+    offerAgeWarning.hidden = true;
+    offerAgeWarning.textContent = "";
+    return;
+  }
+
+  const names = mismatches
+    .map((record) => `${pricingOfferDeviceName(record)} (${normalizePricingNfzCode(record.nfzCode) || "brak kodu NFZ"})`)
+    .join(", ");
+  offerAgeWarning.textContent = `Wiek ${formatOfferAge(age)}: kod NFZ powinien kończyć się na .${suffix}. Sprawdź: ${names}.`;
+  offerAgeWarning.hidden = false;
 }
 
 function renderPricingOfferPayments(items, totals) {
@@ -5007,6 +5079,8 @@ function renderPricingOffer() {
   const offerDate = ensurePricingOfferDate();
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
+  const age = pricingOfferAgeValue();
+  const customerAgeLabel = age === null ? "" : `, ${formatOfferAge(age)}`;
   const offerItems = selectedPricingOfferItems();
   const items = offerItems.map((item) => item.record);
   const total = items.reduce((sum, record) => sum + Number(normalizePricingPrice(record.grossPrice) || 0), 0);
@@ -5024,7 +5098,7 @@ function renderPricingOffer() {
     offerPfronInput.title = "";
   }
 
-  if (offerTitle) offerTitle.textContent = customer ? `Oferta dla ${customer}` : "Oferta aparatów słuchowych";
+  if (offerTitle) offerTitle.textContent = customer ? `Oferta dla ${customer}${customerAgeLabel}` : "Oferta aparatów słuchowych";
   if (offerMeta) {
     offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
   }
@@ -5036,11 +5110,13 @@ function renderPricingOffer() {
   if (!hasItems) {
     if (offerItemsBody) offerItemsBody.replaceChildren();
     if (offerPaymentsBody) offerPaymentsBody.replaceChildren();
+    renderPricingOfferAgeWarning([]);
     if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(0));
     return;
   }
 
   renderPricingOfferItems(offerItems);
+  renderPricingOfferAgeWarning(offerItems);
   renderPricingOfferPayments(items, { total, nfz, pfron, patient, withoutNfz, pfronEnabled });
   if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(patient));
 }
@@ -9049,6 +9125,14 @@ pricingViewButtons.forEach((button) => {
 [offerCustomerInput, offerDateInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
+});
+offerAgeInput?.addEventListener("input", () => {
+  renderPricingOfferDeviceList();
+  renderPricingOffer();
+});
+offerAgeInput?.addEventListener("change", () => {
+  renderPricingOfferDeviceList();
+  renderPricingOffer();
 });
 offerCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
