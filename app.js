@@ -3390,14 +3390,19 @@ function normalizePricingPrice(value) {
   return Number.isFinite(number) ? number : "";
 }
 
-function formatPricingPrice(value) {
+function formatPricingAmount(value, groupSeparator = "\u00a0\u00a0") {
   const number = normalizePricingPrice(value);
   if (number === "") return "";
-  return new Intl.NumberFormat("pl-PL", {
-    style: "currency",
-    currency: "PLN",
-    maximumFractionDigits: Number.isInteger(number) ? 0 : 2
-  }).format(number);
+  const decimals = Number.isInteger(number) ? 0 : 2;
+  const sign = number < 0 ? "-" : "";
+  const [integerPart, fractionPart] = Math.abs(number).toFixed(decimals).split(".");
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, groupSeparator);
+  return `${sign}${groupedInteger}${fractionPart ? `,${fractionPart}` : ""}`;
+}
+
+function formatPricingPrice(value) {
+  const amount = formatPricingAmount(value);
+  return amount ? `${amount} zł` : "";
 }
 
 function createPricingPriceElement(value) {
@@ -3409,9 +3414,7 @@ function createPricingPriceElement(value) {
     return wrap;
   }
 
-  const amount = new Intl.NumberFormat("pl-PL", {
-    maximumFractionDigits: Number.isInteger(number) ? 0 : 2
-  }).format(number);
+  const amount = formatPricingAmount(number, " ");
   const groups = amount.split(/[\s\u00a0\u202f]+/u).filter(Boolean);
   if (groups.length > 1) {
     groups.slice(0, -1).forEach((group, index) => {
