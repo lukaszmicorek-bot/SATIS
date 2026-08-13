@@ -753,19 +753,29 @@ h2 {
 .price-thousand-group {
   display: inline-block;
   color: #003f5a;
-  padding-right: 0.18em;
-  margin-right: 0.2em;
-  border-right: 1px solid rgba(0, 63, 90, 0.34);
   font-weight: 920;
 }
 
 .price-group-separator {
-  display: none;
+  position: relative;
+  display: inline-block;
+  width: 0.62em;
+  min-width: 0.62em;
 }
 
 .price-group-separator-inner {
   display: inline-block;
-  width: 0.18em;
+  width: 0.36em;
+  min-width: 0.36em;
+}
+
+.price-group-separator::after {
+  content: "";
+  position: absolute;
+  top: 0.18em;
+  bottom: 0.18em;
+  left: 50%;
+  border-left: 1px solid rgba(0, 63, 90, 0.42);
 }
 
 .price-rest-group {
