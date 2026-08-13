@@ -812,9 +812,10 @@ h2 {
 }
 
 .offer-customer-field {
-  grid-column: span 3;
+  grid-column: span 2;
 }
 
+.offer-age-field,
 .offer-date-field {
   grid-column: span 1;
 }
@@ -856,6 +857,17 @@ h2 {
 #offerPfronInput:disabled {
   color: #8a969c;
   background: #f1f5f6;
+}
+
+.offer-age-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #f0c7bd;
+  border-radius: 8px;
+  color: #8a3d32;
+  background: #fff6f3;
+  font-size: 0.8rem;
+  font-weight: 760;
 }
 
 .offer-actions {
@@ -991,6 +1003,15 @@ h2 {
   color: #003f5a;
   font-size: 0.94rem;
   line-height: 1.22;
+}
+
+.offer-age-mismatch td {
+  background: #fff8f5;
+}
+
+.offer-age-mismatch td:nth-child(3) {
+  color: #9b3f32;
+  font-weight: 860;
 }
 
 .offer-remove-item-btn {
@@ -3897,6 +3918,7 @@ textarea {
   }
 
   .offer-customer-field,
+  .offer-age-field,
   .offer-date-field,
   .offer-option-field,
   .offer-pfron-field,
@@ -3993,6 +4015,7 @@ textarea {
   }
 
   .offer-customer-field,
+  .offer-age-field,
   .offer-date-field,
   .offer-option-field,
   .offer-pfron-field,
