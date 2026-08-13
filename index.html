@@ -698,7 +698,11 @@
                 </label>
                 <label>
                   <span>Miejscowość</span>
-                  <input id="loanCityInput" type="text" value="Bielsko-Biała" autocomplete="off">
+                  <select id="loanCityInput">
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała - ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała - ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec - al. Piłsudskiego 50</option>
+                  </select>
                 </label>
                 <label>
                   <span>Kaucja</span>
@@ -814,6 +818,7 @@
               </div>
               <div class="offer-actions">
                 <button id="loanCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
+                <button id="loanDuplicateRightBtn" class="reset-filters-btn" type="button">2x ten sam</button>
                 <button id="savePricingLoanBtn" class="reset-filters-btn" type="button">Zapisz w historii</button>
                 <button id="printPricingLoanBtn" type="button">Drukuj / PDF</button>
               </div>
@@ -1365,6 +1370,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-19"></script>
+    <script src="app.js?v=20260813-21"></script>
   </body>
 </html>
