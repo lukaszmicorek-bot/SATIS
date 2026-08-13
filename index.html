@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260813-16">
+    <link rel="stylesheet" href="styles.css?v=20260813-19">
   </head>
   <body>
     <main class="app-shell">
@@ -519,6 +519,7 @@
             <button class="pricing-view-button active" type="button" role="tab" aria-selected="true" data-pricing-view="list">Cennik</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="offer">Oferta</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="loan">Umowa</button>
+            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="order">Zamówienie</button>
           </section>
 
           <section id="pricingListView" class="pricing-view-section">
@@ -678,9 +679,18 @@
                 </div>
               </div>
               <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
-                <span><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa, tel. 502 605 002</span>
-                <span><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel, tel. 502 605 663</span>
-                <span><strong>Żywiec</strong> al. Piłsudskiego 50, Przychodnia Laryngologiczna, tel. 502 605 669</span>
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-phone">tel. 502 605 002</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-phone">tel. 502 605 663</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Żywiec</strong> al. Piłsudskiego 50, <span class="location-nowrap">Przychodnia Laryngologiczna</span></span>
+                  <span class="location-phone">tel. 502 605 669</span>
+                </span>
               </address>
             </section>
           </section>
@@ -920,9 +930,134 @@
               </section>
 
               <address class="loan-locations" aria-label="Adresy gabinetów SATIS">
-                <span><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa, tel. 502 605 002</span>
-                <span><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel, tel. 502 605 663</span>
-                <span><strong>Żywiec</strong> al. Piłsudskiego 50, Przychodnia Laryngologiczna, tel. 502 605 669</span>
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-phone">tel. 502 605 002</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-phone">tel. 502 605 663</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Żywiec</strong> al. Piłsudskiego 50, <span class="location-nowrap">Przychodnia Laryngologiczna</span></span>
+                  <span class="location-phone">tel. 502 605 669</span>
+                </span>
+              </address>
+            </section>
+          </section>
+
+          <section id="pricingOrderView" class="pricing-view-section pricing-order-section" hidden>
+            <section class="offer-builder order-builder" aria-label="Ustawienia zamówienia">
+              <div class="order-form-grid">
+                <label>
+                  <span>Nr zamówienia</span>
+                  <input id="orderNumberInput" type="text" placeholder="np. 1/08" autocomplete="off">
+                </label>
+                <label>
+                  <span>Data zamówienia</span>
+                  <input id="orderDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label class="order-wide">
+                  <span>Klient</span>
+                  <input id="orderCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                </label>
+                <label>
+                  <span>Telefon</span>
+                  <input id="orderPhoneInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Miejsce</span>
+                  <select id="orderLocationInput">
+                    <option value="T12">T12</option>
+                    <option value="P50">P50</option>
+                    <option value="P63" selected>P63</option>
+                  </select>
+                </label>
+                <label class="order-wide">
+                  <span>Uwagi</span>
+                  <input id="orderNotesInput" type="text" placeholder="np. pilne, kolor, ucho prawe/lewe" autocomplete="off">
+                </label>
+              </div>
+
+              <div class="order-editor">
+                <div class="order-editor-head">
+                  <span>Pozycje zamówienia</span>
+                  <button id="addOrderItemBtn" class="reset-filters-btn" type="button">Dodaj pozycję</button>
+                </div>
+                <table class="order-editor-table">
+                  <thead>
+                    <tr>
+                      <th>Typ</th>
+                      <th>Ilość</th>
+                      <th>Opis / model</th>
+                      <th>Uwagi</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="orderItemsFormBody"></tbody>
+                </table>
+              </div>
+
+              <div class="offer-actions">
+                <button id="orderCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
+                <button id="printPricingOrderBtn" type="button">Drukuj / PDF</button>
+              </div>
+            </section>
+
+            <section id="pricingOrderPrint" class="offer-document order-document" aria-label="Zamówienie">
+              <header class="offer-document-head">
+                <div>
+                  <p>SATIS Pracownia Słuchu</p>
+                  <h2 id="orderTitle">Zamówienie</h2>
+                  <span id="orderMeta">Data: dziś</span>
+                </div>
+                <img src="satis-monogram.png" alt="SATIS">
+              </header>
+
+              <p id="orderEmptyState" class="offer-empty-state">Dodaj pozycję zamówienia.</p>
+              <div id="orderContent" hidden>
+                <section class="loan-doc-section">
+                  <h3>Podstawowe dane</h3>
+                  <div class="loan-doc-grid order-doc-grid">
+                    <p><span>Nr zamówienia</span><strong data-order-out="number">-</strong></p>
+                    <p><span>Data</span><strong data-order-out="date">-</strong></p>
+                    <p><span>Klient</span><strong data-order-out="customer">-</strong></p>
+                    <p><span>Telefon</span><strong data-order-out="phone">-</strong></p>
+                    <p><span>Miejsce</span><strong data-order-out="location">-</strong></p>
+                    <p><span>Uwagi</span><strong data-order-out="notes">-</strong></p>
+                  </div>
+                </section>
+
+                <section class="loan-doc-section">
+                  <h3>Pozycje</h3>
+                  <table class="order-items-table">
+                    <thead>
+                      <tr>
+                        <th>LP</th>
+                        <th>Typ</th>
+                        <th>Ilość</th>
+                        <th>Opis / model</th>
+                        <th>Uwagi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="orderItemsBody"></tbody>
+                  </table>
+                </section>
+              </div>
+
+              <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-phone">tel. 502 605 002</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-phone">tel. 502 605 663</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Żywiec</strong> al. Piłsudskiego 50, <span class="location-nowrap">Przychodnia Laryngologiczna</span></span>
+                  <span class="location-phone">tel. 502 605 669</span>
+                </span>
               </address>
             </section>
           </section>
@@ -1370,6 +1505,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-21"></script>
+    <script src="app.js?v=20260813-23"></script>
   </body>
 </html>
