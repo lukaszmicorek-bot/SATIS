@@ -893,7 +893,8 @@ h2 {
   gap: 8px;
 }
 
-#printPricingOfferBtn {
+#printPricingOfferBtn,
+#printPricingLoanBtn {
   min-height: 30px;
   padding: 0 12px;
   color: #fff;
@@ -903,7 +904,8 @@ h2 {
   font-weight: 820;
 }
 
-#printPricingOfferBtn:hover {
+#printPricingOfferBtn:hover,
+#printPricingLoanBtn:hover {
   color: #fff;
   background: #257867;
   border-color: #257867;
@@ -955,6 +957,29 @@ h2 {
   width: 54px;
   height: 54px;
   object-fit: contain;
+}
+
+.offer-locations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: -6px 0 14px;
+  color: #314852;
+  font-style: normal;
+  font-size: 0.74rem;
+  line-height: 1.28;
+}
+
+.offer-locations span {
+  padding: 7px 8px;
+  border-left: 3px solid #8fb9c4;
+  background: #f6fafb;
+}
+
+.offer-locations strong {
+  display: block;
+  color: #003f5a;
+  font-size: 0.76rem;
 }
 
 .offer-empty-state {
@@ -1075,6 +1100,177 @@ h2 {
 .offer-total-line strong {
   color: #003f5a;
   font-size: 1.16rem;
+}
+
+.loan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.loan-wide {
+  grid-column: span 2;
+}
+
+.loan-full {
+  grid-column: 1 / -1;
+}
+
+.loan-form-title {
+  margin: 4px 0 -2px;
+  color: #003f5a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.loan-document {
+  margin-top: 16px;
+}
+
+.loan-doc-section {
+  margin-top: 12px;
+}
+
+.loan-doc-section h3 {
+  margin: 0 0 7px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #d5e1e4;
+  color: #003f5a;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+}
+
+.loan-doc-grid,
+.loan-protocol-grid,
+.loan-signatures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.loan-doc-grid p,
+.loan-protocol-grid p,
+.loan-signatures p {
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px solid #d6e0e4;
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
+.loan-doc-grid-parties p:first-child,
+.loan-doc-grid-parties p:nth-child(2),
+.loan-doc-grid-parties p:nth-child(4),
+.loan-protocol-grid p:nth-child(2),
+.loan-protocol-grid p:nth-child(4),
+.loan-signatures p {
+  grid-column: span 2;
+}
+
+.loan-doc-grid p span,
+.loan-protocol-grid p span,
+.loan-signatures p span {
+  display: block;
+  margin-bottom: 3px;
+  color: #6a7780;
+  font-size: 0.67rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.loan-doc-grid p strong,
+.loan-protocol-grid p strong,
+.loan-signatures p strong {
+  color: #20343d;
+  font-size: 0.86rem;
+  line-height: 1.25;
+}
+
+.loan-doc-note {
+  margin: 7px 0;
+  color: #314852;
+  font-size: 0.82rem;
+  line-height: 1.36;
+}
+
+.loan-equipment-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.loan-equipment-table th,
+.loan-equipment-table td {
+  padding: 8px 7px;
+  border: 1px solid #d6e0e4;
+  text-align: left;
+  vertical-align: top;
+}
+
+.loan-equipment-table th {
+  color: #274653;
+  background: #eef5f5;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.loan-equipment-table td {
+  font-size: 0.82rem;
+  line-height: 1.26;
+}
+
+.loan-equipment-table th:first-child,
+.loan-equipment-table td:first-child {
+  width: 58px;
+}
+
+.loan-equipment-table th:nth-child(3),
+.loan-equipment-table td:nth-child(3) {
+  width: 120px;
+}
+
+.loan-equipment-table th:nth-child(5),
+.loan-equipment-table td:nth-child(5) {
+  width: 58px;
+}
+
+.loan-equipment-table th:nth-child(6),
+.loan-equipment-table td:nth-child(6) {
+  width: 118px;
+}
+
+.loan-doc-grid-charger {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.loan-terms > div {
+  columns: 2;
+  column-gap: 18px;
+}
+
+.loan-terms p {
+  break-inside: avoid;
+  margin: 0 0 8px;
+  color: #263d47;
+  font-size: 0.78rem;
+  line-height: 1.34;
+}
+
+.loan-signatures {
+  margin-top: 14px;
+}
+
+.loan-signatures p {
+  min-height: 70px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #fff;
 }
 
 .controls {
@@ -3934,12 +4130,33 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .loan-form-grid,
+  .loan-doc-grid,
+  .loan-protocol-grid,
+  .loan-doc-grid-charger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .offer-locations {
+    grid-template-columns: 1fr;
+  }
+
   .offer-customer-field,
   .offer-age-field,
   .offer-date-field,
   .offer-option-field,
   .offer-pfron-field,
   .offer-device-field {
+    grid-column: span 2;
+  }
+
+  .loan-wide,
+  .loan-doc-grid-parties p:first-child,
+  .loan-doc-grid-parties p:nth-child(2),
+  .loan-doc-grid-parties p:nth-child(4),
+  .loan-protocol-grid p:nth-child(2),
+  .loan-protocol-grid p:nth-child(4),
+  .loan-signatures p {
     grid-column: span 2;
   }
 
@@ -4024,6 +4241,11 @@ textarea {
     .repairs-controls,
     .stock-audit-panel,
   .offer-form-grid,
+  .loan-form-grid,
+  .loan-doc-grid,
+  .loan-protocol-grid,
+  .loan-doc-grid-charger,
+  .loan-signatures,
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
   .form-grid,
@@ -4037,6 +4259,16 @@ textarea {
   .offer-option-field,
   .offer-pfron-field,
   .offer-device-field {
+    grid-column: auto;
+  }
+
+  .loan-wide,
+  .loan-doc-grid-parties p:first-child,
+  .loan-doc-grid-parties p:nth-child(2),
+  .loan-doc-grid-parties p:nth-child(4),
+  .loan-protocol-grid p:nth-child(2),
+  .loan-protocol-grid p:nth-child(4),
+  .loan-signatures p {
     grid-column: auto;
   }
 
@@ -4141,6 +4373,7 @@ textarea {
   }
 
   body.pricing-offer-print,
+  body.pricing-loan-print,
   body.stock-checklist-print,
   body.stock-audit-pdf-print {
     color: #111;
@@ -4214,6 +4447,22 @@ textarea {
     height: 15mm;
   }
 
+  body.pricing-offer-print .offer-locations {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
+    margin: -2mm 0 4mm;
+    font-size: 6.8pt;
+  }
+
+  body.pricing-offer-print .offer-locations span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-offer-print .offer-locations strong {
+    font-size: 7pt;
+  }
+
   body.pricing-offer-print .offer-items-table,
   body.pricing-offer-print .offer-payments-table {
     margin-top: 4mm;
@@ -4252,6 +4501,120 @@ textarea {
 
   body.pricing-offer-print .offer-total-line strong {
     font-size: 14pt;
+  }
+
+  body.pricing-loan-print .app-shell > * {
+    display: none !important;
+  }
+
+  body.pricing-loan-print .app-shell > #pricingNotebook,
+  body.pricing-loan-print #pricingNotebook > .pricing-panel,
+  body.pricing-loan-print #pricingNotebook #pricingLoanView,
+  body.pricing-loan-print #pricingLoanView > #pricingLoanPrint {
+    display: block !important;
+  }
+
+  body.pricing-loan-print #pricingNotebook .pricing-panel > *,
+  body.pricing-loan-print #pricingLoanView > * {
+    display: none !important;
+  }
+
+  body.pricing-loan-print #pricingNotebook .pricing-panel > #pricingLoanView,
+  body.pricing-loan-print #pricingLoanView > #pricingLoanPrint {
+    display: block !important;
+  }
+
+  body.pricing-loan-print .app-shell,
+  body.pricing-loan-print .pricing-panel,
+  body.pricing-loan-print .pricing-loan-section {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  body.pricing-loan-print .loan-document {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  body.pricing-loan-print .offer-document-head {
+    margin-bottom: 4mm;
+    padding-bottom: 2.5mm;
+  }
+
+  body.pricing-loan-print .offer-document-head h2 {
+    font-size: 14pt;
+  }
+
+  body.pricing-loan-print .offer-document-head p,
+  body.pricing-loan-print .offer-document-head span {
+    font-size: 8pt;
+  }
+
+  body.pricing-loan-print .offer-document-head img {
+    width: 14mm;
+    height: 14mm;
+  }
+
+  body.pricing-loan-print .loan-doc-section {
+    margin-top: 3mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-loan-print .loan-doc-section h3 {
+    margin-bottom: 2mm;
+    padding-bottom: 1.4mm;
+    font-size: 8.2pt;
+  }
+
+  body.pricing-loan-print .loan-doc-grid,
+  body.pricing-loan-print .loan-protocol-grid,
+  body.pricing-loan-print .loan-signatures {
+    gap: 1.8mm;
+  }
+
+  body.pricing-loan-print .loan-doc-grid p,
+  body.pricing-loan-print .loan-protocol-grid p,
+  body.pricing-loan-print .loan-signatures p {
+    min-height: 0;
+    padding: 1.8mm 2mm;
+    border-radius: 0;
+  }
+
+  body.pricing-loan-print .loan-doc-grid p span,
+  body.pricing-loan-print .loan-protocol-grid p span,
+  body.pricing-loan-print .loan-signatures p span {
+    font-size: 6.5pt;
+  }
+
+  body.pricing-loan-print .loan-doc-grid p strong,
+  body.pricing-loan-print .loan-protocol-grid p strong,
+  body.pricing-loan-print .loan-signatures p strong {
+    font-size: 8pt;
+  }
+
+  body.pricing-loan-print .loan-doc-note,
+  body.pricing-loan-print .loan-terms p {
+    font-size: 7.4pt;
+    line-height: 1.22;
+  }
+
+  body.pricing-loan-print .loan-equipment-table th,
+  body.pricing-loan-print .loan-equipment-table td {
+    padding: 1.6mm 1.8mm;
+    font-size: 7.2pt;
+  }
+
+  body.pricing-loan-print .loan-signatures p {
+    min-height: 18mm;
   }
 
   body.stock-checklist-print .app-shell > * {
