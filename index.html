@@ -682,11 +682,11 @@
               </div>
               <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, <span class="location-nowrap">Przychodnia Kolejowa</span></span>
                   <span class="location-phone">tel. 502 605 002</span>
                 </span>
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, <span class="location-nowrap">obok Voxel</span></span>
                   <span class="location-phone">tel. 502 605 663</span>
                 </span>
                 <span>
@@ -711,9 +711,9 @@
                 <label>
                   <span>Miejscowość</span>
                   <select id="loanCityInput">
-                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała - ul. Traugutta 12</option>
-                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała - ul. Partyzantów 63</option>
-                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec - al. Piłsudskiego 50</option>
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała - ul. Traugutta 12, Przychodnia Kolejowa</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała - ul. Partyzantów 63, obok Voxel</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec - al. Piłsudskiego 50, Przychodnia Laryngologiczna</option>
                   </select>
                 </label>
                 <label>
@@ -933,11 +933,11 @@
 
               <address class="loan-locations" aria-label="Adresy gabinetów SATIS">
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, <span class="location-nowrap">Przychodnia Kolejowa</span></span>
                   <span class="location-phone">tel. 502 605 002</span>
                 </span>
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, <span class="location-nowrap">obok Voxel</span></span>
                   <span class="location-phone">tel. 502 605 663</span>
                 </span>
                 <span>
@@ -953,7 +953,7 @@
               <div class="order-form-grid">
                 <label>
                   <span>Nr zamówienia</span>
-                  <input id="orderNumberInput" type="text" placeholder="np. 1/08" autocomplete="off">
+                  <input id="orderNumberInput" type="text" placeholder="np. 1/08/2026" autocomplete="off">
                 </label>
                 <label>
                   <span>Data zamówienia</span>
@@ -1058,11 +1058,11 @@
 
               <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, <span class="location-nowrap">Przychodnia Kolejowa</span></span>
                   <span class="location-phone">tel. 502 605 002</span>
                 </span>
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, <span class="location-nowrap">obok Voxel</span></span>
                   <span class="location-phone">tel. 502 605 663</span>
                 </span>
                 <span>
@@ -1078,7 +1078,7 @@
               <div class="complaint-form-grid">
                 <label>
                   <span>Nr reklamacji</span>
-                  <input id="complaintNumberInput" type="text" placeholder="np. 1/08" autocomplete="off">
+                  <input id="complaintNumberInput" type="text" placeholder="np. 1/08/2026" autocomplete="off">
                 </label>
                 <label>
                   <span>Data przyjęcia</span>
@@ -1101,40 +1101,74 @@
                   </select>
                 </label>
                 <label>
-                  <span>Produkt</span>
-                  <select id="complaintProductTypeInput">
-                    <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                    <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                    <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                    <option value="INNE">Inne</option>
-                  </select>
-                </label>
-                <label class="complaint-wide">
-                  <span>Nazwa / model</span>
-                  <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
-                </label>
-                <label>
-                  <span>Nr seryjny</span>
-                  <input id="complaintSerialInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Dokument zakupu</span>
-                  <input id="complaintPurchaseDocumentInput" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
-                </label>
-                <label>
-                  <span>Data sprzedaży</span>
-                  <input id="complaintPurchaseDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
-                <label>
                   <span>Żądanie klienta</span>
                   <select id="complaintRequestInput">
-                    <option value="NAPRAWA">Naprawa</option>
-                    <option value="WYMIANA">Wymiana</option>
-                    <option value="ZWROT">Zwrot</option>
-                    <option value="OBNIŻENIE CENY">Obniżenie ceny</option>
-                    <option value="INNE">Inne</option>
+                    <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
+                    <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
                   </select>
                 </label>
+                <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
+                  <strong>Pozycja 1</strong>
+                  <div class="complaint-product-grid">
+                    <label>
+                      <span>Produkt</span>
+                      <select id="complaintProductTypeInput">
+                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                        <option value="INNE">Inne</option>
+                      </select>
+                    </label>
+                    <label class="complaint-product-wide">
+                      <span>Nazwa / model</span>
+                      <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Nr seryjny</span>
+                      <input id="complaintSerialInput" type="text" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Dokument zakupu</span>
+                      <input id="complaintPurchaseDocumentInput" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Data sprzedaży</span>
+                      <input id="complaintPurchaseDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                    </label>
+                  </div>
+                  <p id="complaintWarrantyHint1" class="complaint-warranty-hint" hidden></p>
+                </div>
+                <div class="complaint-product-card complaint-full" data-complaint-product-card="2">
+                  <strong>Pozycja 2</strong>
+                  <div class="complaint-product-grid">
+                    <label>
+                      <span>Produkt</span>
+                      <select id="complaintProductTypeInput2">
+                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                        <option value="INNE">Inne</option>
+                      </select>
+                    </label>
+                    <label class="complaint-product-wide">
+                      <span>Nazwa / model</span>
+                      <input id="complaintProductNameInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi model, wkładka lub produkt" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Nr seryjny</span>
+                      <input id="complaintSerialInput2" type="text" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Dokument zakupu</span>
+                      <input id="complaintPurchaseDocumentInput2" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Data sprzedaży</span>
+                      <input id="complaintPurchaseDateInput2" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                    </label>
+                  </div>
+                  <p id="complaintWarrantyHint2" class="complaint-warranty-hint" hidden></p>
+                </div>
                 <label class="complaint-full">
                   <span>Opis wady</span>
                   <textarea id="complaintDefectInput" rows="3" placeholder="Krótki opis zgłoszenia"></textarea>
@@ -1175,14 +1209,21 @@
               </section>
 
               <section class="loan-doc-section">
-                <h3>Produkt</h3>
-                <div class="loan-doc-grid complaint-doc-grid">
-                  <p><span>Produkt</span><strong data-complaint-out="productType">-</strong></p>
-                  <p><span>Nazwa / model</span><strong data-complaint-out="productName">-</strong></p>
-                  <p><span>Nr seryjny</span><strong data-complaint-out="serial">-</strong></p>
-                  <p><span>Dokument zakupu</span><strong data-complaint-out="purchaseDocument">-</strong></p>
-                  <p><span>Data sprzedaży</span><strong data-complaint-out="purchaseDate">-</strong></p>
-                </div>
+                <h3>Produkty</h3>
+                <table class="complaint-products-table">
+                  <thead>
+                    <tr>
+                      <th>LP</th>
+                      <th>Produkt</th>
+                      <th>Nazwa / model</th>
+                      <th>Nr seryjny</th>
+                      <th>Dokument</th>
+                      <th>Data sprzedaży</th>
+                      <th>Gwarancja</th>
+                    </tr>
+                  </thead>
+                  <tbody id="complaintProductsBody"></tbody>
+                </table>
               </section>
 
               <section class="loan-doc-section">
@@ -1206,11 +1247,11 @@
 
               <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, <span class="location-nowrap">Przychodnia Kolejowa</span></span>
                   <span class="location-phone">tel. 502 605 002</span>
                 </span>
                 <span>
-                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, <span class="location-nowrap">obok Voxel</span></span>
                   <span class="location-phone">tel. 502 605 663</span>
                 </span>
                 <span>
@@ -1664,6 +1705,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-28"></script>
+    <script src="app.js?v=20260813-30"></script>
   </body>
 </html>
