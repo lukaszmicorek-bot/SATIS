@@ -975,16 +975,30 @@ h2 {
   line-height: 1.28;
 }
 
-.offer-locations span {
+.offer-locations > span {
   padding: 7px 8px;
   border-left: 3px solid #8fb9c4;
   background: #f6fafb;
 }
 
 .offer-locations strong {
-  display: block;
   color: #003f5a;
   font-size: 0.76rem;
+}
+
+.location-main,
+.location-phone {
+  display: block;
+}
+
+.location-phone {
+  margin-top: 3px;
+  color: #52656d;
+  font-weight: 820;
+}
+
+.location-nowrap {
+  white-space: nowrap;
 }
 
 .offer-empty-state {
@@ -1289,7 +1303,7 @@ h2 {
   line-height: 1.28;
 }
 
-.loan-locations span {
+.loan-locations > span {
   padding: 7px 8px;
   border-left: 3px solid #9fc6c6;
   border-radius: 8px;
@@ -1297,7 +1311,6 @@ h2 {
 }
 
 .loan-locations strong {
-  display: block;
   color: #003f5a;
   font-size: 0.76rem;
 }
@@ -4665,7 +4678,7 @@ textarea {
     break-inside: avoid;
   }
 
-  body.pricing-offer-print .offer-locations span {
+  body.pricing-offer-print .offer-locations > span {
     padding: 1.5mm 1.8mm;
     border-left-width: 1mm;
   }
@@ -4845,7 +4858,7 @@ textarea {
     break-inside: avoid;
   }
 
-  body.pricing-loan-print .loan-locations span {
+  body.pricing-loan-print .loan-locations > span {
     padding: 1.4mm 1.8mm;
     border-left-width: 1mm;
     border-radius: 0;
