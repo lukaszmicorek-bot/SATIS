@@ -5051,18 +5051,22 @@ function renderPricingOfferPayments(items, totals) {
       payer: "NFZ",
       description: nfzDescription,
       amount: totals.nfz
-    },
-    {
-      payer: "PFRON",
-      description: totals.pfronEnabled ? `Dofinansowanie PFRON: ${itemsLabel}` : "Bez dofinansowania PFRON",
-      amount: totals.pfron
-    },
-    {
-      payer: customer ? `Pacjent - ${customer}` : "Pacjent",
-      description: `Pozostała kwota za: ${itemsLabel}`,
-      amount: totals.patient
     }
   ];
+
+  if (totals.pfronEnabled) {
+    rows.push({
+      payer: "PFRON",
+      description: `Dofinansowanie PFRON: ${itemsLabel}`,
+      amount: totals.pfron
+    });
+  }
+
+  rows.push({
+    payer: customer ? `Pacjent - ${customer}` : "Pacjent",
+    description: `Pozostała kwota za: ${itemsLabel}`,
+    amount: totals.patient
+  });
 
   offerPaymentsBody.replaceChildren(...rows.map((entry) => {
     const row = document.createElement("tr");
