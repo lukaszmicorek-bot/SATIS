@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260813-21">
+    <link rel="stylesheet" href="styles.css?v=20260813-23">
   </head>
   <body>
     <main class="app-shell">
@@ -959,6 +959,10 @@
                   <span>Data zamówienia</span>
                   <input id="orderDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
+                <label>
+                  <span>Termin odbioru</span>
+                  <input id="orderDueDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
                 <label class="order-wide">
                   <span>Klient</span>
                   <input id="orderCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
@@ -983,7 +987,7 @@
 
               <div class="order-editor">
                 <div class="order-editor-head">
-                  <span>Pozycje zamówienia</span>
+                  <span>Wybór</span>
                   <button id="addOrderItemBtn" class="reset-filters-btn" type="button">Dodaj pozycję</button>
                 </div>
                 <table class="order-editor-table">
@@ -991,7 +995,7 @@
                     <tr>
                       <th>Typ</th>
                       <th>Ilość</th>
-                      <th>Opis / model</th>
+                      <th>Pozycja / model</th>
                       <th>Uwagi</th>
                       <th></th>
                     </tr>
@@ -1020,31 +1024,35 @@
               <p id="orderEmptyState" class="offer-empty-state">Dodaj pozycję zamówienia.</p>
               <div id="orderContent" hidden>
                 <section class="loan-doc-section">
-                  <h3>Podstawowe dane</h3>
+                  <h3>Dane</h3>
                   <div class="loan-doc-grid order-doc-grid">
                     <p><span>Nr zamówienia</span><strong data-order-out="number">-</strong></p>
-                    <p><span>Data</span><strong data-order-out="date">-</strong></p>
+                    <p><span>Data zamówienia</span><strong data-order-out="date">-</strong></p>
+                    <p><span>Termin odbioru</span><strong data-order-out="dueDate">-</strong></p>
                     <p><span>Klient</span><strong data-order-out="customer">-</strong></p>
                     <p><span>Telefon</span><strong data-order-out="phone">-</strong></p>
                     <p><span>Miejsce</span><strong data-order-out="location">-</strong></p>
-                    <p><span>Uwagi</span><strong data-order-out="notes">-</strong></p>
                   </div>
                 </section>
 
                 <section class="loan-doc-section">
-                  <h3>Pozycje</h3>
+                  <h3>Wybór</h3>
                   <table class="order-items-table">
                     <thead>
                       <tr>
                         <th>LP</th>
-                        <th>Typ</th>
+                        <th>Pozycja</th>
                         <th>Ilość</th>
-                        <th>Opis / model</th>
                         <th>Uwagi</th>
                       </tr>
                     </thead>
                     <tbody id="orderItemsBody"></tbody>
                   </table>
+                </section>
+                <p class="order-print-notes"><strong>Uwagi:</strong> <span data-order-out="notes">-</span></p>
+                <section class="order-signatures" aria-label="Podpisy zamówienia">
+                  <p><span>Przyjmujący zamówienie</span><strong>data i podpis</strong></p>
+                  <p><span>Klient</span><strong>data i podpis</strong></p>
                 </section>
               </div>
 
@@ -1078,7 +1086,7 @@
                 </label>
                 <label class="complaint-wide">
                   <span>Klient</span>
-                  <input id="complaintCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                  <input id="complaintCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
                 <label>
                   <span>Telefon</span>
@@ -1114,7 +1122,7 @@
                   <input id="complaintPurchaseDocumentInput" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
                 </label>
                 <label>
-                  <span>Data zakupu</span>
+                  <span>Data sprzedaży</span>
                   <input id="complaintPurchaseDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
                 <label>
@@ -1136,6 +1144,7 @@
                   <textarea id="complaintNotesInput" rows="2" placeholder="Dodatkowe ustalenia"></textarea>
                 </label>
               </div>
+              <p id="complaintCustomerMatchHint" class="complaint-match-hint" hidden></p>
 
               <div class="offer-actions">
                 <button id="newPricingComplaintBtn" class="reset-filters-btn" type="button">Nowa</button>
@@ -1172,7 +1181,7 @@
                   <p><span>Nazwa / model</span><strong data-complaint-out="productName">-</strong></p>
                   <p><span>Nr seryjny</span><strong data-complaint-out="serial">-</strong></p>
                   <p><span>Dokument zakupu</span><strong data-complaint-out="purchaseDocument">-</strong></p>
-                  <p><span>Data zakupu</span><strong data-complaint-out="purchaseDate">-</strong></p>
+                  <p><span>Data sprzedaży</span><strong data-complaint-out="purchaseDate">-</strong></p>
                 </div>
               </section>
 
@@ -1655,6 +1664,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-26"></script>
+    <script src="app.js?v=20260813-28"></script>
   </body>
 </html>

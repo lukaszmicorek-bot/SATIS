@@ -1228,7 +1228,12 @@ h2 {
 
 .order-items-table th:nth-child(2),
 .order-items-table td:nth-child(2) {
-  width: 150px;
+  width: auto;
+}
+
+.order-items-table th:nth-child(4),
+.order-items-table td:nth-child(4) {
+  width: 170px;
 }
 
 .order-items-table .order-type-cell {
@@ -1261,9 +1266,53 @@ h2 {
   margin-top: 16px;
 }
 
-.order-doc-grid p:nth-child(3),
-.order-doc-grid p:nth-child(6) {
+.order-doc-grid p:nth-child(4) {
   grid-column: span 2;
+}
+
+.order-print-notes {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #d6e0e4;
+  border-radius: 8px;
+  color: #273d48;
+  background: #fbfdfd;
+  line-height: 1.35;
+}
+
+.order-print-notes strong {
+  color: #003f5a;
+}
+
+.order-signatures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.order-signatures p {
+  min-height: 82px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d6e0e4;
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
+.order-signatures span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.order-signatures strong {
+  display: block;
+  margin-top: 36px;
+  color: #003f5a;
+  font-size: 0.82rem;
 }
 
 .complaint-form-grid {
@@ -1283,6 +1332,17 @@ h2 {
 
 .complaint-form-grid textarea {
   min-height: 78px;
+}
+
+.complaint-match-hint {
+  margin: -2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #d3e3e4;
+  border-radius: 8px;
+  color: #365c63;
+  background: #f4f9f9;
+  font-size: 0.78rem;
+  font-weight: 740;
 }
 
 .complaint-document {
@@ -4566,6 +4626,7 @@ textarea {
   .loan-doc-grid-charger,
   .loan-locations,
   .order-doc-grid,
+  .order-signatures,
   .complaint-doc-grid,
   .complaint-signatures {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4691,6 +4752,7 @@ textarea {
   .loan-locations,
   .loan-signatures,
   .order-doc-grid,
+  .order-signatures,
   .complaint-doc-grid,
   .complaint-signatures,
   .stock-audit-preview-head,
@@ -4713,8 +4775,8 @@ textarea {
   .order-wide,
   .complaint-wide,
   .complaint-full,
-  .order-doc-grid p:nth-child(3),
-  .order-doc-grid p:nth-child(6),
+  .order-doc-grid p:nth-child(4),
+  .order-signatures p,
   .complaint-doc-grid p:nth-child(4),
   .complaint-doc-grid p:nth-child(6),
   .complaint-signatures p,
@@ -5083,6 +5145,37 @@ textarea {
   body.pricing-order-print .order-items-table th,
   body.pricing-order-print .order-items-table td {
     padding: 2mm 2.2mm;
+  }
+
+  body.pricing-order-print .order-print-notes {
+    margin-top: 4mm;
+    padding: 2mm 2.2mm;
+    border-radius: 0;
+    font-size: 8.2pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .order-signatures {
+    gap: 2mm;
+    margin-top: 5mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .order-signatures p {
+    min-height: 22mm;
+    padding: 2mm 2.2mm;
+    border-radius: 0;
+  }
+
+  body.pricing-order-print .order-signatures span {
+    font-size: 6.8pt;
+  }
+
+  body.pricing-order-print .order-signatures strong {
+    margin-top: 10mm;
+    font-size: 8pt;
   }
 
   body.pricing-order-print .offer-locations {
