@@ -1959,6 +1959,75 @@ tbody tr.device-sold-row:hover {
   z-index: 40;
 }
 
+.customer-activity-cell {
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+}
+
+.customer-activity-cell.has-customer-docs {
+  color: #174f64;
+  cursor: help;
+  font-weight: 760;
+}
+
+.customer-docs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  color: #1f5a63;
+  background: #e8f4f3;
+  font-size: 0.58rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-activity-cell.customer-docs-uncertain .customer-docs-badge {
+  color: #7a5130;
+  background: #f8eadb;
+}
+
+.customer-activity-cell.has-customer-docs::after {
+  content: attr(data-customer-tooltip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 45;
+  min-width: 260px;
+  max-width: 430px;
+  padding: 8px 10px;
+  border: 1px solid #c9d8d4;
+  border-radius: 8px;
+  color: #20343b;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(28, 31, 36, 0.14);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: pre-line;
+}
+
+.customer-activity-cell.has-customer-docs:hover::after,
+.customer-activity-cell.has-customer-docs:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.devices-table tbody tr:first-child .customer-activity-cell.has-customer-docs::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
 tbody tr.serial-duplicate-row {
   background: #fff7f2;
 }
