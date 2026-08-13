@@ -64,7 +64,13 @@ const MAX_PRICING_LOAN_HISTORY = 300;
 const MAX_PRICING_OFFER_HISTORY = 300;
 const MAX_PRICING_ORDER_HISTORY = 300;
 const MAX_PRICING_COMPLAINT_HISTORY = 300;
-const DEFAULT_LOAN_CITY = "Bielsko-Biała, ul. Traugutta 12";
+const DOCUMENT_LOCATIONS = [
+  { key: "T12", value: "Bielsko-Biała, ul. Traugutta 12" },
+  { key: "P63", value: "Bielsko-Biała, ul. Partyzantów 63" },
+  { key: "P50", value: "Żywiec, al. Piłsudskiego 50" }
+];
+const DEFAULT_DOCUMENT_LOCATION = DOCUMENT_LOCATIONS[0].value;
+const DEFAULT_LOAN_CITY = DEFAULT_DOCUMENT_LOCATION;
 const PRICING_ORDER_TYPES = ["APARAT SŁUCHOWY", "WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA"];
 const PRICING_COMPLAINT_PRODUCT_TYPES = ["APARAT SŁUCHOWY", "WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA", "INNE"];
 const PRICING_COMPLAINT_REQUESTS = ["NAPRAWA GWARANCYJNA", "NAPRAWA POGWARANCYJNA"];
@@ -370,6 +376,22 @@ const REPAIR_DATE_ORDER = [
   { field: "returnDate", label: "Data powrotu", selector: "#repairReturnDate" },
   { field: "pickupDate", label: "Data odbioru", selector: "#repairPickupDate" }
 ];
+const DEMO_DATE_VALIDATION_FIELDS = [
+  { field: "receivedDate", label: "Data przyjęcia", selector: "#demoReceivedDate" },
+  { field: "manufacturerReturnDate", label: "Termin zwrotu do producenta", selector: "#demoManufacturerReturnDate" },
+  { field: "manufacturerReturnedDate", label: "Data zwrócenia do producenta", selector: "#demoManufacturerReturnedDate" },
+  { field: "loanDate", label: "Data wypożyczenia", selector: "#demoLoanDate" },
+  { field: "returnDate", label: "Data zwrotu z wypożyczenia", selector: "#demoReturnDate" }
+];
+const DEMO_DATE_CONSTRAINTS = [
+  { field: "manufacturerReturnDate", previousField: "receivedDate" },
+  { field: "manufacturerReturnedDate", previousField: "receivedDate" },
+  { field: "manufacturerReturnedDate", previousField: "loanDate" },
+  { field: "manufacturerReturnedDate", previousField: "returnDate" },
+  { field: "loanDate", previousField: "receivedDate" },
+  { field: "returnDate", previousField: "receivedDate" },
+  { field: "returnDate", previousField: "loanDate" }
+];
 const REPAIR_WARRANTY_MONTHS = 36;
 
 let records = [];
@@ -445,6 +467,7 @@ const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList")
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
 const offerAgeInput = document.querySelector("#offerAgeInput");
 const offerDateInput = document.querySelector("#offerDateInput");
+const offerLocationInput = document.querySelector("#offerLocationInput");
 const offerPfronInput = document.querySelector("#offerPfronInput");
 const offerPfronEnabledInput = document.querySelector("#offerPfronEnabledInput");
 const offerNoNfzInput = document.querySelector("#offerNoNfzInput");
@@ -499,7 +522,6 @@ const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanHistoryList = document.querySelector("#loanHistoryList");
 const orderNumberInput = document.querySelector("#orderNumberInput");
 const orderDateInput = document.querySelector("#orderDateInput");
-const orderDueDateInput = document.querySelector("#orderDueDateInput");
 const orderCustomerInput = document.querySelector("#orderCustomerInput");
 const orderPhoneInput = document.querySelector("#orderPhoneInput");
 const orderLocationInput = document.querySelector("#orderLocationInput");
@@ -508,6 +530,7 @@ const orderItemsFormBody = document.querySelector("#orderItemsFormBody");
 const addOrderItemBtn = document.querySelector("#addOrderItemBtn");
 const orderCopyOfferBtn = document.querySelector("#orderCopyOfferBtn");
 const newPricingOrderBtn = document.querySelector("#newPricingOrderBtn");
+const savePricingOrderBtn = document.querySelector("#savePricingOrderBtn");
 const printPricingOrderBtn = document.querySelector("#printPricingOrderBtn");
 const orderTitle = document.querySelector("#orderTitle");
 const orderMeta = document.querySelector("#orderMeta");
@@ -533,13 +556,20 @@ const complaintRequestInput = document.querySelector("#complaintRequestInput");
 const complaintDefectInput = document.querySelector("#complaintDefectInput");
 const complaintNotesInput = document.querySelector("#complaintNotesInput");
 const newPricingComplaintBtn = document.querySelector("#newPricingComplaintBtn");
+const savePricingComplaintBtn = document.querySelector("#savePricingComplaintBtn");
 const printPricingComplaintBtn = document.querySelector("#printPricingComplaintBtn");
 const complaintTitle = document.querySelector("#complaintTitle");
 const complaintMeta = document.querySelector("#complaintMeta");
 const complaintCustomerMatchHint = document.querySelector("#complaintCustomerMatchHint");
+const complaintCustomerDevicePicker = document.querySelector("#complaintCustomerDevicePicker");
+const complaintCustomerDeviceSelect = document.querySelector("#complaintCustomerDeviceSelect");
+const complaintUseDeviceItem1Btn = document.querySelector("#complaintUseDeviceItem1Btn");
+const complaintUseDeviceItem2Btn = document.querySelector("#complaintUseDeviceItem2Btn");
 const complaintWarrantyHint1 = document.querySelector("#complaintWarrantyHint1");
 const complaintWarrantyHint2 = document.querySelector("#complaintWarrantyHint2");
 const complaintProductsBody = document.querySelector("#complaintProductsBody");
+const removeComplaintItemBtn1 = document.querySelector("#removeComplaintItemBtn1");
+const removeComplaintItemBtn2 = document.querySelector("#removeComplaintItemBtn2");
 const demoChecklistBody = document.querySelector("#demoChecklistBody");
 const demoChecklistMeta = document.querySelector("#demoChecklistMeta");
 const printDemoChecklistBtn = document.querySelector("#printDemoChecklistBtn");
@@ -3422,6 +3452,7 @@ function normalizeRepairCategory(category) {
   if (normalizedCategory === "WKŁADKA USZNA") return "WKŁADKA USZNA";
   if (normalizedCategory === "WKŁADKA PRZECIWWODNA") return "WKŁADKA PRZECIWWODNA";
   if (normalizedCategory === "WKLADKA PRZECIWWODNA") return "WKŁADKA PRZECIWWODNA";
+  if (normalizedCategory === "ZAMÓWIENIE" || normalizedCategory === "ZAMOWIENIE") return "ZAMÓWIENIE";
   return "WKŁADKA USZNA";
 }
 
@@ -5353,9 +5384,17 @@ function ensurePricingOfferDate() {
   return today;
 }
 
+function ensurePricingOfferLocation() {
+  if (!offerLocationInput) return DEFAULT_DOCUMENT_LOCATION;
+  const location = normalizeDocumentLocationValue(offerLocationInput.value);
+  if (offerLocationInput.value !== location) offerLocationInput.value = location;
+  return location;
+}
+
 function renderPricingOffer() {
   if (!pricingOfferView) return;
   const offerDate = ensurePricingOfferDate();
+  const offerLocation = ensurePricingOfferLocation();
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
   const age = pricingOfferAgeValue();
@@ -5379,7 +5418,7 @@ function renderPricingOffer() {
 
   if (offerTitle) offerTitle.textContent = customer ? `Oferta dla ${customer}${customerAgeLabel}` : "Oferta aparatów słuchowych";
   if (offerMeta) {
-    offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
+    offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
   }
 
   const hasItems = items.length > 0;
@@ -5500,6 +5539,7 @@ function normalizePricingOfferHistoryEntry(entry) {
     workstation: normalizeLoanHistoryText(entry.workstation),
     customer: titleCaseName(entry.customer || ""),
     age: normalizeLoanHistoryText(entry.age),
+    location: normalizeDocumentLocationValue(entry.location),
     offerDate,
     validUntil: isoDateForSave(entry.validUntil) || normalizeLoanHistoryText(entry.validUntil),
     withoutNfz: Boolean(entry.withoutNfz),
@@ -5566,6 +5606,7 @@ async function loadSupabasePricingOfferHistory() {
 
 function currentPricingOfferSnapshot() {
   const offerDate = ensurePricingOfferDate();
+  const location = ensurePricingOfferLocation();
   const items = selectedPricingOfferItems().map((item) => {
     const record = item.record;
     return normalizePricingOfferHistoryItem({
@@ -5593,6 +5634,7 @@ function currentPricingOfferSnapshot() {
     workstation: currentWorkstationName(),
     customer: titleCaseName(offerCustomerInput?.value || ""),
     age: pricingOfferAgeValue() ?? "",
+    location,
     offerDate,
     validUntil: addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS),
     withoutNfz,
@@ -5609,6 +5651,7 @@ function pricingOfferSnapshotKey(entry) {
   return [
     entry?.customer,
     entry?.offerDate,
+    entry?.location,
     (entry?.items || []).map((item) => [item.model, item.nfzCode, item.grossPrice].join(":")).join("|")
   ].map((value) => normalize(value)).join("|");
 }
@@ -5665,15 +5708,22 @@ function normalizeLoanHistoryText(value) {
   return String(value ?? "").replace(/\s+/gu, " ").trim();
 }
 
-function normalizeLoanCityValue(value) {
+function normalizeDocumentLocationValue(value) {
   const text = normalizeLoanHistoryText(value);
   const normalizedText = normalize(text);
-  if (normalizedText.includes("partyzant")) return "Bielsko-Biała, ul. Partyzantów 63";
+  if (normalizedText === "p63" || normalizedText.includes("partyzant")) return "Bielsko-Biała, ul. Partyzantów 63";
   if (normalizedText.includes("pilsud") || normalizedText.includes("piłsud") || normalizedText.includes("żywiec") || normalizedText.includes("zywiec")) {
     return "Żywiec, al. Piłsudskiego 50";
   }
-  if (normalizedText.includes("traugutta") || normalizedText === normalize("Bielsko-Biała")) return DEFAULT_LOAN_CITY;
-  return text || DEFAULT_LOAN_CITY;
+  if (normalizedText === "p50") return "Żywiec, al. Piłsudskiego 50";
+  if (normalizedText === "t12" || normalizedText.includes("traugutta") || normalizedText === normalize("Bielsko-Biała")) {
+    return DEFAULT_DOCUMENT_LOCATION;
+  }
+  return text || DEFAULT_DOCUMENT_LOCATION;
+}
+
+function normalizeLoanCityValue(value) {
+  return normalizeDocumentLocationValue(value);
 }
 
 function normalizePricingLoanHistoryDevice(device, fallbackSide = "") {
@@ -6204,6 +6254,7 @@ function duplicateLoanRightDeviceToLeft() {
 
 function syncLoanFormFromOffer(overwrite = false) {
   setLoanInputValue(loanCustomerInput, titleCaseName(offerCustomerInput?.value || ""), overwrite);
+  setLoanInputValue(loanCityInput, normalizeDocumentLocationValue(offerLocationInput?.value), overwrite);
   const offerDate = isoDateForSave(offerDateInput?.value);
   if (offerDate && (overwrite || !loanInputValue(loanDateInput))) setDateInputValue(loanDateInput, offerDate);
   if (offerDate && (overwrite || !loanInputValue(loanPeriodFromInput))) setDateInputValue(loanPeriodFromInput, offerDate);
@@ -6356,10 +6407,9 @@ function normalizePricingOrderHistoryEntry(entry) {
     workstation: normalizeLoanHistoryText(entry.workstation),
     number: normalizeLoanHistoryText(entry.number),
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
-    dueDate: isoDateForSave(entry.dueDate) || normalizeLoanHistoryText(entry.dueDate),
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
-    location: normalizeRepairLocation(entry.location || "P63"),
+    location: normalizeDocumentLocationValue(entry.location),
     notes: normalizeLoanHistoryText(entry.notes),
     items
   };
@@ -6448,7 +6498,7 @@ function ensurePricingOrderNumber({ force = false } = {}) {
 function ensurePricingOrderDefaults() {
   const today = todayInputValue();
   if (!loanInputValue(orderDateInput)) setDateInputValue(orderDateInput, today);
-  if (!loanInputValue(orderLocationInput)) orderLocationInput.value = "P63";
+  if (!loanInputValue(orderLocationInput)) orderLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
   if (!orderItemsFormBody?.querySelector("[data-order-row]")) addPricingOrderItemRow();
   ensurePricingOrderNumber();
 }
@@ -6461,7 +6511,6 @@ function pricingOrderSnapshotKey(entry) {
   return [
     entry?.number,
     entry?.date,
-    entry?.dueDate,
     entry?.customer,
     (entry?.items || []).map((item) => [item.type, item.quantity, item.description, item.notes].join(":")).join("|")
   ].map((value) => normalize(value)).join("|");
@@ -6490,10 +6539,9 @@ function currentPricingOrderSnapshot() {
     workstation: currentWorkstationName(),
     number: orderInputValue(orderNumberInput),
     date: isoDateForSave(orderDateInput?.value) || orderInputValue(orderDateInput),
-    dueDate: isoDateForSave(orderDueDateInput?.value) || orderInputValue(orderDueDateInput),
     customer: titleCaseName(orderInputValue(orderCustomerInput)),
     phone: orderInputValue(orderPhoneInput),
-    location: normalizeRepairLocation(orderInputValue(orderLocationInput) || "P63"),
+    location: normalizeDocumentLocationValue(orderInputValue(orderLocationInput)),
     notes: orderInputValue(orderNotesInput),
     items: pricingOrderFormItems()
   };
@@ -6543,6 +6591,213 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   persistPricingOrderHistoryEntry(historyEntry, { silent });
   if (!silent) alert("Zamówienie zapisane w historii.");
   return historyEntry;
+}
+
+function documentLocationToRepairLocation(value) {
+  const text = normalizeLoanHistoryText(value);
+  const directLocation = String(text).trim().toLocaleUpperCase("pl-PL");
+  if (["T12", "P50", "P63"].includes(directLocation)) return directLocation;
+  const documentLocation = normalizeDocumentLocationValue(text);
+  const match = DOCUMENT_LOCATIONS.find((location) => normalize(location.value) === normalize(documentLocation));
+  return match?.key || normalizeRepairLocation(text);
+}
+
+function repairDocumentSourceTag(sourceType, sourceNumber) {
+  const type = normalizeLoanHistoryText(sourceType).toLocaleUpperCase("pl-PL");
+  const label = type === "COMPLAINT" ? "Reklamacja" : "Zamówienie";
+  const number = normalizeLoanHistoryText(sourceNumber) || "bez numeru";
+  return `[${label}: ${number}]`;
+}
+
+function repairDocumentSourceMatches(record, sourceType, sourceId, sourceNumber) {
+  const checkedType = normalizeLoanHistoryText(sourceType).toLocaleUpperCase("pl-PL");
+  const recordType = normalizeLoanHistoryText(record?.sourceDocumentType).toLocaleUpperCase("pl-PL");
+  const recordSourceId = normalizeLoanHistoryText(record?.sourceDocumentId);
+  const recordSourceNumber = normalizeLoanHistoryText(record?.sourceDocumentNumber);
+  if (recordType && recordType !== checkedType) return false;
+  if (sourceId && recordSourceId === sourceId) return true;
+  if (sourceNumber && recordSourceNumber === sourceNumber) return true;
+  const sourceTag = repairDocumentSourceTag(checkedType, sourceNumber);
+  return Boolean(sourceNumber && normalize(record?.notes).includes(normalize(sourceTag)));
+}
+
+function mergeDocumentRepairNotes(existingNotes, incomingNotes, sourceTag) {
+  const currentNotes = normalizeLoanHistoryText(existingNotes);
+  const nextNotes = normalizeLoanHistoryText(incomingNotes);
+  if (!currentNotes) return nextNotes;
+  if (!nextNotes || normalize(currentNotes).includes(normalize(sourceTag))) return currentNotes;
+  return joinTransferNotes(currentNotes, nextNotes);
+}
+
+function pricingOrderRepairItemLabel(item) {
+  const normalizedItem = normalizePricingOrderItem(item);
+  if (!normalizedItem) return "";
+  const typeLabel = pricingOrderTypeLabel(normalizedItem.type);
+  const quantity = normalizedItem.quantity && normalizedItem.quantity !== "1" ? `${normalizedItem.quantity}x ` : "";
+  const description = normalizedItem.description || typeLabel;
+  const modelText = description && description !== typeLabel ? ` - ${description}` : "";
+  const notesText = normalizedItem.notes ? ` (${normalizedItem.notes})` : "";
+  return `${quantity}${typeLabel}${modelText}${notesText}`;
+}
+
+function pricingOrderRepairDeviceName(items) {
+  return (items || [])
+    .map(pricingOrderRepairItemLabel)
+    .filter(Boolean)
+    .join(" + ");
+}
+
+function pricingOrderRepairItemLine(item, index) {
+  const itemLabel = pricingOrderRepairItemLabel(item);
+  return itemLabel ? `${index + 1}. ${itemLabel}` : "";
+}
+
+function pricingComplaintRepairDeviceName(items) {
+  return (items || [])
+    .map((item) => normalizeLoanHistoryText(item.productName) || pricingComplaintProductTypeLabel(item.productType))
+    .filter(Boolean)
+    .join(" + ");
+}
+
+function pricingComplaintRepairItemLine(item, index) {
+  const normalizedItem = normalizePricingComplaintItem(item);
+  if (!pricingComplaintItemHasContent(normalizedItem)) return "";
+  return [
+    `${index + 1}. ${pricingComplaintProductTypeLabel(normalizedItem.productType)}`,
+    normalizedItem.productName,
+    normalizedItem.serial ? `nr ${normalizedItem.serial}` : "",
+    normalizedItem.purchaseDocument ? `FV ${normalizedItem.purchaseDocument}` : "",
+    normalizedItem.purchaseDate ? `sprzedaż ${formatDate(normalizedItem.purchaseDate)}` : ""
+  ].filter(Boolean).join(" · ");
+}
+
+function pricingOrderRepairRecord(entry) {
+  const normalizedEntry = normalizePricingOrderHistoryEntry(entry);
+  if (!normalizedEntry?.items.length) return null;
+  const sourceTag = repairDocumentSourceTag("ORDER", normalizedEntry.number);
+  const itemLines = normalizedEntry.items.map(pricingOrderRepairItemLine).filter(Boolean);
+  return normalizeRepairRecordForUse({
+    id: makeId(),
+    sourceDocumentType: "ORDER",
+    sourceDocumentId: normalizedEntry.id,
+    sourceDocumentNumber: normalizedEntry.number,
+    receivedDate: isoDateForSave(normalizedEntry.date) || todayInputValue(),
+    category: "ZAMÓWIENIE",
+    location: documentLocationToRepairLocation(normalizedEntry.location),
+    customerName: normalizedEntry.customer,
+    deviceName: pricingOrderRepairDeviceName(normalizedEntry.items) || "Zamówienie",
+    serialNumber: "",
+    serialNumber2: "",
+    status: "PRZYJĘTE",
+    sentDate: "",
+    returnDate: "",
+    pickupDate: "",
+    notes: joinTransferNotes(
+      sourceTag,
+      normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
+      itemLines.length ? "Pozycje:" : "",
+      ...itemLines,
+      normalizedEntry.notes ? `Uwagi: ${normalizedEntry.notes}` : ""
+    )
+  });
+}
+
+function pricingComplaintRepairRecord(entry) {
+  const normalizedEntry = normalizePricingComplaintHistoryEntry(entry);
+  if (!normalizedEntry) return null;
+  const items = normalizePricingComplaintItems(normalizedEntry);
+  const sourceTag = repairDocumentSourceTag("COMPLAINT", normalizedEntry.number);
+  const itemLines = items.map(pricingComplaintRepairItemLine).filter(Boolean);
+  return normalizeRepairRecordForUse({
+    id: makeId(),
+    sourceDocumentType: "COMPLAINT",
+    sourceDocumentId: normalizedEntry.id,
+    sourceDocumentNumber: normalizedEntry.number,
+    receivedDate: isoDateForSave(normalizedEntry.date) || todayInputValue(),
+    category: normalizePricingComplaintRequest(normalizedEntry.request),
+    location: documentLocationToRepairLocation(normalizedEntry.location),
+    customerName: normalizedEntry.customer,
+    deviceName: pricingComplaintRepairDeviceName(items) || "Reklamacja",
+    serialNumber: items[0]?.serial || "",
+    serialNumber2: items[1]?.serial || "",
+    status: "PRZYJĘTE",
+    sentDate: "",
+    returnDate: "",
+    pickupDate: "",
+    notes: joinTransferNotes(
+      sourceTag,
+      normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
+      `Żądanie: ${pricingComplaintRequestLabel(normalizedEntry.request)}`,
+      itemLines.length ? "Pozycje:" : "",
+      ...itemLines,
+      normalizedEntry.defect ? `Opis wady: ${normalizedEntry.defect}` : "",
+      normalizedEntry.notes ? `Uwagi: ${normalizedEntry.notes}` : ""
+    )
+  });
+}
+
+function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
+  if (!existingRecord) return incomingRecord;
+  const sourceTag = repairDocumentSourceTag(incomingRecord.sourceDocumentType, incomingRecord.sourceDocumentNumber);
+  return normalizeRepairRecordForUse({
+    ...existingRecord,
+    sourceDocumentType: incomingRecord.sourceDocumentType || existingRecord.sourceDocumentType,
+    sourceDocumentId: incomingRecord.sourceDocumentId || existingRecord.sourceDocumentId,
+    sourceDocumentNumber: incomingRecord.sourceDocumentNumber || existingRecord.sourceDocumentNumber,
+    receivedDate: incomingRecord.receivedDate || existingRecord.receivedDate,
+    category: incomingRecord.category || existingRecord.category,
+    location: incomingRecord.location || existingRecord.location,
+    customerName: incomingRecord.customerName || existingRecord.customerName,
+    deviceName: incomingRecord.deviceName || existingRecord.deviceName,
+    serialNumber: incomingRecord.serialNumber || existingRecord.serialNumber,
+    serialNumber2: incomingRecord.serialNumber2 || existingRecord.serialNumber2,
+    status: existingRecord.status || incomingRecord.status,
+    notes: mergeDocumentRepairNotes(existingRecord.notes, incomingRecord.notes, sourceTag)
+  });
+}
+
+function upsertRepairRecordFromDocument(incomingRecord) {
+  if (!incomingRecord) return null;
+  const existingIndex = repairRecords.findIndex((record) =>
+    repairDocumentSourceMatches(
+      record,
+      incomingRecord.sourceDocumentType,
+      incomingRecord.sourceDocumentId,
+      incomingRecord.sourceDocumentNumber
+    )
+  );
+  const existingRecord = existingIndex >= 0 ? repairRecords[existingIndex] : null;
+  const savedRecord = mergeDocumentRepairRecord(existingRecord, incomingRecord);
+  const isNewRecord = !existingRecord;
+  repairRecords = existingRecord
+    ? repairRecords.map((record, index) => (index === existingIndex ? savedRecord : record))
+    : [savedRecord, ...repairRecords];
+  localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  const persistPromise = persistRepairRecord(savedRecord);
+  persistPromise
+    .then(() => {
+      if (isNewRecord) {
+        logAuditEvent({
+          notebook: "repairs",
+          action: "add",
+          recordId: savedRecord.id,
+          beforeRecord: null,
+          afterRecord: savedRecord
+        });
+      }
+    })
+    .catch((error) => console.warn("Nie udało się zsynchronizować wpisu dokumentu z zeszytem napraw:", error));
+  rebuildAfterRepairChange();
+  render();
+  return savedRecord;
+}
+
+function syncPricingOrderToRepairNotebook(entry) {
+  return upsertRepairRecordFromDocument(pricingOrderRepairRecord(entry));
+}
+
+function syncPricingComplaintToRepairNotebook(entry) {
+  return upsertRepairRecordFromDocument(pricingComplaintRepairRecord(entry));
 }
 
 function createOrderTypeSelect(value) {
@@ -6612,6 +6867,19 @@ function clearPricingOrderRows() {
   orderItemsFormBody?.replaceChildren();
 }
 
+function updatePricingOrderAddButton() {
+  if (!addOrderItemBtn) return;
+  const rowCount = orderItemsFormBody?.querySelectorAll("[data-order-row]").length || 0;
+  const isSecondPosition = rowCount <= 1;
+  const label = isSecondPosition ? "Druga pozycja" : "Kolejna pozycja";
+  const labelElement = addOrderItemBtn.querySelector("[data-order-add-label]");
+  if (labelElement) labelElement.textContent = label;
+  addOrderItemBtn.setAttribute(
+    "aria-label",
+    isSecondPosition ? "Dodaj drugą pozycję zamówienia" : "Dodaj kolejną pozycję zamówienia"
+  );
+}
+
 function syncPricingOrderDescriptionForType(row) {
   if (!row) return;
   const type = normalizePricingOrderType(row.querySelector("[data-order-field='type']")?.value);
@@ -6662,9 +6930,7 @@ function renderPricingOrder() {
   ensurePricingOrderDefaults();
 
   const orderDate = isoDateForSave(orderDateInput?.value) || todayInputValue();
-  const orderDueDate = isoDateForSave(orderDueDateInput?.value);
   const dateText = formatDate(orderDate) || orderInputValue(orderDateInput);
-  const dueDateText = formatDate(orderDueDate) || orderInputValue(orderDueDateInput);
   const customer = titleCaseName(orderInputValue(orderCustomerInput));
   const items = pricingOrderFormItems();
 
@@ -6672,10 +6938,9 @@ function renderPricingOrder() {
   if (orderMeta) orderMeta.textContent = `Nr: ${orderInputValue(orderNumberInput) || "-"} | Data: ${dateText || "-"}`;
   setOrderOutput("number", orderInputValue(orderNumberInput));
   setOrderOutput("date", dateText);
-  setOrderOutput("dueDate", dueDateText);
   setOrderOutput("customer", customer);
   setOrderOutput("phone", orderInputValue(orderPhoneInput));
-  setOrderOutput("location", normalizeRepairLocation(orderInputValue(orderLocationInput) || "P63"));
+  setOrderOutput("location", normalizeDocumentLocationValue(orderInputValue(orderLocationInput)));
   setOrderOutput("notes", orderInputValue(orderNotesInput));
 
   const hasItems = items.length > 0;
@@ -6683,6 +6948,7 @@ function renderPricingOrder() {
   if (orderContent) orderContent.hidden = !hasItems;
   if (printPricingOrderBtn) printPricingOrderBtn.disabled = !hasItems;
   renderPricingOrderItems(items);
+  updatePricingOrderAddButton();
 }
 
 function copyPricingOfferToOrder() {
@@ -6702,6 +6968,7 @@ function copyPricingOfferToOrder() {
     });
   });
   setLoanInputValue(orderCustomerInput, titleCaseName(orderInputValue(offerCustomerInput)), true);
+  setLoanInputValue(orderLocationInput, normalizeDocumentLocationValue(offerLocationInput?.value), true);
   const offerDate = isoDateForSave(offerDateInput?.value);
   if (offerDate) setDateInputValue(orderDateInput, offerDate);
   if (orderNumberInput) orderNumberInput.dataset.autoNumber = "1";
@@ -6711,10 +6978,10 @@ function copyPricingOfferToOrder() {
 }
 
 function resetPricingOrderForm() {
-  [orderCustomerInput, orderPhoneInput, orderDueDateInput, orderNotesInput].forEach((input) => {
+  [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
     if (input) input.value = "";
   });
-  if (orderLocationInput) orderLocationInput.value = "P63";
+  if (orderLocationInput) orderLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
   if (orderDateInput) setDateInputValue(orderDateInput, todayInputValue());
   clearPricingOrderRows();
   addPricingOrderItemRow();
@@ -6723,10 +6990,21 @@ function resetPricingOrderForm() {
   renderPricingOrder();
 }
 
+function savePricingOrderAndRepairNotebook() {
+  renderPricingOrder();
+  const historyEntry = saveCurrentPricingOrderToHistory({ silent: true });
+  if (!historyEntry) {
+    alert("Dodaj przynajmniej jedną pozycję zamówienia.");
+    return null;
+  }
+  syncPricingOrderToRepairNotebook(historyEntry);
+  alert("Zamówienie zapisane i przekazane do Naprawy i wkładki.");
+  return historyEntry;
+}
+
 function printPricingOrder() {
   if (printPricingOrderBtn?.disabled) return;
   renderPricingOrder();
-  saveCurrentPricingOrderToHistory({ silent: true });
   const cleanup = () => document.body.classList.remove("pricing-order-print");
   document.body.classList.add("pricing-order-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -6751,26 +7029,94 @@ function normalizePricingComplaintProductType(value) {
 function pricingComplaintRequestLabel(value) {
   const request = normalizePricingComplaintRequest(value);
   return {
-    NAPRAWA: "Naprawa",
-    WYMIANA: "Wymiana",
-    ZWROT: "Zwrot",
-    "OBNIŻENIE CENY": "Obniżenie ceny",
-    INNE: "Inne"
+    "NAPRAWA GWARANCYJNA": "Naprawa gwarancyjna",
+    "NAPRAWA POGWARANCYJNA": "Naprawa pogwarancyjna"
   }[request] || request;
 }
 
 function normalizePricingComplaintRequest(value) {
   const normalizedRequest = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
+  if (normalizedRequest === "NAPRAWA" || normalizedRequest === "GWARANCYJNA") return "NAPRAWA GWARANCYJNA";
+  if (normalizedRequest === "POGWARANCYJNA") return "NAPRAWA POGWARANCYJNA";
   return PRICING_COMPLAINT_REQUESTS.includes(normalizedRequest) ? normalizedRequest : PRICING_COMPLAINT_REQUESTS[0];
 }
 
+function complaintItemInputs(slot = 1) {
+  return slot === 2
+    ? {
+        productType: complaintProductTypeInput2,
+        productName: complaintProductNameInput2,
+        serial: complaintSerialInput2,
+        purchaseDocument: complaintPurchaseDocumentInput2,
+        purchaseDate: complaintPurchaseDateInput2,
+        warrantyHint: complaintWarrantyHint2
+      }
+    : {
+        productType: complaintProductTypeInput,
+        productName: complaintProductNameInput,
+        serial: complaintSerialInput,
+        purchaseDocument: complaintPurchaseDocumentInput,
+        purchaseDate: complaintPurchaseDateInput,
+        warrantyHint: complaintWarrantyHint1
+      };
+}
+
+function complaintItemInputGroups() {
+  return [complaintItemInputs(1), complaintItemInputs(2)];
+}
+
+function selectedComplaintProductNameFromInput(input) {
+  const inputValue = complaintInputValue(input);
+  const record = findPricingOfferRecord(inputValue);
+  return record ? pricingOfferDeviceName(record) : inputValue;
+}
+
+function normalizePricingComplaintItem(item = {}) {
+  const normalizedItem = {
+    productType: normalizePricingComplaintProductType(item.productType),
+    productName: normalizeLoanHistoryText(item.productName),
+    serial: normalizeLoanHistoryText(item.serial).toLocaleUpperCase("pl-PL"),
+    purchaseDocument: normalizeLoanHistoryText(item.purchaseDocument).toLocaleUpperCase("pl-PL"),
+    purchaseDate: isoDateForSave(item.purchaseDate) || normalizeLoanHistoryText(item.purchaseDate)
+  };
+  return normalizedItem;
+}
+
+function pricingComplaintItemHasContent(item = {}) {
+  const normalizedItem = normalizePricingComplaintItem(item);
+  return Boolean(
+    normalizedItem.productName ||
+    normalizedItem.serial ||
+    normalizedItem.purchaseDocument ||
+    normalizedItem.purchaseDate
+  );
+}
+
+function normalizePricingComplaintItems(entry = {}) {
+  const rawItems = Array.isArray(entry.items) ? entry.items : [];
+  const items = rawItems
+    .map(normalizePricingComplaintItem)
+    .filter(pricingComplaintItemHasContent)
+    .slice(0, 2);
+
+  const legacyItem = normalizePricingComplaintItem({
+    productType: entry.productType,
+    productName: entry.productName,
+    serial: entry.serial,
+    purchaseDocument: entry.purchaseDocument,
+    purchaseDate: entry.purchaseDate
+  });
+  if (pricingComplaintItemHasContent(legacyItem) && !items.length) items.push(legacyItem);
+
+  return items;
+}
+
 function pricingComplaintHistoryEntryHasContent(entry) {
+  const items = normalizePricingComplaintItems(entry);
   return Boolean(
     normalizeLoanHistoryText(entry?.customer) ||
     normalizeLoanHistoryText(entry?.phone) ||
-    normalizeLoanHistoryText(entry?.productName) ||
-    normalizeLoanHistoryText(entry?.serial) ||
-    normalizeLoanHistoryText(entry?.purchaseDocument) ||
+    items.length ||
     normalizeLoanHistoryText(entry?.defect) ||
     normalizeLoanHistoryText(entry?.notes)
   );
@@ -6789,16 +7135,18 @@ function normalizePricingComplaintHistoryEntry(entry) {
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
-    location: normalizeRepairLocation(entry.location || "P63"),
-    productType: normalizePricingComplaintProductType(entry.productType),
-    productName: normalizeLoanHistoryText(entry.productName),
-    serial: normalizeLoanHistoryText(entry.serial).toLocaleUpperCase("pl-PL"),
-    purchaseDocument: normalizeLoanHistoryText(entry.purchaseDocument).toLocaleUpperCase("pl-PL"),
-    purchaseDate: isoDateForSave(entry.purchaseDate) || normalizeLoanHistoryText(entry.purchaseDate),
+    location: normalizeDocumentLocationValue(entry.location),
+    items: normalizePricingComplaintItems(entry),
     request: normalizePricingComplaintRequest(entry.request),
     defect: normalizeLoanHistoryText(entry.defect),
     notes: normalizeLoanHistoryText(entry.notes)
   };
+  const firstItem = normalizedEntry.items[0] || normalizePricingComplaintItem();
+  normalizedEntry.productType = firstItem.productType;
+  normalizedEntry.productName = firstItem.productName || "";
+  normalizedEntry.serial = firstItem.serial || "";
+  normalizedEntry.purchaseDocument = firstItem.purchaseDocument || "";
+  normalizedEntry.purchaseDate = firstItem.purchaseDate || "";
   return pricingComplaintHistoryEntryHasContent(normalizedEntry) ? normalizedEntry : null;
 }
 
@@ -6906,21 +7254,96 @@ function ensurePricingComplaintNumber({ force = false } = {}) {
 function ensurePricingComplaintDefaults() {
   const today = todayInputValue();
   if (!complaintInputValue(complaintDateInput)) setDateInputValue(complaintDateInput, today);
-  if (!complaintInputValue(complaintLocationInput)) complaintLocationInput.value = "P63";
+  if (!complaintInputValue(complaintLocationInput)) complaintLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
   if (!complaintInputValue(complaintProductTypeInput)) complaintProductTypeInput.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
+  if (!complaintInputValue(complaintProductTypeInput2)) complaintProductTypeInput2.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
   if (!complaintInputValue(complaintRequestInput)) complaintRequestInput.value = PRICING_COMPLAINT_REQUESTS[0];
   ensurePricingComplaintNumber();
 }
 
 function selectedComplaintProductName() {
-  const inputValue = complaintInputValue(complaintProductNameInput);
-  const record = findPricingOfferRecord(inputValue);
-  return record ? pricingOfferDeviceName(record) : inputValue;
+  return selectedComplaintProductNameFromInput(complaintProductNameInput);
+}
+
+function complaintFormItem(slot = 1) {
+  const inputs = complaintItemInputs(slot);
+  return normalizePricingComplaintItem({
+    productType: complaintInputValue(inputs.productType),
+    productName: selectedComplaintProductNameFromInput(inputs.productName),
+    serial: complaintInputValue(inputs.serial),
+    purchaseDocument: complaintInputValue(inputs.purchaseDocument),
+    purchaseDate: isoDateForSave(inputs.purchaseDate?.value) || complaintInputValue(inputs.purchaseDate)
+  });
+}
+
+function complaintFormItems({ includeBlank = false } = {}) {
+  return [complaintFormItem(1), complaintFormItem(2)]
+    .filter((item) => includeBlank || pricingComplaintItemHasContent(item));
+}
+
+function setComplaintItemFields(slot = 1, item = {}) {
+  const inputs = complaintItemInputs(slot);
+  const normalizedItem = normalizePricingComplaintItem(item);
+  if (inputs.productType) {
+    inputs.productType.value = normalizedItem.productType || PRICING_COMPLAINT_PRODUCT_TYPES[0];
+    inputs.productType.dataset.complaintAutofilled = "";
+  }
+  if (inputs.productName) {
+    inputs.productName.value = normalizedItem.productName || "";
+    inputs.productName.dataset.complaintAutofilled = "";
+  }
+  if (inputs.serial) {
+    inputs.serial.value = normalizedItem.serial || "";
+    inputs.serial.dataset.complaintAutofilled = "";
+  }
+  if (inputs.purchaseDocument) {
+    inputs.purchaseDocument.value = normalizedItem.purchaseDocument || "";
+    inputs.purchaseDocument.dataset.complaintAutofilled = "";
+  }
+  if (inputs.purchaseDate) {
+    setDateInputValue(inputs.purchaseDate, normalizedItem.purchaseDate || "");
+    inputs.purchaseDate.dataset.complaintAutofilled = "";
+  }
+  if (inputs.warrantyHint) {
+    inputs.warrantyHint.hidden = true;
+    inputs.warrantyHint.textContent = "";
+    inputs.warrantyHint.classList.remove("warning");
+  }
+}
+
+function clearComplaintItem(slot = 1) {
+  setComplaintItemFields(slot, { productType: PRICING_COMPLAINT_PRODUCT_TYPES[0] });
+}
+
+function complaintItemCanBeCustomerAutofilled(slot = 1) {
+  const inputs = complaintItemInputs(slot);
+  const item = complaintFormItem(slot);
+  if (!pricingComplaintItemHasContent(item)) return true;
+  return [
+    inputs.productName,
+    inputs.serial,
+    inputs.purchaseDocument,
+    inputs.purchaseDate
+  ].every((input) => !complaintInputValue(input) || input.dataset.complaintAutofilled === "1");
+}
+
+function removePricingComplaintItem(slot = 1) {
+  if (slot === 1 && pricingComplaintItemHasContent(complaintFormItem(2))) {
+    setComplaintItemFields(1, complaintFormItem(2));
+    clearComplaintItem(2);
+  } else {
+    clearComplaintItem(slot);
+  }
+  syncComplaintRequestFromWarranty();
+  updateComplaintWarrantyHints();
+  renderPricingComplaint();
 }
 
 function currentPricingComplaintSnapshot() {
   ensurePricingComplaintDefaults();
   const now = new Date().toISOString();
+  const items = complaintFormItems();
+  const firstItem = items[0] || normalizePricingComplaintItem();
   return {
     id: makeId(),
     createdAt: now,
@@ -6931,12 +7354,13 @@ function currentPricingComplaintSnapshot() {
     date: isoDateForSave(complaintDateInput?.value) || complaintInputValue(complaintDateInput),
     customer: titleCaseName(complaintInputValue(complaintCustomerInput)),
     phone: complaintInputValue(complaintPhoneInput),
-    location: normalizeRepairLocation(complaintInputValue(complaintLocationInput) || "P63"),
-    productType: normalizePricingComplaintProductType(complaintInputValue(complaintProductTypeInput)),
-    productName: selectedComplaintProductName(),
-    serial: complaintInputValue(complaintSerialInput).toLocaleUpperCase("pl-PL"),
-    purchaseDocument: complaintInputValue(complaintPurchaseDocumentInput).toLocaleUpperCase("pl-PL"),
-    purchaseDate: isoDateForSave(complaintPurchaseDateInput?.value) || complaintInputValue(complaintPurchaseDateInput),
+    location: normalizeDocumentLocationValue(complaintInputValue(complaintLocationInput)),
+    items,
+    productType: firstItem.productType,
+    productName: firstItem.productName,
+    serial: firstItem.serial,
+    purchaseDocument: firstItem.purchaseDocument,
+    purchaseDate: firstItem.purchaseDate,
     request: normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput)),
     defect: complaintInputValue(complaintDefectInput),
     notes: complaintInputValue(complaintNotesInput)
@@ -6944,12 +7368,20 @@ function currentPricingComplaintSnapshot() {
 }
 
 function pricingComplaintSnapshotKey(entry) {
+  const itemsKey = (entry?.items || [])
+    .map((item) => [
+      item?.productType,
+      item?.productName,
+      item?.serial,
+      item?.purchaseDocument,
+      item?.purchaseDate
+    ].map((value) => normalize(value)).join(":"))
+    .join("|");
   return [
     entry?.number,
     entry?.date,
     entry?.customer,
-    entry?.productName,
-    entry?.serial,
+    itemsKey,
     entry?.defect
   ].map((value) => normalize(value)).join("|");
 }
@@ -6991,6 +7423,19 @@ function complaintSaleDateSortValue(record) {
   return soldDeviceSaleDate(record) || isoDateForSave(record?.pickupDate) || isoDateForSave(record?.receivedDate) || "";
 }
 
+function soldDeviceMatchesForSerial(serialNumber) {
+  const checkedSerial = serialDuplicateKey(serialNumber);
+  if (!checkedSerial) return [];
+  return records
+    .filter((record) => serialDuplicateKey(record.serialNumber) === checkedSerial)
+    .filter((record) => displayType(record) === "SPRZEDANY" || Boolean(String(record.salesInvoice ?? "").trim()))
+    .sort((left, right) => {
+      const byDate = String(complaintSaleDateSortValue(right)).localeCompare(String(complaintSaleDateSortValue(left)));
+      if (byDate) return byDate;
+      return collator.compare(String(right.salesInvoice || ""), String(left.salesInvoice || ""));
+    });
+}
+
 function complaintDeviceMatchesForCustomer(customerName) {
   const customerKey = customerNameLookupKey(customerName);
   if (!customerKey) return [];
@@ -7010,11 +7455,150 @@ function complaintDeviceMatchesForCustomer(customerName) {
     });
 }
 
-function setComplaintAutofillValue(input, value, { date = false, transform = (text) => text } = {}) {
+function complaintCustomerDeviceLabel(record) {
+  const saleDate = soldDeviceSaleDate(record);
+  return [
+    record.deviceName || "bez modelu",
+    normalizeSerialNumber(record.serialNumber),
+    saleDate ? formatDate(saleDate) : "",
+    normalizeSalesInvoice(record.salesInvoice),
+    record.location ? normalizeRepairLocation(record.location) : ""
+  ].filter(Boolean).join(" · ");
+}
+
+function updateComplaintCustomerDevicePickerActions() {
+  const disabled = !complaintCustomerDeviceSelect?.value;
+  if (complaintUseDeviceItem1Btn) complaintUseDeviceItem1Btn.disabled = disabled;
+  if (complaintUseDeviceItem2Btn) complaintUseDeviceItem2Btn.disabled = disabled;
+}
+
+function updateComplaintCustomerDevicePicker(matches = []) {
+  if (!complaintCustomerDevicePicker || !complaintCustomerDeviceSelect) return;
+  const currentValue = complaintCustomerDeviceSelect.value;
+  const uniqueMatches = [];
+  const seenIds = new Set();
+  matches.forEach((record) => {
+    if (!record?.id || seenIds.has(record.id)) return;
+    seenIds.add(record.id);
+    uniqueMatches.push(record);
+  });
+
+  if (!uniqueMatches.length) {
+    complaintCustomerDevicePicker.hidden = true;
+    complaintCustomerDeviceSelect.replaceChildren();
+    updateComplaintCustomerDevicePickerActions();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Wybierz model z Bazy";
+  fragment.append(placeholder);
+
+  uniqueMatches.forEach((record) => {
+    const option = document.createElement("option");
+    option.value = record.id;
+    option.textContent = complaintCustomerDeviceLabel(record);
+    fragment.append(option);
+  });
+
+  complaintCustomerDeviceSelect.replaceChildren(fragment);
+  if (uniqueMatches.some((record) => record.id === currentValue)) {
+    complaintCustomerDeviceSelect.value = currentValue;
+  } else {
+    complaintCustomerDeviceSelect.value = uniqueMatches[0]?.id || "";
+  }
+  complaintCustomerDevicePicker.hidden = false;
+  updateComplaintCustomerDevicePickerActions();
+}
+
+function complaintWarrantyRequestForInfo(info) {
+  if (!info?.saleDate) return "";
+  return info.inWarranty ? "NAPRAWA GWARANCYJNA" : "NAPRAWA POGWARANCYJNA";
+}
+
+function complaintWarrantyInfoForItem(item) {
+  const normalizedItem = normalizePricingComplaintItem(item);
+  const match = soldDeviceMatchesForSerial(normalizedItem.serial)[0] || null;
+  const saleDate = (match && soldDeviceSaleDate(match)) || isoDateForSave(normalizedItem.purchaseDate) || "";
+  const warrantyEnd = saleDate ? addMonthsToIsoDate(saleDate, REPAIR_WARRANTY_MONTHS) : "";
+  const checkDate = isoDateForSave(complaintDateInput?.value) || todayInputValue();
+  return {
+    match,
+    saleDate,
+    warrantyEnd,
+    checkDate,
+    inWarranty: Boolean(saleDate && warrantyEnd && checkDate <= warrantyEnd),
+    source: match && soldDeviceSaleDate(match) ? "database" : saleDate ? "manual" : ""
+  };
+}
+
+function complaintSuggestedRequestForItems(items) {
+  const filledItems = (items || []).filter(pricingComplaintItemHasContent);
+  if (!filledItems.length) return "";
+  const infos = filledItems.map(complaintWarrantyInfoForItem);
+  if (infos.some((info) => !info.saleDate)) return "";
+  if (infos.every((info) => info.inWarranty)) return "NAPRAWA GWARANCYJNA";
+  if (infos.every((info) => !info.inWarranty)) return "NAPRAWA POGWARANCYJNA";
+  return "";
+}
+
+function syncComplaintRequestFromWarranty(items = complaintFormItems()) {
+  if (!complaintRequestInput || complaintRequestInput.dataset.userChanged === "1") return false;
+  const suggestion = complaintSuggestedRequestForItems(items);
+  if (!suggestion || complaintRequestInput.value === suggestion) return false;
+  complaintRequestInput.value = suggestion;
+  complaintRequestInput.dataset.complaintAutofilled = "1";
+  return true;
+}
+
+function updateComplaintWarrantyHints(items = complaintFormItems({ includeBlank: true })) {
+  const normalizedItems = [items[0] || normalizePricingComplaintItem(), items[1] || normalizePricingComplaintItem()];
+  const selectedRequest = normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput));
+
+  normalizedItems.forEach((item, index) => {
+    const hint = complaintItemInputs(index + 1).warrantyHint;
+    if (!hint) return;
+    hint.classList.remove("warning");
+    if (!pricingComplaintItemHasContent(item)) {
+      hint.hidden = true;
+      hint.textContent = "";
+      return;
+    }
+
+    const info = complaintWarrantyInfoForItem(item);
+    const suggestedRequest = complaintWarrantyRequestForInfo(info);
+    const parts = [];
+    if (info.match) {
+      parts.push(`Z Bazy: sprzedaż ${formatDate(info.saleDate) || "brak daty"}`);
+      if (info.match.salesInvoice) parts.push(`FV ${normalizeSalesInvoice(info.match.salesInvoice)}`);
+      if (info.match.location) parts.push(normalizeRepairLocation(info.match.location));
+    } else if (item.serial) {
+      parts.push(`Nie znaleziono sprzedaży w Bazie dla nr ${item.serial}`);
+    }
+    if (info.saleDate && !info.match) parts.push(`Wg wpisanej daty sprzedaży ${formatDate(info.saleDate)}`);
+    if (info.warrantyEnd) parts.push(`gwarancja do ${formatDate(info.warrantyEnd)}`);
+    if (suggestedRequest) parts.push(`sugerowane: ${pricingComplaintRequestLabel(suggestedRequest)}`);
+
+    const conflict =
+      (selectedRequest === "NAPRAWA GWARANCYJNA" && suggestedRequest === "NAPRAWA POGWARANCYJNA") ||
+      (selectedRequest === "NAPRAWA POGWARANCYJNA" && suggestedRequest === "NAPRAWA GWARANCYJNA");
+    if (conflict) {
+      hint.classList.add("warning");
+      parts.push("sprawdź żądanie");
+    }
+
+    hint.textContent = parts.filter(Boolean).join(" · ");
+    hint.hidden = !hint.textContent;
+  });
+}
+
+function setComplaintAutofillValue(input, value, { date = false, overwrite = false, transform = (text) => text } = {}) {
   if (!input) return false;
   const text = normalizeLoanHistoryText(value);
   if (!text) return false;
-  const canAutofill = !complaintInputValue(input) || input.dataset.complaintAutofilled === "1";
+  const canAutofill = overwrite || !complaintInputValue(input) || input.dataset.complaintAutofilled === "1";
   if (!canAutofill) return false;
   if (date) {
     const isoDate = isoDateForSave(text);
@@ -7027,64 +7611,163 @@ function setComplaintAutofillValue(input, value, { date = false, transform = (te
   return true;
 }
 
-function updateComplaintCustomerMatchHint(matchCount, record, changed) {
+function updateComplaintCustomerMatchHint(matchCount, matchedRecords = [], changed = false) {
   if (!complaintCustomerMatchHint) return;
-  if (!matchCount || !record) {
+  const matches = Array.isArray(matchedRecords) ? matchedRecords.filter(Boolean) : [matchedRecords].filter(Boolean);
+  if (!matchCount || !matches.length) {
     complaintCustomerMatchHint.hidden = true;
     complaintCustomerMatchHint.textContent = "";
     return;
   }
-  const saleDate = soldDeviceSaleDate(record);
-  const details = [
-    record.deviceName,
-    normalizeSerialNumber(record.serialNumber),
-    saleDate ? formatDate(saleDate) : "",
-    normalizeSalesInvoice(record.salesInvoice)
-  ].filter(Boolean).join(" · ");
+  const details = matches
+    .slice(0, 2)
+    .map((record) => {
+      const saleDate = soldDeviceSaleDate(record);
+      return [
+        record.deviceName,
+        normalizeSerialNumber(record.serialNumber),
+        saleDate ? formatDate(saleDate) : "",
+        normalizeSalesInvoice(record.salesInvoice)
+      ].filter(Boolean).join(" · ");
+    })
+    .filter(Boolean)
+    .join(" | ");
   const prefix = changed ? "Uzupełniono z bazy" : "Znaleziono w bazie";
-  const suffix = matchCount > 1 ? `Znaleziono ${matchCount} sprzedane wpisy, wybrano najnowszy.` : "";
+  const suffix = matchCount > matches.length ? `Znaleziono ${matchCount} sprzedane wpisy, uzupełniono pierwsze dwie pozycje.` : "";
   complaintCustomerMatchHint.textContent = [prefix, details, suffix].filter(Boolean).join(". ");
   complaintCustomerMatchHint.hidden = false;
 }
 
-function fillComplaintFromDeviceRecord(record) {
+function fillComplaintFromDeviceRecord(record, slot = 1, { overwrite = false } = {}) {
   if (!record) return false;
+  const inputs = complaintItemInputs(slot);
   let changed = false;
-  if (complaintProductTypeInput && (!complaintInputValue(complaintProductTypeInput) || complaintProductTypeInput.dataset.complaintAutofilled === "1")) {
-    complaintProductTypeInput.value = "APARAT SŁUCHOWY";
-    complaintProductTypeInput.dataset.complaintAutofilled = "1";
+  if (inputs.productType && (overwrite || !complaintInputValue(inputs.productType) || inputs.productType.dataset.complaintAutofilled === "1")) {
+    inputs.productType.value = "APARAT SŁUCHOWY";
+    inputs.productType.dataset.complaintAutofilled = "1";
+    changed = true;
   }
-  changed = setComplaintAutofillValue(complaintProductNameInput, record.deviceName) || changed;
-  changed = setComplaintAutofillValue(complaintSerialInput, record.serialNumber, {
+  changed = setComplaintAutofillValue(inputs.productName, record.deviceName, { overwrite }) || changed;
+  changed = setComplaintAutofillValue(inputs.serial, record.serialNumber, {
+    overwrite,
     transform: (text) => normalizeSerialNumber(text)
   }) || changed;
-  changed = setComplaintAutofillValue(complaintPurchaseDocumentInput, record.salesInvoice, {
+  changed = setComplaintAutofillValue(inputs.purchaseDocument, record.salesInvoice, {
+    overwrite,
     transform: (text) => normalizeSalesInvoice(text)
   }) || changed;
-  changed = setComplaintAutofillValue(complaintPurchaseDateInput, soldDeviceSaleDate(record), { date: true }) || changed;
-  if (complaintLocationInput && record.location && (!complaintInputValue(complaintLocationInput) || complaintLocationInput.dataset.complaintAutofilled === "1")) {
-    complaintLocationInput.value = normalizeRepairLocation(record.location);
+  changed = setComplaintAutofillValue(inputs.purchaseDate, soldDeviceSaleDate(record), { date: true, overwrite }) || changed;
+  if (complaintLocationInput && record.location && (overwrite || !complaintInputValue(complaintLocationInput) || complaintLocationInput.dataset.complaintAutofilled === "1")) {
+    complaintLocationInput.value = normalizeDocumentLocationValue(record.location);
     complaintLocationInput.dataset.complaintAutofilled = "1";
     changed = true;
   }
   return changed;
 }
 
+function selectedComplaintCustomerDeviceRecord() {
+  const selectedId = complaintCustomerDeviceSelect?.value || "";
+  if (!selectedId) return null;
+  return records.find((record) => record.id === selectedId) || null;
+}
+
+function useComplaintCustomerDevice(slot = 1) {
+  const record = selectedComplaintCustomerDeviceRecord();
+  if (!record) return;
+  fillComplaintFromDeviceRecord(record, slot, { overwrite: true });
+  updateComplaintCustomerMatchHint(1, [record], true);
+  syncComplaintRequestFromWarranty();
+  renderPricingComplaint();
+}
+
 function syncPricingComplaintFromCustomer() {
   const customer = titleCaseName(complaintInputValue(complaintCustomerInput));
   if (!customer) {
     updateComplaintCustomerMatchHint(0);
+    updateComplaintCustomerDevicePicker([]);
     return false;
   }
   const matches = complaintDeviceMatchesForCustomer(customer);
   if (!matches.length) {
     updateComplaintCustomerMatchHint(0);
+    updateComplaintCustomerDevicePicker([]);
     return false;
   }
-  const changed = fillComplaintFromDeviceRecord(matches[0]);
-  updateComplaintCustomerMatchHint(matches.length, matches[0], changed);
+  updateComplaintCustomerDevicePicker(matches);
+  let changed = false;
+  const matchedRows = matches.slice(0, 2);
+  [1, 2].forEach((slot) => {
+    const record = matchedRows[slot - 1];
+    const canAutofill = complaintItemCanBeCustomerAutofilled(slot);
+    if (record) {
+      changed = fillComplaintFromDeviceRecord(record, slot, { overwrite: canAutofill }) || changed;
+    } else if (canAutofill && pricingComplaintItemHasContent(complaintFormItem(slot))) {
+      clearComplaintItem(slot);
+      changed = true;
+    }
+  });
+  updateComplaintCustomerMatchHint(matches.length, matchedRows, changed);
+  syncComplaintRequestFromWarranty();
   renderPricingComplaint();
   return true;
+}
+
+function syncComplaintItemFromSerial(slot = 1) {
+  const inputs = complaintItemInputs(slot);
+  const serial = complaintInputValue(inputs.serial);
+  if (!serial) {
+    updateComplaintWarrantyHints();
+    renderPricingComplaint();
+    return false;
+  }
+  const match = soldDeviceMatchesForSerial(serial)[0];
+  if (!match) {
+    updateComplaintWarrantyHints();
+    renderPricingComplaint();
+    return false;
+  }
+  const changed = fillComplaintFromDeviceRecord(match, slot);
+  updateComplaintCustomerMatchHint(1, [match], changed);
+  syncComplaintRequestFromWarranty();
+  renderPricingComplaint();
+  return true;
+}
+
+function complaintWarrantyTableLabel(item) {
+  const info = complaintWarrantyInfoForItem(item);
+  if (!info.saleDate) return item.serial ? "brak sprzedaży w Bazie" : "";
+  if (!info.warrantyEnd) return "";
+  return info.inWarranty
+    ? `do ${formatDate(info.warrantyEnd)}`
+    : `po gwarancji (${formatDate(info.warrantyEnd)})`;
+}
+
+function renderPricingComplaintProducts(items) {
+  if (!complaintProductsBody) return;
+  const visibleItems = (items || []).filter(pricingComplaintItemHasContent);
+  if (!visibleItems.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.textContent = "Brak pozycji";
+    cell.className = "muted-cell";
+    row.append(cell);
+    renderTableRows(complaintProductsBody, [row]);
+    return;
+  }
+
+  const rows = visibleItems.map((item, index) => {
+    const row = document.createElement("tr");
+    appendOfferCell(row, String(index + 1), "complaint-products-lp");
+    appendOfferCell(row, pricingComplaintProductTypeLabel(item.productType));
+    appendOfferCell(row, item.productName);
+    appendOfferCell(row, item.serial, "complaint-products-serial");
+    appendOfferCell(row, item.purchaseDocument);
+    appendOfferCell(row, formatDate(item.purchaseDate) || item.purchaseDate);
+    appendOfferCell(row, complaintWarrantyTableLabel(item));
+    return row;
+  });
+  renderTableRows(complaintProductsBody, rows);
 }
 
 function renderPricingComplaint() {
@@ -7092,36 +7775,44 @@ function renderPricingComplaint() {
   ensurePricingComplaintDefaults();
 
   const complaintDate = isoDateForSave(complaintDateInput?.value) || todayInputValue();
-  const purchaseDate = isoDateForSave(complaintPurchaseDateInput?.value);
   const dateText = formatDate(complaintDate) || complaintInputValue(complaintDateInput);
-  const purchaseDateText = formatDate(purchaseDate) || complaintInputValue(complaintPurchaseDateInput);
   const customer = titleCaseName(complaintInputValue(complaintCustomerInput));
-  const productType = normalizePricingComplaintProductType(complaintInputValue(complaintProductTypeInput));
+  const items = complaintFormItems();
+  syncComplaintRequestFromWarranty(items);
+  updateComplaintWarrantyHints(complaintFormItems({ includeBlank: true }));
   const request = normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput));
-  const productName = selectedComplaintProductName();
+  const firstItem = items[0] || normalizePricingComplaintItem({
+    productType: complaintInputValue(complaintProductTypeInput),
+    productName: selectedComplaintProductName()
+  });
 
   if (complaintTitle) complaintTitle.textContent = customer ? `Reklamacja - ${customer}` : "Reklamacja";
   if (complaintMeta) complaintMeta.textContent = `Nr: ${complaintInputValue(complaintNumberInput) || "-"} | Data: ${dateText || "-"}`;
   setComplaintOutput("number", complaintInputValue(complaintNumberInput));
   setComplaintOutput("date", dateText);
-  setComplaintOutput("location", normalizeRepairLocation(complaintInputValue(complaintLocationInput) || "P63"));
+  setComplaintOutput("location", normalizeDocumentLocationValue(complaintInputValue(complaintLocationInput)));
   setComplaintOutput("customer", customer);
   setComplaintOutput("phone", complaintInputValue(complaintPhoneInput));
   setComplaintOutput("request", pricingComplaintRequestLabel(request));
-  setComplaintOutput("productType", pricingComplaintProductTypeLabel(productType));
-  setComplaintOutput("productName", productName);
-  setComplaintOutput("serial", complaintInputValue(complaintSerialInput).toLocaleUpperCase("pl-PL"));
-  setComplaintOutput("purchaseDocument", complaintInputValue(complaintPurchaseDocumentInput).toLocaleUpperCase("pl-PL"));
-  setComplaintOutput("purchaseDate", purchaseDateText);
+  setComplaintOutput("productType", pricingComplaintProductTypeLabel(firstItem.productType));
+  setComplaintOutput("productName", firstItem.productName);
+  setComplaintOutput("serial", firstItem.serial);
+  setComplaintOutput("purchaseDocument", firstItem.purchaseDocument);
+  setComplaintOutput("purchaseDate", formatDate(firstItem.purchaseDate) || firstItem.purchaseDate);
   setComplaintOutput("defect", complaintInputValue(complaintDefectInput));
   setComplaintOutput("notes", complaintInputValue(complaintNotesInput));
+  renderPricingComplaintProducts(items);
 }
 
-function syncComplaintProductNameForType() {
-  if (!complaintProductNameInput || complaintInputValue(complaintProductNameInput)) return;
-  const productType = normalizePricingComplaintProductType(complaintProductTypeInput?.value);
+function syncComplaintProductNameForType(slot = 1) {
+  const inputs = complaintItemInputs(slot);
+  if (!inputs.productName) return;
+  const productType = normalizePricingComplaintProductType(inputs.productType?.value);
   if (productType === "WKŁADKA USZNA" || productType === "WKŁADKA PRZECIWWODNA") {
-    complaintProductNameInput.value = pricingComplaintProductTypeLabel(productType);
+    const canAutofill = !complaintInputValue(inputs.productName) || inputs.productName.dataset.complaintAutofilled === "1";
+    if (!canAutofill) return;
+    inputs.productName.value = pricingComplaintProductTypeLabel(productType);
+    inputs.productName.dataset.complaintAutofilled = "1";
   }
 }
 
@@ -7133,6 +7824,10 @@ function resetPricingComplaintForm() {
     complaintSerialInput,
     complaintPurchaseDocumentInput,
     complaintPurchaseDateInput,
+    complaintProductNameInput2,
+    complaintSerialInput2,
+    complaintPurchaseDocumentInput2,
+    complaintPurchaseDateInput2,
     complaintDefectInput,
     complaintNotesInput
   ].forEach((input) => {
@@ -7142,24 +7837,45 @@ function resetPricingComplaintForm() {
     }
   });
   if (complaintLocationInput) {
-    complaintLocationInput.value = "P63";
+    complaintLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
     complaintLocationInput.dataset.complaintAutofilled = "";
   }
   if (complaintProductTypeInput) {
     complaintProductTypeInput.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
     complaintProductTypeInput.dataset.complaintAutofilled = "";
   }
-  if (complaintRequestInput) complaintRequestInput.value = PRICING_COMPLAINT_REQUESTS[0];
+  if (complaintProductTypeInput2) {
+    complaintProductTypeInput2.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
+    complaintProductTypeInput2.dataset.complaintAutofilled = "";
+  }
+  if (complaintRequestInput) {
+    complaintRequestInput.value = PRICING_COMPLAINT_REQUESTS[0];
+    complaintRequestInput.dataset.userChanged = "";
+    complaintRequestInput.dataset.complaintAutofilled = "";
+  }
   updateComplaintCustomerMatchHint(0);
+  updateComplaintCustomerDevicePicker([]);
+  updateComplaintWarrantyHints([]);
   if (complaintDateInput) setDateInputValue(complaintDateInput, todayInputValue());
   if (complaintNumberInput) complaintNumberInput.dataset.autoNumber = "1";
   ensurePricingComplaintNumber({ force: true });
   renderPricingComplaint();
 }
 
+function savePricingComplaintAndRepairNotebook() {
+  renderPricingComplaint();
+  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: true });
+  if (!historyEntry) {
+    alert("Uzupełnij klienta, produkt albo opis, żeby zapisać reklamację.");
+    return null;
+  }
+  syncPricingComplaintToRepairNotebook(historyEntry);
+  alert("Reklamacja zapisana i przekazana do Naprawy i wkładki.");
+  return historyEntry;
+}
+
 function printPricingComplaint() {
   renderPricingComplaint();
-  saveCurrentPricingComplaintToHistory({ silent: true });
   const cleanup = () => document.body.classList.remove("pricing-complaint-print");
   document.body.classList.add("pricing-complaint-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -8584,14 +9300,11 @@ function effectiveRepairStatus(record) {
 function createCategoryPill(category, record = null) {
   const pill = document.createElement("span");
   const normalizedCategory = normalizeRepairCategory(category);
-  const className =
-    normalizedCategory === "WKŁADKA USZNA"
-      ? "INSERT"
-      : normalizedCategory === "WKŁADKA PRZECIWWODNA"
-        ? "WATER-INSERT"
-      : normalizedCategory === "NAPRAWA POGWARANCYJNA"
-        ? "OUT-OF-WARRANTY"
-        : "REPAIR";
+  let className = "REPAIR";
+  if (normalizedCategory === "WKŁADKA USZNA") className = "INSERT";
+  if (normalizedCategory === "WKŁADKA PRZECIWWODNA") className = "WATER-INSERT";
+  if (normalizedCategory === "ZAMÓWIENIE") className = "ORDER";
+  if (normalizedCategory === "NAPRAWA POGWARANCYJNA") className = "OUT-OF-WARRANTY";
   pill.className = `type-pill ${className}`;
   pill.textContent = normalizedCategory;
   if (record) {
@@ -9187,6 +9900,7 @@ function repairDialogProductLabel(record) {
   const category = normalizeRepairCategory(record?.category);
   if (category === "WKŁADKA USZNA") return "Wkładka uszna";
   if (category === "WKŁADKA PRZECIWWODNA") return "Wkładka przeciwwodna";
+  if (category === "ZAMÓWIENIE") return "Zamówienie";
   if (category === "NAPRAWA GWARANCYJNA" || category === "NAPRAWA POGWARANCYJNA") return "Aparat";
   return "Produkt";
 }
@@ -9200,6 +9914,8 @@ function openDemoDialog(record = null) {
   demoLoanHistoryDraft = record ? effectiveDemoLoanHistory(record) : [];
   demoCurrentAttachmentsDraft = record ? demoAttachmentDrafts(record.currentAttachments) : [];
   demoFormError.textContent = "";
+  delete demoFormError.dataset.errorType;
+  clearDemoDateValidationError();
   saveDemoBtn.disabled = false;
   saveDemoBtn.textContent = "Zapisz";
   const demoSerialNumberInput = document.querySelector("#demoSerialNumber");
@@ -9771,6 +10487,87 @@ function validateRepairDateOrder(data = repairFormRecord(), options = {}) {
   return showRepairDateOrderError(repairDateValidationViolation(data), options);
 }
 
+function demoDateFieldInfo(field) {
+  return DEMO_DATE_VALIDATION_FIELDS.find((item) => item.field === field) || null;
+}
+
+function demoDateValidationData() {
+  return Object.fromEntries(
+    DEMO_DATE_VALIDATION_FIELDS.map(({ field, selector }) => [
+      field,
+      isoDateForSave(document.querySelector(selector)?.value)
+    ])
+  );
+}
+
+function demoInvalidDateViolation() {
+  for (const fieldInfo of DEMO_DATE_VALIDATION_FIELDS) {
+    const rawValue = String(document.querySelector(fieldInfo.selector)?.value ?? "").trim();
+    if (rawValue && !isoDateForSave(rawValue)) {
+      return {
+        field: fieldInfo.field,
+        selector: fieldInfo.selector,
+        message: `${fieldInfo.label} ma nieprawidłowy format. Wpisz datę jako dd.mm.rrrr.`
+      };
+    }
+  }
+  return null;
+}
+
+function demoDateOrderViolation(data = demoDateValidationData()) {
+  for (const constraint of DEMO_DATE_CONSTRAINTS) {
+    const currentDate = data[constraint.field];
+    const previousDate = data[constraint.previousField];
+    if (!currentDate || !previousDate || currentDate >= previousDate) continue;
+
+    const current = demoDateFieldInfo(constraint.field);
+    const previous = demoDateFieldInfo(constraint.previousField);
+    if (!current || !previous) continue;
+
+    return {
+      field: current.field,
+      selector: current.selector,
+      message: `${current.label} nie może być wcześniejsza niż ${previous.label.toLocaleLowerCase("pl-PL")}.`
+    };
+  }
+  return null;
+}
+
+function demoDateValidationViolation(data = demoDateValidationData()) {
+  return demoInvalidDateViolation() || demoDateOrderViolation(data);
+}
+
+function clearDemoDateValidationError() {
+  if (demoFormError?.dataset.errorType === "date") {
+    demoFormError.textContent = "";
+    delete demoFormError.dataset.errorType;
+  }
+  DEMO_DATE_VALIDATION_FIELDS.forEach(({ selector }) => {
+    const input = document.querySelector(selector);
+    input?.removeAttribute("aria-invalid");
+    input?.closest(".date-input-wrap")?.classList.remove("invalid-date");
+  });
+}
+
+function showDemoDateValidationError(violation, options = {}) {
+  clearDemoDateValidationError();
+  if (!violation) return true;
+
+  const input = document.querySelector(violation.selector);
+  if (demoFormError) {
+    demoFormError.textContent = violation.message;
+    demoFormError.dataset.errorType = "date";
+  }
+  input?.setAttribute("aria-invalid", "true");
+  input?.closest(".date-input-wrap")?.classList.add("invalid-date");
+  if (options.focus) input?.focus();
+  return false;
+}
+
+function validateDemoDateOrder(data = demoDateValidationData(), options = {}) {
+  return showDemoDateValidationError(demoDateValidationViolation(data), options);
+}
+
 function updateRepairWarrantyHint(data = repairFormRecord()) {
   if (!repairFormError || repairDateValidationViolation(data)) return;
   repairFormError.textContent = repairWarrantyWarning(data, document.querySelector("#repairId").value);
@@ -9960,6 +10757,7 @@ function handleClearDateClick(event) {
     if (targetId === "demoReturnDate") markDemoReturnDateChange();
     if (targetId === "demoManufacturerReturnDate") markDemoManufacturerReturnDateChange();
     if (targetId === "demoManufacturerReturnedDate") markDemoManufacturerReturnedDateChange();
+    validateDemoDateOrder();
     return;
   }
 
@@ -10135,9 +10933,12 @@ async function deleteCurrentRepairRecord() {
 async function saveDemoFormRecord(event) {
   event.preventDefault();
   demoFormError.textContent = "";
+  delete demoFormError.dataset.errorType;
+  if (!validateDemoDateOrder(undefined, { focus: true })) return;
   const id = document.querySelector("#demoId").value;
   const recordId = id || `${DEMO_ID_PREFIX}${makeId()}`;
   let data = demoFormRecord();
+  if (!validateDemoDateOrder(data, { focus: true })) return;
   let savedRecord;
   if (!id && !data.serialNumber) {
     demoFormError.textContent = "Numer seryjny jest wymagany przy dodawaniu nowego aparatu demo.";
@@ -11035,13 +11836,42 @@ function activeRepairDateMinimumInfo() {
   return previousDates.reduce((latest, item) => (item.date > latest.date ? item : latest), previousDates[0]);
 }
 
+function activeDemoDateMinimumInfo() {
+  if (!activeDateInput) return null;
+
+  const current = DEMO_DATE_VALIDATION_FIELDS.find(({ selector }) => document.querySelector(selector) === activeDateInput);
+  if (!current) return null;
+
+  const previousDates = DEMO_DATE_CONSTRAINTS
+    .filter((constraint) => constraint.field === current.field)
+    .map((constraint) => {
+      const previous = demoDateFieldInfo(constraint.previousField);
+      return previous
+        ? {
+            field: previous.field,
+            label: previous.label,
+            date: isoDateForSave(document.querySelector(previous.selector)?.value)
+          }
+        : null;
+    })
+    .filter((item) => item?.date);
+
+  if (!previousDates.length) return null;
+
+  return previousDates.reduce((latest, item) => (item.date > latest.date ? item : latest), previousDates[0]);
+}
+
+function activeDateMinimumInfo() {
+  return activeRepairDateMinimumInfo() || activeDemoDateMinimumInfo();
+}
+
 function renderDatePicker() {
   const picker = ensureDatePicker();
   const selectedDate = parseIsoDate(activeDateInput?.value);
   const today = new Date();
   const currentMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth(), 1);
   const nextMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() + 1, 1);
-  const repairMinimum = activeRepairDateMinimumInfo();
+  const dateMinimum = activeDateMinimumInfo();
 
   const head = document.createElement("div");
   head.className = "date-picker-head";
@@ -11085,22 +11915,22 @@ function renderDatePicker() {
 
   const hint = document.createElement("p");
   hint.className = "date-picker-hint";
-  if (repairMinimum) {
-    hint.textContent = `Czerwone daty są wcześniejsze niż ${repairMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(repairMinimum.date)}).`;
+  if (dateMinimum) {
+    hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
 
   const months = document.createElement("div");
   months.className = "date-picker-months";
   months.append(
-    createDatePickerMonth(currentMonth, selectedDate, today, repairMinimum),
-    createDatePickerMonth(nextMonth, selectedDate, today, repairMinimum)
+    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum),
+    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum)
   );
 
   picker.replaceChildren(head, hint, months);
   positionDatePicker();
 }
 
-function createDatePickerMonth(monthDate, selectedDate, today, repairMinimum = null) {
+function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null) {
   const month = document.createElement("section");
   month.className = "date-picker-month";
   const selectedIsoDate = selectedDate
@@ -11140,9 +11970,9 @@ function createDatePickerMonth(monthDate, selectedDate, today, repairMinimum = n
 
     if (isoDate === selectedIsoDate) button.classList.add("selected");
     if (isoDate === todayIsoDate) button.classList.add("today");
-    if (repairMinimum && isoDate < repairMinimum.date) {
+    if (dateMinimum && isoDate < dateMinimum.date) {
       button.classList.add("invalid-order");
-      button.title = `Ta data jest wcześniejsza niż ${repairMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(repairMinimum.date)}).`;
+      button.title = `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
     }
 
     button.addEventListener("click", () => {
@@ -11277,7 +12107,7 @@ pricingManufacturerFilter?.addEventListener("change", renderPricingRecords);
 pricingViewButtons.forEach((button) => {
   button.addEventListener("click", () => switchPricingView(button.dataset.pricingView));
 });
-[offerCustomerInput, offerDateInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+[offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
@@ -11387,7 +12217,6 @@ orderDateInput?.addEventListener("change", () => {
 [
   orderNumberInput,
   orderDateInput,
-  orderDueDateInput,
   orderPhoneInput,
   orderLocationInput,
   orderNotesInput
@@ -11412,6 +12241,7 @@ addOrderItemBtn?.addEventListener("click", () => {
 });
 orderCopyOfferBtn?.addEventListener("click", copyPricingOfferToOrder);
 newPricingOrderBtn?.addEventListener("click", resetPricingOrderForm);
+savePricingOrderBtn?.addEventListener("click", savePricingOrderAndRepairNotebook);
 printPricingOrderBtn?.addEventListener("click", printPricingOrder);
 complaintNumberInput?.addEventListener("input", () => {
   complaintNumberInput.dataset.autoNumber = "";
@@ -11425,9 +12255,16 @@ complaintDateInput?.addEventListener("change", () => {
   complaintDateInput,
   complaintPhoneInput,
   complaintLocationInput,
+  complaintProductTypeInput,
   complaintProductNameInput,
+  complaintSerialInput,
+  complaintPurchaseDocumentInput,
   complaintPurchaseDateInput,
-  complaintRequestInput,
+  complaintProductTypeInput2,
+  complaintProductNameInput2,
+  complaintSerialInput2,
+  complaintPurchaseDocumentInput2,
+  complaintPurchaseDateInput2,
   complaintDefectInput,
   complaintNotesInput
 ].forEach((input) => {
@@ -11436,6 +12273,7 @@ complaintDateInput?.addEventListener("change", () => {
 });
 complaintCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
+  updateComplaintCustomerDevicePicker([]);
   renderPricingComplaint();
 });
 complaintCustomerInput?.addEventListener("change", (event) => {
@@ -11452,7 +12290,12 @@ complaintCustomerInput?.addEventListener("blur", (event) => {
   complaintProductNameInput,
   complaintSerialInput,
   complaintPurchaseDocumentInput,
-  complaintPurchaseDateInput
+  complaintPurchaseDateInput,
+  complaintProductTypeInput2,
+  complaintProductNameInput2,
+  complaintSerialInput2,
+  complaintPurchaseDocumentInput2,
+  complaintPurchaseDateInput2
 ].forEach((input) => {
   input?.addEventListener("input", () => {
     input.dataset.complaintAutofilled = "";
@@ -11461,19 +12304,38 @@ complaintCustomerInput?.addEventListener("blur", (event) => {
     input.dataset.complaintAutofilled = "";
   }, { capture: true });
 });
-complaintProductTypeInput?.addEventListener("change", () => {
-  syncComplaintProductNameForType();
+complaintRequestInput?.addEventListener("input", () => {
+  complaintRequestInput.dataset.userChanged = "1";
   renderPricingComplaint();
 });
-complaintSerialInput?.addEventListener("input", (event) => {
-  event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+complaintRequestInput?.addEventListener("change", () => {
+  complaintRequestInput.dataset.userChanged = "1";
   renderPricingComplaint();
 });
-complaintPurchaseDocumentInput?.addEventListener("input", (event) => {
-  event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
-  renderPricingComplaint();
+complaintCustomerDeviceSelect?.addEventListener("change", updateComplaintCustomerDevicePickerActions);
+complaintUseDeviceItem1Btn?.addEventListener("click", () => useComplaintCustomerDevice(1));
+complaintUseDeviceItem2Btn?.addEventListener("click", () => useComplaintCustomerDevice(2));
+[1, 2].forEach((slot) => {
+  const inputs = complaintItemInputs(slot);
+  inputs.productType?.addEventListener("change", () => {
+    syncComplaintProductNameForType(slot);
+    renderPricingComplaint();
+  });
+  inputs.serial?.addEventListener("input", (event) => {
+    event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+    renderPricingComplaint();
+  });
+  inputs.serial?.addEventListener("change", () => syncComplaintItemFromSerial(slot));
+  inputs.serial?.addEventListener("blur", () => syncComplaintItemFromSerial(slot));
+  inputs.purchaseDocument?.addEventListener("input", (event) => {
+    event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+    renderPricingComplaint();
+  });
 });
 newPricingComplaintBtn?.addEventListener("click", resetPricingComplaintForm);
+removeComplaintItemBtn1?.addEventListener("click", () => removePricingComplaintItem(1));
+removeComplaintItemBtn2?.addEventListener("click", () => removePricingComplaintItem(2));
+savePricingComplaintBtn?.addEventListener("click", savePricingComplaintAndRepairNotebook);
 printPricingComplaintBtn?.addEventListener("click", printPricingComplaint);
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
@@ -11551,6 +12413,13 @@ document.querySelector("#demoSerialNumber").addEventListener("input", syncDemoUp
 document.querySelector("#demoCurrentUser").addEventListener("input", formatDemoCurrentUserInput);
 document.querySelector("#demoCurrentUser").addEventListener("blur", finalizeDemoCurrentUserInput);
 document.querySelector("#demoStatus").addEventListener("change", syncDemoReturnedStatus);
+DEMO_DATE_VALIDATION_FIELDS.forEach(({ selector }) => {
+  const input = document.querySelector(selector);
+  input?.addEventListener("change", () => validateDemoDateOrder());
+  input?.addEventListener("blur", () => validateDemoDateOrder());
+});
+document.querySelector("#demoManufacturerReturned").addEventListener("change", () => validateDemoDateOrder());
+document.querySelector("#demoStatus").addEventListener("change", () => validateDemoDateOrder());
 demoCurrentAttachmentInput.addEventListener("change", () => {
   addDemoAttachmentFiles(demoCurrentAttachmentInput.files, () => demoCurrentAttachmentsDraft);
   demoCurrentAttachmentInput.value = "";

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260813-23">
+    <link rel="stylesheet" href="styles.css?v=20260813-33">
   </head>
   <body>
     <main class="app-shell">
@@ -413,6 +413,7 @@
                 <option value="">Wszystkie</option>
                 <option value="WKŁADKA USZNA">Wkładka uszna</option>
                 <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                <option value="ZAMÓWIENIE">Zamówienie</option>
                 <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
                 <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
               </select>
@@ -596,7 +597,7 @@
           <section id="pricingOfferView" class="pricing-view-section pricing-offer-section" hidden>
             <section class="offer-builder" aria-label="Ustawienia oferty">
               <div class="offer-form-grid">
-                <label class="offer-customer-field">
+                <label class="offer-customer-field person-name-field">
                   <span>Dla</span>
                   <input id="offerCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
@@ -607,6 +608,14 @@
                 <label class="offer-date-field">
                   <span>Data oferty</span>
                   <input id="offerDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label class="offer-location-field">
+                  <span>Miejsce</span>
+                  <select id="offerLocationInput">
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
+                  </select>
                 </label>
                 <label class="offer-device-field">
                   <span>Aparat 1</span>
@@ -709,11 +718,11 @@
                   <input id="loanDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
                 <label>
-                  <span>Miejscowość</span>
+                  <span>Miejsce</span>
                   <select id="loanCityInput">
-                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała - ul. Traugutta 12, Przychodnia Kolejowa</option>
-                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała - ul. Partyzantów 63, obok Voxel</option>
-                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec - al. Piłsudskiego 50, Przychodnia Laryngologiczna</option>
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
                 <label>
@@ -729,7 +738,7 @@
                   <span>Okres do</span>
                   <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label class="loan-wide">
+                <label class="loan-wide person-name-field">
                   <span>Użytkownik</span>
                   <input id="loanCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
@@ -859,7 +868,7 @@
                 <div class="loan-doc-grid">
                   <p><span>Nr umowy</span><strong data-loan-out="number">-</strong></p>
                   <p><span>Data</span><strong data-loan-out="date">-</strong></p>
-                  <p><span>Miejscowość</span><strong data-loan-out="city">-</strong></p>
+                  <p><span>Miejsce</span><strong data-loan-out="city">-</strong></p>
                   <p><span>Okres</span><strong data-loan-out="period">-</strong></p>
                   <p><span>Kaucja</span><strong data-loan-out="deposit">-</strong></p>
                 </div>
@@ -959,11 +968,7 @@
                   <span>Data zamówienia</span>
                   <input id="orderDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label>
-                  <span>Termin odbioru</span>
-                  <input id="orderDueDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
-                <label class="order-wide">
+                <label class="order-wide person-name-field">
                   <span>Klient</span>
                   <input id="orderCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
@@ -974,9 +979,9 @@
                 <label>
                   <span>Miejsce</span>
                   <select id="orderLocationInput">
-                    <option value="T12">T12</option>
-                    <option value="P50">P50</option>
-                    <option value="P63" selected>P63</option>
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
                 <label class="order-wide">
@@ -988,7 +993,10 @@
               <div class="order-editor">
                 <div class="order-editor-head">
                   <span>Wybór</span>
-                  <button id="addOrderItemBtn" class="reset-filters-btn" type="button">Dodaj pozycję</button>
+                  <button id="addOrderItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj drugą pozycję zamówienia">
+                    <span aria-hidden="true">+</span>
+                    <span data-order-add-label>Druga pozycja</span>
+                  </button>
                 </div>
                 <table class="order-editor-table">
                   <thead>
@@ -1007,6 +1015,7 @@
               <div class="offer-actions">
                 <button id="orderCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
                 <button id="newPricingOrderBtn" class="reset-filters-btn" type="button">Nowe</button>
+                <button id="savePricingOrderBtn" class="reset-filters-btn" type="button">Zapisz</button>
                 <button id="printPricingOrderBtn" type="button">Drukuj / PDF</button>
               </div>
             </section>
@@ -1028,7 +1037,6 @@
                   <div class="loan-doc-grid order-doc-grid">
                     <p><span>Nr zamówienia</span><strong data-order-out="number">-</strong></p>
                     <p><span>Data zamówienia</span><strong data-order-out="date">-</strong></p>
-                    <p><span>Termin odbioru</span><strong data-order-out="dueDate">-</strong></p>
                     <p><span>Klient</span><strong data-order-out="customer">-</strong></p>
                     <p><span>Telefon</span><strong data-order-out="phone">-</strong></p>
                     <p><span>Miejsce</span><strong data-order-out="location">-</strong></p>
@@ -1084,7 +1092,7 @@
                   <span>Data przyjęcia</span>
                   <input id="complaintDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label class="complaint-wide">
+                <label class="complaint-wide person-name-field">
                   <span>Klient</span>
                   <input id="complaintCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
@@ -1095,9 +1103,9 @@
                 <label>
                   <span>Miejsce</span>
                   <select id="complaintLocationInput">
-                    <option value="T12">T12</option>
-                    <option value="P50">P50</option>
-                    <option value="P63" selected>P63</option>
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
                 <label>
@@ -1108,7 +1116,10 @@
                   </select>
                 </label>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
-                  <strong>Pozycja 1</strong>
+                  <div class="complaint-product-head">
+                    <strong>Pozycja 1</strong>
+                    <button id="removeComplaintItemBtn1" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 1">×</button>
+                  </div>
                   <div class="complaint-product-grid">
                     <label>
                       <span>Produkt</span>
@@ -1139,7 +1150,10 @@
                   <p id="complaintWarrantyHint1" class="complaint-warranty-hint" hidden></p>
                 </div>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="2">
-                  <strong>Pozycja 2</strong>
+                  <div class="complaint-product-head">
+                    <strong>Pozycja 2</strong>
+                    <button id="removeComplaintItemBtn2" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 2">×</button>
+                  </div>
                   <div class="complaint-product-grid">
                     <label>
                       <span>Produkt</span>
@@ -1179,9 +1193,20 @@
                 </label>
               </div>
               <p id="complaintCustomerMatchHint" class="complaint-match-hint" hidden></p>
+              <div id="complaintCustomerDevicePicker" class="complaint-device-picker" hidden>
+                <label>
+                  <span>Znalezione modele klienta</span>
+                  <select id="complaintCustomerDeviceSelect"></select>
+                </label>
+                <div class="complaint-device-picker-actions">
+                  <button id="complaintUseDeviceItem1Btn" class="complaint-device-picker-btn" type="button">Do pozycji 1</button>
+                  <button id="complaintUseDeviceItem2Btn" class="complaint-device-picker-btn" type="button">Do pozycji 2</button>
+                </div>
+              </div>
 
               <div class="offer-actions">
                 <button id="newPricingComplaintBtn" class="reset-filters-btn" type="button">Nowa</button>
+                <button id="savePricingComplaintBtn" class="reset-filters-btn" type="button">Zapisz</button>
                 <button id="printPricingComplaintBtn" type="button">Drukuj / PDF</button>
               </div>
             </section>
@@ -1443,6 +1468,7 @@
             <select id="repairCategory" name="category">
               <option value="WKŁADKA USZNA">Wkładka uszna</option>
               <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+              <option value="ZAMÓWIENIE">Zamówienie</option>
               <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
               <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
             </select>
@@ -1705,6 +1731,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-30"></script>
+    <script src="app.js?v=20260813-40"></script>
   </body>
 </html>
