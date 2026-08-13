@@ -753,15 +753,18 @@ h2 {
 .price-thousand-group {
   display: inline-block;
   color: #003f5a;
+  padding-right: 0.18em;
+  margin-right: 0.2em;
+  border-right: 1px solid rgba(0, 63, 90, 0.34);
   font-weight: 920;
 }
 
 .price-group-separator {
-  display: inline-block;
-  width: 0.26em;
+  display: none;
 }
 
 .price-group-separator-inner {
+  display: inline-block;
   width: 0.18em;
 }
 
