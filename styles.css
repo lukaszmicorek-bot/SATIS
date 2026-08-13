@@ -460,6 +460,14 @@ h2 {
   border-bottom: 1px solid rgba(216, 221, 227, 0.85);
 }
 
+#pricingNotebook[data-mode="pricing"] .pricing-subtabs {
+  display: none;
+}
+
+#pricingNotebook[data-mode="agreements"] .pricing-view-button[data-pricing-view="list"] {
+  display: none;
+}
+
 .pricing-view-button {
   min-height: 30px;
   border: 0;
@@ -806,7 +814,9 @@ h2 {
   transform: none;
 }
 
-.pricing-offer-section {
+.pricing-offer-section,
+.pricing-order-section,
+.pricing-complaint-section {
   display: grid;
   gap: 12px;
 }
@@ -899,7 +909,9 @@ h2 {
 }
 
 #printPricingOfferBtn,
-#printPricingLoanBtn {
+#printPricingLoanBtn,
+#printPricingOrderBtn,
+#printPricingComplaintBtn {
   min-height: 30px;
   padding: 0 12px;
   color: #fff;
@@ -910,7 +922,9 @@ h2 {
 }
 
 #printPricingOfferBtn:hover,
-#printPricingLoanBtn:hover {
+#printPricingLoanBtn:hover,
+#printPricingOrderBtn:hover,
+#printPricingComplaintBtn:hover {
   color: #fff;
   background: #257867;
   border-color: #257867;
@@ -1119,6 +1133,211 @@ h2 {
 .offer-total-line strong {
   color: #003f5a;
   font-size: 1.16rem;
+}
+
+.order-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.order-wide {
+  grid-column: span 2;
+}
+
+.order-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.order-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #003f5a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.order-editor-table,
+.order-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.order-editor-table {
+  min-width: 760px;
+}
+
+.order-editor-table th,
+.order-editor-table td,
+.order-items-table th,
+.order-items-table td {
+  padding: 8px 9px;
+  border: 1px solid #d6e0e4;
+  text-align: left;
+  vertical-align: top;
+}
+
+.order-editor-table th,
+.order-items-table th {
+  color: #274653;
+  background: #eef5f5;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.order-editor-table input,
+.order-editor-table select {
+  width: 100%;
+  min-height: 32px;
+}
+
+.order-editor-table th:nth-child(1),
+.order-editor-table td:nth-child(1) {
+  width: 190px;
+}
+
+.order-editor-table th:nth-child(2),
+.order-editor-table td:nth-child(2),
+.order-items-table th:nth-child(3),
+.order-items-table td:nth-child(3) {
+  width: 70px;
+  text-align: center;
+}
+
+.order-editor-table th:nth-child(5),
+.order-editor-table td:nth-child(5) {
+  width: 72px;
+  text-align: center;
+}
+
+.order-items-table {
+  margin-top: 8px;
+}
+
+.order-items-table th:nth-child(1),
+.order-items-table td:nth-child(1) {
+  width: 42px;
+  text-align: center;
+}
+
+.order-items-table th:nth-child(2),
+.order-items-table td:nth-child(2) {
+  width: 150px;
+}
+
+.order-items-table .order-type-cell {
+  color: #164f46;
+  font-weight: 860;
+}
+
+.order-quantity-cell {
+  font-weight: 860;
+}
+
+.order-remove-item-btn {
+  min-height: 26px;
+  padding: 0 8px;
+  color: #7a4338;
+  background: #fff4f1;
+  border-color: #e4c1b9;
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.order-remove-item-btn:hover {
+  color: #fff;
+  background: #9d4d3f;
+  border-color: #9d4d3f;
+  transform: none;
+}
+
+.order-document {
+  margin-top: 16px;
+}
+
+.order-doc-grid p:nth-child(3),
+.order-doc-grid p:nth-child(6) {
+  grid-column: span 2;
+}
+
+.complaint-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.complaint-wide {
+  grid-column: span 2;
+}
+
+.complaint-full {
+  grid-column: 1 / -1;
+}
+
+.complaint-form-grid textarea {
+  min-height: 78px;
+}
+
+.complaint-document {
+  margin-top: 16px;
+}
+
+.complaint-doc-grid p:nth-child(4),
+.complaint-doc-grid p:nth-child(6),
+.complaint-doc-grid p:nth-child(8) {
+  grid-column: span 2;
+}
+
+.complaint-text-box {
+  min-height: 74px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d6e0e4;
+  border-radius: 8px;
+  color: #273d48;
+  background: #fbfdfd;
+  white-space: pre-wrap;
+}
+
+.complaint-decision-box {
+  min-height: 58px;
+}
+
+.complaint-signatures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.complaint-signatures p {
+  min-height: 82px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d6e0e4;
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
+.complaint-signatures span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.complaint-signatures strong {
+  display: block;
+  margin-top: 36px;
+  color: #003f5a;
+  font-size: 0.82rem;
 }
 
 .loan-form-grid {
@@ -4340,15 +4559,24 @@ textarea {
   }
 
   .loan-form-grid,
+  .order-form-grid,
+  .complaint-form-grid,
   .loan-doc-grid,
   .loan-protocol-grid,
   .loan-doc-grid-charger,
-  .loan-locations {
+  .loan-locations,
+  .order-doc-grid,
+  .complaint-doc-grid,
+  .complaint-signatures {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .offer-locations {
     grid-template-columns: 1fr;
+  }
+
+  .order-editor {
+    overflow-x: auto;
   }
 
   .offer-customer-field,
@@ -4361,12 +4589,15 @@ textarea {
   }
 
   .loan-wide,
+  .complaint-wide,
+  .complaint-full,
   .loan-doc-grid-parties p:first-child,
   .loan-doc-grid-parties p:nth-child(2),
   .loan-doc-grid-parties p:nth-child(4),
   .loan-protocol-grid p:nth-child(2),
   .loan-protocol-grid p:nth-child(4),
-  .loan-signatures p {
+  .loan-signatures p,
+  .complaint-signatures p {
     grid-column: span 2;
   }
 
@@ -4451,12 +4682,17 @@ textarea {
     .repairs-controls,
     .stock-audit-panel,
   .offer-form-grid,
-  .loan-form-grid,
+    .loan-form-grid,
+    .order-form-grid,
+    .complaint-form-grid,
   .loan-doc-grid,
   .loan-protocol-grid,
   .loan-doc-grid-charger,
   .loan-locations,
   .loan-signatures,
+  .order-doc-grid,
+  .complaint-doc-grid,
+  .complaint-signatures,
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
   .form-grid,
@@ -4474,6 +4710,14 @@ textarea {
   }
 
   .loan-wide,
+  .order-wide,
+  .complaint-wide,
+  .complaint-full,
+  .order-doc-grid p:nth-child(3),
+  .order-doc-grid p:nth-child(6),
+  .complaint-doc-grid p:nth-child(4),
+  .complaint-doc-grid p:nth-child(6),
+  .complaint-signatures p,
   .loan-doc-grid-parties p:first-child,
   .loan-doc-grid-parties p:nth-child(2),
   .loan-doc-grid-parties p:nth-child(4),
@@ -4593,6 +4837,8 @@ textarea {
 
   body.pricing-offer-print,
   body.pricing-loan-print,
+  body.pricing-order-print,
+  body.pricing-complaint-print,
   body.stock-checklist-print,
   body.stock-audit-pdf-print {
     color: #111;
@@ -4725,6 +4971,275 @@ textarea {
 
   body.pricing-offer-print .offer-total-line strong {
     font-size: 14pt;
+  }
+
+  body.pricing-order-print .app-shell > * {
+    display: none !important;
+  }
+
+  body.pricing-order-print .app-shell > #pricingNotebook,
+  body.pricing-order-print #pricingNotebook > .pricing-panel,
+  body.pricing-order-print #pricingNotebook #pricingOrderView,
+  body.pricing-order-print #pricingOrderView > #pricingOrderPrint {
+    display: block !important;
+  }
+
+  body.pricing-order-print #pricingNotebook .pricing-panel > *,
+  body.pricing-order-print #pricingOrderView > * {
+    display: none !important;
+  }
+
+  body.pricing-order-print #pricingNotebook .pricing-panel > #pricingOrderView,
+  body.pricing-order-print #pricingOrderView > #pricingOrderPrint {
+    display: block !important;
+  }
+
+  body.pricing-order-print .app-shell,
+  body.pricing-order-print .pricing-panel,
+  body.pricing-order-print .pricing-order-section {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  body.pricing-order-print .order-document {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    min-height: 277mm;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .offer-document-head {
+    margin-bottom: 6mm;
+    padding-bottom: 3mm;
+  }
+
+  body.pricing-order-print .offer-document-head h2 {
+    font-size: 16pt;
+  }
+
+  body.pricing-order-print .offer-document-head p,
+  body.pricing-order-print .offer-document-head span {
+    font-size: 8pt;
+  }
+
+  body.pricing-order-print .offer-document-head img {
+    width: 15mm;
+    height: 15mm;
+  }
+
+  body.pricing-order-print .loan-doc-section {
+    margin-top: 4mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .loan-doc-section h3 {
+    margin-bottom: 2mm;
+    padding-bottom: 1.4mm;
+    font-size: 9pt;
+  }
+
+  body.pricing-order-print .loan-doc-grid {
+    gap: 2mm;
+  }
+
+  body.pricing-order-print .loan-doc-grid p {
+    min-height: 0;
+    padding: 2mm 2.2mm;
+    border-radius: 0;
+  }
+
+  body.pricing-order-print .loan-doc-grid p span {
+    font-size: 6.8pt;
+  }
+
+  body.pricing-order-print .loan-doc-grid p strong {
+    font-size: 8.5pt;
+  }
+
+  body.pricing-order-print .order-items-table {
+    margin-top: 3mm;
+    font-size: 8.5pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .order-items-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .order-items-table th,
+  body.pricing-order-print .order-items-table td {
+    padding: 2mm 2.2mm;
+  }
+
+  body.pricing-order-print .offer-locations {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
+    margin: auto 0 0;
+    padding-top: 4mm;
+    font-size: 6.8pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .offer-locations > span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-order-print .offer-locations strong {
+    font-size: 7pt;
+  }
+
+  body.pricing-complaint-print .app-shell > * {
+    display: none !important;
+  }
+
+  body.pricing-complaint-print .app-shell > #pricingNotebook,
+  body.pricing-complaint-print #pricingNotebook > .pricing-panel,
+  body.pricing-complaint-print #pricingNotebook #pricingComplaintView,
+  body.pricing-complaint-print #pricingComplaintView > #pricingComplaintPrint {
+    display: block !important;
+  }
+
+  body.pricing-complaint-print #pricingNotebook .pricing-panel > *,
+  body.pricing-complaint-print #pricingComplaintView > * {
+    display: none !important;
+  }
+
+  body.pricing-complaint-print #pricingNotebook .pricing-panel > #pricingComplaintView,
+  body.pricing-complaint-print #pricingComplaintView > #pricingComplaintPrint {
+    display: block !important;
+  }
+
+  body.pricing-complaint-print .app-shell,
+  body.pricing-complaint-print .pricing-panel,
+  body.pricing-complaint-print .pricing-complaint-section {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  body.pricing-complaint-print .complaint-document {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    min-height: 277mm;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-complaint-print .offer-document-head {
+    margin-bottom: 5mm;
+    padding-bottom: 3mm;
+  }
+
+  body.pricing-complaint-print .offer-document-head h2 {
+    font-size: 16pt;
+  }
+
+  body.pricing-complaint-print .offer-document-head p,
+  body.pricing-complaint-print .offer-document-head span {
+    font-size: 8pt;
+  }
+
+  body.pricing-complaint-print .offer-document-head img {
+    width: 15mm;
+    height: 15mm;
+  }
+
+  body.pricing-complaint-print .loan-doc-section {
+    margin-top: 3.5mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-complaint-print .loan-doc-section h3 {
+    margin-bottom: 1.8mm;
+    padding-bottom: 1.2mm;
+    font-size: 8.8pt;
+  }
+
+  body.pricing-complaint-print .loan-doc-grid,
+  body.pricing-complaint-print .complaint-signatures {
+    gap: 1.8mm;
+  }
+
+  body.pricing-complaint-print .loan-doc-grid p,
+  body.pricing-complaint-print .complaint-signatures p {
+    min-height: 0;
+    padding: 1.8mm 2mm;
+    border-radius: 0;
+  }
+
+  body.pricing-complaint-print .loan-doc-grid p span,
+  body.pricing-complaint-print .complaint-signatures p span {
+    font-size: 6.5pt;
+  }
+
+  body.pricing-complaint-print .loan-doc-grid p strong,
+  body.pricing-complaint-print .complaint-signatures p strong {
+    font-size: 8pt;
+  }
+
+  body.pricing-complaint-print .complaint-text-box {
+    min-height: 20mm;
+    padding: 2mm 2.2mm;
+    border-radius: 0;
+    font-size: 8pt;
+    line-height: 1.28;
+  }
+
+  body.pricing-complaint-print .complaint-decision-box {
+    min-height: 14mm;
+  }
+
+  body.pricing-complaint-print .complaint-signatures p {
+    min-height: 21mm;
+  }
+
+  body.pricing-complaint-print .complaint-signatures strong {
+    margin-top: 10mm;
+  }
+
+  body.pricing-complaint-print .offer-locations {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
+    margin: auto 0 0;
+    padding-top: 4mm;
+    font-size: 6.8pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-complaint-print .offer-locations > span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-complaint-print .offer-locations strong {
+    font-size: 7pt;
   }
 
   body.pricing-loan-print .app-shell > * {
