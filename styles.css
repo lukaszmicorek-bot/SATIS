@@ -893,6 +893,12 @@ h2 {
   white-space: nowrap;
 }
 
+.offer-items-table th:nth-child(5),
+.offer-items-table td:nth-child(5) {
+  width: 72px;
+  text-align: center;
+}
+
 .offer-items-table strong {
   display: block;
   color: #003f5a;
@@ -900,12 +906,21 @@ h2 {
   line-height: 1.22;
 }
 
-.offer-items-table span {
-  display: block;
-  margin-top: 3px;
-  color: #5e6c73;
-  font-size: 0.75rem;
-  line-height: 1.25;
+.offer-remove-item-btn {
+  min-height: 26px;
+  padding: 0 8px;
+  color: #7a4338;
+  background: #fff4f1;
+  border-color: #e4c1b9;
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.offer-remove-item-btn:hover {
+  color: #fff;
+  background: #9d4d3f;
+  border-color: #9d4d3f;
+  transform: none;
 }
 
 .offer-payments-table .payer-cell {
@@ -4087,12 +4102,12 @@ textarea {
     padding: 2mm 2.2mm;
   }
 
-  body.pricing-offer-print .offer-items-table strong {
-    font-size: 9.5pt;
+  body.pricing-offer-print .offer-action-column {
+    display: none !important;
   }
 
-  body.pricing-offer-print .offer-items-table span {
-    font-size: 7.5pt;
+  body.pricing-offer-print .offer-items-table strong {
+    font-size: 9.5pt;
   }
 
   body.pricing-offer-print .offer-total-line {

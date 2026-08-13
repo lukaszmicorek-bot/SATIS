@@ -4797,9 +4797,25 @@ function findPricingOfferRecord(value) {
   );
 }
 
-function selectedPricingOfferRecords() {
+function selectedPricingOfferItems() {
   return [offerDeviceInput1, offerDeviceInput2]
-    .map((input) => findPricingOfferRecord(input?.value))
+    .map((input, index) => ({
+      input,
+      slot: index + 1,
+      record: findPricingOfferRecord(input?.value)
+    }))
+    .filter((item) => item.record);
+}
+
+function removePricingOfferItem(item) {
+  if (!item?.input) return;
+  item.input.value = "";
+  renderPricingOffer();
+}
+
+function selectedPricingOfferRecords() {
+  return selectedPricingOfferItems()
+    .map((item) => item.record)
     .filter(Boolean);
 }
 
@@ -4843,20 +4859,30 @@ function appendOfferCell(row, value, className = "") {
 
 function renderPricingOfferItems(items) {
   if (!offerItemsBody) return;
-  const rows = items.map((record, index) => {
+  const rows = items.map((item, index) => {
+    const record = item.record;
     const row = document.createElement("tr");
     appendOfferCell(row, String(index + 1));
 
     const nameCell = document.createElement("td");
     const model = document.createElement("strong");
     model.textContent = record.model || record.tradeName || "Aparat";
-    const details = document.createElement("span");
-    details.textContent = [record.tradeName, record.manufacturer].filter(Boolean).join(" | ");
-    nameCell.append(model, details);
+    nameCell.append(model);
     row.append(nameCell);
 
     appendOfferCell(row, record.nfzCode);
     appendOfferCell(row, formatPricingPrice(record.grossPrice), "amount-cell");
+
+    const removeCell = document.createElement("td");
+    removeCell.className = "offer-action-column";
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "offer-remove-item-btn";
+    removeButton.textContent = "Usuń";
+    removeButton.title = `Usuń aparat ${item.slot} z oferty`;
+    removeButton.addEventListener("click", () => removePricingOfferItem(item));
+    removeCell.append(removeButton);
+    row.append(removeCell);
     return row;
   });
   offerItemsBody.replaceChildren(...rows);
@@ -4908,7 +4934,8 @@ function renderPricingOffer() {
   const offerDate = ensurePricingOfferDate();
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
-  const items = selectedPricingOfferRecords();
+  const offerItems = selectedPricingOfferItems();
+  const items = offerItems.map((item) => item.record);
   const total = items.reduce((sum, record) => sum + Number(normalizePricingPrice(record.grossPrice) || 0), 0);
   const nfz = Math.min(total, items.length * PRICING_OFFER_NFZ_PER_DEVICE);
   const pfron = pricingOfferPfronAmount(Math.max(total - nfz, 0));
@@ -4936,7 +4963,7 @@ function renderPricingOffer() {
     return;
   }
 
-  renderPricingOfferItems(items);
+  renderPricingOfferItems(offerItems);
   renderPricingOfferPayments(items, { total, nfz, pfron, patient });
   if (offerPatientTotal) offerPatientTotal.textContent = formatPricingPrice(patient);
 }
