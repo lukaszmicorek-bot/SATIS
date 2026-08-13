@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260813-19">
+    <link rel="stylesheet" href="styles.css?v=20260813-21">
   </head>
   <body>
     <main class="app-shell">
@@ -47,6 +47,7 @@
           <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik</button>
+          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -520,6 +521,7 @@
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="offer">Oferta</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="loan">Umowa</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="order">Zamówienie</button>
+            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="complaint">Reklamacja</button>
           </section>
 
           <section id="pricingListView" class="pricing-view-section">
@@ -700,7 +702,7 @@
               <div class="loan-form-grid">
                 <label>
                   <span>Nr umowy</span>
-                  <input id="loanContractNumberInput" type="text" placeholder="np. 1/08" autocomplete="off">
+                  <input id="loanContractNumberInput" type="text" placeholder="np. 1/08/2026" autocomplete="off">
                 </label>
                 <label>
                   <span>Data umowy</span>
@@ -1000,6 +1002,7 @@
 
               <div class="offer-actions">
                 <button id="orderCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
+                <button id="newPricingOrderBtn" class="reset-filters-btn" type="button">Nowe</button>
                 <button id="printPricingOrderBtn" type="button">Drukuj / PDF</button>
               </div>
             </section>
@@ -1044,6 +1047,153 @@
                   </table>
                 </section>
               </div>
+
+              <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Traugutta 12, Przychodnia Kolejowa</span>
+                  <span class="location-phone">tel. 502 605 002</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Bielsko-Biała</strong> ul. Partyzantów 63, obok Voxel</span>
+                  <span class="location-phone">tel. 502 605 663</span>
+                </span>
+                <span>
+                  <span class="location-main"><strong>Żywiec</strong> al. Piłsudskiego 50, <span class="location-nowrap">Przychodnia Laryngologiczna</span></span>
+                  <span class="location-phone">tel. 502 605 669</span>
+                </span>
+              </address>
+            </section>
+          </section>
+
+          <section id="pricingComplaintView" class="pricing-view-section pricing-complaint-section" hidden>
+            <section class="offer-builder complaint-builder" aria-label="Ustawienia reklamacji">
+              <div class="complaint-form-grid">
+                <label>
+                  <span>Nr reklamacji</span>
+                  <input id="complaintNumberInput" type="text" placeholder="np. 1/08" autocomplete="off">
+                </label>
+                <label>
+                  <span>Data przyjęcia</span>
+                  <input id="complaintDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label class="complaint-wide">
+                  <span>Klient</span>
+                  <input id="complaintCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                </label>
+                <label>
+                  <span>Telefon</span>
+                  <input id="complaintPhoneInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Miejsce</span>
+                  <select id="complaintLocationInput">
+                    <option value="T12">T12</option>
+                    <option value="P50">P50</option>
+                    <option value="P63" selected>P63</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Produkt</span>
+                  <select id="complaintProductTypeInput">
+                    <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                    <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                    <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                    <option value="INNE">Inne</option>
+                  </select>
+                </label>
+                <label class="complaint-wide">
+                  <span>Nazwa / model</span>
+                  <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
+                </label>
+                <label>
+                  <span>Nr seryjny</span>
+                  <input id="complaintSerialInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Dokument zakupu</span>
+                  <input id="complaintPurchaseDocumentInput" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
+                </label>
+                <label>
+                  <span>Data zakupu</span>
+                  <input id="complaintPurchaseDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>Żądanie klienta</span>
+                  <select id="complaintRequestInput">
+                    <option value="NAPRAWA">Naprawa</option>
+                    <option value="WYMIANA">Wymiana</option>
+                    <option value="ZWROT">Zwrot</option>
+                    <option value="OBNIŻENIE CENY">Obniżenie ceny</option>
+                    <option value="INNE">Inne</option>
+                  </select>
+                </label>
+                <label class="complaint-full">
+                  <span>Opis wady</span>
+                  <textarea id="complaintDefectInput" rows="3" placeholder="Krótki opis zgłoszenia"></textarea>
+                </label>
+                <label class="complaint-full">
+                  <span>Uwagi</span>
+                  <textarea id="complaintNotesInput" rows="2" placeholder="Dodatkowe ustalenia"></textarea>
+                </label>
+              </div>
+
+              <div class="offer-actions">
+                <button id="newPricingComplaintBtn" class="reset-filters-btn" type="button">Nowa</button>
+                <button id="printPricingComplaintBtn" type="button">Drukuj / PDF</button>
+              </div>
+            </section>
+
+            <section id="pricingComplaintPrint" class="offer-document complaint-document" aria-label="Reklamacja">
+              <header class="offer-document-head">
+                <div>
+                  <p>SATIS Pracownia Słuchu</p>
+                  <h2 id="complaintTitle">Reklamacja</h2>
+                  <span id="complaintMeta">Data: dziś</span>
+                </div>
+                <img src="satis-monogram.png" alt="SATIS">
+              </header>
+
+              <section class="loan-doc-section">
+                <h3>Dane zgłoszenia</h3>
+                <div class="loan-doc-grid complaint-doc-grid">
+                  <p><span>Nr reklamacji</span><strong data-complaint-out="number">-</strong></p>
+                  <p><span>Data przyjęcia</span><strong data-complaint-out="date">-</strong></p>
+                  <p><span>Miejsce</span><strong data-complaint-out="location">-</strong></p>
+                  <p><span>Klient</span><strong data-complaint-out="customer">-</strong></p>
+                  <p><span>Telefon</span><strong data-complaint-out="phone">-</strong></p>
+                  <p><span>Żądanie klienta</span><strong data-complaint-out="request">-</strong></p>
+                </div>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Produkt</h3>
+                <div class="loan-doc-grid complaint-doc-grid">
+                  <p><span>Produkt</span><strong data-complaint-out="productType">-</strong></p>
+                  <p><span>Nazwa / model</span><strong data-complaint-out="productName">-</strong></p>
+                  <p><span>Nr seryjny</span><strong data-complaint-out="serial">-</strong></p>
+                  <p><span>Dokument zakupu</span><strong data-complaint-out="purchaseDocument">-</strong></p>
+                  <p><span>Data zakupu</span><strong data-complaint-out="purchaseDate">-</strong></p>
+                </div>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Opis wady</h3>
+                <p class="complaint-text-box" data-complaint-out="defect">-</p>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Uwagi / decyzja</h3>
+                <p class="complaint-text-box complaint-decision-box" data-complaint-out="notes">-</p>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Potwierdzenia</h3>
+                <div class="complaint-signatures">
+                  <p><span>Przyjmujący zgłoszenie</span><strong>podpis i pieczątka</strong></p>
+                  <p><span>Klient</span><strong>data i podpis</strong></p>
+                  <p><span>Odbiór / decyzja</span><strong>data i podpis</strong></p>
+                </div>
+              </section>
 
               <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
                 <span>
@@ -1505,6 +1655,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-23"></script>
+    <script src="app.js?v=20260813-26"></script>
   </body>
 </html>
