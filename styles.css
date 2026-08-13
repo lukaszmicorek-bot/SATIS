@@ -752,30 +752,25 @@ h2 {
 
 .price-thousand-group {
   display: inline-block;
-  color: #003f5a;
-  font-weight: 920;
+  color: #245665;
+  font-weight: 830;
 }
 
 .price-group-separator {
   position: relative;
   display: inline-block;
-  width: 0.62em;
-  min-width: 0.62em;
+  width: 0.28em;
+  min-width: 0.28em;
 }
 
 .price-group-separator-inner {
   display: inline-block;
-  width: 0.36em;
-  min-width: 0.36em;
+  width: 0.2em;
+  min-width: 0.2em;
 }
 
 .price-group-separator::after {
-  content: "";
-  position: absolute;
-  top: 0.18em;
-  bottom: 0.18em;
-  left: 50%;
-  border-left: 1px solid rgba(0, 63, 90, 0.42);
+  content: none;
 }
 
 .price-rest-group {
@@ -973,7 +968,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin: -6px 0 14px;
+  margin: 14px 0 0;
   color: #314852;
   font-style: normal;
   font-size: 0.74rem;
@@ -1281,6 +1276,128 @@ h2 {
   flex-direction: column;
   justify-content: space-between;
   background: #fff;
+}
+
+.loan-locations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+  color: #2f4a54;
+  font-size: 0.74rem;
+  font-style: normal;
+  line-height: 1.28;
+}
+
+.loan-locations span {
+  padding: 7px 8px;
+  border-left: 3px solid #9fc6c6;
+  border-radius: 8px;
+  background: #f7fbfb;
+}
+
+.loan-locations strong {
+  display: block;
+  color: #003f5a;
+  font-size: 0.76rem;
+}
+
+.loan-history-panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #d7e4e5;
+  border-radius: 8px;
+  background: rgba(250, 253, 253, 0.9);
+}
+
+.loan-history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 9px;
+}
+
+.loan-history-head h3 {
+  margin: 0;
+  color: #003f5a;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.loan-history-head span {
+  color: #667883;
+  font-size: 0.74rem;
+  font-weight: 820;
+}
+
+.loan-history-list {
+  display: grid;
+  gap: 7px;
+  max-height: 285px;
+  overflow: auto;
+}
+
+.loan-history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #dce7e8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.loan-history-item strong,
+.loan-history-item small,
+.loan-history-item span {
+  display: block;
+}
+
+.loan-history-item strong {
+  color: #003f5a;
+  font-size: 0.86rem;
+}
+
+.loan-history-item small {
+  margin-top: 2px;
+  color: #6c7b84;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.loan-history-item span {
+  margin-top: 3px;
+  color: #2f454f;
+  font-size: 0.76rem;
+  font-weight: 790;
+}
+
+.loan-history-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.loan-history-actions button {
+  min-height: 27px;
+  padding: 0 9px;
+  font-size: 0.68rem;
+}
+
+.loan-history-remove {
+  color: #8a4539;
+  border-color: #ead0ca;
+  background: #fff7f5;
+}
+
+.loan-history-empty {
+  margin: 0;
+  padding: 9px 10px;
+  color: #6c7b84;
+  font-size: 0.8rem;
+  font-weight: 760;
 }
 
 .controls {
@@ -4143,7 +4260,8 @@ textarea {
   .loan-form-grid,
   .loan-doc-grid,
   .loan-protocol-grid,
-  .loan-doc-grid-charger {
+  .loan-doc-grid-charger,
+  .loan-locations {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4255,6 +4373,7 @@ textarea {
   .loan-doc-grid,
   .loan-protocol-grid,
   .loan-doc-grid-charger,
+  .loan-locations,
   .loan-signatures,
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
@@ -4280,6 +4399,14 @@ textarea {
   .loan-protocol-grid p:nth-child(4),
   .loan-signatures p {
     grid-column: auto;
+  }
+
+  .loan-history-item {
+    grid-template-columns: 1fr;
+  }
+
+  .loan-history-actions {
+    justify-content: flex-start;
   }
 
   .offer-actions {
@@ -4424,9 +4551,11 @@ textarea {
   }
 
   body.pricing-offer-print .offer-document {
+    display: flex !important;
+    flex-direction: column;
     width: 100%;
     max-width: none;
-    min-height: 0;
+    min-height: 277mm;
     margin: 0;
     padding: 0;
     border: 0;
@@ -4460,8 +4589,11 @@ textarea {
   body.pricing-offer-print .offer-locations {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 2mm;
-    margin: -2mm 0 4mm;
+    margin: auto 0 0;
+    padding-top: 4mm;
     font-size: 6.8pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   body.pricing-offer-print .offer-locations span {
@@ -4546,12 +4678,19 @@ textarea {
   }
 
   body.pricing-loan-print .loan-document {
+    display: flex !important;
+    flex-direction: column;
     width: 100%;
     max-width: none;
+    min-height: 277mm;
     margin: 0;
     padding: 0;
     border: 0;
     border-radius: 0;
+  }
+
+  body.pricing-loan-print #pricingLoanView > #pricingLoanPrint.loan-document {
+    display: flex !important;
   }
 
   body.pricing-loan-print .offer-document-head {
@@ -4625,6 +4764,26 @@ textarea {
 
   body.pricing-loan-print .loan-signatures p {
     min-height: 18mm;
+  }
+
+  body.pricing-loan-print .loan-locations {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.8mm;
+    margin-top: auto;
+    padding-top: 3mm;
+    font-size: 6.5pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-loan-print .loan-locations span {
+    padding: 1.4mm 1.8mm;
+    border-left-width: 1mm;
+    border-radius: 0;
+  }
+
+  body.pricing-loan-print .loan-locations strong {
+    font-size: 6.8pt;
   }
 
   body.stock-checklist-print .app-shell > * {
