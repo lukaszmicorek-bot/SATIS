@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260813-9">
+    <link rel="stylesheet" href="styles.css?v=20260813-11">
   </head>
   <body>
     <main class="app-shell">
@@ -518,6 +518,7 @@
           <section class="pricing-subtabs" role="tablist" aria-label="Zakładki cennika">
             <button class="pricing-view-button active" type="button" role="tab" aria-selected="true" data-pricing-view="list">Cennik</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="offer">Oferta</button>
+            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="loan">Umowa</button>
           </section>
 
           <section id="pricingListView" class="pricing-view-section">
@@ -645,6 +646,11 @@
                 </div>
                 <img src="satis-monogram.png" alt="SATIS">
               </header>
+              <address class="offer-locations" aria-label="Adresy gabinetów SATIS">
+                <span><strong>Bielsko-Biała</strong> ul. Traugutta 12, tel. 502 605 002</span>
+                <span><strong>Bielsko-Biała</strong> ul. Partyzantów 63, tel. 502 605 663</span>
+                <span><strong>Żywiec</strong> al. Piłsudskiego 50, tel. 502 605 669</span>
+              </address>
               <p id="offerEmptyState" class="offer-empty-state">Wybierz aparat z cennika, żeby przygotować ofertę.</p>
               <div id="offerContent" hidden>
                 <table class="offer-items-table">
@@ -676,6 +682,228 @@
                   <strong id="offerPatientTotal">0 zł</strong>
                 </div>
               </div>
+            </section>
+          </section>
+
+          <section id="pricingLoanView" class="pricing-view-section pricing-loan-section" hidden>
+            <section class="offer-builder loan-builder" aria-label="Ustawienia umowy wypożyczenia">
+              <div class="loan-form-grid">
+                <label>
+                  <span>Nr umowy</span>
+                  <input id="loanContractNumberInput" type="text" placeholder="np. 1/08/2026" autocomplete="off">
+                </label>
+                <label>
+                  <span>Data umowy</span>
+                  <input id="loanDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>Miejscowość</span>
+                  <input id="loanCityInput" type="text" value="Bielsko-Biała" autocomplete="off">
+                </label>
+                <label>
+                  <span>Kaucja</span>
+                  <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
+                </label>
+
+                <label>
+                  <span>Okres od</span>
+                  <input id="loanPeriodFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>Okres do</span>
+                  <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label class="loan-wide">
+                  <span>Użytkownik</span>
+                  <input id="loanCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                </label>
+
+                <label class="loan-wide">
+                  <span>Adres</span>
+                  <input id="loanAddressInput" type="text" placeholder="Adres użytkownika" autocomplete="off">
+                </label>
+                <label>
+                  <span>PESEL / dokument</span>
+                  <input id="loanDocumentInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Telefon / e-mail</span>
+                  <input id="loanPhoneInput" type="text" autocomplete="off">
+                </label>
+
+                <p class="loan-form-title loan-full">Sprzęt</p>
+                <label class="loan-wide">
+                  <span>Prawe - model</span>
+                  <input id="loanRightDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
+                </label>
+                <label>
+                  <span>Prawe - nr seryjny / UDI</span>
+                  <input id="loanRightSerialInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Prawe - producent</span>
+                  <input id="loanRightManufacturerInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Prawe - rok</span>
+                  <input id="loanRightYearInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Prawe - wartość brutto</span>
+                  <input id="loanRightValueInput" type="text" inputmode="decimal" autocomplete="off">
+                </label>
+
+                <label class="loan-wide">
+                  <span>Lewe - model</span>
+                  <input id="loanLeftDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
+                </label>
+                <label>
+                  <span>Lewe - nr seryjny / UDI</span>
+                  <input id="loanLeftSerialInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Lewe - producent</span>
+                  <input id="loanLeftManufacturerInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Lewe - rok</span>
+                  <input id="loanLeftYearInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Lewe - wartość brutto</span>
+                  <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
+                </label>
+
+                <p class="loan-form-title loan-full">Ładowarka i protokół</p>
+                <label>
+                  <span>Ładowarka - model / typ</span>
+                  <input id="loanChargerInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Ładowarka - nr seryjny</span>
+                  <input id="loanChargerSerialInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>Ładowarka - stan</span>
+                  <input id="loanChargerStateInput" type="text" value="wydano" autocomplete="off">
+                </label>
+                <label>
+                  <span>Wartość braku ładowarki</span>
+                  <input id="loanChargerMissingValueInput" type="text" inputmode="decimal" autocomplete="off">
+                </label>
+                <label class="loan-wide">
+                  <span>Uwagi przy wydaniu</span>
+                  <input id="loanIssueNotesInput" type="text" placeholder="bez zastrzeżeń" autocomplete="off">
+                </label>
+                <label>
+                  <span>Data zwrotu</span>
+                  <input id="loanReturnDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>Termin zwrotu kaucji</span>
+                  <input id="loanDepositReturnDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>Kaucja / potrącenia</span>
+                  <input id="loanDeductionsInput" type="text" autocomplete="off">
+                </label>
+                <label class="loan-wide">
+                  <span>Powód potrącenia / uwagi zwrotu</span>
+                  <input id="loanDeductionReasonInput" type="text" autocomplete="off">
+                </label>
+              </div>
+              <div class="offer-actions">
+                <button id="loanCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
+                <button id="printPricingLoanBtn" type="button">Drukuj / PDF</button>
+              </div>
+            </section>
+
+            <section id="pricingLoanPrint" class="offer-document loan-document" aria-label="Umowa wypożyczenia">
+              <header class="offer-document-head">
+                <div>
+                  <p>SATIS Pracownia Słuchu</p>
+                  <h2>Umowa bezpłatnego użyczenia / testowania aparatu słuchowego</h2>
+                  <span id="loanPrintMeta">Data umowy: dziś</span>
+                </div>
+                <img src="satis-monogram.png" alt="SATIS">
+              </header>
+
+              <section class="loan-doc-section">
+                <h3>Dane umowy</h3>
+                <div class="loan-doc-grid">
+                  <p><span>Nr umowy</span><strong data-loan-out="number">-</strong></p>
+                  <p><span>Data</span><strong data-loan-out="date">-</strong></p>
+                  <p><span>Miejscowość</span><strong data-loan-out="city">-</strong></p>
+                  <p><span>Okres</span><strong data-loan-out="period">-</strong></p>
+                  <p><span>Kaucja</span><strong data-loan-out="deposit">-</strong></p>
+                </div>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Strony</h3>
+                <div class="loan-doc-grid loan-doc-grid-parties">
+                  <p><span>Udostępniający</span><strong>Aparaty Słuchowe SATIS Dorota Mikosz-Micorek, ul. Traugutta 12, 43-300 Bielsko-Biała</strong></p>
+                  <p><span>Reprezentant</span><strong>SATIS Pracownia Słuchu</strong></p>
+                  <p><span>Użytkownik</span><strong data-loan-out="customer">-</strong></p>
+                  <p><span>Adres</span><strong data-loan-out="address">-</strong></p>
+                  <p><span>PESEL / dokument</span><strong data-loan-out="document">-</strong></p>
+                  <p><span>Telefon / e-mail</span><strong data-loan-out="phone">-</strong></p>
+                </div>
+                <p class="loan-doc-note">Weryfikacja: tożsamość sprawdzono przez okazanie dokumentu; dokumentu nie zatrzymano i nie skopiowano.</p>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Sprzęt</h3>
+                <p class="loan-doc-note">Udostępniający oświadcza, że jest właścicielem albo posiada tytuł prawny do dysponowania sprzętem. Użytkownik potwierdza, że zapoznał się ze stanem sprzętu i przyjmuje sprzęt kompletny oraz sprawny, chyba że poniżej wpisano zastrzeżenia.</p>
+                <table class="loan-equipment-table">
+                  <thead>
+                    <tr>
+                      <th>Strona</th>
+                      <th>Model</th>
+                      <th>Nr seryjny / UDI</th>
+                      <th>Producent</th>
+                      <th>Rok</th>
+                      <th>Wartość brutto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loanEquipmentBody"></tbody>
+                </table>
+                <div class="loan-doc-grid loan-doc-grid-charger">
+                  <p><span>Ładowarka</span><strong data-loan-out="charger">-</strong></p>
+                  <p><span>Nr seryjny</span><strong data-loan-out="chargerSerial">-</strong></p>
+                  <p><span>Stan</span><strong data-loan-out="chargerState">-</strong></p>
+                  <p><span>Wartość braku</span><strong data-loan-out="chargerMissingValue">-</strong></p>
+                </div>
+                <p class="loan-doc-note"><strong>Uwagi przy wydaniu:</strong> <span data-loan-out="issueNotes">bez zastrzeżeń</span></p>
+              </section>
+
+              <section class="loan-doc-section loan-terms">
+                <h3>Warunki i zabezpieczenia</h3>
+                <div>
+                  <p><strong>§1. Charakter umowy.</strong> W okresie podstawowym sprzęt jest udostępniany bezpłatnie jako użyczenie/testowanie. Przedłużenie po terminie wymaga zgody SATIS utrwalonej e-mailem, SMS-em albo pisemnie i kosztuje 100 zł za każdy rozpoczęty dzień, chyba że strony pisemnie uzgodnią inaczej.</p>
+                  <p><strong>§2. Obowiązki użytkownika.</strong> Użytkownik używa sprzętu wyłącznie osobiście, zgodnie z instrukcją i zasadami higieny; chroni go przed wilgocią, upadkiem, zabrudzeniem i osobami trzecimi; nie naprawia, nie przerabia, nie oddaje, nie sprzedaje i nie zastawia sprzętu.</p>
+                  <p><strong>§3. Kaucja.</strong> Kaucja zabezpiecza roszczenia z umowy, w szczególności brak zwrotu, opóźnienie, uszkodzenie, zniszczenie, utratę, brak ładowarki, czyszczenie, dezynfekcję, serwis i koszty dochodzenia roszczeń.</p>
+                  <p><strong>§4. Brak zwrotu / szkoda.</strong> Po zakończeniu umowy użytkownik zwraca sprzęt najpóźniej w ostatnim dniu okresu podstawowego albo przedłużenia. Brak zwrotu w terminie skutkuje opłatą 100 zł za każdy rozpoczęty dzień opóźnienia.</p>
+                  <p><strong>§5. Zwrot i dowody.</strong> Ze zwrotu sporządza się protokół. SATIS może wykonać zdjęcia przy wydaniu i zwrocie. W razie sporu podstawą rozliczenia może być opinia serwisu, producenta, dystrybutora albo punktu protetyki słuchu.</p>
+                  <p><strong>§6. Dane i spory.</strong> SATIS przetwarza wyłącznie dane niezbędne do zawarcia, wykonania i rozliczenia umowy oraz dochodzenia roszczeń. Spory rozstrzyga sąd właściwy według powszechnie obowiązujących przepisów prawa.</p>
+                </div>
+              </section>
+
+              <section class="loan-doc-section">
+                <h3>Protokół zdawczo-odbiorczy i podpisy</h3>
+                <div class="loan-protocol-grid">
+                  <p><span>Wydanie sprzętu</span><strong data-loan-out="issueProtocol">bez zastrzeżeń, instrukcja, ładowarka</strong></p>
+                  <p><span>Zwrot sprzętu</span><strong data-loan-out="returnProtocol">-</strong></p>
+                  <p><span>Kaucja / potrącenia</span><strong data-loan-out="deductions">-</strong></p>
+                  <p><span>Powód potrącenia</span><strong data-loan-out="deductionReason">-</strong></p>
+                  <p><span>Termin zwrotu kaucji</span><strong data-loan-out="depositReturnDate">-</strong></p>
+                </div>
+                <div class="loan-signatures">
+                  <p><span>Udostępniający</span><strong>podpis i pieczątka</strong></p>
+                  <p><span>Użytkownik</span><strong>data i podpis</strong></p>
+                  <p><span>Podpis przy zwrocie / odbiorze</span><strong>podpis użytkownika</strong></p>
+                </div>
+              </section>
             </section>
           </section>
         </section>
@@ -1122,6 +1350,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-13"></script>
+    <script src="app.js?v=20260813-14"></script>
   </body>
 </html>
