@@ -584,13 +584,13 @@ h2 {
 
 .pricing-table th:nth-child(8),
 .pricing-table td:nth-child(8) {
-  width: 110px;
+  width: 140px;
   text-align: right;
 }
 
 .pricing-table th:nth-child(9),
 .pricing-table td:nth-child(9) {
-  width: 105px;
+  width: 85px;
 }
 
 .pricing-table th:nth-child(10),
@@ -745,6 +745,48 @@ h2 {
   white-space: nowrap;
 }
 
+.price-amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.price-thousand-group {
+  border-radius: 4px;
+  padding: 0 2px;
+  color: #164f46;
+  background: rgba(43, 138, 120, 0.09);
+  font-weight: 900;
+}
+
+.pricing-price-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+}
+
+.pricing-price-value {
+  min-width: 0;
+}
+
+.pricing-price-edit-btn {
+  min-height: 24px;
+  padding: 0 6px;
+  color: #48616d;
+  background: #f4f8f8;
+  border-color: #c8d7dc;
+  font-size: 0.63rem;
+  font-weight: 820;
+}
+
+.pricing-price-edit-btn:hover {
+  color: #003f5a;
+  background: #e7f1f2;
+  border-color: #a9c2ca;
+  transform: none;
+}
+
 .pricing-offer-section {
   display: grid;
   gap: 12px;
@@ -761,14 +803,49 @@ h2 {
 
 .offer-form-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) 150px 140px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   align-items: end;
 }
 
-.offer-form-grid label:first-child,
+.offer-customer-field,
+.offer-date-field,
+.offer-option-field,
+.offer-pfron-field,
 .offer-device-field {
   grid-column: span 2;
+}
+
+.offer-option-field {
+  display: grid;
+  gap: 6px;
+}
+
+.offer-option-field > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.offer-check-line {
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d5e1e4;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #365560;
+  background: #f7fbfb;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.offer-check-line input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2b8a78;
 }
 
 .offer-actions {
@@ -3809,7 +3886,10 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .offer-form-grid label:first-child,
+  .offer-customer-field,
+  .offer-date-field,
+  .offer-option-field,
+  .offer-pfron-field,
   .offer-device-field {
     grid-column: span 2;
   }
@@ -3902,7 +3982,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .offer-form-grid label:first-child,
+  .offer-customer-field,
+  .offer-date-field,
+  .offer-option-field,
+  .offer-pfron-field,
   .offer-device-field {
     grid-column: auto;
   }
@@ -3981,7 +4064,8 @@ textarea {
   .stock-head,
   .scroll-top-btn,
   .row-actions,
-  .actions-head {
+  .actions-head,
+  .pricing-price-edit-btn {
     display: none;
   }
 

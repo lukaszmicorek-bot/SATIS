@@ -406,6 +406,7 @@ const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList")
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
 const offerDateInput = document.querySelector("#offerDateInput");
 const offerPfronInput = document.querySelector("#offerPfronInput");
+const offerNoNfzInput = document.querySelector("#offerNoNfzInput");
 const offerDeviceInput1 = document.querySelector("#offerDeviceInput1");
 const offerDeviceInput2 = document.querySelector("#offerDeviceInput2");
 const offerDuplicateFirstBtn = document.querySelector("#offerDuplicateFirstBtn");
@@ -595,6 +596,7 @@ function updateConnectionUser(user) {
   updateWorkstationButton();
   updatePrivatePaymentVisibility();
   updatePricingManagementVisibility();
+  if (activeNotebook === "pricing") renderPricingRecords();
 }
 
 function normalizeWorkstationName(value) {
@@ -3353,6 +3355,34 @@ function formatPricingPrice(value) {
   }).format(number);
 }
 
+function createPricingPriceElement(value) {
+  const number = normalizePricingPrice(value);
+  const wrap = document.createElement("span");
+  wrap.className = "price-amount";
+  if (number === "") {
+    wrap.textContent = "-";
+    return wrap;
+  }
+
+  const amount = new Intl.NumberFormat("pl-PL", {
+    maximumFractionDigits: Number.isInteger(number) ? 0 : 2
+  }).format(number);
+  const groups = amount.split(/[\s\u00a0\u202f]+/u).filter(Boolean);
+  if (groups.length > 1) {
+    groups.slice(0, -1).forEach((group) => {
+      const thousands = document.createElement("span");
+      thousands.className = "price-thousand-group";
+      thousands.textContent = group;
+      wrap.append(thousands, document.createTextNode(" "));
+    });
+    wrap.append(document.createTextNode(groups[groups.length - 1]));
+  } else {
+    wrap.textContent = amount;
+  }
+  wrap.append(document.createTextNode(" zł"));
+  return wrap;
+}
+
 function resetPricingPriceLookup() {
   pricingPriceIndex = null;
   pricingPriceMemo = new Map();
@@ -4857,6 +4887,14 @@ function appendOfferCell(row, value, className = "") {
   return cell;
 }
 
+function appendOfferPriceCell(row, value, className = "amount-cell") {
+  const cell = document.createElement("td");
+  if (className) cell.className = className;
+  cell.append(createPricingPriceElement(value));
+  row.append(cell);
+  return cell;
+}
+
 function renderPricingOfferItems(items) {
   if (!offerItemsBody) return;
   const rows = items.map((item, index) => {
@@ -4871,7 +4909,7 @@ function renderPricingOfferItems(items) {
     row.append(nameCell);
 
     appendOfferCell(row, record.nfzCode);
-    appendOfferCell(row, formatPricingPrice(record.grossPrice), "amount-cell");
+    appendOfferPriceCell(row, record.grossPrice);
 
     const removeCell = document.createElement("td");
     removeCell.className = "offer-action-column";
@@ -4893,15 +4931,18 @@ function renderPricingOfferPayments(items, totals) {
   const deviceLabel = items.length === 1 ? "1 aparat słuchowy" : `${items.length} aparaty słuchowe`;
   const itemsLabel = items.map((record) => record.model || record.tradeName || "aparat").join(", ");
   const customer = titleCaseName(offerCustomerInput?.value || "");
+  const nfzDescription = totals.withoutNfz
+    ? `Zakup bez refundacji NFZ: ${itemsLabel}`
+    : `${deviceLabel}: ${itemsLabel} | ${items.length} x ${formatPricingPrice(PRICING_OFFER_NFZ_PER_DEVICE)}`;
   const rows = [
     {
       payer: "NFZ",
-      description: `${deviceLabel}: ${itemsLabel} | ${items.length} x ${formatPricingPrice(PRICING_OFFER_NFZ_PER_DEVICE)}`,
+      description: nfzDescription,
       amount: totals.nfz
     },
     {
       payer: "PFRON",
-      description: `Dofinansowanie wpisane ręcznie: ${itemsLabel}`,
+      description: `Dofinansowanie PFRON: ${itemsLabel}`,
       amount: totals.pfron
     },
     {
@@ -4915,7 +4956,7 @@ function renderPricingOfferPayments(items, totals) {
     const row = document.createElement("tr");
     appendOfferCell(row, entry.payer, "payer-cell");
     appendOfferCell(row, entry.description);
-    appendOfferCell(row, formatPricingPrice(entry.amount), "amount-cell");
+    appendOfferPriceCell(row, entry.amount);
     return row;
   }));
 }
@@ -4937,7 +4978,8 @@ function renderPricingOffer() {
   const offerItems = selectedPricingOfferItems();
   const items = offerItems.map((item) => item.record);
   const total = items.reduce((sum, record) => sum + Number(normalizePricingPrice(record.grossPrice) || 0), 0);
-  const nfz = Math.min(total, items.length * PRICING_OFFER_NFZ_PER_DEVICE);
+  const withoutNfz = Boolean(offerNoNfzInput?.checked);
+  const nfz = withoutNfz ? 0 : Math.min(total, items.length * PRICING_OFFER_NFZ_PER_DEVICE);
   const pfron = pricingOfferPfronAmount(Math.max(total - nfz, 0));
   const patient = Math.max(total - nfz - pfron, 0);
 
@@ -4959,13 +5001,52 @@ function renderPricingOffer() {
   if (!hasItems) {
     if (offerItemsBody) offerItemsBody.replaceChildren();
     if (offerPaymentsBody) offerPaymentsBody.replaceChildren();
-    if (offerPatientTotal) offerPatientTotal.textContent = formatPricingPrice(0);
+    if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(0));
     return;
   }
 
   renderPricingOfferItems(offerItems);
-  renderPricingOfferPayments(items, { total, nfz, pfron, patient });
-  if (offerPatientTotal) offerPatientTotal.textContent = formatPricingPrice(patient);
+  renderPricingOfferPayments(items, { total, nfz, pfron, patient, withoutNfz });
+  if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(patient));
+}
+
+async function updatePricingRecordPrice(record) {
+  if (!record || !canManagePricing()) return;
+  const oldLabel = pricingOfferDeviceLabel(record);
+  const previousPrice = record.grossPrice;
+  const previousPricingMeta = pricingMeta;
+  const currentPrice = normalizePricingPrice(record.grossPrice);
+  const value = prompt("Nowa cena brutto:", currentPrice === "" ? "" : formatPricingPrice(currentPrice));
+  if (value === null) return;
+
+  const newPrice = normalizePricingPrice(value);
+  if (newPrice === "" || newPrice < 0) {
+    alert("Podaj poprawną cenę brutto.");
+    return;
+  }
+
+  record.grossPrice = newPrice;
+  const newLabel = pricingOfferDeviceLabel(record);
+  [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+    if (input && normalize(input.value) === normalize(oldLabel)) input.value = newLabel;
+  });
+
+  try {
+    markPricingUpdatedNow();
+    await persistPricingRecords();
+    renderPricingRecords();
+    setCurrentYearTitle();
+  } catch (error) {
+    record.grossPrice = previousPrice;
+    pricingMeta = previousPricingMeta;
+    [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+      if (input && normalize(input.value) === normalize(newLabel)) input.value = oldLabel;
+    });
+    savePricingMeta();
+    savePricingRecords();
+    renderPricingRecords();
+    alert(`Nie udało się zapisać ceny: ${error.message}`);
+  }
 }
 
 function switchPricingView(viewName) {
@@ -5584,11 +5665,30 @@ function createPricingRow(record, index) {
 
   cells.forEach((value, cellIndex) => {
     const cell = document.createElement("td");
-    cell.textContent = value || "-";
-    if (!value) cell.classList.add("muted-cell");
     if (cellIndex === 3) cell.classList.add("pricing-name-cell");
     if (cellIndex === 5) cell.classList.add("pricing-manufacturer-cell");
-    if (cellIndex === 7) cell.classList.add("pricing-price-cell");
+    if (cellIndex === 7) {
+      cell.classList.add("pricing-price-cell");
+      const wrap = document.createElement("span");
+      wrap.className = "pricing-price-wrap";
+      const text = document.createElement("span");
+      text.className = "pricing-price-value";
+      text.append(createPricingPriceElement(record.grossPrice));
+      wrap.append(text);
+      if (canManagePricing()) {
+        const editButton = document.createElement("button");
+        editButton.type = "button";
+        editButton.className = "pricing-price-edit-btn";
+        editButton.textContent = "Zmień";
+        editButton.title = "Popraw cenę brutto";
+        editButton.addEventListener("click", () => updatePricingRecordPrice(record));
+        wrap.append(editButton);
+      }
+      cell.append(wrap);
+    } else {
+      cell.textContent = value || "-";
+    }
+    if (!value) cell.classList.add("muted-cell");
     row.append(cell);
   });
 
@@ -8911,7 +9011,7 @@ pricingManufacturerFilter?.addEventListener("change", renderPricingRecords);
 pricingViewButtons.forEach((button) => {
   button.addEventListener("click", () => switchPricingView(button.dataset.pricingView));
 });
-[offerCustomerInput, offerDateInput, offerPfronInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+[offerCustomerInput, offerDateInput, offerPfronInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
