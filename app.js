@@ -3378,13 +3378,21 @@ function createPricingPriceElement(value) {
   }).format(number);
   const groups = amount.split(/[\s\u00a0\u202f]+/u).filter(Boolean);
   if (groups.length > 1) {
-    groups.slice(0, -1).forEach((group) => {
+    groups.slice(0, -1).forEach((group, index) => {
       const thousands = document.createElement("span");
       thousands.className = "price-thousand-group";
       thousands.textContent = group;
-      wrap.append(thousands, document.createTextNode("\u202f"));
+      const separator = document.createElement("span");
+      separator.className = "price-group-separator";
+      separator.setAttribute("aria-hidden", "true");
+      separator.textContent = "\u00a0";
+      wrap.append(thousands, separator);
+      if (index < groups.length - 2) separator.classList.add("price-group-separator-inner");
     });
-    wrap.append(document.createTextNode(groups[groups.length - 1]));
+    const rest = document.createElement("span");
+    rest.className = "price-rest-group";
+    rest.textContent = groups[groups.length - 1];
+    wrap.append(rest);
   } else {
     wrap.textContent = amount;
   }

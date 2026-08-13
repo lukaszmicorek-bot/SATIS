@@ -751,8 +751,22 @@ h2 {
 }
 
 .price-thousand-group {
-  color: inherit;
-  font-weight: 850;
+  display: inline-block;
+  color: #003f5a;
+  font-weight: 920;
+}
+
+.price-group-separator {
+  display: inline-block;
+  width: 0.26em;
+}
+
+.price-group-separator-inner {
+  width: 0.18em;
+}
+
+.price-rest-group {
+  display: inline-block;
 }
 
 .pricing-price-wrap {
