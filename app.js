@@ -497,6 +497,7 @@ const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanHistoryList = document.querySelector("#loanHistoryList");
 const orderNumberInput = document.querySelector("#orderNumberInput");
 const orderDateInput = document.querySelector("#orderDateInput");
+const orderDueDateInput = document.querySelector("#orderDueDateInput");
 const orderCustomerInput = document.querySelector("#orderCustomerInput");
 const orderPhoneInput = document.querySelector("#orderPhoneInput");
 const orderLocationInput = document.querySelector("#orderLocationInput");
@@ -528,6 +529,7 @@ const newPricingComplaintBtn = document.querySelector("#newPricingComplaintBtn")
 const printPricingComplaintBtn = document.querySelector("#printPricingComplaintBtn");
 const complaintTitle = document.querySelector("#complaintTitle");
 const complaintMeta = document.querySelector("#complaintMeta");
+const complaintCustomerMatchHint = document.querySelector("#complaintCustomerMatchHint");
 const demoChecklistBody = document.querySelector("#demoChecklistBody");
 const demoChecklistMeta = document.querySelector("#demoChecklistMeta");
 const printDemoChecklistBtn = document.querySelector("#printDemoChecklistBtn");
@@ -6316,6 +6318,7 @@ function normalizePricingOrderHistoryEntry(entry) {
     workstation: normalizeLoanHistoryText(entry.workstation),
     number: normalizeLoanHistoryText(entry.number),
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
+    dueDate: isoDateForSave(entry.dueDate) || normalizeLoanHistoryText(entry.dueDate),
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
     location: normalizeRepairLocation(entry.location || "P63"),
@@ -6420,6 +6423,7 @@ function pricingOrderSnapshotKey(entry) {
   return [
     entry?.number,
     entry?.date,
+    entry?.dueDate,
     entry?.customer,
     (entry?.items || []).map((item) => [item.type, item.quantity, item.description, item.notes].join(":")).join("|")
   ].map((value) => normalize(value)).join("|");
@@ -6448,6 +6452,7 @@ function currentPricingOrderSnapshot() {
     workstation: currentWorkstationName(),
     number: orderInputValue(orderNumberInput),
     date: isoDateForSave(orderDateInput?.value) || orderInputValue(orderDateInput),
+    dueDate: isoDateForSave(orderDueDateInput?.value) || orderInputValue(orderDueDateInput),
     customer: titleCaseName(orderInputValue(orderCustomerInput)),
     phone: orderInputValue(orderPhoneInput),
     location: normalizeRepairLocation(orderInputValue(orderLocationInput) || "P63"),
@@ -6604,10 +6609,10 @@ function renderPricingOrderItems(items) {
   if (!orderItemsBody) return;
   const rows = items.map((item, index) => {
     const row = document.createElement("tr");
+    const itemLabel = [pricingOrderTypeLabel(item.type), item.description].filter(Boolean).join(" - ");
     appendOfferCell(row, String(index + 1));
-    appendOfferCell(row, pricingOrderTypeLabel(item.type), "order-type-cell");
+    appendOfferCell(row, itemLabel || pricingOrderTypeLabel(item.type), "order-type-cell");
     appendOfferCell(row, item.quantity || "1", "order-quantity-cell");
-    appendOfferCell(row, item.description || pricingOrderTypeLabel(item.type));
     appendOfferCell(row, item.notes);
     return row;
   });
@@ -6619,7 +6624,9 @@ function renderPricingOrder() {
   ensurePricingOrderDefaults();
 
   const orderDate = isoDateForSave(orderDateInput?.value) || todayInputValue();
+  const orderDueDate = isoDateForSave(orderDueDateInput?.value);
   const dateText = formatDate(orderDate) || orderInputValue(orderDateInput);
+  const dueDateText = formatDate(orderDueDate) || orderInputValue(orderDueDateInput);
   const customer = titleCaseName(orderInputValue(orderCustomerInput));
   const items = pricingOrderFormItems();
 
@@ -6627,6 +6634,7 @@ function renderPricingOrder() {
   if (orderMeta) orderMeta.textContent = `Nr: ${orderInputValue(orderNumberInput) || "-"} | Data: ${dateText || "-"}`;
   setOrderOutput("number", orderInputValue(orderNumberInput));
   setOrderOutput("date", dateText);
+  setOrderOutput("dueDate", dueDateText);
   setOrderOutput("customer", customer);
   setOrderOutput("phone", orderInputValue(orderPhoneInput));
   setOrderOutput("location", normalizeRepairLocation(orderInputValue(orderLocationInput) || "P63"));
@@ -6665,7 +6673,7 @@ function copyPricingOfferToOrder() {
 }
 
 function resetPricingOrderForm() {
-  [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
+  [orderCustomerInput, orderPhoneInput, orderDueDateInput, orderNotesInput].forEach((input) => {
     if (input) input.value = "";
   });
   if (orderLocationInput) orderLocationInput.value = "P63";
@@ -6882,6 +6890,106 @@ function setComplaintOutput(name, value) {
   });
 }
 
+function complaintSaleDateSortValue(record) {
+  return soldDeviceSaleDate(record) || isoDateForSave(record?.pickupDate) || isoDateForSave(record?.receivedDate) || "";
+}
+
+function complaintDeviceMatchesForCustomer(customerName) {
+  const customerKey = customerNameLookupKey(customerName);
+  if (!customerKey) return [];
+  return records
+    .filter((record) => {
+      if (customerNameLookupKey(record.customerName) !== customerKey) return false;
+      return displayType(record) === "SPRZEDANY" || Boolean(String(record.salesInvoice ?? "").trim());
+    })
+    .sort((left, right) => {
+      const rightDate = complaintSaleDateSortValue(right);
+      const leftDate = complaintSaleDateSortValue(left);
+      const byDate = String(rightDate).localeCompare(String(leftDate));
+      if (byDate) return byDate;
+      const rightHasSerial = normalizeSerialNumber(right.serialNumber) ? 1 : 0;
+      const leftHasSerial = normalizeSerialNumber(left.serialNumber) ? 1 : 0;
+      return rightHasSerial - leftHasSerial;
+    });
+}
+
+function setComplaintAutofillValue(input, value, { date = false, transform = (text) => text } = {}) {
+  if (!input) return false;
+  const text = normalizeLoanHistoryText(value);
+  if (!text) return false;
+  const canAutofill = !complaintInputValue(input) || input.dataset.complaintAutofilled === "1";
+  if (!canAutofill) return false;
+  if (date) {
+    const isoDate = isoDateForSave(text);
+    if (!isoDate) return false;
+    setDateInputValue(input, isoDate);
+  } else {
+    input.value = transform(text);
+  }
+  input.dataset.complaintAutofilled = "1";
+  return true;
+}
+
+function updateComplaintCustomerMatchHint(matchCount, record, changed) {
+  if (!complaintCustomerMatchHint) return;
+  if (!matchCount || !record) {
+    complaintCustomerMatchHint.hidden = true;
+    complaintCustomerMatchHint.textContent = "";
+    return;
+  }
+  const saleDate = soldDeviceSaleDate(record);
+  const details = [
+    record.deviceName,
+    normalizeSerialNumber(record.serialNumber),
+    saleDate ? formatDate(saleDate) : "",
+    normalizeSalesInvoice(record.salesInvoice)
+  ].filter(Boolean).join(" · ");
+  const prefix = changed ? "Uzupełniono z bazy" : "Znaleziono w bazie";
+  const suffix = matchCount > 1 ? `Znaleziono ${matchCount} sprzedane wpisy, wybrano najnowszy.` : "";
+  complaintCustomerMatchHint.textContent = [prefix, details, suffix].filter(Boolean).join(". ");
+  complaintCustomerMatchHint.hidden = false;
+}
+
+function fillComplaintFromDeviceRecord(record) {
+  if (!record) return false;
+  let changed = false;
+  if (complaintProductTypeInput && (!complaintInputValue(complaintProductTypeInput) || complaintProductTypeInput.dataset.complaintAutofilled === "1")) {
+    complaintProductTypeInput.value = "APARAT SŁUCHOWY";
+    complaintProductTypeInput.dataset.complaintAutofilled = "1";
+  }
+  changed = setComplaintAutofillValue(complaintProductNameInput, record.deviceName) || changed;
+  changed = setComplaintAutofillValue(complaintSerialInput, record.serialNumber, {
+    transform: (text) => normalizeSerialNumber(text)
+  }) || changed;
+  changed = setComplaintAutofillValue(complaintPurchaseDocumentInput, record.salesInvoice, {
+    transform: (text) => normalizeSalesInvoice(text)
+  }) || changed;
+  changed = setComplaintAutofillValue(complaintPurchaseDateInput, soldDeviceSaleDate(record), { date: true }) || changed;
+  if (complaintLocationInput && record.location && (!complaintInputValue(complaintLocationInput) || complaintLocationInput.dataset.complaintAutofilled === "1")) {
+    complaintLocationInput.value = normalizeRepairLocation(record.location);
+    complaintLocationInput.dataset.complaintAutofilled = "1";
+    changed = true;
+  }
+  return changed;
+}
+
+function syncPricingComplaintFromCustomer() {
+  const customer = titleCaseName(complaintInputValue(complaintCustomerInput));
+  if (!customer) {
+    updateComplaintCustomerMatchHint(0);
+    return false;
+  }
+  const matches = complaintDeviceMatchesForCustomer(customer);
+  if (!matches.length) {
+    updateComplaintCustomerMatchHint(0);
+    return false;
+  }
+  const changed = fillComplaintFromDeviceRecord(matches[0]);
+  updateComplaintCustomerMatchHint(matches.length, matches[0], changed);
+  renderPricingComplaint();
+  return true;
+}
+
 function renderPricingComplaint() {
   if (!pricingComplaintView) return;
   ensurePricingComplaintDefaults();
@@ -6931,11 +7039,21 @@ function resetPricingComplaintForm() {
     complaintDefectInput,
     complaintNotesInput
   ].forEach((input) => {
-    if (input) input.value = "";
+    if (input) {
+      input.value = "";
+      input.dataset.complaintAutofilled = "";
+    }
   });
-  if (complaintLocationInput) complaintLocationInput.value = "P63";
-  if (complaintProductTypeInput) complaintProductTypeInput.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
+  if (complaintLocationInput) {
+    complaintLocationInput.value = "P63";
+    complaintLocationInput.dataset.complaintAutofilled = "";
+  }
+  if (complaintProductTypeInput) {
+    complaintProductTypeInput.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
+    complaintProductTypeInput.dataset.complaintAutofilled = "";
+  }
   if (complaintRequestInput) complaintRequestInput.value = PRICING_COMPLAINT_REQUESTS[0];
+  updateComplaintCustomerMatchHint(0);
   if (complaintDateInput) setDateInputValue(complaintDateInput, todayInputValue());
   if (complaintNumberInput) complaintNumberInput.dataset.autoNumber = "1";
   ensurePricingComplaintNumber({ force: true });
@@ -11172,6 +11290,7 @@ orderDateInput?.addEventListener("change", () => {
 [
   orderNumberInput,
   orderDateInput,
+  orderDueDateInput,
   orderPhoneInput,
   orderLocationInput,
   orderNotesInput
@@ -11222,9 +11341,28 @@ complaintCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
   renderPricingComplaint();
 });
+complaintCustomerInput?.addEventListener("change", (event) => {
+  event.target.value = titleCaseName(event.target.value);
+  syncPricingComplaintFromCustomer();
+});
 complaintCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
-  renderPricingComplaint();
+  syncPricingComplaintFromCustomer();
+});
+[
+  complaintLocationInput,
+  complaintProductTypeInput,
+  complaintProductNameInput,
+  complaintSerialInput,
+  complaintPurchaseDocumentInput,
+  complaintPurchaseDateInput
+].forEach((input) => {
+  input?.addEventListener("input", () => {
+    input.dataset.complaintAutofilled = "";
+  }, { capture: true });
+  input?.addEventListener("change", () => {
+    input.dataset.complaintAutofilled = "";
+  }, { capture: true });
 });
 complaintProductTypeInput?.addEventListener("change", () => {
   syncComplaintProductNameForType();
