@@ -452,6 +452,41 @@ h2 {
   background: rgba(255, 255, 255, 0.95);
 }
 
+.pricing-subtabs {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid rgba(216, 221, 227, 0.85);
+}
+
+.pricing-view-button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0 12px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 820;
+}
+
+.pricing-view-button:hover {
+  color: var(--ink);
+  background: #f4f8f7;
+  transform: none;
+}
+
+.pricing-view-button.active {
+  color: #003f5a;
+  background: #ffffff;
+  box-shadow: inset 0 -2px 0 #2b8a78;
+}
+
+.pricing-view-section[hidden] {
+  display: none;
+}
+
 .pricing-update {
   display: inline-grid;
   gap: 2px;
@@ -507,7 +542,7 @@ h2 {
 
 .pricing-table {
   table-layout: fixed;
-  min-width: 1180px;
+  min-width: 1240px;
 }
 
 .pricing-table th:nth-child(1),
@@ -528,7 +563,7 @@ h2 {
 
 .pricing-table th:nth-child(4),
 .pricing-table td:nth-child(4) {
-  width: 34%;
+  width: 30%;
 }
 
 .pricing-table th:nth-child(5),
@@ -556,6 +591,39 @@ h2 {
 .pricing-table th:nth-child(9),
 .pricing-table td:nth-child(9) {
   width: 105px;
+}
+
+.pricing-table th:nth-child(10),
+.pricing-table td:nth-child(10) {
+  width: 70px;
+  text-align: center;
+}
+
+.pricing-offer-action-cell {
+  justify-content: center;
+}
+
+.pricing-add-offer-btn {
+  min-width: 28px;
+  min-height: 26px;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  color: #175f52;
+  background: #eef7f3;
+  border-color: #bfd8cf;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.pricing-add-offer-btn:hover {
+  color: #fff;
+  background: #2b8a78;
+  border-color: #2b8a78;
+  transform: none;
+}
+
+.pricing-add-offer-btn:disabled {
+  cursor: not-allowed;
 }
 
 .pricing-name-cell {
@@ -675,6 +743,198 @@ h2 {
   font-weight: 800;
   font-size: 0.94rem;
   white-space: nowrap;
+}
+
+.pricing-offer-section {
+  display: grid;
+  gap: 12px;
+}
+
+.offer-builder {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(216, 221, 227, 0.76);
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
+.offer-form-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) 150px 140px;
+  gap: 10px;
+  align-items: end;
+}
+
+.offer-form-grid label:first-child,
+.offer-device-field {
+  grid-column: span 2;
+}
+
+.offer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#printPricingOfferBtn {
+  min-height: 30px;
+  padding: 0 12px;
+  color: #fff;
+  background: #2b8a78;
+  border-color: #2b8a78;
+  font-size: 0.76rem;
+  font-weight: 820;
+}
+
+#printPricingOfferBtn:hover {
+  color: #fff;
+  background: #257867;
+  border-color: #257867;
+  transform: none;
+}
+
+.offer-document {
+  width: min(100%, 860px);
+  margin: 0 auto;
+  padding: 22px 24px;
+  border: 1px solid rgba(190, 205, 212, 0.9);
+  border-radius: 8px;
+  color: #1f3038;
+  background: #fff;
+}
+
+.offer-document-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #003f5a;
+}
+
+.offer-document-head p {
+  margin: 0 0 4px;
+  color: #2b8a78;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.offer-document-head h2 {
+  margin: 0 0 5px;
+  color: #003f5a;
+  font-size: 1.34rem;
+  line-height: 1.15;
+}
+
+.offer-document-head span {
+  color: #5c6870;
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.offer-document-head img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+}
+
+.offer-empty-state {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.offer-items-table,
+.offer-payments-table {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.offer-items-table th,
+.offer-items-table td,
+.offer-payments-table th,
+.offer-payments-table td {
+  padding: 9px 10px;
+  border: 1px solid #d6e0e4;
+  text-align: left;
+  vertical-align: top;
+}
+
+.offer-items-table th,
+.offer-payments-table th {
+  color: #274653;
+  background: #eef5f5;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.offer-items-table th:nth-child(1),
+.offer-items-table td:nth-child(1) {
+  width: 42px;
+  text-align: center;
+}
+
+.offer-items-table th:nth-child(3),
+.offer-items-table td:nth-child(3) {
+  width: 112px;
+}
+
+.offer-items-table th:nth-child(4),
+.offer-items-table td:nth-child(4),
+.offer-payments-table th:nth-child(3),
+.offer-payments-table td:nth-child(3) {
+  width: 130px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.offer-items-table strong {
+  display: block;
+  color: #003f5a;
+  font-size: 0.94rem;
+  line-height: 1.22;
+}
+
+.offer-items-table span {
+  display: block;
+  margin-top: 3px;
+  color: #5e6c73;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.offer-payments-table .payer-cell {
+  color: #164f46;
+  font-weight: 850;
+}
+
+.amount-cell {
+  color: #1f5d3d;
+  font-weight: 850;
+}
+
+.offer-total-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #c9ddd7;
+  border-radius: 8px;
+  color: #153d38;
+  background: #f0f8f5;
+  font-weight: 860;
+}
+
+.offer-total-line strong {
+  color: #003f5a;
+  font-size: 1.16rem;
 }
 
 .controls {
@@ -3530,6 +3790,15 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .offer-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .offer-form-grid label:first-child,
+  .offer-device-field {
+    grid-column: span 2;
+  }
+
   .stock-audit-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3610,11 +3879,22 @@ textarea {
     .controls,
     .repairs-controls,
     .stock-audit-panel,
+  .offer-form-grid,
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
   .form-grid,
   .private-payment-field {
     grid-template-columns: 1fr;
+  }
+
+  .offer-form-grid label:first-child,
+  .offer-device-field {
+    grid-column: auto;
+  }
+
+  .offer-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .demo-attachment-item {
@@ -3711,11 +3991,118 @@ textarea {
     padding: 5px;
   }
 
+  body.pricing-offer-print,
   body.stock-checklist-print,
   body.stock-audit-pdf-print {
     color: #111;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  body.pricing-offer-print .app-shell > * {
+    display: none !important;
+  }
+
+  body.pricing-offer-print .app-shell > #pricingNotebook,
+  body.pricing-offer-print #pricingNotebook > .pricing-panel,
+  body.pricing-offer-print #pricingNotebook #pricingOfferView,
+  body.pricing-offer-print #pricingOfferView > #pricingOfferPrint {
+    display: block !important;
+  }
+
+  body.pricing-offer-print #pricingNotebook .pricing-panel > *,
+  body.pricing-offer-print #pricingOfferView > * {
+    display: none !important;
+  }
+
+  body.pricing-offer-print #pricingNotebook .pricing-panel > #pricingOfferView,
+  body.pricing-offer-print #pricingOfferView > #pricingOfferPrint {
+    display: block !important;
+  }
+
+  body.pricing-offer-print .app-shell,
+  body.pricing-offer-print .pricing-panel,
+  body.pricing-offer-print .pricing-offer-section {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  body.pricing-offer-print .offer-document {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-offer-print .offer-document-head {
+    margin-bottom: 6mm;
+    padding-bottom: 3mm;
+  }
+
+  body.pricing-offer-print .offer-document-head h2 {
+    font-size: 16pt;
+  }
+
+  body.pricing-offer-print .offer-document-head p {
+    font-size: 8pt;
+  }
+
+  body.pricing-offer-print .offer-document-head span {
+    font-size: 8.5pt;
+  }
+
+  body.pricing-offer-print .offer-document-head img {
+    width: 15mm;
+    height: 15mm;
+  }
+
+  body.pricing-offer-print .offer-items-table,
+  body.pricing-offer-print .offer-payments-table {
+    margin-top: 4mm;
+    font-size: 8.5pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-offer-print .offer-items-table tr,
+  body.pricing-offer-print .offer-payments-table tr,
+  body.pricing-offer-print .offer-total-line {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.pricing-offer-print .offer-items-table th,
+  body.pricing-offer-print .offer-items-table td,
+  body.pricing-offer-print .offer-payments-table th,
+  body.pricing-offer-print .offer-payments-table td {
+    padding: 2mm 2.2mm;
+  }
+
+  body.pricing-offer-print .offer-items-table strong {
+    font-size: 9.5pt;
+  }
+
+  body.pricing-offer-print .offer-items-table span {
+    font-size: 7.5pt;
+  }
+
+  body.pricing-offer-print .offer-total-line {
+    margin-top: 5mm;
+    padding: 3mm 4mm;
+    font-size: 10pt;
+  }
+
+  body.pricing-offer-print .offer-total-line strong {
+    font-size: 14pt;
   }
 
   body.stock-checklist-print .app-shell > * {

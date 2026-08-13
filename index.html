@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260812-8">
+    <link rel="stylesheet" href="styles.css?v=20260813-1">
   </head>
   <body>
     <main class="app-shell">
@@ -515,71 +515,152 @@
 
       <section id="pricingNotebook" class="notebook-section" hidden>
         <section class="pricing-panel" aria-label="Cennik">
-          <section class="controls pricing-controls" aria-label="Narzędzia cennika">
-            <label class="search-box">
-              <span>Szukaj</span>
-              <input id="pricingSearchInput" type="search" placeholder="Nazwa, model, producent, kod...">
-            </label>
-            <label>
-              <span>Kod NFZ</span>
-              <select id="pricingNfzFilter">
-                <option value="">Wszystkie</option>
-              </select>
-            </label>
-            <label>
-              <span>Producent</span>
-              <select id="pricingManufacturerFilter">
-                <option value="">Wszyscy</option>
-              </select>
-            </label>
-            <button id="importPricingBtn" class="icon-button" type="button" aria-label="Import nowych pozycji CSV" title="Import nowych pozycji CSV">
-              <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
-                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
-                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
-              </svg>
-              <span class="icon-button-label">CSV</span>
-            </button>
-            <button id="replacePricingBtn" class="icon-button pricing-replace-btn" type="button" aria-label="Wyczyść i wgraj nowy cennik CSV" title="Wyczyść i wgraj nowy cennik CSV">
-              <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
-                <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
-                <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
-              </svg>
-              <span class="icon-button-label">Nowy</span>
-            </button>
-            <div class="pricing-restore-stack">
-              <div class="pricing-update">
-                <span>Aktualizacja</span>
-                <time id="pricingVersion" datetime="2026-04">kwiecień 2026</time>
+          <section class="pricing-subtabs" role="tablist" aria-label="Zakładki cennika">
+            <button class="pricing-view-button active" type="button" role="tab" aria-selected="true" data-pricing-view="list">Cennik</button>
+            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="offer">Oferta</button>
+          </section>
+
+          <section id="pricingListView" class="pricing-view-section">
+            <section class="controls pricing-controls" aria-label="Narzędzia cennika">
+              <label class="search-box">
+                <span>Szukaj</span>
+                <input id="pricingSearchInput" type="search" placeholder="Nazwa, model, producent, kod...">
+              </label>
+              <label>
+                <span>Kod NFZ</span>
+                <select id="pricingNfzFilter">
+                  <option value="">Wszystkie</option>
+                </select>
+              </label>
+              <label>
+                <span>Producent</span>
+                <select id="pricingManufacturerFilter">
+                  <option value="">Wszyscy</option>
+                </select>
+              </label>
+              <button id="importPricingBtn" class="icon-button" type="button" aria-label="Import nowych pozycji CSV" title="Import nowych pozycji CSV">
+                <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                  <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                  <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+                </svg>
+                <span class="icon-button-label">CSV</span>
+              </button>
+              <button id="replacePricingBtn" class="icon-button pricing-replace-btn" type="button" aria-label="Wyczyść i wgraj nowy cennik CSV" title="Wyczyść i wgraj nowy cennik CSV">
+                <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                  <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+                  <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
+                </svg>
+                <span class="icon-button-label">Nowy</span>
+              </button>
+              <div class="pricing-restore-stack">
+                <div class="pricing-update">
+                  <span>Aktualizacja</span>
+                  <time id="pricingVersion" datetime="2026-04">kwiecień 2026</time>
+                </div>
+                <button id="resetPricingBtn" class="reset-filters-btn" type="button">Przywróć cennik</button>
               </div>
-              <button id="resetPricingBtn" class="reset-filters-btn" type="button">Przywróć cennik</button>
+              <input id="pricingImportInput" type="file" accept=".csv,text/csv" hidden>
+              <input id="pricingReplaceInput" type="file" accept=".csv,text/csv" hidden>
+            </section>
+
+            <section class="table-zone" aria-label="Tabela cennika">
+              <table class="pricing-table">
+                <thead>
+                  <tr>
+                    <th>LP</th>
+                    <th>ID produktu</th>
+                    <th>Kod NFZ</th>
+                    <th>Nazwa handlowa</th>
+                    <th>Model</th>
+                    <th>Producent</th>
+                    <th>Ind.</th>
+                    <th>Cena brutto</th>
+                    <th>Kod SWD</th>
+                    <th class="actions-head">Oferta</th>
+                  </tr>
+                </thead>
+                <tbody id="pricingRecordsBody"></tbody>
+              </table>
+              <p id="pricingEmptyState" class="empty-state" hidden>Brak pozycji cennika dla wybranego wyszukiwania.</p>
+            </section>
+
+            <div class="pricing-empty">
+              <strong id="pricingSummary">Wczytano cennik.</strong>
             </div>
-            <input id="pricingImportInput" type="file" accept=".csv,text/csv" hidden>
-            <input id="pricingReplaceInput" type="file" accept=".csv,text/csv" hidden>
           </section>
 
-          <section class="table-zone" aria-label="Tabela cennika">
-            <table class="pricing-table">
-              <thead>
-                <tr>
-                  <th>LP</th>
-                  <th>ID produktu</th>
-                  <th>Kod NFZ</th>
-                  <th>Nazwa handlowa</th>
-                  <th>Model</th>
-                  <th>Producent</th>
-                  <th>Ind.</th>
-                  <th>Cena brutto</th>
-                  <th>Kod SWD</th>
-                </tr>
-              </thead>
-              <tbody id="pricingRecordsBody"></tbody>
-            </table>
-            <p id="pricingEmptyState" class="empty-state" hidden>Brak pozycji cennika dla wybranego wyszukiwania.</p>
-          </section>
+          <section id="pricingOfferView" class="pricing-view-section pricing-offer-section" hidden>
+            <section class="offer-builder" aria-label="Ustawienia oferty">
+              <div class="offer-form-grid">
+                <label>
+                  <span>Dla</span>
+                  <input id="offerCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                </label>
+                <label>
+                  <span>Data oferty</span>
+                  <input id="offerDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>PFRON</span>
+                  <input id="offerPfronInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
+                </label>
+                <label class="offer-device-field">
+                  <span>Aparat 1</span>
+                  <input id="offerDeviceInput1" type="text" list="pricingOfferDeviceList" placeholder="Model lub nazwa z cennika" autocomplete="off">
+                </label>
+                <label class="offer-device-field">
+                  <span>Aparat 2</span>
+                  <input id="offerDeviceInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi aparat albo puste" autocomplete="off">
+                </label>
+              </div>
+              <div class="offer-actions">
+                <button id="offerDuplicateFirstBtn" class="reset-filters-btn" type="button">2x ten sam</button>
+                <button id="printPricingOfferBtn" type="button">Drukuj / PDF</button>
+              </div>
+              <datalist id="pricingOfferDeviceList"></datalist>
+            </section>
 
-          <div class="pricing-empty">
-            <strong id="pricingSummary">Wczytano cennik.</strong>
-          </div>
+            <section id="pricingOfferPrint" class="offer-document" aria-label="Oferta">
+              <header class="offer-document-head">
+                <div>
+                  <p>Oferta</p>
+                  <h2 id="offerTitle">Oferta aparatów słuchowych</h2>
+                  <span id="offerMeta">Data: dziś</span>
+                </div>
+                <img src="satis-monogram.png" alt="SATIS">
+              </header>
+              <p id="offerEmptyState" class="offer-empty-state">Wybierz aparat z cennika, żeby przygotować ofertę.</p>
+              <div id="offerContent" hidden>
+                <table class="offer-items-table">
+                  <thead>
+                    <tr>
+                      <th>LP</th>
+                      <th>Aparat</th>
+                      <th>Kod NFZ</th>
+                      <th>Cena</th>
+                    </tr>
+                  </thead>
+                  <tbody id="offerItemsBody"></tbody>
+                </table>
+
+                <table class="offer-payments-table">
+                  <thead>
+                    <tr>
+                      <th>Kto płaci</th>
+                      <th>Za co</th>
+                      <th>Kwota</th>
+                    </tr>
+                  </thead>
+                  <tbody id="offerPaymentsBody"></tbody>
+                </table>
+
+                <div class="offer-total-line">
+                  <span>Do zapłaty przez pacjenta</span>
+                  <strong id="offerPatientTotal">0 zł</strong>
+                </div>
+              </div>
+            </section>
+          </section>
         </section>
       </section>
 
@@ -1024,6 +1105,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260812-10"></script>
+    <script src="app.js?v=20260813-1"></script>
   </body>
 </html>
