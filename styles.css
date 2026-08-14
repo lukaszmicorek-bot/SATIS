@@ -2039,15 +2039,20 @@ h2 {
 }
 
 .pcpr-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pcpr-form-row {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 10px;
   align-items: end;
+  min-width: 0;
 }
 
-.pcpr-form-grid > label,
-.pcpr-name-field,
-.pcpr-ear-field {
+.pcpr-form-row > * {
   min-width: 0;
 }
 
@@ -2096,6 +2101,46 @@ h2 {
   grid-column: span 1;
 }
 
+.pcpr-form-row-top .pcpr-name-field {
+  grid-column: span 3;
+}
+
+.pcpr-form-row-top .pcpr-phone-field {
+  grid-column: span 2;
+}
+
+.pcpr-form-row-top .pcpr-postal-field {
+  grid-column: span 1;
+}
+
+.pcpr-form-row-top .pcpr-city-field {
+  grid-column: span 2;
+}
+
+.pcpr-form-row-top .pcpr-street-field {
+  grid-column: span 4;
+}
+
+.pcpr-form-row-bottom .pcpr-model-field {
+  grid-column: span 4;
+}
+
+.pcpr-form-row-bottom .pcpr-office-field {
+  grid-column: span 3;
+}
+
+.pcpr-form-row-bottom .pcpr-ear-field {
+  grid-column: span 3;
+}
+
+.pcpr-form-actions {
+  grid-column: span 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: start;
+}
+
 .pcpr-name-field,
 .pcpr-ear-field {
   display: grid;
@@ -2139,11 +2184,82 @@ h2 {
   background: #fdf8ef;
 }
 
-.pcpr-name-line {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 8px;
+.pcpr-place-badge {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 20px;
   align-items: center;
+  padding: 1px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 860;
+}
+
+.pcpr-tab-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.pcpr-tab {
+  min-height: 32px;
+  padding: 0 11px;
+  border-color: #d3dde2;
+  color: #4b5c65;
+  background: #f7fafb;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.pcpr-tab:hover {
+  border-color: #aebfc8;
+  color: #123842;
+  background: #eef5f7;
+}
+
+.pcpr-tab.active {
+  border-color: #8ea3ad;
+  color: #003f5a;
+  background: #e7eff2;
+  box-shadow: inset 0 0 0 1px rgba(0, 63, 90, 0.08);
+}
+
+.pcpr-tab[data-location-tone="T12"],
+.pcpr-place-badge[data-location-tone="T12"] {
+  border-color: #c9bfb3;
+  color: #6f604f;
+  background: #faf8f5;
+}
+
+.pcpr-tab[data-location-tone="P50"],
+.pcpr-place-badge[data-location-tone="P50"] {
+  border-color: #c7cf9d;
+  color: #616b2f;
+  background: #f7faec;
+}
+
+.pcpr-tab[data-location-tone="P63"],
+.pcpr-place-badge[data-location-tone="P63"] {
+  border-color: #d3c1de;
+  color: #7b628b;
+  background: #faf6fc;
+}
+
+.pcpr-tab.active[data-location-tone="T12"] {
+  border-color: #b5a899;
+  box-shadow: inset 0 0 0 1px rgba(123, 109, 91, 0.14);
+}
+
+.pcpr-tab.active[data-location-tone="P50"] {
+  border-color: #b4c184;
+  box-shadow: inset 0 0 0 1px rgba(97, 107, 47, 0.14);
+}
+
+.pcpr-tab.active[data-location-tone="P63"] {
+  border-color: #bea9cf;
+  box-shadow: inset 0 0 0 1px rgba(123, 98, 139, 0.14);
 }
 
 input.pcpr-done-input,
@@ -2282,20 +2398,24 @@ input.pcpr-done-input,
 }
 
 .pcpr-item-office {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
   margin-bottom: 6px;
   padding-bottom: 6px;
   border-bottom: 1px solid #e4ecee;
 }
 
 .pcpr-item-office strong {
+  display: inline-block;
   color: #003f5a;
   font-size: 0.8rem;
   font-weight: 940;
 }
 
 .pcpr-item-office small {
+  flex-basis: 100%;
   margin-top: 0;
   color: #63747d;
   font-size: 0.68rem;
@@ -2413,13 +2533,13 @@ input.pcpr-done-input,
 
 .pcpr-list-filters {
   display: grid;
-  grid-template-columns: minmax(160px, 0.7fr) minmax(230px, 1fr) auto;
-  gap: 8px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
   margin: 0 0 9px;
 }
 
-.pcpr-list-filters label {
+.pcpr-list-filters .pcpr-tab-group {
   min-width: 0;
 }
 
@@ -5494,6 +5614,22 @@ textarea {
     grid-column: span 2;
   }
 
+  .pcpr-form-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pcpr-form-row-top .pcpr-name-field,
+  .pcpr-form-row-top .pcpr-phone-field,
+  .pcpr-form-row-top .pcpr-postal-field,
+  .pcpr-form-row-top .pcpr-city-field,
+  .pcpr-form-row-top .pcpr-street-field,
+  .pcpr-form-row-bottom .pcpr-model-field,
+  .pcpr-form-row-bottom .pcpr-office-field,
+  .pcpr-form-row-bottom .pcpr-ear-field,
+  .pcpr-form-actions {
+    grid-column: span 2;
+  }
+
   .offer-locations {
     grid-template-columns: 1fr;
   }
@@ -5651,6 +5787,14 @@ textarea {
   .pcpr-street-field,
   .pcpr-model-field,
   .pcpr-ear-field {
+    grid-column: auto;
+  }
+
+  .pcpr-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pcpr-form-actions {
     grid-column: auto;
   }
 

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-15">
+    <link rel="stylesheet" href="styles.css?v=20260814-16">
   </head>
   <body>
     <main class="app-shell">
@@ -966,61 +966,64 @@
           <section id="pricingPcprView" class="pricing-view-section pricing-pcpr-section" hidden>
             <section class="offer-builder pcpr-builder" aria-label="Lista PCPR">
               <form id="pcprForm" class="pcpr-form-grid">
-                <label class="pcpr-office-field" data-pcpr-office-tone="none">
-                  <span>PCPR / MOPS</span>
-                  <select id="pcprOfficeInput">
-                    <option value="">Wybierz</option>
-                    <option value="MOPS Bielsko-Biała">MOPS Bielsko-Biała</option>
-                    <option value="PCPR Bielsko-Biała">PCPR Bielsko-Biała</option>
-                    <option value="PCPR Cieszyn">PCPR Cieszyn</option>
-                    <option value="PCPR Żywiec">PCPR Żywiec</option>
-                  </select>
-                  <small id="pcprOfficeAddressHint" class="pcpr-office-address"></small>
-                </label>
-                <div class="pcpr-name-field person-name-field">
-                  <span>Imię i nazwisko</span>
-                  <div class="pcpr-name-line">
-                    <input id="pcprDoneInput" class="pcpr-done-input" type="checkbox" aria-label="Odhaczone">
+                <div class="pcpr-form-row pcpr-form-row-top">
+                  <div class="pcpr-name-field person-name-field">
+                    <span>Imię i nazwisko</span>
                     <input id="pcprCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required>
                   </div>
+                  <label class="pcpr-phone-field">
+                    <span>Telefon</span>
+                    <input id="pcprPhoneInput" type="text" inputmode="tel" autocomplete="off">
+                  </label>
+                  <label class="pcpr-postal-field">
+                    <span>Kod</span>
+                    <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300">
+                  </label>
+                  <label class="pcpr-city-field">
+                    <span>Miasto</span>
+                    <input id="pcprCityInput" type="text" autocomplete="address-level2">
+                  </label>
+                  <label class="pcpr-street-field">
+                    <span>Ulica</span>
+                    <input id="pcprStreetInput" type="text" autocomplete="address-line1">
+                  </label>
                 </div>
-                <label class="pcpr-phone-field">
-                  <span>Telefon</span>
-                  <input id="pcprPhoneInput" type="text" inputmode="tel" autocomplete="off">
-                </label>
-                <label class="pcpr-postal-field">
-                  <span>Kod pocztowy</span>
-                  <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300">
-                </label>
-                <label class="pcpr-city-field">
-                  <span>Miasto</span>
-                  <input id="pcprCityInput" type="text" autocomplete="address-level2">
-                </label>
-                <label class="pcpr-street-field">
-                  <span>Ulica</span>
-                  <input id="pcprStreetInput" type="text" autocomplete="address-line1">
-                </label>
-                <label class="pcpr-model-field">
-                  <span>Wstępny model</span>
-                  <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
-                </label>
-                <div class="pcpr-ear-field">
-                  <span>Ucho</span>
-                  <div class="pcpr-ear-options" role="radiogroup" aria-label="Wybór ucha">
-                    <label class="pcpr-ear-option pcpr-ear-right">
-                      <input type="radio" name="pcprEar" value="P">
-                      <span>P</span>
-                      <small>prawe</small>
-                    </label>
-                    <label class="pcpr-ear-option pcpr-ear-left">
-                      <input type="radio" name="pcprEar" value="L">
-                      <span>L</span>
-                      <small>lewe</small>
-                    </label>
+                <div class="pcpr-form-row pcpr-form-row-bottom">
+                  <label class="pcpr-model-field">
+                    <span>Wstępny model</span>
+                    <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
+                  </label>
+                  <label class="pcpr-office-field" data-pcpr-office-tone="none">
+                    <span>PCPR / MOPS</span>
+                    <select id="pcprOfficeInput">
+                      <option value="">Wybierz</option>
+                      <option value="MOPS Bielsko-Biała">MOPS Bielsko-Biała</option>
+                      <option value="PCPR Bielsko-Biała">PCPR Bielsko-Biała</option>
+                      <option value="PCPR Cieszyn">PCPR Cieszyn</option>
+                      <option value="PCPR Żywiec">PCPR Żywiec</option>
+                    </select>
+                    <small id="pcprOfficeAddressHint" class="pcpr-office-address"></small>
+                  </label>
+                  <div class="pcpr-ear-field">
+                    <span>Ucho</span>
+                    <div class="pcpr-ear-options" role="radiogroup" aria-label="Wybór ucha">
+                      <label class="pcpr-ear-option pcpr-ear-right">
+                        <input type="radio" name="pcprEar" value="P">
+                        <span>P</span>
+                        <small>prawe</small>
+                      </label>
+                      <label class="pcpr-ear-option pcpr-ear-left">
+                        <input type="radio" name="pcprEar" value="L">
+                        <span>L</span>
+                        <small>lewe</small>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="pcpr-form-actions">
+                    <button id="savePcprBtn" type="submit">Dodaj</button>
+                    <button id="cancelPcprEditBtn" class="reset-filters-btn pcpr-cancel-edit-btn" type="button" hidden>Anuluj</button>
                   </div>
                 </div>
-                <button id="savePcprBtn" type="submit">Dodaj</button>
-                <button id="cancelPcprEditBtn" class="reset-filters-btn pcpr-cancel-edit-btn" type="button" hidden>Anuluj</button>
               </form>
             </section>
 
@@ -1030,25 +1033,17 @@
                 <span id="pcprListCount">0 pozycji</span>
               </div>
               <div class="pcpr-list-filters">
-                <label>
-                  <span>Miejsce</span>
-                  <select id="pcprPlaceFilter">
-                    <option value="">Wszystkie</option>
-                    <option value="Bielsko-Biała">Bielsko-Biała</option>
-                    <option value="Cieszyn">Cieszyn</option>
-                    <option value="Żywiec">Żywiec</option>
-                  </select>
-                </label>
-                <label>
-                  <span>PCPR / MOPS</span>
-                  <select id="pcprOfficeFilter">
-                    <option value="">Wszystkie</option>
-                    <option value="MOPS Bielsko-Biała">MOPS Bielsko-Biała</option>
-                    <option value="PCPR Bielsko-Biała">PCPR Bielsko-Biała</option>
-                    <option value="PCPR Cieszyn">PCPR Cieszyn</option>
-                    <option value="PCPR Żywiec">PCPR Żywiec</option>
-                  </select>
-                </label>
+                <div class="pcpr-tab-group" data-pcpr-filter-group="place" aria-label="Filtr miejsca">
+                  <button type="button" class="pcpr-tab" data-pcpr-place-tab="" aria-pressed="true">Wszystkie</button>
+                  <button type="button" class="pcpr-tab" data-pcpr-place-tab="T12" data-location-tone="T12" aria-pressed="false">T12</button>
+                  <button type="button" class="pcpr-tab" data-pcpr-place-tab="P50" data-location-tone="P50" aria-pressed="false">P50</button>
+                  <button type="button" class="pcpr-tab" data-pcpr-place-tab="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+                </div>
+                <div class="pcpr-tab-group" data-pcpr-filter-group="office" aria-label="Filtr PCPR lub MOPS">
+                  <button type="button" class="pcpr-tab" data-pcpr-office-tab="" aria-pressed="true">Wszystkie</button>
+                  <button type="button" class="pcpr-tab" data-pcpr-office-tab="MOPS" aria-pressed="false">MOPS</button>
+                  <button type="button" class="pcpr-tab" data-pcpr-office-tab="PCPR" aria-pressed="false">PCPR</button>
+                </div>
                 <button id="resetPcprFiltersBtn" class="reset-filters-btn pcpr-reset-filters-btn" type="button">Reset</button>
               </div>
               <div id="pcprList" class="pcpr-list"></div>
@@ -1833,6 +1828,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260814-12"></script>
+    <script src="app.js?v=20260814-13"></script>
   </body>
 </html>
