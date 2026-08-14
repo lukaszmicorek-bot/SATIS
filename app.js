@@ -4475,12 +4475,15 @@ function rebuildDeviceDerivedData() {
 function rebuildRepairDerivedData() {
   repairDerived.clear();
   repairStats = { all: repairRecords.length, repairs: 0, inserts: 0, open: 0 };
+  const documentNumberIssues = repairDocumentNumberIssueMap(repairRecords);
 
   repairRecords.forEach((record) => {
     const category = normalizeRepairCategory(record.category);
     const status = effectiveRepairStatus(record);
     const location = normalizeRepairLocation(record.location);
     const closed = status === "ODEBRANE";
+    const issues = documentNumberIssues.get(record.id) || [];
+    const documentInfo = repairDocumentInfo(record);
 
     if (category.startsWith("NAPRAWA")) repairStats.repairs += 1;
     if (category.startsWith("WKŁADKA")) repairStats.inserts += 1;
@@ -4491,7 +4494,16 @@ function rebuildRepairDerivedData() {
       status,
       location,
       closed,
-      searchBlob: [...repairFields.map((field) => record[field]), category, status].map(normalize).join("\n")
+      documentInfo,
+      documentNumberIssues: issues,
+      searchBlob: [
+        ...repairFields.map((field) => record[field]),
+        category,
+        status,
+        documentInfo.number,
+        documentInfo.label,
+        ...issues.flatMap((issue) => [issue.title, issue.detail])
+      ].map(normalize).join("\n")
     });
   });
 }
@@ -4912,6 +4924,7 @@ function compareByAge(left, right) {
 
 function render() {
   updateDeviceTypeSelectStyles();
+  updateDocumentLocationAccents();
   scheduleDemoReturnReminder();
 
   if (activeNotebook === "repairs") {
@@ -5395,6 +5408,7 @@ function renderPricingOffer() {
   if (!pricingOfferView) return;
   const offerDate = ensurePricingOfferDate();
   const offerLocation = ensurePricingOfferLocation();
+  updateDocumentLocationAccent(offerLocationInput);
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
   const age = pricingOfferAgeValue();
@@ -5722,6 +5736,29 @@ function normalizeDocumentLocationValue(value) {
   return text || DEFAULT_DOCUMENT_LOCATION;
 }
 
+function documentLocationKey(value) {
+  const directKey = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
+  if (["T12", "P50", "P63"].includes(directKey)) return directKey;
+  const normalizedLocation = normalize(normalizeDocumentLocationValue(value));
+  return DOCUMENT_LOCATIONS.find((location) => normalize(location.value) === normalizedLocation)?.key || "";
+}
+
+function updateDocumentLocationAccent(input) {
+  if (!input) return;
+  const field = input.closest(".document-location-field");
+  if (!field) return;
+  const locationKey = documentLocationKey(input.value);
+  if (locationKey) {
+    field.dataset.locationTone = locationKey;
+  } else {
+    delete field.dataset.locationTone;
+  }
+}
+
+function updateDocumentLocationAccents() {
+  [offerLocationInput, loanCityInput, orderLocationInput, complaintLocationInput].forEach(updateDocumentLocationAccent);
+}
+
 function normalizeLoanCityValue(value) {
   return normalizeDocumentLocationValue(value);
 }
@@ -5968,7 +6005,7 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
 function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   const snapshot = normalizePricingLoanHistoryEntry(currentPricingLoanSnapshot());
   if (!snapshot) {
-    if (!silent) alert("Uzupełnij użytkownika lub sprzęt, żeby zapisać umowę w historii.");
+    if (!silent) alert("Uzupełnij osobę lub aparat słuchowy, żeby zapisać umowę w historii.");
     return null;
   }
 
@@ -6123,7 +6160,7 @@ function renderPricingLoanHistory() {
     ].filter(Boolean).join(" · ");
     meta.textContent = [contractDetails, savedAt ? `zapis: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
     const device = document.createElement("span");
-    device.textContent = pricingLoanHistoryDeviceLabel(entry) || "Brak sprzętu";
+    device.textContent = pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego";
     content.append(title, meta, device);
 
     const actions = document.createElement("div");
@@ -6304,6 +6341,7 @@ function renderPricingLoanEquipment(devices) {
 function renderPricingLoan() {
   if (!pricingLoanView) return;
   ensurePricingLoanDefaults();
+  updateDocumentLocationAccent(loanCityInput);
 
   const dateText = loanDateText(loanDateInput);
   const periodFrom = loanDateText(loanPeriodFromInput);
@@ -6621,6 +6659,202 @@ function repairDocumentSourceMatches(record, sourceType, sourceId, sourceNumber)
   return Boolean(sourceNumber && normalize(record?.notes).includes(normalize(sourceTag)));
 }
 
+function normalizeRepairDocumentType(value) {
+  const type = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
+  if (type === "ORDER" || type === "ZAMÓWIENIE" || type === "ZAMOWIENIE") return "ORDER";
+  if (type === "COMPLAINT" || type === "REKLAMACJA") return "COMPLAINT";
+  return "";
+}
+
+function repairDocumentTypeLabel(type) {
+  return normalizeRepairDocumentType(type) === "COMPLAINT" ? "Reklamacja" : "Zamówienie";
+}
+
+function repairDocumentTagInfo(record) {
+  const notes = String(record?.notes || "");
+  const match = notes.match(/\[(Zamówienie|Zamowienie|Reklamacja)\s*:\s*([^\]]+)\]/iu);
+  if (!match) return { type: "", number: "" };
+  return {
+    type: normalizeRepairDocumentType(match[1]),
+    number: normalizeLoanHistoryText(match[2])
+  };
+}
+
+function repairDocumentInfo(record) {
+  const tag = repairDocumentTagInfo(record);
+  const category = normalizeRepairCategory(record?.category);
+  const type =
+    normalizeRepairDocumentType(record?.sourceDocumentType) ||
+    tag.type ||
+    (category === "ZAMÓWIENIE" ? "ORDER" : "");
+  const number = normalizeLoanHistoryText(record?.sourceDocumentNumber) || (tag.type === type ? tag.number : "");
+  const parts = loanContractNumberParts(number);
+  const dateParts = loanContractDateParts(record?.receivedDate);
+  return {
+    type,
+    label: type ? repairDocumentTypeLabel(type) : "",
+    number,
+    parts,
+    dateParts,
+    groupMonth: parts?.month || null,
+    groupYear: parts?.year || dateParts?.year || null,
+    sequence: parts?.sequence || null,
+    receivedDate: isoDateForSave(record?.receivedDate)
+  };
+}
+
+function addRepairDocumentNumberIssue(issueMap, record, title, detail, severity = "warning") {
+  if (!record?.id) return;
+  const issue = { title, detail, severity, kind: "repair-document-number" };
+  const existingIssues = issueMap.get(record.id) || [];
+  if (!existingIssues.some((item) => item.title === title && item.detail === detail)) {
+    existingIssues.push(issue);
+    issueMap.set(record.id, existingIssues);
+  }
+}
+
+function missingDocumentSequencesText(sequences, month, year) {
+  const values = sequences.slice(0, 6).map((sequence) => monthlyDocumentNumber(sequence, month, year));
+  const suffix = sequences.length > values.length ? ` i jeszcze ${sequences.length - values.length}` : "";
+  return `${values.join(", ")}${suffix}`;
+}
+
+function repairDocumentNumberIssueMap(recordsToCheck = repairRecords) {
+  const issueMap = new Map();
+  const groups = new Map();
+
+  recordsToCheck.forEach((record) => {
+    const info = repairDocumentInfo(record);
+    if (!info.type) return;
+
+    if (!info.number) {
+      addRepairDocumentNumberIssue(
+        issueMap,
+        record,
+        `Brak numeru: ${info.label}`,
+        `${info.label} w Naprawach nie ma zapisanego numeru dokumentu.`
+      );
+      return;
+    }
+
+    if (!info.parts) {
+      addRepairDocumentNumberIssue(
+        issueMap,
+        record,
+        `Nieprawidłowy numer: ${info.label}`,
+        `Numer "${info.number}" nie pasuje do formatu np. 1/08/2026.`
+      );
+      return;
+    }
+
+    if (!info.groupYear) {
+      addRepairDocumentNumberIssue(
+        issueMap,
+        record,
+        `Brak roku w numerze: ${info.label}`,
+        `Numer "${info.number}" nie ma roku, a wpis nie ma poprawnej daty przyjęcia.`
+      );
+      return;
+    }
+
+    if (info.receivedDate && info.dateParts) {
+      if (info.parts.month !== info.dateParts.month || (info.parts.year && info.parts.year !== info.dateParts.year)) {
+        addRepairDocumentNumberIssue(
+          issueMap,
+          record,
+          `Numer poza miesiącem: ${info.label}`,
+          `${info.label} ${info.number} nie pasuje do daty przyjęcia ${formatDate(info.receivedDate)}.`
+        );
+      }
+    }
+
+    const groupKey = `${info.type}-${info.groupYear}-${info.groupMonth}`;
+    const group = groups.get(groupKey) || {
+      type: info.type,
+      label: info.label,
+      year: info.groupYear,
+      month: info.groupMonth,
+      entries: []
+    };
+    group.entries.push({ record, info });
+    groups.set(groupKey, group);
+  });
+
+  groups.forEach((group) => {
+    const sequenceMap = new Map();
+    group.entries.forEach((entry) => {
+      const recordsForSequence = sequenceMap.get(entry.info.sequence) || [];
+      recordsForSequence.push(entry);
+      sequenceMap.set(entry.info.sequence, recordsForSequence);
+    });
+
+    sequenceMap.forEach((entries, sequence) => {
+      if (entries.length < 2) return;
+      entries.forEach(({ record }) => {
+        addRepairDocumentNumberIssue(
+          issueMap,
+          record,
+          `Duplikat numeru: ${group.label}`,
+          `${group.label} ${monthlyDocumentNumber(sequence, group.month, group.year)} występuje ${entries.length} razy w Naprawach.`
+        );
+      });
+    });
+
+    const sequences = [...sequenceMap.keys()].filter(Number.isFinite).sort((left, right) => left - right);
+    if (sequences.length) {
+      const sequenceSet = new Set(sequences);
+      const missingSequences = [];
+      const lastSequence = sequences[sequences.length - 1];
+      for (let sequence = 1; sequence <= lastSequence; sequence += 1) {
+        if (!sequenceSet.has(sequence)) missingSequences.push(sequence);
+      }
+      if (missingSequences.length) {
+        const firstAfterGap = group.entries
+          .filter((entry) => entry.info.sequence > missingSequences[0])
+          .sort((left, right) => left.info.sequence - right.info.sequence)[0];
+        if (firstAfterGap) {
+          addRepairDocumentNumberIssue(
+            issueMap,
+            firstAfterGap.record,
+            `Luka w numeracji: ${group.label}`,
+            `Brakuje numeru: ${missingDocumentSequencesText(missingSequences, group.month, group.year)}.`
+          );
+        }
+      }
+    }
+
+    const datedEntries = group.entries
+      .filter((entry) => entry.info.receivedDate)
+      .sort((left, right) => {
+        const byDate = String(left.info.receivedDate).localeCompare(String(right.info.receivedDate));
+        if (byDate) return byDate;
+        return left.info.sequence - right.info.sequence;
+      });
+    let maxEarlierSequence = 0;
+    let maxEarlierEntry = null;
+    datedEntries.forEach((entry) => {
+      if (
+        maxEarlierEntry &&
+        entry.info.receivedDate > maxEarlierEntry.info.receivedDate &&
+        entry.info.sequence < maxEarlierSequence
+      ) {
+        addRepairDocumentNumberIssue(
+          issueMap,
+          entry.record,
+          `Cofnięta kolejność: ${group.label}`,
+          `${group.label} ${entry.info.number} ma późniejszą datę przyjęcia niż ${maxEarlierEntry.info.number}, ale niższy numer.`
+        );
+      }
+      if (entry.info.sequence > maxEarlierSequence) {
+        maxEarlierSequence = entry.info.sequence;
+        maxEarlierEntry = entry;
+      }
+    });
+  });
+
+  return issueMap;
+}
+
 function mergeDocumentRepairNotes(existingNotes, incomingNotes, sourceTag) {
   const currentNotes = normalizeLoanHistoryText(existingNotes);
   const nextNotes = normalizeLoanHistoryText(incomingNotes);
@@ -6928,6 +7162,7 @@ function renderPricingOrderItems(items) {
 function renderPricingOrder() {
   if (!pricingOrderView) return;
   ensurePricingOrderDefaults();
+  updateDocumentLocationAccent(orderLocationInput);
 
   const orderDate = isoDateForSave(orderDateInput?.value) || todayInputValue();
   const dateText = formatDate(orderDate) || orderInputValue(orderDateInput);
@@ -7039,6 +7274,22 @@ function normalizePricingComplaintRequest(value) {
   if (normalizedRequest === "NAPRAWA" || normalizedRequest === "GWARANCYJNA") return "NAPRAWA GWARANCYJNA";
   if (normalizedRequest === "POGWARANCYJNA") return "NAPRAWA POGWARANCYJNA";
   return PRICING_COMPLAINT_REQUESTS.includes(normalizedRequest) ? normalizedRequest : PRICING_COMPLAINT_REQUESTS[0];
+}
+
+function pricingComplaintRequestTone(value) {
+  const request = normalizePricingComplaintRequest(value);
+  if (request === "NAPRAWA GWARANCYJNA") return "warranty";
+  if (request === "NAPRAWA POGWARANCYJNA") return "out-of-warranty";
+  return "";
+}
+
+function updatePricingComplaintRequestTone(value) {
+  const tone = pricingComplaintRequestTone(value);
+  if (complaintRequestInput) complaintRequestInput.dataset.requestTone = tone;
+  document.querySelectorAll('[data-complaint-out="request"]').forEach((element) => {
+    element.classList.toggle("complaint-request-badge", Boolean(tone));
+    element.dataset.requestTone = tone;
+  });
 }
 
 function complaintItemInputs(slot = 1) {
@@ -7773,6 +8024,7 @@ function renderPricingComplaintProducts(items) {
 function renderPricingComplaint() {
   if (!pricingComplaintView) return;
   ensurePricingComplaintDefaults();
+  updateDocumentLocationAccent(complaintLocationInput);
 
   const complaintDate = isoDateForSave(complaintDateInput?.value) || todayInputValue();
   const dateText = formatDate(complaintDate) || complaintInputValue(complaintDateInput);
@@ -7781,6 +8033,7 @@ function renderPricingComplaint() {
   syncComplaintRequestFromWarranty(items);
   updateComplaintWarrantyHints(complaintFormItems({ includeBlank: true }));
   const request = normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput));
+  updatePricingComplaintRequestTone(request);
   const firstItem = items[0] || normalizePricingComplaintItem({
     productType: complaintInputValue(complaintProductTypeInput),
     productName: selectedComplaintProductName()
@@ -8093,6 +8346,21 @@ function buildDataControlIssues() {
     }
   });
 
+  repairRecords.forEach((record) => {
+    const meta = repairDerived.get(record.id);
+    (meta?.documentNumberIssues || []).forEach((issue) => {
+      addDataControlIssue(
+        issues,
+        record,
+        "repairs",
+        issue.severity || "warning",
+        issue.kind || "repair-document-number",
+        issue.title,
+        issue.detail
+      );
+    });
+  });
+
   return issues.sort(compareDataControlIssues);
 }
 
@@ -8153,11 +8421,22 @@ function dataControlRecordLabel(issue) {
   if (issue.source === "demo") {
     return [record.manufacturer, record.deviceName, record.currentUser].filter(Boolean).join(" · ") || "Aparat demo";
   }
+  if (issue.source === "repairs") {
+    const meta = repairDerived.get(record.id);
+    const documentInfo = meta?.documentInfo || repairDocumentInfo(record);
+    return [
+      documentInfo.label && documentInfo.number ? `${documentInfo.label} ${documentInfo.number}` : "",
+      record.customerName,
+      record.deviceName
+    ].filter(Boolean).join(" · ") || "Naprawa / wkładka";
+  }
   return [record.deviceName, record.customerName].filter(Boolean).join(" · ") || "Aparat";
 }
 
 function dataControlNotebookLabel(source) {
-  return source === "demo" ? "Demo" : "Baza";
+  if (source === "demo") return "Demo";
+  if (source === "repairs") return "Naprawy";
+  return "Baza";
 }
 
 function createDataControlRow(issue) {
@@ -8206,6 +8485,15 @@ function openDataControlIssue(issue) {
     return;
   }
 
+  if (issue.source === "repairs") {
+    const record = repairRecords.find((item) => item.id === issue.record.id);
+    if (!record) return;
+    switchNotebook("repairs");
+    switchView("repairDatabase", "repairs");
+    openRepairDialog(record);
+    return;
+  }
+
   const record = records.find((item) => item.id === issue.record.id);
   if (!record) return;
   switchView("database", "devices");
@@ -8217,6 +8505,7 @@ function renderDataControlStats(issues, totalCount = issues.length) {
     duplicate: issues.filter((issue) => issue.kind === "duplicate").length,
     critical: issues.filter((issue) => issue.severity === "critical").length,
     warning: issues.filter((issue) => issue.severity === "warning").length,
+    repairs: issues.filter((issue) => issue.source === "repairs").length,
     demo: issues.filter((issue) => issue.source === "demo").length,
     all: totalCount
   };
@@ -8227,6 +8516,7 @@ function renderDataControlStats(issues, totalCount = issues.length) {
     ["Duplikaty", counts.duplicate],
     ["Pilne", counts.critical],
     ["Do sprawdzenia", counts.warning],
+    ["Naprawy", counts.repairs],
     ["Demo", counts.demo]
   ].forEach(([label, value]) => {
     const item = document.createElement("div");
@@ -9183,10 +9473,12 @@ function createRepairDeviceNameCell(record) {
 
 function createRepairRow(record) {
   const row = document.createElement("tr");
-  const status = repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record);
+  const meta = repairDerived.get(record.id);
+  const status = meta?.status ?? effectiveRepairStatus(record);
   row.className = `repair-row ${statusClass(status)}`;
   const overdueClass = repairOverdueClass(record, status);
   if (overdueClass) row.classList.add(overdueClass);
+  if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
   const activeDateType = activeRepairDateType(record);
   const cells = [
     createDateText(record.receivedDate),
@@ -9199,7 +9491,7 @@ function createRepairRow(record) {
     createDatePill(record.sentDate, "sent", activeDateType),
     createDatePill(record.returnDate, "return", activeDateType),
     createDatePill(record.pickupDate, "pickup", activeDateType),
-    record.notes
+    createRepairNotesCell(record)
   ];
 
   cells.forEach((value, index) => {
@@ -9222,6 +9514,28 @@ function createRepairRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createRepairNotesCell(record) {
+  const meta = repairDerived.get(record.id);
+  const issues = meta?.documentNumberIssues || [];
+  const notes = normalizeLoanHistoryText(record?.notes);
+  if (!issues.length) return notes;
+
+  const wrap = document.createElement("div");
+  wrap.className = "repair-notes-cell";
+  if (notes) {
+    const text = document.createElement("span");
+    text.textContent = notes;
+    wrap.append(text);
+  }
+
+  const warning = document.createElement("span");
+  warning.className = "repair-number-warning";
+  warning.textContent = `Numer: ${issues.map((issue) => issue.title).join(", ")}`;
+  warning.title = issues.map((issue) => issue.detail).join("\n");
+  wrap.append(warning);
+  return wrap;
 }
 
 function createRepairSerialCell(record) {

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-01">
+    <link rel="stylesheet" href="styles.css?v=20260814-04">
   </head>
   <body>
     <main class="app-shell">
@@ -609,7 +609,7 @@
                   <span>Data oferty</span>
                   <input id="offerDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label class="offer-location-field">
+                <label class="offer-location-field document-location-field">
                   <span>Miejsce</span>
                   <select id="offerLocationInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -717,7 +717,11 @@
                   <span>Data umowy</span>
                   <input id="loanDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label>
+                <label class="loan-wide person-name-field">
+                  <span>Dla</span>
+                  <input id="loanCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                </label>
+                <label class="document-location-field">
                   <span>Miejsce</span>
                   <select id="loanCityInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -726,7 +730,7 @@
                   </select>
                 </label>
                 <label>
-                  <span>Kaucja</span>
+                  <span>Kaucja pobrana</span>
                   <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
                 </label>
 
@@ -737,10 +741,6 @@
                 <label>
                   <span>Okres do</span>
                   <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
-                <label class="loan-wide person-name-field">
-                  <span>Użytkownik</span>
-                  <input id="loanCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
 
                 <label class="loan-wide">
@@ -756,7 +756,7 @@
                   <input id="loanPhoneInput" type="text" autocomplete="off">
                 </label>
 
-                <p class="loan-form-title loan-full">Sprzęt</p>
+                <p class="loan-form-title loan-full">Aparat słuchowy</p>
                 <label class="loan-wide">
                   <span>Prawe - model</span>
                   <input id="loanRightDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
@@ -829,7 +829,7 @@
                   <input id="loanDepositReturnDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
                 <label>
-                  <span>Kaucja / potrącenia</span>
+                  <span>Potrącenia</span>
                   <input id="loanDeductionsInput" type="text" autocomplete="off">
                 </label>
                 <label class="loan-wide">
@@ -870,7 +870,7 @@
                   <p><span>Data</span><strong data-loan-out="date">-</strong></p>
                   <p><span>Miejsce</span><strong data-loan-out="city">-</strong></p>
                   <p><span>Okres</span><strong data-loan-out="period">-</strong></p>
-                  <p><span>Kaucja</span><strong data-loan-out="deposit">-</strong></p>
+                  <p><span>Kaucja pobrana</span><strong data-loan-out="deposit">-</strong></p>
                 </div>
               </section>
 
@@ -888,8 +888,8 @@
               </section>
 
               <section class="loan-doc-section">
-                <h3>Sprzęt</h3>
-                <p class="loan-doc-note">Udostępniający oświadcza, że jest właścicielem albo posiada tytuł prawny do dysponowania sprzętem. Użytkownik potwierdza, że zapoznał się ze stanem sprzętu i przyjmuje sprzęt kompletny oraz sprawny, chyba że poniżej wpisano zastrzeżenia.</p>
+                <h3>Aparat słuchowy</h3>
+                <p class="loan-doc-note">Udostępniający oświadcza, że jest właścicielem albo posiada tytuł prawny do dysponowania aparatem słuchowym. Użytkownik potwierdza, że zapoznał się ze stanem aparatu słuchowego i przyjmuje aparat słuchowy kompletny oraz sprawny, chyba że poniżej wpisano zastrzeżenia.</p>
                 <table class="loan-equipment-table">
                   <thead>
                     <tr>
@@ -915,10 +915,10 @@
               <section class="loan-doc-section loan-terms">
                 <h3>Warunki i zabezpieczenia</h3>
                 <div>
-                  <p><strong>§1. Charakter umowy.</strong> W okresie podstawowym sprzęt jest udostępniany bezpłatnie jako użyczenie/testowanie. Przedłużenie po terminie wymaga zgody SATIS utrwalonej e-mailem, SMS-em albo pisemnie i kosztuje 100 zł za każdy rozpoczęty dzień, chyba że strony pisemnie uzgodnią inaczej.</p>
-                  <p><strong>§2. Obowiązki użytkownika.</strong> Użytkownik używa sprzętu wyłącznie osobiście, zgodnie z instrukcją i zasadami higieny; chroni go przed wilgocią, upadkiem, zabrudzeniem i osobami trzecimi; nie naprawia, nie przerabia, nie oddaje, nie sprzedaje i nie zastawia sprzętu.</p>
+                  <p><strong>§1. Charakter umowy.</strong> W okresie podstawowym aparat słuchowy jest udostępniany bezpłatnie jako użyczenie/testowanie. Przedłużenie po terminie wymaga zgody SATIS utrwalonej e-mailem, SMS-em albo pisemnie i kosztuje 100 zł za każdy rozpoczęty dzień, chyba że strony pisemnie uzgodnią inaczej.</p>
+                  <p><strong>§2. Obowiązki użytkownika.</strong> Użytkownik używa aparatu słuchowego wyłącznie osobiście, zgodnie z instrukcją i zasadami higieny; chroni go przed wilgocią, upadkiem, zabrudzeniem i osobami trzecimi; nie naprawia, nie przerabia, nie oddaje, nie sprzedaje i nie zastawia aparatu słuchowego.</p>
                   <p><strong>§3. Kaucja.</strong> Kaucja zabezpiecza roszczenia z umowy, w szczególności brak zwrotu, opóźnienie, uszkodzenie, zniszczenie, utratę, brak ładowarki, czyszczenie, dezynfekcję, serwis i koszty dochodzenia roszczeń.</p>
-                  <p><strong>§4. Brak zwrotu / szkoda.</strong> Po zakończeniu umowy użytkownik zwraca sprzęt najpóźniej w ostatnim dniu okresu podstawowego albo przedłużenia. Brak zwrotu w terminie skutkuje opłatą 100 zł za każdy rozpoczęty dzień opóźnienia.</p>
+                  <p><strong>§4. Brak zwrotu / szkoda.</strong> Po zakończeniu umowy użytkownik zwraca aparat słuchowy najpóźniej w ostatnim dniu okresu podstawowego albo przedłużenia. Brak zwrotu w terminie skutkuje opłatą 100 zł za każdy rozpoczęty dzień opóźnienia.</p>
                   <p><strong>§5. Zwrot i dowody.</strong> Ze zwrotu sporządza się protokół. SATIS może wykonać zdjęcia przy wydaniu i zwrocie. W razie sporu podstawą rozliczenia może być opinia serwisu, producenta, dystrybutora albo punktu protetyki słuchu.</p>
                   <p><strong>§6. Dane i spory.</strong> SATIS przetwarza wyłącznie dane niezbędne do zawarcia, wykonania i rozliczenia umowy oraz dochodzenia roszczeń. Spory rozstrzyga sąd właściwy według powszechnie obowiązujących przepisów prawa.</p>
                 </div>
@@ -927,9 +927,9 @@
               <section class="loan-doc-section">
                 <h3>Protokół zdawczo-odbiorczy i podpisy</h3>
                 <div class="loan-protocol-grid">
-                  <p><span>Wydanie sprzętu</span><strong data-loan-out="issueProtocol">bez zastrzeżeń, instrukcja, ładowarka</strong></p>
-                  <p><span>Zwrot sprzętu</span><strong data-loan-out="returnProtocol">-</strong></p>
-                  <p><span>Kaucja / potrącenia</span><strong data-loan-out="deductions">-</strong></p>
+                  <p><span>Wydanie aparatu słuchowego</span><strong data-loan-out="issueProtocol">bez zastrzeżeń, instrukcja, ładowarka</strong></p>
+                  <p><span>Zwrot aparatu słuchowego</span><strong data-loan-out="returnProtocol">-</strong></p>
+                  <p><span>Potrącenia</span><strong data-loan-out="deductions">-</strong></p>
                   <p><span>Powód potrącenia</span><strong data-loan-out="deductionReason">-</strong></p>
                   <p><span>Termin zwrotu kaucji</span><strong data-loan-out="depositReturnDate">-</strong></p>
                 </div>
@@ -976,7 +976,7 @@
                   <span>Telefon</span>
                   <input id="orderPhoneInput" type="text" autocomplete="off">
                 </label>
-                <label>
+                <label class="document-location-field">
                   <span>Miejsce</span>
                   <select id="orderLocationInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -1100,7 +1100,7 @@
                   <span>Telefon</span>
                   <input id="complaintPhoneInput" type="text" autocomplete="off">
                 </label>
-                <label>
+                <label class="document-location-field">
                   <span>Miejsce</span>
                   <select id="complaintLocationInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -1108,11 +1108,11 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
-                <label>
+                <label class="complaint-request-field">
                   <span>Żądanie klienta</span>
                   <select id="complaintRequestInput">
-                    <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
-                    <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
+                    <option value="NAPRAWA GWARANCYJNA" class="complaint-request-option-warranty">Naprawa gwarancyjna</option>
+                    <option value="NAPRAWA POGWARANCYJNA" class="complaint-request-option-out-of-warranty">Naprawa pogwarancyjna</option>
                   </select>
                 </label>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
@@ -1735,6 +1735,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260813-40"></script>
+    <script src="app.js?v=20260814-04"></script>
   </body>
 </html>

@@ -1368,6 +1368,52 @@ h2 {
   min-height: 78px;
 }
 
+.complaint-request-field select {
+  font-weight: 850;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.complaint-request-field select[data-request-tone="warranty"] {
+  border-color: #a9d3b9;
+  color: #22663d;
+  background: #f1faf4;
+}
+
+.complaint-request-field select[data-request-tone="out-of-warranty"] {
+  border-color: #e5afa7;
+  color: #963e31;
+  background: #fff4f2;
+}
+
+.complaint-request-option-warranty {
+  color: #22663d;
+  background: #f1faf4;
+}
+
+.complaint-request-option-out-of-warranty {
+  color: #963e31;
+  background: #fff4f2;
+}
+
+.complaint-request-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.complaint-request-badge[data-request-tone="warranty"] {
+  color: #22663d;
+  background: #eef8f2;
+}
+
+.complaint-request-badge[data-request-tone="out-of-warranty"] {
+  color: #963e31;
+  background: #fff1ef;
+}
+
 .complaint-match-hint {
   margin: -2px 0 0;
   padding: 8px 10px;
@@ -1993,6 +2039,46 @@ select:focus,
 textarea:focus {
   outline: 3px solid rgba(22, 108, 95, 0.16);
   border-color: var(--accent);
+}
+
+.document-location-field {
+  --document-location-accent: #9c8d7b;
+  --document-location-bg: #faf8f5;
+  position: relative;
+}
+
+.document-location-field::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  width: 5px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--document-location-accent);
+  pointer-events: none;
+}
+
+.document-location-field select {
+  padding-left: 24px;
+  border-color: color-mix(in srgb, var(--document-location-accent) 34%, var(--line));
+  background-color: var(--document-location-bg);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.document-location-field[data-location-tone="T12"] {
+  --document-location-accent: #9c8d7b;
+  --document-location-bg: #faf8f5;
+}
+
+.document-location-field[data-location-tone="P50"] {
+  --document-location-accent: #8a9850;
+  --document-location-bg: #f7faec;
+}
+
+.document-location-field[data-location-tone="P63"] {
+  --document-location-accent: #aa91be;
+  --document-location-bg: #faf6fc;
 }
 
 input.today-date-input {
@@ -2625,12 +2711,42 @@ tbody tr.repair-overdue-warning:hover {
   background: #ffe7bd;
 }
 
+tbody tr.repair-document-number-warning {
+  background: #f7f4ff;
+}
+
+tbody tr.repair-document-number-warning td:first-child {
+  box-shadow: inset 5px 0 0 #9580c6;
+}
+
+tbody tr.repair-document-number-warning:hover {
+  background: #f2edff;
+}
+
 tbody tr.repair-overdue-critical {
   background: #ffe2de;
 }
 
 tbody tr.repair-overdue-critical td:first-child {
   border-left-color: #c44032;
+}
+
+.repair-notes-cell {
+  display: grid;
+  gap: 5px;
+}
+
+.repair-number-warning {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-block;
+  padding: 3px 6px;
+  border-radius: 6px;
+  color: #5a4b7d;
+  background: #f1edfb;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.25;
 }
 
 tbody tr.repair-overdue-critical:hover {
