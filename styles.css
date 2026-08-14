@@ -1683,6 +1683,14 @@ h2 {
   margin-top: 0;
 }
 
+.loan-side-title {
+  margin: 0 0 -2px;
+  color: #42616b;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .loan-document {
   margin-top: 16px;
 }
