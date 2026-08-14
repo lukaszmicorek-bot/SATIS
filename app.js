@@ -7218,7 +7218,17 @@ function createPricingPcprItem(entry) {
 
   const ear = document.createElement("span");
   ear.className = `pcpr-ear-badge pcpr-ear-${entry.ear || "none"}`;
-  ear.textContent = entry.ear === "B" ? "L i P" : (entry.ear || "-");
+  if (entry.ear === "B") {
+    const right = document.createElement("span");
+    right.className = "pcpr-ear-badge-part pcpr-ear-P";
+    right.textContent = "P";
+    const left = document.createElement("span");
+    left.className = "pcpr-ear-badge-part pcpr-ear-L";
+    left.textContent = "L";
+    ear.append(right, left);
+  } else {
+    ear.textContent = entry.ear || "-";
+  }
   ear.title = pricingPcprEarLabel(entry.ear) || "Brak strony";
 
   const actions = document.createElement("div");
