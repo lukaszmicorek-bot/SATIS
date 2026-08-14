@@ -7219,11 +7219,12 @@ function createPricingPcprItem(entry) {
   const ear = document.createElement("span");
   ear.className = `pcpr-ear-badge pcpr-ear-${entry.ear || "none"}`;
   if (entry.ear === "B") {
+    ear.className = "pcpr-ear-badge-group";
     const right = document.createElement("span");
-    right.className = "pcpr-ear-badge-part pcpr-ear-P";
+    right.className = "pcpr-ear-badge pcpr-ear-P";
     right.textContent = "P";
     const left = document.createElement("span");
-    left.className = "pcpr-ear-badge-part pcpr-ear-L";
+    left.className = "pcpr-ear-badge pcpr-ear-L";
     left.textContent = "L";
     ear.append(right, left);
   } else {
