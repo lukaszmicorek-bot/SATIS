@@ -1655,6 +1655,10 @@ h2 {
   align-items: end;
 }
 
+.loan-form-grid > label {
+  min-width: 0;
+}
+
 .loan-wide {
   grid-column: span 2;
 }
@@ -1664,11 +1668,19 @@ h2 {
 }
 
 .loan-form-title {
-  margin: 4px 0 -2px;
+  margin: 8px 0 0;
+  padding: 7px 9px 7px 11px;
+  border-left: 4px solid #78aebc;
+  border-radius: 8px;
   color: #003f5a;
+  background: #f3f8f9;
   font-size: 0.78rem;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.loan-form-title:first-child {
+  margin-top: 0;
 }
 
 .loan-document {
@@ -2044,26 +2056,20 @@ textarea:focus {
 .document-location-field {
   --document-location-accent: #9c8d7b;
   --document-location-bg: #faf8f5;
-  position: relative;
-}
-
-.document-location-field::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  width: 5px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--document-location-accent);
-  pointer-events: none;
 }
 
 .document-location-field select {
-  padding-left: 24px;
+  padding-left: 11px;
   border-color: color-mix(in srgb, var(--document-location-accent) 34%, var(--line));
+  border-left-width: 5px;
+  border-left-color: var(--document-location-accent);
   background-color: var(--document-location-bg);
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, border-left-color 0.15s ease, background-color 0.15s ease;
+}
+
+.document-location-field select:focus {
+  border-color: var(--accent);
+  border-left-color: var(--document-location-accent);
 }
 
 .document-location-field[data-location-tone="T12"] {
@@ -2596,6 +2602,16 @@ tbody tr.device-sold-row:hover {
   background: #f8eadb;
 }
 
+.customer-activity-cell.customer-demo-warning {
+  color: #7a3f29;
+  font-weight: 820;
+}
+
+.customer-demo-badge {
+  color: #8a392b;
+  background: #fff0ec;
+}
+
 .customer-activity-cell.has-customer-docs::after {
   content: attr(data-customer-tooltip);
   position: absolute;
@@ -2618,6 +2634,10 @@ tbody tr.device-sold-row:hover {
   transform: translateY(4px);
   transition: opacity 120ms ease, transform 120ms ease;
   white-space: pre-line;
+}
+
+.customer-activity-cell.has-customer-docs.customer-demo-warning::after {
+  border-color: #e5b7aa;
 }
 
 .customer-activity-cell.has-customer-docs:hover::after,
