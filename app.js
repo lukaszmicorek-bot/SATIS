@@ -144,6 +144,7 @@ const demoDerived = new Map();
 const serialIndex = new Map();
 const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
+const activeDemoLoanCustomerIndex = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
@@ -4365,6 +4366,31 @@ function demoStatus(record) {
   return status;
 }
 
+function isActiveDemoLoan(record, status = demoStatus(record)) {
+  const currentUser = titleCaseName(record?.currentUser);
+  if (!currentUser || isoDateForSave(record?.returnDate)) return false;
+  if (record?.manufacturerReturnedDate || normalizeBooleanFlag(record?.manufacturerReturned) === "1") return false;
+  return status === "WYPOŻYCZONY" || status === "DO ZWROTU";
+}
+
+function addActiveDemoLoanCustomerIndexEntry(record, status) {
+  if (!isActiveDemoLoan(record, status)) return;
+  const customerKey = customerNameLookupKey(record.currentUser);
+  if (!customerKey) return;
+  const deadline = demoReturnDeadlineInfo(record);
+  if (!activeDemoLoanCustomerIndex.has(customerKey)) activeDemoLoanCustomerIndex.set(customerKey, []);
+  activeDemoLoanCustomerIndex.get(customerKey).push({
+    id: record.id,
+    currentUser: titleCaseName(record.currentUser),
+    deviceName: normalizeLoanHistoryText(record.deviceName),
+    serialNumber: normalizeSerialNumber(record.serialNumber),
+    location: normalizeDemoLocation(record.location),
+    loanDate: isoDateForSave(record.loanDate),
+    returnDeadline: deadline.source === "loan" ? deadline.date : "",
+    status
+  });
+}
+
 function demoQualityIssues(record, serialCounts = null) {
   const issues = [];
   if (!record.receivedDate) issues.push("brak daty");
@@ -4510,6 +4536,7 @@ function rebuildRepairDerivedData() {
 
 function rebuildDemoDerivedData() {
   demoDerived.clear();
+  activeDemoLoanCustomerIndex.clear();
   demoStats = { all: demoRecords.length, stock: 0, loaned: 0, returnDue: 0 };
   const serialCounts = new Map();
 
@@ -4534,6 +4561,7 @@ function rebuildDemoDerivedData() {
     if (status === "NA STANIE") demoStats.stock += 1;
     if (status === "WYPOŻYCZONY") demoStats.loaned += 1;
     if (status === "DO ZWROTU") demoStats.returnDue += 1;
+    addActiveDemoLoanCustomerIndexEntry(record, status);
 
     demoDerived.set(record.id, {
       status,
@@ -8752,6 +8780,43 @@ function customerDocumentInfoForRecord(record) {
   };
 }
 
+function soldDeviceHasCompletedPurchase(record) {
+  return Boolean(normalizeSalesInvoice(record?.salesInvoice) && isoDateForSave(record?.pickupDate));
+}
+
+function activeDemoLoanLine(loan) {
+  const model = [
+    loan.deviceName || "Aparat demo",
+    loan.serialNumber ? `nr ${loan.serialNumber}` : "",
+    loan.location
+  ].filter(Boolean).join(" / ");
+  return [
+    model,
+    loan.status === "DO ZWROTU" ? "do zwrotu" : "wypożyczony",
+    loan.loanDate ? `wypożyczono ${formatDate(loan.loanDate)}` : "",
+    loan.returnDeadline ? `termin ${formatDate(loan.returnDeadline)}` : ""
+  ].filter(Boolean).join(" | ");
+}
+
+function customerDemoLoanWarningForRecord(record) {
+  if (!soldDeviceHasCompletedPurchase(record)) return null;
+  const customerKey = customerNameLookupKey(record?.customerName);
+  if (!customerKey) return null;
+  const activeLoans = activeDemoLoanCustomerIndex.get(customerKey) || [];
+  if (!activeLoans.length) return null;
+
+  const saleDate = isoDateForSave(record.pickupDate);
+  const invoice = normalizeSalesInvoice(record.salesInvoice);
+  return {
+    count: activeLoans.length,
+    tooltip: [
+      `Demo do zamknięcia: klient kupił aparat ${formatDate(saleDate)}${invoice ? `, FV ${invoice}` : ""}.`,
+      "Zakończ wypożyczenie w zakładce Demo.",
+      ...activeLoans.map((loan) => `• ${activeDemoLoanLine(loan)}`)
+    ].join("\n")
+  };
+}
+
 function createCustomerActivityCell(record) {
   const customerName = String(record?.customerName || "").trim();
   if (!customerName) return "";
@@ -8762,16 +8827,27 @@ function createCustomerActivityCell(record) {
   wrap.append(name);
 
   const documentInfo = customerDocumentInfoForRecord(record);
-  if (documentInfo) {
+  const demoLoanWarning = customerDemoLoanWarningForRecord(record);
+  if (documentInfo || demoLoanWarning) {
     wrap.classList.add("has-customer-docs");
-    if (documentInfo.uncertain) wrap.classList.add("customer-docs-uncertain");
-    wrap.dataset.customerTooltip = documentInfo.tooltip;
-    wrap.title = documentInfo.tooltip;
+    if (documentInfo?.uncertain) wrap.classList.add("customer-docs-uncertain");
+    if (demoLoanWarning) wrap.classList.add("customer-demo-warning");
+    const tooltip = [demoLoanWarning?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
+    wrap.dataset.customerTooltip = tooltip;
+    wrap.title = tooltip;
     wrap.tabIndex = 0;
-    const badge = document.createElement("span");
-    badge.className = "customer-docs-badge";
-    badge.textContent = "info";
-    wrap.append(badge);
+    if (documentInfo) {
+      const badge = document.createElement("span");
+      badge.className = "customer-docs-badge";
+      badge.textContent = "info";
+      wrap.append(badge);
+    }
+    if (demoLoanWarning) {
+      const badge = document.createElement("span");
+      badge.className = "customer-docs-badge customer-demo-badge";
+      badge.textContent = demoLoanWarning.count > 1 ? `demo ${demoLoanWarning.count}` : "demo";
+      wrap.append(badge);
+    }
   }
   return wrap;
 }

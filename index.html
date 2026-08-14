@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-04">
+    <link rel="stylesheet" href="styles.css?v=20260814-07">
   </head>
   <body>
     <main class="app-shell">
@@ -709,6 +709,7 @@
           <section id="pricingLoanView" class="pricing-view-section pricing-loan-section" hidden>
             <section class="offer-builder loan-builder" aria-label="Ustawienia umowy wypożyczenia">
               <div class="loan-form-grid">
+                <p class="loan-form-title loan-full">Dane umowy</p>
                 <label>
                   <span>Nr umowy</span>
                   <input id="loanContractNumberInput" type="text" placeholder="np. 1/08/2026" autocomplete="off">
@@ -716,10 +717,6 @@
                 <label>
                   <span>Data umowy</span>
                   <input id="loanDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
-                <label class="loan-wide person-name-field">
-                  <span>Dla</span>
-                  <input id="loanCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
                 <label class="document-location-field">
                   <span>Miejsce</span>
@@ -733,7 +730,6 @@
                   <span>Kaucja pobrana</span>
                   <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
                 </label>
-
                 <label>
                   <span>Okres od</span>
                   <input id="loanPeriodFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
@@ -743,17 +739,22 @@
                   <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
 
-                <label class="loan-wide">
-                  <span>Adres</span>
-                  <input id="loanAddressInput" type="text" placeholder="Adres użytkownika" autocomplete="off">
+                <p class="loan-form-title loan-full">Dane klienta</p>
+                <label class="loan-wide person-name-field">
+                  <span>Dla</span>
+                  <input id="loanCustomerInput" type="text" placeholder="Imię i nazwisko" autocomplete="off">
+                </label>
+                <label>
+                  <span>Telefon / e-mail</span>
+                  <input id="loanPhoneInput" type="text" autocomplete="off">
                 </label>
                 <label>
                   <span>PESEL / dokument</span>
                   <input id="loanDocumentInput" type="text" autocomplete="off">
                 </label>
-                <label>
-                  <span>Telefon / e-mail</span>
-                  <input id="loanPhoneInput" type="text" autocomplete="off">
+                <label class="loan-full">
+                  <span>Adres</span>
+                  <input id="loanAddressInput" type="text" placeholder="Adres użytkownika" autocomplete="off">
                 </label>
 
                 <p class="loan-form-title loan-full">Aparat słuchowy</p>
@@ -799,7 +800,7 @@
                   <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
                 </label>
 
-                <p class="loan-form-title loan-full">Ładowarka i protokół</p>
+                <p class="loan-form-title loan-full">Ładowarka</p>
                 <label>
                   <span>Ładowarka - model / typ</span>
                   <input id="loanChargerInput" type="text" autocomplete="off">
@@ -816,6 +817,8 @@
                   <span>Wartość braku ładowarki</span>
                   <input id="loanChargerMissingValueInput" type="text" inputmode="decimal" autocomplete="off">
                 </label>
+
+                <p class="loan-form-title loan-full">Wydanie i zwrot</p>
                 <label class="loan-wide">
                   <span>Uwagi przy wydaniu</span>
                   <input id="loanIssueNotesInput" type="text" placeholder="bez zastrzeżeń" autocomplete="off">
@@ -1735,6 +1738,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260814-04"></script>
+    <script src="app.js?v=20260814-05"></script>
   </body>
 </html>
