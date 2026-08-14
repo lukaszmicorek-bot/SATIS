@@ -24,6 +24,7 @@ const SUPABASE_LOAN_CONTRACT_TABLE = "loan_contracts";
 const SUPABASE_OFFER_HISTORY_TABLE = "pricing_offer_history";
 const SUPABASE_ORDER_HISTORY_TABLE = "pricing_order_history";
 const SUPABASE_COMPLAINT_HISTORY_TABLE = "pricing_complaint_history";
+const SUPABASE_PCPR_LIST_TABLE = "pcpr_list";
 const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
@@ -60,10 +61,12 @@ const PRICING_LOAN_HISTORY_STORAGE_KEY = "zeszyt-aparatow-loan-contract-history-
 const PRICING_OFFER_HISTORY_STORAGE_KEY = "zeszyt-aparatow-offer-history-v1";
 const PRICING_ORDER_HISTORY_STORAGE_KEY = "zeszyt-aparatow-order-history-v1";
 const PRICING_COMPLAINT_HISTORY_STORAGE_KEY = "zeszyt-aparatow-complaint-history-v1";
+const PRICING_PCPR_LIST_STORAGE_KEY = "zeszyt-aparatow-pcpr-list-v1";
 const MAX_PRICING_LOAN_HISTORY = 300;
 const MAX_PRICING_OFFER_HISTORY = 300;
 const MAX_PRICING_ORDER_HISTORY = 300;
 const MAX_PRICING_COMPLAINT_HISTORY = 300;
+const MAX_PRICING_PCPR_LIST = 1000;
 const DOCUMENT_LOCATIONS = [
   { key: "T12", value: "Bielsko-Biała, ul. Traugutta 12" },
   { key: "P63", value: "Bielsko-Biała, ul. Partyzantów 63" },
@@ -404,6 +407,7 @@ let pricingLoanHistory = loadPricingLoanHistory();
 let pricingOfferHistory = loadPricingOfferHistory();
 let pricingOrderHistory = loadPricingOrderHistory();
 let pricingComplaintHistory = loadPricingComplaintHistory();
+let pricingPcprList = loadPricingPcprList();
 let privatePayments = {};
 let auditLogs = [];
 let privatePaymentSyncWarningShown = false;
@@ -412,6 +416,7 @@ let pricingLoanHistorySupabaseAvailable = null;
 let pricingOfferHistorySupabaseAvailable = null;
 let pricingOrderHistorySupabaseAvailable = null;
 let pricingComplaintHistorySupabaseAvailable = null;
+let pricingPcprListSupabaseAvailable = null;
 let activePricingLoanHistoryId = "";
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
@@ -462,6 +467,7 @@ const pricingViewButtons = document.querySelectorAll(".pricing-view-button");
 const pricingListView = document.querySelector("#pricingListView");
 const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingLoanView = document.querySelector("#pricingLoanView");
+const pricingPcprView = document.querySelector("#pricingPcprView");
 const pricingOrderView = document.querySelector("#pricingOrderView");
 const pricingComplaintView = document.querySelector("#pricingComplaintView");
 const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList");
@@ -519,6 +525,15 @@ const loanPrintMeta = document.querySelector("#loanPrintMeta");
 const loanEquipmentBody = document.querySelector("#loanEquipmentBody");
 const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanHistoryList = document.querySelector("#loanHistoryList");
+const pcprForm = document.querySelector("#pcprForm");
+const pcprDoneInput = document.querySelector("#pcprDoneInput");
+const pcprCustomerInput = document.querySelector("#pcprCustomerInput");
+const pcprPhoneInput = document.querySelector("#pcprPhoneInput");
+const pcprAddressInput = document.querySelector("#pcprAddressInput");
+const pcprModelInput = document.querySelector("#pcprModelInput");
+const pcprEarInputs = document.querySelectorAll("input[name='pcprEar']");
+const pcprListCount = document.querySelector("#pcprListCount");
+const pcprList = document.querySelector("#pcprList");
 const orderNumberInput = document.querySelector("#orderNumberInput");
 const orderDateInput = document.querySelector("#orderDateInput");
 const orderCustomerInput = document.querySelector("#orderCustomerInput");
@@ -1620,7 +1635,8 @@ async function refreshRecordsFromSupabase(options = {}) {
       sharedLoanHistory,
       sharedOfferHistory,
       sharedOrderHistory,
-      sharedComplaintHistory
+      sharedComplaintHistory,
+      sharedPcprList
     ] = await Promise.all([
       loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX }),
       loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse),
@@ -1633,7 +1649,8 @@ async function refreshRecordsFromSupabase(options = {}) {
       loadSupabasePricingLoanHistory(),
       loadSupabasePricingOfferHistory(),
       loadSupabasePricingOrderHistory(),
-      loadSupabasePricingComplaintHistory()
+      loadSupabasePricingComplaintHistory(),
+      loadSupabasePricingPcprList()
     ]);
     records = sharedRecords;
     repairRecords = sharedRepairRecords;
@@ -1643,6 +1660,7 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedOfferHistory) pricingOfferHistory = sharedOfferHistory;
     if (sharedOrderHistory) pricingOrderHistory = sharedOrderHistory;
     if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
+    if (sharedPcprList) pricingPcprList = sharedPcprList;
     await loadPrivatePayments();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
@@ -1659,19 +1677,21 @@ async function refreshRecordsFromSupabase(options = {}) {
 
 async function refreshPricingFromSupabase() {
   if (!hasSupabaseConfig || !currentSupabaseUser) return;
-  const [sharedPricingRecords, sharedLoanHistory, sharedOfferHistory, sharedOrderHistory, sharedComplaintHistory] = await Promise.all([
+  const [sharedPricingRecords, sharedLoanHistory, sharedOfferHistory, sharedOrderHistory, sharedComplaintHistory, sharedPcprList] = await Promise.all([
     loadSupabasePricingRecords(),
     loadSupabasePricingLoanHistory(),
     loadSupabasePricingOfferHistory(),
     loadSupabasePricingOrderHistory(),
-    loadSupabasePricingComplaintHistory()
+    loadSupabasePricingComplaintHistory(),
+    loadSupabasePricingPcprList()
   ]);
-  if (!sharedPricingRecords && !sharedLoanHistory && !sharedOfferHistory && !sharedOrderHistory && !sharedComplaintHistory) return;
+  if (!sharedPricingRecords && !sharedLoanHistory && !sharedOfferHistory && !sharedOrderHistory && !sharedComplaintHistory && !sharedPcprList) return;
   if (sharedPricingRecords) pricingRecords = sharedPricingRecords;
   if (sharedLoanHistory) pricingLoanHistory = sharedLoanHistory;
   if (sharedOfferHistory) pricingOfferHistory = sharedOfferHistory;
   if (sharedOrderHistory) pricingOrderHistory = sharedOrderHistory;
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
+  if (sharedPcprList) pricingPcprList = sharedPcprList;
   renderPricingRecords();
   if (!["pricing", "agreements"].includes(activeNotebook)) renderDeviceViews();
   setCurrentYearTitle();
@@ -1814,6 +1834,16 @@ function subscribeToSupabaseChanges() {
     });
   }
 
+  if (pricingPcprListSupabaseAvailable !== false) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PCPR_LIST_TABLE }, () => {
+      loadSupabasePricingPcprList()
+        .then(() => {
+          if (activePricingView === "pcpr") renderPricingPcprList();
+        })
+        .catch((error) => console.warn("Nie udało się odświeżyć listy PCPR:", error.message));
+    });
+  }
+
   supabaseRealtimeChannel = channel.subscribe((status) => {
     if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
     if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -1828,6 +1858,7 @@ async function activateSupabaseSession(user) {
   pricingOfferHistorySupabaseAvailable = null;
   pricingOrderHistorySupabaseAvailable = null;
   pricingComplaintHistorySupabaseAvailable = null;
+  pricingPcprListSupabaseAvailable = null;
   hideAuthDialog();
   setConnectionStatus("syncing", "Łączenie...");
   renderCachedRecordsBeforeSupabaseSync();
@@ -1874,10 +1905,12 @@ async function logoutFromSupabase() {
   pricingOfferHistory = loadPricingOfferHistory();
   pricingOrderHistory = loadPricingOrderHistory();
   pricingComplaintHistory = loadPricingComplaintHistory();
+  pricingPcprList = loadPricingPcprList();
   pricingLoanHistorySupabaseAvailable = null;
   pricingOfferHistorySupabaseAvailable = null;
   pricingOrderHistorySupabaseAvailable = null;
   pricingComplaintHistorySupabaseAvailable = null;
+  pricingPcprListSupabaseAvailable = null;
   activePricingLoanHistoryId = "";
   rebuildDerivedData();
   render();
@@ -5105,6 +5138,7 @@ function renderPricingRecords() {
   renderPricingOfferDeviceList();
   renderPricingOffer();
   renderPricingLoan();
+  renderPricingPcprList();
   renderPricingOrder();
   renderPricingComplaint();
   const visibleRecords = filteredPricingRecords();
@@ -5519,7 +5553,7 @@ async function updatePricingRecordPrice(record) {
 }
 
 function switchPricingView(viewName) {
-  activePricingView = ["list", "offer", "loan", "order", "complaint"].includes(viewName) ? viewName : "list";
+  activePricingView = ["list", "offer", "loan", "pcpr", "order", "complaint"].includes(viewName) ? viewName : "list";
   if (activePricingView !== "list") lastAgreementPricingView = activePricingView;
   pricingViewButtons.forEach((button) => {
     const isActive = button.dataset.pricingView === activePricingView;
@@ -5529,10 +5563,12 @@ function switchPricingView(viewName) {
   if (pricingListView) pricingListView.hidden = activePricingView !== "list";
   if (pricingOfferView) pricingOfferView.hidden = activePricingView !== "offer";
   if (pricingLoanView) pricingLoanView.hidden = activePricingView !== "loan";
+  if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
   if (activePricingView === "offer") renderPricingOffer();
   if (activePricingView === "loan") renderPricingLoan();
+  if (activePricingView === "pcpr") renderPricingPcprList();
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
 }
@@ -6421,6 +6457,259 @@ function printPricingLoan() {
   document.body.classList.add("pricing-loan-print");
   window.addEventListener("afterprint", cleanup, { once: true });
   window.print();
+}
+
+function normalizePricingPcprEar(value) {
+  const text = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
+  if (text === "P" || text.includes("PRAW")) return "P";
+  if (text === "L" || text.includes("LEW")) return "L";
+  return "";
+}
+
+function pricingPcprEarLabel(value) {
+  const ear = normalizePricingPcprEar(value);
+  if (ear === "P") return "Prawe";
+  if (ear === "L") return "Lewe";
+  return "";
+}
+
+function normalizePricingPcprItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const savedAt = normalizeLoanHistoryText(item.savedAt || item.updatedAt || item.createdAt || new Date().toISOString());
+  const record = findPricingOfferRecord(item.model);
+  const normalizedItem = {
+    id: normalizeLoanHistoryText(item.id || makeId()),
+    createdAt: normalizeLoanHistoryText(item.createdAt || savedAt),
+    savedAt,
+    savedBy: normalizeLoanHistoryText(item.savedBy || item.userEmail),
+    workstation: normalizeLoanHistoryText(item.workstation),
+    done: normalizeBooleanFlag(item.done || item.checked || item.completed),
+    customer: titleCaseName(item.customer || item.customerName || ""),
+    phone: normalizeLoanHistoryText(item.phone),
+    address: normalizeLoanHistoryText(item.address),
+    model: record ? pricingOfferDeviceName(record) : normalizeLoanHistoryText(item.model),
+    ear: normalizePricingPcprEar(item.ear || item.side)
+  };
+
+  return normalizedItem.customer || normalizedItem.phone || normalizedItem.address || normalizedItem.model
+    ? normalizedItem
+    : null;
+}
+
+function normalizePricingPcprList(entries) {
+  if (!Array.isArray(entries)) return [];
+  const normalizedEntries = [];
+  const seenIds = new Set();
+  entries.forEach((entry) => {
+    const normalizedEntry = normalizePricingPcprItem(entry);
+    if (!normalizedEntry || seenIds.has(normalizedEntry.id)) return;
+    seenIds.add(normalizedEntry.id);
+    normalizedEntries.push(normalizedEntry);
+  });
+
+  return normalizedEntries
+    .sort((left, right) => String(right.createdAt || right.savedAt).localeCompare(String(left.createdAt || left.savedAt)))
+    .slice(0, MAX_PRICING_PCPR_LIST);
+}
+
+function loadPricingPcprList() {
+  try {
+    return normalizePricingPcprList(JSON.parse(localStorage.getItem(PRICING_PCPR_LIST_STORAGE_KEY) || "[]"));
+  } catch (error) {
+    console.warn(error);
+    localStorage.removeItem(PRICING_PCPR_LIST_STORAGE_KEY);
+    return [];
+  }
+}
+
+function saveLocalPricingPcprList() {
+  pricingPcprList = normalizePricingPcprList(pricingPcprList);
+  localStorage.setItem(PRICING_PCPR_LIST_STORAGE_KEY, JSON.stringify(pricingPcprList));
+}
+
+function mergePricingPcprList(...listSets) {
+  return normalizePricingPcprList(listSets.flat());
+}
+
+async function loadSupabasePricingPcprList() {
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return null;
+
+  try {
+    const sharedList = await loadSupabaseTable(SUPABASE_PCPR_LIST_TABLE, normalizePricingPcprList);
+    pricingPcprListSupabaseAvailable = true;
+    pricingPcprList = mergePricingPcprList(sharedList, pricingPcprList);
+    saveLocalPricingPcprList();
+    renderPricingPcprList();
+    return pricingPcprList;
+  } catch (error) {
+    console.warn("Lista PCPR działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (isMissingSupabaseTableError(error)) pricingPcprListSupabaseAvailable = false;
+    renderPricingPcprList();
+    return null;
+  }
+}
+
+async function persistPricingPcprItem(entry, { silent = false } = {}) {
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return;
+
+  try {
+    const { error } = await supabaseClient.from(SUPABASE_PCPR_LIST_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
+    if (error) throw error;
+    pricingPcprListSupabaseAvailable = true;
+  } catch (error) {
+    if (isMissingSupabaseTableError(error)) {
+      pricingPcprListSupabaseAvailable = false;
+      console.warn("PCPR zapisany lokalnie. Brakuje tabeli Supabase:", error.message);
+      if (!silent) alert("PCPR zapisany lokalnie. Żeby lista była wspólna dla użytkowników, uruchom w Supabase aktualny plik supabase-schema.sql.");
+      return;
+    }
+    console.warn("PCPR zapisany lokalnie, bez synchronizacji Supabase:", error.message);
+    if (!silent) alert("PCPR zapisany lokalnie. Supabase nie przyjął wpisu, sprawdź połączenie.");
+  }
+}
+
+function selectedPcprEar() {
+  return normalizePricingPcprEar([...pcprEarInputs].find((input) => input.checked)?.value);
+}
+
+function setPcprEar(value) {
+  const ear = normalizePricingPcprEar(value);
+  pcprEarInputs.forEach((input) => {
+    input.checked = Boolean(ear && input.value === ear);
+  });
+}
+
+function syncPcprModelFromPricing() {
+  if (!pcprModelInput) return;
+  const record = findPricingOfferRecord(pcprModelInput.value);
+  if (record) pcprModelInput.value = pricingOfferDeviceName(record);
+}
+
+function currentPricingPcprItemSnapshot() {
+  syncPcprModelFromPricing();
+  const now = new Date().toISOString();
+  return {
+    id: makeId(),
+    createdAt: now,
+    savedAt: now,
+    savedBy: currentSupabaseUser?.email || "",
+    workstation: currentWorkstationName(),
+    done: pcprDoneInput?.checked ? "1" : "",
+    customer: titleCaseName(pcprCustomerInput?.value || ""),
+    phone: normalizeLoanHistoryText(pcprPhoneInput?.value),
+    address: normalizeLoanHistoryText(pcprAddressInput?.value),
+    model: normalizeLoanHistoryText(pcprModelInput?.value),
+    ear: selectedPcprEar()
+  };
+}
+
+function resetPricingPcprForm() {
+  [pcprCustomerInput, pcprPhoneInput, pcprAddressInput, pcprModelInput].forEach((input) => {
+    if (input) input.value = "";
+  });
+  if (pcprDoneInput) pcprDoneInput.checked = false;
+  setPcprEar("");
+}
+
+function addPricingPcprItem(event) {
+  event?.preventDefault();
+  const entry = normalizePricingPcprItem(currentPricingPcprItemSnapshot());
+  if (!entry?.customer) {
+    alert("Wpisz imię i nazwisko do listy PCPR.");
+    pcprCustomerInput?.focus();
+    return;
+  }
+
+  pricingPcprList = [
+    entry,
+    ...pricingPcprList.filter((item) => item.id !== entry.id)
+  ].slice(0, MAX_PRICING_PCPR_LIST);
+  saveLocalPricingPcprList();
+  renderPricingPcprList();
+  persistPricingPcprItem(entry);
+  resetPricingPcprForm();
+  pcprCustomerInput?.focus();
+}
+
+function togglePricingPcprDone(id, checked) {
+  const currentEntry = pricingPcprList.find((entry) => entry.id === id);
+  if (!currentEntry) return;
+  const updatedEntry = normalizePricingPcprItem({
+    ...currentEntry,
+    done: checked ? "1" : "",
+    savedAt: new Date().toISOString(),
+    savedBy: currentSupabaseUser?.email || currentEntry.savedBy,
+    workstation: currentWorkstationName() || currentEntry.workstation
+  });
+  if (!updatedEntry) return;
+  pricingPcprList = pricingPcprList.map((entry) => (entry.id === id ? updatedEntry : entry));
+  saveLocalPricingPcprList();
+  renderPricingPcprList();
+  persistPricingPcprItem(updatedEntry, { silent: true });
+}
+
+function pricingPcprListCountLabel(count) {
+  if (count === 1) return "1 pozycja";
+  if (count > 1 && count < 5) return `${count} pozycje`;
+  return `${count} pozycji`;
+}
+
+function createPricingPcprItem(entry) {
+  const item = document.createElement("article");
+  item.className = "pcpr-item";
+  if (entry.done) item.classList.add("done");
+  if (entry.ear) item.dataset.ear = entry.ear;
+
+  const content = document.createElement("div");
+  content.className = "pcpr-item-content";
+
+  const nameLine = document.createElement("label");
+  nameLine.className = "pcpr-item-name";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = Boolean(entry.done);
+  checkbox.addEventListener("change", () => togglePricingPcprDone(entry.id, checkbox.checked));
+  const name = document.createElement("strong");
+  name.textContent = entry.customer || "Bez nazwiska";
+  nameLine.append(checkbox, name);
+
+  const details = document.createElement("span");
+  details.className = "pcpr-item-details";
+  details.textContent = [
+    entry.phone,
+    entry.address,
+    entry.model ? `wstępny model: ${entry.model}` : ""
+  ].filter(Boolean).join(" | ");
+
+  const meta = document.createElement("small");
+  const savedAt = formatAuditDateTime(entry.savedAt);
+  meta.textContent = [savedAt ? `zapis: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
+  content.append(nameLine);
+  if (details.textContent) content.append(details);
+  if (meta.textContent) content.append(meta);
+
+  const ear = document.createElement("span");
+  ear.className = `pcpr-ear-badge pcpr-ear-${entry.ear || "none"}`;
+  ear.textContent = entry.ear || "-";
+  ear.title = pricingPcprEarLabel(entry.ear) || "Brak strony";
+
+  item.append(content, ear);
+  return item;
+}
+
+function renderPricingPcprList() {
+  if (!pcprList || !pcprListCount) return;
+  const list = normalizePricingPcprList(pricingPcprList);
+  pcprListCount.textContent = pricingPcprListCountLabel(list.length);
+  if (!list.length) {
+    const empty = document.createElement("p");
+    empty.className = "loan-history-empty";
+    empty.textContent = "Brak pozycji PCPR.";
+    pcprList.replaceChildren(empty);
+    return;
+  }
+
+  pcprList.replaceChildren(...list.map(createPricingPcprItem));
 }
 
 function pricingOrderTypeLabel(value) {
@@ -9748,14 +10037,14 @@ function updateStats() {
   }
 
   if (activeNotebook === "agreements") {
-    document.querySelector("#countAll").textContent = "4";
+    document.querySelector("#countAll").textContent = "5";
     document.querySelector("#countSold").textContent = pricingOfferHistory.length;
     document.querySelector("#countInvoice").textContent = pricingLoanHistory.length;
-    document.querySelector("#countStock").textContent = pricingOrderHistory.length;
+    document.querySelector("#countStock").textContent = pricingPcprList.length;
     countAllLabel.textContent = "druki";
     countSoldLabel.textContent = "oferty";
     countInvoiceLabel.textContent = "umowy";
-    countStockLabel.textContent = "zamówienia";
+    countStockLabel.textContent = "PCPR";
     return;
   }
 
@@ -12495,6 +12784,15 @@ pricingManufacturerFilter?.addEventListener("change", renderPricingRecords);
 pricingViewButtons.forEach((button) => {
   button.addEventListener("click", () => switchPricingView(button.dataset.pricingView));
 });
+pcprForm?.addEventListener("submit", addPricingPcprItem);
+pcprCustomerInput?.addEventListener("input", (event) => {
+  event.target.value = titleCaseNameInput(event.target.value);
+});
+pcprCustomerInput?.addEventListener("blur", (event) => {
+  event.target.value = titleCaseName(event.target.value);
+});
+pcprModelInput?.addEventListener("change", syncPcprModelFromPricing);
+pcprModelInput?.addEventListener("blur", syncPcprModelFromPricing);
 [offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);

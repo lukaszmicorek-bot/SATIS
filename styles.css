@@ -815,6 +815,7 @@ h2 {
 }
 
 .pricing-offer-section,
+.pricing-pcpr-section,
 .pricing-order-section,
 .pricing-complaint-section {
   display: grid;
@@ -1974,6 +1975,208 @@ h2 {
   color: #6c7b84;
   font-size: 0.8rem;
   font-weight: 760;
+}
+
+.pcpr-form-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(150px, 0.7fr) minmax(240px, 1fr) minmax(260px, 1.2fr) minmax(170px, 0.75fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.pcpr-form-grid > label,
+.pcpr-name-field,
+.pcpr-ear-field {
+  min-width: 0;
+}
+
+.pcpr-name-field,
+.pcpr-ear-field {
+  display: grid;
+  gap: 6px;
+}
+
+.pcpr-name-field > span,
+.pcpr-ear-field > span {
+  color: #003f5a;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.pcpr-name-line {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+input.pcpr-done-input,
+.pcpr-item-name input[type="checkbox"] {
+  width: 17px;
+  min-width: 17px;
+  height: 17px;
+  min-height: 17px;
+  accent-color: #2b8a78;
+}
+
+.pcpr-ear-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pcpr-ear-option {
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d8e2e5;
+  border-radius: 8px;
+  color: #5e7079;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.pcpr-ear-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pcpr-ear-option span {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 950;
+}
+
+.pcpr-ear-option small {
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.pcpr-ear-right span {
+  color: #9c342b;
+  background: #fdecea;
+}
+
+.pcpr-ear-left span {
+  color: #1f6372;
+  background: #e7f4f7;
+}
+
+.pcpr-ear-option:has(input:checked) {
+  color: #203a45;
+  background: #f7fbfb;
+}
+
+.pcpr-ear-right:has(input:checked) {
+  border-color: #e1a39b;
+  background: #fff5f3;
+}
+
+.pcpr-ear-left:has(input:checked) {
+  border-color: #9fc9d5;
+  background: #f0f8fa;
+}
+
+.pcpr-list-panel {
+  margin-top: 0;
+}
+
+.pcpr-list {
+  display: grid;
+  gap: 7px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.pcpr-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #dce7e8;
+  border-left: 4px solid #cbd8dc;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pcpr-item[data-ear="P"] {
+  border-left-color: #d9756c;
+}
+
+.pcpr-item[data-ear="L"] {
+  border-left-color: #6ea8b6;
+}
+
+.pcpr-item.done {
+  opacity: 0.68;
+  background: #f5f7f7;
+}
+
+.pcpr-item-content {
+  min-width: 0;
+}
+
+.pcpr-item-name {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcpr-item-name strong {
+  color: #003f5a;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.pcpr-item-details,
+.pcpr-item-content small {
+  display: block;
+  margin-top: 3px;
+}
+
+.pcpr-item-details {
+  color: #2f454f;
+  font-size: 0.76rem;
+  font-weight: 790;
+}
+
+.pcpr-item-content small {
+  color: #6c7b84;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.pcpr-ear-badge {
+  justify-self: end;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #667883;
+  background: #eef3f4;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.pcpr-ear-P {
+  color: #9c342b;
+  background: #fdecea;
+}
+
+.pcpr-ear-L {
+  color: #1f6372;
+  background: #e7f4f7;
 }
 
 .controls {
@@ -5012,6 +5215,7 @@ textarea {
   }
 
   .loan-form-grid,
+  .pcpr-form-grid,
   .order-form-grid,
   .complaint-form-grid,
   .complaint-product-grid,
@@ -5059,6 +5263,9 @@ textarea {
   }
 
   .loan-wide,
+  .pcpr-name-field,
+  .pcpr-model-field,
+  .pcpr-ear-field,
   .complaint-wide,
   .complaint-full,
   .complaint-product-wide,
@@ -5154,6 +5361,7 @@ textarea {
     .stock-audit-panel,
   .offer-form-grid,
     .loan-form-grid,
+    .pcpr-form-grid,
     .order-form-grid,
     .complaint-form-grid,
   .complaint-product-grid,
@@ -5180,7 +5388,10 @@ textarea {
   .offer-location-field,
   .offer-option-field,
   .offer-pfron-field,
-  .offer-device-field {
+  .offer-device-field,
+  .pcpr-name-field,
+  .pcpr-model-field,
+  .pcpr-ear-field {
     grid-column: auto;
   }
 
