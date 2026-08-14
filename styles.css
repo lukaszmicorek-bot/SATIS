@@ -2335,6 +2335,11 @@ input.pcpr-done-input,
   background: #e7f4f7;
 }
 
+.pcpr-ear-both span {
+  color: #5f5869;
+  background: #eeeaf5;
+}
+
 .pcpr-ear-option:has(input:checked) {
   color: #203a45;
   background: #f7fbfb;
@@ -2348,6 +2353,11 @@ input.pcpr-done-input,
 .pcpr-ear-left:has(input:checked) {
   border-color: #9fc9d5;
   background: #f0f8fa;
+}
+
+.pcpr-ear-both:has(input:checked) {
+  border-color: #c6bfd6;
+  background: #f5f1fa;
 }
 
 .pcpr-list-panel {
@@ -2506,6 +2516,11 @@ input.pcpr-done-input,
 .pcpr-ear-L {
   color: #1f6372;
   background: #e7f4f7;
+}
+
+.pcpr-ear-B {
+  color: #5f5869;
+  background: #eeeaf5;
 }
 
 .pcpr-edit-btn {

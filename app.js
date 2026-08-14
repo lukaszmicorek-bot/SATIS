@@ -6564,6 +6564,7 @@ function normalizePricingPcprEar(value) {
   const text = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
   if (text === "P" || text.includes("PRAW")) return "P";
   if (text === "L" || text.includes("LEW")) return "L";
+  if (text === "B" || text === "OBA" || text.includes("OBYD")) return "B";
   return "";
 }
 
@@ -6571,6 +6572,7 @@ function pricingPcprEarLabel(value) {
   const ear = normalizePricingPcprEar(value);
   if (ear === "P") return "Prawe";
   if (ear === "L") return "Lewe";
+  if (ear === "B") return "Oba";
   return "";
 }
 
@@ -7083,7 +7085,7 @@ function createPricingPcprItem(entry) {
 
   const ear = document.createElement("span");
   ear.className = `pcpr-ear-badge pcpr-ear-${entry.ear || "none"}`;
-  ear.textContent = entry.ear || "-";
+  ear.textContent = entry.ear === "B" ? "L i P" : (entry.ear || "-");
   ear.title = pricingPcprEarLabel(entry.ear) || "Brak strony";
 
   const actions = document.createElement("div");
