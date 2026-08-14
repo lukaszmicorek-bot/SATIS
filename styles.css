@@ -2051,6 +2051,15 @@ h2 {
   min-width: 0;
 }
 
+.pcpr-office-field {
+  grid-column: span 3;
+  padding: 8px 10px 10px;
+  border: 1.5px solid #d6e2e5;
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
 .pcpr-name-field {
   grid-column: span 3;
 }
@@ -2072,7 +2081,7 @@ h2 {
 }
 
 .pcpr-model-field {
-  grid-column: span 7;
+  grid-column: span 6;
   padding: 8px 10px 10px;
   border: 1.5px solid #78aebc;
   border-radius: 8px;
@@ -2094,11 +2103,40 @@ h2 {
 }
 
 .pcpr-name-field > span,
+.pcpr-office-field > span,
 .pcpr-model-field > span,
 .pcpr-ear-field > span {
   color: #003f5a;
   font-size: 0.82rem;
   font-weight: 900;
+}
+
+.pcpr-office-address {
+  min-height: 1.1em;
+  color: #61727b;
+  font-size: 0.68rem;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+.pcpr-office-field[data-pcpr-office-tone="mops-bielsko-biala"] {
+  border-left-color: #85a77b;
+  background: #f6fbf5;
+}
+
+.pcpr-office-field[data-pcpr-office-tone="pcpr-bielsko-biala"] {
+  border-left-color: #78aebc;
+  background: #f4fafb;
+}
+
+.pcpr-office-field[data-pcpr-office-tone="pcpr-cieszyn"] {
+  border-left-color: #b99bc9;
+  background: #faf6fc;
+}
+
+.pcpr-office-field[data-pcpr-office-tone="pcpr-zywiec"] {
+  border-left-color: #c8a062;
+  background: #fdf8ef;
 }
 
 .pcpr-name-line {
@@ -2214,6 +2252,26 @@ input.pcpr-done-input,
   border-left-color: #6ea8b6;
 }
 
+.pcpr-item[data-office-tone="mops-bielsko-biala"] {
+  border-left-color: #85a77b;
+  background: linear-gradient(90deg, #f4faf2 0, #ffffff 38%);
+}
+
+.pcpr-item[data-office-tone="pcpr-bielsko-biala"] {
+  border-left-color: #78aebc;
+  background: linear-gradient(90deg, #f1f8fa 0, #ffffff 38%);
+}
+
+.pcpr-item[data-office-tone="pcpr-cieszyn"] {
+  border-left-color: #b99bc9;
+  background: linear-gradient(90deg, #faf4fc 0, #ffffff 38%);
+}
+
+.pcpr-item[data-office-tone="pcpr-zywiec"] {
+  border-left-color: #c8a062;
+  background: linear-gradient(90deg, #fdf7ed 0, #ffffff 38%);
+}
+
 .pcpr-item.done {
   opacity: 0.68;
   background: #f5f7f7;
@@ -2221,6 +2279,27 @@ input.pcpr-done-input,
 
 .pcpr-item-content {
   min-width: 0;
+}
+
+.pcpr-item-office {
+  display: grid;
+  gap: 1px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e4ecee;
+}
+
+.pcpr-item-office strong {
+  color: #003f5a;
+  font-size: 0.8rem;
+  font-weight: 940;
+}
+
+.pcpr-item-office small {
+  margin-top: 0;
+  color: #63747d;
+  font-size: 0.68rem;
+  font-weight: 760;
 }
 
 .pcpr-item-name {
@@ -2296,6 +2375,24 @@ input.pcpr-done-input,
   background: #e7f4f7;
 }
 
+.pcpr-edit-btn {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #cbd8de;
+  border-radius: 8px;
+  color: #48616d;
+  background: #f6fafb;
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.pcpr-edit-btn:hover {
+  color: #003f5a;
+  background: #eaf4f6;
+  border-color: #aebfc8;
+  transform: none;
+}
+
 .pcpr-remove-btn {
   min-height: 28px;
   padding: 0 8px;
@@ -2312,6 +2409,24 @@ input.pcpr-done-input,
   background: #f8ece9;
   border-color: #d8aaa1;
   transform: none;
+}
+
+.pcpr-list-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.7fr) minmax(230px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin: 0 0 9px;
+}
+
+.pcpr-list-filters label {
+  min-width: 0;
+}
+
+.pcpr-reset-filters-btn {
+  min-height: 34px;
+  padding: 0 9px;
+  font-size: 0.68rem;
 }
 
 .controls {
@@ -5398,6 +5513,7 @@ textarea {
   }
 
   .loan-wide,
+  .pcpr-office-field,
   .pcpr-name-field,
   .pcpr-phone-field,
   .pcpr-city-field,
@@ -5527,6 +5643,7 @@ textarea {
   .offer-option-field,
   .offer-pfron-field,
   .offer-device-field,
+  .pcpr-office-field,
   .pcpr-name-field,
   .pcpr-phone-field,
   .pcpr-postal-field,
@@ -5535,6 +5652,10 @@ textarea {
   .pcpr-model-field,
   .pcpr-ear-field {
     grid-column: auto;
+  }
+
+  .pcpr-list-filters {
+    grid-template-columns: 1fr;
   }
 
   .loan-device-row {

@@ -76,6 +76,40 @@ const PCPR_POSTAL_CODE_CITY_MAP = {
   "43-300": "Bielsko-Biała",
   "34-300": "Żywiec"
 };
+const PCPR_OFFICES = [
+  {
+    name: "MOPS Bielsko-Biała",
+    tone: "mops-bielsko-biala",
+    postalCode: "43-300",
+    city: "Bielsko-Biała",
+    street: "ul. Karola Miarki 11",
+    phone: "33 499 56 00"
+  },
+  {
+    name: "PCPR Bielsko-Biała",
+    tone: "pcpr-bielsko-biala",
+    postalCode: "43-300",
+    city: "Bielsko-Biała",
+    street: "ul. Piastowska 40",
+    phone: "33 813 69 30"
+  },
+  {
+    name: "PCPR Cieszyn",
+    tone: "pcpr-cieszyn",
+    postalCode: "43-400",
+    city: "Cieszyn",
+    street: "ul. Bobrecka 29",
+    phone: "33 477 71 17"
+  },
+  {
+    name: "PCPR Żywiec",
+    tone: "pcpr-zywiec",
+    postalCode: "34-300",
+    city: "Żywiec",
+    street: "ul. Ks. Prał. St. Słonki 24",
+    phone: "33 861 94 19"
+  }
+];
 const DEFAULT_DOCUMENT_LOCATION = DOCUMENT_LOCATIONS[0].value;
 const DEFAULT_LOAN_CITY = DEFAULT_DOCUMENT_LOCATION;
 const PRICING_ORDER_TYPES = ["APARAT SŁUCHOWY", "WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA"];
@@ -423,6 +457,7 @@ let pricingOrderHistorySupabaseAvailable = null;
 let pricingComplaintHistorySupabaseAvailable = null;
 let pricingPcprListSupabaseAvailable = null;
 let activePricingLoanHistoryId = "";
+let activePricingPcprEditId = "";
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
 let sortState = { key: "receivedDate", direction: "desc" };
@@ -534,6 +569,8 @@ const loanEquipmentBody = document.querySelector("#loanEquipmentBody");
 const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanHistoryList = document.querySelector("#loanHistoryList");
 const pcprForm = document.querySelector("#pcprForm");
+const pcprOfficeInput = document.querySelector("#pcprOfficeInput");
+const pcprOfficeAddressHint = document.querySelector("#pcprOfficeAddressHint");
 const pcprDoneInput = document.querySelector("#pcprDoneInput");
 const pcprCustomerInput = document.querySelector("#pcprCustomerInput");
 const pcprPhoneInput = document.querySelector("#pcprPhoneInput");
@@ -542,8 +579,13 @@ const pcprCityInput = document.querySelector("#pcprCityInput");
 const pcprStreetInput = document.querySelector("#pcprStreetInput");
 const pcprModelInput = document.querySelector("#pcprModelInput");
 const pcprEarInputs = document.querySelectorAll("input[name='pcprEar']");
+const savePcprBtn = document.querySelector("#savePcprBtn");
+const cancelPcprEditBtn = document.querySelector("#cancelPcprEditBtn");
 const pcprListCount = document.querySelector("#pcprListCount");
 const pcprList = document.querySelector("#pcprList");
+const pcprPlaceFilter = document.querySelector("#pcprPlaceFilter");
+const pcprOfficeFilter = document.querySelector("#pcprOfficeFilter");
+const resetPcprFiltersBtn = document.querySelector("#resetPcprFiltersBtn");
 const orderNumberInput = document.querySelector("#orderNumberInput");
 const orderDateInput = document.querySelector("#orderDateInput");
 const orderCustomerInput = document.querySelector("#orderCustomerInput");
@@ -6659,6 +6701,41 @@ function pricingPcprEarLabel(value) {
   return "";
 }
 
+function pcprOfficeRecord(value) {
+  const key = normalize(value).trim();
+  if (!key) return null;
+  return PCPR_OFFICES.find((office) => normalize(office.name).trim() === key) || null;
+}
+
+function normalizePricingPcprOffice(value) {
+  return pcprOfficeRecord(value)?.name || "";
+}
+
+function pricingPcprOfficeTone(value) {
+  return pcprOfficeRecord(value)?.tone || "none";
+}
+
+function pcprOfficeAddressLabel(value) {
+  const office = pcprOfficeRecord(value);
+  if (!office) return "";
+  return `${office.postalCode} ${office.city}, ${office.street}`;
+}
+
+function pcprOfficeContactLabel(value) {
+  const office = pcprOfficeRecord(value);
+  if (!office) return "";
+  return [pcprOfficeAddressLabel(office.name), office.phone ? `tel. ${office.phone}` : ""].filter(Boolean).join(" | ");
+}
+
+function updatePcprOfficeHint() {
+  const office = normalizePricingPcprOffice(pcprOfficeInput?.value);
+  const tone = pricingPcprOfficeTone(office);
+  const field = pcprOfficeInput?.closest(".pcpr-office-field");
+  if (field) field.dataset.pcprOfficeTone = tone;
+  if (!pcprOfficeAddressHint) return;
+  pcprOfficeAddressHint.textContent = pcprOfficeContactLabel(office);
+}
+
 function pcprDigitGroups(digits, groups) {
   const parts = [];
   let offset = 0;
@@ -6696,6 +6773,29 @@ function normalizePcprCity(value) {
   return titleCaseName(normalizeLoanHistoryText(value));
 }
 
+function normalizePcprStreet(value) {
+  let text = normalizeLoanHistoryText(value)
+    .replace(/\s*[–—]\s*/gu, " - ")
+    .replace(/\s*-\s*/gu, " - ")
+    .replace(/([^\d\s-])(?=\d)/gu, "$1 - ");
+  if (!text) return "";
+
+  const dashParts = text.split(/\s+-\s+/u).filter(Boolean);
+  if (dashParts.length > 1) {
+    const street = titleCaseName(dashParts.shift());
+    const number = dashParts.join(" - ").toLocaleUpperCase("pl-PL");
+    return [street, number].filter(Boolean).join(" - ");
+  }
+
+  const match = text.match(/^(.+?)\s+(\d[\d\p{L}/ -]*)$/u);
+  if (match) {
+    return `${titleCaseName(match[1])} - ${normalizeLoanHistoryText(match[2]).toLocaleUpperCase("pl-PL")}`;
+  }
+
+  text = titleCaseName(text);
+  return text;
+}
+
 function parsePcprAddress(value) {
   const text = normalizeLoanHistoryText(value);
   const parsed = { postalCode: "", city: "", street: "" };
@@ -6705,18 +6805,18 @@ function parsePcprAddress(value) {
   if (postalMatch) {
     parsed.postalCode = `${postalMatch[1]}-${postalMatch[2]}`;
     parsed.city = normalizePcprCity(postalMatch[3]);
-    parsed.street = normalizeLoanHistoryText(postalMatch[4]);
+    parsed.street = normalizePcprStreet(postalMatch[4]);
     return parsed;
   }
 
   const knownCity = ["Bielsko-Biała", "Żywiec"].find((city) => normalize(text).startsWith(normalize(city)));
   if (knownCity) {
     parsed.city = knownCity;
-    parsed.street = normalizeLoanHistoryText(text.slice(knownCity.length).replace(/^,\s*/u, ""));
+    parsed.street = normalizePcprStreet(text.slice(knownCity.length).replace(/^,\s*/u, ""));
     return parsed;
   }
 
-  parsed.street = text;
+  parsed.street = normalizePcprStreet(text);
   return parsed;
 }
 
@@ -6759,7 +6859,7 @@ function normalizePricingPcprItem(item) {
   const parsedAddress = parsePcprAddress(item.address);
   const postalCode = formatPcprPostalCode(item.postalCode || item.zipCode || parsedAddress.postalCode);
   const city = normalizePcprCity(item.city || parsedAddress.city || pcprCityForPostalCode(postalCode));
-  const street = normalizeLoanHistoryText(item.street || parsedAddress.street);
+  const street = normalizePcprStreet(item.street || parsedAddress.street);
   const normalizedItem = {
     id: normalizeLoanHistoryText(item.id || makeId()),
     createdAt: normalizeLoanHistoryText(item.createdAt || savedAt),
@@ -6767,6 +6867,7 @@ function normalizePricingPcprItem(item) {
     savedBy: normalizeLoanHistoryText(item.savedBy || item.userEmail),
     workstation: normalizeLoanHistoryText(item.workstation),
     done: normalizeBooleanFlag(item.done || item.checked || item.completed),
+    office: normalizePricingPcprOffice(item.office || item.pcpr || item.institution),
     customer: titleCaseName(item.customer || item.customerName || ""),
     phone: formatPcprPhone(item.phone),
     postalCode,
@@ -6777,7 +6878,7 @@ function normalizePricingPcprItem(item) {
   };
   normalizedItem.address = pcprAddressLabel(normalizedItem);
 
-  return normalizedItem.customer || normalizedItem.phone || normalizedItem.address || normalizedItem.model
+  return normalizedItem.office || normalizedItem.customer || normalizedItem.phone || normalizedItem.address || normalizedItem.model
     ? normalizedItem
     : null;
 }
@@ -6875,16 +6976,18 @@ function currentPricingPcprItemSnapshot() {
   syncPcprModelFromPricing();
   syncPcprCityFromPostalCode({ force: false });
   const now = new Date().toISOString();
+  const existingEntry = activePricingPcprEditId ? pricingPcprList.find((entry) => entry.id === activePricingPcprEditId) : null;
   const postalCode = formatPcprPostalCode(pcprPostalCodeInput?.value);
   const city = normalizePcprCity(pcprCityInput?.value);
-  const street = normalizeLoanHistoryText(pcprStreetInput?.value);
+  const street = normalizePcprStreet(pcprStreetInput?.value);
   return {
-    id: makeId(),
-    createdAt: now,
+    id: existingEntry?.id || makeId(),
+    createdAt: existingEntry?.createdAt || now,
     savedAt: now,
     savedBy: currentSupabaseUser?.email || "",
     workstation: currentWorkstationName(),
     done: pcprDoneInput?.checked ? "1" : "",
+    office: normalizePricingPcprOffice(pcprOfficeInput?.value),
     customer: titleCaseName(pcprCustomerInput?.value || ""),
     phone: formatPcprPhone(pcprPhoneInput?.value),
     postalCode,
@@ -6896,13 +6999,48 @@ function currentPricingPcprItemSnapshot() {
   };
 }
 
+function setPcprOffice(value) {
+  if (pcprOfficeInput) pcprOfficeInput.value = normalizePricingPcprOffice(value);
+  updatePcprOfficeHint();
+}
+
+function updatePcprFormMode() {
+  if (savePcprBtn) savePcprBtn.textContent = activePricingPcprEditId ? "Zapisz" : "Dodaj";
+  if (cancelPcprEditBtn) cancelPcprEditBtn.hidden = !activePricingPcprEditId;
+  pcprForm?.classList.toggle("editing", Boolean(activePricingPcprEditId));
+}
+
 function resetPricingPcprForm() {
-  [pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput].forEach((input) => {
+  [pcprOfficeInput, pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput].forEach((input) => {
     if (input) input.value = "";
   });
+  activePricingPcprEditId = "";
   if (pcprCityInput) pcprCityInput.dataset.autoCity = "";
   if (pcprDoneInput) pcprDoneInput.checked = false;
   setPcprEar("");
+  updatePcprOfficeHint();
+  updatePcprFormMode();
+}
+
+function editPricingPcprItem(id) {
+  const entry = normalizePricingPcprItem(pricingPcprList.find((item) => item.id === id));
+  if (!entry) return;
+  activePricingPcprEditId = entry.id;
+  setPcprOffice(entry.office);
+  if (pcprDoneInput) pcprDoneInput.checked = Boolean(entry.done);
+  if (pcprCustomerInput) pcprCustomerInput.value = entry.customer || "";
+  if (pcprPhoneInput) pcprPhoneInput.value = entry.phone || "";
+  if (pcprPostalCodeInput) pcprPostalCodeInput.value = entry.postalCode || "";
+  if (pcprCityInput) {
+    pcprCityInput.value = entry.city || "";
+    pcprCityInput.dataset.autoCity = "";
+  }
+  if (pcprStreetInput) pcprStreetInput.value = entry.street || "";
+  if (pcprModelInput) pcprModelInput.value = entry.model || "";
+  setPcprEar(entry.ear);
+  updatePcprFormMode();
+  pcprForm?.scrollIntoView({ block: "start", behavior: "smooth" });
+  pcprCustomerInput?.focus();
 }
 
 function addPricingPcprItem(event) {
@@ -6981,9 +7119,22 @@ function createPricingPcprItem(entry) {
   item.className = "pcpr-item";
   if (entry.done) item.classList.add("done");
   if (entry.ear) item.dataset.ear = entry.ear;
+  item.dataset.officeTone = pricingPcprOfficeTone(entry.office);
 
   const content = document.createElement("div");
   content.className = "pcpr-item-content";
+
+  if (entry.office) {
+    const office = document.createElement("div");
+    office.className = "pcpr-item-office";
+    const officeName = document.createElement("strong");
+    officeName.textContent = entry.office;
+    const officeAddress = document.createElement("small");
+    officeAddress.textContent = pcprOfficeContactLabel(entry.office);
+    office.append(officeName);
+    if (officeAddress.textContent) office.append(officeAddress);
+    content.append(office);
+  }
 
   const nameLine = document.createElement("label");
   nameLine.className = "pcpr-item-name";
@@ -7023,6 +7174,13 @@ function createPricingPcprItem(entry) {
   actions.className = "pcpr-item-actions";
   actions.append(ear);
 
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "pcpr-edit-btn";
+  editButton.textContent = "Edytuj";
+  editButton.addEventListener("click", () => editPricingPcprItem(entry.id));
+  actions.append(editButton);
+
   if (canManagePricingPcprList()) {
     const removeButton = document.createElement("button");
     removeButton.type = "button";
@@ -7036,14 +7194,33 @@ function createPricingPcprItem(entry) {
   return item;
 }
 
+function filteredPricingPcprList(list) {
+  const placeFilter = normalizePcprCity(pcprPlaceFilter?.value);
+  const officeFilter = normalizePricingPcprOffice(pcprOfficeFilter?.value);
+  return list.filter((entry) => {
+    const placeMatches = !placeFilter || normalize(entry.city) === normalize(placeFilter);
+    const officeMatches = !officeFilter || entry.office === officeFilter;
+    return placeMatches && officeMatches;
+  });
+}
+
+function resetPricingPcprFilters() {
+  if (pcprPlaceFilter) pcprPlaceFilter.value = "";
+  if (pcprOfficeFilter) pcprOfficeFilter.value = "";
+  renderPricingPcprList();
+}
+
 function renderPricingPcprList() {
   if (!pcprList || !pcprListCount) return;
-  const list = normalizePricingPcprList(pricingPcprList);
-  pcprListCount.textContent = pricingPcprListCountLabel(list.length);
+  const allItems = normalizePricingPcprList(pricingPcprList);
+  const list = filteredPricingPcprList(allItems);
+  pcprListCount.textContent = list.length === allItems.length
+    ? pricingPcprListCountLabel(list.length)
+    : `${pricingPcprListCountLabel(list.length)} z ${allItems.length}`;
   if (!list.length) {
     const empty = document.createElement("p");
     empty.className = "loan-history-empty";
-    empty.textContent = "Brak pozycji PCPR.";
+    empty.textContent = allItems.length ? "Brak pozycji PCPR dla wybranych filtrów." : "Brak pozycji PCPR.";
     pcprList.replaceChildren(empty);
     return;
   }
@@ -13131,6 +13308,8 @@ pcprCustomerInput?.addEventListener("input", (event) => {
 pcprCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
 });
+pcprOfficeInput?.addEventListener("change", updatePcprOfficeHint);
+cancelPcprEditBtn?.addEventListener("click", resetPricingPcprForm);
 pcprPhoneInput?.addEventListener("input", (event) => {
   event.target.value = formatPcprPhone(event.target.value);
 });
@@ -13146,10 +13325,15 @@ pcprCityInput?.addEventListener("blur", (event) => {
   event.target.value = normalizePcprCity(event.target.value);
 });
 pcprStreetInput?.addEventListener("blur", (event) => {
-  event.target.value = normalizeLoanHistoryText(event.target.value);
+  event.target.value = normalizePcprStreet(event.target.value);
 });
 pcprModelInput?.addEventListener("change", syncPcprModelFromPricing);
 pcprModelInput?.addEventListener("blur", syncPcprModelFromPricing);
+pcprPlaceFilter?.addEventListener("change", renderPricingPcprList);
+pcprOfficeFilter?.addEventListener("change", renderPricingPcprList);
+resetPcprFiltersBtn?.addEventListener("click", resetPricingPcprFilters);
+updatePcprOfficeHint();
+updatePcprFormMode();
 [offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);

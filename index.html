@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-13">
+    <link rel="stylesheet" href="styles.css?v=20260814-15">
   </head>
   <body>
     <main class="app-shell">
@@ -966,6 +966,17 @@
           <section id="pricingPcprView" class="pricing-view-section pricing-pcpr-section" hidden>
             <section class="offer-builder pcpr-builder" aria-label="Lista PCPR">
               <form id="pcprForm" class="pcpr-form-grid">
+                <label class="pcpr-office-field" data-pcpr-office-tone="none">
+                  <span>PCPR / MOPS</span>
+                  <select id="pcprOfficeInput">
+                    <option value="">Wybierz</option>
+                    <option value="MOPS Bielsko-Biała">MOPS Bielsko-Biała</option>
+                    <option value="PCPR Bielsko-Biała">PCPR Bielsko-Biała</option>
+                    <option value="PCPR Cieszyn">PCPR Cieszyn</option>
+                    <option value="PCPR Żywiec">PCPR Żywiec</option>
+                  </select>
+                  <small id="pcprOfficeAddressHint" class="pcpr-office-address"></small>
+                </label>
                 <div class="pcpr-name-field person-name-field">
                   <span>Imię i nazwisko</span>
                   <div class="pcpr-name-line">
@@ -1009,6 +1020,7 @@
                   </div>
                 </div>
                 <button id="savePcprBtn" type="submit">Dodaj</button>
+                <button id="cancelPcprEditBtn" class="reset-filters-btn pcpr-cancel-edit-btn" type="button" hidden>Anuluj</button>
               </form>
             </section>
 
@@ -1016,6 +1028,28 @@
               <div class="loan-history-head">
                 <h3>Lista PCPR</h3>
                 <span id="pcprListCount">0 pozycji</span>
+              </div>
+              <div class="pcpr-list-filters">
+                <label>
+                  <span>Miejsce</span>
+                  <select id="pcprPlaceFilter">
+                    <option value="">Wszystkie</option>
+                    <option value="Bielsko-Biała">Bielsko-Biała</option>
+                    <option value="Cieszyn">Cieszyn</option>
+                    <option value="Żywiec">Żywiec</option>
+                  </select>
+                </label>
+                <label>
+                  <span>PCPR / MOPS</span>
+                  <select id="pcprOfficeFilter">
+                    <option value="">Wszystkie</option>
+                    <option value="MOPS Bielsko-Biała">MOPS Bielsko-Biała</option>
+                    <option value="PCPR Bielsko-Biała">PCPR Bielsko-Biała</option>
+                    <option value="PCPR Cieszyn">PCPR Cieszyn</option>
+                    <option value="PCPR Żywiec">PCPR Żywiec</option>
+                  </select>
+                </label>
+                <button id="resetPcprFiltersBtn" class="reset-filters-btn pcpr-reset-filters-btn" type="button">Reset</button>
               </div>
               <div id="pcprList" class="pcpr-list"></div>
             </section>
@@ -1799,6 +1833,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260814-10"></script>
+    <script src="app.js?v=20260814-12"></script>
   </body>
 </html>
