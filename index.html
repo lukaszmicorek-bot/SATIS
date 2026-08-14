@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-08">
+    <link rel="stylesheet" href="styles.css?v=20260814-09">
   </head>
   <body>
     <main class="app-shell">
@@ -758,49 +758,45 @@
                 </label>
 
                 <p class="loan-form-title loan-full">Aparat słuchowy</p>
-                <p class="loan-side-title loan-full">Aparat prawy</p>
-                <label class="loan-wide">
-                  <span>Prawe - model</span>
-                  <input id="loanRightDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
-                </label>
-                <label>
-                  <span>Prawe - nr seryjny / UDI</span>
-                  <input id="loanRightSerialInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Prawe - producent</span>
-                  <input id="loanRightManufacturerInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Prawe - rok</span>
-                  <input id="loanRightYearInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Prawe - wartość brutto</span>
-                  <input id="loanRightValueInput" type="text" inputmode="decimal" autocomplete="off">
-                </label>
+                <div class="loan-device-row loan-full">
+                  <span class="loan-side-badge">P</span>
+                  <label class="loan-device-model-field">
+                    <span>Model</span>
+                    <input id="loanRightDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Nr seryjny / UDI</span>
+                    <input id="loanRightSerialInput" type="text" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Producent</span>
+                    <input id="loanRightManufacturerInput" type="text" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Wartość brutto</span>
+                    <input id="loanRightValueInput" type="text" inputmode="decimal" autocomplete="off">
+                  </label>
+                </div>
 
-                <p class="loan-side-title loan-full">Aparat lewy</p>
-                <label class="loan-wide">
-                  <span>Lewe - model</span>
-                  <input id="loanLeftDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
-                </label>
-                <label>
-                  <span>Lewe - nr seryjny / UDI</span>
-                  <input id="loanLeftSerialInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Lewe - producent</span>
-                  <input id="loanLeftManufacturerInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Lewe - rok</span>
-                  <input id="loanLeftYearInput" type="text" autocomplete="off">
-                </label>
-                <label>
-                  <span>Lewe - wartość brutto</span>
-                  <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
-                </label>
+                <div class="loan-device-row loan-full">
+                  <span class="loan-side-badge">L</span>
+                  <label class="loan-device-model-field">
+                    <span>Model</span>
+                    <input id="loanLeftDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Nr seryjny / UDI</span>
+                    <input id="loanLeftSerialInput" type="text" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Producent</span>
+                    <input id="loanLeftManufacturerInput" type="text" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Wartość brutto</span>
+                    <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
+                  </label>
+                </div>
 
                 <p class="loan-form-title loan-full">Ładowarka</p>
                 <label>
@@ -1740,6 +1736,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260814-05"></script>
+    <script src="app.js?v=20260814-06"></script>
   </body>
 </html>

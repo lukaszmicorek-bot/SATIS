@@ -364,12 +364,10 @@ const loanPhoneInput = document.querySelector("#loanPhoneInput");
 const loanRightDeviceInput = document.querySelector("#loanRightDeviceInput");
 const loanRightSerialInput = document.querySelector("#loanRightSerialInput");
 const loanRightManufacturerInput = document.querySelector("#loanRightManufacturerInput");
-const loanRightYearInput = document.querySelector("#loanRightYearInput");
 const loanRightValueInput = document.querySelector("#loanRightValueInput");
 const loanLeftDeviceInput = document.querySelector("#loanLeftDeviceInput");
 const loanLeftSerialInput = document.querySelector("#loanLeftSerialInput");
 const loanLeftManufacturerInput = document.querySelector("#loanLeftManufacturerInput");
-const loanLeftYearInput = document.querySelector("#loanLeftYearInput");
 const loanLeftValueInput = document.querySelector("#loanLeftValueInput");
 const loanChargerInput = document.querySelector("#loanChargerInput");
 const loanChargerSerialInput = document.querySelector("#loanChargerSerialInput");
@@ -5967,12 +5965,10 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanRightDeviceInput, historyEntry.rightDevice.model);
   setLoanSnapshotInput(loanRightSerialInput, historyEntry.rightDevice.serial, { upper: true });
   setLoanSnapshotInput(loanRightManufacturerInput, historyEntry.rightDevice.manufacturer);
-  setLoanSnapshotInput(loanRightYearInput, historyEntry.rightDevice.year);
   setLoanSnapshotInput(loanRightValueInput, historyEntry.rightDevice.value);
   setLoanSnapshotInput(loanLeftDeviceInput, historyEntry.leftDevice.model);
   setLoanSnapshotInput(loanLeftSerialInput, historyEntry.leftDevice.serial, { upper: true });
   setLoanSnapshotInput(loanLeftManufacturerInput, historyEntry.leftDevice.manufacturer);
-  setLoanSnapshotInput(loanLeftYearInput, historyEntry.leftDevice.year);
   setLoanSnapshotInput(loanLeftValueInput, historyEntry.leftDevice.value);
   setLoanSnapshotInput(loanChargerInput, historyEntry.charger);
   setLoanSnapshotInput(loanChargerSerialInput, historyEntry.chargerSerial, { upper: true });
@@ -6123,16 +6119,19 @@ function loanDeviceInputs(side) {
         device: loanRightDeviceInput,
         serial: loanRightSerialInput,
         manufacturer: loanRightManufacturerInput,
-        year: loanRightYearInput,
         value: loanRightValueInput
       }
     : {
         device: loanLeftDeviceInput,
         serial: loanLeftSerialInput,
         manufacturer: loanLeftManufacturerInput,
-        year: loanLeftYearInput,
         value: loanLeftValueInput
       };
+}
+
+function loanAgreementYear() {
+  const isoDate = isoDateForSave(loanDateInput?.value) || todayInputValue();
+  return isoDate ? isoDate.slice(0, 4) : "";
 }
 
 function loanDeviceData(side) {
@@ -6143,13 +6142,13 @@ function loanDeviceData(side) {
     model: record ? pricingOfferDeviceName(record) : loanInputValue(inputs.device),
     serial: loanInputValue(inputs.serial).toLocaleUpperCase("pl-PL"),
     manufacturer: loanInputValue(inputs.manufacturer) || record?.manufacturer || "",
-    year: loanInputValue(inputs.year),
+    year: loanAgreementYear(),
     value: loanInputValue(inputs.value) || record?.grossPrice || ""
   };
 }
 
 function hasLoanDeviceData(device) {
-  return Boolean(device.model || device.serial || device.manufacturer || device.year || device.value);
+  return Boolean(device.model || device.serial || device.manufacturer || device.value);
 }
 
 function fillLoanDeviceFromRecord(side, record, overwrite = false) {
@@ -6178,7 +6177,6 @@ function duplicateLoanRightDeviceToLeft() {
 
   leftInputs.device.value = rightDeviceValue;
   leftInputs.manufacturer.value = loanInputValue(rightInputs.manufacturer);
-  leftInputs.year.value = loanInputValue(rightInputs.year);
   leftInputs.value.value = loanInputValue(rightInputs.value);
   autofillLoanDeviceFromInput("left", false);
   renderPricingLoan();
@@ -12406,12 +12404,10 @@ loanContractNumberInput?.addEventListener("input", () => {
   loanRightDeviceInput,
   loanRightSerialInput,
   loanRightManufacturerInput,
-  loanRightYearInput,
   loanRightValueInput,
   loanLeftDeviceInput,
   loanLeftSerialInput,
   loanLeftManufacturerInput,
-  loanLeftYearInput,
   loanLeftValueInput,
   loanChargerInput,
   loanChargerSerialInput,
