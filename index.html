@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260813-33">
+    <link rel="stylesheet" href="styles.css?v=20260814-01">
   </head>
   <body>
     <main class="app-shell">
@@ -1117,19 +1117,21 @@
                 </label>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
                   <div class="complaint-product-head">
-                    <strong>Pozycja 1</strong>
+                    <div class="complaint-product-title">
+                      <strong>Pozycja 1</strong>
+                      <label class="complaint-product-type-field">
+                        <span>Produkt</span>
+                        <select id="complaintProductTypeInput">
+                          <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                          <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                          <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                          <option value="INNE">Inne</option>
+                        </select>
+                      </label>
+                    </div>
                     <button id="removeComplaintItemBtn1" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 1">×</button>
                   </div>
                   <div class="complaint-product-grid">
-                    <label>
-                      <span>Produkt</span>
-                      <select id="complaintProductTypeInput">
-                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                        <option value="INNE">Inne</option>
-                      </select>
-                    </label>
                     <label class="complaint-product-wide">
                       <span>Nazwa / model</span>
                       <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
@@ -1151,19 +1153,21 @@
                 </div>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="2">
                   <div class="complaint-product-head">
-                    <strong>Pozycja 2</strong>
+                    <div class="complaint-product-title">
+                      <strong>Pozycja 2</strong>
+                      <label class="complaint-product-type-field">
+                        <span>Produkt</span>
+                        <select id="complaintProductTypeInput2">
+                          <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                          <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                          <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                          <option value="INNE">Inne</option>
+                        </select>
+                      </label>
+                    </div>
                     <button id="removeComplaintItemBtn2" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 2">×</button>
                   </div>
                   <div class="complaint-product-grid">
-                    <label>
-                      <span>Produkt</span>
-                      <select id="complaintProductTypeInput2">
-                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                        <option value="INNE">Inne</option>
-                      </select>
-                    </label>
                     <label class="complaint-product-wide">
                       <span>Nazwa / model</span>
                       <input id="complaintProductNameInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi model, wkładka lub produkt" autocomplete="off">

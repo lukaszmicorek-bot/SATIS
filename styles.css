@@ -1426,12 +1426,17 @@ h2 {
 .complaint-product-head {
   grid-column: 1 / -1;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
-  margin: 4px 0 -2px;
+  margin: 4px 0 -1px;
   padding: 4px 0 7px;
   border-bottom: 1px solid #dbe7e9;
+}
+
+.complaint-product-title {
+  display: grid;
+  gap: 5px;
 }
 
 .complaint-product-head strong {
@@ -1439,6 +1444,23 @@ h2 {
   font-size: 0.78rem;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.complaint-product-type-field {
+  width: min(210px, 48vw);
+  gap: 4px;
+}
+
+.complaint-product-type-field span {
+  color: #58727b;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.complaint-product-type-field select {
+  min-height: 30px;
+  padding: 6px 9px;
+  font-size: 0.78rem;
 }
 
 .complaint-remove-item-btn {
@@ -1461,11 +1483,14 @@ h2 {
 }
 
 .complaint-product-grid {
-  display: contents;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(300px, 1.45fr) 150px 170px 145px;
+  gap: 9px;
+  align-items: end;
 }
 
 .complaint-product-wide {
-  grid-column: span 2;
   min-width: 0;
 }
 
