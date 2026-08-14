@@ -2523,6 +2523,30 @@ input.pcpr-done-input,
   background: #eeeaf5;
 }
 
+.pcpr-ear-badge {
+  gap: 2px;
+}
+
+.pcpr-ear-badge-part {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 950;
+}
+
+.pcpr-ear-badge-part.pcpr-ear-P {
+  color: #9c342b;
+  background: #fdecea;
+}
+
+.pcpr-ear-badge-part.pcpr-ear-L {
+  color: #1f6372;
+  background: #e7f4f7;
+}
+
 .pcpr-edit-btn {
   min-height: 28px;
   padding: 0 8px;
