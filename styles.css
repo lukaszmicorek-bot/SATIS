@@ -1686,7 +1686,7 @@ h2 {
 
 .loan-device-row {
   display: grid;
-  grid-template-columns: 34px minmax(260px, 1.7fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(125px, 0.75fr);
+  grid-template-columns: 34px minmax(300px, 2.1fr) minmax(145px, 0.8fr) minmax(145px, 0.8fr) minmax(120px, 0.65fr) 30px;
   gap: 8px;
   align-items: end;
   margin-top: -1px;
@@ -1706,6 +1706,67 @@ h2 {
   background: #eaf4f6;
   font-size: 0.86rem;
   font-weight: 950;
+}
+
+.loan-serial-field {
+  position: relative;
+}
+
+.loan-serial-field.has-paste-hint input {
+  padding-right: 56px;
+}
+
+.loan-paste-serial-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-height: 23px;
+  padding: 0 7px;
+  border: 1px solid #c4d3d8;
+  border-radius: 7px;
+  color: #28566a;
+  background: #f7fbfc;
+  font-size: 0.64rem;
+  font-weight: 850;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.loan-serial-field.has-paste-hint:hover .loan-paste-serial-btn,
+.loan-serial-field.has-paste-hint:focus-within .loan-paste-serial-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.loan-paste-serial-btn:hover {
+  color: #003f5a;
+  background: #eaf4f6;
+  border-color: #9eb8c2;
+  transform: none;
+}
+
+.loan-clear-device-btn {
+  align-self: end;
+  justify-self: end;
+  width: 30px;
+  min-height: 39px;
+  padding: 0;
+  border: 1px solid #dfcbcb;
+  border-radius: 8px;
+  color: #9a6262;
+  background: #fbf7f7;
+  font-size: 1rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.loan-clear-device-btn:hover {
+  color: #7e3838;
+  background: #f5ebeb;
+  border-color: #cca9a9;
+  transform: none;
 }
 
 .loan-document {
@@ -1979,7 +2040,7 @@ h2 {
 
 .pcpr-form-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 1.4fr) minmax(150px, 0.7fr) minmax(240px, 1fr) minmax(260px, 1.2fr) minmax(170px, 0.75fr) auto;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 10px;
   align-items: end;
 }
@@ -1990,6 +2051,42 @@ h2 {
   min-width: 0;
 }
 
+.pcpr-name-field {
+  grid-column: span 3;
+}
+
+.pcpr-phone-field {
+  grid-column: span 2;
+}
+
+.pcpr-postal-field {
+  grid-column: span 1;
+}
+
+.pcpr-city-field {
+  grid-column: span 2;
+}
+
+.pcpr-street-field {
+  grid-column: span 4;
+}
+
+.pcpr-model-field {
+  grid-column: span 7;
+  padding: 8px 10px 10px;
+  border: 1.5px solid #78aebc;
+  border-radius: 8px;
+  background: #f4fafb;
+}
+
+.pcpr-ear-field {
+  grid-column: span 4;
+}
+
+.pcpr-form-grid > button {
+  grid-column: span 1;
+}
+
 .pcpr-name-field,
 .pcpr-ear-field {
   display: grid;
@@ -1997,6 +2094,7 @@ h2 {
 }
 
 .pcpr-name-field > span,
+.pcpr-model-field > span,
 .pcpr-ear-field > span {
   color: #003f5a;
   font-size: 0.82rem;
@@ -2098,7 +2196,7 @@ input.pcpr-done-input,
 
 .pcpr-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 9px 10px;
@@ -2150,10 +2248,29 @@ input.pcpr-done-input,
   font-weight: 790;
 }
 
+.pcpr-item-model {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  color: #003f5a;
+  background: #eaf5f7;
+  font-size: 0.78rem;
+  font-weight: 920;
+}
+
 .pcpr-item-content small {
   color: #6c7b84;
   font-size: 0.68rem;
   font-weight: 760;
+}
+
+.pcpr-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .pcpr-ear-badge {
@@ -2177,6 +2294,24 @@ input.pcpr-done-input,
 .pcpr-ear-L {
   color: #1f6372;
   background: #e7f4f7;
+}
+
+.pcpr-remove-btn {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #ead0ca;
+  border-radius: 8px;
+  color: #8a4539;
+  background: #fff7f5;
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.pcpr-remove-btn:hover {
+  color: #74352c;
+  background: #f8ece9;
+  border-color: #d8aaa1;
+  transform: none;
 }
 
 .controls {
@@ -5264,6 +5399,9 @@ textarea {
 
   .loan-wide,
   .pcpr-name-field,
+  .pcpr-phone-field,
+  .pcpr-city-field,
+  .pcpr-street-field,
   .pcpr-model-field,
   .pcpr-ear-field,
   .complaint-wide,
@@ -5390,6 +5528,10 @@ textarea {
   .offer-pfron-field,
   .offer-device-field,
   .pcpr-name-field,
+  .pcpr-phone-field,
+  .pcpr-postal-field,
+  .pcpr-city-field,
+  .pcpr-street-field,
   .pcpr-model-field,
   .pcpr-ear-field {
     grid-column: auto;
@@ -5400,11 +5542,15 @@ textarea {
   }
 
   .loan-device-row .loan-side-badge {
-    grid-row: span 4;
+    grid-row: span 5;
   }
 
   .loan-device-model-field {
     grid-column: auto;
+  }
+
+  .loan-clear-device-btn {
+    grid-column: 2;
   }
 
   .loan-wide,
