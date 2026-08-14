@@ -2093,6 +2093,15 @@ h2 {
   background: #f4fafb;
 }
 
+.pcpr-place-field {
+  grid-column: span 2;
+  padding: 8px 10px 10px;
+  border: 1.5px solid color-mix(in srgb, var(--document-location-accent) 34%, var(--line));
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--document-location-bg);
+}
+
 .pcpr-ear-field {
   grid-column: span 4;
 }
@@ -2122,15 +2131,19 @@ h2 {
 }
 
 .pcpr-form-row-bottom .pcpr-model-field {
-  grid-column: span 4;
+  grid-column: span 3;
 }
 
 .pcpr-form-row-bottom .pcpr-office-field {
   grid-column: span 3;
 }
 
+.pcpr-form-row-bottom .pcpr-place-field {
+  grid-column: span 2;
+}
+
 .pcpr-form-row-bottom .pcpr-ear-field {
-  grid-column: span 3;
+  grid-column: span 2;
 }
 
 .pcpr-form-actions {
@@ -5625,6 +5638,7 @@ textarea {
   .pcpr-form-row-top .pcpr-street-field,
   .pcpr-form-row-bottom .pcpr-model-field,
   .pcpr-form-row-bottom .pcpr-office-field,
+  .pcpr-form-row-bottom .pcpr-place-field,
   .pcpr-form-row-bottom .pcpr-ear-field,
   .pcpr-form-actions {
     grid-column: span 2;
@@ -5780,6 +5794,7 @@ textarea {
   .offer-pfron-field,
   .offer-device-field,
   .pcpr-office-field,
+  .pcpr-place-field,
   .pcpr-name-field,
   .pcpr-phone-field,
   .pcpr-postal-field,
