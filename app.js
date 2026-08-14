@@ -72,6 +72,10 @@ const DOCUMENT_LOCATIONS = [
   { key: "P63", value: "Bielsko-Biała, ul. Partyzantów 63" },
   { key: "P50", value: "Żywiec, al. Piłsudskiego 50" }
 ];
+const PCPR_POSTAL_CODE_CITY_MAP = {
+  "43-300": "Bielsko-Biała",
+  "34-300": "Żywiec"
+};
 const DEFAULT_DOCUMENT_LOCATION = DOCUMENT_LOCATIONS[0].value;
 const DEFAULT_LOAN_CITY = DEFAULT_DOCUMENT_LOCATION;
 const PRICING_ORDER_TYPES = ["APARAT SŁUCHOWY", "WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA"];
@@ -168,6 +172,7 @@ let pricingNfzDefaultApplied = false;
 let pricingSupabaseAvailable = null;
 let pricingLoanAutofilledFromOffer = false;
 let serialCopyToastTimeout = 0;
+let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
 let deviceNameCorrectionCandidates = [];
 let modelQualityCandidates = [];
@@ -519,6 +524,9 @@ const loanDeductionsInput = document.querySelector("#loanDeductionsInput");
 const loanDeductionReasonInput = document.querySelector("#loanDeductionReasonInput");
 const loanCopyOfferBtn = document.querySelector("#loanCopyOfferBtn");
 const loanDuplicateRightBtn = document.querySelector("#loanDuplicateRightBtn");
+const loanClearDeviceButtons = document.querySelectorAll("[data-clear-loan-device]");
+const loanSerialFields = document.querySelectorAll("[data-loan-serial-field]");
+const loanPasteSerialButtons = document.querySelectorAll("[data-paste-loan-serial]");
 const savePricingLoanBtn = document.querySelector("#savePricingLoanBtn");
 const printPricingLoanBtn = document.querySelector("#printPricingLoanBtn");
 const loanPrintMeta = document.querySelector("#loanPrintMeta");
@@ -529,7 +537,9 @@ const pcprForm = document.querySelector("#pcprForm");
 const pcprDoneInput = document.querySelector("#pcprDoneInput");
 const pcprCustomerInput = document.querySelector("#pcprCustomerInput");
 const pcprPhoneInput = document.querySelector("#pcprPhoneInput");
-const pcprAddressInput = document.querySelector("#pcprAddressInput");
+const pcprPostalCodeInput = document.querySelector("#pcprPostalCodeInput");
+const pcprCityInput = document.querySelector("#pcprCityInput");
+const pcprStreetInput = document.querySelector("#pcprStreetInput");
 const pcprModelInput = document.querySelector("#pcprModelInput");
 const pcprEarInputs = document.querySelectorAll("input[name='pcprEar']");
 const pcprListCount = document.querySelector("#pcprListCount");
@@ -820,6 +830,11 @@ function canManagePricing() {
 }
 
 function canManagePricingLoanHistory() {
+  if (!hasSupabaseConfig) return true;
+  return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
+function canManagePricingPcprList() {
   if (!hasSupabaseConfig) return true;
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
@@ -6328,6 +6343,175 @@ function fillLoanDeviceFromRecord(side, record, overwrite = false) {
   setLoanInputValue(inputs.value, formatPricingPrice(record.grossPrice), overwrite);
 }
 
+function setLoanMatchedInputValue(input, value, overwrite = false) {
+  if (!input) return;
+  const text = String(value ?? "").trim();
+  if (overwrite) {
+    input.value = text;
+    return;
+  }
+  setLoanInputValue(input, text, false);
+}
+
+function loanDevicePricingRecord(deviceName, manufacturer = "") {
+  const candidates = pricingOfferPricedRecords();
+  const combinedValue = [deviceName, manufacturer].filter(Boolean).join(" ");
+  return (
+    findPricingOfferRecordInCandidates(combinedValue, candidates) ||
+    findPricingOfferRecordInCandidates(deviceName, candidates) ||
+    findPricingOfferRecord(deviceName)
+  );
+}
+
+function loanDeviceMatchFromDeviceRecord(record) {
+  const pricingRecord = loanDevicePricingRecord(record?.deviceName);
+  return {
+    source: "bazy aparatów",
+    model: record?.deviceName || "",
+    serial: normalizeSerialNumber(record?.serialNumber),
+    manufacturer: pricingRecord?.manufacturer || "",
+    value: pricingRecord?.grossPrice || ""
+  };
+}
+
+function loanDeviceMatchFromDemoRecord(record) {
+  const pricingRecord = loanDevicePricingRecord(record?.deviceName, record?.manufacturer);
+  return {
+    source: "demo",
+    model: record?.deviceName || "",
+    serial: normalizeSerialNumber(record?.serialNumber),
+    manufacturer: record?.manufacturer || pricingRecord?.manufacturer || "",
+    value: pricingRecord?.grossPrice || ""
+  };
+}
+
+function findLoanDeviceBySerial(serialNumber) {
+  const serialKey = serialDuplicateKey(serialNumber);
+  if (!serialKey) return null;
+
+  const deviceRecord = records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+  if (deviceRecord) return loanDeviceMatchFromDeviceRecord(deviceRecord);
+
+  const demoRecord = demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+  if (demoRecord) return loanDeviceMatchFromDemoRecord(demoRecord);
+
+  return null;
+}
+
+function loanSideFromSerialInput(input) {
+  if (input === loanRightSerialInput) return "right";
+  if (input === loanLeftSerialInput) return "left";
+  return "";
+}
+
+function loanSerialField(side) {
+  return Array.from(loanSerialFields).find((field) => field.dataset.loanSerialField === side) || null;
+}
+
+function loanPasteSerialButton(side) {
+  return Array.from(loanPasteSerialButtons).find((button) => button.dataset.pasteLoanSerial === side) || null;
+}
+
+function updateLoanSerialPasteHint(side) {
+  if (!side) return;
+  const inputs = loanDeviceInputs(side);
+  const field = loanSerialField(side);
+  const button = loanPasteSerialButton(side);
+  const canPaste = Boolean(inputs.serial && !loanInputValue(inputs.serial));
+
+  field?.classList.toggle("has-paste-hint", canPaste);
+  if (field) {
+    if (canPaste) field.dataset.pasteHint = lastCopiedSerialNumber ? `Wklej ${lastCopiedSerialNumber}` : "Wklej skopiowany numer";
+    else delete field.dataset.pasteHint;
+  }
+
+  if (button) {
+    button.hidden = !canPaste;
+    button.title = canPaste ? field?.dataset.pasteHint || "Wklej skopiowany numer" : "";
+  }
+
+  if (inputs.serial) {
+    if (canPaste) {
+      inputs.serial.title = lastCopiedSerialNumber ? `Wklej skopiowany nr: ${lastCopiedSerialNumber}` : "Wklej skopiowany numer";
+    } else if (inputs.serial.title.startsWith("Wklej skopiowany nr:")) {
+      inputs.serial.removeAttribute("title");
+    } else if (inputs.serial.title === "Wklej skopiowany numer") {
+      inputs.serial.removeAttribute("title");
+    }
+  }
+}
+
+function updateLoanSerialPasteHints() {
+  updateLoanSerialPasteHint("right");
+  updateLoanSerialPasteHint("left");
+}
+
+function rememberCopiedSerialNumber(serialText) {
+  lastCopiedSerialNumber = normalizeSerialNumber(serialText);
+  updateLoanSerialPasteHints();
+}
+
+function fillLoanDeviceFromSerial(side, overwrite = true) {
+  const inputs = loanDeviceInputs(side);
+  const serial = normalizeSerialNumber(inputs.serial?.value);
+  if (!serial) {
+    updateLoanSerialPasteHint(side);
+    return false;
+  }
+
+  if (inputs.serial && inputs.serial.value !== serial) inputs.serial.value = serial;
+  const match = findLoanDeviceBySerial(serial);
+  if (!match) {
+    updateLoanSerialPasteHint(side);
+    return false;
+  }
+
+  setLoanMatchedInputValue(inputs.device, match.model, overwrite);
+  setLoanMatchedInputValue(inputs.manufacturer, match.manufacturer, overwrite);
+  setLoanMatchedInputValue(inputs.value, match.value ? formatPricingPrice(match.value) : "", overwrite);
+  if (inputs.serial) inputs.serial.title = `Uzupełniono z ${match.source}`;
+  updateLoanSerialPasteHint(side);
+  renderPricingLoan();
+  return true;
+}
+
+async function pasteCopiedSerialToLoanDevice(side) {
+  const inputs = loanDeviceInputs(side);
+  if (!inputs.serial || loanInputValue(inputs.serial)) return;
+
+  let serial = lastCopiedSerialNumber;
+  if (!serial && navigator.clipboard?.readText) {
+    try {
+      serial = normalizeSerialNumber(await navigator.clipboard.readText());
+    } catch (error) {
+      serial = "";
+    }
+  }
+
+  if (!serial) {
+    inputs.serial.placeholder = "Najpierw skopiuj numer";
+    setTimeout(() => {
+      if (inputs.serial && !loanInputValue(inputs.serial)) inputs.serial.placeholder = "";
+    }, 1600);
+    return;
+  }
+
+  rememberCopiedSerialNumber(serial);
+  inputs.serial.value = serial;
+  fillLoanDeviceFromSerial(side, true);
+  updateLoanSerialPasteHints();
+  renderPricingLoan();
+}
+
+function clearLoanDevice(side) {
+  const inputs = loanDeviceInputs(side);
+  [inputs.device, inputs.serial, inputs.manufacturer, inputs.value].forEach((input) => {
+    if (input) input.value = "";
+  });
+  updateLoanSerialPasteHint(side);
+  renderPricingLoan();
+}
+
 function autofillLoanDeviceFromInput(side, overwrite = false) {
   const inputs = loanDeviceInputs(side);
   const record = findPricingOfferRecord(inputs.device?.value);
@@ -6348,6 +6532,7 @@ function duplicateLoanRightDeviceToLeft() {
   leftInputs.manufacturer.value = loanInputValue(rightInputs.manufacturer);
   leftInputs.value.value = loanInputValue(rightInputs.value);
   autofillLoanDeviceFromInput("left", false);
+  updateLoanSerialPasteHint("left");
   renderPricingLoan();
 }
 
@@ -6404,6 +6589,7 @@ function renderPricingLoan() {
   if (!pricingLoanView) return;
   ensurePricingLoanDefaults();
   updateDocumentLocationAccent(loanCityInput);
+  updateLoanSerialPasteHints();
 
   const dateText = loanDateText(loanDateInput);
   const periodFrom = loanDateText(loanPeriodFromInput);
@@ -6473,10 +6659,107 @@ function pricingPcprEarLabel(value) {
   return "";
 }
 
+function pcprDigitGroups(digits, groups) {
+  const parts = [];
+  let offset = 0;
+  groups.forEach((size) => {
+    const part = digits.slice(offset, offset + size);
+    if (part) parts.push(part);
+    offset += size;
+  });
+  if (offset < digits.length) parts.push(digits.slice(offset));
+  return parts.join(" ");
+}
+
+function pcprPhoneDigits(value) {
+  let digits = String(value ?? "").replace(/\D+/g, "");
+  if (digits.startsWith("0048")) digits = digits.slice(4);
+  if (digits.startsWith("48") && digits.length > 9) digits = digits.slice(2);
+  return digits.slice(0, 9);
+}
+
+function formatPcprPhone(value) {
+  const digits = pcprPhoneDigits(value);
+  if (!digits) return "";
+  return /^[5-8]/u.test(digits)
+    ? pcprDigitGroups(digits, [3, 3, 3])
+    : pcprDigitGroups(digits, [2, 3, 2, 2]);
+}
+
+function formatPcprPostalCode(value) {
+  const digits = String(value ?? "").replace(/\D+/g, "").slice(0, 5);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+}
+
+function normalizePcprCity(value) {
+  return titleCaseName(normalizeLoanHistoryText(value));
+}
+
+function parsePcprAddress(value) {
+  const text = normalizeLoanHistoryText(value);
+  const parsed = { postalCode: "", city: "", street: "" };
+  if (!text) return parsed;
+
+  const postalMatch = text.match(/(\d{2})[-\s]?(\d{3})\s+([^,]+)(?:,\s*(.+))?$/u);
+  if (postalMatch) {
+    parsed.postalCode = `${postalMatch[1]}-${postalMatch[2]}`;
+    parsed.city = normalizePcprCity(postalMatch[3]);
+    parsed.street = normalizeLoanHistoryText(postalMatch[4]);
+    return parsed;
+  }
+
+  const knownCity = ["Bielsko-Biała", "Żywiec"].find((city) => normalize(text).startsWith(normalize(city)));
+  if (knownCity) {
+    parsed.city = knownCity;
+    parsed.street = normalizeLoanHistoryText(text.slice(knownCity.length).replace(/^,\s*/u, ""));
+    return parsed;
+  }
+
+  parsed.street = text;
+  return parsed;
+}
+
+function pcprCityForPostalCode(postalCode, knownEntries = []) {
+  const normalizedCode = formatPcprPostalCode(postalCode);
+  if (!normalizedCode) return "";
+  if (PCPR_POSTAL_CODE_CITY_MAP[normalizedCode]) return PCPR_POSTAL_CODE_CITY_MAP[normalizedCode];
+
+  const match = knownEntries.find((entry) => formatPcprPostalCode(entry.postalCode) === normalizedCode && entry.city);
+  return match ? normalizePcprCity(match.city) : "";
+}
+
+function pcprAddressLabel(entry) {
+  const location = [formatPcprPostalCode(entry?.postalCode), normalizePcprCity(entry?.city)].filter(Boolean).join(" ");
+  return [location, normalizeLoanHistoryText(entry?.street)].filter(Boolean).join(", ") || normalizeLoanHistoryText(entry?.address);
+}
+
+function syncPcprCityFromPostalCode({ force = false } = {}) {
+  if (!pcprPostalCodeInput || !pcprCityInput) return;
+  pcprPostalCodeInput.value = formatPcprPostalCode(pcprPostalCodeInput.value);
+  const city = pcprCityForPostalCode(pcprPostalCodeInput.value, pricingPcprList);
+  const cityWasAuto = pcprCityInput.dataset.autoCity === "1";
+  if (!city) {
+    if (cityWasAuto) {
+      pcprCityInput.value = "";
+      pcprCityInput.dataset.autoCity = "";
+    }
+    return;
+  }
+  if (force || cityWasAuto || !normalizeLoanHistoryText(pcprCityInput.value)) {
+    pcprCityInput.value = city;
+    pcprCityInput.dataset.autoCity = "1";
+  }
+}
+
 function normalizePricingPcprItem(item) {
   if (!item || typeof item !== "object") return null;
   const savedAt = normalizeLoanHistoryText(item.savedAt || item.updatedAt || item.createdAt || new Date().toISOString());
   const record = findPricingOfferRecord(item.model);
+  const parsedAddress = parsePcprAddress(item.address);
+  const postalCode = formatPcprPostalCode(item.postalCode || item.zipCode || parsedAddress.postalCode);
+  const city = normalizePcprCity(item.city || parsedAddress.city || pcprCityForPostalCode(postalCode));
+  const street = normalizeLoanHistoryText(item.street || parsedAddress.street);
   const normalizedItem = {
     id: normalizeLoanHistoryText(item.id || makeId()),
     createdAt: normalizeLoanHistoryText(item.createdAt || savedAt),
@@ -6485,11 +6768,14 @@ function normalizePricingPcprItem(item) {
     workstation: normalizeLoanHistoryText(item.workstation),
     done: normalizeBooleanFlag(item.done || item.checked || item.completed),
     customer: titleCaseName(item.customer || item.customerName || ""),
-    phone: normalizeLoanHistoryText(item.phone),
-    address: normalizeLoanHistoryText(item.address),
+    phone: formatPcprPhone(item.phone),
+    postalCode,
+    city,
+    street,
     model: record ? pricingOfferDeviceName(record) : normalizeLoanHistoryText(item.model),
     ear: normalizePricingPcprEar(item.ear || item.side)
   };
+  normalizedItem.address = pcprAddressLabel(normalizedItem);
 
   return normalizedItem.customer || normalizedItem.phone || normalizedItem.address || normalizedItem.model
     ? normalizedItem
@@ -6587,7 +6873,11 @@ function syncPcprModelFromPricing() {
 
 function currentPricingPcprItemSnapshot() {
   syncPcprModelFromPricing();
+  syncPcprCityFromPostalCode({ force: false });
   const now = new Date().toISOString();
+  const postalCode = formatPcprPostalCode(pcprPostalCodeInput?.value);
+  const city = normalizePcprCity(pcprCityInput?.value);
+  const street = normalizeLoanHistoryText(pcprStreetInput?.value);
   return {
     id: makeId(),
     createdAt: now,
@@ -6596,17 +6886,21 @@ function currentPricingPcprItemSnapshot() {
     workstation: currentWorkstationName(),
     done: pcprDoneInput?.checked ? "1" : "",
     customer: titleCaseName(pcprCustomerInput?.value || ""),
-    phone: normalizeLoanHistoryText(pcprPhoneInput?.value),
-    address: normalizeLoanHistoryText(pcprAddressInput?.value),
+    phone: formatPcprPhone(pcprPhoneInput?.value),
+    postalCode,
+    city,
+    street,
+    address: pcprAddressLabel({ postalCode, city, street }),
     model: normalizeLoanHistoryText(pcprModelInput?.value),
     ear: selectedPcprEar()
   };
 }
 
 function resetPricingPcprForm() {
-  [pcprCustomerInput, pcprPhoneInput, pcprAddressInput, pcprModelInput].forEach((input) => {
+  [pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput].forEach((input) => {
     if (input) input.value = "";
   });
+  if (pcprCityInput) pcprCityInput.dataset.autoCity = "";
   if (pcprDoneInput) pcprDoneInput.checked = false;
   setPcprEar("");
 }
@@ -6648,6 +6942,34 @@ function togglePricingPcprDone(id, checked) {
   persistPricingPcprItem(updatedEntry, { silent: true });
 }
 
+async function deletePricingPcprItem(id) {
+  if (!canManagePricingPcprList()) return;
+  const entry = pricingPcprList.find((item) => item.id === id);
+  if (!entry) return;
+  if (!confirm(`Usunąć PCPR: ${entry.customer || "bez nazwiska"}?`)) return;
+
+  const previousList = pricingPcprList;
+  pricingPcprList = pricingPcprList.filter((item) => item.id !== id);
+  saveLocalPricingPcprList();
+  renderPricingPcprList();
+
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return;
+  try {
+    const { error } = await supabaseClient.from(SUPABASE_PCPR_LIST_TABLE).delete().eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    pricingPcprList = previousList;
+    saveLocalPricingPcprList();
+    renderPricingPcprList();
+    if (isMissingSupabaseTableError(error)) {
+      pricingPcprListSupabaseAvailable = false;
+      alert("Nie udało się usunąć PCPR, bo brakuje tabeli w Supabase.");
+      return;
+    }
+    alert(`Nie udało się usunąć PCPR z Supabase: ${error.message}`);
+  }
+}
+
 function pricingPcprListCountLabel(count) {
   if (count === 1) return "1 pozycja";
   if (count > 1 && count < 5) return `${count} pozycje`;
@@ -6677,15 +6999,19 @@ function createPricingPcprItem(entry) {
   details.className = "pcpr-item-details";
   details.textContent = [
     entry.phone,
-    entry.address,
-    entry.model ? `wstępny model: ${entry.model}` : ""
+    pcprAddressLabel(entry)
   ].filter(Boolean).join(" | ");
+
+  const model = document.createElement("span");
+  model.className = "pcpr-item-model";
+  model.textContent = entry.model || "Brak wstępnego modelu";
 
   const meta = document.createElement("small");
   const savedAt = formatAuditDateTime(entry.savedAt);
   meta.textContent = [savedAt ? `zapis: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
   content.append(nameLine);
   if (details.textContent) content.append(details);
+  content.append(model);
   if (meta.textContent) content.append(meta);
 
   const ear = document.createElement("span");
@@ -6693,7 +7019,20 @@ function createPricingPcprItem(entry) {
   ear.textContent = entry.ear || "-";
   ear.title = pricingPcprEarLabel(entry.ear) || "Brak strony";
 
-  item.append(content, ear);
+  const actions = document.createElement("div");
+  actions.className = "pcpr-item-actions";
+  actions.append(ear);
+
+  if (canManagePricingPcprList()) {
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "pcpr-remove-btn";
+    removeButton.textContent = "Usuń";
+    removeButton.addEventListener("click", () => deletePricingPcprItem(entry.id));
+    actions.append(removeButton);
+  }
+
+  item.append(content, actions);
   return item;
 }
 
@@ -9631,6 +9970,7 @@ async function copySerialNumber(serialText, pill, defaultTitle) {
     } else {
       copyTextWithFallback(serialText);
     }
+    rememberCopiedSerialNumber(serialText);
     showSerialCopied(pill, defaultTitle);
   } catch (error) {
     pill.title = "Nie udało się skopiować numeru";
@@ -12791,6 +13131,23 @@ pcprCustomerInput?.addEventListener("input", (event) => {
 pcprCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
 });
+pcprPhoneInput?.addEventListener("input", (event) => {
+  event.target.value = formatPcprPhone(event.target.value);
+});
+pcprPostalCodeInput?.addEventListener("input", (event) => {
+  event.target.value = formatPcprPostalCode(event.target.value);
+  syncPcprCityFromPostalCode({ force: false });
+});
+pcprPostalCodeInput?.addEventListener("blur", () => syncPcprCityFromPostalCode({ force: true }));
+pcprCityInput?.addEventListener("input", () => {
+  if (pcprCityInput) pcprCityInput.dataset.autoCity = "";
+});
+pcprCityInput?.addEventListener("blur", (event) => {
+  event.target.value = normalizePcprCity(event.target.value);
+});
+pcprStreetInput?.addEventListener("blur", (event) => {
+  event.target.value = normalizeLoanHistoryText(event.target.value);
+});
 pcprModelInput?.addEventListener("change", syncPcprModelFromPricing);
 pcprModelInput?.addEventListener("blur", syncPcprModelFromPricing);
 [offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
@@ -12864,6 +13221,26 @@ loanCustomerInput?.addEventListener("blur", (event) => {
   input?.addEventListener("input", (event) => {
     event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
   });
+});
+[loanRightSerialInput, loanLeftSerialInput].forEach((input) => {
+  input?.addEventListener("input", () => fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true));
+  input?.addEventListener("change", () => fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true));
+  input?.addEventListener("blur", () => fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true));
+  input?.addEventListener("focus", () => updateLoanSerialPasteHint(loanSideFromSerialInput(input)));
+  input?.addEventListener("mouseenter", () => updateLoanSerialPasteHint(loanSideFromSerialInput(input)));
+});
+loanSerialFields.forEach((field) => {
+  field.addEventListener("mouseenter", () => updateLoanSerialPasteHint(field.dataset.loanSerialField));
+});
+loanPasteSerialButtons.forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void pasteCopiedSerialToLoanDevice(button.dataset.pasteLoanSerial);
+  });
+});
+loanClearDeviceButtons.forEach((button) => {
+  button.addEventListener("click", () => clearLoanDevice(button.dataset.clearLoanDevice));
 });
 loanRightDeviceInput?.addEventListener("change", () => {
   autofillLoanDeviceFromInput("right", false);

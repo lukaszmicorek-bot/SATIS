@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-10">
+    <link rel="stylesheet" href="styles.css?v=20260814-13">
   </head>
   <body>
     <main class="app-shell">
@@ -765,9 +765,10 @@
                     <span>Model</span>
                     <input id="loanRightDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
                   </label>
-                  <label>
+                  <label class="loan-serial-field" data-loan-serial-field="right">
                     <span>Nr seryjny / UDI</span>
                     <input id="loanRightSerialInput" type="text" autocomplete="off">
+                    <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="right" hidden>Wklej</button>
                   </label>
                   <label>
                     <span>Producent</span>
@@ -777,6 +778,7 @@
                     <span>Wartość brutto</span>
                     <input id="loanRightValueInput" type="text" inputmode="decimal" autocomplete="off">
                   </label>
+                  <button class="loan-clear-device-btn" type="button" data-clear-loan-device="right" aria-label="Usuń prawy aparat">×</button>
                 </div>
 
                 <div class="loan-device-row loan-full">
@@ -785,9 +787,10 @@
                     <span>Model</span>
                     <input id="loanLeftDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
                   </label>
-                  <label>
+                  <label class="loan-serial-field" data-loan-serial-field="left">
                     <span>Nr seryjny / UDI</span>
                     <input id="loanLeftSerialInput" type="text" autocomplete="off">
+                    <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="left" hidden>Wklej</button>
                   </label>
                   <label>
                     <span>Producent</span>
@@ -797,6 +800,7 @@
                     <span>Wartość brutto</span>
                     <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
                   </label>
+                  <button class="loan-clear-device-btn" type="button" data-clear-loan-device="left" aria-label="Usuń lewy aparat">×</button>
                 </div>
 
                 <p class="loan-form-title loan-full">Ładowarka</p>
@@ -969,13 +973,21 @@
                     <input id="pcprCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required>
                   </div>
                 </div>
-                <label>
+                <label class="pcpr-phone-field">
                   <span>Telefon</span>
-                  <input id="pcprPhoneInput" type="text" autocomplete="off">
+                  <input id="pcprPhoneInput" type="text" inputmode="tel" autocomplete="off">
                 </label>
-                <label>
-                  <span>Adres</span>
-                  <input id="pcprAddressInput" type="text" autocomplete="off">
+                <label class="pcpr-postal-field">
+                  <span>Kod pocztowy</span>
+                  <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300">
+                </label>
+                <label class="pcpr-city-field">
+                  <span>Miasto</span>
+                  <input id="pcprCityInput" type="text" autocomplete="address-level2">
+                </label>
+                <label class="pcpr-street-field">
+                  <span>Ulica</span>
+                  <input id="pcprStreetInput" type="text" autocomplete="address-line1">
                 </label>
                 <label class="pcpr-model-field">
                   <span>Wstępny model</span>
@@ -1787,6 +1799,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260814-07"></script>
+    <script src="app.js?v=20260814-10"></script>
   </body>
 </html>
