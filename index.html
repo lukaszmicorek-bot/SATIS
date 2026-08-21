@@ -1000,6 +1000,7 @@
                   <label class="pcpr-model-field">
                     <span>Wstępny model</span>
                     <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
+                    <button id="addPcprSecondModelBtn" class="pcpr-add-second-model-btn" type="button">+ Drugi model</button>
                   </label>
                   <label class="pcpr-office-field" data-pcpr-office-tone="none">
                     <span>PCPR / MOPS</span>
@@ -1044,6 +1045,13 @@
                     <button id="savePcprBtn" type="submit">Dodaj</button>
                     <button id="cancelPcprEditBtn" class="reset-filters-btn pcpr-cancel-edit-btn" type="button" hidden>Anuluj</button>
                   </div>
+                  <label id="pcprSecondModelField" class="pcpr-model-field pcpr-second-model-field" hidden>
+                    <span>Drugi wstępny model</span>
+                    <span class="pcpr-second-model-input-row">
+                      <input id="pcprModelInput2" type="text" list="pricingOfferDeviceList" placeholder="Ten sam lub inny model" autocomplete="off">
+                      <button id="removePcprSecondModelBtn" class="pcpr-remove-second-model-btn" type="button" aria-label="Usuń drugi model" title="Usuń drugi model">×</button>
+                    </span>
+                  </label>
                 </div>
               </form>
             </section>

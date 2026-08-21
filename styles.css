@@ -2130,6 +2130,8 @@ h2 {
 
 .pcpr-model-field {
   grid-column: span 6;
+  display: grid;
+  gap: 6px;
   padding: 8px 10px 10px;
   border: 1.5px solid #78aebc;
   border-radius: 8px;
@@ -2175,6 +2177,40 @@ h2 {
 
 .pcpr-form-row-bottom .pcpr-model-field {
   grid-column: span 3;
+}
+
+.pcpr-second-model-field {
+  margin-top: -2px;
+}
+
+.pcpr-add-second-model-btn {
+  justify-self: start;
+  min-height: 24px;
+  padding: 2px 7px;
+  border-color: #b8d1d8;
+  color: #2f6573;
+  background: #f8fcfc;
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.pcpr-second-model-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px;
+  gap: 6px;
+  align-items: center;
+}
+
+.pcpr-remove-second-model-btn {
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-color: #d7c4c1;
+  color: #986158;
+  background: #fffafa;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .pcpr-form-row-bottom .pcpr-office-field {
