@@ -2238,6 +2238,29 @@ h2 {
   font-weight: 820;
 }
 
+.loan-history-search {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 520px);
+  gap: 9px;
+  align-items: center;
+  margin: 0 0 9px;
+}
+
+.loan-history-search > span {
+  color: #536a75;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.loan-history-search input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-color: #d6e2e5;
+  background: #fbfdfd;
+  font-size: 0.78rem;
+}
+
 .loan-history-list {
   display: grid;
   gap: 7px;
@@ -6474,6 +6497,11 @@ textarea {
 
   .loan-history-item {
     grid-template-columns: 1fr;
+  }
+
+  .loan-history-search {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .loan-history-actions {
