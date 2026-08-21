@@ -6068,6 +6068,10 @@ function updateDocumentLocationAccent(input) {
   if (!input) return;
   const field = input.closest(".document-location-field");
   if (!field) return;
+  if (input === locationFilter && !String(input.value || "").trim()) {
+    delete field.dataset.locationTone;
+    return;
+  }
   const locationKey = documentLocationKey(input.value);
   if (locationKey) {
     field.dataset.locationTone = locationKey;
@@ -6082,6 +6086,7 @@ function updateDocumentLocationAccents() {
     loanCityInput,
     orderLocationInput,
     complaintLocationInput,
+    locationFilter,
     document.querySelector("#location"),
     document.querySelector("#repairLocation")
   ].forEach(updateDocumentLocationAccent);
@@ -6921,19 +6926,28 @@ function setLoanMoneyOutput(name, value) {
 }
 
 function loanDeviceInputs(side) {
-  return side === "right"
-    ? {
-        device: loanRightDeviceInput,
-        serial: loanRightSerialInput,
-        manufacturer: loanRightManufacturerInput,
-        value: loanRightValueInput
-      }
-    : {
-        device: loanLeftDeviceInput,
-        serial: loanLeftSerialInput,
-        manufacturer: loanLeftManufacturerInput,
-        value: loanLeftValueInput
-      };
+  if (side === "right") {
+    return {
+      device: loanRightDeviceInput,
+      serial: loanRightSerialInput,
+      manufacturer: loanRightManufacturerInput,
+      value: loanRightValueInput
+    };
+  }
+  if (side === "charger") {
+    return {
+      device: loanChargerInput,
+      serial: loanChargerSerialInput,
+      manufacturer: null,
+      value: loanChargerMissingValueInput
+    };
+  }
+  return {
+    device: loanLeftDeviceInput,
+    serial: loanLeftSerialInput,
+    manufacturer: loanLeftManufacturerInput,
+    value: loanLeftValueInput
+  };
 }
 
 function loanAgreementYear() {
@@ -7024,6 +7038,7 @@ function findLoanDeviceBySerial(serialNumber) {
 function loanSideFromSerialInput(input) {
   if (input === loanRightSerialInput) return "right";
   if (input === loanLeftSerialInput) return "left";
+  if (input === loanChargerSerialInput) return "charger";
   return "";
 }
 
@@ -7067,6 +7082,7 @@ function updateLoanSerialPasteHint(side) {
 function updateLoanSerialPasteHints() {
   updateLoanSerialPasteHint("right");
   updateLoanSerialPasteHint("left");
+  updateLoanSerialPasteHint("charger");
 }
 
 function rememberCopiedSerialNumber(serialText) {
@@ -7121,7 +7137,11 @@ async function pasteCopiedSerialToLoanDevice(side) {
 
   rememberCopiedSerialNumber(serial);
   inputs.serial.value = serial;
-  fillLoanDeviceFromSerial(side, true);
+  if (side === "charger") {
+    updateLoanSerialPasteHint(side);
+  } else {
+    fillLoanDeviceFromSerial(side, true);
+  }
   updateLoanSerialPasteHints();
   renderPricingLoan();
 }
@@ -8627,6 +8647,43 @@ function updatePricingOrderSideButtons(row) {
   });
 }
 
+function oppositePricingOrderSide(value) {
+  const side = normalizePricingOrderSide(value);
+  if (side === "P") return "L";
+  if (side === "L") return "P";
+  return "";
+}
+
+function nextPricingOrderRow(row) {
+  if (!row) return null;
+  const rows = [...orderItemsFormBody.querySelectorAll("[data-order-row]")];
+  return rows[rows.indexOf(row) + 1] || null;
+}
+
+function suggestPricingOrderNextRow(row, field) {
+  const nextRow = nextPricingOrderRow(row);
+  if (!nextRow) return;
+  if (field === "type") {
+    const sourceType = row.querySelector("[data-order-field='type']")?.value;
+    const nextType = nextRow.querySelector("[data-order-field='type']");
+    if (sourceType && nextType && nextType.dataset.userChanged !== "1") {
+      nextType.value = normalizePricingOrderType(sourceType);
+      nextType.dataset.suggested = "1";
+      syncPricingOrderDescriptionForType(nextRow);
+    }
+    return;
+  }
+  if (field === "side") {
+    const sourceSide = row.querySelector("[data-order-field='side']")?.value;
+    const nextSide = nextRow.querySelector("[data-order-field='side']");
+    if (nextSide && nextSide.dataset.userChanged !== "1") {
+      nextSide.value = oppositePricingOrderSide(sourceSide);
+      nextSide.dataset.suggested = nextSide.value ? "1" : "";
+      updatePricingOrderSideButtons(nextRow);
+    }
+  }
+}
+
 function createPricingOrderSideControl(side) {
   const wrap = document.createElement("div");
   wrap.className = "order-side-choice";
@@ -8650,15 +8707,34 @@ function createPricingOrderSideControl(side) {
 
 function addPricingOrderItemRow(item = {}) {
   if (!orderItemsFormBody) return null;
-  const normalizedItem = normalizePricingOrderItem(item) || normalizePricingOrderItem({ type: PRICING_ORDER_TYPES[0], quantity: "1" });
+  const previousRow = orderItemsFormBody.querySelector("[data-order-row]:last-child");
+  const hasExplicitType = Object.prototype.hasOwnProperty.call(item, "type");
+  const hasExplicitSide = Object.prototype.hasOwnProperty.call(item, "side");
+  const suggestedItem = { ...item };
+  if (previousRow && !hasExplicitType) {
+    suggestedItem.type = previousRow.querySelector("[data-order-field='type']")?.value || PRICING_ORDER_TYPES[0];
+  }
+  if (previousRow && !hasExplicitSide) {
+    suggestedItem.side = oppositePricingOrderSide(previousRow.querySelector("[data-order-field='side']")?.value);
+  }
+  const normalizedItem = normalizePricingOrderItem(suggestedItem) || normalizePricingOrderItem({ type: PRICING_ORDER_TYPES[0], quantity: "1" });
   const row = document.createElement("tr");
   row.dataset.orderRow = "1";
 
   const typeCell = document.createElement("td");
-  typeCell.append(createOrderTypeSelect(normalizedItem.type));
+  const typeSelect = createOrderTypeSelect(normalizedItem.type);
+  if (hasExplicitType) typeSelect.dataset.userChanged = "1";
+  else if (previousRow) typeSelect.dataset.suggested = "1";
+  typeCell.append(typeSelect);
 
   const sideCell = document.createElement("td");
-  sideCell.append(createPricingOrderSideControl(normalizedItem.side));
+  const sideControl = createPricingOrderSideControl(normalizedItem.side);
+  const sideInput = sideControl.querySelector("[data-order-field='side']");
+  if (sideInput) {
+    if (hasExplicitSide) sideInput.dataset.userChanged = "1";
+    else if (previousRow && sideInput.value) sideInput.dataset.suggested = "1";
+  }
+  sideCell.append(sideControl);
 
   const quantityCell = document.createElement("td");
   const quantityInput = document.createElement("input");
@@ -8699,6 +8775,7 @@ function addPricingOrderItemRow(item = {}) {
   row.append(typeCell, sideCell, quantityCell, descriptionCell, notesCell, actionCell);
   orderItemsFormBody.append(row);
   updatePricingOrderSideButtons(row);
+  syncPricingOrderDescriptionForType(row);
   return row;
 }
 
@@ -8723,15 +8800,29 @@ function syncPricingOrderDescriptionForType(row) {
   if (!row) return;
   const type = normalizePricingOrderType(row.querySelector("[data-order-field='type']")?.value);
   const descriptionInput = row.querySelector("[data-order-field='description']");
-  if (!descriptionInput || descriptionInput.value.trim()) return;
+  if (!descriptionInput) return;
+  const canAutofill = !descriptionInput.value.trim() || descriptionInput.dataset.autoDescription === "1";
+  if (!canAutofill) return;
   if (type === "WKŁADKA USZNA" || type === "WKŁADKA PRZECIWWODNA") {
     descriptionInput.value = pricingOrderTypeLabel(type);
+    descriptionInput.dataset.autoDescription = "1";
+  } else if (descriptionInput.dataset.autoDescription === "1") {
+    descriptionInput.value = "";
+    delete descriptionInput.dataset.autoDescription;
   }
 }
 
 function handlePricingOrderItemsInput(event) {
   const row = event.target.closest?.("[data-order-row]");
-  if (event.target.matches?.("[data-order-field='type']")) syncPricingOrderDescriptionForType(row);
+  if (event.target.matches?.("[data-order-field='type']")) {
+    event.target.dataset.userChanged = "1";
+    delete event.target.dataset.suggested;
+    syncPricingOrderDescriptionForType(row);
+    suggestPricingOrderNextRow(row, "type");
+  }
+  if (event.target.matches?.("[data-order-field='description']")) {
+    delete event.target.dataset.autoDescription;
+  }
   renderPricingOrder();
 }
 
@@ -8740,8 +8831,13 @@ function handlePricingOrderItemsClick(event) {
   if (sideButton) {
     const row = sideButton.closest("[data-order-row]");
     const sideInput = row?.querySelector("[data-order-field='side']");
-    if (sideInput) sideInput.value = sideButton.dataset.orderSide || "";
+    if (sideInput) {
+      sideInput.value = sideButton.dataset.orderSide || "";
+      sideInput.dataset.userChanged = "1";
+      delete sideInput.dataset.suggested;
+    }
     updatePricingOrderSideButtons(row);
+    suggestPricingOrderNextRow(row, "side");
     renderPricingOrder();
     return;
   }
@@ -14134,6 +14230,7 @@ function resetDeviceFilters() {
   ezwmFilter.value = "";
   fifoFilter.value = "";
   locationFilter.value = "";
+  updateDocumentLocationAccent(locationFilter);
   resetAndRenderDeviceViews();
 }
 
@@ -14366,6 +14463,8 @@ loanAddressInput?.addEventListener("blur", (event) => {
   input?.addEventListener("focus", () => updateLoanSerialPasteHint(loanSideFromSerialInput(input)));
   input?.addEventListener("mouseenter", () => updateLoanSerialPasteHint(loanSideFromSerialInput(input)));
 });
+loanChargerSerialInput?.addEventListener("focus", () => updateLoanSerialPasteHint("charger"));
+loanChargerSerialInput?.addEventListener("mouseenter", () => updateLoanSerialPasteHint("charger"));
 loanSerialFields.forEach((field) => {
   field.addEventListener("mouseenter", () => updateLoanSerialPasteHint(field.dataset.loanSerialField));
 });
@@ -14594,7 +14693,10 @@ searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH
 typeFilter.addEventListener("change", resetAndRenderDeviceViews);
 ezwmFilter.addEventListener("change", resetAndRenderDeviceViews);
 fifoFilter.addEventListener("change", resetAndRenderDeviceViews);
-locationFilter.addEventListener("change", resetAndRenderDeviceViews);
+locationFilter.addEventListener("change", (event) => {
+  updateDocumentLocationAccent(event.target);
+  resetAndRenderDeviceViews();
+});
 repairSearchInput.addEventListener("input", debounce(resetAndRenderRepairRecords, SEARCH_DEBOUNCE_MS));
 repairCategoryFilter.addEventListener("change", resetAndRenderRepairRecords);
 repairStatusFilter.addEventListener("change", resetAndRenderRepairRecords);

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-6">
+    <link rel="stylesheet" href="styles.css?v=20260821-9">
   </head>
   <body>
     <main class="app-shell">
@@ -101,7 +101,7 @@
                 <option value="180">180+ dni</option>
               </select>
             </label>
-            <label>
+            <label class="document-location-field location-filter-field">
               <span>Miejsce</span>
               <select id="locationFilter">
                 <option value="">Wszystkie</option>
@@ -739,7 +739,7 @@
                   <span>Okres do</span>
                   <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label class="offer-location-field document-location-field loan-location-wide">
+                <label class="document-location-field loan-contract-location-field">
                   <span>Miejsce</span>
                   <select id="loanCityInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -747,7 +747,7 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
-                <label>
+                <label class="loan-deposit-field">
                   <span>Kaucja pobrana</span>
                   <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
                 </label>
@@ -820,9 +820,10 @@
                   <span>Ładowarka - model / typ</span>
                   <input id="loanChargerInput" type="text" autocomplete="off">
                 </label>
-                <label>
+                <label class="loan-serial-field" data-loan-serial-field="charger">
                   <span>Ładowarka - nr seryjny</span>
                   <input id="loanChargerSerialInput" type="text" autocomplete="off">
+                  <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="charger" hidden>Wklej</button>
                 </label>
                 <label>
                   <span>Ładowarka - stan</span>
@@ -1918,6 +1919,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-6"></script>
+    <script src="app.js?v=20260821-10"></script>
   </body>
 </html>
