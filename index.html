@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-20">
+    <link rel="stylesheet" href="styles.css?v=20260821-21">
   </head>
   <body>
     <main class="app-shell">
@@ -1272,76 +1272,81 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
-                <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
-                  <div class="complaint-product-head">
-                    <strong>Pozycja 1</strong>
-                    <button id="removeComplaintItemBtn1" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 1">×</button>
+                <div class="complaint-editor complaint-full">
+                  <div class="order-editor-head">
+                    <span>Pozycje reklamacji</span>
+                    <button id="addComplaintItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj pozycję reklamacji">
+                      <span aria-hidden="true">+</span>
+                      Dodaj pozycję
+                    </button>
                   </div>
-                  <div class="complaint-product-grid">
-                    <label class="complaint-product-type-field">
-                      <span>Typ</span>
-                      <select id="complaintProductTypeInput">
-                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                        <option value="INNE">Inne</option>
-                      </select>
-                    </label>
-                    <label class="complaint-product-wide">
-                      <span>Nazwa / model</span>
-                      <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
-                    </label>
-                    <label class="paste-input-field">
-                      <span>Nr seryjny</span>
-                      <input id="complaintSerialInput" type="text" autocomplete="off">
-                      <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput" data-paste-format="serial">Wklej</button>
-                    </label>
-                    <label>
-                      <span>Dokument zakupu</span>
-                      <input id="complaintPurchaseDocumentInput" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
-                    </label>
-                    <label>
-                      <span>Data sprzedaży</span>
-                      <input id="complaintPurchaseDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                    </label>
+                  <div class="complaint-editor-scroll">
+                    <table class="complaint-editor-table">
+                      <thead>
+                        <tr>
+                          <th>LP</th>
+                          <th>Typ</th>
+                          <th>Nazwa / model</th>
+                          <th>Nr seryjny</th>
+                          <th>Dokument zakupu</th>
+                          <th>Data sprzedaży</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody class="complaint-product-card" data-complaint-product-card="1">
+                        <tr>
+                          <td class="complaint-position-cell">1</td>
+                          <td>
+                            <select id="complaintProductTypeInput" aria-label="Typ pozycji 1">
+                              <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                              <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                              <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                              <option value="INNE">Inne</option>
+                            </select>
+                          </td>
+                          <td><input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off" aria-label="Nazwa lub model pozycji 1"></td>
+                          <td>
+                            <div class="paste-input-field complaint-table-paste">
+                              <input id="complaintSerialInput" type="text" autocomplete="off" aria-label="Numer seryjny pozycji 1">
+                              <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput" data-paste-format="serial">Wklej</button>
+                            </div>
+                          </td>
+                          <td><input id="complaintPurchaseDocumentInput" type="text" placeholder="np. FS 00/B/2026" autocomplete="off" aria-label="Dokument zakupu pozycji 1"></td>
+                          <td><input id="complaintPurchaseDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" aria-label="Data sprzedaży pozycji 1"></td>
+                          <td><button id="removeComplaintItemBtn1" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 1">×</button></td>
+                        </tr>
+                        <tr class="complaint-warranty-row">
+                          <td colspan="7"><p id="complaintWarrantyHint1" class="complaint-warranty-hint" hidden></p></td>
+                        </tr>
+                      </tbody>
+                      <tbody class="complaint-product-card" data-complaint-product-card="2" hidden>
+                        <tr>
+                          <td class="complaint-position-cell">2</td>
+                          <td>
+                            <select id="complaintProductTypeInput2" aria-label="Typ pozycji 2">
+                              <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                              <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                              <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                              <option value="INNE">Inne</option>
+                            </select>
+                          </td>
+                          <td><input id="complaintProductNameInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi model, wkładka lub produkt" autocomplete="off" aria-label="Nazwa lub model pozycji 2"></td>
+                          <td>
+                            <div class="paste-input-field complaint-table-paste">
+                              <input id="complaintSerialInput2" type="text" autocomplete="off" aria-label="Numer seryjny pozycji 2">
+                              <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput2" data-paste-format="serial">Wklej</button>
+                            </div>
+                          </td>
+                          <td><input id="complaintPurchaseDocumentInput2" type="text" placeholder="np. FS 00/B/2026" autocomplete="off" aria-label="Dokument zakupu pozycji 2"></td>
+                          <td><input id="complaintPurchaseDateInput2" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" aria-label="Data sprzedaży pozycji 2"></td>
+                          <td><button id="removeComplaintItemBtn2" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 2">×</button></td>
+                        </tr>
+                        <tr class="complaint-warranty-row">
+                          <td colspan="7"><p id="complaintWarrantyHint2" class="complaint-warranty-hint" hidden></p></td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                  <p id="complaintWarrantyHint1" class="complaint-warranty-hint" hidden></p>
-                </div>
-                <button id="addComplaintItemBtn" class="complaint-add-item-btn complaint-full" type="button">+ Dodaj pozycję</button>
-                <div class="complaint-product-card complaint-full" data-complaint-product-card="2" hidden>
-                  <div class="complaint-product-head">
-                    <strong>Pozycja 2</strong>
-                    <button id="removeComplaintItemBtn2" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 2">×</button>
-                  </div>
-                  <div class="complaint-product-grid">
-                    <label class="complaint-product-type-field">
-                      <span>Typ</span>
-                      <select id="complaintProductTypeInput2">
-                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                        <option value="INNE">Inne</option>
-                      </select>
-                    </label>
-                    <label class="complaint-product-wide">
-                      <span>Nazwa / model</span>
-                      <input id="complaintProductNameInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi model, wkładka lub produkt" autocomplete="off">
-                    </label>
-                    <label class="paste-input-field">
-                      <span>Nr seryjny</span>
-                      <input id="complaintSerialInput2" type="text" autocomplete="off">
-                      <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput2" data-paste-format="serial">Wklej</button>
-                    </label>
-                    <label>
-                      <span>Dokument zakupu</span>
-                      <input id="complaintPurchaseDocumentInput2" type="text" placeholder="np. FS 00/B/2026" autocomplete="off">
-                    </label>
-                    <label>
-                      <span>Data sprzedaży</span>
-                      <input id="complaintPurchaseDateInput2" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                    </label>
-                  </div>
-                  <p id="complaintWarrantyHint2" class="complaint-warranty-hint" hidden></p>
                 </div>
                 <label class="complaint-full">
                   <span>Opis wady</span>
@@ -1943,6 +1948,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-20"></script>
+    <script src="app.js?v=20260821-21"></script>
   </body>
 </html>
