@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-15">
+    <link rel="stylesheet" href="styles.css?v=20260821-17">
   </head>
   <body>
     <main class="app-shell">
@@ -1042,11 +1042,20 @@
                     </select>
                     <small id="pcprOfficeAddressHint" class="pcpr-office-address"></small>
                   </label>
-                  <label class="pcpr-model-field">
-                    <span>Wstępny model</span>
-                    <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
-                    <button id="addPcprSecondModelBtn" class="pcpr-add-second-model-btn" type="button">+ Drugi model</button>
-                  </label>
+                  <div class="pcpr-model-stack">
+                    <label class="pcpr-model-field">
+                      <span>Wstępny model</span>
+                      <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
+                      <button id="addPcprSecondModelBtn" class="pcpr-add-second-model-btn" type="button">+ Drugi model</button>
+                    </label>
+                    <label id="pcprSecondModelField" class="pcpr-model-field pcpr-second-model-field" hidden>
+                      <span>Drugi wstępny model</span>
+                      <span class="pcpr-second-model-input-row">
+                        <input id="pcprModelInput2" type="text" list="pricingOfferDeviceList" placeholder="Ten sam lub inny model" autocomplete="off">
+                        <button id="removePcprSecondModelBtn" class="pcpr-remove-second-model-btn" type="button" aria-label="Usuń drugi model" title="Usuń drugi model">×</button>
+                      </span>
+                    </label>
+                  </div>
                   <div class="pcpr-ear-field">
                     <span>Ucho</span>
                     <div class="pcpr-ear-options" role="radiogroup" aria-label="Wybór ucha">
@@ -1071,13 +1080,6 @@
                     <button id="savePcprBtn" type="submit">Dodaj</button>
                     <button id="cancelPcprEditBtn" class="reset-filters-btn pcpr-cancel-edit-btn" type="button" hidden>Anuluj</button>
                   </div>
-                  <label id="pcprSecondModelField" class="pcpr-model-field pcpr-second-model-field" hidden>
-                    <span>Drugi wstępny model</span>
-                    <span class="pcpr-second-model-input-row">
-                      <input id="pcprModelInput2" type="text" list="pricingOfferDeviceList" placeholder="Ten sam lub inny model" autocomplete="off">
-                      <button id="removePcprSecondModelBtn" class="pcpr-remove-second-model-btn" type="button" aria-label="Usuń drugi model" title="Usuń drugi model">×</button>
-                    </span>
-                  </label>
                 </div>
               </form>
             </section>
@@ -1272,21 +1274,19 @@
                 </label>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
                   <div class="complaint-product-head">
-                    <div class="complaint-product-title">
-                      <strong>Pozycja 1</strong>
-                      <label class="complaint-product-type-field">
-                        <span>Produkt</span>
-                        <select id="complaintProductTypeInput">
-                          <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                          <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                          <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                          <option value="INNE">Inne</option>
-                        </select>
-                      </label>
-                    </div>
+                    <strong>Pozycja 1</strong>
                     <button id="removeComplaintItemBtn1" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 1">×</button>
                   </div>
                   <div class="complaint-product-grid">
+                    <label class="complaint-product-type-field">
+                      <span>Typ</span>
+                      <select id="complaintProductTypeInput">
+                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                        <option value="INNE">Inne</option>
+                      </select>
+                    </label>
                     <label class="complaint-product-wide">
                       <span>Nazwa / model</span>
                       <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
@@ -1307,23 +1307,22 @@
                   </div>
                   <p id="complaintWarrantyHint1" class="complaint-warranty-hint" hidden></p>
                 </div>
-                <div class="complaint-product-card complaint-full" data-complaint-product-card="2">
+                <button id="addComplaintItemBtn" class="complaint-add-item-btn complaint-full" type="button">+ Dodaj pozycję</button>
+                <div class="complaint-product-card complaint-full" data-complaint-product-card="2" hidden>
                   <div class="complaint-product-head">
-                    <div class="complaint-product-title">
-                      <strong>Pozycja 2</strong>
-                      <label class="complaint-product-type-field">
-                        <span>Produkt</span>
-                        <select id="complaintProductTypeInput2">
-                          <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
-                          <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                          <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                          <option value="INNE">Inne</option>
-                        </select>
-                      </label>
-                    </div>
+                    <strong>Pozycja 2</strong>
                     <button id="removeComplaintItemBtn2" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 2">×</button>
                   </div>
                   <div class="complaint-product-grid">
+                    <label class="complaint-product-type-field">
+                      <span>Typ</span>
+                      <select id="complaintProductTypeInput2">
+                        <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                        <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                        <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                        <option value="INNE">Inne</option>
+                      </select>
+                    </label>
                     <label class="complaint-product-wide">
                       <span>Nazwa / model</span>
                       <input id="complaintProductNameInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi model, wkładka lub produkt" autocomplete="off">
@@ -1933,6 +1932,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-15"></script>
+    <script src="app.js?v=20260821-17"></script>
   </body>
 </html>
