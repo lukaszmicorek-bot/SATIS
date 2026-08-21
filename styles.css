@@ -834,7 +834,7 @@ h2 {
 }
 
 .pricing-history-section {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
 }
 
@@ -2310,10 +2310,13 @@ h2 {
 }
 
 .pricing-history-search {
+  grid-column: 1 / -1;
+  justify-content: start;
   margin-bottom: 12px;
 }
 
 .pricing-history-search input {
+  width: min(62vw, 620px);
   max-width: 620px;
 }
 
@@ -6606,6 +6609,11 @@ textarea {
   .loan-history-search {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+
+  .pricing-history-search input {
+    width: 100%;
+    max-width: none;
   }
 
   .loan-history-actions {
