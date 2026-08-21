@@ -3583,6 +3583,57 @@ tbody tr.repair-overdue-critical td:first-child {
   gap: 5px;
 }
 
+.repair-notes-preview {
+  position: relative;
+  display: block;
+  cursor: help;
+}
+
+.repair-notes-preview-text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #40525a;
+  line-height: 1.32;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.repair-notes-preview::after {
+  content: attr(data-repair-notes-tooltip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 55;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(440px, 70vw);
+  padding: 9px 10px;
+  border: 1px solid #cbd9dd;
+  border-radius: 8px;
+  color: #20343b;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(28, 31, 36, 0.14);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.38;
+  white-space: pre-wrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.repair-notes-preview:hover::after,
+.repair-notes-preview:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.repairs-table tbody tr:first-child .repair-notes-preview::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
 .repair-number-warning {
   width: fit-content;
   max-width: 100%;

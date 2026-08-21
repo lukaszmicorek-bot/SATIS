@@ -10908,21 +10908,29 @@ function createRepairNotesCell(record) {
   const meta = repairDerived.get(record.id);
   const issues = meta?.documentNumberIssues || [];
   const notes = normalizeLoanHistoryText(record?.notes);
-  if (!issues.length) return notes;
+  if (!notes && !issues.length) return "";
 
   const wrap = document.createElement("div");
   wrap.className = "repair-notes-cell";
   if (notes) {
+    const preview = document.createElement("span");
+    preview.className = "repair-notes-preview";
+    preview.dataset.repairNotesTooltip = notes;
+    preview.tabIndex = 0;
     const text = document.createElement("span");
+    text.className = "repair-notes-preview-text";
     text.textContent = notes;
-    wrap.append(text);
+    preview.append(text);
+    wrap.append(preview);
   }
 
-  const warning = document.createElement("span");
-  warning.className = "repair-number-warning";
-  warning.textContent = `Numer: ${issues.map((issue) => issue.title).join(", ")}`;
-  warning.title = issues.map((issue) => issue.detail).join("\n");
-  wrap.append(warning);
+  if (issues.length) {
+    const warning = document.createElement("span");
+    warning.className = "repair-number-warning";
+    warning.textContent = `Numer: ${issues.map((issue) => issue.title).join(", ")}`;
+    warning.title = issues.map((issue) => issue.detail).join("\n");
+    wrap.append(warning);
+  }
   return wrap;
 }
 
