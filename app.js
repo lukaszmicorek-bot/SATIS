@@ -6504,7 +6504,7 @@ function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
   return `${count} ${plural}`;
 }
 
-function createPricingDocumentHistoryItem(entry, { title, meta, details, onPreview, onOpen }) {
+function createPricingDocumentHistoryItem(entry, { title, meta, details, onPreview, onOpen, onDelete }) {
   const item = document.createElement("article");
   item.className = "loan-history-item";
 
@@ -6532,6 +6532,14 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, onPrevi
   openButton.textContent = "Otwórz";
   openButton.addEventListener("click", onOpen);
   actions.append(previewButton, openButton);
+  if (typeof onDelete === "function") {
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "reset-filters-btn loan-history-remove";
+    deleteButton.textContent = "Usuń";
+    deleteButton.addEventListener("click", onDelete);
+    actions.append(deleteButton);
+  }
   item.append(content, actions);
   return item;
 }
@@ -6692,6 +6700,34 @@ function restorePricingComplaintFromHistory(entry) {
   renderPricingComplaint();
 }
 
+async function deletePricingComplaintHistoryEntry(id) {
+  if (!canManagePricing()) return;
+  const entry = pricingComplaintHistory.find((item) => item.id === id);
+  if (!entry) return;
+  const label = [entry.number ? `nr ${entry.number}` : "", entry.customer].filter(Boolean).join(" - ") || "bez danych";
+  if (!confirm(`Trwale usunąć reklamację ${label} z historii?`)) return;
+
+  const previousHistory = pricingComplaintHistory.slice();
+  pricingComplaintHistory = pricingComplaintHistory.filter((item) => item.id !== id);
+  saveLocalPricingComplaintHistory();
+  rebuildCustomerNameSuggestions();
+  rebuildCustomerDocumentIndex();
+  renderPricingDocumentHistory();
+
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingComplaintHistorySupabaseAvailable === false) return;
+  try {
+    const { error } = await supabaseClient.from(SUPABASE_COMPLAINT_HISTORY_TABLE).delete().eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    pricingComplaintHistory = previousHistory;
+    saveLocalPricingComplaintHistory();
+    rebuildCustomerNameSuggestions();
+    rebuildCustomerDocumentIndex();
+    renderPricingDocumentHistory();
+    alert(`Nie udało się usunąć reklamacji z Supabase: ${error.message}`);
+  }
+}
+
 function renderPricingDocumentHistory() {
   const offers = normalizePricingOfferHistory(pricingOfferHistory);
   renderPricingHistoryList(
@@ -6742,7 +6778,8 @@ function renderPricingDocumentHistory() {
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
       onPreview: () => showPricingHistoryPreview("complaint", entry),
-      onOpen: () => restorePricingComplaintFromHistory(entry)
+      onOpen: () => restorePricingComplaintFromHistory(entry),
+      onDelete: canManagePricing() ? () => deletePricingComplaintHistoryEntry(entry.id) : null
     })
   );
 }
@@ -10415,8 +10452,9 @@ function createPricingRow(record, index) {
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "pricing-remove-btn danger";
-    removeButton.textContent = "Usuń";
+    removeButton.textContent = "×";
     removeButton.title = "Usuń pozycję z cennika";
+    removeButton.setAttribute("aria-label", "Usuń pozycję z cennika");
     removeButton.addEventListener("click", () => deletePricingRecord(record));
     offerCell.append(removeButton);
   }
