@@ -1850,7 +1850,7 @@ h2 {
   transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
 
-.paste-input-btn {
+.paste-input-field {
   position: relative;
 }
 
@@ -1877,6 +1877,11 @@ h2 {
 
 .paste-input-field:hover .paste-input-btn,
 .paste-input-field:focus-within .paste-input-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.search-box.paste-input-field .paste-input-btn {
   opacity: 1;
   pointer-events: auto;
 }
@@ -2176,6 +2181,79 @@ h2 {
   min-height: 27px;
   padding: 0 9px;
   font-size: 0.68rem;
+}
+
+.pricing-history-preview-dialog {
+  width: min(760px, calc(100% - 24px));
+  max-height: min(82vh, 760px);
+}
+
+.pricing-history-preview-shell {
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  padding: 20px;
+}
+
+.pricing-history-preview-shell .dialog-head {
+  margin-bottom: 16px;
+}
+
+.pricing-history-preview-content {
+  display: grid;
+  gap: 14px;
+}
+
+.pricing-history-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pricing-history-preview-field {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #dce7e8;
+  border-radius: 8px;
+  background: #f8fbfb;
+}
+
+.pricing-history-preview-field span,
+.pricing-history-preview-field strong {
+  display: block;
+}
+
+.pricing-history-preview-field span {
+  margin-bottom: 3px;
+  color: #6c7b84;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.pricing-history-preview-field strong {
+  color: #27434d;
+  font-size: 0.78rem;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.pricing-history-preview-items {
+  padding: 11px 12px;
+  border: 1px solid #dce7e8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.pricing-history-preview-items h3 {
+  margin: 0 0 7px;
+  color: #003f5a;
+  font-size: 0.82rem;
+}
+
+.pricing-history-preview-items p {
+  margin: 5px 0;
+  color: #314852;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .loan-history-remove {
@@ -3598,40 +3676,23 @@ tbody tr.repair-overdue-critical td:first-child {
   -webkit-line-clamp: 4;
 }
 
-.repair-notes-preview::after {
-  content: attr(data-repair-notes-tooltip);
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 55;
-  width: max-content;
-  min-width: 220px;
-  max-width: min(440px, 70vw);
+.repair-notes-tooltip {
+  position: fixed;
+  z-index: 100;
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(320px, calc(100vh - 24px));
+  overflow: auto;
   padding: 9px 10px;
   border: 1px solid #cbd9dd;
   border-radius: 8px;
   color: #20343b;
   background: #ffffff;
-  box-shadow: 0 10px 26px rgba(28, 31, 36, 0.14);
+  box-shadow: 0 10px 26px rgba(28, 31, 36, 0.16);
   font-size: 0.76rem;
   font-weight: 650;
   line-height: 1.38;
   white-space: pre-wrap;
-  opacity: 0;
   pointer-events: none;
-  transform: translateY(4px);
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-
-.repair-notes-preview:hover::after,
-.repair-notes-preview:focus-visible::after {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.repairs-table tbody tr:first-child .repair-notes-preview::after {
-  top: calc(100% + 8px);
-  bottom: auto;
 }
 
 .repair-number-warning {
@@ -5862,6 +5923,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .pricing-history-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .top-panel {
     align-items: stretch;
     flex-direction: column;
@@ -6065,6 +6130,10 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .pricing-history-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
   .app-shell {
     width: min(100% - 18px, 1540px);
     margin: 9px auto;
