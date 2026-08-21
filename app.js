@@ -6099,6 +6099,19 @@ function monthlyDocumentNumber(sequence, month, year) {
   return `${sequence}/${String(month).padStart(2, "0")}/${year}`;
 }
 
+function monthlyComplaintNumber(sequence, month, year) {
+  return `${String(sequence).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+function normalizeComplaintDocumentNumber(value, dateValue = "") {
+  const rawValue = normalizeLoanHistoryText(value);
+  const parts = loanContractNumberParts(rawValue);
+  if (!parts) return rawValue;
+  const dateParts = loanContractDateParts(dateValue);
+  const year = parts.year || dateParts?.year || new Date().getFullYear();
+  return monthlyComplaintNumber(parts.sequence, parts.month, year);
+}
+
 function nextLoanContractNumber(dateValue, ignoredId = "") {
   const target = loanContractDateParts(dateValue) || loanContractDateParts(todayInputValue());
   const targetMonth = target?.month || new Date().getMonth() + 1;
@@ -8688,7 +8701,7 @@ function normalizePricingComplaintHistoryEntry(entry) {
     savedAt,
     savedBy: normalizeLoanHistoryText(entry.savedBy || entry.userEmail),
     workstation: normalizeLoanHistoryText(entry.workstation),
-    number: normalizeLoanHistoryText(entry.number),
+    number: normalizeComplaintDocumentNumber(entry.number, entry.date),
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
@@ -8792,7 +8805,7 @@ function nextPricingComplaintNumber(dateValue, ignoredId = "") {
     return Math.max(maxValue, numberParts.sequence);
   }, 0);
 
-  return monthlyDocumentNumber(maxSequence + 1, targetMonth, targetYear);
+  return monthlyComplaintNumber(maxSequence + 1, targetMonth, targetYear);
 }
 
 function complaintInputValue(input) {
@@ -8909,7 +8922,7 @@ function currentPricingComplaintSnapshot() {
     savedAt: now,
     savedBy: currentSupabaseUser?.email || "",
     workstation: currentWorkstationName(),
-    number: complaintInputValue(complaintNumberInput),
+    number: normalizeComplaintDocumentNumber(complaintInputValue(complaintNumberInput), complaintDateInput?.value),
     date: isoDateForSave(complaintDateInput?.value) || complaintInputValue(complaintDateInput),
     customer: titleCaseName(complaintInputValue(complaintCustomerInput)),
     phone: complaintInputValue(complaintPhoneInput),
@@ -14107,6 +14120,10 @@ printPricingOrderBtn?.addEventListener("click", printPricingOrder);
 complaintNumberInput?.addEventListener("input", () => {
   complaintNumberInput.dataset.autoNumber = "";
 }, { capture: true });
+complaintNumberInput?.addEventListener("blur", () => {
+  complaintNumberInput.value = normalizeComplaintDocumentNumber(complaintNumberInput.value, complaintDateInput?.value);
+  renderPricingComplaint();
+});
 complaintDateInput?.addEventListener("change", () => {
   if (complaintNumberInput?.dataset.autoNumber === "1") ensurePricingComplaintNumber({ force: true });
   renderPricingComplaint();
