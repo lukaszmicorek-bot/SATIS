@@ -69,7 +69,10 @@
           <section class="controls database-controls" aria-label="Narzędzia bazy">
             <label class="search-box">
               <span>Szukaj</span>
-              <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
+              <span class="paste-input-row">
+                <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
+                <button class="search-paste-btn" type="button" data-paste-target="searchInput">Wklej</button>
+              </span>
             </label>
             <label>
               <span>Status</span>
@@ -405,7 +408,10 @@
           <section class="controls repairs-controls" aria-label="Narzędzia zeszytu napraw i wkładek">
             <label class="search-box">
               <span>Szukaj</span>
-              <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
+              <span class="paste-input-row">
+                <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
+                <button class="search-paste-btn" type="button" data-paste-target="repairSearchInput">Wklej</button>
+              </span>
             </label>
             <label>
               <span>Typ</span>
@@ -645,6 +651,8 @@
                 </div>
               </div>
               <div class="offer-actions">
+                <button id="offerMoveRightToLeftBtn" class="reset-filters-btn" type="button">P → L</button>
+                <button id="offerMoveLeftToRightBtn" class="reset-filters-btn" type="button">L → P</button>
                 <button id="offerDuplicateFirstBtn" class="reset-filters-btn" type="button">2x ten sam</button>
                 <button id="printPricingOfferBtn" type="button">Drukuj / PDF</button>
               </div>
@@ -851,6 +859,8 @@
               </div>
               <div class="offer-actions">
                 <button id="loanCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
+                <button id="loanMoveRightToLeftBtn" class="reset-filters-btn" type="button">P → L</button>
+                <button id="loanMoveLeftToRightBtn" class="reset-filters-btn" type="button">L → P</button>
                 <button id="loanDuplicateRightBtn" class="reset-filters-btn" type="button">2x ten sam</button>
                 <button id="savePricingLoanBtn" class="reset-filters-btn" type="button">Zapisz w historii</button>
                 <button id="printPricingLoanBtn" type="button">Drukuj / PDF</button>
@@ -1019,8 +1029,8 @@
                     <span>Miejsce</span>
                     <select id="pcprPlaceInput">
                       <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
-                      <option value="P50">Żywiec, al. Piłsudskiego 50</option>
                       <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
+                      <option value="P50">Żywiec, al. Piłsudskiego 50</option>
                     </select>
                   </label>
                   <div class="pcpr-ear-field">
@@ -1067,8 +1077,8 @@
                 <div class="pcpr-tab-group" data-pcpr-filter-group="place" aria-label="Filtr miejsca">
                   <button type="button" class="pcpr-tab" data-pcpr-place-tab="" aria-pressed="true">Wszystkie</button>
                   <button type="button" class="pcpr-tab" data-pcpr-place-tab="T12" data-location-tone="T12" aria-pressed="false">T12</button>
-                  <button type="button" class="pcpr-tab" data-pcpr-place-tab="P50" data-location-tone="P50" aria-pressed="false">P50</button>
                   <button type="button" class="pcpr-tab" data-pcpr-place-tab="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+                  <button type="button" class="pcpr-tab" data-pcpr-place-tab="P50" data-location-tone="P50" aria-pressed="false">P50</button>
                 </div>
                 <div class="pcpr-tab-group" data-pcpr-filter-group="office" aria-label="Filtr PCPR lub MOPS">
                   <button type="button" class="pcpr-tab" data-pcpr-office-tab="" aria-pressed="true">Wszystkie</button>
@@ -1264,9 +1274,10 @@
                       <span>Nazwa / model</span>
                       <input id="complaintProductNameInput" type="text" list="pricingOfferDeviceList" placeholder="Model, wkładka lub produkt" autocomplete="off">
                     </label>
-                    <label>
+                    <label class="paste-input-field">
                       <span>Nr seryjny</span>
                       <input id="complaintSerialInput" type="text" autocomplete="off">
+                      <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput" data-paste-format="serial">Wklej</button>
                     </label>
                     <label>
                       <span>Dokument zakupu</span>
@@ -1300,9 +1311,10 @@
                       <span>Nazwa / model</span>
                       <input id="complaintProductNameInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi model, wkładka lub produkt" autocomplete="off">
                     </label>
-                    <label>
+                    <label class="paste-input-field">
                       <span>Nr seryjny</span>
                       <input id="complaintSerialInput2" type="text" autocomplete="off">
+                      <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput2" data-paste-format="serial">Wklej</button>
                     </label>
                     <label>
                       <span>Dokument zakupu</span>

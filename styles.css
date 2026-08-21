@@ -1840,6 +1840,47 @@ h2 {
   transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
 
+.paste-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  align-items: center;
+}
+
+.search-paste-btn,
+.paste-input-btn {
+  min-height: 27px;
+  padding: 1px 7px;
+  border-color: #c6d7dd;
+  color: #356371;
+  background: #f7fbfc;
+  font-size: 0.66rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.search-paste-btn:hover,
+.paste-input-btn:hover {
+  border-color: #9ebac3;
+  color: #003f5a;
+  background: #edf6f8;
+  transform: none;
+}
+
+.paste-input-field {
+  position: relative;
+}
+
+.paste-input-field input {
+  padding-right: 54px;
+}
+
+.paste-input-field .paste-input-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+}
+
 .loan-serial-field.has-paste-hint:hover .loan-paste-serial-btn,
 .loan-serial-field.has-paste-hint:focus-within .loan-paste-serial-btn {
   opacity: 1;

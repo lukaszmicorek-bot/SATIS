@@ -528,6 +528,8 @@ const offerNoNfzInput = document.querySelector("#offerNoNfzInput");
 const offerDeviceInput1 = document.querySelector("#offerDeviceInput1");
 const offerDeviceInput2 = document.querySelector("#offerDeviceInput2");
 const offerDuplicateFirstBtn = document.querySelector("#offerDuplicateFirstBtn");
+const offerMoveRightToLeftBtn = document.querySelector("#offerMoveRightToLeftBtn");
+const offerMoveLeftToRightBtn = document.querySelector("#offerMoveLeftToRightBtn");
 const printPricingOfferBtn = document.querySelector("#printPricingOfferBtn");
 const offerTitle = document.querySelector("#offerTitle");
 const offerMeta = document.querySelector("#offerMeta");
@@ -566,6 +568,8 @@ const loanDeductionsInput = document.querySelector("#loanDeductionsInput");
 const loanDeductionReasonInput = document.querySelector("#loanDeductionReasonInput");
 const loanCopyOfferBtn = document.querySelector("#loanCopyOfferBtn");
 const loanDuplicateRightBtn = document.querySelector("#loanDuplicateRightBtn");
+const loanMoveRightToLeftBtn = document.querySelector("#loanMoveRightToLeftBtn");
+const loanMoveLeftToRightBtn = document.querySelector("#loanMoveLeftToRightBtn");
 const loanClearDeviceButtons = document.querySelectorAll("[data-clear-loan-device]");
 const loanSerialFields = document.querySelectorAll("[data-loan-serial-field]");
 const loanPasteSerialButtons = document.querySelectorAll("[data-paste-loan-serial]");
@@ -707,6 +711,7 @@ const typeSelect = document.querySelector("#type");
 const fifoFilter = document.querySelector("#fifoFilter");
 const locationFilter = document.querySelector("#locationFilter");
 const repairSearchInput = document.querySelector("#repairSearchInput");
+const pasteInputButtons = document.querySelectorAll("[data-paste-target]");
 const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
 const repairLocationFilter = document.querySelector("#repairLocationFilter");
@@ -5434,6 +5439,36 @@ function setPricingOfferInput(input, record) {
   input.value = pricingOfferDeviceLabel(record);
 }
 
+function movePricingOfferDevice(fromInput, toInput, sourceLabel) {
+  if (pricingOfferAgeValue() === null) {
+    offerAgeInput?.focus();
+    return;
+  }
+  if (!fromInput?.value.trim()) {
+    alert(`Najpierw wybierz aparat ${sourceLabel}.`);
+    return;
+  }
+  if (!toInput) return;
+  toInput.value = fromInput.value;
+  fromInput.value = "";
+  renderPricingOffer();
+}
+
+function duplicatePricingOfferDevice() {
+  if (pricingOfferAgeValue() === null) {
+    offerAgeInput?.focus();
+    return;
+  }
+  const source = offerDeviceInput1?.value.trim() ? offerDeviceInput1 : offerDeviceInput2;
+  const target = source === offerDeviceInput1 ? offerDeviceInput2 : offerDeviceInput1;
+  if (!source?.value.trim() || !target) {
+    alert("Najpierw wybierz aparat P albo L.");
+    return;
+  }
+  target.value = source.value;
+  renderPricingOffer();
+}
+
 function addPricingRecordToOffer(record) {
   if (!record) return;
   if (!offerDeviceInput1 || !offerDeviceInput2) return;
@@ -5618,7 +5653,10 @@ function renderPricingOffer() {
   [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
     if (input) input.disabled = ageRequired;
   });
-  if (offerDuplicateFirstBtn) offerDuplicateFirstBtn.disabled = ageRequired || !offerDeviceInput1?.value.trim();
+  const hasOfferDevice = Boolean(offerDeviceInput1?.value.trim() || offerDeviceInput2?.value.trim());
+  [offerDuplicateFirstBtn, offerMoveRightToLeftBtn, offerMoveLeftToRightBtn].forEach((button) => {
+    if (button) button.disabled = ageRequired || !hasOfferDevice;
+  });
   const customerAgeLabel = age === null ? "" : `, ${formatOfferAge(age)}`;
   const offerItems = selectedPricingOfferItems();
   const items = offerItems.map((item) => item.record);
@@ -6688,20 +6726,41 @@ function autofillLoanDeviceFromInput(side, overwrite = false) {
   fillLoanDeviceFromRecord(side, record, overwrite);
 }
 
-function duplicateLoanRightDeviceToLeft() {
-  const rightInputs = loanDeviceInputs("right");
-  const leftInputs = loanDeviceInputs("left");
-  const rightDeviceValue = loanInputValue(rightInputs.device);
-  if (!rightDeviceValue) {
-    alert("Najpierw wybierz prawy aparat.");
+function setLoanDeviceValues(targetSide, sourceSide, { includeSerial = true } = {}) {
+  const source = loanDeviceInputs(sourceSide);
+  const target = loanDeviceInputs(targetSide);
+  ["device", "manufacturer", "value"].forEach((field) => {
+    if (target[field]) target[field].value = loanInputValue(source[field]);
+  });
+  if (target.serial) target.serial.value = includeSerial ? loanInputValue(source.serial).toLocaleUpperCase("pl-PL") : "";
+}
+
+function moveLoanDevice(sourceSide, targetSide) {
+  const sourceData = loanDeviceData(sourceSide);
+  if (!hasLoanDeviceData(sourceData)) {
+    alert(`Najpierw uzupełnij aparat ${sourceSide === "right" ? "P" : "L"}.`);
     return;
   }
+  setLoanDeviceValues(targetSide, sourceSide, { includeSerial: true });
+  const source = loanDeviceInputs(sourceSide);
+  [source.device, source.serial, source.manufacturer, source.value].forEach((input) => {
+    if (input) input.value = "";
+  });
+  updateLoanSerialPasteHints();
+  renderPricingLoan();
+}
 
-  leftInputs.device.value = rightDeviceValue;
-  leftInputs.manufacturer.value = loanInputValue(rightInputs.manufacturer);
-  leftInputs.value.value = loanInputValue(rightInputs.value);
-  autofillLoanDeviceFromInput("left", false);
-  updateLoanSerialPasteHint("left");
+function duplicateLoanDevice() {
+  const rightData = loanDeviceData("right");
+  const leftData = loanDeviceData("left");
+  const sourceSide = hasLoanDeviceData(rightData) ? "right" : hasLoanDeviceData(leftData) ? "left" : "";
+  if (!sourceSide) {
+    alert("Najpierw uzupełnij aparat P albo L.");
+    return;
+  }
+  const targetSide = sourceSide === "right" ? "left" : "right";
+  setLoanDeviceValues(targetSide, sourceSide, { includeSerial: false });
+  updateLoanSerialPasteHints();
   renderPricingLoan();
 }
 
@@ -10381,6 +10440,36 @@ function createCopyIcon() {
   return icon;
 }
 
+async function pasteClipboardToInput(targetId, format = "") {
+  const input = document.querySelector(`#${targetId}`);
+  if (!input) return;
+
+  let text = "";
+  try {
+    text = navigator.clipboard?.readText ? await navigator.clipboard.readText() : "";
+  } catch (error) {
+    text = "";
+  }
+
+  if (!text && format === "serial") text = lastCopiedSerialNumber;
+  if (!text) {
+    const originalPlaceholder = input.placeholder;
+    input.placeholder = "Najpierw skopiuj tekst";
+    input.focus();
+    setTimeout(() => {
+      if (input.placeholder === "Najpierw skopiuj tekst") input.placeholder = originalPlaceholder;
+    }, 1600);
+    return;
+  }
+
+  input.value = format === "serial"
+    ? normalizeSerialNumber(text)
+    : normalizeLoanHistoryText(text);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  input.focus();
+}
+
 async function copySerialNumber(serialText, pill, defaultTitle) {
   if (!serialText || serialText === "brak numeru") return;
 
@@ -13589,7 +13678,8 @@ pcprModelInput2?.addEventListener("change", syncPcprSecondModelFromPricing);
 pcprModelInput2?.addEventListener("blur", syncPcprSecondModelFromPricing);
 addPcprSecondModelBtn?.addEventListener("click", () => {
   setPcprSecondModelVisible(true);
-  pcprModelInput2?.focus();
+  if (pcprModelInput2 && !pcprModelInput2.value.trim()) pcprModelInput2.value = pcprModelInput?.value || "";
+  if (!pcprModelInput2?.value.trim()) pcprModelInput2?.focus();
 });
 removePcprSecondModelBtn?.addEventListener("click", () => setPcprSecondModelVisible(false));
 pcprPlaceInput?.addEventListener("input", () => {
@@ -13640,10 +13730,10 @@ offerCustomerInput?.addEventListener("blur", (event) => {
   renderPricingOffer();
 });
 offerDuplicateFirstBtn?.addEventListener("click", () => {
-  if (!offerDeviceInput1 || !offerDeviceInput2) return;
-  offerDeviceInput2.value = offerDeviceInput1.value;
-  renderPricingOffer();
+  duplicatePricingOfferDevice();
 });
+offerMoveRightToLeftBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput1, offerDeviceInput2, "P"));
+offerMoveLeftToRightBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput2, offerDeviceInput1, "L"));
 printPricingOfferBtn?.addEventListener("click", printPricingOffer);
 loanContractNumberInput?.addEventListener("input", () => {
   loanContractNumberInput.dataset.autoNumber = "";
@@ -13735,7 +13825,9 @@ loanCopyOfferBtn?.addEventListener("click", () => {
   ensureLoanContractNumber({ force: true });
   renderPricingLoan();
 });
-loanDuplicateRightBtn?.addEventListener("click", duplicateLoanRightDeviceToLeft);
+loanDuplicateRightBtn?.addEventListener("click", duplicateLoanDevice);
+loanMoveRightToLeftBtn?.addEventListener("click", () => moveLoanDevice("right", "left"));
+loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "right"));
 savePricingLoanBtn?.addEventListener("click", () => saveCurrentPricingLoanToHistory());
 printPricingLoanBtn?.addEventListener("click", printPricingLoan);
 orderNumberInput?.addEventListener("input", () => {
@@ -13908,6 +14000,13 @@ document.querySelector("#deviceName").addEventListener("blur", correctDeviceName
 document.querySelector("#serialNumber").addEventListener("input", syncUppercaseTextInput);
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
 typeSelect.addEventListener("change", syncStockLocationFromType);
+pasteInputButtons.forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void pasteClipboardToInput(button.dataset.pasteTarget, button.dataset.pasteFormat || "");
+  });
+});
 searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH_DEBOUNCE_MS));
 typeFilter.addEventListener("change", resetAndRenderDeviceViews);
 ezwmFilter.addEventListener("change", resetAndRenderDeviceViews);
