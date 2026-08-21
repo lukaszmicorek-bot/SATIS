@@ -5372,6 +5372,10 @@ function pricingOfferRecordSearchText(record) {
 function renderPricingOfferDeviceList() {
   if (!pricingOfferDeviceList) return;
   const fragment = document.createDocumentFragment();
+  if (pricingOfferAgeValue() === null) {
+    pricingOfferDeviceList.replaceChildren(fragment);
+    return;
+  }
   pricingOfferSuggestedRecords()
     .slice()
     .sort((left, right) => collator.compare(left.model || left.tradeName, right.model || right.tradeName))
@@ -5433,6 +5437,11 @@ function setPricingOfferInput(input, record) {
 function addPricingRecordToOffer(record) {
   if (!record) return;
   if (!offerDeviceInput1 || !offerDeviceInput2) return;
+  if (pricingOfferAgeValue() === null) {
+    alert("Najpierw podaj wiek, aby wybrać aparat do oferty.");
+    offerAgeInput?.focus();
+    return;
+  }
 
   if (!offerDeviceInput1.value.trim()) {
     setPricingOfferInput(offerDeviceInput1, record);
@@ -5511,6 +5520,11 @@ function renderPricingOfferAgeWarning(items) {
   if (!offerAgeWarning) return;
   const suffix = pricingOfferNfzSuffixForAge();
   const age = pricingOfferAgeValue();
+  if (age === null) {
+    offerAgeWarning.textContent = "Podaj wiek przed wyborem aparatu. Na tej podstawie wybierany jest właściwy kod NFZ.";
+    offerAgeWarning.hidden = false;
+    return;
+  }
   if (!suffix || !items.length) {
     offerAgeWarning.hidden = true;
     offerAgeWarning.textContent = "";
@@ -5600,6 +5614,11 @@ function renderPricingOffer() {
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
   const age = pricingOfferAgeValue();
+  const ageRequired = age === null;
+  [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+    if (input) input.disabled = ageRequired;
+  });
+  if (offerDuplicateFirstBtn) offerDuplicateFirstBtn.disabled = ageRequired || !offerDeviceInput1?.value.trim();
   const customerAgeLabel = age === null ? "" : `, ${formatOfferAge(age)}`;
   const offerItems = selectedPricingOfferItems();
   const items = offerItems.map((item) => item.record);
@@ -10044,7 +10063,8 @@ function createPricingRow(record, index) {
   offerButton.textContent = "+";
   offerButton.title = "Dodaj aparat do oferty";
   offerButton.setAttribute("aria-label", `Dodaj do oferty: ${record.model || record.tradeName || "aparat"}`);
-  offerButton.disabled = normalizePricingPrice(record.grossPrice) === "";
+  offerButton.disabled = normalizePricingPrice(record.grossPrice) === "" || pricingOfferAgeValue() === null;
+  if (pricingOfferAgeValue() === null) offerButton.title = "Najpierw podaj wiek w Ofercie.";
   offerButton.addEventListener("click", () => addPricingRecordToOffer(record));
   offerCell.append(offerButton);
   if (canManagePricing()) {
@@ -13605,10 +13625,12 @@ updatePcprFormMode();
 offerAgeInput?.addEventListener("input", () => {
   renderPricingOfferDeviceList();
   renderPricingOffer();
+  if (activeNotebook === "agreements" && activePricingView === "list") renderPricingRecords();
 });
 offerAgeInput?.addEventListener("change", () => {
   renderPricingOfferDeviceList();
   renderPricingOffer();
+  if (activeNotebook === "agreements" && activePricingView === "list") renderPricingRecords();
 });
 offerCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);

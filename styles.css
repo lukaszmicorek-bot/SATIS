@@ -855,21 +855,26 @@ h2 {
 
 .offer-device-right {
   grid-column: 1 / span 2;
-  border-left-color: #db857b;
-  background: #fff9f8;
+  grid-row: 2;
+  border-color: #efc7c1;
+  border-left-color: #cb5d52;
+  background: #fff5f3;
 }
 
 .offer-device-left {
-  border-left-color: #75a9c5;
-  background: #f7fbfd;
+  grid-column: 3 / span 2;
+  grid-row: 2;
+  border-color: #c6ddea;
+  border-left-color: #4e91b4;
+  background: #f2f9fc;
 }
 
 .offer-device-right > span {
-  color: #a54b42;
+  color: #a33d35;
 }
 
 .offer-device-left > span {
-  color: #2e6888;
+  color: #24698c;
 }
 
 .offer-device-field > span {
@@ -885,6 +890,21 @@ h2 {
 .offer-date-field,
 .offer-location-field {
   grid-column: span 1;
+}
+
+.offer-location-field {
+  grid-column: 1 / span 1;
+  grid-row: 3;
+}
+
+.offer-option-field {
+  grid-column: 1 / span 2;
+  grid-row: 4;
+}
+
+.offer-pfron-field {
+  grid-column: 3 / span 2;
+  grid-row: 4;
 }
 
 .offer-option-field,
@@ -1782,6 +1802,16 @@ h2 {
   background: #eaf4f6;
   font-size: 0.86rem;
   font-weight: 950;
+}
+
+.loan-side-badge.loan-side-right {
+  color: #a33d35;
+  background: #fff0ee;
+}
+
+.loan-side-badge.loan-side-left {
+  color: #24698c;
+  background: #edf8fc;
 }
 
 .loan-serial-field {
@@ -5821,6 +5851,31 @@ textarea {
     grid-column: span 2;
   }
 
+  .offer-device-right {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .offer-device-left {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .offer-location-field {
+    grid-column: span 2;
+    grid-row: 5;
+  }
+
+  .offer-option-field {
+    grid-column: 1;
+    grid-row: 6;
+  }
+
+  .offer-pfron-field {
+    grid-column: 2;
+    grid-row: 6;
+  }
+
   .loan-wide,
   .pcpr-office-field,
   .pcpr-name-field,
@@ -5962,6 +6017,14 @@ textarea {
   .pcpr-model-field,
   .pcpr-ear-field {
     grid-column: auto;
+  }
+
+  .offer-device-right,
+  .offer-device-left,
+  .offer-location-field,
+  .offer-option-field,
+  .offer-pfron-field {
+    grid-row: auto;
   }
 
   .pcpr-form-row {
