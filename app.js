@@ -649,6 +649,10 @@ const orderHistoryCount = document.querySelector("#orderHistoryCount");
 const orderHistoryList = document.querySelector("#orderHistoryList");
 const complaintHistoryCount = document.querySelector("#complaintHistoryCount");
 const complaintHistoryList = document.querySelector("#complaintHistoryList");
+const pricingHistoryPreviewDialog = document.querySelector("#pricingHistoryPreviewDialog");
+const pricingHistoryPreviewTitle = document.querySelector("#pricingHistoryPreviewTitle");
+const pricingHistoryPreviewContent = document.querySelector("#pricingHistoryPreviewContent");
+const closePricingHistoryPreviewBtn = document.querySelector("#closePricingHistoryPreviewBtn");
 const complaintCustomerMatchHint = document.querySelector("#complaintCustomerMatchHint");
 const complaintCustomerDevicePicker = document.querySelector("#complaintCustomerDevicePicker");
 const complaintCustomerDeviceSelect = document.querySelector("#complaintCustomerDeviceSelect");
@@ -6500,7 +6504,7 @@ function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
   return `${count} ${plural}`;
 }
 
-function createPricingDocumentHistoryItem(entry, { title, meta, details, onOpen }) {
+function createPricingDocumentHistoryItem(entry, { title, meta, details, onPreview, onOpen }) {
   const item = document.createElement("article");
   item.className = "loan-history-item";
 
@@ -6517,14 +6521,100 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, onOpen 
 
   const actions = document.createElement("div");
   actions.className = "loan-history-actions";
+  const previewButton = document.createElement("button");
+  previewButton.type = "button";
+  previewButton.className = "reset-filters-btn";
+  previewButton.textContent = "Podgląd";
+  previewButton.addEventListener("click", onPreview);
   const openButton = document.createElement("button");
   openButton.type = "button";
   openButton.className = "reset-filters-btn";
   openButton.textContent = "Otwórz";
   openButton.addEventListener("click", onOpen);
-  actions.append(openButton);
+  actions.append(previewButton, openButton);
   item.append(content, actions);
   return item;
+}
+
+function appendPricingHistoryPreviewField(container, label, value) {
+  const field = document.createElement("div");
+  field.className = "pricing-history-preview-field";
+  const heading = document.createElement("span");
+  heading.textContent = label;
+  const content = document.createElement("strong");
+  content.textContent = value || "-";
+  field.append(heading, content);
+  container.append(field);
+}
+
+function showPricingHistoryPreview(kind, entry) {
+  if (!pricingHistoryPreviewDialog || !pricingHistoryPreviewContent) return;
+  const content = document.createDocumentFragment();
+  const summary = document.createElement("section");
+  summary.className = "pricing-history-preview-grid";
+  const items = document.createElement("section");
+  items.className = "pricing-history-preview-items";
+  const itemsTitle = document.createElement("h3");
+  itemsTitle.textContent = "Pozycje";
+  items.append(itemsTitle);
+
+  if (kind === "offer") {
+    const saved = normalizePricingOfferHistoryEntry(entry);
+    if (!saved) return;
+    if (pricingHistoryPreviewTitle) pricingHistoryPreviewTitle.textContent = `Oferta${saved.customer ? ` - ${saved.customer}` : ""}`;
+    appendPricingHistoryPreviewField(summary, "Data oferty", formatDate(saved.offerDate));
+    appendPricingHistoryPreviewField(summary, "Ważna do", formatDate(saved.validUntil));
+    appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
+    appendPricingHistoryPreviewField(summary, "Wiek", saved.age !== "" ? formatOfferAge(Number(saved.age)) : "");
+    appendPricingHistoryPreviewField(summary, "Cena", formatPricingPrice(saved.total));
+    appendPricingHistoryPreviewField(summary, "NFZ", formatPricingPrice(saved.nfz));
+    appendPricingHistoryPreviewField(summary, "PFRON", formatPricingPrice(saved.pfron));
+    appendPricingHistoryPreviewField(summary, "Do zapłaty", formatPricingPrice(saved.patient));
+    saved.items.forEach((item, index) => {
+      const row = document.createElement("p");
+      row.textContent = `${index + 1}. ${[item.model || item.tradeName, item.manufacturer, item.nfzCode, formatPricingPrice(item.grossPrice)].filter(Boolean).join(" | ")}`;
+      items.append(row);
+    });
+  } else if (kind === "order") {
+    const saved = normalizePricingOrderHistoryEntry(entry);
+    if (!saved) return;
+    if (pricingHistoryPreviewTitle) pricingHistoryPreviewTitle.textContent = `Zamówienie${saved.number ? ` ${saved.number}` : ""}`;
+    appendPricingHistoryPreviewField(summary, "Klient", saved.customer);
+    appendPricingHistoryPreviewField(summary, "Data", formatDate(saved.date));
+    appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
+    appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
+    appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
+    saved.items.forEach((item, index) => {
+      const row = document.createElement("p");
+      row.textContent = `${index + 1}. ${[pricingOrderTypeLabel(item.type), item.description, item.quantity ? `ilość: ${item.quantity}` : "", item.notes].filter(Boolean).join(" | ")}`;
+      items.append(row);
+    });
+  } else {
+    const saved = normalizePricingComplaintHistoryEntry(entry);
+    if (!saved) return;
+    if (pricingHistoryPreviewTitle) pricingHistoryPreviewTitle.textContent = `Reklamacja${saved.number ? ` ${saved.number}` : ""}`;
+    appendPricingHistoryPreviewField(summary, "Klient", saved.customer);
+    appendPricingHistoryPreviewField(summary, "Data", formatDate(saved.date));
+    appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
+    appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
+    appendPricingHistoryPreviewField(summary, "Żądanie", pricingComplaintRequestLabel(saved.request));
+    appendPricingHistoryPreviewField(summary, "Opis", saved.defect);
+    appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
+    saved.items.forEach((item, index) => {
+      const row = document.createElement("p");
+      row.textContent = `${index + 1}. ${[pricingComplaintProductTypeLabel(item.productType), item.productName, item.serial, item.purchaseDocument, formatDate(item.purchaseDate)].filter(Boolean).join(" | ")}`;
+      items.append(row);
+    });
+  }
+
+  if (items.children.length === 1) {
+    const empty = document.createElement("p");
+    empty.textContent = "Brak pozycji.";
+    items.append(empty);
+  }
+  content.append(summary, items);
+  pricingHistoryPreviewContent.replaceChildren(content);
+  pricingHistoryPreviewDialog.showModal();
 }
 
 function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem) {
@@ -6619,6 +6709,7 @@ function renderPricingDocumentHistory() {
         formatAuditDateTime(entry.savedAt) ? `zapis: ${formatAuditDateTime(entry.savedAt)}` : ""
       ].filter(Boolean).join(" | "),
       details: entry.items.map((item) => item.model || item.tradeName).filter(Boolean).join(" | ") || "Brak aparatu",
+      onPreview: () => showPricingHistoryPreview("offer", entry),
       onOpen: () => restorePricingOfferFromHistory(entry)
     })
   );
@@ -6634,6 +6725,7 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Zamówienie bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
+      onPreview: () => showPricingHistoryPreview("order", entry),
       onOpen: () => restorePricingOrderFromHistory(entry)
     })
   );
@@ -6649,6 +6741,7 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Reklamacja bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
+      onPreview: () => showPricingHistoryPreview("complaint", entry),
       onOpen: () => restorePricingComplaintFromHistory(entry)
     })
   );
@@ -10934,6 +11027,11 @@ function createRepairNotesCell(record) {
     preview.className = "repair-notes-preview";
     preview.dataset.repairNotesTooltip = notes;
     preview.tabIndex = 0;
+    preview.title = notes;
+    preview.addEventListener("mouseenter", () => showRepairNotesTooltip(preview));
+    preview.addEventListener("mouseleave", hideRepairNotesTooltip);
+    preview.addEventListener("focus", () => showRepairNotesTooltip(preview));
+    preview.addEventListener("blur", hideRepairNotesTooltip);
     const text = document.createElement("span");
     text.className = "repair-notes-preview-text";
     text.textContent = notes;
@@ -10949,6 +11047,40 @@ function createRepairNotesCell(record) {
     wrap.append(warning);
   }
   return wrap;
+}
+
+function repairNotesTooltipElement() {
+  let tooltip = document.querySelector("#repairNotesTooltip");
+  if (tooltip) return tooltip;
+  tooltip = document.createElement("div");
+  tooltip.id = "repairNotesTooltip";
+  tooltip.className = "repair-notes-tooltip";
+  tooltip.setAttribute("role", "tooltip");
+  tooltip.hidden = true;
+  document.body.append(tooltip);
+  return tooltip;
+}
+
+function showRepairNotesTooltip(anchor) {
+  const text = normalizeLoanHistoryText(anchor?.dataset?.repairNotesTooltip);
+  if (!anchor || !text) return;
+  const tooltip = repairNotesTooltipElement();
+  tooltip.textContent = text;
+  tooltip.hidden = false;
+  tooltip.style.visibility = "hidden";
+  const anchorBox = anchor.getBoundingClientRect();
+  const tooltipBox = tooltip.getBoundingClientRect();
+  const left = Math.max(12, Math.min(anchorBox.right - tooltipBox.width, window.innerWidth - tooltipBox.width - 12));
+  const topAbove = anchorBox.top - tooltipBox.height - 8;
+  const top = topAbove >= 12 ? topAbove : Math.min(window.innerHeight - tooltipBox.height - 12, anchorBox.bottom + 8);
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${Math.max(12, top)}px`;
+  tooltip.style.visibility = "visible";
+}
+
+function hideRepairNotesTooltip() {
+  const tooltip = document.querySelector("#repairNotesTooltip");
+  if (tooltip) tooltip.hidden = true;
 }
 
 function createRepairSerialCell(record) {
@@ -14178,6 +14310,7 @@ document.querySelector("#closeRepairDialogBtn").addEventListener("click", closeR
 document.querySelector("#cancelRepairBtn").addEventListener("click", closeRepairDialog);
 document.querySelector("#closeDemoDialogBtn").addEventListener("click", closeDemoDialog);
 document.querySelector("#cancelDemoBtn").addEventListener("click", closeDemoDialog);
+closePricingHistoryPreviewBtn?.addEventListener("click", () => pricingHistoryPreviewDialog?.close());
 [recordDialog, repairDialog, demoDialog].forEach((dialog) => dialog.addEventListener("close", closeDatePicker));
 deleteBtn.addEventListener("click", deleteCurrentRecord);
 duplicateRecordBtn.addEventListener("click", duplicateCurrentDeviceRecord);
