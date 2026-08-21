@@ -588,6 +588,7 @@ const loanPrintMeta = document.querySelector("#loanPrintMeta");
 const loanEquipmentBody = document.querySelector("#loanEquipmentBody");
 const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanDeadlineSummary = document.querySelector("#loanDeadlineSummary");
+const loanHistorySearchInput = document.querySelector("#loanHistorySearchInput");
 const loanHistoryList = document.querySelector("#loanHistoryList");
 const pcprForm = document.querySelector("#pcprForm");
 const pcprOfficeInput = document.querySelector("#pcprOfficeInput");
@@ -6477,6 +6478,21 @@ function pricingLoanHistoryDeviceLabel(entry) {
     .join(" | ");
 }
 
+function pricingLoanHistorySearchText(entry) {
+  return normalize([
+    entry?.customer,
+    entry?.number,
+    entry?.rightDevice?.model,
+    entry?.rightDevice?.serial,
+    entry?.rightDevice?.manufacturer,
+    entry?.leftDevice?.model,
+    entry?.leftDevice?.serial,
+    entry?.leftDevice?.manufacturer,
+    entry?.charger,
+    entry?.chargerSerial
+  ].filter(Boolean).join(" "));
+}
+
 function pricingLoanDeadlineStatus(entry) {
   if (!entry || entry.returnDate) return null;
   const periodTo = isoDateForSave(entry.periodTo);
@@ -6514,12 +6530,15 @@ function updatePricingLoanDeadlineSummary(deadlines) {
 function renderPricingLoanHistory() {
   if (!loanHistoryList || !loanHistoryCount) return;
   const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory);
+  const searchQuery = normalize(loanHistorySearchInput?.value || "").trim();
   const deadlines = normalizedHistory
     .map((entry) => ({ entry, status: pricingLoanDeadlineStatus(entry) }))
     .filter(({ status }) => status);
   updatePricingLoanDeadlineSummary(deadlines);
   const deadlineById = new Map(deadlines.map(({ entry, status }) => [entry.id, status]));
-  const history = normalizedHistory.slice().sort((left, right) => {
+  const history = normalizedHistory
+    .filter((entry) => !searchQuery || pricingLoanHistorySearchText(entry).includes(searchQuery))
+    .sort((left, right) => {
     const leftStatus = deadlineById.get(left.id);
     const rightStatus = deadlineById.get(right.id);
     const rank = (status) => status?.level === "overdue" ? 0 : status?.level === "ending" ? 1 : 2;
@@ -6528,11 +6547,13 @@ function renderPricingLoanHistory() {
     if (leftStatus && rightStatus && leftStatus.days !== rightStatus.days) return leftStatus.days - rightStatus.days;
     return String(right.savedAt).localeCompare(String(left.savedAt));
   });
-  loanHistoryCount.textContent = pricingLoanHistoryCountLabel(history.length);
+  loanHistoryCount.textContent = searchQuery
+    ? `${history.length} z ${normalizedHistory.length}`
+    : pricingLoanHistoryCountLabel(history.length);
   if (!history.length) {
     const empty = document.createElement("p");
     empty.className = "loan-history-empty";
-    empty.textContent = "Brak zapisanych umów.";
+    empty.textContent = searchQuery ? "Nie znaleziono pasujących umów." : "Brak zapisanych umów.";
     loanHistoryList.replaceChildren(empty);
     return;
   }
@@ -14512,6 +14533,7 @@ loanMoveRightToLeftBtn?.addEventListener("click", () => moveLoanDevice("right", 
 loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "right"));
 savePricingLoanBtn?.addEventListener("click", () => saveCurrentPricingLoanToHistory());
 printPricingLoanBtn?.addEventListener("click", printPricingLoan);
+loanHistorySearchInput?.addEventListener("input", debounce(renderPricingLoanHistory, SEARCH_DEBOUNCE_MS));
 orderNumberInput?.addEventListener("input", () => {
   orderNumberInput.dataset.autoNumber = "";
 }, { capture: true });
