@@ -897,6 +897,33 @@ h2 {
   color: #24698c;
 }
 
+.offer-accessory-field {
+  display: grid;
+  grid-column: span 2;
+  gap: 6px;
+}
+
+.offer-accessory-field > span {
+  color: #536a75;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.offer-charger-field {
+  grid-column: 1 / span 2;
+  grid-row: 3;
+}
+
+.offer-earmold-field {
+  grid-column: 3 / span 2;
+  grid-row: 3;
+}
+
+.offer-accessory-field input {
+  border-left: 4px solid #82a9a1;
+  background: #f8fbfa;
+}
+
 .offer-device-field > span {
   font-size: 0.82rem;
   font-weight: 900;
@@ -913,18 +940,18 @@ h2 {
 }
 
 .offer-location-field {
-  grid-column: 1 / span 1;
-  grid-row: 3;
-}
-
-.offer-option-field {
   grid-column: 1 / span 2;
   grid-row: 4;
 }
 
+.offer-option-field {
+  grid-column: 1 / span 2;
+  grid-row: 5;
+}
+
 .offer-pfron-field {
   grid-column: 3 / span 2;
-  grid-row: 4;
+  grid-row: 5;
 }
 
 .offer-option-field,
@@ -6257,7 +6284,8 @@ textarea {
   .offer-location-field,
   .offer-option-field,
   .offer-pfron-field,
-  .offer-device-field {
+  .offer-device-field,
+  .offer-accessory-field {
     grid-column: span 2;
   }
 
@@ -6271,19 +6299,29 @@ textarea {
     grid-row: 4;
   }
 
+  .offer-charger-field {
+    grid-column: 1;
+    grid-row: 5;
+  }
+
+  .offer-earmold-field {
+    grid-column: 2;
+    grid-row: 5;
+  }
+
   .offer-location-field {
     grid-column: span 2;
-    grid-row: 5;
+    grid-row: 6;
   }
 
   .offer-option-field {
     grid-column: 1;
-    grid-row: 6;
+    grid-row: 7;
   }
 
   .offer-pfron-field {
     grid-column: 2;
-    grid-row: 6;
+    grid-row: 7;
   }
 
   .loan-wide,
@@ -6423,6 +6461,7 @@ textarea {
   .offer-option-field,
   .offer-pfron-field,
   .offer-device-field,
+  .offer-accessory-field,
   .pcpr-office-field,
   .pcpr-place-field,
   .pcpr-name-field,
@@ -6442,6 +6481,8 @@ textarea {
 
   .offer-device-right,
   .offer-device-left,
+  .offer-charger-field,
+  .offer-earmold-field,
   .offer-location-field,
   .offer-option-field,
   .offer-pfron-field {

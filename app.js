@@ -527,6 +527,8 @@ const pricingPcprView = document.querySelector("#pricingPcprView");
 const pricingOrderView = document.querySelector("#pricingOrderView");
 const pricingComplaintView = document.querySelector("#pricingComplaintView");
 const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList");
+const pricingOfferChargerList = document.querySelector("#pricingOfferChargerList");
+const pricingOfferEarmoldList = document.querySelector("#pricingOfferEarmoldList");
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
 const offerAgeInput = document.querySelector("#offerAgeInput");
 const offerDateInput = document.querySelector("#offerDateInput");
@@ -536,6 +538,8 @@ const offerPfronEnabledInput = document.querySelector("#offerPfronEnabledInput")
 const offerNoNfzInput = document.querySelector("#offerNoNfzInput");
 const offerDeviceInput1 = document.querySelector("#offerDeviceInput1");
 const offerDeviceInput2 = document.querySelector("#offerDeviceInput2");
+const offerChargerInput = document.querySelector("#offerChargerInput");
+const offerEarmoldInput = document.querySelector("#offerEarmoldInput");
 const offerDuplicateFirstBtn = document.querySelector("#offerDuplicateFirstBtn");
 const offerMoveRightToLeftBtn = document.querySelector("#offerMoveRightToLeftBtn");
 const offerMoveLeftToRightBtn = document.querySelector("#offerMoveLeftToRightBtn");
@@ -5407,8 +5411,47 @@ function pricingOfferRecordSearchText(record) {
   ].join(" "));
 }
 
+function pricingOfferAccessoryKind(record) {
+  const text = normalize([
+    record?.tradeName,
+    record?.model,
+    record?.manufacturer
+  ].filter(Boolean).join(" "));
+  if (text.includes("ładowar") || text.includes("ladowar") || text.includes("charger")) return "charger";
+  if (text.includes("wkład") || text.includes("wklad")) return "earmold";
+  return "";
+}
+
+function pricingOfferAccessoryRecords(kind) {
+  return pricingOfferPricedRecords().filter((record) => {
+    if (pricingOfferAccessoryKind(record) !== kind) return false;
+    return kind !== "earmold" || pricingOfferAgeValue() === null || pricingOfferNfzCodeMatchesAge(record);
+  });
+}
+
+function renderPricingOfferAccessoryList(list, kind) {
+  if (!list) return;
+  const fragment = document.createDocumentFragment();
+  pricingOfferAccessoryRecords(kind)
+    .slice()
+    .sort((left, right) => collator.compare(left.model || left.tradeName, right.model || right.tradeName))
+    .forEach((record) => {
+      const option = document.createElement("option");
+      option.value = pricingOfferDeviceLabel(record);
+      option.label = [record.tradeName, record.nfzCode].filter(Boolean).join(" | ");
+      fragment.append(option);
+    });
+  list.replaceChildren(fragment);
+}
+
+function renderPricingOfferAccessoryLists() {
+  renderPricingOfferAccessoryList(pricingOfferChargerList, "charger");
+  renderPricingOfferAccessoryList(pricingOfferEarmoldList, "earmold");
+}
+
 function renderPricingOfferDeviceList() {
   if (!pricingOfferDeviceList) return;
+  renderPricingOfferAccessoryLists();
   const fragment = document.createDocumentFragment();
   if (pricingOfferAgeValue() === null) {
     pricingOfferDeviceList.replaceChildren(fragment);
@@ -5445,6 +5488,10 @@ function findPricingOfferRecord(value) {
   return suggestedRecord || findPricingOfferRecordInCandidates(value, pricingOfferPricedRecords());
 }
 
+function findPricingOfferAccessoryRecord(value, kind) {
+  return findPricingOfferRecordInCandidates(value, pricingOfferAccessoryRecords(kind));
+}
+
 function selectedPricingOfferItems() {
   return [offerDeviceInput1, offerDeviceInput2]
     .map((input, index) => ({
@@ -5453,6 +5500,34 @@ function selectedPricingOfferItems() {
       record: findPricingOfferRecord(input?.value)
     }))
     .filter((item) => item.record);
+}
+
+function selectedPricingOfferAccessoryItems() {
+  return [
+    { input: offerChargerInput, kind: "charger" },
+    { input: offerEarmoldInput, kind: "earmold" }
+  ].map((item) => ({
+    ...item,
+    record: findPricingOfferAccessoryRecord(item.input?.value, item.kind)
+  })).filter((item) => item.record);
+}
+
+function selectedPricingOfferAllItems() {
+  return [
+    ...selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" })),
+    ...selectedPricingOfferAccessoryItems()
+  ];
+}
+
+function pricingOfferItemKindLabel(item) {
+  if (item?.kind === "charger") return "Ładowarka";
+  if (item?.kind === "earmold") return "Wkładka uszna";
+  return item?.slot === 2 ? "Aparat L" : "Aparat P";
+}
+
+function pricingOfferItemDescription(item) {
+  const name = pricingOfferDeviceName(item?.record);
+  return `${pricingOfferItemKindLabel(item)}: ${name}`;
 }
 
 function removePricingOfferItem(item) {
@@ -5505,6 +5580,16 @@ function duplicatePricingOfferDevice() {
 function addPricingRecordToOffer(record) {
   if (!record) return;
   if (!offerDeviceInput1 || !offerDeviceInput2) return;
+  const accessoryKind = pricingOfferAccessoryKind(record);
+  if (accessoryKind) {
+    const accessoryInput = accessoryKind === "charger" ? offerChargerInput : offerEarmoldInput;
+    setPricingOfferInput(accessoryInput, record);
+    if (activeNotebook !== "agreements") switchNotebook("agreements");
+    switchPricingView("offer");
+    renderPricingOffer();
+    pricingOfferView?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   if (pricingOfferAgeValue() === null) {
     alert("Najpierw podaj wiek, aby wybrać aparat do oferty.");
     offerAgeInput?.focus();
@@ -5554,7 +5639,7 @@ function renderPricingOfferItems(items) {
   const rows = items.map((item, index) => {
     const record = item.record;
     const row = document.createElement("tr");
-    if (!pricingOfferNfzCodeMatchesAge(record)) {
+    if (item.kind === "device" && !pricingOfferNfzCodeMatchesAge(record)) {
       row.classList.add("offer-age-mismatch");
       row.title = "Kod NFZ tej pozycji nie pasuje do wpisanego wieku.";
     }
@@ -5562,7 +5647,7 @@ function renderPricingOfferItems(items) {
 
     const nameCell = document.createElement("td");
     const model = document.createElement("strong");
-    model.textContent = record.model || record.tradeName || "Aparat";
+    model.textContent = pricingOfferItemDescription(item);
     nameCell.append(model);
     row.append(nameCell);
 
@@ -5575,7 +5660,7 @@ function renderPricingOfferItems(items) {
     removeButton.type = "button";
     removeButton.className = "offer-remove-item-btn";
     removeButton.textContent = "Usuń";
-    removeButton.title = `Usuń aparat ${item.slot} z oferty`;
+    removeButton.title = `Usuń pozycję: ${pricingOfferItemKindLabel(item)}`;
     removeButton.addEventListener("click", () => removePricingOfferItem(item));
     removeCell.append(removeButton);
     row.append(removeCell);
@@ -5616,13 +5701,13 @@ function renderPricingOfferAgeWarning(items) {
   offerAgeWarning.hidden = false;
 }
 
-function renderPricingOfferPayments(items, totals) {
+function renderPricingOfferPayments(items, deviceItems, totals) {
   if (!offerPaymentsBody) return;
-  const itemsLabel = items.map((record) => record.model || record.tradeName || "aparat").join(", ");
+  const itemsLabel = items.map(pricingOfferItemDescription).join(", ");
   const customer = titleCaseName(offerCustomerInput?.value || "");
   const nfzDescription = totals.withoutNfz
     ? `Zakup bez refundacji NFZ: ${itemsLabel}`
-    : `Dofinansowanie NFZ: ${pricingOfferNfzDescription(items)}`;
+    : `Dofinansowanie NFZ: ${pricingOfferNfzDescription(deviceItems.map((item) => item.record))}`;
   const rows = [
     {
       payer: "NFZ",
@@ -5690,14 +5775,16 @@ function renderPricingOffer() {
   [offerDuplicateFirstBtn, offerMoveRightToLeftBtn, offerMoveLeftToRightBtn].forEach((button) => {
     if (button) button.disabled = ageRequired || !hasOfferDevice;
   });
-  if (savePricingOfferBtn) savePricingOfferBtn.disabled = ageRequired || !hasOfferDevice;
   const customerAgeLabel = age === null ? "" : `, ${formatOfferAge(age)}`;
-  const offerItems = selectedPricingOfferItems();
-  const items = offerItems.map((item) => item.record);
-  const total = items.reduce((sum, record) => sum + Number(normalizePricingPrice(record.grossPrice) || 0), 0);
+  const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
+  const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
+  const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
+  const deviceTotal = deviceItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
+  const hasValidDevice = deviceItems.length > 0;
+  if (savePricingOfferBtn) savePricingOfferBtn.disabled = ageRequired || !hasValidDevice;
   const withoutNfz = Boolean(offerNoNfzInput?.checked);
-  const nfzLimit = items.reduce((sum, record) => sum + pricingOfferNfzAmount(record), 0);
-  const nfz = withoutNfz ? 0 : Math.min(total, nfzLimit);
+  const nfzLimit = deviceItems.reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
+  const nfz = withoutNfz ? 0 : Math.min(deviceTotal, nfzLimit);
   const pfronEnabled = Boolean(offerPfronEnabledInput?.checked);
   if (offerPfronInput) offerPfronInput.disabled = !pfronEnabled;
   const pfron = pfronEnabled ? pricingOfferPfronAmount(Math.max(total - nfz, 0)) : 0;
@@ -5714,10 +5801,10 @@ function renderPricingOffer() {
     offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
   }
 
-  const hasItems = items.length > 0;
+  const hasItems = offerItems.length > 0;
   if (offerEmptyState) offerEmptyState.hidden = hasItems;
   if (offerContent) offerContent.hidden = !hasItems;
-  if (printPricingOfferBtn) printPricingOfferBtn.disabled = !hasItems;
+  if (printPricingOfferBtn) printPricingOfferBtn.disabled = ageRequired || !hasValidDevice;
   if (!hasItems) {
     if (offerItemsBody) offerItemsBody.replaceChildren();
     if (offerPaymentsBody) offerPaymentsBody.replaceChildren();
@@ -5727,8 +5814,8 @@ function renderPricingOffer() {
   }
 
   renderPricingOfferItems(offerItems);
-  renderPricingOfferAgeWarning(offerItems);
-  renderPricingOfferPayments(items, { total, nfz, pfron, patient, withoutNfz, pfronEnabled });
+  renderPricingOfferAgeWarning(deviceItems);
+  renderPricingOfferPayments(offerItems, deviceItems, { total, nfz, pfron, patient, withoutNfz, pfronEnabled });
   if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(patient));
 }
 
@@ -5749,7 +5836,7 @@ async function updatePricingRecordPrice(record) {
 
   record.grossPrice = newPrice;
   const newLabel = pricingOfferDeviceLabel(record);
-  [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+  [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
     if (input && normalize(input.value) === normalize(oldLabel)) input.value = newLabel;
   });
 
@@ -5761,7 +5848,7 @@ async function updatePricingRecordPrice(record) {
   } catch (error) {
     record.grossPrice = previousPrice;
     pricingMeta = previousPricingMeta;
-    [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+    [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
       if (input && normalize(input.value) === normalize(newLabel)) input.value = oldLabel;
     });
     savePricingMeta();
@@ -5779,13 +5866,14 @@ async function deletePricingRecord(record) {
 
   const previousPricingRecords = pricingRecords.slice();
   const previousPricingMeta = pricingMeta;
-  const previousOfferValues = [offerDeviceInput1?.value || "", offerDeviceInput2?.value || ""];
+  const offerInputs = [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput];
+  const previousOfferValues = offerInputs.map((input) => input?.value || "");
   const recordIndex = pricingRecords.findIndex((item) => pricingRecordKey(item) === pricingRecordKey(record));
   if (recordIndex < 0) return;
 
   const [removedRecord] = pricingRecords.splice(recordIndex, 1);
   const removedLabel = pricingOfferDeviceLabel(removedRecord);
-  [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+  offerInputs.forEach((input) => {
     if (input && normalize(input.value) === normalize(removedLabel)) input.value = "";
   });
 
@@ -5797,8 +5885,9 @@ async function deletePricingRecord(record) {
   } catch (error) {
     pricingRecords = previousPricingRecords;
     pricingMeta = previousPricingMeta;
-    if (offerDeviceInput1) offerDeviceInput1.value = previousOfferValues[0];
-    if (offerDeviceInput2) offerDeviceInput2.value = previousOfferValues[1];
+    offerInputs.forEach((input, index) => {
+      if (input) input.value = previousOfferValues[index];
+    });
     savePricingMeta();
     savePricingRecords();
     renderPricingRecords();
@@ -5841,7 +5930,11 @@ function printPricingOffer() {
 function normalizePricingOfferHistoryItem(item) {
   if (!item || typeof item !== "object") return null;
   const record = item.record && typeof item.record === "object" ? item.record : {};
+  const rawKind = normalizeLoanHistoryText(item.kind || item.type).toLocaleLowerCase("pl-PL");
+  const kind = ["device", "charger", "earmold"].includes(rawKind) ? rawKind : "device";
   const normalizedItem = {
+    kind,
+    side: kind === "device" && normalizeLoanHistoryText(item.side).toLocaleUpperCase("pl-PL") === "L" ? "L" : kind === "device" ? "P" : "",
     model: normalizeLoanHistoryText(item.model || record.model || record.tradeName),
     tradeName: normalizeLoanHistoryText(item.tradeName || record.tradeName),
     manufacturer: normalizeLoanHistoryText(item.manufacturer || record.manufacturer),
@@ -5940,9 +6033,12 @@ async function loadSupabasePricingOfferHistory() {
 function currentPricingOfferSnapshot() {
   const offerDate = ensurePricingOfferDate();
   const location = ensurePricingOfferLocation();
-  const items = selectedPricingOfferItems().map((item) => {
+  const selectedItems = selectedPricingOfferAllItems();
+  const items = selectedItems.map((item) => {
     const record = item.record;
     return normalizePricingOfferHistoryItem({
+      kind: item.kind,
+      side: item.kind === "device" ? (item.slot === 2 ? "L" : "P") : "",
       model: record.model || record.tradeName,
       tradeName: record.tradeName,
       manufacturer: record.manufacturer,
@@ -5952,8 +6048,10 @@ function currentPricingOfferSnapshot() {
   }).filter(Boolean);
   const total = items.reduce((sum, item) => sum + Number(normalizePricingPrice(item.grossPrice) || 0), 0);
   const withoutNfz = Boolean(offerNoNfzInput?.checked);
-  const nfzLimit = selectedPricingOfferItems().reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
-  const nfz = withoutNfz ? 0 : Math.min(total, nfzLimit);
+  const selectedDevices = selectedPricingOfferItems();
+  const deviceTotal = selectedDevices.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
+  const nfzLimit = selectedDevices.reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
+  const nfz = withoutNfz ? 0 : Math.min(deviceTotal, nfzLimit);
   const pfronEnabled = Boolean(offerPfronEnabledInput?.checked);
   const pfron = pfronEnabled ? pricingOfferPfronAmount(Math.max(total - nfz, 0)) : 0;
   const patient = Math.max(total - nfz - pfron, 0);
@@ -6697,7 +6795,12 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Do zapłaty", formatPricingPrice(saved.patient));
     saved.items.forEach((item, index) => {
       const row = document.createElement("p");
-      row.textContent = `${index + 1}. ${[item.model || item.tradeName, item.manufacturer, item.nfzCode, formatPricingPrice(item.grossPrice)].filter(Boolean).join(" | ")}`;
+      const typeLabel = item.kind === "charger"
+        ? "Ładowarka"
+        : item.kind === "earmold"
+          ? "Wkładka uszna"
+          : item.side === "L" ? "Aparat L" : "Aparat P";
+      row.textContent = `${index + 1}. ${typeLabel}: ${[item.model || item.tradeName, item.manufacturer, item.nfzCode, formatPricingPrice(item.grossPrice)].filter(Boolean).join(" | ")}`;
       items.append(row);
     });
   } else if (kind === "order") {
@@ -6765,11 +6868,26 @@ function restorePricingOfferFromHistory(entry) {
   if (offerNoNfzInput) offerNoNfzInput.checked = saved.withoutNfz;
   if (offerPfronEnabledInput) offerPfronEnabledInput.checked = saved.pfronEnabled;
   if (offerPfronInput) offerPfronInput.value = saved.pfronEnabled ? String(saved.pfron || "") : "";
-  [offerDeviceInput1, offerDeviceInput2].forEach((input, index) => {
-    if (!input) return;
-    const savedItem = saved.items[index];
-    const record = findPricingOfferRecord(savedItem?.model || savedItem?.tradeName);
-    input.value = record ? pricingOfferDeviceLabel(record) : (savedItem?.model || savedItem?.tradeName || "");
+  [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
+    if (input) input.value = "";
+  });
+  let fallbackDeviceIndex = 0;
+  saved.items.forEach((savedItem) => {
+    let input = null;
+    let record = null;
+    if (savedItem.kind === "charger") {
+      input = offerChargerInput;
+      record = findPricingOfferAccessoryRecord(savedItem.model || savedItem.tradeName, "charger");
+    } else if (savedItem.kind === "earmold") {
+      input = offerEarmoldInput;
+      record = findPricingOfferAccessoryRecord(savedItem.model || savedItem.tradeName, "earmold");
+    } else {
+      const deviceIndex = savedItem.side === "L" ? 1 : Math.min(fallbackDeviceIndex, 1);
+      input = deviceIndex === 1 ? offerDeviceInput2 : offerDeviceInput1;
+      record = findPricingOfferRecord(savedItem.model || savedItem.tradeName);
+      fallbackDeviceIndex = Math.max(fallbackDeviceIndex + 1, deviceIndex + 1);
+    }
+    if (input) input.value = record ? pricingOfferDeviceLabel(record) : (savedItem.model || savedItem.tradeName || "");
   });
   renderPricingOfferDeviceList();
   switchPricingView("offer");
@@ -6861,7 +6979,14 @@ function renderPricingDocumentHistory() {
         entry.location,
         formatAuditDateTime(entry.savedAt) ? `zapis: ${formatAuditDateTime(entry.savedAt)}` : ""
       ].filter(Boolean).join(" | "),
-      details: entry.items.map((item) => item.model || item.tradeName).filter(Boolean).join(" | ") || "Brak aparatu",
+      details: entry.items.map((item) => {
+        const typeLabel = item.kind === "charger"
+          ? "Ładowarka"
+          : item.kind === "earmold"
+            ? "Wkładka uszna"
+            : item.side === "L" ? "Aparat L" : "Aparat P";
+        return `${typeLabel}: ${item.model || item.tradeName || "-"}`;
+      }).join(" | ") || "Brak aparatu",
       onPreview: () => showPricingHistoryPreview("offer", entry),
       onOpen: () => restorePricingOfferFromHistory(entry)
     })
@@ -14399,7 +14524,7 @@ resetPcprFiltersBtn?.addEventListener("click", resetPricingPcprFilters);
 updatePcprOfficeHint();
 updatePcprFilterTabs();
 updatePcprFormMode();
-[offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+[offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
