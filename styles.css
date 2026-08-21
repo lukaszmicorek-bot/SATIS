@@ -1871,8 +1871,12 @@ h2 {
   grid-column: span 2;
 }
 
-.loan-location-wide {
-  grid-column: span 3;
+.loan-form-grid > .loan-contract-location-field {
+  grid-column: 1;
+}
+
+.loan-form-grid > .loan-deposit-field {
+  grid-column: 4;
 }
 
 .loan-full {
@@ -3153,6 +3157,26 @@ textarea:focus {
 .document-location-field[data-location-tone="P63"] {
   --document-location-accent: #aa91be;
   --document-location-bg: #faf6fc;
+}
+
+.location-filter-field:not([data-location-tone]) {
+  --document-location-accent: #b8c5ca;
+  --document-location-bg: #ffffff;
+}
+
+#locationFilter option[value="T12"] {
+  color: #6f604f;
+  background: #faf8f5;
+}
+
+#locationFilter option[value="P50"] {
+  color: #616b2f;
+  background: #f7faec;
+}
+
+#locationFilter option[value="P63"] {
+  color: #7b628b;
+  background: #faf6fc;
 }
 
 input.today-date-input {
@@ -6143,8 +6167,12 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .loan-location-wide {
-    grid-column: 1 / -1;
+  .loan-form-grid > .loan-contract-location-field {
+    grid-column: 1;
+  }
+
+  .loan-form-grid > .loan-deposit-field {
+    grid-column: 2;
   }
 
   .loan-device-row {
@@ -6221,7 +6249,8 @@ textarea {
   }
 
   .loan-wide,
-  .loan-location-wide,
+  .loan-contract-location-field,
+  .loan-deposit-field,
   .pcpr-office-field,
   .pcpr-name-field,
   .pcpr-phone-field,
@@ -6365,6 +6394,11 @@ textarea {
   .pcpr-street-field,
   .pcpr-model-field,
   .pcpr-ear-field {
+    grid-column: auto;
+  }
+
+  .loan-form-grid > .loan-contract-location-field,
+  .loan-form-grid > .loan-deposit-field {
     grid-column: auto;
   }
 
