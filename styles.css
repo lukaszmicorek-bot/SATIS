@@ -1780,6 +1780,10 @@ h2 {
   grid-column: span 2;
 }
 
+.loan-location-wide {
+  grid-column: span 3;
+}
+
 .loan-full {
   grid-column: 1 / -1;
 }
@@ -3851,18 +3855,27 @@ td {
 }
 
 .location-pill {
-  color: #5f564c;
-  background: #f0ece7;
+  border: 1px solid #c9bfb3;
+  color: #6f604f;
+  background: #faf8f5;
+}
+
+.location-pill.T12 {
+  border-color: #c9bfb3;
+  color: #6f604f;
+  background: #faf8f5;
 }
 
 .location-pill.P50 {
-  color: #566522;
-  background: #f1f5df;
+  border-color: #c7cf9d;
+  color: #616b2f;
+  background: #f7faec;
 }
 
 .location-pill.P63 {
-  color: #6b4f73;
-  background: #f4ecf7;
+  border-color: #d3c1de;
+  color: #7b628b;
+  background: #faf6fc;
 }
 
 .date-pill.sent {
@@ -5981,6 +5994,10 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .loan-location-wide {
+    grid-column: 1 / -1;
+  }
+
   .loan-device-row {
     grid-template-columns: 32px repeat(2, minmax(0, 1fr));
   }
@@ -6055,6 +6072,7 @@ textarea {
   }
 
   .loan-wide,
+  .loan-location-wide,
   .pcpr-office-field,
   .pcpr-name-field,
   .pcpr-phone-field,
