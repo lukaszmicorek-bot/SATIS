@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-4">
+    <link rel="stylesheet" href="styles.css?v=20260821-6">
   </head>
   <body>
     <main class="app-shell">
@@ -870,6 +870,7 @@
                 <h3>Historia umów</h3>
                 <span id="loanHistoryCount">0 umów</span>
               </div>
+              <p id="loanDeadlineSummary" class="loan-deadline-summary" hidden></p>
               <div id="loanHistoryList" class="loan-history-list"></div>
             </section>
 
@@ -1134,6 +1135,7 @@
                   <thead>
                     <tr>
                       <th>Typ</th>
+                      <th>Strona</th>
                       <th>Ilość</th>
                       <th>Pozycja / model</th>
                       <th>Uwagi</th>
@@ -1142,6 +1144,7 @@
                   </thead>
                   <tbody id="orderItemsFormBody"></tbody>
                 </table>
+                <p id="orderSideWarning" class="order-side-warning" hidden>Wybierz stronę P lub L dla każdej wkładki.</p>
               </div>
 
               <div class="offer-actions">
@@ -1181,6 +1184,7 @@
                     <thead>
                       <tr>
                         <th>LP</th>
+                        <th>Strona</th>
                         <th>Pozycja</th>
                         <th>Ilość</th>
                         <th>Uwagi</th>
@@ -1914,6 +1918,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-4"></script>
+    <script src="app.js?v=20260821-6"></script>
   </body>
 </html>

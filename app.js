@@ -65,6 +65,7 @@ const PRICING_OFFER_NFZ_BY_CODE = {
 };
 const PRICING_OFFER_VALID_DAYS = 30;
 const PRICING_LOAN_DAYS = 14;
+const PRICING_LOAN_END_WARNING_DAYS = 3;
 const PRICING_LOAN_HISTORY_STORAGE_KEY = "zeszyt-aparatow-loan-contract-history-v1";
 const PRICING_OFFER_HISTORY_STORAGE_KEY = "zeszyt-aparatow-offer-history-v1";
 const PRICING_ORDER_HISTORY_STORAGE_KEY = "zeszyt-aparatow-order-history-v1";
@@ -453,6 +454,7 @@ const printPricingLoanBtn = document.querySelector("#printPricingLoanBtn");
 const loanPrintMeta = document.querySelector("#loanPrintMeta");
 const loanEquipmentBody = document.querySelector("#loanEquipmentBody");
 const loanHistoryCount = document.querySelector("#loanHistoryCount");
+const loanDeadlineSummary = document.querySelector("#loanDeadlineSummary");
 const loanHistoryList = document.querySelector("#loanHistoryList");
 const pcprForm = document.querySelector("#pcprForm");
 const pcprOfficeInput = document.querySelector("#pcprOfficeInput");
@@ -493,6 +495,7 @@ const orderMeta = document.querySelector("#orderMeta");
 const orderEmptyState = document.querySelector("#orderEmptyState");
 const orderContent = document.querySelector("#orderContent");
 const orderItemsBody = document.querySelector("#orderItemsBody");
+const orderSideWarning = document.querySelector("#orderSideWarning");
 const complaintNumberInput = document.querySelector("#complaintNumberInput");
 const complaintDateInput = document.querySelector("#complaintDateInput");
 const complaintCustomerInput = document.querySelector("#complaintCustomerInput");
@@ -6335,9 +6338,57 @@ function pricingLoanHistoryDeviceLabel(entry) {
     .join(" | ");
 }
 
+function pricingLoanDeadlineStatus(entry) {
+  if (!entry || entry.returnDate) return null;
+  const periodTo = isoDateForSave(entry.periodTo);
+  const days = daysUntilDate(periodTo);
+  if (days === null || days > PRICING_LOAN_END_WARNING_DAYS) return null;
+  if (days < 0) {
+    const overdueDays = Math.abs(days);
+    return {
+      level: "overdue",
+      days,
+      label: `Przeterminowana o ${formatDaysLabel(overdueDays)}`
+    };
+  }
+  if (days === 0) return { level: "ending", days, label: "Kończy się dzisiaj" };
+  if (days === 1) return { level: "ending", days, label: "Kończy się jutro" };
+  return { level: "ending", days, label: `Kończy się za ${formatDaysLabel(days)}` };
+}
+
+function updatePricingLoanDeadlineSummary(deadlines) {
+  if (!loanDeadlineSummary) return;
+  const overdueCount = deadlines.filter(({ status }) => status.level === "overdue").length;
+  const endingCount = deadlines.filter(({ status }) => status.level === "ending").length;
+  loanDeadlineSummary.hidden = deadlines.length === 0;
+  loanDeadlineSummary.classList.toggle("critical", overdueCount > 0);
+  loanDeadlineSummary.textContent = deadlines.length
+    ? [
+        overdueCount ? (overdueCount === 1 ? "1 umowa przeterminowana" : `${overdueCount} umowy przeterminowane`) : "",
+        endingCount ? (endingCount === 1
+          ? `1 umowa kończy się w ciągu ${PRICING_LOAN_END_WARNING_DAYS} dni`
+          : `${endingCount} umowy kończą się w ciągu ${PRICING_LOAN_END_WARNING_DAYS} dni`) : ""
+      ].filter(Boolean).join(" · ")
+    : "";
+}
+
 function renderPricingLoanHistory() {
   if (!loanHistoryList || !loanHistoryCount) return;
-  const history = normalizePricingLoanHistory(pricingLoanHistory);
+  const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory);
+  const deadlines = normalizedHistory
+    .map((entry) => ({ entry, status: pricingLoanDeadlineStatus(entry) }))
+    .filter(({ status }) => status);
+  updatePricingLoanDeadlineSummary(deadlines);
+  const deadlineById = new Map(deadlines.map(({ entry, status }) => [entry.id, status]));
+  const history = normalizedHistory.slice().sort((left, right) => {
+    const leftStatus = deadlineById.get(left.id);
+    const rightStatus = deadlineById.get(right.id);
+    const rank = (status) => status?.level === "overdue" ? 0 : status?.level === "ending" ? 1 : 2;
+    const rankDifference = rank(leftStatus) - rank(rightStatus);
+    if (rankDifference) return rankDifference;
+    if (leftStatus && rightStatus && leftStatus.days !== rightStatus.days) return leftStatus.days - rightStatus.days;
+    return String(right.savedAt).localeCompare(String(left.savedAt));
+  });
   loanHistoryCount.textContent = pricingLoanHistoryCountLabel(history.length);
   if (!history.length) {
     const empty = document.createElement("p");
@@ -6351,10 +6402,21 @@ function renderPricingLoanHistory() {
   const items = history.map((entry) => {
     const item = document.createElement("article");
     item.className = "loan-history-item";
+    const deadlineStatus = deadlineById.get(entry.id);
+    if (deadlineStatus) item.classList.add(`loan-deadline-${deadlineStatus.level}`);
 
     const content = document.createElement("div");
+    const titleRow = document.createElement("div");
+    titleRow.className = "loan-history-title-row";
     const title = document.createElement("strong");
     title.textContent = entry.customer || "Bez użytkownika";
+    titleRow.append(title);
+    if (deadlineStatus) {
+      const badge = document.createElement("span");
+      badge.className = `loan-deadline-badge ${deadlineStatus.level}`;
+      badge.textContent = deadlineStatus.label;
+      titleRow.append(badge);
+    }
     const meta = document.createElement("small");
     const savedAt = formatAuditDateTime(entry.savedAt);
     const contractDetails = [
@@ -6367,7 +6429,7 @@ function renderPricingLoanHistory() {
     meta.textContent = [contractDetails, savedAt ? `zapis: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
     const device = document.createElement("span");
     device.textContent = pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego";
-    content.append(title, meta, device);
+    content.append(titleRow, meta, device);
 
     const actions = document.createElement("div");
     actions.className = "loan-history-actions";
@@ -6489,7 +6551,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
     saved.items.forEach((item, index) => {
       const row = document.createElement("p");
-      row.textContent = `${index + 1}. ${[pricingOrderTypeLabel(item.type), item.description, item.quantity ? `ilość: ${item.quantity}` : "", item.notes].filter(Boolean).join(" | ")}`;
+      row.textContent = `${index + 1}. ${[pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `ilość: ${item.quantity}` : "", item.notes].filter(Boolean).join(" | ")}`;
       items.append(row);
     });
   } else {
@@ -6655,7 +6717,7 @@ function renderPricingDocumentHistory() {
     (entry) => createPricingDocumentHistoryItem(entry, {
       title: entry.customer || "Zamówienie bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
-      details: entry.items.map((item) => [pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
+      details: entry.items.map((item) => [pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
       onPreview: () => showPricingHistoryPreview("order", entry),
       onOpen: () => restorePricingOrderFromHistory(entry)
     })
@@ -7751,13 +7813,35 @@ function normalizePricingOrderType(value) {
   return PRICING_ORDER_TYPES.includes(normalizedType) ? normalizedType : PRICING_ORDER_TYPES[0];
 }
 
+function normalizePricingOrderSide(value) {
+  const side = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
+  if (["P", "PRAWE", "PRAWA"].includes(side)) return "P";
+  if (["L", "LEWE", "LEWA"].includes(side)) return "L";
+  return "";
+}
+
+function pricingOrderSideLabel(value) {
+  const side = normalizePricingOrderSide(value);
+  return side ? `Strona ${side}` : "";
+}
+
+function pricingOrderItemRequiresSide(item) {
+  const type = normalizePricingOrderType(item?.type);
+  return type === "WKŁADKA USZNA" || type === "WKŁADKA PRZECIWWODNA";
+}
+
+function pricingOrderItemsMissingRequiredSide(items) {
+  return (items || []).some((item) => pricingOrderItemRequiresSide(item) && !normalizePricingOrderSide(item.side));
+}
+
 function normalizePricingOrderItem(item) {
   if (!item || typeof item !== "object") return null;
   const type = normalizePricingOrderType(item.type);
+  const side = normalizePricingOrderSide(item.side);
   const quantity = normalizeLoanHistoryText(item.quantity || "1") || "1";
   const description = normalizeLoanHistoryText(item.description);
   const notes = normalizeLoanHistoryText(item.notes);
-  return { type, quantity, description, notes };
+  return { type, side, quantity, description, notes };
 }
 
 function pricingOrderItemHasContent(item) {
@@ -7766,6 +7850,7 @@ function pricingOrderItemHasContent(item) {
   return Boolean(
     normalizedItem.description ||
     normalizedItem.notes ||
+    normalizedItem.side ||
     normalizedItem.quantity !== "1" ||
     normalizedItem.type !== PRICING_ORDER_TYPES[0]
   );
@@ -7892,7 +7977,7 @@ function pricingOrderSnapshotKey(entry) {
     entry?.number,
     entry?.date,
     entry?.customer,
-    (entry?.items || []).map((item) => [item.type, item.quantity, item.description, item.notes].join(":")).join("|")
+    (entry?.items || []).map((item) => [item.type, item.side, item.quantity, item.description, item.notes].join(":")).join("|")
   ].map((value) => normalize(value)).join("|");
 }
 
@@ -7901,6 +7986,7 @@ function pricingOrderFormItems({ includeBlank = false } = {}) {
   return [...orderItemsFormBody.querySelectorAll("[data-order-row]")]
     .map((row) => normalizePricingOrderItem({
       type: row.querySelector("[data-order-field='type']")?.value,
+      side: row.querySelector("[data-order-field='side']")?.value,
       quantity: row.querySelector("[data-order-field='quantity']")?.value,
       description: row.querySelector("[data-order-field='description']")?.value,
       notes: row.querySelector("[data-order-field='notes']")?.value
@@ -7949,6 +8035,10 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   const snapshot = normalizePricingOrderHistoryEntry(currentPricingOrderSnapshot());
   if (!snapshot?.items.length) {
     if (!silent) alert("Dodaj przynajmniej jedną pozycję zamówienia.");
+    return null;
+  }
+  if (pricingOrderItemsMissingRequiredSide(snapshot.items)) {
+    if (!silent) alert("Wybierz stronę P lub L dla każdej wkładki.");
     return null;
   }
   const now = new Date().toISOString();
@@ -8212,11 +8302,13 @@ function pricingOrderRepairItemLabel(item) {
   const normalizedItem = normalizePricingOrderItem(item);
   if (!normalizedItem) return "";
   const typeLabel = pricingOrderTypeLabel(normalizedItem.type);
+  const side = normalizePricingOrderSide(normalizedItem.side);
+  const sideText = side ? `${side} · ` : "";
   const quantity = normalizedItem.quantity && normalizedItem.quantity !== "1" ? `${normalizedItem.quantity}x ` : "";
   const description = normalizedItem.description || typeLabel;
   const modelText = description && description !== typeLabel ? ` - ${description}` : "";
   const notesText = normalizedItem.notes ? ` (${normalizedItem.notes})` : "";
-  return `${quantity}${typeLabel}${modelText}${notesText}`;
+  return `${sideText}${quantity}${typeLabel}${modelText}${notesText}`;
 }
 
 function pricingOrderRepairDeviceName(items) {
@@ -8392,6 +8484,37 @@ function createOrderTypeSelect(value) {
   return select;
 }
 
+function updatePricingOrderSideButtons(row) {
+  if (!row) return;
+  const selectedSide = normalizePricingOrderSide(row.querySelector("[data-order-field='side']")?.value);
+  row.querySelectorAll("[data-order-side]").forEach((button) => {
+    const selected = button.dataset.orderSide === selectedSide;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function createPricingOrderSideControl(side) {
+  const wrap = document.createElement("div");
+  wrap.className = "order-side-choice";
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.dataset.orderField = "side";
+  input.value = normalizePricingOrderSide(side);
+  wrap.append(input);
+  ["P", "L"].forEach((sideValue) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `order-side-btn order-side-${sideValue.toLowerCase()}`;
+    button.dataset.orderSide = sideValue;
+    button.textContent = sideValue;
+    button.setAttribute("aria-label", sideValue === "P" ? "Strona prawa" : "Strona lewa");
+    button.setAttribute("aria-pressed", "false");
+    wrap.append(button);
+  });
+  return wrap;
+}
+
 function addPricingOrderItemRow(item = {}) {
   if (!orderItemsFormBody) return null;
   const normalizedItem = normalizePricingOrderItem(item) || normalizePricingOrderItem({ type: PRICING_ORDER_TYPES[0], quantity: "1" });
@@ -8400,6 +8523,9 @@ function addPricingOrderItemRow(item = {}) {
 
   const typeCell = document.createElement("td");
   typeCell.append(createOrderTypeSelect(normalizedItem.type));
+
+  const sideCell = document.createElement("td");
+  sideCell.append(createPricingOrderSideControl(normalizedItem.side));
 
   const quantityCell = document.createElement("td");
   const quantityInput = document.createElement("input");
@@ -8416,7 +8542,7 @@ function addPricingOrderItemRow(item = {}) {
   descriptionInput.dataset.orderField = "description";
   descriptionInput.setAttribute("list", "pricingOfferDeviceList");
   descriptionInput.autocomplete = "off";
-  descriptionInput.placeholder = "Model, wkładka, kolor, strona...";
+  descriptionInput.placeholder = "Model, wkładka, kolor...";
   descriptionInput.value = normalizedItem.description || "";
   descriptionCell.append(descriptionInput);
 
@@ -8437,8 +8563,9 @@ function addPricingOrderItemRow(item = {}) {
   removeButton.textContent = "Usuń";
   actionCell.append(removeButton);
 
-  row.append(typeCell, quantityCell, descriptionCell, notesCell, actionCell);
+  row.append(typeCell, sideCell, quantityCell, descriptionCell, notesCell, actionCell);
   orderItemsFormBody.append(row);
+  updatePricingOrderSideButtons(row);
   return row;
 }
 
@@ -8476,6 +8603,15 @@ function handlePricingOrderItemsInput(event) {
 }
 
 function handlePricingOrderItemsClick(event) {
+  const sideButton = event.target.closest?.("[data-order-side]");
+  if (sideButton) {
+    const row = sideButton.closest("[data-order-row]");
+    const sideInput = row?.querySelector("[data-order-field='side']");
+    if (sideInput) sideInput.value = sideButton.dataset.orderSide || "";
+    updatePricingOrderSideButtons(row);
+    renderPricingOrder();
+    return;
+  }
   const button = event.target.closest?.("[data-order-action='remove']");
   if (!button) return;
   const row = button.closest("[data-order-row]");
@@ -8496,6 +8632,17 @@ function renderPricingOrderItems(items) {
     const row = document.createElement("tr");
     const itemLabel = [pricingOrderTypeLabel(item.type), item.description].filter(Boolean).join(" - ");
     appendOfferCell(row, String(index + 1));
+    const sideCell = document.createElement("td");
+    const side = normalizePricingOrderSide(item.side);
+    if (side) {
+      const sideBadge = document.createElement("span");
+      sideBadge.className = `order-side-badge order-side-${side.toLowerCase()}`;
+      sideBadge.textContent = side;
+      sideCell.append(sideBadge);
+    } else {
+      sideCell.textContent = "-";
+    }
+    row.append(sideCell);
     appendOfferCell(row, itemLabel || pricingOrderTypeLabel(item.type), "order-type-cell");
     appendOfferCell(row, item.quantity || "1", "order-quantity-cell");
     appendOfferCell(row, item.notes);
@@ -8513,6 +8660,7 @@ function renderPricingOrder() {
   const dateText = formatDate(orderDate) || orderInputValue(orderDateInput);
   const customer = titleCaseName(orderInputValue(orderCustomerInput));
   const items = pricingOrderFormItems();
+  const missingRequiredSide = pricingOrderItemsMissingRequiredSide(items);
 
   if (orderTitle) orderTitle.textContent = customer ? `Zamówienie dla ${customer}` : "Zamówienie";
   if (orderMeta) orderMeta.textContent = `Nr: ${orderInputValue(orderNumberInput) || "-"} | Data: ${dateText || "-"}`;
@@ -8526,7 +8674,9 @@ function renderPricingOrder() {
   const hasItems = items.length > 0;
   if (orderEmptyState) orderEmptyState.hidden = hasItems;
   if (orderContent) orderContent.hidden = !hasItems;
-  if (printPricingOrderBtn) printPricingOrderBtn.disabled = !hasItems;
+  if (printPricingOrderBtn) printPricingOrderBtn.disabled = !hasItems || missingRequiredSide;
+  if (orderSideWarning) orderSideWarning.hidden = !missingRequiredSide;
+  if (savePricingOrderBtn) savePricingOrderBtn.classList.toggle("order-side-required", missingRequiredSide);
   renderPricingOrderItems(items);
   updatePricingOrderAddButton();
 }
@@ -8542,6 +8692,7 @@ function copyPricingOfferToOrder() {
   offerItems.forEach((item) => {
     addPricingOrderItemRow({
       type: "APARAT SŁUCHOWY",
+      side: item.slot === 1 ? "P" : "L",
       quantity: "1",
       description: pricingOfferDeviceName(item.record),
       notes: item.record.manufacturer || ""
@@ -8572,6 +8723,11 @@ function resetPricingOrderForm() {
 
 function savePricingOrderAndRepairNotebook() {
   renderPricingOrder();
+  const formItems = pricingOrderFormItems();
+  if (pricingOrderItemsMissingRequiredSide(formItems)) {
+    alert("Wybierz stronę P lub L dla każdej wkładki.");
+    return null;
+  }
   const historyEntry = saveCurrentPricingOrderToHistory({ silent: true });
   if (!historyEntry) {
     alert("Dodaj przynajmniej jedną pozycję zamówienia.");
@@ -14500,8 +14656,12 @@ async function checkForPublishedAppUpdate() {
 
 window.setTimeout(checkForPublishedAppUpdate, 15000);
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
+window.setInterval(renderPricingLoanHistory, 60 * 60 * 1000);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") checkForPublishedAppUpdate();
+  if (document.visibilityState === "visible") {
+    checkForPublishedAppUpdate();
+    renderPricingLoanHistory();
+  }
 });
 
 init();
