@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260814-19">
+    <link rel="stylesheet" href="styles.css?v=20260821-4">
   </head>
   <body>
     <main class="app-shell">
@@ -731,7 +731,15 @@
                   <span>Data umowy</span>
                   <input id="loanDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label class="offer-location-field document-location-field">
+                <label>
+                  <span>Okres od</span>
+                  <input id="loanPeriodFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label>
+                  <span>Okres do</span>
+                  <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                </label>
+                <label class="offer-location-field document-location-field loan-location-wide">
                   <span>Miejsce</span>
                   <select id="loanCityInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -742,14 +750,6 @@
                 <label>
                   <span>Kaucja pobrana</span>
                   <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
-                </label>
-                <label>
-                  <span>Okres od</span>
-                  <input id="loanPeriodFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
-                <label>
-                  <span>Okres do</span>
-                  <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
 
                 <p class="loan-form-title loan-full">Dane klienta</p>
@@ -1510,7 +1510,7 @@
               <option value="ZWROT">Zwrot</option>
             </select>
           </label>
-          <label>
+          <label class="document-location-field" data-location-tone="P63">
             <span>Miejsce</span>
             <select id="location" name="location">
               <option value="T12">T12</option>
@@ -1656,7 +1656,7 @@
               <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
             </select>
           </label>
-          <label>
+          <label class="document-location-field" data-location-tone="P63">
             <span>Miejsce</span>
             <select id="repairLocation" name="location">
               <option value="T12">T12</option>
@@ -1914,6 +1914,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-1"></script>
+    <script src="app.js?v=20260821-4"></script>
   </body>
 </html>

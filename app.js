@@ -12,6 +12,14 @@ const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const DEMO_API_URL = "/api/demo-records";
 const SERVER_REFRESH_MS = 10000;
+const APP_UPDATE_CHECK_MS = 5 * 60 * 1000;
+const CURRENT_APP_VERSION = (() => {
+  try {
+    return new URL(document.currentScript?.src || "", window.location.href).searchParams.get("v") || "";
+  } catch (error) {
+    return "";
+  }
+})();
 const SUPABASE_PAGE_SIZE = 1000;
 const SUPABASE_DELETE_BATCH_SIZE = 200;
 const SUPABASE_WRITE_RETRY_DELAYS = [600, 1600];
@@ -6066,7 +6074,14 @@ function updateDocumentLocationAccent(input) {
 }
 
 function updateDocumentLocationAccents() {
-  [offerLocationInput, loanCityInput, orderLocationInput, complaintLocationInput].forEach(updateDocumentLocationAccent);
+  [
+    offerLocationInput,
+    loanCityInput,
+    orderLocationInput,
+    complaintLocationInput,
+    document.querySelector("#location"),
+    document.querySelector("#repairLocation")
+  ].forEach(updateDocumentLocationAccent);
 }
 
 function normalizeLoanCityValue(value) {
@@ -6118,7 +6133,7 @@ function normalizePricingLoanHistoryEntry(entry) {
     periodFrom: isoDateForSave(entry.periodFrom) || normalizeLoanHistoryText(entry.periodFrom),
     periodTo: isoDateForSave(entry.periodTo) || normalizeLoanHistoryText(entry.periodTo),
     customer: titleCaseName(entry.customer || ""),
-    address: normalizeLoanHistoryText(entry.address),
+    address: formatLoanAddress(entry.address, { final: true }),
     document: normalizeLoanHistoryText(entry.document),
     phone: normalizeLoanHistoryText(entry.phone),
     rightDevice,
@@ -6290,7 +6305,7 @@ function currentPricingLoanSnapshot() {
     periodFrom: isoDateForSave(loanPeriodFromInput?.value) || loanInputValue(loanPeriodFromInput),
     periodTo: isoDateForSave(loanPeriodToInput?.value) || loanInputValue(loanPeriodToInput),
     customer: titleCaseName(loanInputValue(loanCustomerInput)),
-    address: loanInputValue(loanAddressInput),
+    address: formatLoanAddress(loanInputValue(loanAddressInput), { final: true }),
     document: loanInputValue(loanDocumentInput),
     phone: loanInputValue(loanPhoneInput),
     rightDevice: loanDeviceData("right"),
@@ -6801,6 +6816,17 @@ function loanInputValue(input) {
   return String(input?.value ?? "").trim();
 }
 
+function formatLoanAddress(value, { final = false } = {}) {
+  let text = String(value ?? "")
+    .replace(/\b(\d{2})[-\s]?(\d{3})\b/gu, "$1-$2");
+  text = final ? normalizeLoanHistoryText(text) : text;
+  text = final ? titleCaseName(text) : titleCaseNameInput(text);
+  return text
+    .replace(/\bUl\./gu, "ul.")
+    .replace(/\bAl\./gu, "al.")
+    .replace(/\bOs\./gu, "os.");
+}
+
 function setLoanInputValue(input, value, overwrite = false) {
   if (!input || !String(value ?? "").trim()) return;
   if (overwrite || !loanInputValue(input)) input.value = value;
@@ -7172,7 +7198,7 @@ function renderPricingLoan() {
   setLoanOutput("period", periodText);
   setLoanMoneyOutput("deposit", loanInputValue(loanDepositInput) || "0 zł");
   setLoanOutput("customer", titleCaseName(loanInputValue(loanCustomerInput)));
-  setLoanOutput("address", loanInputValue(loanAddressInput));
+  setLoanOutput("address", formatLoanAddress(loanInputValue(loanAddressInput), { final: true }));
   setLoanOutput("document", loanInputValue(loanDocumentInput));
   setLoanOutput("phone", loanInputValue(loanPhoneInput));
   setLoanOutput("charger", loanInputValue(loanChargerInput));
@@ -11760,6 +11786,7 @@ function openDialog(record = null) {
     document.querySelector("#type").value = "NA STANIE";
     document.querySelector("#location").value = "P63";
   }
+  updateDocumentLocationAccent(document.querySelector("#location"));
   updateDateInputsTodayState(recordForm);
   renderQualityHints("devices");
   renderAuditTrail("devices", record?.id || "");
@@ -11806,6 +11833,7 @@ function openRepairDialog(record = null) {
   } else {
     repairLocationInput.dataset.userChanged = "1";
   }
+  updateDocumentLocationAccent(repairLocationInput);
   updateDateInputsTodayState(repairForm);
   updateRepairWarrantyHint();
   renderQualityHints("repairs");
@@ -14161,6 +14189,15 @@ loanCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
   renderPricingLoan();
 });
+loanAddressInput?.addEventListener("input", (event) => {
+  const formattedAddress = formatLoanAddress(event.target.value);
+  if (formattedAddress !== event.target.value) event.target.value = formattedAddress;
+  renderPricingLoan();
+});
+loanAddressInput?.addEventListener("blur", (event) => {
+  event.target.value = formatLoanAddress(event.target.value, { final: true });
+  renderPricingLoan();
+});
 [loanRightSerialInput, loanLeftSerialInput, loanChargerSerialInput].forEach((input) => {
   input?.addEventListener("input", (event) => {
     event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
@@ -14389,6 +14426,7 @@ document.querySelector("#deviceName").addEventListener("blur", correctDeviceName
 document.querySelector("#serialNumber").addEventListener("input", syncUppercaseTextInput);
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
 typeSelect.addEventListener("change", syncStockLocationFromType);
+document.querySelector("#location").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
 pasteInputButtons.forEach((button) => {
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -14419,6 +14457,7 @@ document.querySelector("#repairCategory").addEventListener("change", syncRepairC
 document.querySelector("#repairCustomerName").addEventListener("input", syncRepairCustomerNameInput);
 document.querySelector("#repairCustomerName").addEventListener("blur", finalizeRepairCustomerNameInput);
 document.querySelector("#repairLocation").addEventListener("change", markRepairLocationManualChange);
+document.querySelector("#repairLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
@@ -14573,5 +14612,29 @@ async function init() {
     window.setInterval(refreshRecordsFromServer, SERVER_REFRESH_MS);
   }
 }
+
+async function checkForPublishedAppUpdate() {
+  if (!CURRENT_APP_VERSION || !/^https?:$/u.test(window.location.protocol)) return;
+  try {
+    const indexUrl = new URL("index.html", window.location.href);
+    indexUrl.searchParams.set("updateCheck", String(Date.now()));
+    const response = await fetch(indexUrl, { cache: "no-store" });
+    if (!response.ok) return;
+    const html = await response.text();
+    const publishedVersion = html.match(/app\.js\?v=([^"'&<\s]+)/u)?.[1] || "";
+    if (!publishedVersion || publishedVersion === CURRENT_APP_VERSION) return;
+    const reloadUrl = new URL(window.location.href);
+    reloadUrl.searchParams.set("appVersion", publishedVersion);
+    window.location.replace(reloadUrl);
+  } catch (error) {
+    console.warn("Nie udało się sprawdzić aktualizacji aplikacji:", error?.message || error);
+  }
+}
+
+window.setTimeout(checkForPublishedAppUpdate, 15000);
+window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") checkForPublishedAppUpdate();
+});
 
 init();
