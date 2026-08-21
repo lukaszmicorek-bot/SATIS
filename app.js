@@ -6068,7 +6068,7 @@ function updateDocumentLocationAccent(input) {
   if (!input) return;
   const field = input.closest(".document-location-field");
   if (!field) return;
-  if (input === locationFilter && !String(input.value || "").trim()) {
+  if (field.classList.contains("location-filter-field") && !String(input.value || "").trim()) {
     delete field.dataset.locationTone;
     return;
   }
@@ -6087,6 +6087,7 @@ function updateDocumentLocationAccents() {
     orderLocationInput,
     complaintLocationInput,
     locationFilter,
+    repairLocationFilter,
     document.querySelector("#location"),
     document.querySelector("#repairLocation")
   ].forEach(updateDocumentLocationAccent);
@@ -7582,7 +7583,9 @@ async function loadSupabasePricingPcprList() {
   try {
     const sharedList = await loadSupabaseTable(SUPABASE_PCPR_LIST_TABLE, normalizePricingPcprList);
     pricingPcprListSupabaseAvailable = true;
-    pricingPcprList = mergePricingPcprList(sharedList, pricingPcprList);
+    // A successful cloud load replaces the browser cache so remotely deleted
+    // entries do not return on another computer.
+    pricingPcprList = normalizePricingPcprList(sharedList);
     saveLocalPricingPcprList();
     rebuildCustomerNameSuggestions();
     renderPricingPcprList();
@@ -9171,7 +9174,9 @@ async function loadSupabasePricingComplaintHistory() {
   try {
     const sharedHistory = await loadSupabaseTable(SUPABASE_COMPLAINT_HISTORY_TABLE, normalizePricingComplaintHistory);
     pricingComplaintHistorySupabaseAvailable = true;
-    pricingComplaintHistory = mergePricingComplaintHistory(sharedHistory, pricingComplaintHistory);
+    // Supabase is authoritative after a successful load. Keeping local extras
+    // here resurrected complaints deleted from another computer.
+    pricingComplaintHistory = normalizePricingComplaintHistory(sharedHistory);
     saveLocalPricingComplaintHistory();
     rebuildCustomerNameSuggestions();
     if (complaintNumberInput?.dataset.autoNumber === "1") ensurePricingComplaintNumber({ force: true });
@@ -14247,6 +14252,7 @@ function resetRepairFilters() {
   repairCategoryFilter.value = "";
   repairStatusFilter.value = "";
   repairLocationFilter.value = "";
+  updateDocumentLocationAccent(repairLocationFilter);
   resetAndRenderRepairRecords();
 }
 
@@ -14700,7 +14706,10 @@ locationFilter.addEventListener("change", (event) => {
 repairSearchInput.addEventListener("input", debounce(resetAndRenderRepairRecords, SEARCH_DEBOUNCE_MS));
 repairCategoryFilter.addEventListener("change", resetAndRenderRepairRecords);
 repairStatusFilter.addEventListener("change", resetAndRenderRepairRecords);
-repairLocationFilter.addEventListener("change", resetAndRenderRepairRecords);
+repairLocationFilter.addEventListener("change", (event) => {
+  updateDocumentLocationAccent(event.target);
+  resetAndRenderRepairRecords();
+});
 demoSearchInput.addEventListener("input", debounce(resetAndRenderDemoRecords, SEARCH_DEBOUNCE_MS));
 demoStatusFilter.addEventListener("change", resetAndRenderDemoRecords);
 demoManufacturerFilter.addEventListener("change", resetAndRenderDemoRecords);

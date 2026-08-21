@@ -3179,6 +3179,21 @@ textarea:focus {
   background: #faf6fc;
 }
 
+#repairLocationFilter option[value="T12"] {
+  color: #6f604f;
+  background: #faf8f5;
+}
+
+#repairLocationFilter option[value="P50"] {
+  color: #616b2f;
+  background: #f7faec;
+}
+
+#repairLocationFilter option[value="P63"] {
+  color: #7b628b;
+  background: #faf6fc;
+}
+
 input.today-date-input {
   border-color: #7fb9ae;
   color: #003f5a;
