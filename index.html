@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-18">
+    <link rel="stylesheet" href="styles.css?v=20260821-19">
   </head>
   <body>
     <main class="app-shell">
@@ -652,7 +652,7 @@
                     <input id="offerPfronEnabledInput" type="checkbox">
                     Dofinansowanie PFRON
                   </label>
-                  <input id="offerPfronInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
+                  <input id="offerPfronInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off" aria-label="Kwota dofinansowania PFRON">
                 </div>
               </div>
               <div class="offer-actions">
@@ -1001,10 +1001,10 @@
             <section class="offer-builder pcpr-builder" aria-label="Lista PCPR">
               <form id="pcprForm" class="pcpr-form-grid">
                 <div class="pcpr-form-row pcpr-form-row-top">
-                  <div class="pcpr-name-field person-name-field">
+                  <label class="pcpr-name-field person-name-field">
                     <span>Imię i nazwisko</span>
                     <input id="pcprCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required>
-                  </div>
+                  </label>
                   <label class="pcpr-phone-field">
                     <span>Telefon</span>
                     <input id="pcprPhoneInput" type="text" inputmode="tel" autocomplete="off">
@@ -1122,11 +1122,11 @@
                   <span>Klient</span>
                   <input id="orderCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
-                <label>
+                <label class="order-contact-field">
                   <span>Telefon</span>
                   <input id="orderPhoneInput" type="text" autocomplete="off">
                 </label>
-                <label class="offer-location-field document-location-field">
+                <label class="order-location-field document-location-field">
                   <span>Miejsce</span>
                   <select id="orderLocationInput">
                     <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
@@ -1134,7 +1134,7 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
-                <label class="order-wide">
+                <label class="order-notes-field">
                   <span>Uwagi</span>
                   <input id="orderNotesInput" type="text" placeholder="np. pilne, kolor, ucho prawe/lewe" autocomplete="off">
                 </label>
@@ -1143,9 +1143,9 @@
               <div class="order-editor">
                 <div class="order-editor-head">
                   <span>Wybór</span>
-                  <button id="addOrderItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj drugą pozycję zamówienia">
+                  <button id="addOrderItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj pozycję zamówienia">
                     <span aria-hidden="true">+</span>
-                    <span data-order-add-label>Druga pozycja</span>
+                    <span data-order-add-label>Dodaj pozycję</span>
                   </button>
                 </div>
                 <table class="order-editor-table">
@@ -1257,19 +1257,19 @@
                   <span>Telefon</span>
                   <input id="complaintPhoneInput" type="text" autocomplete="off">
                 </label>
-                <label class="offer-location-field document-location-field">
-                  <span>Miejsce</span>
-                  <select id="complaintLocationInput">
-                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
-                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
-                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
-                  </select>
-                </label>
                 <label class="complaint-request-field">
                   <span>Żądanie klienta</span>
                   <select id="complaintRequestInput">
                     <option value="NAPRAWA GWARANCYJNA" class="complaint-request-option-warranty">Naprawa gwarancyjna</option>
                     <option value="NAPRAWA POGWARANCYJNA" class="complaint-request-option-out-of-warranty">Naprawa pogwarancyjna</option>
+                  </select>
+                </label>
+                <label class="complaint-location-field document-location-field">
+                  <span>Miejsce</span>
+                  <select id="complaintLocationInput">
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
                 <div class="complaint-product-card complaint-full" data-complaint-product-card="1">
@@ -1943,6 +1943,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-18"></script>
+    <script src="app.js?v=20260821-19"></script>
   </body>
 </html>
