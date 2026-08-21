@@ -62,6 +62,7 @@ const PRICING_OFFER_HISTORY_STORAGE_KEY = "zeszyt-aparatow-offer-history-v1";
 const PRICING_ORDER_HISTORY_STORAGE_KEY = "zeszyt-aparatow-order-history-v1";
 const PRICING_COMPLAINT_HISTORY_STORAGE_KEY = "zeszyt-aparatow-complaint-history-v1";
 const PRICING_PCPR_LIST_STORAGE_KEY = "zeszyt-aparatow-pcpr-list-v1";
+const DOCUMENT_LOCATION_USAGE_STORAGE_KEY = "zeszyt-aparatow-document-location-usage-v1";
 const MAX_PRICING_LOAN_HISTORY = 300;
 const MAX_PRICING_OFFER_HISTORY = 300;
 const MAX_PRICING_ORDER_HISTORY = 300;
@@ -836,6 +837,62 @@ function normalizeWorkstationName(value) {
 
 function currentWorkstationName() {
   return normalizeWorkstationName(localStorage.getItem(WORKSTATION_STORAGE_KEY));
+}
+
+function currentWorkstationUsageKey() {
+  return normalize(currentWorkstationName() || "default");
+}
+
+function loadDocumentLocationUsage() {
+  try {
+    const raw = localStorage.getItem(DOCUMENT_LOCATION_USAGE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDocumentLocationUsage(usage) {
+  localStorage.setItem(DOCUMENT_LOCATION_USAGE_STORAGE_KEY, JSON.stringify(usage || {}));
+}
+
+function documentLocationUsageBucket(workstation = currentWorkstationName()) {
+  const key = normalize(workstation || "default");
+  return key || "default";
+}
+
+function recordDocumentLocationUsage(location, workstation = currentWorkstationName()) {
+  const normalizedLocation = normalizeDocumentLocationValue(location);
+  if (!normalizedLocation) return;
+  const usage = loadDocumentLocationUsage();
+  const workstationKey = documentLocationUsageBucket(workstation);
+  if (!usage[workstationKey] || typeof usage[workstationKey] !== "object") usage[workstationKey] = {};
+  usage[workstationKey][normalizedLocation] = (usage[workstationKey][normalizedLocation] || 0) + 1;
+  saveDocumentLocationUsage(usage);
+}
+
+function mostUsedDocumentLocationForWorkstation(workstation = currentWorkstationName()) {
+  const usage = loadDocumentLocationUsage();
+  const workstationKey = documentLocationUsageBucket(workstation);
+  const bucket = usage[workstationKey];
+  if (!bucket || typeof bucket !== "object") return DEFAULT_DOCUMENT_LOCATION;
+
+  const ranked = DOCUMENT_LOCATIONS.map((entry, index) => ({
+    value: entry.value,
+    count: Number(bucket[entry.value] || 0),
+    index
+  })).sort((left, right) => {
+    if (right.count !== left.count) return right.count - left.count;
+    return left.index - right.index;
+  });
+
+  return ranked[0]?.count ? ranked[0].value : DEFAULT_DOCUMENT_LOCATION;
+}
+
+function suggestedDocumentLocation() {
+  return mostUsedDocumentLocationForWorkstation(currentWorkstationName());
 }
 
 function updateWorkstationButton() {
@@ -5523,6 +5580,10 @@ function ensurePricingOfferDate() {
 function ensurePricingOfferLocation() {
   if (!offerLocationInput) return DEFAULT_DOCUMENT_LOCATION;
   const location = normalizeDocumentLocationValue(offerLocationInput.value);
+  if (!location) {
+    offerLocationInput.value = suggestedDocumentLocation();
+    return normalizeDocumentLocationValue(offerLocationInput.value);
+  }
   if (offerLocationInput.value !== location) offerLocationInput.value = location;
   return location;
 }
@@ -5871,6 +5932,7 @@ function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
     ...pricingOfferHistory.filter((entry) => entry.id !== historyEntry.id)
   ].slice(0, MAX_PRICING_OFFER_HISTORY);
   saveLocalPricingOfferHistory();
+  recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   rebuildCustomerDocumentIndex();
   persistPricingOfferHistoryEntry(historyEntry, { silent });
   renderDeviceViews();
@@ -6191,6 +6253,7 @@ function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   ].slice(0, MAX_PRICING_LOAN_HISTORY);
   activePricingLoanHistoryId = historyEntry.id;
   saveLocalPricingLoanHistory();
+  recordDocumentLocationUsage(historyEntry.city, historyEntry.workstation);
   rebuildCustomerDocumentIndex();
   renderPricingLoanHistory();
   renderDeviceViews();
@@ -6641,7 +6704,8 @@ function ensurePricingLoanDefaults() {
   if (!loanInputValue(loanPeriodToInput)) {
     setDateInputValue(loanPeriodToInput, addDaysToIsoDate(isoDateForSave(loanPeriodFromInput?.value) || today, PRICING_LOAN_DAYS));
   }
-  setLoanInputValue(loanCityInput, DEFAULT_LOAN_CITY);
+  if (!loanInputValue(loanCityInput)) setLoanInputValue(loanCityInput, suggestedDocumentLocation());
+  else setLoanInputValue(loanCityInput, normalizeDocumentLocationValue(loanCityInput.value));
   setLoanInputValue(loanChargerStateInput, "wydano");
   setLoanInputValue(loanIssueNotesInput, "bez zastrzeżeń");
   if (!pricingLoanAutofilledFromOffer) {
@@ -7206,20 +7270,27 @@ function createPricingPcprItem(entry) {
   const content = document.createElement("div");
   content.className = "pcpr-item-content";
 
+  const place = normalizePcprPlace(entry.place || pcprPlaceForOffice(entry.office)) || "T12";
+  const placeBadge = document.createElement("span");
+  placeBadge.className = "pcpr-place-badge";
+  placeBadge.dataset.locationTone = place;
+  placeBadge.textContent = place;
+
   if (entry.office) {
     const office = document.createElement("div");
     office.className = "pcpr-item-office";
     const officeName = document.createElement("strong");
     officeName.textContent = entry.office;
-    const placeBadge = document.createElement("span");
-    placeBadge.className = "pcpr-place-badge";
-    placeBadge.dataset.locationTone = entry.place || pcprPlaceForOffice(entry.office);
-    placeBadge.textContent = entry.place || pcprPlaceForOffice(entry.office);
     const officeAddress = document.createElement("small");
     officeAddress.textContent = pcprOfficeContactLabel(entry.office);
     office.append(officeName, placeBadge);
     if (officeAddress.textContent) office.append(officeAddress);
     content.append(office);
+  } else {
+    const placeLine = document.createElement("div");
+    placeLine.className = "pcpr-item-place";
+    placeLine.append(placeBadge);
+    content.append(placeLine);
   }
 
   const nameLine = document.createElement("label");
@@ -7482,7 +7553,8 @@ function ensurePricingOrderNumber({ force = false } = {}) {
 function ensurePricingOrderDefaults() {
   const today = todayInputValue();
   if (!loanInputValue(orderDateInput)) setDateInputValue(orderDateInput, today);
-  if (!loanInputValue(orderLocationInput)) orderLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
+  if (!loanInputValue(orderLocationInput)) orderLocationInput.value = suggestedDocumentLocation();
+  else orderLocationInput.value = normalizeDocumentLocationValue(orderLocationInput.value);
   if (!orderItemsFormBody?.querySelector("[data-order-row]")) addPricingOrderItemRow();
   ensurePricingOrderNumber();
 }
@@ -7572,6 +7644,7 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
     ...pricingOrderHistory.filter((entry) => entry.id !== historyEntry.id)
   ].slice(0, MAX_PRICING_ORDER_HISTORY);
   saveLocalPricingOrderHistory();
+  recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   persistPricingOrderHistoryEntry(historyEntry, { silent });
   if (!silent) alert("Zamówienie zapisane w historii.");
   return historyEntry;
@@ -8162,7 +8235,7 @@ function resetPricingOrderForm() {
   [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
     if (input) input.value = "";
   });
-  if (orderLocationInput) orderLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
+  if (orderLocationInput) orderLocationInput.value = suggestedDocumentLocation();
   if (orderDateInput) setDateInputValue(orderDateInput, todayInputValue());
   clearPricingOrderRows();
   addPricingOrderItemRow();
@@ -8451,7 +8524,8 @@ function ensurePricingComplaintNumber({ force = false } = {}) {
 function ensurePricingComplaintDefaults() {
   const today = todayInputValue();
   if (!complaintInputValue(complaintDateInput)) setDateInputValue(complaintDateInput, today);
-  if (!complaintInputValue(complaintLocationInput)) complaintLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
+  if (!complaintInputValue(complaintLocationInput)) complaintLocationInput.value = suggestedDocumentLocation();
+  else complaintLocationInput.value = normalizeDocumentLocationValue(complaintLocationInput.value);
   if (!complaintInputValue(complaintProductTypeInput)) complaintProductTypeInput.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
   if (!complaintInputValue(complaintProductTypeInput2)) complaintProductTypeInput2.value = PRICING_COMPLAINT_PRODUCT_TYPES[0];
   if (!complaintInputValue(complaintRequestInput)) complaintRequestInput.value = PRICING_COMPLAINT_REQUESTS[0];
@@ -8606,6 +8680,7 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
     ...pricingComplaintHistory.filter((entry) => entry.id !== historyEntry.id)
   ].slice(0, MAX_PRICING_COMPLAINT_HISTORY);
   saveLocalPricingComplaintHistory();
+  recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   persistPricingComplaintHistoryEntry(historyEntry, { silent });
   return historyEntry;
 }
@@ -9036,7 +9111,7 @@ function resetPricingComplaintForm() {
     }
   });
   if (complaintLocationInput) {
-    complaintLocationInput.value = DEFAULT_DOCUMENT_LOCATION;
+    complaintLocationInput.value = suggestedDocumentLocation();
     complaintLocationInput.dataset.complaintAutofilled = "";
   }
   if (complaintProductTypeInput) {

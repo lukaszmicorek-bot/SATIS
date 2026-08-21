@@ -1026,20 +1026,37 @@ h2 {
 
 .document-gabinet-locations {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .document-gabinet-locations > span {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 3px;
   align-items: start;
+  padding: 7px 8px;
+  border-left: 3px solid #8fb9c4;
+  border-radius: 8px;
+  background: #f6fafb;
+}
+
+.document-gabinet-locations .document-gabinet-city {
+  color: #003f5a;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.document-gabinet-locations .document-gabinet-line {
+  color: #314852;
+  font-size: 0.74rem;
+  line-height: 1.22;
 }
 
 .document-gabinet-locations .location-phone {
-  margin-top: 0;
-  text-align: right;
+  margin-top: 1px;
+  color: #52656d;
+  font-weight: 820;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -2454,6 +2471,11 @@ input.pcpr-done-input,
   margin-bottom: 6px;
   padding-bottom: 6px;
   border-bottom: 1px solid #e4ecee;
+}
+
+.pcpr-item-place {
+  display: flex;
+  margin-bottom: 6px;
 }
 
 .pcpr-item-office strong {
@@ -6112,8 +6134,8 @@ textarea {
   }
 
   body.pricing-offer-print .document-gabinet-locations {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.6mm;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
   }
 
   body.pricing-offer-print .document-gabinet-locations > span {
@@ -6333,8 +6355,8 @@ textarea {
   }
 
   body.pricing-order-print .document-gabinet-locations {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.6mm;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
   }
 
   body.pricing-order-print .document-gabinet-locations > span {
@@ -6505,8 +6527,8 @@ textarea {
   }
 
   body.pricing-complaint-print .document-gabinet-locations {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.6mm;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
   }
 
   body.pricing-complaint-print .document-gabinet-locations > span {
@@ -6665,8 +6687,8 @@ textarea {
   }
 
   body.pricing-loan-print .document-gabinet-locations {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.6mm;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
   }
 
   body.pricing-loan-print .document-gabinet-locations > span {
