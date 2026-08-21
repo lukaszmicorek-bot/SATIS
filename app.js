@@ -473,6 +473,7 @@ let pricingPcprListSupabaseAvailable = null;
 let pricingPcprPlaceFilter = "";
 let pricingPcprOfficeFilter = "";
 let activePricingLoanHistoryId = "";
+let pricingLoanValidationRequested = false;
 let activePricingPcprEditId = "";
 let demoLoanHistoryDraft = [];
 let demoCurrentAttachmentsDraft = [];
@@ -7459,13 +7460,15 @@ function renderPricingLoanEquipment(devices) {
 }
 
 function updatePricingLoanRequiredHighlights() {
+  const missingInputs = [];
   const setMissing = (input, missing) => {
     if (!input) return;
     input.classList.toggle("loan-required-empty", missing);
     input.closest("label")?.classList.toggle("loan-required-field-empty", missing);
+    if (missing) missingInputs.push(input);
   };
 
-  [
+  const primaryInputs = [
     loanContractNumberInput,
     loanDateInput,
     loanPeriodFromInput,
@@ -7475,7 +7478,7 @@ function updatePricingLoanRequiredHighlights() {
     loanPhoneInput,
     loanDocumentInput,
     loanAddressInput
-  ].forEach((input) => setMissing(input, !loanInputValue(input)));
+  ];
 
   const deviceSides = ["right", "left"].map((side) => {
     const inputs = loanDeviceInputs(side);
@@ -7483,6 +7486,17 @@ function updatePricingLoanRequiredHighlights() {
       .some((input) => Boolean(loanInputValue(input)));
     return { inputs, hasAnyValue };
   });
+
+  if (!pricingLoanValidationRequested) {
+    primaryInputs.forEach((input) => setMissing(input, false));
+    deviceSides.forEach(({ inputs }) => {
+      [inputs.device, inputs.serial, inputs.manufacturer, inputs.value]
+        .forEach((input) => setMissing(input, false));
+    });
+    return missingInputs;
+  }
+
+  primaryInputs.forEach((input) => setMissing(input, !loanInputValue(input)));
   const hasStartedDevice = deviceSides.some(({ hasAnyValue }) => hasAnyValue);
 
   deviceSides.forEach(({ inputs, hasAnyValue }) => {
@@ -7494,6 +7508,14 @@ function updatePricingLoanRequiredHighlights() {
     [inputs.device, inputs.serial, inputs.manufacturer, inputs.value]
       .forEach((input) => setMissing(input, hasAnyValue && !loanInputValue(input)));
   });
+  return missingInputs;
+}
+
+function validatePricingLoanForAction() {
+  pricingLoanValidationRequested = true;
+  const missingInputs = updatePricingLoanRequiredHighlights();
+  missingInputs[0]?.focus();
+  return missingInputs.length === 0;
 }
 
 function renderPricingLoan() {
@@ -7543,12 +7565,11 @@ function renderPricingLoan() {
   renderPricingLoanHistory();
   updatePricingLoanRequiredHighlights();
 
-  const hasRequiredContent = Boolean(loanInputValue(loanCustomerInput) || devices.some(hasLoanDeviceData));
-  if (printPricingLoanBtn) printPricingLoanBtn.disabled = !hasRequiredContent;
+  if (printPricingLoanBtn) printPricingLoanBtn.disabled = false;
 }
 
 function printPricingLoan() {
-  if (printPricingLoanBtn?.disabled) return;
+  if (!validatePricingLoanForAction()) return;
   renderPricingLoan();
   saveCurrentPricingLoanToHistory({ silent: true });
   const cleanup = () => document.body.classList.remove("pricing-loan-print");
@@ -14806,7 +14827,10 @@ loanCopyOfferBtn?.addEventListener("click", () => {
 loanDuplicateRightBtn?.addEventListener("click", duplicateLoanDevice);
 loanMoveRightToLeftBtn?.addEventListener("click", () => moveLoanDevice("right", "left"));
 loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "right"));
-savePricingLoanBtn?.addEventListener("click", () => saveCurrentPricingLoanToHistory());
+savePricingLoanBtn?.addEventListener("click", () => {
+  if (!validatePricingLoanForAction()) return;
+  saveCurrentPricingLoanToHistory();
+});
 printPricingLoanBtn?.addEventListener("click", printPricingLoan);
 loanHistorySearchInput?.addEventListener("input", debounce(renderPricingLoanHistory, SEARCH_DEBOUNCE_MS));
 pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
