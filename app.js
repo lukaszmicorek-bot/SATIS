@@ -9612,6 +9612,7 @@ function repairSortValue(record, key) {
   if (key === "location") return meta?.location ?? normalizeRepairLocation(record.location);
   if (key === "status") return meta?.status ?? effectiveRepairStatus(record);
   if (key === "serialNumber") return repairSerialNumbers(record).join(" ");
+  if (key === "sourceDocumentNumber") return repairDocumentInfo(record).number;
   return record[key];
 }
 
@@ -10589,6 +10590,7 @@ function createRepairRow(record) {
     createRepairCustomerName(record.customerName, status),
     createRepairDeviceNameCell(record),
     createRepairSerialCell(record),
+    createRepairDocumentNumberCell(record),
     createStatusPill(status),
     createDatePill(record.sentDate, "sent", activeDateType),
     createDatePill(record.returnDate, "return", activeDateType),
@@ -10650,6 +10652,17 @@ function createRepairSerialCell(record) {
     wrap.append(createSerialPill(serialNumber, [], [], saleSerialMatchesForSerial(serialNumber, "repairs", record.id)));
   });
   return wrap;
+}
+
+function createRepairDocumentNumberCell(record) {
+  const documentInfo = repairDocumentInfo(record);
+  if (!documentInfo.number) return "";
+
+  const number = document.createElement("span");
+  number.className = "repair-document-number";
+  number.textContent = documentInfo.number;
+  number.title = documentInfo.label ? `${documentInfo.label}: ${documentInfo.number}` : documentInfo.number;
+  return number;
 }
 
 function createRepairCustomerName(customerName, status) {

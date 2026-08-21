@@ -844,6 +844,39 @@ h2 {
   grid-column: span 2;
 }
 
+.offer-device-field {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border: 1.5px solid #d6e2e5;
+  border-left-width: 4px;
+  border-radius: 8px;
+}
+
+.offer-device-right {
+  grid-column: 1 / span 2;
+  border-left-color: #db857b;
+  background: #fff9f8;
+}
+
+.offer-device-left {
+  border-left-color: #75a9c5;
+  background: #f7fbfd;
+}
+
+.offer-device-right > span {
+  color: #a54b42;
+}
+
+.offer-device-left > span {
+  color: #2e6888;
+}
+
+.offer-device-field > span {
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .offer-customer-field {
   grid-column: span 2;
 }
@@ -5047,6 +5080,12 @@ tbody tr.demo-return-critical:hover {
 
 .repairs-table th:nth-child(7),
 .repairs-table td:nth-child(7) {
+  min-width: 146px;
+  text-align: center;
+}
+
+.repairs-table th:nth-child(8),
+.repairs-table td:nth-child(8) {
   min-width: 120px;
 }
 
@@ -5054,35 +5093,49 @@ tbody tr.demo-return-critical:hover {
 .repairs-table td:nth-child(1),
 .repairs-table th:nth-child(3),
 .repairs-table td:nth-child(3),
-.repairs-table th:nth-child(7),
-.repairs-table td:nth-child(7),
 .repairs-table th:nth-child(8),
 .repairs-table td:nth-child(8),
 .repairs-table th:nth-child(9),
 .repairs-table td:nth-child(9),
 .repairs-table th:nth-child(10),
-.repairs-table td:nth-child(10) {
+.repairs-table td:nth-child(10),
+.repairs-table th:nth-child(11),
+.repairs-table td:nth-child(11) {
   text-align: center;
 }
 
-.repairs-table th:nth-child(8),
-.repairs-table td:nth-child(8),
 .repairs-table th:nth-child(9),
 .repairs-table td:nth-child(9),
 .repairs-table th:nth-child(10),
-.repairs-table td:nth-child(10) {
-  min-width: 118px;
-}
-
+.repairs-table td:nth-child(10),
 .repairs-table th:nth-child(11),
 .repairs-table td:nth-child(11) {
-  min-width: 220px;
+  min-width: 118px;
 }
 
 .repairs-table th:nth-child(12),
 .repairs-table td:nth-child(12) {
+  min-width: 220px;
+}
+
+.repairs-table th:nth-child(13),
+.repairs-table td:nth-child(13) {
   width: 96px;
   min-width: 96px;
+}
+
+.repair-document-number {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 1px 7px;
+  border: 1px solid #c6d8de;
+  border-radius: 8px;
+  color: #24596a;
+  background: #f4fafb;
+  font-size: 0.7rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .stock-table th {
