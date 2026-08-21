@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-14">
+    <link rel="stylesheet" href="styles.css?v=20260821-15">
   </head>
   <body>
     <main class="app-shell">
@@ -1023,10 +1023,13 @@
                   </label>
                 </div>
                 <div class="pcpr-form-row pcpr-form-row-bottom">
-                  <label class="pcpr-model-field">
-                    <span>Wstępny model</span>
-                    <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
-                    <button id="addPcprSecondModelBtn" class="pcpr-add-second-model-btn" type="button">+ Drugi model</button>
+                  <label class="pcpr-place-field document-location-field" data-location-tone="T12">
+                    <span>Miejsce</span>
+                    <select id="pcprPlaceInput">
+                      <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
+                      <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
+                      <option value="P50">Żywiec, al. Piłsudskiego 50</option>
+                    </select>
                   </label>
                   <label class="pcpr-office-field" data-pcpr-office-tone="none">
                     <span>PCPR / MOPS</span>
@@ -1039,13 +1042,10 @@
                     </select>
                     <small id="pcprOfficeAddressHint" class="pcpr-office-address"></small>
                   </label>
-                  <label class="pcpr-place-field document-location-field" data-location-tone="T12">
-                    <span>Miejsce</span>
-                    <select id="pcprPlaceInput">
-                      <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
-                      <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
-                      <option value="P50">Żywiec, al. Piłsudskiego 50</option>
-                    </select>
+                  <label class="pcpr-model-field">
+                    <span>Wstępny model</span>
+                    <input id="pcprModelInput" type="text" list="pricingOfferDeviceList" placeholder="Model z cennika" autocomplete="off">
+                    <button id="addPcprSecondModelBtn" class="pcpr-add-second-model-btn" type="button">+ Drugi model</button>
                   </label>
                   <div class="pcpr-ear-field">
                     <span>Ucho</span>
@@ -1933,6 +1933,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-14"></script>
+    <script src="app.js?v=20260821-15"></script>
   </body>
 </html>
