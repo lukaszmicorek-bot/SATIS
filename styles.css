@@ -1714,7 +1714,102 @@ h2 {
 }
 
 .complaint-product-card {
-  display: contents;
+  display: table-row-group;
+}
+
+.complaint-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.complaint-editor-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.complaint-editor-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.complaint-editor-table th,
+.complaint-editor-table td {
+  padding: 8px 7px;
+  border: 1px solid #d6e0e4;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.complaint-editor-table th {
+  color: #274653;
+  background: #eef5f5;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.complaint-editor-table input,
+.complaint-editor-table select {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  font-size: 0.76rem;
+}
+
+.complaint-editor-table th:nth-child(1),
+.complaint-editor-table td:nth-child(1) {
+  width: 48px;
+  text-align: center;
+}
+
+.complaint-editor-table th:nth-child(2),
+.complaint-editor-table td:nth-child(2) {
+  width: 160px;
+}
+
+.complaint-editor-table th:nth-child(4),
+.complaint-editor-table td:nth-child(4) {
+  width: 150px;
+}
+
+.complaint-editor-table th:nth-child(5),
+.complaint-editor-table td:nth-child(5) {
+  width: 170px;
+}
+
+.complaint-editor-table th:nth-child(6),
+.complaint-editor-table td:nth-child(6) {
+  width: 135px;
+}
+
+.complaint-editor-table th:nth-child(7),
+.complaint-editor-table td:nth-child(7) {
+  width: 46px;
+  text-align: center;
+}
+
+.complaint-position-cell {
+  color: #003f5a;
+  background: #f6fafb;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.complaint-table-paste {
+  min-width: 0;
+}
+
+.complaint-warranty-row td {
+  padding: 0 9px;
+  border-top: 0;
+  background: #f8fbfb;
+}
+
+.complaint-warranty-row:has(.complaint-warranty-hint[hidden]) {
+  display: none;
 }
 
 .complaint-product-head {
@@ -1798,7 +1893,8 @@ h2 {
 
 .complaint-warranty-hint {
   grid-column: 1 / -1;
-  margin: -2px 0 2px;
+  margin: 0;
+  padding: 6px 0;
   color: #527079;
   font-size: 0.74rem;
   font-weight: 760;
