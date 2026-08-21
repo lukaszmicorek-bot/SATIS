@@ -7000,6 +7000,13 @@ textarea {
     gap: 1.8mm;
   }
 
+  body.pricing-complaint-print .complaint-signatures {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: stretch;
+    width: 100%;
+  }
+
   body.pricing-complaint-print .loan-doc-grid p,
   body.pricing-complaint-print .complaint-signatures p {
     min-height: 0;
@@ -7045,11 +7052,23 @@ textarea {
   }
 
   body.pricing-complaint-print .complaint-signatures p {
+    grid-column: auto !important;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     min-height: 21mm;
+    box-sizing: border-box;
+  }
+
+  body.pricing-complaint-print .complaint-signatures span {
+    min-height: 3mm;
+    line-height: 1.15;
   }
 
   body.pricing-complaint-print .complaint-signatures strong {
-    margin-top: 10mm;
+    margin-top: auto;
+    padding-top: 9mm;
+    line-height: 1.15;
   }
 
   body.pricing-complaint-print .offer-locations {
