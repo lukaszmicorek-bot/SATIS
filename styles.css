@@ -1291,6 +1291,15 @@ h2 {
   grid-column: span 2;
 }
 
+.order-contact-field,
+.order-location-field {
+  grid-column: span 2;
+}
+
+.order-notes-field {
+  grid-column: 1 / -1;
+}
+
 .order-editor {
   display: grid;
   gap: 8px;
@@ -1592,6 +1601,10 @@ h2 {
 }
 
 .complaint-wide {
+  grid-column: span 2;
+}
+
+.complaint-location-field {
   grid-column: span 2;
 }
 
@@ -1907,11 +1920,11 @@ h2 {
 }
 
 .loan-form-grid > .loan-contract-location-field {
-  grid-column: 1;
+  grid-column: span 2;
 }
 
 .loan-form-grid > .loan-deposit-field {
-  grid-column: 4;
+  grid-column: span 2;
 }
 
 .loan-full {
@@ -2657,7 +2670,12 @@ h2 {
 }
 
 .pcpr-form-row-bottom .pcpr-place-field {
-  grid-column: span 2;
+  grid-column: span 3;
+}
+
+.pcpr-place-field select {
+  padding-right: 26px;
+  font-size: 0.78rem;
 }
 
 .pcpr-form-row-bottom .pcpr-ear-field {
@@ -2665,7 +2683,7 @@ h2 {
 }
 
 .pcpr-form-actions {
-  grid-column: span 2;
+  grid-column: span 1;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -2809,6 +2827,7 @@ input.pcpr-done-input,
 }
 
 .pcpr-ear-option {
+  position: relative;
   min-height: 39px;
   display: flex;
   align-items: center;
@@ -2824,6 +2843,11 @@ input.pcpr-done-input,
 
 .pcpr-ear-option input {
   position: absolute;
+  width: 1px;
+  min-width: 1px;
+  height: 1px;
+  min-height: 1px;
+  margin: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -6505,7 +6529,10 @@ textarea {
   .pcpr-street-field,
   .pcpr-model-field,
   .pcpr-model-stack,
-  .pcpr-ear-field {
+  .pcpr-ear-field,
+  .order-contact-field,
+  .order-location-field,
+  .complaint-location-field {
     grid-column: auto;
   }
 
@@ -6554,6 +6581,7 @@ textarea {
 
   .loan-wide,
   .order-wide,
+  .order-notes-field,
   .complaint-wide,
   .complaint-full,
   .complaint-product-wide,

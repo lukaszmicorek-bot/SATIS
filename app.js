@@ -8957,6 +8957,7 @@ function addPricingOrderItemRow(item = {}) {
 
   const typeCell = document.createElement("td");
   const typeSelect = createOrderTypeSelect(normalizedItem.type);
+  typeSelect.setAttribute("aria-label", "Typ pozycji");
   if (hasExplicitType) typeSelect.dataset.userChanged = "1";
   else if (previousRow) typeSelect.dataset.suggested = "1";
   typeCell.append(typeSelect);
@@ -8973,6 +8974,7 @@ function addPricingOrderItemRow(item = {}) {
   const quantityCell = document.createElement("td");
   const quantityInput = document.createElement("input");
   quantityInput.type = "number";
+  quantityInput.setAttribute("aria-label", "Ilość");
   quantityInput.min = "1";
   quantityInput.step = "1";
   quantityInput.dataset.orderField = "quantity";
@@ -8982,6 +8984,7 @@ function addPricingOrderItemRow(item = {}) {
   const descriptionCell = document.createElement("td");
   const descriptionInput = document.createElement("input");
   descriptionInput.type = "text";
+  descriptionInput.setAttribute("aria-label", "Pozycja lub model");
   descriptionInput.dataset.orderField = "description";
   descriptionInput.setAttribute("list", "pricingOfferDeviceList");
   descriptionInput.autocomplete = "off";
@@ -8992,6 +8995,7 @@ function addPricingOrderItemRow(item = {}) {
   const notesCell = document.createElement("td");
   const notesInput = document.createElement("input");
   notesInput.type = "text";
+  notesInput.setAttribute("aria-label", "Uwagi do pozycji");
   notesInput.dataset.orderField = "notes";
   notesInput.autocomplete = "off";
   notesInput.placeholder = "Uwagi";
@@ -9019,15 +9023,9 @@ function clearPricingOrderRows() {
 
 function updatePricingOrderAddButton() {
   if (!addOrderItemBtn) return;
-  const rowCount = orderItemsFormBody?.querySelectorAll("[data-order-row]").length || 0;
-  const isSecondPosition = rowCount <= 1;
-  const label = isSecondPosition ? "Druga pozycja" : "Kolejna pozycja";
   const labelElement = addOrderItemBtn.querySelector("[data-order-add-label]");
-  if (labelElement) labelElement.textContent = label;
-  addOrderItemBtn.setAttribute(
-    "aria-label",
-    isSecondPosition ? "Dodaj drugą pozycję zamówienia" : "Dodaj kolejną pozycję zamówienia"
-  );
+  if (labelElement) labelElement.textContent = "Dodaj pozycję";
+  addOrderItemBtn.setAttribute("aria-label", "Dodaj pozycję zamówienia");
 }
 
 function syncPricingOrderDescriptionForType(row) {
