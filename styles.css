@@ -1017,6 +1017,32 @@ h2 {
   white-space: nowrap;
 }
 
+.document-gabinet-title {
+  margin: 14px 0 6px;
+  color: #003f5a;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.document-gabinet-locations {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.document-gabinet-locations > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.document-gabinet-locations .location-phone {
+  margin-top: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .offer-empty-state {
   margin: 0;
   color: var(--muted);
@@ -6080,6 +6106,25 @@ textarea {
     font-size: 7pt;
   }
 
+  body.pricing-offer-print .document-gabinet-title {
+    margin: 3mm 0 1.5mm;
+    font-size: 7pt;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.6mm;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations > span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations .location-phone {
+    font-size: 6.8pt;
+  }
+
   body.pricing-offer-print .offer-items-table,
   body.pricing-offer-print .offer-payments-table {
     margin-top: 4mm;
@@ -6282,6 +6327,25 @@ textarea {
     font-size: 7pt;
   }
 
+  body.pricing-order-print .document-gabinet-title {
+    margin: 3mm 0 1.5mm;
+    font-size: 7pt;
+  }
+
+  body.pricing-order-print .document-gabinet-locations {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.6mm;
+  }
+
+  body.pricing-order-print .document-gabinet-locations > span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-order-print .document-gabinet-locations .location-phone {
+    font-size: 6.8pt;
+  }
+
   body.pricing-complaint-print .app-shell > * {
     display: none !important;
   }
@@ -6435,6 +6499,25 @@ textarea {
     font-size: 7pt;
   }
 
+  body.pricing-complaint-print .document-gabinet-title {
+    margin: 3mm 0 1.5mm;
+    font-size: 7pt;
+  }
+
+  body.pricing-complaint-print .document-gabinet-locations {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.6mm;
+  }
+
+  body.pricing-complaint-print .document-gabinet-locations > span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-complaint-print .document-gabinet-locations .location-phone {
+    font-size: 6.8pt;
+  }
+
   body.pricing-loan-print .app-shell > * {
     display: none !important;
   }
@@ -6574,6 +6657,25 @@ textarea {
 
   body.pricing-loan-print .loan-locations strong {
     font-size: 6.8pt;
+  }
+
+  body.pricing-loan-print .document-gabinet-title {
+    margin: 3mm 0 1.5mm;
+    font-size: 7pt;
+  }
+
+  body.pricing-loan-print .document-gabinet-locations {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.6mm;
+  }
+
+  body.pricing-loan-print .document-gabinet-locations > span {
+    padding: 1.5mm 1.8mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-loan-print .document-gabinet-locations .location-phone {
+    font-size: 6.5pt;
   }
 
   body.stock-checklist-print .app-shell > * {

@@ -5615,6 +5615,41 @@ async function updatePricingRecordPrice(record) {
   }
 }
 
+async function deletePricingRecord(record) {
+  if (!record || !canManagePricing()) return;
+
+  const recordLabel = pricingOfferDeviceLabel(record);
+  if (!confirm(`Usunąć pozycję z cennika: ${recordLabel}?`)) return;
+
+  const previousPricingRecords = pricingRecords.slice();
+  const previousPricingMeta = pricingMeta;
+  const previousOfferValues = [offerDeviceInput1?.value || "", offerDeviceInput2?.value || ""];
+  const recordIndex = pricingRecords.findIndex((item) => pricingRecordKey(item) === pricingRecordKey(record));
+  if (recordIndex < 0) return;
+
+  const [removedRecord] = pricingRecords.splice(recordIndex, 1);
+  const removedLabel = pricingOfferDeviceLabel(removedRecord);
+  [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
+    if (input && normalize(input.value) === normalize(removedLabel)) input.value = "";
+  });
+
+  try {
+    markPricingUpdatedNow();
+    await persistPricingRecords();
+    renderPricingRecords();
+    setCurrentYearTitle();
+  } catch (error) {
+    pricingRecords = previousPricingRecords;
+    pricingMeta = previousPricingMeta;
+    if (offerDeviceInput1) offerDeviceInput1.value = previousOfferValues[0];
+    if (offerDeviceInput2) offerDeviceInput2.value = previousOfferValues[1];
+    savePricingMeta();
+    savePricingRecords();
+    renderPricingRecords();
+    alert(`Nie udało się usunąć pozycji: ${error.message}`);
+  }
+}
+
 function switchPricingView(viewName) {
   activePricingView = ["list", "offer", "loan", "pcpr", "order", "complaint"].includes(viewName) ? viewName : "list";
   if (activePricingView !== "list") lastAgreementPricingView = activePricingView;
@@ -9913,6 +9948,15 @@ function createPricingRow(record, index) {
   offerButton.disabled = normalizePricingPrice(record.grossPrice) === "";
   offerButton.addEventListener("click", () => addPricingRecordToOffer(record));
   offerCell.append(offerButton);
+  if (canManagePricing()) {
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "pricing-remove-btn danger";
+    removeButton.textContent = "Usuń";
+    removeButton.title = "Usuń pozycję z cennika";
+    removeButton.addEventListener("click", () => deletePricingRecord(record));
+    offerCell.append(removeButton);
+  }
   row.append(offerCell);
 
   return row;
