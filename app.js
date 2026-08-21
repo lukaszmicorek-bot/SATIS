@@ -4989,20 +4989,28 @@ function rebuildDeviceNameSuggestions() {
 }
 
 function rebuildCustomerNameSuggestions() {
-  const uniqueNames = new Set();
+  const uniqueNames = new Map();
+  const addName = (value) => {
+    const name = titleCaseName(normalizeLoanHistoryText(value));
+    const key = customerNameLookupKey(name);
+    if (!key || !isLikelyPersonSuggestion(name) || uniqueNames.has(key)) return;
+    uniqueNames.set(key, name);
+  };
 
-  records.forEach((record) => {
-    const name = String(record.customerName ?? "").trim();
-    if (name) uniqueNames.add(name);
+  records.forEach((record) => addName(record.customerName));
+  repairRecords.forEach((record) => addName(record.customerName));
+  demoRecords.forEach((record) => {
+    addName(record.currentUser);
+    normalizeDemoLoanHistory(record.loanHistory).forEach((entry) => addName(entry.currentUser));
   });
-
-  repairRecords.forEach((record) => {
-    const name = String(record.customerName ?? "").trim();
-    if (name) uniqueNames.add(name);
-  });
+  normalizePricingOfferHistory(pricingOfferHistory).forEach((entry) => addName(entry.customer));
+  normalizePricingLoanHistory(pricingLoanHistory).forEach((entry) => addName(entry.customer));
+  normalizePricingOrderHistory(pricingOrderHistory).forEach((entry) => addName(entry.customer));
+  normalizePricingComplaintHistory(pricingComplaintHistory).forEach((entry) => addName(entry.customer));
+  normalizePricingPcprList(pricingPcprList).forEach((entry) => addName(entry.customer));
 
   const fragment = document.createDocumentFragment();
-  [...uniqueNames]
+  [...uniqueNames.values()]
     .sort((left, right) => collator.compare(left, right))
     .slice(0, MAX_DEVICE_NAME_SUGGESTIONS)
     .forEach((name) => {
@@ -5904,6 +5912,7 @@ async function loadSupabasePricingOfferHistory() {
     pricingOfferHistory = mergePricingOfferHistory(sharedHistory, pricingOfferHistory);
     saveLocalPricingOfferHistory();
     rebuildCustomerDocumentIndex();
+    rebuildCustomerNameSuggestions();
     return pricingOfferHistory;
   } catch (error) {
     console.warn("Historia ofert działa lokalnie, bez tabeli Supabase:", error?.message || error);
@@ -6007,6 +6016,7 @@ function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
   saveLocalPricingOfferHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
   persistPricingOfferHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
   renderDeviceViews();
@@ -6167,6 +6177,7 @@ async function loadSupabasePricingLoanHistory() {
     pricingLoanHistory = mergePricingLoanHistory(sharedHistory, pricingLoanHistory);
     saveLocalPricingLoanHistory();
     rebuildCustomerDocumentIndex();
+    rebuildCustomerNameSuggestions();
     if (loanContractNumberInput?.dataset.autoNumber === "1") ensureLoanContractNumber({ force: true });
     renderPricingLoanHistory();
     return pricingLoanHistory;
@@ -6329,6 +6340,7 @@ function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   saveLocalPricingLoanHistory();
   recordDocumentLocationUsage(historyEntry.city, historyEntry.workstation);
   rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
   renderPricingLoanHistory();
   renderDeviceViews();
   persistPricingLoanHistoryEntry(historyEntry, { silent });
@@ -7321,6 +7333,7 @@ async function loadSupabasePricingPcprList() {
     pricingPcprListSupabaseAvailable = true;
     pricingPcprList = mergePricingPcprList(sharedList, pricingPcprList);
     saveLocalPricingPcprList();
+    rebuildCustomerNameSuggestions();
     renderPricingPcprList();
     return pricingPcprList;
   } catch (error) {
@@ -7787,6 +7800,7 @@ async function loadSupabasePricingOrderHistory() {
     pricingOrderHistorySupabaseAvailable = true;
     pricingOrderHistory = mergePricingOrderHistory(sharedHistory, pricingOrderHistory);
     saveLocalPricingOrderHistory();
+    rebuildCustomerNameSuggestions();
     if (orderNumberInput?.dataset.autoNumber === "1") ensurePricingOrderNumber({ force: true });
     return pricingOrderHistory;
   } catch (error) {
@@ -7919,6 +7933,7 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   ].slice(0, MAX_PRICING_ORDER_HISTORY);
   saveLocalPricingOrderHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
+  rebuildCustomerNameSuggestions();
   persistPricingOrderHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
   if (!silent) alert("Zamówienie zapisane w historii.");
@@ -8737,6 +8752,7 @@ async function loadSupabasePricingComplaintHistory() {
     pricingComplaintHistorySupabaseAvailable = true;
     pricingComplaintHistory = mergePricingComplaintHistory(sharedHistory, pricingComplaintHistory);
     saveLocalPricingComplaintHistory();
+    rebuildCustomerNameSuggestions();
     if (complaintNumberInput?.dataset.autoNumber === "1") ensurePricingComplaintNumber({ force: true });
     return pricingComplaintHistory;
   } catch (error) {
@@ -8956,6 +8972,7 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   ].slice(0, MAX_PRICING_COMPLAINT_HISTORY);
   saveLocalPricingComplaintHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
+  rebuildCustomerNameSuggestions();
   persistPricingComplaintHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
   return historyEntry;
