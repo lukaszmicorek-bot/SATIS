@@ -1707,17 +1707,12 @@ h2 {
 .complaint-product-head {
   grid-column: 1 / -1;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin: 4px 0 -1px;
   padding: 4px 0 7px;
   border-bottom: 1px solid #dbe7e9;
-}
-
-.complaint-product-title {
-  display: grid;
-  gap: 5px;
 }
 
 .complaint-product-head strong {
@@ -1728,7 +1723,7 @@ h2 {
 }
 
 .complaint-product-type-field {
-  width: min(210px, 48vw);
+  width: auto;
   gap: 4px;
 }
 
@@ -1766,9 +1761,22 @@ h2 {
 .complaint-product-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(300px, 1.45fr) 150px 170px 145px;
+  grid-template-columns: 145px minmax(220px, 1.45fr) 130px 150px 130px;
   gap: 9px;
   align-items: end;
+}
+
+.complaint-add-item-btn {
+  justify-self: start;
+  width: fit-content;
+  min-height: 28px;
+  margin: 2px 0 4px;
+  padding: 0 10px;
+  border-color: #cbdde1;
+  color: #365f69;
+  background: #f4f9fa;
+  font-size: 0.72rem;
+  font-weight: 850;
 }
 
 .complaint-product-wide {
@@ -2585,8 +2593,21 @@ h2 {
   grid-column: span 3;
 }
 
+.pcpr-model-stack {
+  grid-column: span 3;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.pcpr-model-stack .pcpr-model-field {
+  grid-column: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .pcpr-second-model-field {
-  margin-top: -2px;
+  margin-top: 0;
 }
 
 .pcpr-add-second-model-btn {
@@ -2605,6 +2626,10 @@ h2 {
   grid-template-columns: minmax(0, 1fr) 26px;
   gap: 6px;
   align-items: center;
+}
+
+.pcpr-second-model-auto-both .pcpr-second-model-input-row {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .pcpr-remove-second-model-btn {
@@ -6262,6 +6287,7 @@ textarea {
   .pcpr-form-row-top .pcpr-postal-field,
   .pcpr-form-row-top .pcpr-city-field,
   .pcpr-form-row-top .pcpr-street-field,
+  .pcpr-form-row-bottom .pcpr-model-stack,
   .pcpr-form-row-bottom .pcpr-model-field,
   .pcpr-form-row-bottom .pcpr-office-field,
   .pcpr-form-row-bottom .pcpr-place-field,
@@ -6470,6 +6496,7 @@ textarea {
   .pcpr-city-field,
   .pcpr-street-field,
   .pcpr-model-field,
+  .pcpr-model-stack,
   .pcpr-ear-field {
     grid-column: auto;
   }

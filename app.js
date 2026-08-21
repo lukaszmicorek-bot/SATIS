@@ -544,6 +544,8 @@ const complaintUseDeviceItem2Btn = document.querySelector("#complaintUseDeviceIt
 const complaintWarrantyHint1 = document.querySelector("#complaintWarrantyHint1");
 const complaintWarrantyHint2 = document.querySelector("#complaintWarrantyHint2");
 const complaintProductsBody = document.querySelector("#complaintProductsBody");
+const complaintProductCard2 = document.querySelector('[data-complaint-product-card="2"]');
+const addComplaintItemBtn = document.querySelector("#addComplaintItemBtn");
 const removeComplaintItemBtn1 = document.querySelector("#removeComplaintItemBtn1");
 const removeComplaintItemBtn2 = document.querySelector("#removeComplaintItemBtn2");
 const demoChecklistBody = document.querySelector("#demoChecklistBody");
@@ -6798,6 +6800,7 @@ function restorePricingComplaintFromHistory(entry) {
   setDateInputValue(complaintDateInput, saved.date);
   setComplaintItemFields(1, saved.items[0] || {});
   setComplaintItemFields(2, saved.items[1] || {});
+  setComplaintSecondItemVisible(Boolean(saved.items[1]));
   switchPricingView("complaint");
   renderPricingComplaint();
 }
@@ -7639,6 +7642,7 @@ function setPcprEar(value) {
   pcprEarInputs.forEach((input) => {
     input.checked = Boolean(ear && input.value === ear);
   });
+  syncPcprSecondModelForEar();
 }
 
 function syncPcprModelFromPricing() {
@@ -7653,10 +7657,31 @@ function syncPcprSecondModelFromPricing() {
   if (record) pcprModelInput2.value = pricingOfferDeviceName(record);
 }
 
-function setPcprSecondModelVisible(visible) {
+function setPcprSecondModelVisible(visible, { autoBoth = false } = {}) {
   if (pcprSecondModelField) pcprSecondModelField.hidden = !visible;
   if (addPcprSecondModelBtn) addPcprSecondModelBtn.hidden = visible;
+  if (pcprSecondModelField) pcprSecondModelField.dataset.autoBoth = visible && autoBoth ? "1" : "";
+  pcprSecondModelField?.classList.toggle("pcpr-second-model-auto-both", Boolean(visible && autoBoth));
+  if (pcprModelInput2) pcprModelInput2.readOnly = Boolean(visible && autoBoth);
+  if (removePcprSecondModelBtn) removePcprSecondModelBtn.hidden = Boolean(visible && autoBoth);
   if (!visible && pcprModelInput2) pcprModelInput2.value = "";
+  const label = pcprSecondModelField?.querySelector(":scope > span");
+  if (label) label.textContent = autoBoth ? "Drugi model (taki sam)" : "Drugi wstępny model";
+}
+
+function syncPcprSecondModelForEar() {
+  const bothEars = selectedPcprEar() === "B";
+  if (bothEars) {
+    setPcprSecondModelVisible(true, { autoBoth: true });
+    if (pcprModelInput2) pcprModelInput2.value = pcprModelInput?.value || "";
+    return;
+  }
+  if (pcprSecondModelField?.dataset.autoBoth === "1") {
+    setPcprSecondModelVisible(false);
+  } else {
+    if (pcprModelInput2) pcprModelInput2.readOnly = false;
+    if (removePcprSecondModelBtn) removePcprSecondModelBtn.hidden = false;
+  }
 }
 
 function currentPricingPcprItemSnapshot() {
@@ -7683,7 +7708,9 @@ function currentPricingPcprItemSnapshot() {
     street,
     address: pcprAddressLabel({ postalCode, city, street }),
     model: normalizeLoanHistoryText(pcprModelInput?.value),
-    model2: normalizeLoanHistoryText(pcprModelInput2?.value),
+    model2: selectedPcprEar() === "B"
+      ? normalizeLoanHistoryText(pcprModelInput?.value)
+      : normalizeLoanHistoryText(pcprModelInput2?.value),
     ear: selectedPcprEar()
   };
 }
@@ -9316,6 +9343,21 @@ function clearComplaintItem(slot = 1) {
   setComplaintItemFields(slot, { productType: PRICING_COMPLAINT_PRODUCT_TYPES[0] });
 }
 
+function setComplaintSecondItemVisible(visible, { clear = false, focus = false } = {}) {
+  if (clear) clearComplaintItem(2);
+  if (complaintProductCard2) complaintProductCard2.hidden = !visible;
+  if (addComplaintItemBtn) addComplaintItemBtn.hidden = visible;
+  if (visible && focus) complaintProductTypeInput2?.focus();
+}
+
+function addPricingComplaintItem() {
+  if (complaintProductTypeInput2 && !pricingComplaintItemHasContent(complaintFormItem(2))) {
+    complaintProductTypeInput2.value = normalizePricingComplaintProductType(complaintProductTypeInput?.value);
+  }
+  setComplaintSecondItemVisible(true, { focus: true });
+  renderPricingComplaint();
+}
+
 function complaintItemCanBeCustomerAutofilled(slot = 1) {
   const inputs = complaintItemInputs(slot);
   const item = complaintFormItem(slot);
@@ -9331,7 +9373,9 @@ function complaintItemCanBeCustomerAutofilled(slot = 1) {
 function removePricingComplaintItem(slot = 1) {
   if (slot === 1 && pricingComplaintItemHasContent(complaintFormItem(2))) {
     setComplaintItemFields(1, complaintFormItem(2));
-    clearComplaintItem(2);
+    setComplaintSecondItemVisible(false, { clear: true });
+  } else if (slot === 2) {
+    setComplaintSecondItemVisible(false, { clear: true });
   } else {
     clearComplaintItem(slot);
   }
@@ -9678,6 +9722,7 @@ function selectedComplaintCustomerDeviceRecord() {
 function useComplaintCustomerDevice(slot = 1) {
   const record = selectedComplaintCustomerDeviceRecord();
   if (!record) return;
+  if (slot === 2) setComplaintSecondItemVisible(true);
   fillComplaintFromDeviceRecord(record, slot, { overwrite: true });
   updateComplaintCustomerMatchHint(1, [record], true);
   syncComplaintRequestFromWarranty();
@@ -9700,6 +9745,7 @@ function syncPricingComplaintFromCustomer() {
   updateComplaintCustomerDevicePicker(matches);
   let changed = false;
   const matchedRows = matches.slice(0, 2);
+  if (matchedRows[1]) setComplaintSecondItemVisible(true);
   [1, 2].forEach((slot) => {
     const record = matchedRows[slot - 1];
     const canAutofill = complaintItemCanBeCustomerAutofilled(slot);
@@ -9859,6 +9905,7 @@ function resetPricingComplaintForm() {
     complaintRequestInput.dataset.userChanged = "";
     complaintRequestInput.dataset.complaintAutofilled = "";
   }
+  setComplaintSecondItemVisible(false, { clear: true });
   updateComplaintCustomerMatchHint(0);
   updateComplaintCustomerDevicePicker([]);
   updateComplaintWarrantyHints([]);
@@ -14355,16 +14402,24 @@ pcprCityInput?.addEventListener("blur", (event) => {
 pcprStreetInput?.addEventListener("blur", (event) => {
   event.target.value = normalizePcprStreet(event.target.value);
 });
-pcprModelInput?.addEventListener("change", syncPcprModelFromPricing);
-pcprModelInput?.addEventListener("blur", syncPcprModelFromPricing);
+pcprModelInput?.addEventListener("input", syncPcprSecondModelForEar);
+pcprModelInput?.addEventListener("change", () => {
+  syncPcprModelFromPricing();
+  syncPcprSecondModelForEar();
+});
+pcprModelInput?.addEventListener("blur", () => {
+  syncPcprModelFromPricing();
+  syncPcprSecondModelForEar();
+});
 pcprModelInput2?.addEventListener("change", syncPcprSecondModelFromPricing);
 pcprModelInput2?.addEventListener("blur", syncPcprSecondModelFromPricing);
 addPcprSecondModelBtn?.addEventListener("click", () => {
-  setPcprSecondModelVisible(true);
+  setPcprSecondModelVisible(true, { autoBoth: false });
   if (pcprModelInput2 && !pcprModelInput2.value.trim()) pcprModelInput2.value = pcprModelInput?.value || "";
   if (!pcprModelInput2?.value.trim()) pcprModelInput2?.focus();
 });
 removePcprSecondModelBtn?.addEventListener("click", () => setPcprSecondModelVisible(false));
+pcprEarInputs.forEach((input) => input.addEventListener("change", syncPcprSecondModelForEar));
 pcprPlaceInput?.addEventListener("input", () => {
   if (pcprPlaceInput) pcprPlaceInput.dataset.autoPlace = "";
 });
@@ -14656,6 +14711,7 @@ complaintUseDeviceItem2Btn?.addEventListener("click", () => useComplaintCustomer
   });
 });
 newPricingComplaintBtn?.addEventListener("click", resetPricingComplaintForm);
+addComplaintItemBtn?.addEventListener("click", addPricingComplaintItem);
 removeComplaintItemBtn1?.addEventListener("click", () => removePricingComplaintItem(1));
 removeComplaintItemBtn2?.addEventListener("click", () => removePricingComplaintItem(2));
 savePricingComplaintBtn?.addEventListener("click", savePricingComplaintAndRepairNotebook);
