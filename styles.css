@@ -2011,6 +2011,25 @@ h2 {
   min-width: 0;
 }
 
+.loan-required-empty {
+  border-color: #d47d73 !important;
+  background: #fff7f5 !important;
+}
+
+.loan-required-field-empty > span {
+  color: #a13f35 !important;
+}
+
+.person-name-field.loan-required-field-empty {
+  border-color: #d47d73;
+  background: #fff8f7;
+}
+
+.loan-required-empty:focus {
+  border-color: #bd5146 !important;
+  box-shadow: 0 0 0 2px rgba(189, 81, 70, 0.1);
+}
+
 .loan-wide {
   grid-column: span 2;
 }

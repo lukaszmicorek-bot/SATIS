@@ -7458,6 +7458,44 @@ function renderPricingLoanEquipment(devices) {
   loanEquipmentBody.replaceChildren(...rows);
 }
 
+function updatePricingLoanRequiredHighlights() {
+  const setMissing = (input, missing) => {
+    if (!input) return;
+    input.classList.toggle("loan-required-empty", missing);
+    input.closest("label")?.classList.toggle("loan-required-field-empty", missing);
+  };
+
+  [
+    loanContractNumberInput,
+    loanDateInput,
+    loanPeriodFromInput,
+    loanPeriodToInput,
+    loanCityInput,
+    loanCustomerInput,
+    loanPhoneInput,
+    loanDocumentInput,
+    loanAddressInput
+  ].forEach((input) => setMissing(input, !loanInputValue(input)));
+
+  const deviceSides = ["right", "left"].map((side) => {
+    const inputs = loanDeviceInputs(side);
+    const hasAnyValue = [inputs.device, inputs.serial, inputs.manufacturer, inputs.value]
+      .some((input) => Boolean(loanInputValue(input)));
+    return { inputs, hasAnyValue };
+  });
+  const hasStartedDevice = deviceSides.some(({ hasAnyValue }) => hasAnyValue);
+
+  deviceSides.forEach(({ inputs, hasAnyValue }) => {
+    if (!hasStartedDevice) {
+      setMissing(inputs.device, true);
+      [inputs.serial, inputs.manufacturer, inputs.value].forEach((input) => setMissing(input, false));
+      return;
+    }
+    [inputs.device, inputs.serial, inputs.manufacturer, inputs.value]
+      .forEach((input) => setMissing(input, hasAnyValue && !loanInputValue(input)));
+  });
+}
+
 function renderPricingLoan() {
   if (!pricingLoanView) return;
   ensurePricingLoanDefaults();
@@ -7503,6 +7541,7 @@ function renderPricingLoan() {
   setLoanOutput("depositReturnDate", loanDateText(loanDepositReturnDateInput));
   renderPricingLoanEquipment(visibleDevices);
   renderPricingLoanHistory();
+  updatePricingLoanRequiredHighlights();
 
   const hasRequiredContent = Boolean(loanInputValue(loanCustomerInput) || devices.some(hasLoanDeviceData));
   if (printPricingLoanBtn) printPricingLoanBtn.disabled = !hasRequiredContent;
