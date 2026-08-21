@@ -67,12 +67,10 @@
 
         <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
           <section class="controls database-controls" aria-label="Narzędzia bazy">
-            <label class="search-box">
+            <label class="search-box paste-input-field">
               <span>Szukaj</span>
-              <span class="paste-input-row">
-                <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
-                <button class="search-paste-btn" type="button" data-paste-target="searchInput">Wklej</button>
-              </span>
+              <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
+              <button class="paste-input-btn" type="button" data-paste-target="searchInput">Wklej</button>
             </label>
             <label>
               <span>Status</span>
@@ -406,12 +404,10 @@
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
           <section class="controls repairs-controls" aria-label="Narzędzia zeszytu napraw i wkładek">
-            <label class="search-box">
+            <label class="search-box paste-input-field">
               <span>Szukaj</span>
-              <span class="paste-input-row">
-                <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
-                <button class="search-paste-btn" type="button" data-paste-target="repairSearchInput">Wklej</button>
-              </span>
+              <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
+              <button class="paste-input-btn" type="button" data-paste-target="repairSearchInput">Wklej</button>
             </label>
             <label>
               <span>Typ</span>
@@ -532,6 +528,7 @@
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="offer">Oferta</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="order">Zamówienie</button>
             <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="complaint">Reklamacja</button>
+            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="history">Historia</button>
           </section>
 
           <section id="pricingListView" class="pricing-view-section">
@@ -654,6 +651,7 @@
                 <button id="offerMoveRightToLeftBtn" class="reset-filters-btn" type="button">P → L</button>
                 <button id="offerMoveLeftToRightBtn" class="reset-filters-btn" type="button">L → P</button>
                 <button id="offerDuplicateFirstBtn" class="reset-filters-btn" type="button">2x ten sam</button>
+                <button id="savePricingOfferBtn" class="reset-filters-btn" type="button">Zapisz</button>
                 <button id="printPricingOfferBtn" type="button">Drukuj / PDF</button>
               </div>
               <datalist id="pricingOfferDeviceList"></datalist>
@@ -1432,6 +1430,30 @@
                   <span class="location-phone">tel. 502 605 669</span>
                 </span>
               </address>
+            </section>
+          </section>
+
+          <section id="pricingHistoryView" class="pricing-view-section pricing-history-section" hidden>
+            <section class="loan-history-panel" aria-label="Historia ofert">
+              <div class="loan-history-head">
+                <h3>Oferty</h3>
+                <span id="offerHistoryCount">0 ofert</span>
+              </div>
+              <div id="offerHistoryList" class="loan-history-list"></div>
+            </section>
+            <section class="loan-history-panel" aria-label="Historia zamówień">
+              <div class="loan-history-head">
+                <h3>Zamówienia</h3>
+                <span id="orderHistoryCount">0 zamówień</span>
+              </div>
+              <div id="orderHistoryList" class="loan-history-list"></div>
+            </section>
+            <section class="loan-history-panel" aria-label="Historia reklamacji">
+              <div class="loan-history-head">
+                <h3>Reklamacje</h3>
+                <span id="complaintHistoryCount">0 reklamacji</span>
+              </div>
+              <div id="complaintHistoryList" class="loan-history-list"></div>
             </section>
           </section>
         </section>

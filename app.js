@@ -641,6 +641,14 @@ const savePricingComplaintBtn = document.querySelector("#savePricingComplaintBtn
 const printPricingComplaintBtn = document.querySelector("#printPricingComplaintBtn");
 const complaintTitle = document.querySelector("#complaintTitle");
 const complaintMeta = document.querySelector("#complaintMeta");
+const pricingHistoryView = document.querySelector("#pricingHistoryView");
+const savePricingOfferBtn = document.querySelector("#savePricingOfferBtn");
+const offerHistoryCount = document.querySelector("#offerHistoryCount");
+const offerHistoryList = document.querySelector("#offerHistoryList");
+const orderHistoryCount = document.querySelector("#orderHistoryCount");
+const orderHistoryList = document.querySelector("#orderHistoryList");
+const complaintHistoryCount = document.querySelector("#complaintHistoryCount");
+const complaintHistoryList = document.querySelector("#complaintHistoryList");
 const complaintCustomerMatchHint = document.querySelector("#complaintCustomerMatchHint");
 const complaintCustomerDevicePicker = document.querySelector("#complaintCustomerDevicePicker");
 const complaintCustomerDeviceSelect = document.querySelector("#complaintCustomerDeviceSelect");
@@ -5270,6 +5278,7 @@ function renderPricingRecords() {
   renderPricingPcprList();
   renderPricingOrder();
   renderPricingComplaint();
+  renderPricingDocumentHistory();
   const visibleRecords = filteredPricingRecords();
   renderTableRows(pricingRecordsBody, visibleRecords.map(createPricingRow));
   pricingEmptyState.hidden = visibleRecords.length > 0;
@@ -5657,6 +5666,7 @@ function renderPricingOffer() {
   [offerDuplicateFirstBtn, offerMoveRightToLeftBtn, offerMoveLeftToRightBtn].forEach((button) => {
     if (button) button.disabled = ageRequired || !hasOfferDevice;
   });
+  if (savePricingOfferBtn) savePricingOfferBtn.disabled = ageRequired || !hasOfferDevice;
   const customerAgeLabel = age === null ? "" : `, ${formatOfferAge(age)}`;
   const offerItems = selectedPricingOfferItems();
   const items = offerItems.map((item) => item.record);
@@ -5773,7 +5783,7 @@ async function deletePricingRecord(record) {
 }
 
 function switchPricingView(viewName) {
-  activePricingView = ["list", "offer", "loan", "pcpr", "order", "complaint"].includes(viewName) ? viewName : "list";
+  activePricingView = ["list", "offer", "loan", "pcpr", "order", "complaint", "history"].includes(viewName) ? viewName : "list";
   if (activePricingView !== "list") lastAgreementPricingView = activePricingView;
   pricingViewButtons.forEach((button) => {
     const isActive = button.dataset.pricingView === activePricingView;
@@ -5786,11 +5796,13 @@ function switchPricingView(viewName) {
   if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
+  if (pricingHistoryView) pricingHistoryView.hidden = activePricingView !== "history";
   if (activePricingView === "offer") renderPricingOffer();
   if (activePricingView === "loan") renderPricingLoan();
   if (activePricingView === "pcpr") renderPricingPcprList();
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
+  if (activePricingView === "history") renderPricingDocumentHistory();
 }
 
 function printPricingOffer() {
@@ -5996,6 +6008,7 @@ function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   rebuildCustomerDocumentIndex();
   persistPricingOfferHistoryEntry(historyEntry, { silent });
+  renderPricingDocumentHistory();
   renderDeviceViews();
   if (!silent) alert("Oferta zapisana w historii.");
   return historyEntry;
@@ -6467,6 +6480,166 @@ function renderPricingLoanHistory() {
     return item;
   });
   loanHistoryList.replaceChildren(...items);
+}
+
+function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
+  if (count === 1) return `1 ${singular}`;
+  if (count > 1 && count < 5) return `${count} ${few}`;
+  return `${count} ${plural}`;
+}
+
+function createPricingDocumentHistoryItem(entry, { title, meta, details, onOpen }) {
+  const item = document.createElement("article");
+  item.className = "loan-history-item";
+
+  const content = document.createElement("div");
+  const heading = document.createElement("strong");
+  heading.textContent = title || "Bez danych";
+  const information = document.createElement("small");
+  information.textContent = meta || "";
+  const description = document.createElement("span");
+  description.textContent = details || "Brak pozycji";
+  content.append(heading);
+  if (information.textContent) content.append(information);
+  content.append(description);
+
+  const actions = document.createElement("div");
+  actions.className = "loan-history-actions";
+  const openButton = document.createElement("button");
+  openButton.type = "button";
+  openButton.className = "reset-filters-btn";
+  openButton.textContent = "Otwórz";
+  openButton.addEventListener("click", onOpen);
+  actions.append(openButton);
+  item.append(content, actions);
+  return item;
+}
+
+function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem) {
+  if (!list || !countElement) return;
+  countElement.textContent = pricingDocumentHistoryCountLabel(entries.length, ...countLabels);
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "loan-history-empty";
+    empty.textContent = emptyText;
+    list.replaceChildren(empty);
+    return;
+  }
+  list.replaceChildren(...entries.map(createItem));
+}
+
+function restorePricingOfferFromHistory(entry) {
+  const saved = normalizePricingOfferHistoryEntry(entry);
+  if (!saved) return;
+  if (offerCustomerInput) offerCustomerInput.value = saved.customer;
+  if (offerAgeInput) offerAgeInput.value = saved.age;
+  if (offerLocationInput) offerLocationInput.value = normalizeDocumentLocationValue(saved.location);
+  setDateInputValue(offerDateInput, saved.offerDate);
+  if (offerNoNfzInput) offerNoNfzInput.checked = saved.withoutNfz;
+  if (offerPfronEnabledInput) offerPfronEnabledInput.checked = saved.pfronEnabled;
+  if (offerPfronInput) offerPfronInput.value = saved.pfronEnabled ? String(saved.pfron || "") : "";
+  [offerDeviceInput1, offerDeviceInput2].forEach((input, index) => {
+    if (!input) return;
+    const savedItem = saved.items[index];
+    const record = findPricingOfferRecord(savedItem?.model || savedItem?.tradeName);
+    input.value = record ? pricingOfferDeviceLabel(record) : (savedItem?.model || savedItem?.tradeName || "");
+  });
+  renderPricingOfferDeviceList();
+  switchPricingView("offer");
+  renderPricingOffer();
+}
+
+function restorePricingOrderFromHistory(entry) {
+  const saved = normalizePricingOrderHistoryEntry(entry);
+  if (!saved) return;
+  if (orderNumberInput) {
+    orderNumberInput.value = saved.number;
+    orderNumberInput.dataset.autoNumber = "";
+  }
+  if (orderCustomerInput) orderCustomerInput.value = saved.customer;
+  if (orderPhoneInput) orderPhoneInput.value = saved.phone;
+  if (orderLocationInput) orderLocationInput.value = normalizeDocumentLocationValue(saved.location);
+  if (orderNotesInput) orderNotesInput.value = saved.notes;
+  setDateInputValue(orderDateInput, saved.date);
+  clearPricingOrderRows();
+  (saved.items.length ? saved.items : [{}]).forEach((savedItem) => addPricingOrderItemRow(savedItem));
+  switchPricingView("order");
+  renderPricingOrder();
+}
+
+function restorePricingComplaintFromHistory(entry) {
+  const saved = normalizePricingComplaintHistoryEntry(entry);
+  if (!saved) return;
+  if (complaintNumberInput) {
+    complaintNumberInput.value = saved.number;
+    complaintNumberInput.dataset.autoNumber = "";
+  }
+  if (complaintCustomerInput) complaintCustomerInput.value = saved.customer;
+  if (complaintPhoneInput) complaintPhoneInput.value = saved.phone;
+  if (complaintLocationInput) complaintLocationInput.value = normalizeDocumentLocationValue(saved.location);
+  if (complaintRequestInput) {
+    complaintRequestInput.value = saved.request;
+    complaintRequestInput.dataset.userChanged = "1";
+  }
+  if (complaintDefectInput) complaintDefectInput.value = saved.defect;
+  if (complaintNotesInput) complaintNotesInput.value = saved.notes;
+  setDateInputValue(complaintDateInput, saved.date);
+  setComplaintItemFields(1, saved.items[0] || {});
+  setComplaintItemFields(2, saved.items[1] || {});
+  switchPricingView("complaint");
+  renderPricingComplaint();
+}
+
+function renderPricingDocumentHistory() {
+  const offers = normalizePricingOfferHistory(pricingOfferHistory);
+  renderPricingHistoryList(
+    offerHistoryList,
+    offerHistoryCount,
+    offers,
+    "Brak zapisanych ofert.",
+    ["oferta", "oferty", "ofert"],
+    (entry) => createPricingDocumentHistoryItem(entry, {
+      title: entry.customer || "Oferta bez osoby",
+      meta: [
+        entry.offerDate ? formatDate(entry.offerDate) : "",
+        entry.age !== "" ? formatOfferAge(Number(entry.age)) : "",
+        entry.location,
+        formatAuditDateTime(entry.savedAt) ? `zapis: ${formatAuditDateTime(entry.savedAt)}` : ""
+      ].filter(Boolean).join(" | "),
+      details: entry.items.map((item) => item.model || item.tradeName).filter(Boolean).join(" | ") || "Brak aparatu",
+      onOpen: () => restorePricingOfferFromHistory(entry)
+    })
+  );
+
+  const orders = normalizePricingOrderHistory(pricingOrderHistory);
+  renderPricingHistoryList(
+    orderHistoryList,
+    orderHistoryCount,
+    orders,
+    "Brak zapisanych zamówień.",
+    ["zamówienie", "zamówienia", "zamówień"],
+    (entry) => createPricingDocumentHistoryItem(entry, {
+      title: entry.customer || "Zamówienie bez osoby",
+      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
+      details: entry.items.map((item) => [pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
+      onOpen: () => restorePricingOrderFromHistory(entry)
+    })
+  );
+
+  const complaints = normalizePricingComplaintHistory(pricingComplaintHistory);
+  renderPricingHistoryList(
+    complaintHistoryList,
+    complaintHistoryCount,
+    complaints,
+    "Brak zapisanych reklamacji.",
+    ["reklamacja", "reklamacje", "reklamacji"],
+    (entry) => createPricingDocumentHistoryItem(entry, {
+      title: entry.customer || "Reklamacja bez osoby",
+      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
+      details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
+      onOpen: () => restorePricingComplaintFromHistory(entry)
+    })
+  );
 }
 
 function loanInputValue(input) {
@@ -7747,6 +7920,7 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   saveLocalPricingOrderHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   persistPricingOrderHistoryEntry(historyEntry, { silent });
+  renderPricingDocumentHistory();
   if (!silent) alert("Zamówienie zapisane w historii.");
   return historyEntry;
 }
@@ -8783,6 +8957,7 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   saveLocalPricingComplaintHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   persistPricingComplaintHistoryEntry(historyEntry, { silent });
+  renderPricingDocumentHistory();
   return historyEntry;
 }
 
@@ -13734,6 +13909,7 @@ offerDuplicateFirstBtn?.addEventListener("click", () => {
 });
 offerMoveRightToLeftBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput1, offerDeviceInput2, "P"));
 offerMoveLeftToRightBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput2, offerDeviceInput1, "L"));
+savePricingOfferBtn?.addEventListener("click", () => saveCurrentPricingOfferToHistory());
 printPricingOfferBtn?.addEventListener("click", printPricingOffer);
 loanContractNumberInput?.addEventListener("input", () => {
   loanContractNumberInput.dataset.autoNumber = "";

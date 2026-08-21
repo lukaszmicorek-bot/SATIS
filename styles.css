@@ -816,10 +816,20 @@ h2 {
 
 .pricing-offer-section,
 .pricing-pcpr-section,
+.pricing-history-section,
 .pricing-order-section,
 .pricing-complaint-section {
   display: grid;
   gap: 12px;
+}
+
+.pricing-history-section {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
+.pricing-history-section .loan-history-panel {
+  margin-top: 0;
 }
 
 .offer-builder {
@@ -1840,34 +1850,7 @@ h2 {
   transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
 
-.paste-input-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px;
-  align-items: center;
-}
-
-.search-paste-btn,
 .paste-input-btn {
-  min-height: 27px;
-  padding: 1px 7px;
-  border-color: #c6d7dd;
-  color: #356371;
-  background: #f7fbfc;
-  font-size: 0.66rem;
-  font-weight: 820;
-  line-height: 1;
-}
-
-.search-paste-btn:hover,
-.paste-input-btn:hover {
-  border-color: #9ebac3;
-  color: #003f5a;
-  background: #edf6f8;
-  transform: none;
-}
-
-.paste-input-field {
   position: relative;
 }
 
@@ -1879,6 +1862,30 @@ h2 {
   position: absolute;
   right: 6px;
   bottom: 6px;
+  min-height: 23px;
+  padding: 1px 7px;
+  border-color: #c4d3d8;
+  color: #28566a;
+  background: #f7fbfc;
+  font-size: 0.64rem;
+  font-weight: 850;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.paste-input-field:hover .paste-input-btn,
+.paste-input-field:focus-within .paste-input-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.paste-input-field .paste-input-btn:hover {
+  border-color: #9ebac3;
+  color: #003f5a;
+  background: #edf6f8;
+  transform: none;
 }
 
 .loan-serial-field.has-paste-hint:hover .loan-paste-serial-btn,
@@ -5800,6 +5807,10 @@ textarea {
 }
 
 @media (max-width: 980px) {
+  .pricing-history-section {
+    grid-template-columns: 1fr;
+  }
+
   .top-panel {
     align-items: stretch;
     flex-direction: column;
