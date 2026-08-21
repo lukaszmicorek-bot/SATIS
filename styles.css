@@ -2296,6 +2296,14 @@ h2 {
   font-size: 0.78rem;
 }
 
+.pricing-history-search {
+  margin-bottom: 12px;
+}
+
+.pricing-history-search input {
+  max-width: 620px;
+}
+
 .loan-history-list {
   display: grid;
   gap: 7px;
