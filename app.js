@@ -658,6 +658,9 @@ const printPricingComplaintBtn = document.querySelector("#printPricingComplaintB
 const complaintTitle = document.querySelector("#complaintTitle");
 const complaintMeta = document.querySelector("#complaintMeta");
 const pricingHistoryView = document.querySelector("#pricingHistoryView");
+const pricingHistorySearchInput = document.querySelector("#pricingHistorySearchInput");
+const agreementHistoryCount = document.querySelector("#agreementHistoryCount");
+const agreementHistoryList = document.querySelector("#agreementHistoryList");
 const savePricingOfferBtn = document.querySelector("#savePricingOfferBtn");
 const offerHistoryCount = document.querySelector("#offerHistoryCount");
 const offerHistoryList = document.querySelector("#offerHistoryList");
@@ -6738,17 +6741,22 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, onPrevi
 
   const actions = document.createElement("div");
   actions.className = "loan-history-actions";
-  const previewButton = document.createElement("button");
-  previewButton.type = "button";
-  previewButton.className = "reset-filters-btn";
-  previewButton.textContent = "Podgląd";
-  previewButton.addEventListener("click", onPreview);
-  const openButton = document.createElement("button");
-  openButton.type = "button";
-  openButton.className = "reset-filters-btn";
-  openButton.textContent = "Otwórz";
-  openButton.addEventListener("click", onOpen);
-  actions.append(previewButton, openButton);
+  if (typeof onPreview === "function") {
+    const previewButton = document.createElement("button");
+    previewButton.type = "button";
+    previewButton.className = "reset-filters-btn";
+    previewButton.textContent = "Podgląd";
+    previewButton.addEventListener("click", onPreview);
+    actions.append(previewButton);
+  }
+  if (typeof onOpen === "function") {
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.className = "reset-filters-btn";
+    openButton.textContent = "Otwórz";
+    openButton.addEventListener("click", onOpen);
+    actions.append(openButton);
+  }
   if (typeof onDelete === "function") {
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
@@ -6847,9 +6855,11 @@ function showPricingHistoryPreview(kind, entry) {
   pricingHistoryPreviewDialog.showModal();
 }
 
-function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem) {
+function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem, { totalCount = entries.length, searchActive = false } = {}) {
   if (!list || !countElement) return;
-  countElement.textContent = pricingDocumentHistoryCountLabel(entries.length, ...countLabels);
+  countElement.textContent = searchActive
+    ? `${entries.length} z ${totalCount}`
+    : pricingDocumentHistoryCountLabel(entries.length, ...countLabels);
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "loan-history-empty";
@@ -6966,13 +6976,56 @@ async function deletePricingComplaintHistoryEntry(id) {
   }
 }
 
+function pricingOfferHistorySearchText(entry) {
+  return normalize([
+    entry?.customer,
+    ...normalizePricingOfferHistoryEntry(entry)?.items?.flatMap((item) => [item.model, item.tradeName, item.manufacturer]) || []
+  ].filter(Boolean).join(" "));
+}
+
+function pricingOrderHistorySearchText(entry) {
+  return normalize([
+    entry?.customer,
+    ...normalizePricingOrderHistoryEntry(entry)?.items?.flatMap((item) => [item.description, item.type]) || []
+  ].filter(Boolean).join(" "));
+}
+
+function pricingComplaintHistorySearchText(entry) {
+  return normalize([
+    entry?.customer,
+    ...normalizePricingComplaintHistoryEntry(entry)?.items?.flatMap((item) => [item.productName, item.serial, item.productType]) || []
+  ].filter(Boolean).join(" "));
+}
+
 function renderPricingDocumentHistory() {
-  const offers = normalizePricingOfferHistory(pricingOfferHistory);
+  const searchQuery = normalize(pricingHistorySearchInput?.value || "").trim();
+  const historyMatches = (entry, getSearchText) => !searchQuery || getSearchText(entry).includes(searchQuery);
+  const historyEmptyText = (defaultText) => searchQuery ? "Nie znaleziono pasujących pozycji." : defaultText;
+
+  const agreementsAll = normalizePricingLoanHistory(pricingLoanHistory);
+  const agreements = agreementsAll.filter((entry) => historyMatches(entry, pricingLoanHistorySearchText));
+  renderPricingHistoryList(
+    agreementHistoryList,
+    agreementHistoryCount,
+    agreements,
+    historyEmptyText("Brak zapisanych umów."),
+    ["umowa", "umowy", "umów"],
+    (entry) => createPricingDocumentHistoryItem(entry, {
+      title: entry.customer || "Umowa bez osoby",
+      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
+      details: pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego",
+      onOpen: () => restorePricingLoanFromHistory(entry)
+    }),
+    { totalCount: agreementsAll.length, searchActive: Boolean(searchQuery) }
+  );
+
+  const offersAll = normalizePricingOfferHistory(pricingOfferHistory);
+  const offers = offersAll.filter((entry) => historyMatches(entry, pricingOfferHistorySearchText));
   renderPricingHistoryList(
     offerHistoryList,
     offerHistoryCount,
     offers,
-    "Brak zapisanych ofert.",
+    historyEmptyText("Brak zapisanych ofert."),
     ["oferta", "oferty", "ofert"],
     (entry) => createPricingDocumentHistoryItem(entry, {
       title: entry.customer || "Oferta bez osoby",
@@ -6992,15 +7045,17 @@ function renderPricingDocumentHistory() {
       }).join(" | ") || "Brak aparatu",
       onPreview: () => showPricingHistoryPreview("offer", entry),
       onOpen: () => restorePricingOfferFromHistory(entry)
-    })
+    }),
+    { totalCount: offersAll.length, searchActive: Boolean(searchQuery) }
   );
 
-  const orders = normalizePricingOrderHistory(pricingOrderHistory);
+  const ordersAll = normalizePricingOrderHistory(pricingOrderHistory);
+  const orders = ordersAll.filter((entry) => historyMatches(entry, pricingOrderHistorySearchText));
   renderPricingHistoryList(
     orderHistoryList,
     orderHistoryCount,
     orders,
-    "Brak zapisanych zamówień.",
+    historyEmptyText("Brak zapisanych zamówień."),
     ["zamówienie", "zamówienia", "zamówień"],
     (entry) => createPricingDocumentHistoryItem(entry, {
       title: entry.customer || "Zamówienie bez osoby",
@@ -7008,15 +7063,17 @@ function renderPricingDocumentHistory() {
       details: entry.items.map((item) => [pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
       onPreview: () => showPricingHistoryPreview("order", entry),
       onOpen: () => restorePricingOrderFromHistory(entry)
-    })
+    }),
+    { totalCount: ordersAll.length, searchActive: Boolean(searchQuery) }
   );
 
-  const complaints = normalizePricingComplaintHistory(pricingComplaintHistory);
+  const complaintsAll = normalizePricingComplaintHistory(pricingComplaintHistory);
+  const complaints = complaintsAll.filter((entry) => historyMatches(entry, pricingComplaintHistorySearchText));
   renderPricingHistoryList(
     complaintHistoryList,
     complaintHistoryCount,
     complaints,
-    "Brak zapisanych reklamacji.",
+    historyEmptyText("Brak zapisanych reklamacji."),
     ["reklamacja", "reklamacje", "reklamacji"],
     (entry) => createPricingDocumentHistoryItem(entry, {
       title: entry.customer || "Reklamacja bez osoby",
@@ -7025,7 +7082,8 @@ function renderPricingDocumentHistory() {
       onPreview: () => showPricingHistoryPreview("complaint", entry),
       onOpen: () => restorePricingComplaintFromHistory(entry),
       onDelete: canManagePricing() ? () => deletePricingComplaintHistoryEntry(entry.id) : null
-    })
+    }),
+    { totalCount: complaintsAll.length, searchActive: Boolean(searchQuery) }
   );
 }
 
@@ -14714,6 +14772,7 @@ loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "
 savePricingLoanBtn?.addEventListener("click", () => saveCurrentPricingLoanToHistory());
 printPricingLoanBtn?.addEventListener("click", printPricingLoan);
 loanHistorySearchInput?.addEventListener("input", debounce(renderPricingLoanHistory, SEARCH_DEBOUNCE_MS));
+pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
 orderNumberInput?.addEventListener("input", () => {
   orderNumberInput.dataset.autoNumber = "";
 }, { capture: true });
