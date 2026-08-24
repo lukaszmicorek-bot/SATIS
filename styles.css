@@ -669,8 +669,16 @@ h2 {
 }
 
 .vacation-employee-item span {
-  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: #365f51;
+  background: #e4efea;
   font-size: 0.72rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .vacation-employee-item.active {
@@ -680,7 +688,8 @@ h2 {
 }
 
 .vacation-employee-item.active span {
-  color: rgba(255, 255, 255, 0.82);
+  color: #315f48;
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .vacation-employee-delete {
@@ -692,12 +701,34 @@ h2 {
   height: 22px;
   min-height: 22px;
   border: 1px solid #d9c6c3;
-  border-radius: 50%;
+  border-radius: 6px;
   padding: 0;
   color: #8f4039;
   background: #fff;
   font-size: 1rem;
   line-height: 1;
+}
+
+.vacation-employee-self {
+  align-self: center;
+  min-height: 26px;
+  margin-left: 5px;
+  border-color: #c5d7d1;
+  padding: 3px 7px;
+  color: #476d60;
+  background: #f7faf8;
+  font-size: 0.66rem;
+}
+
+.vacation-employee-entry.is-self .vacation-employee-self {
+  border-color: #4b8b77;
+  color: #fff;
+  background: #4b8b77;
+}
+
+.vacation-private-detail {
+  color: #7d8a8f;
+  font-style: italic;
 }
 
 .vacation-employee-delete:hover {
