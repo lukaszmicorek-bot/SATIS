@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260824-3">
+    <link rel="stylesheet" href="styles.css?v=20260824-6">
   </head>
   <body>
     <main class="app-shell">
@@ -1567,24 +1567,26 @@
               <input id="vacationAllowanceInput" type="number" min="0" max="40" step="1" value="26" inputmode="numeric">
             </label>
             <button id="saveVacationEmployeeBtn" type="button">Dodaj / aktualizuj</button>
-            <div id="vacationEmployeeList" class="vacation-employee-list"></div>
           </section>
 
+          <p class="vacation-employee-picker-label">Pracownik</p>
+          <div id="vacationEmployeeList" class="vacation-employee-list" aria-label="Wybierz pracownika"></div>
+          <input id="vacationEmployeeInput" type="hidden">
+
           <form id="vacationForm" class="private-form-grid">
-            <label class="person-name-field private-form-wide">
-              <span>Imię i nazwisko</span>
-              <select id="vacationEmployeeInput" required>
-                <option value="">Wybierz pracownika</option>
-              </select>
-            </label>
-            <label>
+            <div class="vacation-type-field">
               <span>Rodzaj</span>
-              <select id="vacationTypeInput">
-                <option value="WYPOCZYNKOWY">Urlop wypoczynkowy</option>
-                <option value="ZA SOBOTĘ">Dzień wolny za sobotę</option>
-                <option value="NA ŻĄDANIE">Urlop na żądanie</option>
-                <option value="INNY">Inna nieobecność</option>
-              </select>
+              <div id="vacationTypeChoices" class="vacation-type-choices" role="group" aria-label="Wybierz rodzaj urlopu">
+                <button type="button" data-vacation-type="WYPOCZYNKOWY">Wypoczynkowy</button>
+                <button type="button" data-vacation-type="ZA SOBOTĘ">Za sobotę</button>
+                <button type="button" data-vacation-type="NA ŻĄDANIE">Na żądanie</button>
+                <button type="button" data-vacation-type="INNY">Inna nieobecność</button>
+              </div>
+              <input id="vacationTypeInput" type="hidden" value="WYPOCZYNKOWY">
+            </div>
+            <label id="vacationOwnerLeaveField" class="vacation-owner-leave-field" hidden>
+              <input id="vacationOwnerLeaveInput" type="checkbox">
+              <span>Mój urlop - zapisz od razu jako zatwierdzony</span>
             </label>
             <div class="vacation-date-range">
               <label>
@@ -1596,9 +1598,11 @@
                 <input id="vacationDateToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
               </label>
             </div>
+            <p id="vacationConflictNotice" class="vacation-conflict-notice private-form-wide" hidden></p>
             <label id="vacationSaturdayField" class="vacation-saturday-field" hidden>
               <span>Sobota, za którą oddawany jest dzień wolny</span>
-              <select id="vacationSaturdayInput"></select>
+              <div id="vacationSaturdayChoices" class="vacation-saturday-choices" role="group" aria-label="Wybierz święto przypadające w sobotę"></div>
+              <input id="vacationSaturdayInput" type="hidden">
             </label>
             <label class="private-form-wide">
               <span>Uwagi</span>
@@ -1643,7 +1647,7 @@
                     <tr>
                       <th>Pracownik</th>
                       <th>Rodzaj</th>
-                      <th>Termin</th>
+                      <th>Termin od-do</th>
                       <th>Dni</th>
                       <th>Status</th>
                       <th>Uwagi</th>
@@ -2114,6 +2118,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260824-3"></script>
+    <script src="app.js?v=20260824-6"></script>
   </body>
 </html>
