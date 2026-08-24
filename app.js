@@ -391,6 +391,8 @@ const pricingEmptyState = document.querySelector("#pricingEmptyState");
 const pricingSearchInput = document.querySelector("#pricingSearchInput");
 const pricingNfzFilter = document.querySelector("#pricingNfzFilter");
 const pricingManufacturerFilter = document.querySelector("#pricingManufacturerFilter");
+const pricingMinPriceFilter = document.querySelector("#pricingMinPriceFilter");
+const pricingMaxPriceFilter = document.querySelector("#pricingMaxPriceFilter");
 const pricingSummary = document.querySelector("#pricingSummary");
 const pricingVersion = document.querySelector("#pricingVersion");
 const importPricingBtn = document.querySelector("#importPricingBtn");
@@ -5258,9 +5260,18 @@ function filteredPricingRecords() {
   const query = normalize(pricingSearchInput?.value || "").trim();
   const selectedNfzCode = pricingNfzFilter?.value || "";
   const selectedManufacturer = pricingManufacturerFilter?.value || "";
+  const enteredMinPrice = normalizePricingPrice(pricingMinPriceFilter?.value);
+  const enteredMaxPrice = normalizePricingPrice(pricingMaxPriceFilter?.value);
+  const hasMinPrice = enteredMinPrice !== "";
+  const hasMaxPrice = enteredMaxPrice !== "";
+  const minPrice = hasMinPrice && hasMaxPrice ? Math.min(enteredMinPrice, enteredMaxPrice) : enteredMinPrice;
+  const maxPrice = hasMinPrice && hasMaxPrice ? Math.max(enteredMinPrice, enteredMaxPrice) : enteredMaxPrice;
   return pricingRecords.filter((record) => {
     if (selectedNfzCode && record.nfzCode !== selectedNfzCode) return false;
     if (selectedManufacturer && normalize(record.manufacturer).trim() !== selectedManufacturer) return false;
+    const price = normalizePricingPrice(record.grossPrice);
+    if (hasMinPrice && (price === "" || price < minPrice)) return false;
+    if (hasMaxPrice && (price === "" || price > maxPrice)) return false;
     return !query || pricingSearchBlob(record).includes(query);
   });
 }
@@ -14821,6 +14832,8 @@ function resetPricingFiltersAfterFullUpdate() {
   pricingNfzDefaultApplied = false;
   if (pricingNfzFilter) pricingNfzFilter.value = "";
   if (pricingManufacturerFilter) pricingManufacturerFilter.value = "";
+  if (pricingMinPriceFilter) pricingMinPriceFilter.value = "";
+  if (pricingMaxPriceFilter) pricingMaxPriceFilter.value = "";
 }
 
 function replacePricingCsv(event) {
@@ -15492,6 +15505,13 @@ pricingNfzFilter?.addEventListener("change", () => {
   renderPricingRecords();
 });
 pricingManufacturerFilter?.addEventListener("change", renderPricingRecords);
+[pricingMinPriceFilter, pricingMaxPriceFilter].forEach((input) => {
+  input?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
+  input?.addEventListener("blur", () => {
+    const price = normalizePricingPrice(input.value);
+    input.value = price === "" ? "" : formatPricingAmount(price, " ");
+  });
+});
 pricingViewButtons.forEach((button) => {
   button.addEventListener("click", () => switchPricingView(button.dataset.pricingView));
 });
