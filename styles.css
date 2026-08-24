@@ -503,9 +503,22 @@ h2 {
   padding-left: 12px;
 }
 
+.vacation-date-range {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.vacation-date-range > label {
+  display: grid;
+  gap: 6px;
+}
+
 .private-form-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding-top: 2px;
 }
 
@@ -513,6 +526,208 @@ h2 {
   min-height: 32px;
   padding: 0 11px;
   font-size: 0.76rem;
+}
+
+.vacation-year-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vacation-year-field select {
+  width: 104px;
+  padding: 7px 9px;
+  font-weight: 850;
+}
+
+.vacation-admin {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(240px, 1.5fr) 150px auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+  padding: 14px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.vacation-admin h3,
+.vacation-section-head h3 {
+  margin: 2px 0 0;
+  color: #003f5a;
+  font-size: 1rem;
+}
+
+.vacation-admin > label {
+  display: grid;
+  gap: 6px;
+}
+
+.vacation-admin > button {
+  min-height: 39px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.vacation-employee-list {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.vacation-employee-item {
+  display: inline-flex;
+  min-height: 29px;
+  align-items: center;
+  gap: 7px;
+  border-color: #cbdad5;
+  padding: 3px 8px;
+  color: #315f48;
+  background: #f3f8f5;
+  font-size: 0.75rem;
+}
+
+.vacation-employee-item span {
+  color: var(--muted);
+}
+
+.vacation-overview {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.vacation-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+
+.vacation-summary > div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.vacation-summary strong {
+  color: #003f5a;
+  font-size: 1.25rem;
+}
+
+.vacation-summary span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.vacation-saturday-holidays,
+.vacation-history-section {
+  margin-top: 22px;
+}
+
+.vacation-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.vacation-section-head > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.vacation-saturday-holiday-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vacation-saturday-holiday-list > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 4px solid #9b7d54;
+  padding: 8px 10px;
+  background: #f7f4ef;
+  font-size: 0.8rem;
+}
+
+.vacation-saturday-holiday-list span {
+  color: var(--muted);
+}
+
+.vacation-history-table-wrap {
+  overflow-x: auto;
+}
+
+.vacation-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.vacation-history-table th,
+.vacation-history-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.vacation-history-table th {
+  color: #45616e;
+  background: #f4f7f7;
+  font-size: 0.69rem;
+  text-transform: uppercase;
+}
+
+.vacation-status {
+  display: inline-flex;
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.vacation-status-oczekuje {
+  color: #775620;
+  background: #fff1d8;
+}
+
+.vacation-status-zatwierdzony {
+  color: #276348;
+  background: #e5f4eb;
+}
+
+.vacation-status-odrzucony {
+  color: #8b3f38;
+  background: #fbe8e5;
+}
+
+.vacation-approve-btn,
+.vacation-reject-btn {
+  min-height: 27px;
+  padding: 3px 7px;
+  font-size: 0.68rem;
+}
+
+.vacation-approve-btn {
+  color: #276348;
+  background: #e5f4eb;
+}
+
+.vacation-reject-btn {
+  margin-left: 5px;
+  color: #8b3f38;
+  background: #fbe8e5;
 }
 
 .tabs {
@@ -6697,6 +6912,11 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .vacation-date-range {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
   .pricing-history-preview-grid {
     grid-template-columns: 1fr;
   }
@@ -6717,6 +6937,8 @@ textarea {
     .repairs-controls,
     .stock-audit-panel,
     .private-form-grid,
+    .vacation-admin,
+    .vacation-summary,
   .offer-form-grid,
     .loan-form-grid,
     .pcpr-form-grid,

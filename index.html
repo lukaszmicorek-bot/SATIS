@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260824-1">
+    <link rel="stylesheet" href="styles.css?v=20260824-3">
   </head>
   <body>
     <main class="app-shell">
@@ -48,8 +48,8 @@
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
-          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-notebook hidden>CAPD</button>
-          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-notebook hidden>Urlop</button>
+          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-owner hidden>CAPD</button>
+          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -1547,13 +1547,35 @@
               <p class="eyebrow">Ewidencja nieobecności</p>
               <h2>Urlop</h2>
             </div>
-            <span class="private-module-badge">Prywatne</span>
+            <label class="vacation-year-field">
+              <span>Rok</span>
+              <select id="vacationYearInput"></select>
+            </label>
           </header>
+
+          <section id="vacationEmployeeAdmin" class="vacation-admin" hidden>
+            <div>
+              <p class="eyebrow">Pracownicy</p>
+              <h3>Roczny wymiar urlopu</h3>
+            </div>
+            <label>
+              <span>Imię i nazwisko</span>
+              <input id="vacationNewEmployeeInput" type="text" autocomplete="off">
+            </label>
+            <label>
+              <span>Liczba dni w roku</span>
+              <input id="vacationAllowanceInput" type="number" min="0" max="40" step="1" value="26" inputmode="numeric">
+            </label>
+            <button id="saveVacationEmployeeBtn" type="button">Dodaj / aktualizuj</button>
+            <div id="vacationEmployeeList" class="vacation-employee-list"></div>
+          </section>
 
           <form id="vacationForm" class="private-form-grid">
             <label class="person-name-field private-form-wide">
               <span>Imię i nazwisko</span>
-              <input id="vacationEmployeeInput" type="text" autocomplete="off">
+              <select id="vacationEmployeeInput" required>
+                <option value="">Wybierz pracownika</option>
+              </select>
             </label>
             <label>
               <span>Rodzaj</span>
@@ -1564,17 +1586,19 @@
                 <option value="INNY">Inna nieobecność</option>
               </select>
             </label>
-            <label>
-              <span>Data od</span>
-              <input id="vacationDateFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-            </label>
-            <label>
-              <span>Data do</span>
-              <input id="vacationDateToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-            </label>
+            <div class="vacation-date-range">
+              <label>
+                <span>Data od</span>
+                <input id="vacationDateFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+              </label>
+              <label>
+                <span>Data do</span>
+                <input id="vacationDateToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+              </label>
+            </div>
             <label id="vacationSaturdayField" class="vacation-saturday-field" hidden>
               <span>Sobota, za którą oddawany jest dzień wolny</span>
-              <input id="vacationSaturdayInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+              <select id="vacationSaturdayInput"></select>
             </label>
             <label class="private-form-wide">
               <span>Uwagi</span>
@@ -1582,8 +1606,56 @@
             </label>
             <div class="private-form-actions private-form-wide">
               <button id="resetVacationFormBtn" class="ghost" type="button">Wyczyść formularz</button>
+              <button id="submitVacationRequestBtn" type="submit">Wyślij prośbę o urlop</button>
             </div>
           </form>
+
+          <section class="vacation-overview">
+            <div class="vacation-summary" aria-label="Podsumowanie urlopu">
+              <div><strong id="vacationAllowanceTotal">-</strong><span>dni w roku</span></div>
+              <div><strong id="vacationUsedTotal">-</strong><span>wykorzystane</span></div>
+              <div><strong id="vacationRemainingTotal">-</strong><span>pozostało</span></div>
+              <div><strong id="vacationPendingTotal">-</strong><span>oczekujące</span></div>
+            </div>
+
+            <section class="vacation-saturday-holidays">
+              <div class="vacation-section-head">
+                <div>
+                  <p class="eyebrow">Dodatkowe dni do oddania</p>
+                  <h3>Święta wypadające w sobotę</h3>
+                </div>
+                <span id="vacationSaturdayHolidayCount"></span>
+              </div>
+              <div id="vacationSaturdayHolidayList" class="vacation-saturday-holiday-list"></div>
+            </section>
+
+            <section class="vacation-history-section">
+              <div class="vacation-section-head">
+                <div>
+                  <p class="eyebrow">Historia</p>
+                  <h3>Prośby o urlop</h3>
+                </div>
+                <span id="vacationHistoryCount"></span>
+              </div>
+              <div class="vacation-history-table-wrap">
+                <table class="vacation-history-table">
+                  <thead>
+                    <tr>
+                      <th>Pracownik</th>
+                      <th>Rodzaj</th>
+                      <th>Termin</th>
+                      <th>Dni</th>
+                      <th>Status</th>
+                      <th>Uwagi</th>
+                      <th>Decyzja</th>
+                    </tr>
+                  </thead>
+                  <tbody id="vacationHistoryBody"></tbody>
+                </table>
+              </div>
+              <p id="vacationHistoryEmpty" class="empty-state">Brak próśb o urlop w wybranym roku.</p>
+            </section>
+          </section>
         </section>
       </section>
 
@@ -2042,6 +2114,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260824-1"></script>
+    <script src="app.js?v=20260824-3"></script>
   </body>
 </html>
