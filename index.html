@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260824-19">
+    <link rel="stylesheet" href="styles.css?v=20260824-20">
   </head>
   <body>
     <main class="app-shell">
@@ -1571,8 +1571,8 @@
               <input id="vacationNewEmployeeInput" type="text" autocomplete="off">
             </label>
             <label>
-              <span>Liczba dni w roku</span>
-              <input id="vacationAllowanceInput" type="number" min="0" max="40" step="1" value="26" inputmode="numeric">
+              <span>Wymiar roczny</span>
+              <input id="vacationAllowanceInput" type="number" min="0" max="300" step="0.5" value="26" inputmode="decimal">
             </label>
             <button id="saveVacationEmployeeBtn" type="button">Dodaj / aktualizuj</button>
           </section>
@@ -1608,6 +1608,10 @@
                 <input id="vacationDateToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
               </label>
             </div>
+            <label id="vacationHoursField" class="vacation-hours-field private-form-wide" hidden>
+              <span>Liczba godzin urlopu</span>
+              <input id="vacationHoursInput" type="number" min="0.5" max="200" step="0.5" inputmode="decimal" placeholder="np. 4">
+            </label>
             <p id="vacationConflictNotice" class="vacation-conflict-notice private-form-wide" hidden></p>
             <label id="vacationSaturdayField" class="vacation-saturday-field" hidden>
               <span>Sobota, za którą oddawany jest dzień wolny</span>
@@ -1658,7 +1662,7 @@
                       <th>Pracownik</th>
                       <th>Rodzaj</th>
                       <th>Termin od-do</th>
-                      <th>Dni</th>
+                      <th>Dni / godz.</th>
                       <th>Status</th>
                       <th>Uwagi</th>
                     </tr>
@@ -2127,6 +2131,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260824-19"></script>
+    <script src="app.js?v=20260824-20"></script>
   </body>
 </html>
