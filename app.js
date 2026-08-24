@@ -827,6 +827,7 @@ const vacationNewEmployeeInput = document.querySelector("#vacationNewEmployeeInp
 const vacationAllowanceInput = document.querySelector("#vacationAllowanceInput");
 const saveVacationEmployeeBtn = document.querySelector("#saveVacationEmployeeBtn");
 const vacationEmployeeList = document.querySelector("#vacationEmployeeList");
+const vacationPendingReminder = document.querySelector("#vacationPendingReminder");
 const vacationTypeInput = document.querySelector("#vacationTypeInput");
 const vacationTypeChoices = document.querySelector("#vacationTypeChoices");
 const vacationOwnerLeaveField = document.querySelector("#vacationOwnerLeaveField");
@@ -12532,6 +12533,7 @@ function normalizeVacationRequest(entry) {
   if (!employeeName || !dateFrom || !dateTo) return null;
   const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "NA ŻĄDANIE", "INNY"].includes(entry?.type) ? entry.type : "WYPOCZYNKOWY";
   const status = ["OCZEKUJE", "ZATWIERDZONY", "ODRZUCONY"].includes(entry?.status) ? entry.status : "OCZEKUJE";
+  const calculatedDays = type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo);
   return {
     id: String(entry?.id || makeId()),
     employeeId: String(entry?.employeeId || ""),
@@ -12542,7 +12544,7 @@ function normalizeVacationRequest(entry) {
     dateTo,
     saturdayDate: isoDateForSave(entry?.saturdayDate),
     notes: normalizeLoanHistoryText(entry?.notes),
-    days: Math.max(0, Number(entry?.days) || (type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo))),
+    days: calculatedDays,
     status,
     requestedAt: entry?.requestedAt || new Date().toISOString(),
     requestedBy: entry?.requestedBy || "",
@@ -12764,6 +12766,38 @@ function renderVacationSummary() {
   if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? String(pending) : "-";
 }
 
+function renderVacationPendingReminder() {
+  if (!vacationPendingReminder) return;
+  const pending = vacationRequests.filter((request) =>
+    request.year === selectedVacationYear() && request.status === "OCZEKUJE"
+  );
+  const visible = canViewPrivateModules() && pending.length > 0;
+  vacationPendingReminder.hidden = !visible;
+  if (!visible) {
+    vacationPendingReminder.replaceChildren();
+    return;
+  }
+
+  const marker = document.createElement("span");
+  marker.className = "vacation-pending-reminder-marker";
+  marker.textContent = String(pending.length);
+  const content = document.createElement("span");
+  content.className = "vacation-pending-reminder-content";
+  const title = document.createElement("strong");
+  const pendingNoun = pending.length === 1 ? "wniosek" : pending.length >= 2 && pending.length <= 4 ? "wnioski" : "wniosków";
+  title.textContent = pending.length === 1 ? "Wniosek czeka na decyzję" : `${pending.length} ${pendingNoun} czeka na decyzję`;
+  const details = document.createElement("span");
+  details.textContent = pending.slice(0, 3).map((request) =>
+    `${request.employeeName}: ${formatDate(request.dateFrom)}${request.dateTo !== request.dateFrom ? ` → ${formatDate(request.dateTo)}` : ""}`
+  ).join("  •  ");
+  content.append(title, details);
+  const action = document.createElement("span");
+  action.className = "vacation-pending-reminder-action";
+  action.textContent = "Sprawdź";
+  vacationPendingReminder.replaceChildren(marker, content, action);
+  vacationPendingReminder.dataset.firstRequestId = pending[0]?.id || "";
+}
+
 function createVacationStatus(status) {
   const pill = document.createElement("span");
   pill.className = `vacation-status vacation-status-${normalize(status)}`;
@@ -12854,6 +12888,7 @@ function renderVacationModule() {
   renderVacationSaturdayHolidays();
   updateVacationSaturdayField();
   renderVacationSummary();
+  renderVacationPendingReminder();
   renderVacationHistory();
   updateVacationConflictNotice();
 }
@@ -16015,6 +16050,15 @@ vacationEmployeeList?.addEventListener("click", (event) => {
   renderVacationEmployees();
   renderVacationSummary();
   renderVacationHistory();
+});
+vacationPendingReminder?.addEventListener("click", () => {
+  const request = vacationRequests.find((item) => item.id === vacationPendingReminder.dataset.firstRequestId);
+  if (!request) return;
+  if (vacationEmployeeInput) vacationEmployeeInput.value = request.employeeId;
+  renderVacationEmployees();
+  renderVacationSummary();
+  renderVacationHistory();
+  document.querySelector(".vacation-history-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 vacationHistoryBody?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-action]");
