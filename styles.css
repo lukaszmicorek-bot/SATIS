@@ -503,6 +503,44 @@ h2 {
   padding-left: 12px;
 }
 
+.vacation-saturday-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.vacation-saturday-choice {
+  display: inline-grid;
+  min-height: 40px;
+  gap: 1px;
+  justify-items: start;
+  border-color: #d9cbbc;
+  padding: 6px 9px;
+  color: #665749;
+  background: #faf7f3;
+  text-align: left;
+}
+
+.vacation-saturday-choice strong {
+  font-size: 0.78rem;
+}
+
+.vacation-saturday-choice span {
+  color: #75695e;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.vacation-saturday-choice.active {
+  border-color: #927451;
+  color: #fff;
+  background: #927451;
+}
+
+.vacation-saturday-choice.active span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
 .vacation-date-range {
   display: grid;
   grid-column: 1 / -1;
@@ -513,6 +551,37 @@ h2 {
 .vacation-date-range > label {
   display: grid;
   gap: 6px;
+}
+
+.vacation-owner-leave-field {
+  display: flex !important;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  border-left: 4px solid #3a8a7f;
+  padding: 8px 10px;
+  background: #edf7f4;
+}
+
+.vacation-owner-leave-field input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+}
+
+.vacation-owner-leave-field span {
+  color: #315f48;
+  font-size: 0.76rem;
+}
+
+.vacation-conflict-notice {
+  margin: -4px 0 0;
+  border-left: 4px solid #c95d4f;
+  padding: 9px 11px;
+  color: #843c34;
+  background: #fdf0ed;
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
 .private-form-actions {
@@ -570,25 +639,93 @@ h2 {
 
 .vacation-employee-list {
   display: flex;
-  grid-column: 1 / -1;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 9px;
+  margin: 0 0 18px;
+}
+
+.vacation-employee-picker-label {
+  margin: 0 0 7px;
+  color: #003f5a;
+  font-size: 0.78rem;
+  font-weight: 900;
 }
 
 .vacation-employee-item {
   display: inline-flex;
-  min-height: 29px;
+  min-height: 42px;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
   border-color: #cbdad5;
-  padding: 3px 8px;
+  padding: 7px 14px;
   color: #315f48;
   background: #f3f8f5;
-  font-size: 0.75rem;
+  font-size: 0.84rem;
 }
 
 .vacation-employee-item span {
   color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.vacation-employee-item.active {
+  border-color: #3f8975;
+  color: #fff;
+  background: #3f8975;
+}
+
+.vacation-employee-item.active span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.vacation-type-field {
+  display: grid;
+  gap: 7px;
+}
+
+.vacation-type-field > span {
+  color: #003f5a;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.vacation-type-choices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.vacation-type-choices button {
+  min-height: 40px;
+  border-color: #d4dde0;
+  padding: 6px 9px;
+  color: #526873;
+  background: #f6f8f8;
+  font-size: 0.74rem;
+}
+
+.vacation-type-choices button[data-vacation-type="WYPOCZYNKOWY"].active {
+  border-color: #4c8d78;
+  color: #fff;
+  background: #4c8d78;
+}
+
+.vacation-type-choices button[data-vacation-type="ZA SOBOTĘ"].active {
+  border-color: #927451;
+  color: #fff;
+  background: #927451;
+}
+
+.vacation-type-choices button[data-vacation-type="NA ŻĄDANIE"].active {
+  border-color: #b07845;
+  color: #fff;
+  background: #b07845;
+}
+
+.vacation-type-choices button[data-vacation-type="INNY"].active {
+  border-color: #667985;
+  color: #fff;
+  background: #667985;
 }
 
 .vacation-overview {
@@ -689,6 +826,11 @@ h2 {
   text-transform: uppercase;
 }
 
+.vacation-history-table th:nth-child(3),
+.vacation-history-table td:nth-child(3) {
+  white-space: nowrap;
+}
+
 .vacation-status {
   display: inline-flex;
   border-radius: 6px;
@@ -717,6 +859,34 @@ h2 {
   min-height: 27px;
   padding: 3px 7px;
   font-size: 0.68rem;
+}
+
+.vacation-delete-btn {
+  min-height: 27px;
+  margin-left: 5px;
+  padding: 3px 7px;
+  color: #7e4a43;
+  background: #f7efed;
+  font-size: 0.68rem;
+}
+
+.date-picker-day.vacation-occupied {
+  border-color: #e2a099;
+  color: #913d34;
+  background: #fce9e6;
+}
+
+.date-picker-day.vacation-occupied:hover {
+  border-color: #c95d4f;
+  color: #7e322b;
+  background: #f8dcd7;
+}
+
+.date-picker-day.vacation-occupied.selected {
+  border-color: #b94e43;
+  color: #fff;
+  background: #b94e43;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 
 .vacation-approve-btn {
@@ -6912,6 +7082,10 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .vacation-type-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .vacation-date-range {
     grid-template-columns: 1fr;
     gap: 14px;
