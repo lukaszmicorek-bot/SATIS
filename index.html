@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260824-6">
+    <link rel="stylesheet" href="styles.css?v=20260824-7">
   </head>
   <body>
     <main class="app-shell">
@@ -1615,10 +1615,10 @@
           </form>
 
           <section class="vacation-overview">
-            <div class="vacation-summary" aria-label="Podsumowanie urlopu">
+            <div id="vacationSummary" class="vacation-summary" aria-label="Podsumowanie urlopu">
               <div><strong id="vacationAllowanceTotal">-</strong><span>dni w roku</span></div>
               <div><strong id="vacationUsedTotal">-</strong><span>wykorzystane</span></div>
-              <div><strong id="vacationRemainingTotal">-</strong><span>pozostało</span></div>
+              <div id="vacationRemainingCard" class="vacation-remaining-card" hidden><strong id="vacationRemainingTotal">-</strong><span>pozostało</span></div>
               <div><strong id="vacationPendingTotal">-</strong><span>oczekujące</span></div>
             </div>
 
@@ -2118,6 +2118,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260824-6"></script>
+    <script src="app.js?v=20260824-7"></script>
   </body>
 </html>
