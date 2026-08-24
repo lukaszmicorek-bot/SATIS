@@ -479,6 +479,7 @@ let vacationEmployeesSupabaseAvailable = null;
 let vacationRequestsSupabaseAvailable = null;
 let vacationEmployees = [];
 let vacationRequests = [];
+let activeVacationRequestId = "";
 let pricingPcprPlaceFilter = "";
 let pricingPcprOfficeFilter = "";
 let activePricingLoanHistoryId = "";
@@ -12647,8 +12648,30 @@ function vacationTypeLabel(type) {
   }[type] || type;
 }
 
+function vacationWeekendDatesFromNotes(request) {
+  const notes = String(request?.notes || "");
+  const fallbackYear = Number(request?.year) || new Date().getFullYear();
+  const dates = [];
+  const pattern = /(?:^|\D)(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?(?=\D|$)/gu;
+  let match;
+  while ((match = pattern.exec(notes))) {
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    let year = Number(match[3]) || fallbackYear;
+    if (year < 100) year += 2000;
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) continue;
+    if (date.getDay() === 0 || date.getDay() === 6) dates.push(isoDateFromParts(year, month, day));
+  }
+  return [...new Set(dates)];
+}
+
+function vacationCompensatesWeekend(request) {
+  return vacationWeekendDatesFromNotes(request).length > 0;
+}
+
 function vacationUsesAnnualAllowance(request) {
-  return ["WYPOCZYNKOWY", "NA ŻĄDANIE"].includes(request.type);
+  return ["WYPOCZYNKOWY", "NA ŻĄDANIE"].includes(request.type) && !vacationCompensatesWeekend(request);
 }
 
 function renderVacationYearOptions() {
@@ -12817,12 +12840,13 @@ function renderVacationHistory() {
   vacationHistoryEmpty.hidden = entries.length > 0;
   const rows = entries.map((request) => {
     const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
+    const compensatesWeekend = vacationCompensatesWeekend(request);
     const row = document.createElement("tr");
     const employeeCell = document.createElement("td");
     employeeCell.className = "vacation-history-employee";
     employeeCell.textContent = request.employeeName;
     const typeCell = document.createElement("td");
-    typeCell.textContent = canViewDetails ? vacationTypeLabel(request.type) : "Prywatne";
+    typeCell.textContent = canViewDetails ? compensatesWeekend ? "Wolne za weekend" : vacationTypeLabel(request.type) : "Prywatne";
     typeCell.classList.toggle("vacation-private-detail", !canViewDetails);
     const termCell = document.createElement("td");
     termCell.className = "vacation-history-term";
@@ -12835,8 +12859,11 @@ function renderVacationHistory() {
     daysCell.className = "vacation-history-days";
     const days = document.createElement("strong");
     days.textContent = String(request.days);
-    days.title = `${request.days} ${request.days === 1 ? "dzień" : "dni"}`;
+    days.title = compensatesWeekend
+      ? `${request.days} ${request.days === 1 ? "dzień" : "dni"}; nie pomniejsza urlopu rocznego`
+      : `${request.days} ${request.days === 1 ? "dzień" : "dni"}`;
     daysCell.append(days);
+    daysCell.classList.toggle("vacation-days-not-deducted", compensatesWeekend);
     row.append(employeeCell, typeCell, termCell, daysCell);
     const statusCell = document.createElement("td");
     statusCell.className = "vacation-history-status";
@@ -12844,6 +12871,13 @@ function renderVacationHistory() {
     if (canViewPrivateModules()) {
       const actions = document.createElement("span");
       actions.className = "vacation-history-actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "vacation-edit-btn";
+      edit.dataset.vacationAction = "edit";
+      edit.dataset.requestId = request.id;
+      edit.textContent = "Edytuj";
+      actions.append(edit);
       if (request.status === "OCZEKUJE") {
         const approve = document.createElement("button");
         approve.type = "button";
@@ -12900,13 +12934,41 @@ function updateVacationSaturdayField() {
 }
 
 function resetVacationForm() {
+  activeVacationRequestId = "";
   vacationForm?.reset();
+  if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Wyślij prośbę o urlop";
+  if (resetVacationFormBtn) resetVacationFormBtn.textContent = "Wyczyść formularz";
   renderVacationEmployees();
   renderVacationSaturdayHolidays();
   updateVacationSaturdayField();
   renderVacationSummary();
   renderVacationHistory();
   updateVacationConflictNotice();
+}
+
+function editVacationRequest(id) {
+  if (!canViewPrivateModules()) return;
+  const request = vacationRequests.find((item) => item.id === id);
+  if (!request) return;
+  activeVacationRequestId = request.id;
+  if (vacationYearInput) vacationYearInput.value = String(request.year);
+  renderVacationModule();
+  if (vacationEmployeeInput) vacationEmployeeInput.value = request.employeeId;
+  if (vacationTypeInput) vacationTypeInput.value = request.type;
+  if (vacationSaturdayInput) vacationSaturdayInput.value = request.saturdayDate || "";
+  if (vacationNotesInput) vacationNotesInput.value = request.notes || "";
+  if (vacationOwnerLeaveInput) vacationOwnerLeaveInput.checked = request.ownerLeave;
+  setDateInputValue(vacationDateFromInput, request.dateFrom);
+  setDateInputValue(vacationDateToInput, request.dateTo);
+  renderVacationEmployees();
+  renderVacationSummary();
+  renderVacationHistory();
+  renderVacationSaturdayHolidays();
+  updateVacationSaturdayField();
+  updateVacationConflictNotice();
+  if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Zapisz zmiany";
+  if (resetVacationFormBtn) resetVacationFormBtn.textContent = "Anuluj edycję";
+  vacationForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function saveVacationEmployee() {
@@ -13012,8 +13074,16 @@ async function submitVacationRequest(event) {
     alert("Wybierz sobotę, za którą oddawany jest dzień wolny.");
     return;
   }
+  const editedRequest = canViewPrivateModules()
+    ? vacationRequests.find((request) => request.id === activeVacationRequestId) || null
+    : null;
+  const isEditing = Boolean(editedRequest);
+  const ownerLeave = isEditing
+    ? Boolean(vacationOwnerLeaveInput?.checked)
+    : Boolean(canViewPrivateModules() && vacationOwnerLeaveInput?.checked);
   const request = normalizeVacationRequest({
-    id: makeId(),
+    ...editedRequest,
+    id: editedRequest?.id || makeId(),
     employeeId: employee.id,
     employeeName: employee.name,
     year: Number(dateFrom.slice(0, 4)),
@@ -13023,22 +13093,24 @@ async function submitVacationRequest(event) {
     saturdayDate,
     notes: vacationNotesInput?.value,
     days: type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo),
-    status: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? "ZATWIERDZONY" : "OCZEKUJE",
-    requestedAt: new Date().toISOString(),
-    requestedBy: currentSupabaseUser?.email || "",
-    ownerLeave: Boolean(canViewPrivateModules() && vacationOwnerLeaveInput?.checked),
-    decidedAt: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? new Date().toISOString() : "",
-    decidedBy: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? currentSupabaseUser?.email || "" : ""
+    status: editedRequest?.status || (ownerLeave ? "ZATWIERDZONY" : "OCZEKUJE"),
+    requestedAt: editedRequest?.requestedAt || new Date().toISOString(),
+    requestedBy: editedRequest?.requestedBy || currentSupabaseUser?.email || "",
+    ownerLeave,
+    decidedAt: editedRequest?.decidedAt || (ownerLeave ? new Date().toISOString() : ""),
+    decidedBy: editedRequest?.decidedBy || (ownerLeave ? currentSupabaseUser?.email || "" : "")
   });
   if (!canViewPrivateModules()) setVacationMyEmployeeId(employee.id);
   const previous = vacationRequests;
-  vacationRequests = normalizeVacationRequests([request, ...vacationRequests]);
+  vacationRequests = normalizeVacationRequests([request, ...vacationRequests.filter((item) => item.id !== request.id)]);
   saveLocalVacationData();
   renderVacationModule();
   try {
     await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
     resetVacationForm();
-    alert(request.status === "ZATWIERDZONY" ? "Mój urlop został zapisany." : "Prośba o urlop została wysłana do zatwierdzenia.");
+    alert(isEditing
+      ? "Wniosek urlopowy został poprawiony."
+      : request.status === "ZATWIERDZONY" ? "Mój urlop został zapisany." : "Prośba o urlop została wysłana do zatwierdzenia.");
   } catch (error) {
     vacationRequests = previous;
     saveLocalVacationData();
@@ -16063,6 +16135,10 @@ vacationPendingReminder?.addEventListener("click", () => {
 vacationHistoryBody?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-action]");
   if (!button) return;
+  if (button.dataset.vacationAction === "edit") {
+    editVacationRequest(button.dataset.requestId);
+    return;
+  }
   if (button.dataset.vacationAction === "delete") {
     deleteVacationRequest(button.dataset.requestId);
     return;

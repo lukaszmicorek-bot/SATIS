@@ -1035,6 +1035,11 @@ h2 {
   font-size: 0.84rem;
 }
 
+.vacation-history-days.vacation-days-not-deducted strong {
+  color: #666f35;
+  background: #f1f4df;
+}
+
 .vacation-history-status {
   white-space: normal;
 }
@@ -1075,11 +1080,17 @@ h2 {
   background: #fbe8e5;
 }
 
+.vacation-edit-btn,
 .vacation-approve-btn,
 .vacation-reject-btn {
   min-height: 27px;
   padding: 3px 7px;
   font-size: 0.68rem;
+}
+
+.vacation-edit-btn {
+  color: #315f70;
+  background: #e8f1f4;
 }
 
 .vacation-delete-btn {
