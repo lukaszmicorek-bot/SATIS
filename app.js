@@ -484,6 +484,7 @@ let activeNotebook = "devices";
 let activeDeviceView = "database";
 let activePricingView = "list";
 let lastAgreementPricingView = "offer";
+let activeAgreementDocumentLocation = "";
 let dataControlIssuesCache = null;
 let dataControlRenderToken = 0;
 let dataControlBuildScheduled = false;
@@ -935,7 +936,11 @@ function mostUsedDocumentLocationForWorkstation(workstation = currentWorkstation
 }
 
 function suggestedDocumentLocation() {
-  return mostUsedDocumentLocationForWorkstation(currentWorkstationName());
+  if (activeAgreementDocumentLocation) return activeAgreementDocumentLocation;
+  const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
+  const workstationKey = ["T12", "P50", "P63"].find((key) => workstation.includes(key));
+  const workstationLocation = DOCUMENT_LOCATIONS.find((entry) => entry.key === workstationKey)?.value;
+  return workstationLocation || mostUsedDocumentLocationForWorkstation(currentWorkstationName());
 }
 
 function updateWorkstationButton() {
@@ -2028,7 +2033,10 @@ async function activateSupabaseSession(user) {
   await refreshRecordsFromSupabase({ throwOnError: true });
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
-  window.setTimeout(() => promptForWorkstationName(), 250);
+  window.setTimeout(() => {
+    promptForWorkstationName();
+    syncAgreementDocumentLocations("", { useWorkstation: true });
+  }, 250);
 }
 
 async function handleAuthSubmit(event) {
@@ -6189,6 +6197,7 @@ function updateDocumentLocationAccents() {
   [
     offerLocationInput,
     loanCityInput,
+    pcprPlaceInput,
     orderLocationInput,
     complaintLocationInput,
     locationFilter,
@@ -6196,6 +6205,36 @@ function updateDocumentLocationAccents() {
     document.querySelector("#location"),
     document.querySelector("#repairLocation")
   ].forEach(updateDocumentLocationAccent);
+}
+
+function syncAgreementDocumentLocations(sourceOrLocation, { useWorkstation = false } = {}) {
+  const sourceValue = sourceOrLocation instanceof HTMLInputElement || sourceOrLocation instanceof HTMLSelectElement
+    ? sourceOrLocation.value
+    : sourceOrLocation;
+  const requestedLocation = useWorkstation
+    ? (() => {
+        const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
+        const workstationKey = ["T12", "P50", "P63"].find((key) => workstation.includes(key));
+        return DOCUMENT_LOCATIONS.find((entry) => entry.key === workstationKey)?.value
+          || mostUsedDocumentLocationForWorkstation(currentWorkstationName());
+      })()
+    : sourceValue;
+  const location = normalizeDocumentLocationValue(requestedLocation);
+  const locationKey = documentLocationKey(location);
+  if (!location || !locationKey) return;
+
+  activeAgreementDocumentLocation = location;
+  [offerLocationInput, loanCityInput, orderLocationInput, complaintLocationInput].forEach((input) => {
+    if (!input) return;
+    input.value = location;
+    updateDocumentLocationAccent(input);
+  });
+  if (complaintLocationInput) complaintLocationInput.dataset.complaintAutofilled = "";
+  if (pcprPlaceInput) {
+    pcprPlaceInput.value = locationKey;
+    pcprPlaceInput.dataset.autoPlace = "";
+    updateDocumentLocationAccent(pcprPlaceInput);
+  }
 }
 
 function normalizeLoanCityValue(value) {
@@ -7984,7 +8023,7 @@ function resetPricingPcprForm() {
   activePricingPcprEditId = "";
   if (pcprCityInput) pcprCityInput.dataset.autoCity = "";
   if (pcprPlaceInput) {
-    pcprPlaceInput.value = "T12";
+    pcprPlaceInput.value = documentLocationKey(suggestedDocumentLocation()) || "T12";
     pcprPlaceInput.dataset.autoPlace = "1";
     updateDocumentLocationAccent(pcprPlaceInput);
   }
@@ -14593,7 +14632,10 @@ saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
 scrollTopBtn?.addEventListener("click", scrollToPageTop);
-workstationBtn?.addEventListener("click", () => promptForWorkstationName({ force: true }));
+workstationBtn?.addEventListener("click", () => {
+  promptForWorkstationName({ force: true });
+  syncAgreementDocumentLocations("", { useWorkstation: true });
+});
 window.addEventListener("scroll", updateScrollTopButton, { passive: true });
 stockAuditPersonInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
@@ -14676,6 +14718,10 @@ pcprPlaceInput?.addEventListener("change", (event) => {
   event.target.value = normalizePcprPlace(event.target.value) || "T12";
   if (pcprPlaceInput) pcprPlaceInput.dataset.autoPlace = "";
   updateDocumentLocationAccent(pcprPlaceInput);
+  syncAgreementDocumentLocations(pcprPlaceInput);
+});
+[offerLocationInput, loanCityInput, orderLocationInput, complaintLocationInput].forEach((input) => {
+  input?.addEventListener("change", () => syncAgreementDocumentLocations(input));
 });
 pcprPlaceTabs.forEach((button) => {
   button.addEventListener("click", () => {
@@ -15140,6 +15186,7 @@ async function init() {
   pricingRecords = loadPricingRecords();
   auditLogs = loadLocalAuditLogs();
   setCurrentYearTitle();
+  syncAgreementDocumentLocations("", { useWorkstation: true });
 
   if (hasSupabaseSettings && !hasSupabaseConfig) {
     records = [];
