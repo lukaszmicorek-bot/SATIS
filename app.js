@@ -799,6 +799,22 @@ const viewSections = document.querySelectorAll(".view-section");
 const notebookSwitchButtons = document.querySelectorAll(".notebook-switch-button");
 const notebookSections = document.querySelectorAll(".notebook-section");
 const appTitle = document.querySelector("#appTitle");
+const statsPanel = document.querySelector(".stats");
+const privateNotebookButtons = document.querySelectorAll("[data-private-notebook]");
+const capdForm = document.querySelector("#capdForm");
+const capdPatientInput = document.querySelector("#capdPatientInput");
+const capdAgeInput = document.querySelector("#capdAgeInput");
+const capdDateInput = document.querySelector("#capdDateInput");
+const capdScopePanel = document.querySelector("#capdScopePanel");
+const capdScopeTitle = document.querySelector("#capdScopeTitle");
+const capdScopeDescription = document.querySelector("#capdScopeDescription");
+const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
+const vacationForm = document.querySelector("#vacationForm");
+const vacationEmployeeInput = document.querySelector("#vacationEmployeeInput");
+const vacationTypeInput = document.querySelector("#vacationTypeInput");
+const vacationSaturdayField = document.querySelector("#vacationSaturdayField");
+const vacationSaturdayInput = document.querySelector("#vacationSaturdayInput");
+const resetVacationFormBtn = document.querySelector("#resetVacationFormBtn");
 const connectionStatus = document.querySelector("#connectionStatus");
 const connectionUser = document.querySelector("#connectionUser");
 const workstationBtn = document.querySelector("#workstationBtn");
@@ -843,13 +859,15 @@ function setCurrentYearTitle() {
   const repairTitle = `Zeszyt napraw i wkładek usznych ${year}`;
   const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
   const agreementsTitle = "Umowy";
-  const title = activeNotebook === "repairs"
-    ? repairTitle
-    : activeNotebook === "pricing"
-      ? pricingTitle
-      : activeNotebook === "agreements"
-        ? agreementsTitle
-        : deviceTitle;
+  const notebookTitles = {
+    devices: deviceTitle,
+    repairs: repairTitle,
+    pricing: pricingTitle,
+    agreements: agreementsTitle,
+    capd: "CAPD",
+    vacation: "Urlop"
+  };
+  const title = notebookTitles[activeNotebook] || deviceTitle;
 
   appTitle.textContent = title;
   document.title = title;
@@ -872,6 +890,7 @@ function updateConnectionUser(user) {
   updateWorkstationButton();
   updatePrivatePaymentVisibility();
   updatePricingManagementVisibility();
+  updatePrivateModulesVisibility();
   if (activeNotebook === "pricing" || activeNotebook === "agreements") renderPricingRecords();
 }
 
@@ -990,6 +1009,19 @@ function canManagePricingLoanHistory() {
 function canManagePricingPcprList() {
   if (!hasSupabaseConfig) return true;
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
+function canViewPrivateModules() {
+  return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
+function updatePrivateModulesVisibility() {
+  const visible = canViewPrivateModules();
+  privateNotebookButtons.forEach((button) => {
+    button.hidden = !visible;
+    button.disabled = !visible;
+  });
+  if (!visible && ["capd", "vacation"].includes(activeNotebook)) switchNotebook("devices");
 }
 
 function updatePricingManagementVisibility() {
@@ -12261,8 +12293,49 @@ function switchView(viewName, groupName) {
   renderDeviceViews();
 }
 
+function updateCapdScope() {
+  if (!capdScopePanel || !capdScopeTitle || !capdScopeDescription) return;
+  const ageText = String(capdAgeInput?.value || "").trim();
+  const age = ageText === "" ? null : Number(ageText);
+  if (age === null || !Number.isFinite(age)) {
+    capdScopePanel.dataset.scope = "pending";
+    capdScopeTitle.textContent = "Podaj wiek dziecka";
+    capdScopeDescription.textContent = "Zakres testów zostanie dobrany automatycznie.";
+    return;
+  }
+  if (age < 6) {
+    capdScopePanel.dataset.scope = "young";
+    capdScopeTitle.textContent = "Testy dla dzieci poniżej 6 lat";
+    capdScopeDescription.textContent = "Zakres dostosowany do wieku i możliwości dziecka.";
+    return;
+  }
+  capdScopePanel.dataset.scope = "full";
+  capdScopeTitle.textContent = "Pełne testy CAPD";
+  capdScopeDescription.textContent = "Pełny zakres testów dla dzieci od 6. roku życia.";
+}
+
+function resetCapdForm() {
+  capdForm?.reset();
+  setDateInputValue(capdDateInput, todayInputValue());
+  updateCapdScope();
+}
+
+function updateVacationSaturdayField() {
+  if (!vacationSaturdayField) return;
+  const isSaturdayLeave = vacationTypeInput?.value === "ZA SOBOTĘ";
+  vacationSaturdayField.hidden = !isSaturdayLeave;
+  if (!isSaturdayLeave && vacationSaturdayInput) setDateInputValue(vacationSaturdayInput, "");
+}
+
+function resetVacationForm() {
+  vacationForm?.reset();
+  updateVacationSaturdayField();
+}
+
 function switchNotebook(notebookName) {
+  if (["capd", "vacation"].includes(notebookName) && !canViewPrivateModules()) return;
   activeNotebook = notebookName;
+  if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
   notebookSwitchButtons.forEach((button) => {
     const isActive = button.dataset.notebook === notebookName;
     button.classList.toggle("active", isActive);
@@ -12292,6 +12365,16 @@ function switchNotebook(notebookName) {
   if (activeNotebook === "agreements") {
     switchPricingView(lastAgreementPricingView || "offer");
     renderPricingRecords();
+    return;
+  }
+
+  if (activeNotebook === "capd") {
+    updateCapdScope();
+    return;
+  }
+
+  if (activeNotebook === "vacation") {
+    updateVacationSaturdayField();
     return;
   }
 
@@ -15140,6 +15223,26 @@ updateScrollTopButton();
 notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));
 });
+
+capdAgeInput?.addEventListener("input", updateCapdScope);
+capdAgeInput?.addEventListener("change", updateCapdScope);
+capdPatientInput?.addEventListener("input", (event) => {
+  event.target.value = titleCaseNameInput(event.target.value);
+});
+capdPatientInput?.addEventListener("blur", (event) => {
+  event.target.value = titleCaseName(event.target.value);
+});
+resetCapdFormBtn?.addEventListener("click", resetCapdForm);
+vacationTypeInput?.addEventListener("change", updateVacationSaturdayField);
+vacationEmployeeInput?.addEventListener("input", (event) => {
+  event.target.value = titleCaseNameInput(event.target.value);
+});
+vacationEmployeeInput?.addEventListener("blur", (event) => {
+  event.target.value = titleCaseName(event.target.value);
+});
+resetVacationFormBtn?.addEventListener("click", resetVacationForm);
+resetCapdForm();
+resetVacationForm();
 
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchView(button.dataset.view, button.dataset.viewGroup));

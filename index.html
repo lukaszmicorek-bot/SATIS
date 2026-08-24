@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260821-24">
+    <link rel="stylesheet" href="styles.css?v=20260824-1">
   </head>
   <body>
     <main class="app-shell">
@@ -48,6 +48,8 @@
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
+          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-notebook hidden>CAPD</button>
+          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-notebook hidden>Urlop</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -1493,6 +1495,98 @@
         </section>
       </section>
 
+      <section id="capdNotebook" class="notebook-section private-module-section" hidden>
+        <section class="private-module-panel" aria-label="CAPD">
+          <header class="private-module-head">
+            <div>
+              <p class="eyebrow">Badanie przetwarzania słuchowego</p>
+              <h2>CAPD</h2>
+            </div>
+            <span class="private-module-badge">Prywatne</span>
+          </header>
+
+          <form id="capdForm" class="private-form-grid">
+            <label class="person-name-field private-form-wide">
+              <span>Imię i nazwisko dziecka</span>
+              <input id="capdPatientInput" type="text" list="customerNameSuggestions" autocomplete="off">
+            </label>
+            <label>
+              <span>Wiek dziecka</span>
+              <input id="capdAgeInput" type="number" min="0" max="17" step="1" inputmode="numeric" placeholder="Lata">
+            </label>
+            <label>
+              <span>Data badania</span>
+              <input id="capdDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+            </label>
+
+            <section id="capdScopePanel" class="capd-scope-panel private-form-wide" data-scope="pending" aria-live="polite">
+              <span>Zakres badania</span>
+              <strong id="capdScopeTitle">Podaj wiek dziecka</strong>
+              <p id="capdScopeDescription">Zakres testów zostanie dobrany automatycznie.</p>
+            </section>
+
+            <label class="private-form-wide">
+              <span>Wyniki</span>
+              <textarea id="capdResultsInput" rows="7" placeholder="Wyniki poszczególnych testów"></textarea>
+            </label>
+            <label class="private-form-wide">
+              <span>Opis</span>
+              <textarea id="capdDescriptionInput" rows="7" placeholder="Opis badania i wnioski"></textarea>
+            </label>
+            <div class="private-form-actions private-form-wide">
+              <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <section id="vacationNotebook" class="notebook-section private-module-section" hidden>
+        <section class="private-module-panel" aria-label="Urlop">
+          <header class="private-module-head">
+            <div>
+              <p class="eyebrow">Ewidencja nieobecności</p>
+              <h2>Urlop</h2>
+            </div>
+            <span class="private-module-badge">Prywatne</span>
+          </header>
+
+          <form id="vacationForm" class="private-form-grid">
+            <label class="person-name-field private-form-wide">
+              <span>Imię i nazwisko</span>
+              <input id="vacationEmployeeInput" type="text" autocomplete="off">
+            </label>
+            <label>
+              <span>Rodzaj</span>
+              <select id="vacationTypeInput">
+                <option value="WYPOCZYNKOWY">Urlop wypoczynkowy</option>
+                <option value="ZA SOBOTĘ">Dzień wolny za sobotę</option>
+                <option value="NA ŻĄDANIE">Urlop na żądanie</option>
+                <option value="INNY">Inna nieobecność</option>
+              </select>
+            </label>
+            <label>
+              <span>Data od</span>
+              <input id="vacationDateFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+            </label>
+            <label>
+              <span>Data do</span>
+              <input id="vacationDateToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+            </label>
+            <label id="vacationSaturdayField" class="vacation-saturday-field" hidden>
+              <span>Sobota, za którą oddawany jest dzień wolny</span>
+              <input id="vacationSaturdayInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+            </label>
+            <label class="private-form-wide">
+              <span>Uwagi</span>
+              <textarea id="vacationNotesInput" rows="5"></textarea>
+            </label>
+            <div class="private-form-actions private-form-wide">
+              <button id="resetVacationFormBtn" class="ghost" type="button">Wyczyść formularz</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
       <dialog id="pricingHistoryPreviewDialog" class="pricing-history-preview-dialog">
         <section class="pricing-history-preview-shell">
           <div class="dialog-head">
@@ -1948,6 +2042,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260821-24"></script>
+    <script src="app.js?v=20260824-1"></script>
   </body>
 </html>

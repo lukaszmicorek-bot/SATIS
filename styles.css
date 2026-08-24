@@ -311,6 +311,7 @@ h2 {
 
 .notebook-switch {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--line);
@@ -404,6 +405,114 @@ h2 {
   color: var(--accent);
   background: #fff;
   box-shadow: 0 3px 10px rgba(28, 31, 36, 0.08);
+}
+
+.private-notebook-button {
+  color: #315f48;
+}
+
+.private-module-section {
+  padding-top: 18px;
+}
+
+.private-module-panel {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: 0 0 32px;
+}
+
+.private-module-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 4px 2px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.private-module-head h2 {
+  margin: 2px 0 0;
+  color: #003f5a;
+  font-size: 1.35rem;
+}
+
+.private-module-badge {
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: #49645b;
+  background: #edf5f0;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.private-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.6fr);
+  gap: 14px 18px;
+  align-items: start;
+}
+
+.private-form-grid > label {
+  display: grid;
+  gap: 6px;
+}
+
+.private-form-wide {
+  grid-column: 1 / -1;
+}
+
+.capd-scope-panel {
+  display: grid;
+  gap: 4px;
+  border-left: 4px solid #9aa7ac;
+  padding: 11px 14px;
+  background: #f5f7f7;
+}
+
+.capd-scope-panel[data-scope="young"] {
+  border-left-color: #b98545;
+  background: #fbf5ea;
+}
+
+.capd-scope-panel[data-scope="full"] {
+  border-left-color: #3a8a7f;
+  background: #edf7f4;
+}
+
+.capd-scope-panel > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.capd-scope-panel strong {
+  color: #003f5a;
+  font-size: 1rem;
+}
+
+.capd-scope-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.vacation-saturday-field {
+  border-left: 4px solid #9b7d54;
+  padding-left: 12px;
+}
+
+.private-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.private-form-actions button {
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 0.76rem;
 }
 
 .tabs {
@@ -6607,6 +6716,7 @@ textarea {
     .controls,
     .repairs-controls,
     .stock-audit-panel,
+    .private-form-grid,
   .offer-form-grid,
     .loan-form-grid,
     .pcpr-form-grid,
