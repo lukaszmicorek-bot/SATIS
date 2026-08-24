@@ -2128,6 +2128,8 @@ async function activateSupabaseSession(user) {
   window.setTimeout(() => {
     promptForWorkstationName();
     syncAgreementDocumentLocations("", { useWorkstation: true });
+    if (!canViewPrivateModules() && vacationEmployeeInput) vacationEmployeeInput.value = "";
+    renderVacationModule();
   }, 250);
 }
 
@@ -12501,9 +12503,21 @@ function normalizeVacationEmployee(entry) {
     name,
     year,
     allowance,
+    workstation: normalizeVacationEmployeeWorkstation(entry?.workstation, name),
     savedAt: entry?.savedAt || new Date().toISOString(),
     savedBy: entry?.savedBy || ""
   };
+}
+
+function normalizeVacationEmployeeWorkstation(value, employeeName = "") {
+  const explicit = normalizeWorkstationName(value).toLocaleUpperCase("pl-PL");
+  const explicitKey = ["T12", "P50", "P63"].find((key) => explicit.includes(key));
+  if (explicitKey) return explicitKey;
+  const normalizedName = normalize(employeeName);
+  if (normalizedName.startsWith("oliwia ") || normalizedName === "oliwia") return "P50";
+  if (normalizedName.startsWith("justyna ") || normalizedName === "justyna") return "P63";
+  if (normalizedName.startsWith("iwona ") || normalizedName === "iwona") return "T12";
+  return "";
 }
 
 function normalizeVacationEmployees(entries) {
@@ -12608,7 +12622,13 @@ function selectedVacationEmployee() {
 }
 
 function vacationMyEmployeeId() {
-  return canViewPrivateModules() ? "" : localStorage.getItem(VACATION_MY_EMPLOYEE_STORAGE_KEY) || "";
+  if (canViewPrivateModules()) return "";
+  const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
+  const workstationKey = ["T12", "P50", "P63"].find((key) => workstation.includes(key)) || "";
+  const assignedEmployee = workstationKey
+    ? vacationEmployeesForYear().find((employee) => employee.workstation === workstationKey)
+    : null;
+  return assignedEmployee?.id || localStorage.getItem(VACATION_MY_EMPLOYEE_STORAGE_KEY) || "";
 }
 
 function setVacationMyEmployeeId(employeeId) {
@@ -12646,7 +12666,8 @@ function renderVacationEmployees() {
   const previousValue = vacationEmployeeInput.value;
   const employees = vacationEmployeesForYear();
   const myEmployeeId = vacationMyEmployeeId();
-  vacationEmployeeInput.value = employees.some((employee) => employee.id === previousValue) ? previousValue : employees[0]?.id || "";
+  const defaultEmployeeId = employees.some((employee) => employee.id === myEmployeeId) ? myEmployeeId : employees[0]?.id || "";
+  vacationEmployeeInput.value = employees.some((employee) => employee.id === previousValue) ? previousValue : defaultEmployeeId;
 
   if (!vacationEmployeeList) return;
   const items = employees.map((employee) => {
@@ -12661,8 +12682,16 @@ function renderVacationEmployees() {
     const name = document.createElement("strong");
     name.textContent = employee.name;
     const allowance = document.createElement("span");
+    allowance.className = "vacation-employee-allowance";
     allowance.textContent = `${employee.allowance} dni`;
     item.append(name, allowance);
+    if (employee.workstation) {
+      const workstation = document.createElement("span");
+      workstation.className = "vacation-employee-workstation";
+      workstation.dataset.locationTone = employee.workstation;
+      workstation.textContent = employee.workstation;
+      item.append(workstation);
+    }
     entry.append(item);
     if (canViewPrivateModules()) {
       const remove = document.createElement("button");
@@ -12673,14 +12702,6 @@ function renderVacationEmployees() {
       remove.title = "Usuń pracownika";
       remove.textContent = "×";
       entry.append(remove);
-    } else {
-      const self = document.createElement("button");
-      self.type = "button";
-      self.className = "vacation-employee-self";
-      self.dataset.selfEmployeeId = employee.id;
-      self.title = employee.id === myEmployeeId ? "Twój profil na tym komputerze" : "Ustaw jako swój profil";
-      self.textContent = employee.id === myEmployeeId ? "Twój profil" : "To ja";
-      entry.append(self);
     }
     return entry;
   });
@@ -15430,6 +15451,8 @@ scrollTopBtn?.addEventListener("click", scrollToPageTop);
 workstationBtn?.addEventListener("click", () => {
   promptForWorkstationName({ force: true });
   syncAgreementDocumentLocations("", { useWorkstation: true });
+  if (!canViewPrivateModules() && vacationEmployeeInput) vacationEmployeeInput.value = "";
+  renderVacationModule();
 });
 window.addEventListener("scroll", updateScrollTopButton, { passive: true });
 stockAuditPersonInput?.addEventListener("input", (event) => {
@@ -15981,16 +16004,6 @@ vacationEmployeeList?.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-delete-employee-id]");
   if (deleteButton) {
     deleteVacationEmployee(deleteButton.dataset.deleteEmployeeId);
-    return;
-  }
-  const selfButton = event.target.closest("[data-self-employee-id]");
-  if (selfButton) {
-    const employee = vacationEmployees.find((item) => item.id === selfButton.dataset.selfEmployeeId);
-    if (!employee) return;
-    if (!confirm(`Ustawić ${employee.name} jako Twój profil na tym komputerze?`)) return;
-    setVacationMyEmployeeId(employee.id);
-    if (vacationEmployeeInput) vacationEmployeeInput.value = employee.id;
-    renderVacationModule();
     return;
   }
   const button = event.target.closest("[data-employee-id]");
