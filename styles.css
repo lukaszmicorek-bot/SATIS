@@ -644,12 +644,12 @@ h2 {
   align-items: center;
   gap: 11px;
   margin: 0 0 15px;
-  border: 1px solid #e3b1a4;
-  border-left: 5px solid #c45c4c;
+  border: 1px solid #cadbd6;
+  border-left: 4px solid #78a79a;
   border-radius: 8px;
   padding: 10px 12px;
-  color: #713c34;
-  background: #fff4f1;
+  color: #3f675c;
+  background: #f6faf8;
   text-align: left;
 }
 
@@ -660,8 +660,8 @@ h2 {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: #fff;
-  background: #b94e43;
+  color: #3f7164;
+  background: #dfeee9;
   font-size: 0.88rem;
   font-weight: 900;
 }
@@ -673,20 +673,20 @@ h2 {
 }
 
 .vacation-pending-reminder-content strong {
-  color: #7b382f;
+  color: #315f54;
   font-size: 0.82rem;
 }
 
 .vacation-pending-reminder-content > span {
   overflow: hidden;
-  color: #87615a;
+  color: #6b817a;
   font-size: 0.71rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .vacation-pending-reminder-action {
-  color: #8f4037;
+  color: #527e72;
   font-size: 0.72rem;
   font-weight: 900;
 }
@@ -1119,6 +1119,58 @@ h2 {
   color: #fff;
   background: #b94e43;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.date-picker-day.vacation-own-leave {
+  --vacation-own-border: #8fc5b8;
+  --vacation-own-color: #236b65;
+  --vacation-own-background: #e3f3ef;
+  --vacation-own-hover-border: #5ca798;
+  --vacation-own-hover-background: #d4ece7;
+  --vacation-own-selected: #4b948b;
+  border-color: var(--vacation-own-border);
+  color: var(--vacation-own-color);
+  background: var(--vacation-own-background);
+}
+
+.date-picker-day.vacation-own-leave:hover {
+  border-color: var(--vacation-own-hover-border);
+  color: var(--vacation-own-color);
+  background: var(--vacation-own-hover-background);
+}
+
+.date-picker-day.vacation-own-leave.selected {
+  border-color: var(--vacation-own-selected);
+  color: #fff;
+  background: var(--vacation-own-selected);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
+}
+
+.date-picker-day.vacation-own-t12 {
+  --vacation-own-border: #aebfca;
+  --vacation-own-color: #355f73;
+  --vacation-own-background: #e8f1f5;
+  --vacation-own-hover-border: #789caf;
+  --vacation-own-hover-background: #d9e8ef;
+  --vacation-own-selected: #567f93;
+}
+
+.date-picker-day.vacation-own-p50 {
+  --vacation-own-border: #bdc995;
+  --vacation-own-color: #5e6b2d;
+  --vacation-own-background: #f0f4e2;
+  --vacation-own-hover-border: #99aa62;
+  --vacation-own-hover-background: #e5ebcf;
+  --vacation-own-selected: #7d8e47;
+}
+
+.date-picker-day.vacation-own-p63 {
+  --vacation-own-border: #c9b4d6;
+  --vacation-own-color: #70577f;
+  --vacation-own-background: #f2ebf6;
+  --vacation-own-hover-border: #a789b9;
+  --vacation-own-hover-background: #e9ddf0;
+  --vacation-own-selected: #8d6d9f;
 }
 
 .vacation-approve-btn {

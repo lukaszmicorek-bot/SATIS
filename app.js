@@ -12468,6 +12468,18 @@ function vacationOccupiedPeopleOnDate(isoDate) {
   return canViewPrivateModules() ? people : people.length ? ["inna osoba"] : [];
 }
 
+function vacationOwnLeaveOnDate(isoDate) {
+  if (!isVacationCalendarInput() || !isoDate) return null;
+  const selectedEmployeeId = vacationEmployeeInput?.value || "";
+  if (!selectedEmployeeId) return null;
+  return vacationRequests.find((request) =>
+    request.status === "ZATWIERDZONY" &&
+    request.employeeId === selectedEmployeeId &&
+    request.dateFrom <= isoDate &&
+    request.dateTo >= isoDate
+  ) || null;
+}
+
 function vacationConflictingPeople(dateFrom, dateTo, employeeId = vacationEmployeeInput?.value || "") {
   if (!dateFrom || !dateTo) return [];
   const people = [...new Set(vacationRequests
@@ -15388,7 +15400,7 @@ function renderDatePicker() {
     hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
   if (isVacationCalendarInput()) {
-    hint.textContent = "Dni oznaczone na czerwono są już zajęte przez inną osobę. Nadal możesz je wybrać i wysłać prośbę do zatwierdzenia.";
+    hint.textContent = "Zielono-niebieskie daty to Twoje zatwierdzone dni wolne. Czerwone są zajęte przez inną osobę; nadal możesz je wybrać i wysłać prośbę.";
   }
 
   const months = document.createElement("div");
@@ -15447,9 +15459,18 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       button.title = `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
     }
     const occupiedPeople = vacationOccupiedPeopleOnDate(isoDate);
+    const ownLeave = vacationOwnLeaveOnDate(isoDate);
     if (occupiedPeople.length) {
       button.classList.add("vacation-occupied");
       button.title = `Urlop: ${occupiedPeople.join(", ")}. Termin można wybrać, ale wymaga zatwierdzenia.`;
+    }
+    if (ownLeave) {
+      button.classList.add("vacation-own-leave");
+      const ownEmployee = vacationEmployees.find((employee) => employee.id === ownLeave.employeeId);
+      const employeeTone = ownEmployee?.workstation?.toLocaleLowerCase("pl-PL") || "default";
+      button.classList.add(`vacation-own-${employeeTone}`);
+      const ownerLabel = canViewPrivateModules() ? ownLeave.employeeName : "Twój dzień wolny";
+      button.title = `${ownerLabel}: ${vacationCompensatesWeekend(ownLeave) ? "wolne za weekend" : vacationTypeLabel(ownLeave.type).toLocaleLowerCase("pl-PL")}.`;
     }
 
     button.addEventListener("click", () => {
