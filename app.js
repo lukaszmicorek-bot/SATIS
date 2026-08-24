@@ -8,6 +8,7 @@ const PRICING_LEGACY_STORAGE_KEYS = ["cennik-records-2026-04"];
 const PRIVATE_PAYMENTS_STORAGE_KEY = "zeszyt-aparatow-private-payments-v1";
 const AUDIT_LOG_STORAGE_KEY = "zeszyt-aparatow-audit-log-v1";
 const WORKSTATION_STORAGE_KEY = "zeszyt-aparatow-workstation-name-v1";
+const VACATION_MY_EMPLOYEE_STORAGE_KEY = "zeszyt-aparatow-vacation-my-employee-v1";
 const API_URL = "/api/records";
 const REPAIR_API_URL = "/api/repair-records";
 const DEMO_API_URL = "/api/demo-records";
@@ -12606,6 +12607,15 @@ function selectedVacationEmployee() {
   return vacationEmployees.find((employee) => employee.id === vacationEmployeeInput?.value) || null;
 }
 
+function vacationMyEmployeeId() {
+  return canViewPrivateModules() ? "" : localStorage.getItem(VACATION_MY_EMPLOYEE_STORAGE_KEY) || "";
+}
+
+function setVacationMyEmployeeId(employeeId) {
+  if (canViewPrivateModules()) return;
+  localStorage.setItem(VACATION_MY_EMPLOYEE_STORAGE_KEY, employeeId);
+}
+
 function vacationTypeLabel(type) {
   return {
     WYPOCZYNKOWY: "Urlop wypoczynkowy",
@@ -12635,12 +12645,14 @@ function renderVacationEmployees() {
   if (!vacationEmployeeInput) return;
   const previousValue = vacationEmployeeInput.value;
   const employees = vacationEmployeesForYear();
+  const myEmployeeId = vacationMyEmployeeId();
   vacationEmployeeInput.value = employees.some((employee) => employee.id === previousValue) ? previousValue : employees[0]?.id || "";
 
   if (!vacationEmployeeList) return;
   const items = employees.map((employee) => {
     const entry = document.createElement("div");
     entry.className = "vacation-employee-entry";
+    entry.classList.toggle("is-self", employee.id === myEmployeeId);
     const item = document.createElement("button");
     item.type = "button";
     item.className = "vacation-employee-item";
@@ -12661,6 +12673,14 @@ function renderVacationEmployees() {
       remove.title = "Usuń pracownika";
       remove.textContent = "×";
       entry.append(remove);
+    } else {
+      const self = document.createElement("button");
+      self.type = "button";
+      self.className = "vacation-employee-self";
+      self.dataset.selfEmployeeId = employee.id;
+      self.title = employee.id === myEmployeeId ? "Twój profil na tym komputerze" : "Ustaw jako swój profil";
+      self.textContent = employee.id === myEmployeeId ? "Twój profil" : "To ja";
+      entry.append(self);
     }
     return entry;
   });
@@ -12741,12 +12761,14 @@ function renderVacationHistory() {
   vacationHistoryCount.textContent = `${entries.length} ${entries.length === 1 ? "prośba" : "próśb"}`;
   vacationHistoryEmpty.hidden = entries.length > 0;
   const rows = entries.map((request) => {
+    const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
     const row = document.createElement("tr");
     const employeeCell = document.createElement("td");
     employeeCell.className = "vacation-history-employee";
     employeeCell.textContent = request.employeeName;
     const typeCell = document.createElement("td");
-    typeCell.textContent = vacationTypeLabel(request.type);
+    typeCell.textContent = canViewDetails ? vacationTypeLabel(request.type) : "Prywatne";
+    typeCell.classList.toggle("vacation-private-detail", !canViewDetails);
     const termCell = document.createElement("td");
     termCell.className = "vacation-history-term";
     const term = document.createElement("span");
@@ -12793,9 +12815,12 @@ function renderVacationHistory() {
     }
     row.append(statusCell);
     const notesCell = document.createElement("td");
-    notesCell.textContent = request.type === "ZA SOBOTĘ" && request.saturdayDate
-      ? [`Za ${formatDate(request.saturdayDate)}`, request.notes].filter(Boolean).join(". ")
-      : request.notes || "-";
+    notesCell.textContent = !canViewDetails
+      ? "Prywatne"
+      : request.type === "ZA SOBOTĘ" && request.saturdayDate
+        ? [`Za ${formatDate(request.saturdayDate)}`, request.notes].filter(Boolean).join(". ")
+        : request.notes || "-";
+    notesCell.classList.toggle("vacation-private-detail", !canViewDetails);
     row.append(notesCell);
     return row;
   });
@@ -12949,6 +12974,7 @@ async function submitVacationRequest(event) {
     decidedAt: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? new Date().toISOString() : "",
     decidedBy: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? currentSupabaseUser?.email || "" : ""
   });
+  if (!canViewPrivateModules()) setVacationMyEmployeeId(employee.id);
   const previous = vacationRequests;
   vacationRequests = normalizeVacationRequests([request, ...vacationRequests]);
   saveLocalVacationData();
@@ -15955,6 +15981,16 @@ vacationEmployeeList?.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-delete-employee-id]");
   if (deleteButton) {
     deleteVacationEmployee(deleteButton.dataset.deleteEmployeeId);
+    return;
+  }
+  const selfButton = event.target.closest("[data-self-employee-id]");
+  if (selfButton) {
+    const employee = vacationEmployees.find((item) => item.id === selfButton.dataset.selfEmployeeId);
+    if (!employee) return;
+    if (!confirm(`Ustawić ${employee.name} jako Twój profil na tym komputerze?`)) return;
+    setVacationMyEmployeeId(employee.id);
+    if (vacationEmployeeInput) vacationEmployeeInput.value = employee.id;
+    renderVacationModule();
     return;
   }
   const button = event.target.closest("[data-employee-id]");
