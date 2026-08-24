@@ -751,6 +751,34 @@ h2 {
   background: #fff;
 }
 
+.vacation-summary.gabinet-view {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vacation-remaining-card[data-tone="good"] {
+  background: #eaf6ef;
+}
+
+.vacation-remaining-card[data-tone="good"] strong {
+  color: #276348;
+}
+
+.vacation-remaining-card[data-tone="warning"] {
+  background: #fff4df;
+}
+
+.vacation-remaining-card[data-tone="warning"] strong {
+  color: #835d1e;
+}
+
+.vacation-remaining-card[data-tone="critical"] {
+  background: #fbe9e6;
+}
+
+.vacation-remaining-card[data-tone="critical"] strong {
+  color: #943f36;
+}
+
 .vacation-summary strong {
   color: #003f5a;
   font-size: 1.25rem;

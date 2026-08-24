@@ -841,6 +841,8 @@ const resetVacationFormBtn = document.querySelector("#resetVacationFormBtn");
 const submitVacationRequestBtn = document.querySelector("#submitVacationRequestBtn");
 const vacationAllowanceTotal = document.querySelector("#vacationAllowanceTotal");
 const vacationUsedTotal = document.querySelector("#vacationUsedTotal");
+const vacationSummary = document.querySelector("#vacationSummary");
+const vacationRemainingCard = document.querySelector("#vacationRemainingCard");
 const vacationRemainingTotal = document.querySelector("#vacationRemainingTotal");
 const vacationPendingTotal = document.querySelector("#vacationPendingTotal");
 const vacationSaturdayHolidayCount = document.querySelector("#vacationSaturdayHolidayCount");
@@ -1061,6 +1063,8 @@ function updatePrivateModulesVisibility() {
   });
   if (vacationEmployeeAdmin) vacationEmployeeAdmin.hidden = !ownerVisible;
   if (vacationOwnerLeaveField) vacationOwnerLeaveField.hidden = !ownerVisible;
+  if (vacationRemainingCard) vacationRemainingCard.hidden = !ownerVisible;
+  vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
   if ((!ownerVisible && activeNotebook === "capd") || (!sharedVisible && activeNotebook === "vacation")) switchNotebook("devices");
 }
 
@@ -12447,7 +12451,7 @@ function isVacationCalendarInput(input = activeDateInput) {
 function vacationOccupiedPeopleOnDate(isoDate) {
   if (!isVacationCalendarInput() || !isoDate) return [];
   const selectedEmployeeId = vacationEmployeeInput?.value || "";
-  return [...new Set(vacationRequests
+  const people = [...new Set(vacationRequests
     .filter((request) =>
       request.status === "ZATWIERDZONY" &&
       request.employeeId !== selectedEmployeeId &&
@@ -12456,11 +12460,12 @@ function vacationOccupiedPeopleOnDate(isoDate) {
     )
     .map((request) => request.employeeName)
     .filter(Boolean))];
+  return canViewPrivateModules() ? people : people.length ? ["inna osoba"] : [];
 }
 
 function vacationConflictingPeople(dateFrom, dateTo, employeeId = vacationEmployeeInput?.value || "") {
   if (!dateFrom || !dateTo) return [];
-  return [...new Set(vacationRequests
+  const people = [...new Set(vacationRequests
     .filter((request) =>
       request.status === "ZATWIERDZONY" &&
       request.employeeId !== employeeId &&
@@ -12469,6 +12474,7 @@ function vacationConflictingPeople(dateFrom, dateTo, employeeId = vacationEmploy
     )
     .map((request) => request.employeeName)
     .filter(Boolean))];
+  return canViewPrivateModules() ? people : people.length ? ["inna osoba"] : [];
 }
 
 function updateVacationConflictNotice() {
@@ -12478,7 +12484,9 @@ function updateVacationConflictNotice() {
   const people = vacationConflictingPeople(dateFrom, dateTo);
   vacationConflictNotice.hidden = people.length === 0;
   vacationConflictNotice.textContent = people.length
-    ? `Ten termin jest już zajęty przez: ${people.join(", ")}. Prośbę nadal można wysłać; ostateczną decyzję podejmuje SATIS.`
+    ? canViewPrivateModules()
+      ? `Ten termin jest już zajęty przez: ${people.join(", ")}. Prośbę nadal można wysłać; ostateczną decyzję podejmuje SATIS.`
+      : "Ten termin jest już zajęty przez inną osobę. Prośbę nadal można wysłać; ostateczną decyzję podejmuje SATIS."
     : "";
 }
 
@@ -12523,6 +12531,7 @@ function normalizeVacationRequest(entry) {
     status,
     requestedAt: entry?.requestedAt || new Date().toISOString(),
     requestedBy: entry?.requestedBy || "",
+    ownerLeave: entry?.ownerLeave === true || entry?.ownerLeave === "1",
     decidedAt: entry?.decidedAt || "",
     decidedBy: entry?.decidedBy || ""
   };
@@ -12586,7 +12595,11 @@ async function persistVacationRecord(tableName, record) {
 }
 
 function vacationEmployeesForYear(year = selectedVacationYear()) {
-  return vacationEmployees.filter((employee) => employee.year === year);
+  const ownerEmployeeIds = new Set(vacationRequests.filter((request) => request.ownerLeave).map((request) => request.employeeId));
+  return vacationEmployees.filter((employee) =>
+    employee.year === year &&
+    (canViewPrivateModules() || !ownerEmployeeIds.has(employee.id))
+  );
 }
 
 function selectedVacationEmployee() {
@@ -12679,13 +12692,21 @@ function renderVacationSaturdayHolidays() {
 
 function renderVacationSummary() {
   const employee = selectedVacationEmployee();
-  const requests = vacationRequests.filter((request) => request.year === selectedVacationYear() && (!employee || request.employeeId === employee.id));
+  const requests = vacationRequests.filter((request) =>
+    request.year === selectedVacationYear() &&
+    (!employee || request.employeeId === employee.id) &&
+    (canViewPrivateModules() || !request.ownerLeave)
+  );
   const used = employee ? requests.filter((request) => request.status === "ZATWIERDZONY" && vacationUsesAnnualAllowance(request)).reduce((sum, request) => sum + request.days, 0) : 0;
   const pending = employee ? requests.filter((request) => request.status === "OCZEKUJE").reduce((sum, request) => sum + request.days, 0) : 0;
   const allowance = employee?.allowance ?? null;
   if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : String(allowance);
   if (vacationUsedTotal) vacationUsedTotal.textContent = employee ? String(used) : "-";
-  if (vacationRemainingTotal) vacationRemainingTotal.textContent = employee ? String(Math.max(0, allowance - used)) : "-";
+  const remaining = employee ? Math.max(0, allowance - used) : null;
+  if (vacationRemainingTotal) vacationRemainingTotal.textContent = remaining === null ? "-" : String(remaining);
+  if (vacationRemainingCard) {
+    vacationRemainingCard.dataset.tone = remaining === null ? "none" : remaining <= 3 ? "critical" : remaining <= 7 ? "warning" : "good";
+  }
   if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? String(pending) : "-";
 }
 
@@ -12699,7 +12720,11 @@ function createVacationStatus(status) {
 function renderVacationHistory() {
   if (!vacationHistoryBody || !vacationHistoryEmpty || !vacationHistoryCount) return;
   const employee = selectedVacationEmployee();
-  const entries = vacationRequests.filter((request) => request.year === selectedVacationYear() && (!employee || request.employeeId === employee.id));
+  const entries = vacationRequests.filter((request) =>
+    request.year === selectedVacationYear() &&
+    (!employee || request.employeeId === employee.id) &&
+    (canViewPrivateModules() || !request.ownerLeave)
+  );
   vacationHistoryCount.textContent = `${entries.length} ${entries.length === 1 ? "prośba" : "próśb"}`;
   vacationHistoryEmpty.hidden = entries.length > 0;
   const rows = entries.map((request) => {
@@ -12851,6 +12876,7 @@ async function submitVacationRequest(event) {
     status: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? "ZATWIERDZONY" : "OCZEKUJE",
     requestedAt: new Date().toISOString(),
     requestedBy: currentSupabaseUser?.email || "",
+    ownerLeave: Boolean(canViewPrivateModules() && vacationOwnerLeaveInput?.checked),
     decidedAt: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? new Date().toISOString() : "",
     decidedBy: canViewPrivateModules() && vacationOwnerLeaveInput?.checked ? currentSupabaseUser?.email || "" : ""
   });
