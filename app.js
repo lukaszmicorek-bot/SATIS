@@ -12639,6 +12639,8 @@ function renderVacationEmployees() {
 
   if (!vacationEmployeeList) return;
   const items = employees.map((employee) => {
+    const entry = document.createElement("div");
+    entry.className = "vacation-employee-entry";
     const item = document.createElement("button");
     item.type = "button";
     item.className = "vacation-employee-item";
@@ -12649,7 +12651,18 @@ function renderVacationEmployees() {
     const allowance = document.createElement("span");
     allowance.textContent = `${employee.allowance} dni`;
     item.append(name, allowance);
-    return item;
+    entry.append(item);
+    if (canViewPrivateModules()) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "vacation-employee-delete";
+      remove.dataset.deleteEmployeeId = employee.id;
+      remove.setAttribute("aria-label", `Usuń pracownika ${employee.name}`);
+      remove.title = "Usuń pracownika";
+      remove.textContent = "×";
+      entry.append(remove);
+    }
+    return entry;
   });
   vacationEmployeeList.replaceChildren(...items);
 }
@@ -12729,21 +12742,31 @@ function renderVacationHistory() {
   vacationHistoryEmpty.hidden = entries.length > 0;
   const rows = entries.map((request) => {
     const row = document.createElement("tr");
-    [request.employeeName, vacationTypeLabel(request.type), request.dateFrom === request.dateTo ? formatDate(request.dateFrom) : `${formatDate(request.dateFrom)} - ${formatDate(request.dateTo)}`, String(request.days)].forEach((textValue) => {
-      const cell = document.createElement("td");
-      cell.textContent = textValue;
-      row.append(cell);
-    });
+    const employeeCell = document.createElement("td");
+    employeeCell.className = "vacation-history-employee";
+    employeeCell.textContent = request.employeeName;
+    const typeCell = document.createElement("td");
+    typeCell.textContent = vacationTypeLabel(request.type);
+    const termCell = document.createElement("td");
+    termCell.className = "vacation-history-term";
+    const term = document.createElement("span");
+    term.textContent = request.dateFrom === request.dateTo
+      ? formatDate(request.dateFrom)
+      : `${formatDate(request.dateFrom)} → ${formatDate(request.dateTo)}`;
+    termCell.append(term);
+    const daysCell = document.createElement("td");
+    daysCell.className = "vacation-history-days";
+    const days = document.createElement("strong");
+    days.textContent = String(request.days);
+    days.title = `${request.days} ${request.days === 1 ? "dzień" : "dni"}`;
+    daysCell.append(days);
+    row.append(employeeCell, typeCell, termCell, daysCell);
     const statusCell = document.createElement("td");
+    statusCell.className = "vacation-history-status";
     statusCell.append(createVacationStatus(request.status));
-    row.append(statusCell);
-    const notesCell = document.createElement("td");
-    notesCell.textContent = request.type === "ZA SOBOTĘ" && request.saturdayDate
-      ? [`Za ${formatDate(request.saturdayDate)}`, request.notes].filter(Boolean).join(". ")
-      : request.notes || "-";
-    row.append(notesCell);
-    const actionCell = document.createElement("td");
     if (canViewPrivateModules()) {
+      const actions = document.createElement("span");
+      actions.className = "vacation-history-actions";
       if (request.status === "OCZEKUJE") {
         const approve = document.createElement("button");
         approve.type = "button";
@@ -12757,7 +12780,7 @@ function renderVacationHistory() {
         reject.dataset.vacationAction = "reject";
         reject.dataset.requestId = request.id;
         reject.textContent = "Odrzuć";
-        actionCell.append(approve, reject);
+        actions.append(approve, reject);
       }
       const remove = document.createElement("button");
       remove.type = "button";
@@ -12765,11 +12788,15 @@ function renderVacationHistory() {
       remove.dataset.vacationAction = "delete";
       remove.dataset.requestId = request.id;
       remove.textContent = "Usuń";
-      actionCell.append(remove);
-    } else {
-      actionCell.textContent = request.decidedBy || "-";
+      actions.append(remove);
+      statusCell.append(actions);
     }
-    row.append(actionCell);
+    row.append(statusCell);
+    const notesCell = document.createElement("td");
+    notesCell.textContent = request.type === "ZA SOBOTĘ" && request.saturdayDate
+      ? [`Za ${formatDate(request.saturdayDate)}`, request.notes].filter(Boolean).join(". ")
+      : request.notes || "-";
+    row.append(notesCell);
     return row;
   });
   vacationHistoryBody.replaceChildren(...rows);
@@ -12832,6 +12859,48 @@ async function saveVacationEmployee() {
     saveLocalVacationData();
     renderVacationModule();
     alert(error.message);
+  }
+}
+
+async function deleteVacationEmployee(id) {
+  if (!canViewPrivateModules()) return;
+  const employee = vacationEmployees.find((item) => item.id === id);
+  if (!employee) return;
+  const relatedRequests = vacationRequests.filter((request) => request.employeeId === id);
+  const historyInfo = relatedRequests.length
+    ? ` Usunięta zostanie również historia: ${relatedRequests.length} ${relatedRequests.length === 1 ? "wpis" : "wpisów"}.`
+    : "";
+  if (!confirm(`Usunąć pracownika ${employee.name}?${historyInfo}`)) return;
+
+  const previousEmployees = vacationEmployees;
+  const previousRequests = vacationRequests;
+  vacationEmployees = vacationEmployees.filter((item) => item.id !== id);
+  vacationRequests = vacationRequests.filter((request) => request.employeeId !== id);
+  saveLocalVacationData();
+  renderVacationModule();
+
+  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  try {
+    if (relatedRequests.length && vacationRequestsSupabaseAvailable !== false) {
+      const { error: requestsError } = await supabaseClient
+        .from(SUPABASE_VACATION_REQUEST_TABLE)
+        .delete()
+        .in("id", relatedRequests.map((request) => request.id));
+      if (requestsError) throw requestsError;
+    }
+    if (vacationEmployeesSupabaseAvailable !== false) {
+      const { error: employeeError } = await supabaseClient
+        .from(SUPABASE_VACATION_EMPLOYEE_TABLE)
+        .delete()
+        .eq("id", id);
+      if (employeeError) throw employeeError;
+    }
+  } catch (error) {
+    vacationEmployees = previousEmployees;
+    vacationRequests = previousRequests;
+    saveLocalVacationData();
+    renderVacationModule();
+    alert(`Nie udało się usunąć pracownika: ${error.message}`);
   }
 }
 
@@ -15883,6 +15952,11 @@ vacationNewEmployeeInput?.addEventListener("blur", (event) => {
 });
 saveVacationEmployeeBtn?.addEventListener("click", saveVacationEmployee);
 vacationEmployeeList?.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-employee-id]");
+  if (deleteButton) {
+    deleteVacationEmployee(deleteButton.dataset.deleteEmployeeId);
+    return;
+  }
   const button = event.target.closest("[data-employee-id]");
   const employee = vacationEmployees.find((item) => item.id === button?.dataset.employeeId);
   if (!employee) return;

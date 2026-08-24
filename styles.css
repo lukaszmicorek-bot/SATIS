@@ -339,7 +339,7 @@ h2 {
 .connection-status::before {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: 6px;
   background: #8e989f;
   content: "";
 }
@@ -644,6 +644,11 @@ h2 {
   margin: 0 0 18px;
 }
 
+.vacation-employee-entry {
+  position: relative;
+  display: inline-flex;
+}
+
 .vacation-employee-picker-label {
   margin: 0 0 7px;
   color: #003f5a;
@@ -676,6 +681,29 @@ h2 {
 
 .vacation-employee-item.active span {
   color: rgba(255, 255, 255, 0.82);
+}
+
+.vacation-employee-delete {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  border: 1px solid #d9c6c3;
+  border-radius: 50%;
+  padding: 0;
+  color: #8f4039;
+  background: #fff;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.vacation-employee-delete:hover {
+  border-color: #b75f56;
+  color: #fff;
+  background: #b75f56;
 }
 
 .vacation-type-field {
@@ -836,6 +864,7 @@ h2 {
 .vacation-history-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.78rem;
 }
 
@@ -857,6 +886,75 @@ h2 {
 .vacation-history-table th:nth-child(3),
 .vacation-history-table td:nth-child(3) {
   white-space: nowrap;
+}
+
+.vacation-history-table th:nth-child(1),
+.vacation-history-table td:nth-child(1) {
+  width: 20%;
+}
+
+.vacation-history-table th:nth-child(2),
+.vacation-history-table td:nth-child(2) {
+  width: 18%;
+}
+
+.vacation-history-table th:nth-child(3),
+.vacation-history-table td:nth-child(3) {
+  width: 190px;
+}
+
+.vacation-history-table th:nth-child(4),
+.vacation-history-table td:nth-child(4) {
+  width: 58px;
+  text-align: center;
+}
+
+.vacation-history-table th:nth-child(5),
+.vacation-history-table td:nth-child(5) {
+  width: 205px;
+}
+
+.vacation-history-employee {
+  color: #003f5a;
+  font-weight: 850;
+}
+
+.vacation-history-term span {
+  display: inline-flex;
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: #365b6a;
+  background: #edf4f6;
+  font-weight: 850;
+}
+
+.vacation-history-days strong {
+  display: inline-flex;
+  min-width: 30px;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #315f48;
+  background: #e8f3ed;
+  font-size: 0.84rem;
+}
+
+.vacation-history-status {
+  white-space: normal;
+}
+
+.vacation-history-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: 7px;
+  vertical-align: middle;
+}
+
+.vacation-history-actions .vacation-reject-btn,
+.vacation-history-actions .vacation-delete-btn {
+  margin-left: 0;
 }
 
 .vacation-status {
