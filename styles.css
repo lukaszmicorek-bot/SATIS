@@ -637,6 +637,60 @@ h2 {
   white-space: nowrap;
 }
 
+.vacation-pending-reminder {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 15px;
+  border: 1px solid #e3b1a4;
+  border-left: 5px solid #c45c4c;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #713c34;
+  background: #fff4f1;
+  text-align: left;
+}
+
+.vacation-pending-reminder-marker {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #fff;
+  background: #b94e43;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.vacation-pending-reminder-content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.vacation-pending-reminder-content strong {
+  color: #7b382f;
+  font-size: 0.82rem;
+}
+
+.vacation-pending-reminder-content > span {
+  overflow: hidden;
+  color: #87615a;
+  font-size: 0.71rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vacation-pending-reminder-action {
+  color: #8f4037;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .vacation-employee-list {
   display: flex;
   flex-wrap: wrap;
