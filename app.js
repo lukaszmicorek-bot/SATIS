@@ -12523,14 +12523,20 @@ function updateVacationConflictNotice() {
 function normalizeVacationEmployee(entry) {
   const name = titleCaseName(entry?.name || entry?.employeeName || "");
   const year = Number(entry?.year) || new Date().getFullYear();
-  const allowance = Math.max(0, Math.min(40, Number(entry?.allowance) || 0));
+  const unit = normalizeVacationEmployeeUnit(entry?.unit, name);
+  const storedUnit = String(entry?.unit || "").trim().toLocaleUpperCase("pl-PL");
+  const storedAsHours = ["HOURS", "GODZINY", "GODZ."].includes(storedUnit);
+  const storedAllowance = Math.max(0, Number(entry?.allowance) || 0);
+  const isJustynaWaliczek = normalize(name).includes("justyna waliczek");
+  const needsLegacyHourConversion = unit === "HOURS" && (!storedAsHours || (isJustynaWaliczek && storedAllowance > 0 && storedAllowance <= 40));
+  const allowance = Math.min(unit === "HOURS" ? 300 : 40, needsLegacyHourConversion ? storedAllowance * 8 : storedAllowance);
   if (!name) return null;
   return {
     id: String(entry?.id || makeId()),
     name,
     year,
     allowance,
-    unit: normalizeVacationEmployeeUnit(entry?.unit, name),
+    unit,
     workstation: normalizeVacationEmployeeWorkstation(entry?.workstation, name),
     savedAt: entry?.savedAt || new Date().toISOString(),
     savedBy: entry?.savedBy || ""
