@@ -1322,8 +1322,37 @@ h2 {
 }
 
 .pricing-controls {
-  grid-template-columns: minmax(300px, 1fr) 170px 210px auto auto auto;
+  grid-template-columns: minmax(250px, 1fr) 150px 180px 210px auto auto 150px;
+  gap: 10px;
   margin-bottom: 0;
+}
+
+.pricing-price-filter {
+  display: grid;
+  gap: 6px;
+}
+
+.pricing-price-filter > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.pricing-price-filter-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.pricing-price-filter-inputs input {
+  min-width: 0;
+  text-align: right;
+}
+
+.pricing-price-filter-inputs span {
+  color: var(--muted);
+  font-size: 0.7rem;
 }
 
 .pricing-table {

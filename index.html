@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260824-18">
+    <link rel="stylesheet" href="styles.css?v=20260824-19">
   </head>
   <body>
     <main class="app-shell">
@@ -551,6 +551,14 @@
                   <option value="">Wszyscy</option>
                 </select>
               </label>
+              <div class="pricing-price-filter">
+                <span>Cena brutto</span>
+                <div class="pricing-price-filter-inputs">
+                  <input id="pricingMinPriceFilter" type="text" inputmode="decimal" placeholder="od" aria-label="Cena minimalna">
+                  <span>do</span>
+                  <input id="pricingMaxPriceFilter" type="text" inputmode="decimal" placeholder="do" aria-label="Cena maksymalna">
+                </div>
+              </div>
               <button id="importPricingBtn" class="icon-button" type="button" aria-label="Import nowych pozycji CSV" title="Import nowych pozycji CSV">
                 <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
                   <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
@@ -2119,6 +2127,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260824-18"></script>
+    <script src="app.js?v=20260824-19"></script>
   </body>
 </html>
