@@ -12528,7 +12528,7 @@ function normalizeVacationEmployee(entry) {
   const storedAsHours = ["HOURS", "GODZINY", "GODZ."].includes(storedUnit);
   const storedAllowance = Math.max(0, Number(entry?.allowance) || 0);
   const isJustynaWaliczek = normalize(name).includes("justyna waliczek");
-  const needsLegacyHourConversion = unit === "HOURS" && (!storedAsHours || (isJustynaWaliczek && storedAllowance > 0 && storedAllowance <= 40));
+  const needsLegacyHourConversion = unit === "HOURS" && (!storedAsHours || (isJustynaWaliczek && storedAllowance === 10));
   const allowance = Math.min(unit === "HOURS" ? 300 : 40, needsLegacyHourConversion ? storedAllowance * 8 : storedAllowance);
   if (!name) return null;
   return {
