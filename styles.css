@@ -553,6 +553,10 @@ h2 {
   gap: 6px;
 }
 
+.vacation-hours-field {
+  max-width: 230px;
+}
+
 .vacation-owner-leave-field {
   display: flex !important;
   min-height: 40px;
@@ -1000,7 +1004,7 @@ h2 {
 
 .vacation-history-table th:nth-child(4),
 .vacation-history-table td:nth-child(4) {
-  width: 58px;
+  width: 82px;
   text-align: center;
 }
 

@@ -837,6 +837,8 @@ const vacationOwnerLeaveField = document.querySelector("#vacationOwnerLeaveField
 const vacationOwnerLeaveInput = document.querySelector("#vacationOwnerLeaveInput");
 const vacationDateFromInput = document.querySelector("#vacationDateFromInput");
 const vacationDateToInput = document.querySelector("#vacationDateToInput");
+const vacationHoursField = document.querySelector("#vacationHoursField");
+const vacationHoursInput = document.querySelector("#vacationHoursInput");
 const vacationConflictNotice = document.querySelector("#vacationConflictNotice");
 const vacationSaturdayField = document.querySelector("#vacationSaturdayField");
 const vacationSaturdayChoices = document.querySelector("#vacationSaturdayChoices");
@@ -12528,10 +12530,26 @@ function normalizeVacationEmployee(entry) {
     name,
     year,
     allowance,
+    unit: normalizeVacationEmployeeUnit(entry?.unit, name),
     workstation: normalizeVacationEmployeeWorkstation(entry?.workstation, name),
     savedAt: entry?.savedAt || new Date().toISOString(),
     savedBy: entry?.savedBy || ""
   };
+}
+
+function normalizeVacationEmployeeUnit(value, employeeName = "") {
+  const normalizedUnit = String(value || "").trim().toLocaleUpperCase("pl-PL");
+  if (["HOURS", "GODZINY", "GODZ."].includes(normalizedUnit)) return "HOURS";
+  return normalize(employeeName).includes("justyna waliczek") ? "HOURS" : "DAYS";
+}
+
+function vacationEmployeeUsesHours(employee) {
+  return normalizeVacationEmployeeUnit(employee?.unit, employee?.name) === "HOURS";
+}
+
+function formatVacationAmount(value) {
+  const number = Number(value) || 0;
+  return Number.isInteger(number) ? String(number) : String(number).replace(".", ",");
 }
 
 function normalizeVacationEmployeeWorkstation(value, employeeName = "") {
@@ -12569,6 +12587,7 @@ function normalizeVacationRequest(entry) {
     saturdayDate: isoDateForSave(entry?.saturdayDate),
     notes: normalizeLoanHistoryText(entry?.notes),
     days: calculatedDays,
+    hours: Math.max(0, Number(entry?.hours) || 0),
     status,
     requestedAt: entry?.requestedAt || new Date().toISOString(),
     requestedBy: entry?.requestedBy || "",
@@ -12731,7 +12750,9 @@ function renderVacationEmployees() {
     name.textContent = employee.name;
     const allowance = document.createElement("span");
     allowance.className = "vacation-employee-allowance";
-    allowance.textContent = `${employee.allowance} dni`;
+    allowance.textContent = vacationEmployeeUsesHours(employee)
+      ? `${formatVacationAmount(employee.allowance)} godz.`
+      : `${formatVacationAmount(employee.allowance)} dni`;
     item.append(name, allowance);
     if (employee.workstation) {
       const workstation = document.createElement("span");
@@ -12794,22 +12815,34 @@ function renderVacationSaturdayHolidays() {
 
 function renderVacationSummary() {
   const employee = selectedVacationEmployee();
+  const usesHours = vacationEmployeeUsesHours(employee);
   const requests = vacationRequests.filter((request) =>
     request.year === selectedVacationYear() &&
     (!employee || request.employeeId === employee.id) &&
     (canViewPrivateModules() || !request.ownerLeave)
   );
-  const used = employee ? requests.filter((request) => request.status === "ZATWIERDZONY" && vacationUsesAnnualAllowance(request)).reduce((sum, request) => sum + request.days, 0) : 0;
-  const pending = employee ? requests.filter((request) => request.status === "OCZEKUJE").reduce((sum, request) => sum + request.days, 0) : 0;
+  const requestAmount = (request) => usesHours ? request.hours : request.days;
+  const used = employee ? requests.filter((request) => request.status === "ZATWIERDZONY" && vacationUsesAnnualAllowance(request)).reduce((sum, request) => sum + requestAmount(request), 0) : 0;
+  const pending = employee ? requests.filter((request) => request.status === "OCZEKUJE").reduce((sum, request) => sum + requestAmount(request), 0) : 0;
   const allowance = employee?.allowance ?? null;
-  if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : String(allowance);
-  if (vacationUsedTotal) vacationUsedTotal.textContent = employee ? String(used) : "-";
+  if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : formatVacationAmount(allowance);
+  if (vacationUsedTotal) vacationUsedTotal.textContent = employee ? formatVacationAmount(used) : "-";
   const remaining = employee ? Math.max(0, allowance - used) : null;
-  if (vacationRemainingTotal) vacationRemainingTotal.textContent = remaining === null ? "-" : String(remaining);
+  if (vacationRemainingTotal) vacationRemainingTotal.textContent = remaining === null ? "-" : formatVacationAmount(remaining);
   if (vacationRemainingCard) {
     vacationRemainingCard.dataset.tone = remaining === null ? "none" : remaining <= 3 ? "critical" : remaining <= 7 ? "warning" : "good";
   }
-  if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? String(pending) : "-";
+  if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? formatVacationAmount(pending) : "-";
+  vacationSummary?.querySelectorAll("div span").forEach((label, index) => {
+    if (index === 0) label.textContent = usesHours ? "godzin w roku" : "dni w roku";
+  });
+}
+
+function updateVacationUnitFields() {
+  const employee = selectedVacationEmployee();
+  const usesHours = vacationEmployeeUsesHours(employee);
+  if (vacationHoursField) vacationHoursField.hidden = !usesHours;
+  if (vacationHoursInput) vacationHoursInput.required = usesHours;
 }
 
 function renderVacationPendingReminder() {
@@ -12864,6 +12897,8 @@ function renderVacationHistory() {
   const rows = entries.map((request) => {
     const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
     const compensatesWeekend = vacationCompensatesWeekend(request);
+    const requestEmployee = vacationEmployees.find((employee) => employee.id === request.employeeId);
+    const usesHours = vacationEmployeeUsesHours(requestEmployee || { name: request.employeeName });
     const row = document.createElement("tr");
     const employeeCell = document.createElement("td");
     employeeCell.className = "vacation-history-employee";
@@ -12881,10 +12916,11 @@ function renderVacationHistory() {
     const daysCell = document.createElement("td");
     daysCell.className = "vacation-history-days";
     const days = document.createElement("strong");
-    days.textContent = String(request.days);
+    const amount = usesHours ? request.hours : request.days;
+    days.textContent = usesHours ? `${formatVacationAmount(amount)} godz.` : String(amount);
     days.title = compensatesWeekend
-      ? `${request.days} ${request.days === 1 ? "dzień" : "dni"}; nie pomniejsza urlopu rocznego`
-      : `${request.days} ${request.days === 1 ? "dzień" : "dni"}`;
+      ? `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}; nie pomniejsza urlopu rocznego`
+      : `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
     daysCell.append(days);
     daysCell.classList.toggle("vacation-days-not-deducted", compensatesWeekend);
     row.append(employeeCell, typeCell, termCell, daysCell);
@@ -12944,7 +12980,9 @@ function renderVacationModule() {
   renderVacationEmployees();
   renderVacationSaturdayHolidays();
   updateVacationSaturdayField();
+  updateVacationUnitFields();
   renderVacationSummary();
+  updateVacationUnitFields();
   renderVacationPendingReminder();
   renderVacationHistory();
   updateVacationConflictNotice();
@@ -12980,6 +13018,7 @@ function editVacationRequest(id) {
   if (vacationTypeInput) vacationTypeInput.value = request.type;
   if (vacationSaturdayInput) vacationSaturdayInput.value = request.saturdayDate || "";
   if (vacationNotesInput) vacationNotesInput.value = request.notes || "";
+  if (vacationHoursInput) vacationHoursInput.value = request.hours ? formatVacationAmount(request.hours).replace(",", ".") : "";
   if (vacationOwnerLeaveInput) vacationOwnerLeaveInput.checked = request.ownerLeave;
   setDateInputValue(vacationDateFromInput, request.dateFrom);
   setDateInputValue(vacationDateToInput, request.dateTo);
@@ -12988,6 +13027,7 @@ function editVacationRequest(id) {
   renderVacationHistory();
   renderVacationSaturdayHolidays();
   updateVacationSaturdayField();
+  updateVacationUnitFields();
   updateVacationConflictNotice();
   if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Zapisz zmiany";
   if (resetVacationFormBtn) resetVacationFormBtn.textContent = "Anuluj edycję";
@@ -12998,8 +13038,12 @@ async function saveVacationEmployee() {
   if (!canViewPrivateModules()) return;
   const name = titleCaseName(vacationNewEmployeeInput?.value || "");
   const allowance = Number(vacationAllowanceInput?.value);
-  if (!name || !Number.isFinite(allowance) || allowance < 0 || allowance > 40) {
-    alert("Wpisz imię i nazwisko oraz prawidłową liczbę dni od 0 do 40.");
+  const unit = normalizeVacationEmployeeUnit("", name);
+  const maximumAllowance = unit === "HOURS" ? 300 : 40;
+  if (!name || !Number.isFinite(allowance) || allowance < 0 || allowance > maximumAllowance) {
+    alert(unit === "HOURS"
+      ? "Wpisz imię i nazwisko oraz prawidłową liczbę godzin od 0 do 300."
+      : "Wpisz imię i nazwisko oraz prawidłową liczbę dni od 0 do 40.");
     return;
   }
   const year = selectedVacationYear();
@@ -13009,6 +13053,7 @@ async function saveVacationEmployee() {
     id: existing?.id || makeId(),
     name,
     allowance,
+    unit,
     year,
     savedAt: new Date().toISOString(),
     savedBy: currentSupabaseUser?.email || ""
@@ -13092,6 +13137,13 @@ async function submitVacationRequest(event) {
     return;
   }
   const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  const usesHours = vacationEmployeeUsesHours(employee);
+  const hours = usesHours ? Number(String(vacationHoursInput?.value || "").replace(",", ".")) : 0;
+  if (usesHours && (!Number.isFinite(hours) || hours <= 0 || hours > 200)) {
+    alert("Podaj liczbę godzin urlopu od 0,5 do 200.");
+    vacationHoursInput?.focus();
+    return;
+  }
   const saturdayDate = type === "ZA SOBOTĘ" ? vacationSaturdayInput?.value || "" : "";
   if (type === "ZA SOBOTĘ" && !saturdayDate) {
     alert("Wybierz sobotę, za którą oddawany jest dzień wolny.");
@@ -13116,6 +13168,7 @@ async function submitVacationRequest(event) {
     saturdayDate,
     notes: vacationNotesInput?.value,
     days: type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo),
+    hours,
     status: editedRequest?.status || (ownerLeave ? "ZATWIERDZONY" : "OCZEKUJE"),
     requestedAt: editedRequest?.requestedAt || new Date().toISOString(),
     requestedBy: editedRequest?.requestedBy || currentSupabaseUser?.email || "",
@@ -16134,6 +16187,7 @@ vacationSaturdayChoices?.addEventListener("click", (event) => {
 vacationEmployeeInput?.addEventListener("change", () => {
   renderVacationSummary();
   renderVacationHistory();
+  updateVacationUnitFields();
   updateVacationConflictNotice();
 });
 [vacationDateFromInput, vacationDateToInput].forEach((input) => {
@@ -16159,10 +16213,15 @@ vacationEmployeeList?.addEventListener("click", (event) => {
   if (!employee) return;
   if (vacationEmployeeInput) vacationEmployeeInput.value = employee.id;
   if (canViewPrivateModules() && vacationNewEmployeeInput) vacationNewEmployeeInput.value = employee.name;
-  if (canViewPrivateModules() && vacationAllowanceInput) vacationAllowanceInput.value = String(employee.allowance);
+  if (canViewPrivateModules() && vacationAllowanceInput) {
+    vacationAllowanceInput.value = String(employee.allowance);
+    vacationAllowanceInput.max = vacationEmployeeUsesHours(employee) ? "300" : "40";
+    vacationAllowanceInput.step = vacationEmployeeUsesHours(employee) ? "0.5" : "1";
+  }
   renderVacationEmployees();
   renderVacationSummary();
   renderVacationHistory();
+  updateVacationUnitFields();
 });
 vacationPendingReminder?.addEventListener("click", () => {
   const request = vacationRequests.find((item) => item.id === vacationPendingReminder.dataset.firstRequestId);
