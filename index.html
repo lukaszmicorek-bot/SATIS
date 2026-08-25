@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260825-43">
+    <link rel="stylesheet" href="styles.css?v=20260825-44">
   </head>
   <body>
     <main class="app-shell">
@@ -1513,16 +1513,16 @@
             <span class="private-module-badge">Prywatne</span>
           </header>
 
-          <form id="capdForm" class="private-form-grid">
-            <label class="person-name-field private-form-wide">
+          <form id="capdForm" class="private-form-grid capd-form-grid">
+            <label class="person-name-field capd-patient-field">
               <span>Imię i nazwisko dziecka</span>
               <input id="capdPatientInput" type="text" list="customerNameSuggestions" autocomplete="off">
             </label>
-            <label>
+            <label class="capd-age-field">
               <span>Wiek dziecka</span>
               <input id="capdAgeInput" type="number" min="0" max="17" step="1" inputmode="numeric" placeholder="Lata">
             </label>
-            <label>
+            <label class="capd-date-field">
               <span>Data badania</span>
               <input id="capdDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
             </label>
@@ -1704,7 +1704,7 @@
             <div class="capd-report-patient">
               <span>Dziecko<strong id="capdReportPatient">-</strong></span>
               <span>Wiek<strong id="capdReportAge">-</strong></span>
-              <span>Zakres<strong id="capdReportScope">Do ustalenia</strong></span>
+              <span>Data badania<strong id="capdReportDate">-</strong></span>
             </div>
             <table class="capd-report-table">
               <thead><tr><th>Badanie</th><th>Co sprawdza</th><th>Wynik</th></tr></thead>
@@ -2303,6 +2303,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260825-43"></script>
+    <script src="app.js?v=20260825-44"></script>
   </body>
 </html>

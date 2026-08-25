@@ -827,7 +827,7 @@ const capdReportTitle = document.querySelector("#capdReportTitle");
 const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
 const capdReportAge = document.querySelector("#capdReportAge");
-const capdReportScope = document.querySelector("#capdReportScope");
+const capdReportDate = document.querySelector("#capdReportDate");
 const capdReportResults = document.querySelector("#capdReportResults");
 const capdReportDescription = document.querySelector("#capdReportDescription");
 const vacationForm = document.querySelector("#vacationForm");
@@ -12448,10 +12448,10 @@ function renderCapdReport() {
   const description = String(document.querySelector("#capdDescriptionInput")?.value || "").trim();
 
   if (capdReportTitle) capdReportTitle.textContent = patient ? `Badanie CAPD - ${patient}` : "Badanie CAPD";
-  if (capdReportMeta) capdReportMeta.textContent = `Data badania: ${dateIso ? formatDate(dateIso) : "-"}`;
+  if (capdReportMeta) capdReportMeta.textContent = `Zakres: ${scope}`;
   if (capdReportPatient) capdReportPatient.textContent = patient || "-";
   if (capdReportAge) capdReportAge.textContent = age === null ? "-" : `${age} lat`;
-  if (capdReportScope) capdReportScope.textContent = scope;
+  if (capdReportDate) capdReportDate.textContent = dateIso ? formatDate(dateIso) : "-";
   if (capdReportDescription) {
     capdReportDescription.textContent = description || "Miejsce na podsumowanie wyników, obserwacje i zalecenia.";
     capdReportDescription.classList.toggle("is-placeholder", !description);
