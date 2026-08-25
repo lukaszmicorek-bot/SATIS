@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260825-41">
+    <link rel="stylesheet" href="styles.css?v=20260825-42">
   </head>
   <body>
     <main class="app-shell">
@@ -1533,13 +1533,158 @@
               <p id="capdScopeDescription">Zakres testów zostanie dobrany automatycznie.</p>
             </section>
 
+            <section id="capdTestsPanel" class="capd-tests-panel private-form-wide" hidden>
+              <header class="capd-tests-head">
+                <div>
+                  <p class="eyebrow">Wyniki badań</p>
+                  <h3>Testy CAPD</h3>
+                </div>
+                <span>Każdy wynik wpisz osobno</span>
+              </header>
+
+              <div class="capd-test-list">
+                <section class="capd-test-item" data-capd-min-age="0">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>TRW</strong><span>Test reakcji wzrokowej</span></div>
+                    <p>Sprawdza szybkość zauważenia bodźca wzrokowego, tempo pracy i koncentrację.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik TRW</span>
+                      <input id="capdTrwResult" name="capd_trw" type="text" inputmode="decimal" placeholder="Wpisz wynik w ms" autocomplete="off">
+                      <small>Norma zależy od wieku. Porównaj z normą wyświetloną w Neuroflow po badaniu.</small>
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Dziecko może potrzebować więcej czasu na reakcję, wolniej rozpoczynać zadania albo łatwiej się rozpraszać. Ogólne tempo pracy należy uwzględnić przy interpretacji pozostałych testów.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="0">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>TRS</strong><span>Test reakcji słuchowej</span></div>
+                    <p>Sprawdza, jak szybko dziecko reaguje na prosty dźwięk.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik TRS</span>
+                      <input id="capdTrsResult" name="capd_trs" type="text" inputmode="decimal" placeholder="np. 458 ms" autocomplete="off">
+                      <small>Norma: do 550 ms.</small>
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Może być widoczny jako późniejsza reakcja na polecenie, częste proszenie o powtórzenie lub wrażenie, że dziecko nie słyszy od razu, mimo prawidłowego słuchu obwodowego.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="6">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>ASPN-S</strong><span>Adaptacyjny test rozumienia słów w szumie</span></div>
+                    <p>Sprawdza rozumienie pojedynczych słów przy obecności hałasu w tle.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik ASPN-S</span>
+                      <input id="capdAspnSResult" name="capd_aspn_s" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Dziecko może dobrze rozumieć mowę w ciszy, ale mieć trudność w klasie, na świetlicy lub w grupie. Może częściej pytać „co?”, mylić podobnie brzmiące słowa oraz gorzej radzić sobie z dyktandem i poleceniami podawanymi w hałasie.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="6">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>ASPN-Z</strong><span>Adaptacyjny test rozumienia zdań w szumie</span></div>
+                    <p>Sprawdza rozumienie całych wypowiedzi w trudniejszych warunkach akustycznych.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik ASPN-Z</span>
+                      <input id="capdAspnZResult" name="capd_aspn_z" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Dziecko może gubić część dłuższego polecenia, zapamiętywać tylko początek albo koniec zdania, tracić wątek wypowiedzi nauczyciela lub gorzej radzić sobie podczas pracy w grupie.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="6">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>DDT</strong><span>Test rozdzielnousznego słyszenia</span></div>
+                    <p>Ocenia podzielność uwagi słuchowej, dominację półkulową dla rozumienia mowy oraz pamięć słuchową.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik DDT</span>
+                      <input id="capdDdtResult" name="capd_ddt" type="text" placeholder="np. P: 85%, L: 80%" autocomplete="off">
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Może wiązać się z trudnością w słuchaniu kilku osób jednocześnie, zapamiętywaniu informacji podawanych ustnie i wykonywaniu wieloetapowych poleceń. W szkole może ujawniać się podczas dyktanda lub zapamiętywania ciągu cyfr i słów.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="6">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>FPT</strong><span>Test sekwencji częstotliwości</span></div>
+                    <p>Ocenia rozróżnianie wysokości dźwięków, słuch fonemowy i krótkotrwałą pamięć słuchową.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik FPT</span>
+                      <input id="capdFptResult" name="capd_fpt" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Może wskazywać na trudność w porządkowaniu informacji słuchowych, zapamiętywaniu sekwencji, kolejności sylab i dźwięków oraz melodii i intonacji mowy. Może mieć znaczenie przy analizie głoskowej, czytaniu i pisaniu.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="6">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>GDT</strong><span>Wykrywanie przerw w szumie</span></div>
+                    <p>Sprawdza, jak krótką przerwę pomiędzy dźwiękami dziecko potrafi zauważyć.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik GDT</span>
+                      <input id="capdGdtResult" name="capd_gdt" type="text" inputmode="decimal" placeholder="np. 5 ms" autocomplete="off">
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Układ słuchowy może potrzebować więcej czasu na zauważenie szybkich zmian w dźwiękach. Może to utrudniać rozumienie szybkiej mowy i różnicowanie podobnych elementów mowy; spokojniejsze i wyraźniejsze tempo może pomagać.</p>
+                  </details>
+                </section>
+
+                <section class="capd-test-item" data-capd-min-age="6">
+                  <div class="capd-test-main">
+                    <div class="capd-test-title"><strong>DLF</strong><span>Różnicowanie wysokości dźwięków</span></div>
+                    <p>Sprawdza, jak małą różnicę w wysokości dwóch dźwięków dziecko potrafi usłyszeć.</p>
+                    <label class="capd-result-field">
+                      <span>Wynik DLF</span>
+                      <input id="capdDlfResult" name="capd_dlf" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                    </label>
+                  </div>
+                  <details class="capd-test-details">
+                    <summary>Co może oznaczać słabszy wynik?</summary>
+                    <p>Może świadczyć o mniejszej precyzji różnicowania dźwięków i mieć znaczenie dla wychwytywania subtelnych różnic w brzmieniu, melodii i intonacji mowy oraz dokładnej analizy dźwięków mowy.</p>
+                  </details>
+                </section>
+              </div>
+
+              <section class="capd-practical-summary">
+                <h3>Co w praktyce mogą oznaczać słabsze wyniki?</h3>
+                <ul>
+                  <li>częste proszenie o powtarzanie,</li>
+                  <li>trudność ze zrozumieniem mowy w hałasie,</li>
+                  <li>problem z dłuższymi poleceniami,</li>
+                  <li>wolniejsze przetwarzanie informacji podawanych ustnie,</li>
+                  <li>trudność z zapamiętywaniem ze słuchu,</li>
+                  <li>mylenie podobnie brzmiących słów lub głosek,</li>
+                  <li>trudności z analizą i syntezą głoskową,</li>
+                  <li>problemy z pisaniem ze słuchu i nauką czytania,</li>
+                  <li>szybsze męczenie się podczas słuchania.</li>
+                </ul>
+                <p><strong>Ważne:</strong> nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania. Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu.</p>
+              </section>
+            </section>
             <label class="private-form-wide">
-              <span>Wyniki</span>
-              <textarea id="capdResultsInput" rows="7" placeholder="Wyniki poszczególnych testów"></textarea>
-            </label>
-            <label class="private-form-wide">
-              <span>Opis</span>
-              <textarea id="capdDescriptionInput" rows="7" placeholder="Opis badania i wnioski"></textarea>
+              <span>Opis badania i wnioski</span>
+              <textarea id="capdDescriptionInput" rows="7" placeholder="Podsumowanie wyników, obserwacje i zalecenia"></textarea>
             </label>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
@@ -2132,6 +2277,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260825-41"></script>
+    <script src="app.js?v=20260825-42"></script>
   </body>
 </html>
