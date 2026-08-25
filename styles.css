@@ -557,6 +557,11 @@ h2 {
   max-width: 230px;
 }
 
+#vacationNotesInput {
+  min-height: 76px;
+  resize: vertical;
+}
+
 .vacation-owner-leave-field {
   display: flex !important;
   min-height: 40px;
@@ -742,6 +747,27 @@ h2 {
   color: rgba(255, 255, 255, 0.82);
 }
 
+.vacation-employee-percent {
+  display: inline-flex;
+  width: 31px;
+  min-width: 31px;
+  height: 31px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #9fc7ba;
+  border-radius: 50%;
+  color: #276b5d;
+  background: #edf7f3;
+  font-size: 0.65rem;
+  font-weight: 900;
+}
+
+.vacation-employee-item.active .vacation-employee-percent {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #276b5d;
+  background: rgba(255, 255, 255, 0.9);
+}
+
 .vacation-employee-delete {
   position: absolute;
   top: -7px;
@@ -863,7 +889,7 @@ h2 {
 
 .vacation-summary {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -879,22 +905,7 @@ h2 {
 }
 
 .vacation-summary.gabinet-view {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.vacation-usage-card {
-  position: relative;
-}
-
-.vacation-usage-card::after {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  width: var(--vacation-usage, 0%);
-  height: 3px;
-  background: #55a091;
-  content: "";
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .vacation-expected-card {
@@ -1066,13 +1077,22 @@ h2 {
   font-weight: 850;
 }
 
-.vacation-history-term span {
+.vacation-history-term .vacation-history-date {
   display: inline-flex;
   border-radius: 6px;
   padding: 5px 8px;
   color: #365b6a;
   background: #edf4f6;
   font-weight: 850;
+}
+
+.vacation-history-weekday {
+  display: block;
+  margin-top: 3px;
+  color: #718289;
+  font-size: 0.64rem;
+  font-weight: 750;
+  text-transform: lowercase;
 }
 
 .vacation-history-days strong {

@@ -849,8 +849,6 @@ const submitVacationRequestBtn = document.querySelector("#submitVacationRequestB
 const vacationAllowanceTotal = document.querySelector("#vacationAllowanceTotal");
 const vacationAllowanceUnitLabel = document.querySelector("#vacationAllowanceUnitLabel");
 const vacationUsedTotal = document.querySelector("#vacationUsedTotal");
-const vacationUsageCard = document.querySelector("#vacationUsageCard");
-const vacationUsagePercent = document.querySelector("#vacationUsagePercent");
 const vacationPlanCard = document.querySelector("#vacationPlanCard");
 const vacationExpectedTotal = document.querySelector("#vacationExpectedTotal");
 const vacationPlanLabel = document.querySelector("#vacationPlanLabel");
@@ -12766,6 +12764,15 @@ function renderVacationEmployees() {
       ? `${formatVacationAmount(employee.allowance)} godz.`
       : `${formatVacationAmount(employee.allowance)} dni`;
     item.append(name, allowance);
+    if (canViewPrivateModules()) {
+      const usagePercent = vacationEmployeeUsagePercent(employee);
+      const percent = document.createElement("span");
+      percent.className = "vacation-employee-percent";
+      percent.textContent = `${usagePercent}%`;
+      percent.title = `${usagePercent}% wykorzystanego urlopu`;
+      percent.setAttribute("aria-label", `${usagePercent}% wykorzystanego urlopu`);
+      item.append(percent);
+    }
     if (employee.workstation) {
       const workstation = document.createElement("span");
       workstation.className = "vacation-employee-workstation";
@@ -12787,6 +12794,20 @@ function renderVacationEmployees() {
     return entry;
   });
   vacationEmployeeList.replaceChildren(...items);
+}
+
+function vacationEmployeeUsagePercent(employee) {
+  if (!employee || !Number(employee.allowance)) return 0;
+  const usesHours = vacationEmployeeUsesHours(employee);
+  const used = vacationRequests
+    .filter((request) =>
+      request.year === employee.year &&
+      request.employeeId === employee.id &&
+      request.status === "ZATWIERDZONY" &&
+      vacationUsesAnnualAllowance(request)
+    )
+    .reduce((sum, request) => sum + (usesHours ? request.hours : request.days), 0);
+  return Math.round((used / employee.allowance) * 100);
 }
 
 function updateVacationTypeChoices() {
@@ -12846,9 +12867,6 @@ function renderVacationSummary() {
   }
   if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? formatVacationAmount(pending) : "-";
   if (vacationAllowanceUnitLabel) vacationAllowanceUnitLabel.textContent = usesHours ? "godzin w roku" : "dni w roku";
-  const usagePercent = employee && allowance > 0 ? Math.round((used / allowance) * 100) : null;
-  if (vacationUsagePercent) vacationUsagePercent.textContent = usagePercent === null ? "-" : `${usagePercent}%`;
-  if (vacationUsageCard) vacationUsageCard.style.setProperty("--vacation-usage", `${Math.max(0, Math.min(100, usagePercent || 0))}%`);
   const expected = employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
   const planBalance = expected === null ? null : expected - used;
   const unitLabel = usesHours ? "godz." : "dni";
@@ -12952,10 +12970,19 @@ function renderVacationHistory() {
     const termCell = document.createElement("td");
     termCell.className = "vacation-history-term";
     const term = document.createElement("span");
+    term.className = "vacation-history-date";
     term.textContent = request.dateFrom === request.dateTo
       ? formatDate(request.dateFrom)
       : `${formatDate(request.dateFrom)} → ${formatDate(request.dateTo)}`;
     termCell.append(term);
+    if (canViewPrivateModules()) {
+      const weekday = document.createElement("small");
+      weekday.className = "vacation-history-weekday";
+      const fromWeekday = formatVacationWeekday(request.dateFrom);
+      const toWeekday = formatVacationWeekday(request.dateTo);
+      weekday.textContent = request.dateFrom === request.dateTo ? fromWeekday : `${fromWeekday} → ${toWeekday}`;
+      termCell.append(weekday);
+    }
     const daysCell = document.createElement("td");
     daysCell.className = "vacation-history-days";
     const days = document.createElement("strong");
@@ -13018,6 +13045,11 @@ function renderVacationHistory() {
   vacationHistoryBody.replaceChildren(...rows);
 }
 
+function formatVacationWeekday(value) {
+  const date = parseIsoDate(value);
+  return date ? date.toLocaleDateString("pl-PL", { weekday: "long" }) : "";
+}
+
 function renderVacationModule() {
   renderVacationYearOptions();
   renderVacationEmployees();
@@ -13025,7 +13057,6 @@ function renderVacationModule() {
   updateVacationSaturdayField();
   updateVacationUnitFields();
   renderVacationSummary();
-  updateVacationUnitFields();
   renderVacationPendingReminder();
   renderVacationHistory();
   updateVacationConflictNotice();
