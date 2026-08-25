@@ -847,7 +847,11 @@ const vacationNotesInput = document.querySelector("#vacationNotesInput");
 const resetVacationFormBtn = document.querySelector("#resetVacationFormBtn");
 const submitVacationRequestBtn = document.querySelector("#submitVacationRequestBtn");
 const vacationAllowanceTotal = document.querySelector("#vacationAllowanceTotal");
+const vacationAllowanceUnitLabel = document.querySelector("#vacationAllowanceUnitLabel");
 const vacationUsedTotal = document.querySelector("#vacationUsedTotal");
+const vacationUsageCard = document.querySelector("#vacationUsageCard");
+const vacationUsagePercent = document.querySelector("#vacationUsagePercent");
+const vacationExpectedTotal = document.querySelector("#vacationExpectedTotal");
 const vacationSummary = document.querySelector("#vacationSummary");
 const vacationRemainingCard = document.querySelector("#vacationRemainingCard");
 const vacationRemainingTotal = document.querySelector("#vacationRemainingTotal");
@@ -12839,9 +12843,29 @@ function renderVacationSummary() {
     vacationRemainingCard.dataset.tone = remaining === null ? "none" : remaining <= 3 ? "critical" : remaining <= 7 ? "warning" : "good";
   }
   if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? formatVacationAmount(pending) : "-";
-  vacationSummary?.querySelectorAll("div span").forEach((label, index) => {
-    if (index === 0) label.textContent = usesHours ? "godzin w roku" : "dni w roku";
-  });
+  if (vacationAllowanceUnitLabel) vacationAllowanceUnitLabel.textContent = usesHours ? "godzin w roku" : "dni w roku";
+  const usagePercent = employee && allowance > 0 ? Math.round((used / allowance) * 100) : null;
+  if (vacationUsagePercent) vacationUsagePercent.textContent = usagePercent === null ? "-" : `${usagePercent}%`;
+  if (vacationUsageCard) vacationUsageCard.style.setProperty("--vacation-usage", `${Math.max(0, Math.min(100, usagePercent || 0))}%`);
+  const expected = employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
+  if (vacationExpectedTotal) vacationExpectedTotal.textContent = expected === null
+    ? "-"
+    : `${formatVacationAmount(expected)} z ${formatVacationAmount(allowance)}`;
+}
+
+function vacationExpectedUsage(allowance, year, usesHours) {
+  const annualAllowance = Math.max(0, Number(allowance) || 0);
+  const selectedYear = Number(year) || new Date().getFullYear();
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  if (selectedYear < currentYear) return annualAllowance;
+  if (selectedYear > currentYear) return 0;
+  const start = Date.UTC(selectedYear, 0, 1);
+  const end = Date.UTC(selectedYear + 1, 0, 1);
+  const elapsedDays = Math.floor((Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() + 1) - start) / 86400000);
+  const daysInYear = Math.round((end - start) / 86400000);
+  const proportional = annualAllowance * Math.max(0, Math.min(1, elapsedDays / daysInYear));
+  return usesHours ? Math.floor(proportional * 2) / 2 : Math.floor(proportional);
 }
 
 function updateVacationUnitFields() {
