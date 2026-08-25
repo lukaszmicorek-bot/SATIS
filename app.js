@@ -12816,6 +12816,33 @@ function updateVacationTypeChoices() {
   });
 }
 
+function vacationSaturdayHolidayStatus(holidayDate) {
+  const request = vacationRequests.find((item) =>
+    item.type === "ZA SOBOTĘ" &&
+    item.saturdayDate === holidayDate &&
+    item.status !== "ODRZUCONY"
+  );
+  if (request?.status === "ZATWIERDZONY") {
+    return { key: "used", symbol: "✓", label: "Dzień wykorzystany" };
+  }
+  if (request?.status === "OCZEKUJE") {
+    return { key: "pending", symbol: "•", label: "Oczekuje na zatwierdzenie" };
+  }
+  if (holidayDate < todayInputValue()) {
+    return { key: "expired", symbol: "×", label: "Minął termin - dzień niewykorzystany" };
+  }
+  return { key: "available", symbol: "", label: "Dzień dostępny" };
+}
+
+function createVacationSaturdayStatus(status) {
+  const marker = document.createElement("span");
+  marker.className = "vacation-saturday-status";
+  marker.textContent = status.symbol;
+  marker.title = status.label;
+  marker.setAttribute("aria-label", status.label);
+  return marker;
+}
+
 function renderVacationSaturdayHolidays() {
   if (!vacationSaturdayHolidayList || !vacationSaturdayHolidayCount || !vacationSaturdayInput || !vacationSaturdayChoices) return;
   const holidays = saturdayPublicHolidays(selectedVacationYear());
@@ -12824,24 +12851,28 @@ function renderVacationSaturdayHolidays() {
   vacationSaturdayHolidayCount.textContent = holidays.length ? `${holidays.length} dni` : "Brak";
   vacationSaturdayHolidayList.replaceChildren(...holidays.map((holiday) => {
     const item = document.createElement("div");
+    const status = vacationSaturdayHolidayStatus(holiday.date);
+    item.dataset.status = status.key;
     const date = document.createElement("strong");
     date.textContent = formatDate(holiday.date);
     const name = document.createElement("span");
     name.textContent = holiday.name;
-    item.append(date, name);
+    item.append(createVacationSaturdayStatus(status), date, name);
     return item;
   }));
   vacationSaturdayChoices.replaceChildren(...holidays.map((holiday) => {
     const button = document.createElement("button");
+    const status = vacationSaturdayHolidayStatus(holiday.date);
     button.type = "button";
     button.className = "vacation-saturday-choice";
     button.classList.toggle("active", holiday.date === selectedDate);
     button.dataset.saturdayDate = holiday.date;
+    button.dataset.status = status.key;
     const date = document.createElement("strong");
     date.textContent = formatDate(holiday.date);
     const name = document.createElement("span");
     name.textContent = holiday.name;
-    button.append(date, name);
+    button.append(date, name, createVacationSaturdayStatus(status));
     return button;
   }));
 }
@@ -13226,6 +13257,18 @@ async function submitVacationRequest(event) {
   const editedRequest = canViewPrivateModules()
     ? vacationRequests.find((request) => request.id === activeVacationRequestId) || null
     : null;
+  const existingSaturdayRequest = type === "ZA SOBOTĘ"
+    ? vacationRequests.find((request) =>
+      request.id !== editedRequest?.id &&
+      request.type === "ZA SOBOTĘ" &&
+      request.saturdayDate === saturdayDate &&
+      request.status !== "ODRZUCONY"
+    )
+    : null;
+  if (existingSaturdayRequest) {
+    alert(`Dzień za ${formatDate(saturdayDate)} został już wykorzystany lub oczekuje na zatwierdzenie.`);
+    return;
+  }
   const isEditing = Boolean(editedRequest);
   const ownerLeave = isEditing
     ? Boolean(vacationOwnerLeaveInput?.checked)
