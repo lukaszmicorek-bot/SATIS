@@ -600,6 +600,37 @@ h2 {
   font-weight: 750;
 }
 
+.capd-result-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #b9cbc7;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.capd-result-control input {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.capd-result-control > span {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  min-width: 54px;
+  border-left: 1px solid #d8e2e0;
+  padding: 0 9px;
+  color: #45626b;
+  background: #f1f6f5;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .capd-result-field small {
   color: #6d7d82;
   font-size: 0.69rem;
@@ -642,6 +673,138 @@ h2 {
   line-height: 1.4;
 }
 
+.capd-report {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.capd-report-patient {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(90px, 0.5fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.capd-report-patient > span {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid #7d918b;
+  padding: 8px 10px;
+  color: #6b7c82;
+  background: #f6f9f9;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.capd-report-patient strong {
+  color: #173f4e;
+  font-size: 0.84rem;
+}
+
+.capd-report-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.capd-report-table th,
+.capd-report-table td {
+  border: 1px solid #d9e2e4;
+  padding: 8px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.capd-report-table th {
+  color: #244d5d;
+  background: #edf3f4;
+  font-size: 0.7rem;
+}
+
+.capd-report-table th:first-child {
+  width: 24%;
+}
+
+.capd-report-table th:last-child {
+  width: 18%;
+}
+
+.capd-report-table td:first-child strong,
+.capd-report-table td:first-child span {
+  display: block;
+}
+
+.capd-report-table td:first-child strong {
+  color: #003f5a;
+  font-size: 0.82rem;
+}
+
+.capd-report-table td:first-child span {
+  margin-top: 2px;
+  color: #63767d;
+  font-size: 0.68rem;
+}
+
+.capd-report-result {
+  white-space: nowrap;
+}
+
+.capd-report-result strong {
+  color: #003f5a;
+  font-size: 0.86rem;
+}
+
+.capd-report-result span {
+  margin-left: 5px;
+  color: #61777e;
+  font-size: 0.67rem;
+  font-weight: 850;
+}
+
+.capd-report-conclusions {
+  min-height: 110px;
+  border: 1px solid #d9e2e4;
+  border-left: 4px solid #648d86;
+  padding: 12px 14px;
+}
+
+.capd-report-conclusions h3 {
+  margin: 0 0 8px;
+  color: #003f5a;
+  font-size: 0.86rem;
+}
+
+.capd-report-conclusions p {
+  margin: 0;
+  color: #344e58;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.capd-report-conclusions p.is-placeholder {
+  color: #91a0a5;
+}
+
+.capd-report-disclaimer {
+  margin: 0;
+  color: #687a80;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+#printCapdReportBtn {
+  min-height: 30px;
+  padding: 0 12px;
+  color: #fff;
+  border-color: #2b8a78;
+  background: #2b8a78;
+  font-size: 0.76rem;
+  font-weight: 820;
+}
+
 @media (max-width: 720px) {
   .capd-test-item {
     grid-template-columns: minmax(0, 1fr);
@@ -655,6 +818,10 @@ h2 {
   }
 
   .capd-practical-summary ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-report-patient {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -7987,11 +8154,71 @@ textarea {
   body.pricing-loan-print,
   body.pricing-order-print,
   body.pricing-complaint-print,
+  body.capd-report-print,
   body.stock-checklist-print,
   body.stock-audit-pdf-print {
     color: #111;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  body.capd-report-print .app-shell > * {
+    display: none !important;
+  }
+
+  body.capd-report-print .app-shell > #capdNotebook,
+  body.capd-report-print #capdNotebook > .private-module-panel,
+  body.capd-report-print #capdNotebook #capdReport {
+    display: block !important;
+  }
+
+  body.capd-report-print #capdNotebook .private-module-panel > * {
+    display: none !important;
+  }
+
+  body.capd-report-print #capdNotebook .private-module-panel > #capdReport {
+    display: grid !important;
+  }
+
+  body.capd-report-print .app-shell,
+  body.capd-report-print #capdNotebook,
+  body.capd-report-print .private-module-panel {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  body.capd-report-print .capd-report {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    gap: 4mm;
+  }
+
+  body.capd-report-print .offer-document-head {
+    margin-bottom: 2mm;
+    padding-bottom: 3mm;
+  }
+
+  body.capd-report-print .capd-report-table {
+    font-size: 8.2pt;
+  }
+
+  body.capd-report-print .capd-report-table th,
+  body.capd-report-print .capd-report-table td {
+    padding: 2mm;
+  }
+
+  body.capd-report-print .capd-report-table tr,
+  body.capd-report-print .capd-report-conclusions {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   body.pricing-offer-print .app-shell > * {

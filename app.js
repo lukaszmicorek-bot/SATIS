@@ -822,6 +822,14 @@ const capdScopePanel = document.querySelector("#capdScopePanel");
 const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
 const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
+const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
+const capdReportTitle = document.querySelector("#capdReportTitle");
+const capdReportMeta = document.querySelector("#capdReportMeta");
+const capdReportPatient = document.querySelector("#capdReportPatient");
+const capdReportAge = document.querySelector("#capdReportAge");
+const capdReportScope = document.querySelector("#capdReportScope");
+const capdReportResults = document.querySelector("#capdReportResults");
+const capdReportDescription = document.querySelector("#capdReportDescription");
 const vacationForm = document.querySelector("#vacationForm");
 const vacationEmployeeInput = document.querySelector("#vacationEmployeeInput");
 const vacationYearInput = document.querySelector("#vacationYearInput");
@@ -12386,6 +12394,7 @@ function updateCapdScope() {
     capdScopeTitle.textContent = "Podaj wiek dziecka";
     capdScopeDescription.textContent = "Zakres testów zostanie dobrany automatycznie.";
     if (testsPanel) testsPanel.hidden = true;
+    renderCapdReport();
     return;
   }
   if (testsPanel) testsPanel.hidden = false;
@@ -12395,12 +12404,83 @@ function updateCapdScope() {
   if (age < 6) {
     capdScopePanel.dataset.scope = "young";
     capdScopeTitle.textContent = "Testy dla dzieci poniżej 6 lat";
-    capdScopeDescription.textContent = "Zakres podstawowy: TRW i TRS, dostosowany do wieku i możliwości dziecka.";
+    capdScopeDescription.textContent = "Zakres podstawowy: TRW, TRS i ASPN-S, dostosowany do wieku i możliwości dziecka.";
+    renderCapdReport();
     return;
   }
   capdScopePanel.dataset.scope = "full";
   capdScopeTitle.textContent = "Pełne testy CAPD";
   capdScopeDescription.textContent = "Pełny zakres: TRW, TRS, ASPN-S, ASPN-Z, DDT, FPT, GDT i DLF.";
+  renderCapdReport();
+}
+
+function capdAgeValue() {
+  const value = String(capdAgeInput?.value || "").trim();
+  if (!value) return null;
+  const age = Number(value);
+  return Number.isFinite(age) ? age : null;
+}
+
+function capdReportTestItems() {
+  const age = capdAgeValue();
+  const effectiveAge = age === null ? 0 : age;
+  return [...document.querySelectorAll("#capdTestsPanel [data-capd-min-age]")]
+    .filter((item) => effectiveAge >= Number(item.dataset.capdMinAge || 0));
+}
+
+function appendCapdReportResultCell(row, value, unit) {
+  const cell = document.createElement("td");
+  cell.className = "capd-report-result";
+  const result = document.createElement("strong");
+  result.textContent = String(value || "").trim() || "-";
+  const resultUnit = document.createElement("span");
+  resultUnit.textContent = unit;
+  cell.append(result, resultUnit);
+  row.append(cell);
+}
+
+function renderCapdReport() {
+  if (!capdReportResults) return;
+  const patient = titleCaseName(capdPatientInput?.value || "");
+  const age = capdAgeValue();
+  const dateIso = isoDateForSave(capdDateInput?.value || "");
+  const scope = age === null ? "Zakres podstawowy" : age < 6 ? "Testy dla dzieci poniżej 6 lat" : "Pełne testy CAPD";
+  const description = String(document.querySelector("#capdDescriptionInput")?.value || "").trim();
+
+  if (capdReportTitle) capdReportTitle.textContent = patient ? `Badanie CAPD - ${patient}` : "Badanie CAPD";
+  if (capdReportMeta) capdReportMeta.textContent = `Data badania: ${dateIso ? formatDate(dateIso) : "-"}`;
+  if (capdReportPatient) capdReportPatient.textContent = patient || "-";
+  if (capdReportAge) capdReportAge.textContent = age === null ? "-" : `${age} lat`;
+  if (capdReportScope) capdReportScope.textContent = scope;
+  if (capdReportDescription) {
+    capdReportDescription.textContent = description || "Miejsce na podsumowanie wyników, obserwacje i zalecenia.";
+    capdReportDescription.classList.toggle("is-placeholder", !description);
+  }
+
+  const rows = capdReportTestItems().map((item) => {
+    const row = document.createElement("tr");
+    const testCell = document.createElement("td");
+    const code = document.createElement("strong");
+    code.textContent = item.dataset.capdCode || "-";
+    const name = document.createElement("span");
+    name.textContent = item.dataset.capdName || "";
+    testCell.append(code, name);
+
+    const purposeCell = document.createElement("td");
+    purposeCell.textContent = item.querySelector(".capd-test-main > p")?.textContent?.trim() || "-";
+    row.append(testCell, purposeCell);
+    appendCapdReportResultCell(row, item.querySelector("input")?.value, item.dataset.capdUnit || "");
+    return row;
+  });
+  capdReportResults.replaceChildren(...rows);
+}
+
+function printCapdReport() {
+  renderCapdReport();
+  const cleanup = () => document.body.classList.remove("capd-report-print");
+  document.body.classList.add("capd-report-print");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  window.print();
 }
 
 function resetCapdForm() {
@@ -16323,6 +16403,8 @@ notebookSwitchButtons.forEach((button) => {
 
 capdAgeInput?.addEventListener("input", updateCapdScope);
 capdAgeInput?.addEventListener("change", updateCapdScope);
+capdForm?.addEventListener("input", renderCapdReport);
+capdForm?.addEventListener("change", renderCapdReport);
 capdPatientInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
 });
@@ -16330,6 +16412,7 @@ capdPatientInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
 });
 resetCapdFormBtn?.addEventListener("click", resetCapdForm);
+printCapdReportBtn?.addEventListener("click", printCapdReport);
 vacationTypeInput?.addEventListener("change", updateVacationSaturdayField);
 vacationTypeChoices?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-type]");

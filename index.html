@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260825-42">
+    <link rel="stylesheet" href="styles.css?v=20260825-43">
   </head>
   <body>
     <main class="app-shell">
@@ -1543,13 +1543,13 @@
               </header>
 
               <div class="capd-test-list">
-                <section class="capd-test-item" data-capd-min-age="0">
+                <section class="capd-test-item" data-capd-min-age="0" data-capd-code="TRW" data-capd-name="Test reakcji wzrokowej" data-capd-unit="ms">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>TRW</strong><span>Test reakcji wzrokowej</span></div>
                     <p>Sprawdza szybkość zauważenia bodźca wzrokowego, tempo pracy i koncentrację.</p>
                     <label class="capd-result-field">
                       <span>Wynik TRW</span>
-                      <input id="capdTrwResult" name="capd_trw" type="text" inputmode="decimal" placeholder="Wpisz wynik w ms" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdTrwResult" name="capd_trw" type="text" inputmode="decimal" placeholder="Wpisz wynik" autocomplete="off"><span>ms</span></span>
                       <small>Norma zależy od wieku. Porównaj z normą wyświetloną w Neuroflow po badaniu.</small>
                     </label>
                   </div>
@@ -1559,13 +1559,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="0">
+                <section class="capd-test-item" data-capd-min-age="0" data-capd-code="TRS" data-capd-name="Test reakcji słuchowej" data-capd-unit="ms">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>TRS</strong><span>Test reakcji słuchowej</span></div>
                     <p>Sprawdza, jak szybko dziecko reaguje na prosty dźwięk.</p>
                     <label class="capd-result-field">
                       <span>Wynik TRS</span>
-                      <input id="capdTrsResult" name="capd_trs" type="text" inputmode="decimal" placeholder="np. 458 ms" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdTrsResult" name="capd_trs" type="text" inputmode="decimal" placeholder="np. 458" autocomplete="off"><span>ms</span></span>
                       <small>Norma: do 550 ms.</small>
                     </label>
                   </div>
@@ -1575,13 +1575,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6">
+                <section class="capd-test-item" data-capd-min-age="0" data-capd-code="ASPN-S" data-capd-name="Rozumienie słów w szumie" data-capd-unit="dB SNR">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>ASPN-S</strong><span>Adaptacyjny test rozumienia słów w szumie</span></div>
                     <p>Sprawdza rozumienie pojedynczych słów przy obecności hałasu w tle.</p>
                     <label class="capd-result-field">
                       <span>Wynik ASPN-S</span>
-                      <input id="capdAspnSResult" name="capd_aspn_s" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdAspnSResult" name="capd_aspn_s" type="text" inputmode="decimal" placeholder="Wpisz wynik" autocomplete="off"><span>dB SNR</span></span>
                     </label>
                   </div>
                   <details class="capd-test-details">
@@ -1590,13 +1590,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6">
+                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="ASPN-Z" data-capd-name="Rozumienie zdań w szumie" data-capd-unit="dB SNR">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>ASPN-Z</strong><span>Adaptacyjny test rozumienia zdań w szumie</span></div>
                     <p>Sprawdza rozumienie całych wypowiedzi w trudniejszych warunkach akustycznych.</p>
                     <label class="capd-result-field">
                       <span>Wynik ASPN-Z</span>
-                      <input id="capdAspnZResult" name="capd_aspn_z" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdAspnZResult" name="capd_aspn_z" type="text" inputmode="decimal" placeholder="Wpisz wynik" autocomplete="off"><span>dB SNR</span></span>
                     </label>
                   </div>
                   <details class="capd-test-details">
@@ -1605,13 +1605,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6">
+                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="DDT" data-capd-name="Test rozdzielnousznego słyszenia" data-capd-unit="%">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>DDT</strong><span>Test rozdzielnousznego słyszenia</span></div>
                     <p>Ocenia podzielność uwagi słuchowej, dominację półkulową dla rozumienia mowy oraz pamięć słuchową.</p>
                     <label class="capd-result-field">
                       <span>Wynik DDT</span>
-                      <input id="capdDdtResult" name="capd_ddt" type="text" placeholder="np. P: 85%, L: 80%" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdDdtResult" name="capd_ddt" type="text" placeholder="np. P: 85, L: 80" autocomplete="off"><span>%</span></span>
                     </label>
                   </div>
                   <details class="capd-test-details">
@@ -1620,13 +1620,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6">
+                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="FPT" data-capd-name="Test sekwencji częstotliwości" data-capd-unit="%">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>FPT</strong><span>Test sekwencji częstotliwości</span></div>
                     <p>Ocenia rozróżnianie wysokości dźwięków, słuch fonemowy i krótkotrwałą pamięć słuchową.</p>
                     <label class="capd-result-field">
                       <span>Wynik FPT</span>
-                      <input id="capdFptResult" name="capd_fpt" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdFptResult" name="capd_fpt" type="text" inputmode="decimal" placeholder="Wpisz wynik" autocomplete="off"><span>%</span></span>
                     </label>
                   </div>
                   <details class="capd-test-details">
@@ -1635,13 +1635,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6">
+                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="GDT" data-capd-name="Wykrywanie przerw w szumie" data-capd-unit="ms">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>GDT</strong><span>Wykrywanie przerw w szumie</span></div>
                     <p>Sprawdza, jak krótką przerwę pomiędzy dźwiękami dziecko potrafi zauważyć.</p>
                     <label class="capd-result-field">
                       <span>Wynik GDT</span>
-                      <input id="capdGdtResult" name="capd_gdt" type="text" inputmode="decimal" placeholder="np. 5 ms" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdGdtResult" name="capd_gdt" type="text" inputmode="decimal" placeholder="np. 5" autocomplete="off"><span>ms</span></span>
                     </label>
                   </div>
                   <details class="capd-test-details">
@@ -1650,13 +1650,13 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6">
+                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="DLF" data-capd-name="Różnicowanie wysokości dźwięków" data-capd-unit="Hz">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>DLF</strong><span>Różnicowanie wysokości dźwięków</span></div>
                     <p>Sprawdza, jak małą różnicę w wysokości dwóch dźwięków dziecko potrafi usłyszeć.</p>
                     <label class="capd-result-field">
                       <span>Wynik DLF</span>
-                      <input id="capdDlfResult" name="capd_dlf" type="text" placeholder="Wpisz wynik badania" autocomplete="off">
+                      <span class="capd-result-control"><input id="capdDlfResult" name="capd_dlf" type="text" inputmode="decimal" placeholder="Wpisz wynik" autocomplete="off"><span>Hz</span></span>
                     </label>
                   </div>
                   <details class="capd-test-details">
@@ -1688,8 +1688,34 @@
             </label>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
+              <button id="printCapdReportBtn" type="button">Drukuj / PDF</button>
             </div>
           </form>
+
+          <section id="capdReport" class="capd-report offer-document" aria-label="Gotowy formularz badania CAPD">
+            <header class="offer-document-head">
+              <div>
+                <p>SATIS Pracownia Słuchu</p>
+                <h2 id="capdReportTitle">Badanie CAPD</h2>
+                <span id="capdReportMeta">Podaj dane dziecka i datę badania</span>
+              </div>
+              <img src="satis-monogram.png" alt="SATIS">
+            </header>
+            <div class="capd-report-patient">
+              <span>Dziecko<strong id="capdReportPatient">-</strong></span>
+              <span>Wiek<strong id="capdReportAge">-</strong></span>
+              <span>Zakres<strong id="capdReportScope">Do ustalenia</strong></span>
+            </div>
+            <table class="capd-report-table">
+              <thead><tr><th>Badanie</th><th>Co sprawdza</th><th>Wynik</th></tr></thead>
+              <tbody id="capdReportResults"></tbody>
+            </table>
+            <section class="capd-report-conclusions">
+              <h3>Opis badania i wnioski</h3>
+              <p id="capdReportDescription">Miejsce na podsumowanie wyników, obserwacje i zalecenia.</p>
+            </section>
+            <p class="capd-report-disclaimer">Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu. Nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania.</p>
+          </section>
         </section>
       </section>
 
@@ -2277,6 +2303,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260825-42"></script>
+    <script src="app.js?v=20260825-43"></script>
   </body>
 </html>
