@@ -36,6 +36,7 @@ const SUPABASE_COMPLAINT_HISTORY_TABLE = "pricing_complaint_history";
 const SUPABASE_PCPR_LIST_TABLE = "pcpr_list";
 const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
+const SUPABASE_CAPD_HISTORY_TABLE = "capd_history";
 const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
@@ -77,11 +78,13 @@ const PRICING_PCPR_LIST_STORAGE_KEY = "zeszyt-aparatow-pcpr-list-v1";
 const DOCUMENT_LOCATION_USAGE_STORAGE_KEY = "zeszyt-aparatow-document-location-usage-v1";
 const VACATION_EMPLOYEES_STORAGE_KEY = "zeszyt-aparatow-vacation-employees-v1";
 const VACATION_REQUESTS_STORAGE_KEY = "zeszyt-aparatow-vacation-requests-v1";
+const CAPD_HISTORY_STORAGE_KEY = "zeszyt-aparatow-capd-history-v1";
 const MAX_PRICING_LOAN_HISTORY = 300;
 const MAX_PRICING_OFFER_HISTORY = 300;
 const MAX_PRICING_ORDER_HISTORY = 300;
 const MAX_PRICING_COMPLAINT_HISTORY = 300;
 const MAX_PRICING_PCPR_LIST = 1000;
+const MAX_CAPD_HISTORY = 1000;
 const DOCUMENT_LOCATIONS = [
   { key: "T12", value: "Bielsko-Biała, ul. Traugutta 12" },
   { key: "P63", value: "Bielsko-Biała, ul. Partyzantów 63" },
@@ -477,8 +480,11 @@ let pricingComplaintHistorySupabaseAvailable = null;
 let pricingPcprListSupabaseAvailable = null;
 let vacationEmployeesSupabaseAvailable = null;
 let vacationRequestsSupabaseAvailable = null;
+let capdHistorySupabaseAvailable = null;
 let vacationEmployees = [];
 let vacationRequests = [];
+let capdHistory = loadCapdHistory();
+let activeCapdHistoryId = "";
 let activeVacationRequestId = "";
 let pricingPcprPlaceFilter = "";
 let pricingPcprOfficeFilter = "";
@@ -825,6 +831,7 @@ const capdScopePanel = document.querySelector("#capdScopePanel");
 const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
 const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
+const saveCapdHistoryBtn = document.querySelector("#saveCapdHistoryBtn");
 const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
 const capdReportTitle = document.querySelector("#capdReportTitle");
 const capdReportMeta = document.querySelector("#capdReportMeta");
@@ -835,6 +842,10 @@ const capdReportAge = document.querySelector("#capdReportAge");
 const capdReportDate = document.querySelector("#capdReportDate");
 const capdReportResults = document.querySelector("#capdReportResults");
 const capdReportDescription = document.querySelector("#capdReportDescription");
+const capdHistorySearchInput = document.querySelector("#capdHistorySearchInput");
+const capdHistoryCount = document.querySelector("#capdHistoryCount");
+const capdHistoryList = document.querySelector("#capdHistoryList");
+const capdHistoryEmpty = document.querySelector("#capdHistoryEmpty");
 const vacationForm = document.querySelector("#vacationForm");
 const vacationEmployeeInput = document.querySelector("#vacationEmployeeInput");
 const vacationYearInput = document.querySelector("#vacationYearInput");
@@ -1089,7 +1100,7 @@ function updatePrivateModulesVisibility() {
   if (vacationOwnerLeaveField) vacationOwnerLeaveField.hidden = !ownerVisible;
   if (vacationRemainingCard) vacationRemainingCard.hidden = !ownerVisible;
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
-  if ((!ownerVisible && activeNotebook === "capd") || (!sharedVisible && activeNotebook === "vacation")) switchNotebook("devices");
+  if (!sharedVisible && ["capd", "vacation"].includes(activeNotebook)) switchNotebook("devices");
 }
 
 function updatePricingManagementVisibility() {
@@ -1904,7 +1915,8 @@ async function refreshRecordsFromSupabase(options = {}) {
       sharedOfferHistory,
       sharedOrderHistory,
       sharedComplaintHistory,
-      sharedPcprList
+      sharedPcprList,
+      sharedCapdHistory
     ] = await Promise.all([
       loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX }),
       loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse),
@@ -1918,7 +1930,8 @@ async function refreshRecordsFromSupabase(options = {}) {
       loadSupabasePricingOfferHistory(),
       loadSupabasePricingOrderHistory(),
       loadSupabasePricingComplaintHistory(),
-      loadSupabasePricingPcprList()
+      loadSupabasePricingPcprList(),
+      loadSupabaseCapdHistory()
     ]);
     records = sharedRecords;
     repairRecords = sharedRepairRecords;
@@ -1929,6 +1942,7 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedOrderHistory) pricingOrderHistory = sharedOrderHistory;
     if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
     if (sharedPcprList) pricingPcprList = sharedPcprList;
+    if (sharedCapdHistory) capdHistory = sharedCapdHistory;
     await loadPrivatePayments();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
@@ -2124,6 +2138,12 @@ function subscribeToSupabaseChanges() {
     });
   }
 
+  if (capdHistorySupabaseAvailable !== false) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_CAPD_HISTORY_TABLE }, () => {
+      loadSupabaseCapdHistory().catch((error) => console.warn("Nie udało się odświeżyć historii CAPD:", error.message));
+    });
+  }
+
   supabaseRealtimeChannel = channel.subscribe((status) => {
     if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
     if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -2141,6 +2161,7 @@ async function activateSupabaseSession(user) {
   pricingPcprListSupabaseAvailable = null;
   vacationEmployeesSupabaseAvailable = null;
   vacationRequestsSupabaseAvailable = null;
+  capdHistorySupabaseAvailable = null;
   hideAuthDialog();
   setConnectionStatus("syncing", "Łączenie...");
   renderCachedRecordsBeforeSupabaseSync();
@@ -2194,11 +2215,14 @@ async function logoutFromSupabase() {
   pricingOrderHistory = loadPricingOrderHistory();
   pricingComplaintHistory = loadPricingComplaintHistory();
   pricingPcprList = loadPricingPcprList();
+  capdHistory = loadCapdHistory();
   pricingLoanHistorySupabaseAvailable = null;
   pricingOfferHistorySupabaseAvailable = null;
   pricingOrderHistorySupabaseAvailable = null;
   pricingComplaintHistorySupabaseAvailable = null;
   pricingPcprListSupabaseAvailable = null;
+  capdHistorySupabaseAvailable = null;
+  activeCapdHistoryId = "";
   activePricingLoanHistoryId = "";
   rebuildDerivedData();
   render();
@@ -12582,12 +12606,267 @@ function printCapdReport() {
   window.print();
 }
 
+function normalizeCapdHistoryEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const ageText = normalizeLoanHistoryText(entry.age);
+  const results = Array.isArray(entry.results) ? entry.results.map((result) => ({
+    code: normalizeLoanHistoryText(result?.code).toLocaleUpperCase("pl-PL"),
+    name: normalizeLoanHistoryText(result?.name),
+    unit: normalizeLoanHistoryText(result?.unit),
+    value: normalizeLoanHistoryText(result?.value)
+  })).filter((result) => result.code) : [];
+  const normalizedEntry = {
+    id: normalizeLoanHistoryText(entry.id || makeId()),
+    createdAt: normalizeLoanHistoryText(entry.createdAt || entry.savedAt || new Date().toISOString()),
+    savedAt: normalizeLoanHistoryText(entry.savedAt || entry.createdAt || new Date().toISOString()),
+    savedBy: normalizeLoanHistoryText(entry.savedBy || entry.userEmail),
+    workstation: normalizeLoanHistoryText(entry.workstation),
+    patient: titleCaseName(entry.patient || entry.customer || ""),
+    pesel: String(entry.pesel || "").replace(/\D/g, "").slice(0, 11),
+    birthDate: isoDateForSave(entry.birthDate) || normalizeLoanHistoryText(entry.birthDate),
+    age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
+    testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
+    scope: normalizeLoanHistoryText(entry.scope),
+    description: String(entry.description || "").trim(),
+    results
+  };
+  return normalizedEntry.patient && normalizedEntry.pesel && normalizedEntry.testDate ? normalizedEntry : null;
+}
+
+function normalizeCapdHistory(entries) {
+  if (!Array.isArray(entries)) return [];
+  const byId = new Map();
+  entries.forEach((entry) => {
+    const normalizedEntry = normalizeCapdHistoryEntry(entry);
+    if (!normalizedEntry) return;
+    const current = byId.get(normalizedEntry.id);
+    if (!current || String(normalizedEntry.savedAt).localeCompare(String(current.savedAt)) > 0) byId.set(normalizedEntry.id, normalizedEntry);
+  });
+  return [...byId.values()]
+    .sort((left, right) => String(right.testDate || right.savedAt).localeCompare(String(left.testDate || left.savedAt)))
+    .slice(0, MAX_CAPD_HISTORY);
+}
+
+function loadCapdHistory() {
+  try {
+    return normalizeCapdHistory(JSON.parse(localStorage.getItem(CAPD_HISTORY_STORAGE_KEY) || "[]"));
+  } catch (error) {
+    console.warn(error);
+    localStorage.removeItem(CAPD_HISTORY_STORAGE_KEY);
+    return [];
+  }
+}
+
+function saveLocalCapdHistory() {
+  capdHistory = normalizeCapdHistory(capdHistory);
+  localStorage.setItem(CAPD_HISTORY_STORAGE_KEY, JSON.stringify(capdHistory));
+}
+
+async function loadSupabaseCapdHistory() {
+  if (!hasSupabaseConfig || !currentSupabaseUser || capdHistorySupabaseAvailable === false) return null;
+  try {
+    const sharedHistory = await loadSupabaseTable(SUPABASE_CAPD_HISTORY_TABLE, normalizeCapdHistory);
+    capdHistorySupabaseAvailable = true;
+    capdHistory = normalizeCapdHistory(sharedHistory);
+    saveLocalCapdHistory();
+    renderCapdHistory();
+    return capdHistory;
+  } catch (error) {
+    console.warn("Historia CAPD działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (isMissingSupabaseTableError(error)) capdHistorySupabaseAvailable = false;
+    renderCapdHistory();
+    return null;
+  }
+}
+
+function currentCapdSnapshot() {
+  const now = new Date().toISOString();
+  const age = capdAgeValue();
+  return {
+    id: activeCapdHistoryId || makeId(),
+    createdAt: now,
+    savedAt: now,
+    savedBy: currentSupabaseUser?.email || "",
+    workstation: currentWorkstationName(),
+    patient: titleCaseName(capdPatientInput?.value || ""),
+    pesel: String(capdPeselInput?.value || "").replace(/\D/g, ""),
+    birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
+    age: age ?? "",
+    testDate: isoDateForSave(capdDateInput?.value || ""),
+    scope: age !== null && age < 6 ? "PODSTAWOWY" : "PEŁNY",
+    description: String(document.querySelector("#capdDescriptionInput")?.value || "").trim(),
+    results: capdReportTestItems().map((item) => ({
+      code: item.dataset.capdCode || "",
+      name: item.dataset.capdName || "",
+      unit: item.dataset.capdUnit || "",
+      value: String(item.querySelector("input")?.value || "").trim()
+    }))
+  };
+}
+
+async function persistCapdHistoryEntry(entry) {
+  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  if (capdHistorySupabaseAvailable === false) {
+    throw new Error("Brakuje tabeli capd_history w Supabase. Uruchom plik supabase-capd-history.sql w SQL Editorze.");
+  }
+  const { error } = await supabaseClient.from(SUPABASE_CAPD_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
+  if (error) throw error;
+  capdHistorySupabaseAvailable = true;
+}
+
+async function saveCurrentCapdToHistory() {
+  const parsedPesel = parseCapdPesel(capdPeselInput?.value);
+  const snapshot = normalizeCapdHistoryEntry(currentCapdSnapshot());
+  if (!snapshot || !parsedPesel) {
+    alert("Uzupełnij imię i nazwisko, poprawny PESEL oraz datę badania.");
+    return;
+  }
+  if (!snapshot.results.some((result) => result.value)) {
+    alert("Wpisz przynajmniej jeden wynik badania.");
+    return;
+  }
+
+  const previousHistory = capdHistory.slice();
+  const existing = capdHistory.find((entry) => entry.id === snapshot.id);
+  const historyEntry = normalizeCapdHistoryEntry({
+    ...snapshot,
+    createdAt: existing?.createdAt || snapshot.createdAt,
+    savedAt: new Date().toISOString()
+  });
+  capdHistory = normalizeCapdHistory([historyEntry, ...capdHistory.filter((entry) => entry.id !== historyEntry.id)]);
+  activeCapdHistoryId = historyEntry.id;
+  saveLocalCapdHistory();
+  renderCapdHistory();
+
+  const originalText = saveCapdHistoryBtn?.textContent;
+  if (saveCapdHistoryBtn) {
+    saveCapdHistoryBtn.disabled = true;
+    saveCapdHistoryBtn.textContent = "Zapisywanie...";
+  }
+  try {
+    await persistCapdHistoryEntry(historyEntry);
+    alert(existing ? "Badanie CAPD zostało zaktualizowane." : "Badanie CAPD zostało zapisane w historii.");
+  } catch (error) {
+    capdHistory = previousHistory;
+    activeCapdHistoryId = existing?.id || "";
+    saveLocalCapdHistory();
+    renderCapdHistory();
+    alert(`Nie udało się zapisać historii CAPD: ${error.message}`);
+  } finally {
+    if (saveCapdHistoryBtn) {
+      saveCapdHistoryBtn.disabled = false;
+      saveCapdHistoryBtn.textContent = originalText || "Zapisz badanie";
+    }
+  }
+}
+
+function restoreCapdHistoryEntry(entry) {
+  const historyEntry = normalizeCapdHistoryEntry(entry);
+  if (!historyEntry) return;
+  activeCapdHistoryId = historyEntry.id;
+  if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
+  if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
+  setDateInputValue(capdDateInput, historyEntry.testDate);
+  const descriptionInput = document.querySelector("#capdDescriptionInput");
+  if (descriptionInput) descriptionInput.value = historyEntry.description;
+  document.querySelectorAll("#capdTestsPanel [data-capd-code] input").forEach((input) => {
+    const code = input.closest("[data-capd-code]")?.dataset.capdCode || "";
+    input.value = historyEntry.results.find((result) => result.code === code)?.value || "";
+  });
+  updateCapdFromPesel();
+  renderCapdReport();
+  capdForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function deleteCapdHistoryEntry(id) {
+  if (!canViewPrivateModules()) return;
+  const entry = capdHistory.find((item) => item.id === id);
+  if (!entry || !confirm(`Usunąć badanie CAPD: ${entry.patient}, ${formatDate(entry.testDate)}?`)) return;
+  const previousHistory = capdHistory.slice();
+  capdHistory = capdHistory.filter((item) => item.id !== id);
+  if (activeCapdHistoryId === id) activeCapdHistoryId = "";
+  saveLocalCapdHistory();
+  renderCapdHistory();
+  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  try {
+    const { error } = await supabaseClient.from(SUPABASE_CAPD_HISTORY_TABLE).delete().eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    capdHistory = previousHistory;
+    saveLocalCapdHistory();
+    renderCapdHistory();
+    alert(`Nie udało się usunąć badania CAPD: ${error.message}`);
+  }
+}
+
+function capdHistoryCountLabel(count) {
+  if (count === 1) return "1 badanie";
+  if (count >= 2 && count <= 4) return `${count} badania`;
+  return `${count} badań`;
+}
+
+function renderCapdHistory() {
+  if (!capdHistoryList) return;
+  const query = normalize(capdHistorySearchInput?.value || "");
+  const visibleHistory = capdHistory.filter((entry) => !query || normalize([
+    entry.patient,
+    entry.pesel,
+    entry.birthDate,
+    entry.testDate,
+    entry.description,
+    ...entry.results.map((result) => `${result.code} ${result.value}`)
+  ].join(" ")).includes(query));
+  if (capdHistoryCount) capdHistoryCount.textContent = capdHistoryCountLabel(visibleHistory.length);
+  if (capdHistoryEmpty) capdHistoryEmpty.hidden = visibleHistory.length > 0;
+
+  const cards = visibleHistory.map((entry) => {
+    const card = document.createElement("article");
+    card.className = "capd-history-item";
+    if (entry.id === activeCapdHistoryId) card.classList.add("active");
+    const main = document.createElement("div");
+    main.className = "capd-history-main";
+    const title = document.createElement("strong");
+    title.textContent = entry.patient;
+    const meta = document.createElement("span");
+    const ageLabel = entry.age === "" ? "wiek -" : formatCapdAge(Number(entry.age));
+    meta.textContent = `${formatDate(entry.testDate)} · PESEL ${entry.pesel} · ${ageLabel}`;
+    const results = document.createElement("small");
+    results.textContent = entry.results.map((result) => `${result.code}: ${result.value || "-"} ${result.unit}`).join(" | ");
+    const audit = document.createElement("small");
+    audit.className = "capd-history-audit";
+    audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
+    main.append(title, meta, results, audit);
+
+    const actions = document.createElement("div");
+    actions.className = "capd-history-actions";
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.className = "reset-filters-btn";
+    openButton.textContent = "Wczytaj";
+    openButton.addEventListener("click", () => restoreCapdHistoryEntry(entry));
+    actions.append(openButton);
+    if (canViewPrivateModules()) {
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "ghost capd-history-delete";
+      deleteButton.textContent = "Usuń";
+      deleteButton.addEventListener("click", () => deleteCapdHistoryEntry(entry.id));
+      actions.append(deleteButton);
+    }
+    card.append(main, actions);
+    return card;
+  });
+  capdHistoryList.replaceChildren(...cards);
+}
+
 function resetCapdForm() {
   capdForm?.reset();
+  activeCapdHistoryId = "";
   capdPeselInput?.classList.remove("invalid");
   setCapdPeselStatus();
   setDateInputValue(capdDateInput, todayInputValue());
   updateCapdScope();
+  renderCapdHistory();
 }
 
 function selectedVacationYear() {
@@ -13570,8 +13849,7 @@ async function deleteVacationRequest(id) {
 }
 
 function switchNotebook(notebookName) {
-  if (notebookName === "capd" && !canViewPrivateModules()) return;
-  if (notebookName === "vacation" && !currentSupabaseUser) return;
+  if (["capd", "vacation"].includes(notebookName) && !currentSupabaseUser) return;
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
   notebookSwitchButtons.forEach((button) => {
@@ -13608,6 +13886,7 @@ function switchNotebook(notebookName) {
 
   if (activeNotebook === "capd") {
     updateCapdScope();
+    renderCapdHistory();
     return;
   }
 
@@ -16517,7 +16796,9 @@ capdPatientInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
 });
 resetCapdFormBtn?.addEventListener("click", resetCapdForm);
+saveCapdHistoryBtn?.addEventListener("click", saveCurrentCapdToHistory);
 printCapdReportBtn?.addEventListener("click", printCapdReport);
+capdHistorySearchInput?.addEventListener("input", debounce(renderCapdHistory, SEARCH_DEBOUNCE_MS));
 vacationTypeInput?.addEventListener("change", updateVacationSaturdayField);
 vacationTypeChoices?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-type]");

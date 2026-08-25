@@ -865,6 +865,109 @@ h2 {
   font-weight: 820;
 }
 
+#saveCapdHistoryBtn {
+  min-height: 30px;
+  padding: 0 12px;
+  color: #fff;
+  border-color: #426f7a;
+  background: #426f7a;
+  font-size: 0.76rem;
+  font-weight: 820;
+}
+
+.capd-history-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  border-top: 1px solid #dbe4e5;
+  padding-top: 18px;
+}
+
+.capd-history-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.capd-history-head h3 {
+  margin: 2px 0 0;
+  color: #003f5a;
+  font-size: 1rem;
+}
+
+.capd-history-head > span {
+  color: #5e737a;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.capd-history-search {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 420px);
+  align-items: center;
+  justify-content: start;
+  gap: 9px;
+}
+
+.capd-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.capd-history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #dce4e5;
+  border-left: 4px solid #77908a;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fbfcfc;
+}
+
+.capd-history-item.active {
+  border-left-color: #167f83;
+  background: #f1f9f8;
+}
+
+.capd-history-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.capd-history-main > strong {
+  color: #003f5a;
+  font-size: 0.86rem;
+}
+
+.capd-history-main > span,
+.capd-history-main > small {
+  overflow: hidden;
+  color: #586d74;
+  font-size: 0.71rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capd-history-main .capd-history-audit {
+  color: #879398;
+  font-size: 0.65rem;
+}
+
+.capd-history-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.capd-history-delete {
+  color: #98473e;
+  border-color: #e5c7c3;
+}
+
 @media (max-width: 720px) {
   .capd-form-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -887,6 +990,15 @@ h2 {
 
   .capd-report-patient {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-history-item,
+  .capd-history-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-history-actions {
+    justify-content: flex-end;
   }
 }
 
