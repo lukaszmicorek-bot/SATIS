@@ -463,6 +463,27 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.capd-form-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(110px, 0.55fr) minmax(180px, 0.8fr);
+}
+
+.capd-patient-field,
+.capd-age-field,
+.capd-date-field {
+  grid-column: auto;
+}
+
+.capd-patient-field {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.capd-patient-field input {
+  border-width: 1.5px;
+  background: #f6fbfc;
+}
+
 .capd-scope-panel {
   display: grid;
   gap: 4px;
@@ -681,7 +702,7 @@ h2 {
 
 .capd-report-patient {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(90px, 0.5fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(90px, 0.5fr) minmax(150px, 0.8fr);
   gap: 10px;
 }
 
@@ -806,6 +827,10 @@ h2 {
 }
 
 @media (max-width: 720px) {
+  .capd-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .capd-test-item {
     grid-template-columns: minmax(0, 1fr);
   }
