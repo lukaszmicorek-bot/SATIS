@@ -1126,12 +1126,12 @@ h2 {
 }
 
 .date-picker-day.vacation-own-leave {
-  --vacation-own-border: #b9a3cf;
-  --vacation-own-color: #684d80;
-  --vacation-own-background: #f1ebf8;
-  --vacation-own-hover-border: #9677b4;
-  --vacation-own-hover-background: #e7dcf2;
-  --vacation-own-selected: #80609e;
+  --vacation-own-border: #82c8c1;
+  --vacation-own-color: #176963;
+  --vacation-own-background: #e5f5f3;
+  --vacation-own-hover-border: #54aaa1;
+  --vacation-own-hover-background: #d3eeeb;
+  --vacation-own-selected: #348f87;
   border-color: var(--vacation-own-border);
   color: var(--vacation-own-color);
   background: var(--vacation-own-background);
