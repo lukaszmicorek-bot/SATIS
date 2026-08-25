@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260825-45">
+    <link rel="stylesheet" href="styles.css?v=20260825-46">
   </head>
   <body>
     <main class="app-shell">
@@ -48,7 +48,7 @@
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik</button>
           <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
-          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-owner hidden>CAPD</button>
+          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>CAPD</button>
           <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
         </div>
         <div class="connection-panel" aria-live="polite">
@@ -1510,7 +1510,7 @@
               <p class="eyebrow">Badanie przetwarzania słuchowego</p>
               <h2>CAPD</h2>
             </div>
-            <span class="private-module-badge">Prywatne</span>
+            <span class="private-module-badge">Gabinet</span>
           </header>
 
           <form id="capdForm" class="private-form-grid capd-form-grid">
@@ -1697,6 +1697,7 @@
             </label>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
+              <button id="saveCapdHistoryBtn" type="button">Zapisz badanie</button>
               <button id="printCapdReportBtn" type="button">Drukuj / PDF</button>
             </div>
           </form>
@@ -1726,6 +1727,22 @@
               <p id="capdReportDescription">Miejsce na podsumowanie wyników, obserwacje i zalecenia.</p>
             </section>
             <p class="capd-report-disclaimer">Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu. Nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania.</p>
+          </section>
+
+          <section class="capd-history-panel" aria-label="Historia badań CAPD">
+            <header class="capd-history-head">
+              <div>
+                <p class="eyebrow">Zapisane badania</p>
+                <h3>Historia CAPD</h3>
+              </div>
+              <span id="capdHistoryCount">0 badań</span>
+            </header>
+            <label class="capd-history-search">
+              <span>Szukaj</span>
+              <input id="capdHistorySearchInput" type="search" placeholder="Imię i nazwisko, PESEL lub data" autocomplete="off">
+            </label>
+            <div id="capdHistoryList" class="capd-history-list"></div>
+            <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych badań CAPD.</p>
           </section>
         </section>
       </section>
@@ -2314,6 +2331,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260825-45"></script>
+    <script src="app.js?v=20260825-46"></script>
   </body>
 </html>
