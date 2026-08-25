@@ -12817,7 +12817,24 @@ function updateVacationTypeChoices() {
   });
 }
 
+function vacationSaturdayMarkersDisabled(employee) {
+  const employeeName = normalize(employee?.name);
+  return employeeName.includes("dorota") && (employeeName.includes("łukasz") || employeeName.includes("lukasz"));
+}
+
+function vacationEmployeeTrackingStartDate(employeeId) {
+  return vacationRequests
+    .filter((request) => request.employeeId === employeeId)
+    .map((request) => request.dateFrom)
+    .filter(Boolean)
+    .sort()[0] || "";
+}
+
 function vacationSaturdayHolidayStatus(holidayDate, employeeId = vacationEmployeeInput?.value || "") {
+  const employee = vacationEmployees.find((item) => item.id === employeeId);
+  if (!employeeId || vacationSaturdayMarkersDisabled(employee)) {
+    return { key: "available", symbol: "", label: "Bez oznaczenia" };
+  }
   const request = vacationRequests.find((item) =>
     item.employeeId === employeeId &&
     item.type === "ZA SOBOTĘ" &&
@@ -12829,6 +12846,10 @@ function vacationSaturdayHolidayStatus(holidayDate, employeeId = vacationEmploye
   }
   if (request?.status === "OCZEKUJE") {
     return { key: "pending", symbol: "•", label: "Oczekuje na zatwierdzenie" };
+  }
+  const trackingStartDate = vacationEmployeeTrackingStartDate(employeeId);
+  if (!trackingStartDate || holidayDate < trackingStartDate) {
+    return { key: "available", symbol: "", label: "Poza okresem ewidencji pracownika" };
   }
   if (holidayDate < todayInputValue()) {
     return { key: "expired", symbol: "×", label: "Minął termin - dzień niewykorzystany" };
