@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260825-44">
+    <link rel="stylesheet" href="styles.css?v=20260825-45">
   </head>
   <body>
     <main class="app-shell">
@@ -1518,9 +1518,18 @@
               <span>Imię i nazwisko dziecka</span>
               <input id="capdPatientInput" type="text" list="customerNameSuggestions" autocomplete="off">
             </label>
+            <label class="capd-pesel-field">
+              <span>PESEL</span>
+              <input id="capdPeselInput" type="text" inputmode="numeric" maxlength="11" placeholder="11 cyfr" autocomplete="off">
+              <small id="capdPeselStatus" class="capd-pesel-status" aria-live="polite"></small>
+            </label>
+            <label class="capd-birth-date-field">
+              <span>Data urodzenia</span>
+              <input id="capdBirthDateInput" type="text" placeholder="-" readonly>
+            </label>
             <label class="capd-age-field">
-              <span>Wiek dziecka</span>
-              <input id="capdAgeInput" type="number" min="0" max="17" step="1" inputmode="numeric" placeholder="Lata">
+              <span>Wiek</span>
+              <input id="capdAgeInput" type="number" min="0" step="1" placeholder="-" readonly>
             </label>
             <label class="capd-date-field">
               <span>Data badania</span>
@@ -1703,6 +1712,8 @@
             </header>
             <div class="capd-report-patient">
               <span>Dziecko<strong id="capdReportPatient">-</strong></span>
+              <span>PESEL<strong id="capdReportPesel">-</strong></span>
+              <span>Data urodzenia<strong id="capdReportBirthDate">-</strong></span>
               <span>Wiek<strong id="capdReportAge">-</strong></span>
               <span>Data badania<strong id="capdReportDate">-</strong></span>
             </div>
@@ -2303,6 +2314,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
     <script src="demo-data.js?v=20260613-5"></script>
-    <script src="app.js?v=20260825-44"></script>
+    <script src="app.js?v=20260825-45"></script>
   </body>
 </html>
