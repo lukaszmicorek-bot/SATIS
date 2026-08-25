@@ -12752,6 +12752,7 @@ function renderVacationEmployees() {
     const entry = document.createElement("div");
     entry.className = "vacation-employee-entry";
     entry.classList.toggle("is-self", employee.id === myEmployeeId);
+    if (vacationSaturdayMarkersDisabled(employee)) entry.dataset.employeeTone = "owner";
     const item = document.createElement("button");
     item.type = "button";
     item.className = "vacation-employee-item";
