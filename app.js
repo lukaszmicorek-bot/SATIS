@@ -3782,7 +3782,7 @@ function normalizeDeviceRecordForUse(record) {
   normalizedRecord.salesInvoice = normalizeSalesInvoice(normalizedRecord.salesInvoice);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.type = effectiveDeviceType(normalizedRecord, normalizedRecord.type || "NA STANIE");
-  normalizedRecord.ezwm = normalizeEzwmStatus(normalizedRecord.ezwm);
+  normalizedRecord.ezwm = normalizedRecord.type === "ZWROT" ? "" : normalizeEzwmStatus(normalizedRecord.ezwm);
   return normalizedRecord;
 }
 
@@ -5232,7 +5232,7 @@ function filteredRecords() {
       const meta = deviceDerived.get(record.id);
       const matchesType = !selectedType || meta?.displayType === selectedType;
       const matchesLocation = !selectedLocation || (meta?.location ?? normalizeRepairLocation(record.location)) === selectedLocation;
-      const ezwm = normalizeEzwmStatus(record.ezwm);
+      const ezwm = meta?.displayType === "ZWROT" ? "" : normalizeEzwmStatus(record.ezwm);
       const matchesEzwm = !selectedEzwm || (selectedEzwm === "BRAK" ? !ezwm : ezwm === selectedEzwm);
       const age = meta?.age ?? null;
       const matchesFifo =
@@ -11638,6 +11638,7 @@ function createWaybillCell(waybillNumber) {
 }
 
 function createEzwmCell(record) {
+  if (displayType(record) === "ZWROT") return "";
   const normalizedValue = normalizeEzwmStatus(record?.ezwm);
   const soldWithoutRealization = displayType(record) === "SPRZEDANY" && !["REALIZACJA", "BEZ REFUNDACJI"].includes(normalizedValue);
 
@@ -13499,6 +13500,7 @@ function openDialog(record = null) {
     document.querySelector("#type").value = "NA STANIE";
     document.querySelector("#location").value = "P63";
   }
+  syncDeviceEzwmForType();
   updateDocumentLocationAccent(document.querySelector("#location"));
   updateDateInputsTodayState(recordForm);
   renderQualityHints("devices");
@@ -13728,8 +13730,17 @@ function formRecord() {
   data.salesInvoice = normalizeSalesInvoice(data.salesInvoice);
   data.location = normalizeRepairLocation(data.location);
   data.type = effectiveDeviceType(data, data.type || "NA STANIE");
-  data.ezwm = normalizeEzwmStatus(data.ezwm);
+  data.ezwm = data.type === "ZWROT" ? "" : normalizeEzwmStatus(data.ezwm);
   return data;
+}
+
+function syncDeviceEzwmForType() {
+  const ezwmInput = document.querySelector("#ezwm");
+  if (!ezwmInput || !typeSelect) return;
+  const isReturn = normalizeDeviceType(typeSelect.value) === "ZWROT";
+  if (isReturn) ezwmInput.value = "";
+  ezwmInput.disabled = isReturn;
+  ezwmInput.title = isReturn ? "EZWM nie dotyczy zwrotu" : "";
 }
 
 function syncDeviceTypeFromFields() {
@@ -13742,6 +13753,7 @@ function syncDeviceTypeFromFields() {
   const nextType = shouldAutoSetDeviceType(data) ? suggestedDeviceType(data, currentType) : "NA STANIE";
   typeInput.value = nextType;
   if (nextType === "NA STANIE" && !document.querySelector("#location").value) document.querySelector("#location").value = "P63";
+  syncDeviceEzwmForType();
   updateDeviceTypeSelectStyles();
 }
 
@@ -13749,6 +13761,7 @@ function syncStockLocationFromType() {
   if (normalizeDeviceType(typeSelect.value) === "NA STANIE" && !document.querySelector("#location").value) {
     document.querySelector("#location").value = "P63";
   }
+  syncDeviceEzwmForType();
   updateDeviceTypeSelectStyles();
 }
 
