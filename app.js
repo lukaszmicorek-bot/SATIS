@@ -12693,8 +12693,9 @@ function updateVacationTypeChoices() {
   });
 }
 
-function vacationSaturdayHolidayStatus(holidayDate) {
+function vacationSaturdayHolidayStatus(holidayDate, employeeId = vacationEmployeeInput?.value || "") {
   const request = vacationRequests.find((item) =>
+    item.employeeId === employeeId &&
     item.type === "ZA SOBOTĘ" &&
     item.saturdayDate === holidayDate &&
     item.status !== "ODRZUCONY"
@@ -13137,6 +13138,7 @@ async function submitVacationRequest(event) {
   const existingSaturdayRequest = type === "ZA SOBOTĘ"
     ? vacationRequests.find((request) =>
       request.id !== editedRequest?.id &&
+      request.employeeId === employee.id &&
       request.type === "ZA SOBOTĘ" &&
       request.saturdayDate === saturdayDate &&
       request.status !== "ODRZUCONY"
@@ -16227,6 +16229,7 @@ vacationEmployeeList?.addEventListener("click", (event) => {
   renderVacationEmployees();
   renderVacationSummary();
   renderVacationHistory();
+  renderVacationSaturdayHolidays();
   updateVacationUnitFields();
 });
 vacationPendingReminder?.addEventListener("click", () => {
