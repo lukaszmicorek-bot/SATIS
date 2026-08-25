@@ -510,12 +510,13 @@ h2 {
 }
 
 .vacation-saturday-choice {
+  position: relative;
   display: inline-grid;
   min-height: 40px;
   gap: 1px;
   justify-items: start;
   border-color: #d9cbbc;
-  padding: 6px 9px;
+  padding: 6px 34px 6px 9px;
   color: #665749;
   background: #faf7f3;
   text-align: left;
@@ -539,6 +540,57 @@ h2 {
 
 .vacation-saturday-choice.active span {
   color: rgba(255, 255, 255, 0.82);
+}
+
+.vacation-saturday-choice .vacation-saturday-status,
+.vacation-saturday-holiday-list .vacation-saturday-status {
+  display: inline-flex;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.vacation-saturday-choice .vacation-saturday-status {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+[data-status="used"] .vacation-saturday-status {
+  color: #276348;
+  background: #e5f4eb;
+}
+
+.vacation-saturday-choice.active[data-status="used"] .vacation-saturday-status {
+  color: #276348;
+}
+
+[data-status="expired"] .vacation-saturday-status {
+  color: #943f36;
+  background: #fbe9e6;
+}
+
+.vacation-saturday-choice.active[data-status="expired"] .vacation-saturday-status {
+  color: #943f36;
+}
+
+[data-status="pending"] .vacation-saturday-status {
+  color: #775620;
+  background: #fff1d8;
+}
+
+.vacation-saturday-choice.active[data-status="pending"] .vacation-saturday-status {
+  color: #775620;
+}
+
+[data-status="available"] .vacation-saturday-status {
+  display: none;
 }
 
 .vacation-date-range {
@@ -710,6 +762,7 @@ h2 {
 .vacation-employee-entry {
   position: relative;
   display: inline-flex;
+  margin-top: 7px;
 }
 
 .vacation-employee-picker-label {
@@ -748,10 +801,14 @@ h2 {
 }
 
 .vacation-employee-percent {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  z-index: 2;
   display: inline-flex;
-  width: 31px;
-  min-width: 31px;
-  height: 31px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
   align-items: center;
   justify-content: center;
   border: 1px solid #9fc7ba;
@@ -1002,6 +1059,7 @@ h2 {
 }
 
 .vacation-saturday-holiday-list > div {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1013,6 +1071,16 @@ h2 {
 
 .vacation-saturday-holiday-list span {
   color: var(--muted);
+}
+
+.vacation-saturday-holiday-list > div[data-status="used"] {
+  border-left-color: #4f8c6a;
+  background: #f1f8f4;
+}
+
+.vacation-saturday-holiday-list > div[data-status="expired"] {
+  border-left-color: #bd6a61;
+  background: #fdf4f2;
 }
 
 .vacation-history-table-wrap {
