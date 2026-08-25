@@ -816,6 +816,9 @@ const privateOwnerNotebookButtons = document.querySelectorAll("[data-private-own
 const privateSharedNotebookButtons = document.querySelectorAll("[data-private-shared]");
 const capdForm = document.querySelector("#capdForm");
 const capdPatientInput = document.querySelector("#capdPatientInput");
+const capdPeselInput = document.querySelector("#capdPeselInput");
+const capdPeselStatus = document.querySelector("#capdPeselStatus");
+const capdBirthDateInput = document.querySelector("#capdBirthDateInput");
 const capdAgeInput = document.querySelector("#capdAgeInput");
 const capdDateInput = document.querySelector("#capdDateInput");
 const capdScopePanel = document.querySelector("#capdScopePanel");
@@ -826,6 +829,8 @@ const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
 const capdReportTitle = document.querySelector("#capdReportTitle");
 const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
+const capdReportPesel = document.querySelector("#capdReportPesel");
+const capdReportBirthDate = document.querySelector("#capdReportBirthDate");
 const capdReportAge = document.querySelector("#capdReportAge");
 const capdReportDate = document.querySelector("#capdReportDate");
 const capdReportResults = document.querySelector("#capdReportResults");
@@ -12383,6 +12388,88 @@ function switchView(viewName, groupName) {
   renderDeviceViews();
 }
 
+function parseCapdPesel(value) {
+  const pesel = String(value || "").replace(/\D/g, "");
+  if (pesel.length !== 11) return null;
+  const digits = [...pesel].map(Number);
+  const checksumWeights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
+  const checksum = (10 - checksumWeights.reduce((sum, weight, index) => sum + weight * digits[index], 0) % 10) % 10;
+  if (checksum !== digits[10]) return null;
+
+  const encodedMonth = Number(pesel.slice(2, 4));
+  let year = Number(pesel.slice(0, 2));
+  let month = encodedMonth;
+  if (encodedMonth >= 81 && encodedMonth <= 92) {
+    year += 1800;
+    month -= 80;
+  } else if (encodedMonth >= 1 && encodedMonth <= 12) {
+    year += 1900;
+  } else if (encodedMonth >= 21 && encodedMonth <= 32) {
+    year += 2000;
+    month -= 20;
+  } else if (encodedMonth >= 41 && encodedMonth <= 52) {
+    year += 2100;
+    month -= 40;
+  } else if (encodedMonth >= 61 && encodedMonth <= 72) {
+    year += 2200;
+    month -= 60;
+  } else {
+    return null;
+  }
+
+  const day = Number(pesel.slice(4, 6));
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return { pesel, birthDate: isoDateFromParts(year, month, day) };
+}
+
+function ageOnDate(birthDate, referenceDate) {
+  const parseParts = (value) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+    return match ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) } : null;
+  };
+  const birth = parseParts(birthDate);
+  const reference = parseParts(referenceDate);
+  if (!birth || !reference || referenceDate < birthDate) return null;
+  let age = reference.year - birth.year;
+  if (reference.month < birth.month || (reference.month === birth.month && reference.day < birth.day)) age -= 1;
+  return Math.max(age, 0);
+}
+
+function setCapdPeselStatus(message = "", state = "") {
+  if (!capdPeselStatus) return;
+  capdPeselStatus.textContent = message;
+  capdPeselStatus.dataset.state = state;
+}
+
+function updateCapdFromPesel() {
+  if (!capdPeselInput || !capdAgeInput || !capdBirthDateInput) return;
+  const sanitized = capdPeselInput.value.replace(/\D/g, "").slice(0, 11);
+  if (capdPeselInput.value !== sanitized) capdPeselInput.value = sanitized;
+  const parsed = parseCapdPesel(sanitized);
+  capdPeselInput.classList.toggle("invalid", sanitized.length === 11 && !parsed);
+
+  if (!parsed) {
+    capdBirthDateInput.value = "";
+    capdAgeInput.value = "";
+    setCapdPeselStatus(sanitized.length === 11 ? "Nieprawidłowy numer PESEL" : "", sanitized.length === 11 ? "error" : "");
+    updateCapdScope();
+    return;
+  }
+
+  const testDate = isoDateForSave(capdDateInput?.value || "") || todayInputValue();
+  const age = ageOnDate(parsed.birthDate, testDate);
+  capdBirthDateInput.value = formatDate(parsed.birthDate);
+  if (age === null) {
+    capdAgeInput.value = "";
+    setCapdPeselStatus("Data badania jest wcześniejsza niż data urodzenia", "error");
+  } else {
+    capdAgeInput.value = String(age);
+    setCapdPeselStatus("PESEL poprawny", "valid");
+  }
+  updateCapdScope();
+}
+
 function updateCapdScope() {
   if (!capdScopePanel || !capdScopeTitle || !capdScopeDescription) return;
   const testsPanel = document.querySelector("#capdTestsPanel");
@@ -12421,6 +12508,14 @@ function capdAgeValue() {
   return Number.isFinite(age) ? age : null;
 }
 
+function formatCapdAge(age) {
+  if (age === 1) return "1 rok";
+  const lastTwo = age % 100;
+  const lastDigit = age % 10;
+  if (lastDigit >= 2 && lastDigit <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${age} lata`;
+  return `${age} lat`;
+}
+
 function capdReportTestItems() {
   const age = capdAgeValue();
   const effectiveAge = age === null ? 0 : age;
@@ -12442,6 +12537,8 @@ function appendCapdReportResultCell(row, value, unit) {
 function renderCapdReport() {
   if (!capdReportResults) return;
   const patient = titleCaseName(capdPatientInput?.value || "");
+  const pesel = String(capdPeselInput?.value || "").trim();
+  const birthDate = String(capdBirthDateInput?.value || "").trim();
   const age = capdAgeValue();
   const dateIso = isoDateForSave(capdDateInput?.value || "");
   const scope = age === null ? "Zakres podstawowy" : age < 6 ? "Testy dla dzieci poniżej 6 lat" : "Pełne testy CAPD";
@@ -12450,7 +12547,9 @@ function renderCapdReport() {
   if (capdReportTitle) capdReportTitle.textContent = patient ? `Badanie CAPD - ${patient}` : "Badanie CAPD";
   if (capdReportMeta) capdReportMeta.textContent = `Zakres: ${scope}`;
   if (capdReportPatient) capdReportPatient.textContent = patient || "-";
-  if (capdReportAge) capdReportAge.textContent = age === null ? "-" : `${age} lat`;
+  if (capdReportPesel) capdReportPesel.textContent = pesel || "-";
+  if (capdReportBirthDate) capdReportBirthDate.textContent = birthDate || "-";
+  if (capdReportAge) capdReportAge.textContent = age === null ? "-" : formatCapdAge(age);
   if (capdReportDate) capdReportDate.textContent = dateIso ? formatDate(dateIso) : "-";
   if (capdReportDescription) {
     capdReportDescription.textContent = description || "Miejsce na podsumowanie wyników, obserwacje i zalecenia.";
@@ -12485,6 +12584,8 @@ function printCapdReport() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  capdPeselInput?.classList.remove("invalid");
+  setCapdPeselStatus();
   setDateInputValue(capdDateInput, todayInputValue());
   updateCapdScope();
 }
@@ -16403,6 +16504,10 @@ notebookSwitchButtons.forEach((button) => {
 
 capdAgeInput?.addEventListener("input", updateCapdScope);
 capdAgeInput?.addEventListener("change", updateCapdScope);
+capdPeselInput?.addEventListener("input", updateCapdFromPesel);
+capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
+capdDateInput?.addEventListener("input", updateCapdFromPesel);
+capdDateInput?.addEventListener("change", updateCapdFromPesel);
 capdForm?.addEventListener("input", renderCapdReport);
 capdForm?.addEventListener("change", renderCapdReport);
 capdPatientInput?.addEventListener("input", (event) => {

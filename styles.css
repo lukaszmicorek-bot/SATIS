@@ -464,24 +464,63 @@ h2 {
 }
 
 .capd-form-grid {
-  grid-template-columns: minmax(0, 2fr) minmax(110px, 0.55fr) minmax(180px, 0.8fr);
+  grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) minmax(130px, 0.9fr) minmax(76px, 0.45fr) minmax(150px, 0.9fr);
 }
 
 .capd-patient-field,
+.capd-pesel-field,
+.capd-birth-date-field,
 .capd-age-field,
 .capd-date-field {
   grid-column: auto;
 }
 
-.capd-patient-field {
+.person-name-field.capd-patient-field {
   border: 0;
   padding: 0;
   background: transparent;
 }
 
-.capd-patient-field input {
+.person-name-field.capd-patient-field input {
   border-width: 1.5px;
   background: #f6fbfc;
+}
+
+.capd-pesel-field input {
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.capd-pesel-field input.invalid {
+  border-color: #c85c50;
+  color: #8d3931;
+  background: #fff5f3;
+}
+
+.capd-pesel-status {
+  min-height: 0;
+  color: #77878c;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.capd-pesel-status:empty {
+  display: none;
+}
+
+.capd-pesel-status[data-state="valid"] {
+  color: #39745f;
+}
+
+.capd-pesel-status[data-state="error"] {
+  color: #a44339;
+}
+
+.capd-birth-date-field input:read-only,
+.capd-age-field input:read-only {
+  color: #31525d;
+  background: #f2f6f6;
+  font-weight: 850;
 }
 
 .capd-scope-panel {
@@ -702,7 +741,7 @@ h2 {
 
 .capd-report-patient {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(90px, 0.5fr) minmax(150px, 0.8fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(100px, 0.85fr) minmax(110px, 0.85fr) minmax(70px, 0.45fr) minmax(110px, 0.75fr);
   gap: 10px;
 }
 
@@ -8130,6 +8169,18 @@ textarea {
   }
 }
 
+@page capdReportPage {
+  size: A4 portrait;
+  margin: 10mm 10mm 15mm;
+
+  @bottom-center {
+    content: "Strona " counter(page) " / " counter(pages);
+    color: #60737a;
+    font-family: Arial, sans-serif;
+    font-size: 8pt;
+  }
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -8217,6 +8268,7 @@ textarea {
   }
 
   body.capd-report-print .capd-report {
+    page: capdReportPage;
     width: 100%;
     max-width: none;
     margin: 0;
