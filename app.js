@@ -851,7 +851,9 @@ const vacationAllowanceUnitLabel = document.querySelector("#vacationAllowanceUni
 const vacationUsedTotal = document.querySelector("#vacationUsedTotal");
 const vacationUsageCard = document.querySelector("#vacationUsageCard");
 const vacationUsagePercent = document.querySelector("#vacationUsagePercent");
+const vacationPlanCard = document.querySelector("#vacationPlanCard");
 const vacationExpectedTotal = document.querySelector("#vacationExpectedTotal");
+const vacationPlanLabel = document.querySelector("#vacationPlanLabel");
 const vacationSummary = document.querySelector("#vacationSummary");
 const vacationRemainingCard = document.querySelector("#vacationRemainingCard");
 const vacationRemainingTotal = document.querySelector("#vacationRemainingTotal");
@@ -12848,9 +12850,20 @@ function renderVacationSummary() {
   if (vacationUsagePercent) vacationUsagePercent.textContent = usagePercent === null ? "-" : `${usagePercent}%`;
   if (vacationUsageCard) vacationUsageCard.style.setProperty("--vacation-usage", `${Math.max(0, Math.min(100, usagePercent || 0))}%`);
   const expected = employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
-  if (vacationExpectedTotal) vacationExpectedTotal.textContent = expected === null
+  const planBalance = expected === null ? null : expected - used;
+  const unitLabel = usesHours ? "godz." : "dni";
+  if (vacationExpectedTotal) vacationExpectedTotal.textContent = planBalance === null
     ? "-"
-    : `${formatVacationAmount(expected)} z ${formatVacationAmount(allowance)}`;
+    : `${planBalance > 0 ? "+" : ""}${formatVacationAmount(planBalance)} ${unitLabel}`;
+  if (vacationPlanLabel) vacationPlanLabel.textContent = expected === null
+    ? "względem planu"
+    : `względem planu · cel ${formatVacationAmount(expected)}`;
+  if (vacationPlanCard) {
+    vacationPlanCard.dataset.tone = planBalance === null ? "none" : planBalance < 0 ? "ahead" : planBalance > 0 ? "behind" : "balanced";
+    vacationPlanCard.title = expected === null
+      ? ""
+      : `Do dziś planowane wykorzystanie: ${formatVacationAmount(expected)} z ${formatVacationAmount(allowance)} ${unitLabel}.`;
+  }
 }
 
 function vacationExpectedUsage(allowance, year, usesHours) {
