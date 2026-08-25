@@ -1126,12 +1126,12 @@ h2 {
 }
 
 .date-picker-day.vacation-own-leave {
-  --vacation-own-border: #8fc5b8;
-  --vacation-own-color: #236b65;
-  --vacation-own-background: #e3f3ef;
-  --vacation-own-hover-border: #5ca798;
-  --vacation-own-hover-background: #d4ece7;
-  --vacation-own-selected: #4b948b;
+  --vacation-own-border: #b9a3cf;
+  --vacation-own-color: #684d80;
+  --vacation-own-background: #f1ebf8;
+  --vacation-own-hover-border: #9677b4;
+  --vacation-own-hover-background: #e7dcf2;
+  --vacation-own-selected: #80609e;
   border-color: var(--vacation-own-border);
   color: var(--vacation-own-color);
   background: var(--vacation-own-background);
@@ -1151,12 +1151,12 @@ h2 {
 }
 
 .date-picker-day.vacation-own-t12 {
-  --vacation-own-border: #aebfca;
-  --vacation-own-color: #355f73;
-  --vacation-own-background: #e8f1f5;
-  --vacation-own-hover-border: #789caf;
-  --vacation-own-hover-background: #d9e8ef;
-  --vacation-own-selected: #567f93;
+  --vacation-own-border: #c9bfb3;
+  --vacation-own-color: #6f604f;
+  --vacation-own-background: #faf8f5;
+  --vacation-own-hover-border: #aa9987;
+  --vacation-own-hover-background: #f0ece6;
+  --vacation-own-selected: #877565;
 }
 
 .date-picker-day.vacation-own-p50 {

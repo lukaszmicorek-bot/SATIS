@@ -15472,7 +15472,7 @@ function renderDatePicker() {
     hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
   if (isVacationCalendarInput()) {
-    hint.textContent = "Zielono-niebieskie daty to Twoje zatwierdzone dni wolne. Czerwone są zajęte przez inną osobę; nadal możesz je wybrać i wysłać prośbę.";
+    hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne wybranego pracownika. Czerwone są zajęte przez inną osobę; nadal możesz je wybrać i wysłać prośbę.";
   }
 
   const months = document.createElement("div");
