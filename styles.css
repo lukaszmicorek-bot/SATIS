@@ -7697,6 +7697,13 @@ dialog::backdrop {
   font-weight: 700;
 }
 
+.auth-security-note {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .form-error {
   min-height: 20px;
   margin: -6px 0 10px;

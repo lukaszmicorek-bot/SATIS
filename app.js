@@ -37,6 +37,7 @@ const SUPABASE_PCPR_LIST_TABLE = "pcpr_list";
 const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
 const SUPABASE_CAPD_HISTORY_TABLE = "capd_history";
+const SUPABASE_APP_ACCESS_TABLE = "app_authorized_users";
 const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
@@ -79,6 +80,23 @@ const DOCUMENT_LOCATION_USAGE_STORAGE_KEY = "zeszyt-aparatow-document-location-u
 const VACATION_EMPLOYEES_STORAGE_KEY = "zeszyt-aparatow-vacation-employees-v1";
 const VACATION_REQUESTS_STORAGE_KEY = "zeszyt-aparatow-vacation-requests-v1";
 const CAPD_HISTORY_STORAGE_KEY = "zeszyt-aparatow-capd-history-v1";
+const SESSION_INACTIVITY_MS = 15 * 60 * 1000;
+const SENSITIVE_STORAGE_KEYS = new Set([
+  STORAGE_KEY,
+  REPAIR_STORAGE_KEY,
+  DEMO_STORAGE_KEY,
+  STOCK_AUDIT_STORAGE_KEY,
+  PRIVATE_PAYMENTS_STORAGE_KEY,
+  AUDIT_LOG_STORAGE_KEY,
+  PRICING_LOAN_HISTORY_STORAGE_KEY,
+  PRICING_OFFER_HISTORY_STORAGE_KEY,
+  PRICING_ORDER_HISTORY_STORAGE_KEY,
+  PRICING_COMPLAINT_HISTORY_STORAGE_KEY,
+  PRICING_PCPR_LIST_STORAGE_KEY,
+  VACATION_EMPLOYEES_STORAGE_KEY,
+  VACATION_REQUESTS_STORAGE_KEY,
+  CAPD_HISTORY_STORAGE_KEY
+]);
 const MAX_PRICING_LOAN_HISTORY = 300;
 const MAX_PRICING_OFFER_HISTORY = 300;
 const MAX_PRICING_ORDER_HISTORY = 300;
@@ -187,13 +205,46 @@ const DATA_CONTROL_SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseKey = supabaseConfig.publishableKey || supabaseConfig.anonKey || "";
 const hasSupabaseSettings = Boolean(supabaseConfig.url && supabaseKey);
+function clearLegacyPersistentAuthSession() {
+  if (!hasSupabaseSettings) return;
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index) || "";
+    if (/^sb-.+-auth-token$/u.test(key)) localStorage.removeItem(key);
+  }
+}
+
+function readSensitiveStorage(key) {
+  if (hasSupabaseSettings) return null;
+  return localStorage.getItem(key);
+}
+
+function writeSensitiveStorage(key, value) {
+  if (hasSupabaseSettings) {
+    localStorage.removeItem(key);
+    return;
+  }
+  localStorage.setItem(key, value);
+}
+
+function removeSensitiveStorage(key) {
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+}
+
+function clearSensitiveBrowserData() {
+  SENSITIVE_STORAGE_KEYS.forEach(removeSensitiveStorage);
+}
+
+clearLegacyPersistentAuthSession();
+clearSensitiveBrowserData();
 const hasSupabaseConfig = Boolean(hasSupabaseSettings && window.supabase);
 const supabaseClient = hasSupabaseConfig
   ? window.supabase.createClient(supabaseConfig.url, supabaseKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        storage: window.sessionStorage
       }
     })
   : null;
@@ -212,6 +263,8 @@ let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
 let currentSupabaseUser = null;
+let inactivityLogoutTimeout = 0;
+let inactivityLogoutInProgress = false;
 let supabaseRealtimeChannel = null;
 let supabaseRefreshTimeout = 0;
 let supabaseChangeTimeout = 0;
@@ -481,6 +534,7 @@ let pricingPcprListSupabaseAvailable = null;
 let vacationEmployeesSupabaseAvailable = null;
 let vacationRequestsSupabaseAvailable = null;
 let capdHistorySupabaseAvailable = null;
+let appAccessHardeningAvailable = null;
 let vacationEmployees = [];
 let vacationRequests = [];
 let capdHistory = loadCapdHistory();
@@ -960,6 +1014,7 @@ function updateConnectionUser(user) {
   updateWorkstationButton();
   updatePrivatePaymentVisibility();
   updatePricingManagementVisibility();
+  updateSensitiveTransferVisibility();
   updatePrivateModulesVisibility();
   if (activeNotebook === "pricing" || activeNotebook === "agreements") renderPricingRecords();
 }
@@ -1109,6 +1164,16 @@ function updatePricingManagementVisibility() {
     if (!button) return;
     button.hidden = !visible;
     button.disabled = !visible;
+  });
+}
+
+function updateSensitiveTransferVisibility() {
+  const allowed = canManagePricing();
+  ["#exportBtn", "#importBtn", "#exportDemoBtn", "#exportRepairBtn", "#importRepairBtn"].forEach((selector) => {
+    const button = document.querySelector(selector);
+    if (!button) return;
+    button.hidden = !allowed;
+    button.disabled = !allowed;
   });
 }
 
@@ -1276,7 +1341,7 @@ function persistPrivatePaymentUpdates(updates) {
 
 function loadLocalPrivatePayments() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(PRIVATE_PAYMENTS_STORAGE_KEY) || "{}");
+    const parsed = JSON.parse(readSensitiveStorage(PRIVATE_PAYMENTS_STORAGE_KEY) || "{}");
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     return Object.fromEntries(
       Object.entries(parsed)
@@ -1289,7 +1354,7 @@ function loadLocalPrivatePayments() {
 }
 
 function saveLocalPrivatePayments() {
-  localStorage.setItem(PRIVATE_PAYMENTS_STORAGE_KEY, JSON.stringify(privatePayments));
+  writeSensitiveStorage(PRIVATE_PAYMENTS_STORAGE_KEY, JSON.stringify(privatePayments));
 }
 
 async function loadPrivatePayments() {
@@ -1380,7 +1445,7 @@ function normalizeAuditLogEntry(entry) {
 
 function loadLocalAuditLogs() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(AUDIT_LOG_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(readSensitiveStorage(AUDIT_LOG_STORAGE_KEY) || "[]");
     if (!Array.isArray(parsed)) return [];
     return parsed.map(normalizeAuditLogEntry).filter(Boolean);
   } catch {
@@ -1394,7 +1459,7 @@ function saveLocalAuditLogs() {
     .filter(Boolean)
     .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
     .slice(0, 1500);
-  localStorage.setItem(AUDIT_LOG_STORAGE_KEY, JSON.stringify(auditLogs));
+  writeSensitiveStorage(AUDIT_LOG_STORAGE_KEY, JSON.stringify(auditLogs));
 }
 
 function appendLocalAuditLog(entry) {
@@ -1892,7 +1957,7 @@ async function seedDemoRecordsIfEmpty() {
   if (markError) throw new Error(`Dane Demo zapisano, ale nie udało się oznaczyć importu: ${markError.message}`);
 
   demoRecords = seedRecords;
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
   render();
 }
@@ -1944,9 +2009,9 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedPcprList) pricingPcprList = sharedPcprList;
     if (sharedCapdHistory) capdHistory = sharedCapdHistory;
     await loadPrivatePayments();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildDerivedData();
     render();
     setConnectionStatus("online", "Supabase");
@@ -2034,9 +2099,9 @@ function flushSupabaseChanges() {
     }
   });
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
   render();
   if (canViewPrivatePayments()) {
@@ -2152,8 +2217,33 @@ function subscribeToSupabaseChanges() {
   });
 }
 
+async function verifySupabaseAppAccess(user) {
+  if (!hasSupabaseConfig || !user || appAccessHardeningAvailable === false) return true;
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_APP_ACCESS_TABLE)
+    .select("active, role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) {
+    if (isMissingSupabaseTableError(error)) {
+      appAccessHardeningAvailable = false;
+      console.warn("Ochrona listą kont nie jest jeszcze aktywna. Uruchom supabase-security-hardening.sql.");
+      return true;
+    }
+    throw new Error(`Nie udało się sprawdzić uprawnień konta: ${error.message}`);
+  }
+  appAccessHardeningAvailable = true;
+  if (!data?.active) {
+    await supabaseClient.auth.signOut({ scope: "local" });
+    throw new Error("To konto nie ma dostępu do aplikacji SATIS. Właściciel musi je najpierw zatwierdzić.");
+  }
+  return true;
+}
+
 async function activateSupabaseSession(user) {
+  await verifySupabaseAppAccess(user);
   updateConnectionUser(user);
+  resetInactivityLogoutTimer();
   pricingLoanHistorySupabaseAvailable = null;
   pricingOfferHistorySupabaseAvailable = null;
   pricingOrderHistorySupabaseAvailable = null;
@@ -2189,6 +2279,7 @@ async function handleAuthSubmit(event) {
       password: authPassword.value
     });
     if (error) throw error;
+    authPassword.value = "";
     await activateSupabaseSession(data.user);
   } catch (error) {
     showAuthDialog(`Nie udało się zalogować: ${error.message}`);
@@ -2198,41 +2289,68 @@ async function handleAuthSubmit(event) {
   }
 }
 
-async function logoutFromSupabase() {
-  if (!supabaseClient) return;
-  await supabaseClient.auth.signOut();
+function resetInactivityLogoutTimer() {
+  window.clearTimeout(inactivityLogoutTimeout);
+  if (!currentSupabaseUser || !hasSupabaseConfig) return;
+  inactivityLogoutTimeout = window.setTimeout(() => {
+    logoutFromSupabase({ reason: "Sesja została zakończona po 15 minutach bezczynności." });
+  }, SESSION_INACTIVITY_MS);
+}
+
+function clearSensitiveApplicationState() {
+  records = [];
+  repairRecords = [];
+  demoRecords = [];
+  privatePayments = {};
+  auditLogs = [];
+  pricingLoanHistory = [];
+  pricingOfferHistory = [];
+  pricingOrderHistory = [];
+  pricingComplaintHistory = [];
+  pricingPcprList = [];
+  vacationEmployees = [];
+  vacationRequests = [];
+  capdHistory = [];
+  activeCapdHistoryId = "";
+  activePricingLoanHistoryId = "";
+  demoReturnReminderShown = false;
+  document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
+  document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
+  clearSensitiveBrowserData();
+  rebuildDerivedData();
+  render();
+}
+
+async function logoutFromSupabase(options = {}) {
+  if (!supabaseClient || inactivityLogoutInProgress) return;
+  inactivityLogoutInProgress = true;
+  window.clearTimeout(inactivityLogoutTimeout);
+  try {
+    await supabaseClient.auth.signOut({ scope: "local" });
+  } catch (error) {
+    console.warn("Nie udało się unieważnić sesji na serwerze:", error?.message || error);
+  }
   if (supabaseRealtimeChannel) {
     await supabaseClient.removeChannel(supabaseRealtimeChannel);
     supabaseRealtimeChannel = null;
   }
   updateConnectionUser(null);
-  records = [];
-  repairRecords = [];
-  demoRecords = [];
-  demoReturnReminderShown = false;
-  pricingLoanHistory = loadPricingLoanHistory();
-  pricingOfferHistory = loadPricingOfferHistory();
-  pricingOrderHistory = loadPricingOrderHistory();
-  pricingComplaintHistory = loadPricingComplaintHistory();
-  pricingPcprList = loadPricingPcprList();
-  capdHistory = loadCapdHistory();
   pricingLoanHistorySupabaseAvailable = null;
   pricingOfferHistorySupabaseAvailable = null;
   pricingOrderHistorySupabaseAvailable = null;
   pricingComplaintHistorySupabaseAvailable = null;
   pricingPcprListSupabaseAvailable = null;
   capdHistorySupabaseAvailable = null;
-  activeCapdHistoryId = "";
-  activePricingLoanHistoryId = "";
-  rebuildDerivedData();
-  render();
+  clearSensitiveApplicationState();
+  authPassword.value = "";
   setConnectionStatus("offline", "Zaloguj się");
-  showAuthDialog();
+  showAuthDialog(typeof options?.reason === "string" ? options.reason : "");
+  inactivityLogoutInProgress = false;
 }
 
 function loadStockAudit() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STOCK_AUDIT_STORAGE_KEY) || "{}");
+    const parsed = JSON.parse(readSensitiveStorage(STOCK_AUDIT_STORAGE_KEY) || "{}");
     return {
       checkedAt: isoDateForSave(parsed.checkedAt) || "",
       checkedBy: titleCaseName(parsed.checkedBy || ""),
@@ -2284,7 +2402,7 @@ function persistStockAudit(audit) {
       : [...new Set((stockAudit.checkedItems || []).map(String).filter(Boolean))],
     items: normalizeStockAuditItems(Array.isArray(audit.items) ? audit.items : stockAudit.items)
   };
-  localStorage.setItem(STOCK_AUDIT_STORAGE_KEY, JSON.stringify(stockAudit));
+  writeSensitiveStorage(STOCK_AUDIT_STORAGE_KEY, JSON.stringify(stockAudit));
 }
 
 function stockAuditRecords() {
@@ -2591,9 +2709,9 @@ function clearStockAuditItems() {
 }
 
 function loadLocalRecords() {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = readSensitiveStorage(STORAGE_KEY);
   if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify([]));
     return [];
   }
 
@@ -2610,7 +2728,7 @@ async function loadRecords() {
     const sharedRecords = await loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, {
       excludeIdPrefix: DEMO_ID_PREFIX
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedRecords));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(sharedRecords));
     return sharedRecords;
   }
 
@@ -2621,7 +2739,7 @@ async function loadRecords() {
       const sharedRecords = await response.json();
       if (!Array.isArray(sharedRecords)) throw new Error("Wspólna baza ma niepoprawny format.");
       const normalizedRecords = normalizeDeviceRecordsForUse(sharedRecords);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedRecords));
+      writeSensitiveStorage(STORAGE_KEY, JSON.stringify(normalizedRecords));
       return normalizedRecords;
     } catch (error) {
       console.warn(error);
@@ -2632,9 +2750,9 @@ async function loadRecords() {
 }
 
 function loadLocalRepairRecords() {
-  const stored = localStorage.getItem(REPAIR_STORAGE_KEY);
+  const stored = readSensitiveStorage(REPAIR_STORAGE_KEY);
   if (!stored) {
-    localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify([]));
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify([]));
     return [];
   }
 
@@ -2649,7 +2767,7 @@ function loadLocalRepairRecords() {
 async function loadRepairRecords() {
   if (hasSupabaseConfig && currentSupabaseUser) {
     const sharedRecords = await loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse);
-    localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(sharedRecords));
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(sharedRecords));
     return sharedRecords;
   }
 
@@ -2660,7 +2778,7 @@ async function loadRepairRecords() {
       const sharedRecords = await response.json();
       if (!Array.isArray(sharedRecords)) throw new Error("Zeszyt napraw i wkładek ma niepoprawny format.");
       const normalizedRecords = normalizeRepairRecordsForUse(sharedRecords);
-      localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(normalizedRecords));
+      writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(normalizedRecords));
       return normalizedRecords;
     } catch (error) {
       console.warn(error);
@@ -2671,7 +2789,7 @@ async function loadRepairRecords() {
 }
 
 function loadLocalDemoRecords() {
-  const stored = localStorage.getItem(DEMO_STORAGE_KEY);
+  const stored = readSensitiveStorage(DEMO_STORAGE_KEY);
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
@@ -2682,7 +2800,7 @@ function loadLocalDemoRecords() {
   }
 
   const seedRecords = normalizeDemoRecordsForUse(window.DEMO_SEED_RECORDS || []);
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(seedRecords));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(seedRecords));
   return seedRecords;
 }
 
@@ -2693,7 +2811,7 @@ async function loadDemoRecords() {
       (loadedRecords) => normalizeDemoRecordsForUse(loadedRecords.filter((record) => record.id !== DEMO_SEED_MARKER_ID)),
       { idPrefix: DEMO_ID_PREFIX }
     );
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(sharedRecords));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(sharedRecords));
     return sharedRecords;
   }
 
@@ -2704,7 +2822,7 @@ async function loadDemoRecords() {
       const sharedRecords = await response.json();
       if (!Array.isArray(sharedRecords)) throw new Error("Aparaty demo mają niepoprawny format.");
       const normalizedRecords = normalizeDemoRecordsForUse(sharedRecords);
-      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(normalizedRecords));
+      writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(normalizedRecords));
       return normalizedRecords;
     } catch (error) {
       console.warn(error);
@@ -2751,9 +2869,9 @@ async function refreshRecordsFromServer() {
     records = normalizeDeviceRecordsForUse(sharedRecords);
     repairRecords = normalizeRepairRecordsForUse(sharedRepairRecords);
     demoRecords = normalizeDemoRecordsForUse(sharedDemoRecords);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildDerivedData();
     render();
   } catch (error) {
@@ -2762,7 +2880,7 @@ async function refreshRecordsFromServer() {
 }
 
 async function saveRepairRecords() {
-  localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
   if (hasSupabaseConfig) {
     await replaceSupabaseTable(SUPABASE_REPAIR_TABLE, repairRecords);
     return;
@@ -2783,7 +2901,7 @@ async function saveRepairRecords() {
 }
 
 async function saveDemoRecords() {
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   if (hasSupabaseConfig) {
     await replaceSupabaseTable(SUPABASE_DEVICE_TABLE, demoRecords, { idPrefix: DEMO_ID_PREFIX, excludeIds: [DEMO_SEED_MARKER_ID] });
     return;
@@ -2804,7 +2922,7 @@ async function saveDemoRecords() {
 }
 
 async function saveRecords() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
   if (hasSupabaseConfig) {
     await replaceSupabaseTable(SUPABASE_DEVICE_TABLE, records, { excludeIdPrefix: DEMO_ID_PREFIX });
     return;
@@ -2825,7 +2943,7 @@ async function saveRecords() {
 }
 
 async function persistDeviceRecord(record) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
   if (hasSupabaseConfig) {
     await upsertSupabaseRecord(SUPABASE_DEVICE_TABLE, record);
     return;
@@ -2834,7 +2952,7 @@ async function persistDeviceRecord(record) {
 }
 
 async function persistRepairRecord(record) {
-  localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
   if (hasSupabaseConfig) {
     await upsertSupabaseRecord(SUPABASE_REPAIR_TABLE, record);
     return;
@@ -2843,7 +2961,7 @@ async function persistRepairRecord(record) {
 }
 
 async function persistDeletedDeviceRecord(id) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
   if (hasSupabaseConfig) {
     await deleteSupabaseRecord(SUPABASE_DEVICE_TABLE, id);
     return;
@@ -2852,7 +2970,7 @@ async function persistDeletedDeviceRecord(id) {
 }
 
 async function persistDeletedRepairRecord(id) {
-  localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
   if (hasSupabaseConfig) {
     await deleteSupabaseRecord(SUPABASE_REPAIR_TABLE, id);
     return;
@@ -2861,7 +2979,7 @@ async function persistDeletedRepairRecord(id) {
 }
 
 async function persistDemoRecord(record) {
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   if (hasSupabaseConfig) {
     await upsertSupabaseRecord(SUPABASE_DEVICE_TABLE, record);
     return;
@@ -2870,7 +2988,7 @@ async function persistDemoRecord(record) {
 }
 
 async function persistDeletedDemoRecord(id) {
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   if (hasSupabaseConfig) {
     await deleteSupabaseRecord(SUPABASE_DEVICE_TABLE, id);
     return;
@@ -6159,17 +6277,17 @@ function normalizePricingOfferHistory(entries) {
 
 function loadPricingOfferHistory() {
   try {
-    return normalizePricingOfferHistory(JSON.parse(localStorage.getItem(PRICING_OFFER_HISTORY_STORAGE_KEY) || "[]"));
+    return normalizePricingOfferHistory(JSON.parse(readSensitiveStorage(PRICING_OFFER_HISTORY_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn(error);
-    localStorage.removeItem(PRICING_OFFER_HISTORY_STORAGE_KEY);
+    removeSensitiveStorage(PRICING_OFFER_HISTORY_STORAGE_KEY);
     return [];
   }
 }
 
 function saveLocalPricingOfferHistory() {
   pricingOfferHistory = normalizePricingOfferHistory(pricingOfferHistory);
-  localStorage.setItem(PRICING_OFFER_HISTORY_STORAGE_KEY, JSON.stringify(pricingOfferHistory));
+  writeSensitiveStorage(PRICING_OFFER_HISTORY_STORAGE_KEY, JSON.stringify(pricingOfferHistory));
 }
 
 function mergePricingOfferHistory(...historySets) {
@@ -6473,17 +6591,17 @@ function normalizePricingLoanHistory(entries) {
 
 function loadPricingLoanHistory() {
   try {
-    return normalizePricingLoanHistory(JSON.parse(localStorage.getItem(PRICING_LOAN_HISTORY_STORAGE_KEY) || "[]"));
+    return normalizePricingLoanHistory(JSON.parse(readSensitiveStorage(PRICING_LOAN_HISTORY_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn(error);
-    localStorage.removeItem(PRICING_LOAN_HISTORY_STORAGE_KEY);
+    removeSensitiveStorage(PRICING_LOAN_HISTORY_STORAGE_KEY);
     return [];
   }
 }
 
 function saveLocalPricingLoanHistory() {
   pricingLoanHistory = normalizePricingLoanHistory(pricingLoanHistory);
-  localStorage.setItem(PRICING_LOAN_HISTORY_STORAGE_KEY, JSON.stringify(pricingLoanHistory));
+  writeSensitiveStorage(PRICING_LOAN_HISTORY_STORAGE_KEY, JSON.stringify(pricingLoanHistory));
 }
 
 function mergePricingLoanHistory(...historySets) {
@@ -8016,17 +8134,17 @@ function normalizePricingPcprList(entries) {
 
 function loadPricingPcprList() {
   try {
-    return normalizePricingPcprList(JSON.parse(localStorage.getItem(PRICING_PCPR_LIST_STORAGE_KEY) || "[]"));
+    return normalizePricingPcprList(JSON.parse(readSensitiveStorage(PRICING_PCPR_LIST_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn(error);
-    localStorage.removeItem(PRICING_PCPR_LIST_STORAGE_KEY);
+    removeSensitiveStorage(PRICING_PCPR_LIST_STORAGE_KEY);
     return [];
   }
 }
 
 function saveLocalPricingPcprList() {
   pricingPcprList = normalizePricingPcprList(pricingPcprList);
-  localStorage.setItem(PRICING_PCPR_LIST_STORAGE_KEY, JSON.stringify(pricingPcprList));
+  writeSensitiveStorage(PRICING_PCPR_LIST_STORAGE_KEY, JSON.stringify(pricingPcprList));
 }
 
 function mergePricingPcprList(...listSets) {
@@ -8532,17 +8650,17 @@ function normalizePricingOrderHistory(entries) {
 
 function loadPricingOrderHistory() {
   try {
-    return normalizePricingOrderHistory(JSON.parse(localStorage.getItem(PRICING_ORDER_HISTORY_STORAGE_KEY) || "[]"));
+    return normalizePricingOrderHistory(JSON.parse(readSensitiveStorage(PRICING_ORDER_HISTORY_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn(error);
-    localStorage.removeItem(PRICING_ORDER_HISTORY_STORAGE_KEY);
+    removeSensitiveStorage(PRICING_ORDER_HISTORY_STORAGE_KEY);
     return [];
   }
 }
 
 function saveLocalPricingOrderHistory() {
   pricingOrderHistory = normalizePricingOrderHistory(pricingOrderHistory);
-  localStorage.setItem(PRICING_ORDER_HISTORY_STORAGE_KEY, JSON.stringify(pricingOrderHistory));
+  writeSensitiveStorage(PRICING_ORDER_HISTORY_STORAGE_KEY, JSON.stringify(pricingOrderHistory));
 }
 
 function mergePricingOrderHistory(...historySets) {
@@ -9079,7 +9197,7 @@ function upsertRepairRecordFromDocument(incomingRecord) {
   repairRecords = existingRecord
     ? repairRecords.map((record, index) => (index === existingIndex ? savedRecord : record))
     : [savedRecord, ...repairRecords];
-  localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
   const persistPromise = persistRepairRecord(savedRecord);
   persistPromise
     .then(() => {
@@ -9629,17 +9747,17 @@ function normalizePricingComplaintHistory(entries) {
 
 function loadPricingComplaintHistory() {
   try {
-    return normalizePricingComplaintHistory(JSON.parse(localStorage.getItem(PRICING_COMPLAINT_HISTORY_STORAGE_KEY) || "[]"));
+    return normalizePricingComplaintHistory(JSON.parse(readSensitiveStorage(PRICING_COMPLAINT_HISTORY_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn(error);
-    localStorage.removeItem(PRICING_COMPLAINT_HISTORY_STORAGE_KEY);
+    removeSensitiveStorage(PRICING_COMPLAINT_HISTORY_STORAGE_KEY);
     return [];
   }
 }
 
 function saveLocalPricingComplaintHistory() {
   pricingComplaintHistory = normalizePricingComplaintHistory(pricingComplaintHistory);
-  localStorage.setItem(PRICING_COMPLAINT_HISTORY_STORAGE_KEY, JSON.stringify(pricingComplaintHistory));
+  writeSensitiveStorage(PRICING_COMPLAINT_HISTORY_STORAGE_KEY, JSON.stringify(pricingComplaintHistory));
 }
 
 function mergePricingComplaintHistory(...historySets) {
@@ -12649,17 +12767,17 @@ function normalizeCapdHistory(entries) {
 
 function loadCapdHistory() {
   try {
-    return normalizeCapdHistory(JSON.parse(localStorage.getItem(CAPD_HISTORY_STORAGE_KEY) || "[]"));
+    return normalizeCapdHistory(JSON.parse(readSensitiveStorage(CAPD_HISTORY_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn(error);
-    localStorage.removeItem(CAPD_HISTORY_STORAGE_KEY);
+    removeSensitiveStorage(CAPD_HISTORY_STORAGE_KEY);
     return [];
   }
 }
 
 function saveLocalCapdHistory() {
   capdHistory = normalizeCapdHistory(capdHistory);
-  localStorage.setItem(CAPD_HISTORY_STORAGE_KEY, JSON.stringify(capdHistory));
+  writeSensitiveStorage(CAPD_HISTORY_STORAGE_KEY, JSON.stringify(capdHistory));
 }
 
 async function loadSupabaseCapdHistory() {
@@ -12805,6 +12923,12 @@ function capdHistoryCountLabel(count) {
   return `${count} badań`;
 }
 
+function maskSensitiveIdentifier(value, visibleDigits = 4) {
+  const normalized = String(value || "");
+  if (normalized.length <= visibleDigits) return normalized;
+  return `${"•".repeat(normalized.length - visibleDigits)}${normalized.slice(-visibleDigits)}`;
+}
+
 function renderCapdHistory() {
   if (!capdHistoryList) return;
   const query = normalize(capdHistorySearchInput?.value || "");
@@ -12829,7 +12953,7 @@ function renderCapdHistory() {
     title.textContent = entry.patient;
     const meta = document.createElement("span");
     const ageLabel = entry.age === "" ? "wiek -" : formatCapdAge(Number(entry.age));
-    meta.textContent = `${formatDate(entry.testDate)} · PESEL ${entry.pesel} · ${ageLabel}`;
+    meta.textContent = `${formatDate(entry.testDate)} · PESEL ${maskSensitiveIdentifier(entry.pesel)} · ${ageLabel}`;
     const results = document.createElement("small");
     results.textContent = entry.results.map((result) => `${result.code}: ${result.value || "-"} ${result.unit}`).join(" | ");
     const audit = document.createElement("small");
@@ -13081,14 +13205,14 @@ function normalizeVacationRequests(entries) {
 }
 
 function saveLocalVacationData() {
-  localStorage.setItem(VACATION_EMPLOYEES_STORAGE_KEY, JSON.stringify(vacationEmployees));
-  localStorage.setItem(VACATION_REQUESTS_STORAGE_KEY, JSON.stringify(vacationRequests));
+  writeSensitiveStorage(VACATION_EMPLOYEES_STORAGE_KEY, JSON.stringify(vacationEmployees));
+  writeSensitiveStorage(VACATION_REQUESTS_STORAGE_KEY, JSON.stringify(vacationRequests));
 }
 
 function loadLocalVacationData() {
   try {
-    vacationEmployees = normalizeVacationEmployees(JSON.parse(localStorage.getItem(VACATION_EMPLOYEES_STORAGE_KEY) || "[]"));
-    vacationRequests = normalizeVacationRequests(JSON.parse(localStorage.getItem(VACATION_REQUESTS_STORAGE_KEY) || "[]"));
+    vacationEmployees = normalizeVacationEmployees(JSON.parse(readSensitiveStorage(VACATION_EMPLOYEES_STORAGE_KEY) || "[]"));
+    vacationRequests = normalizeVacationRequests(JSON.parse(readSensitiveStorage(VACATION_REQUESTS_STORAGE_KEY) || "[]"));
   } catch (error) {
     console.warn("Nie udało się wczytać lokalnych danych urlopowych:", error);
     vacationEmployees = [];
@@ -14984,7 +15108,7 @@ async function saveFormRecord(event) {
   } catch (error) {
     records = previousRecords;
     privatePayments = previousPrivatePayments;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
     saveLocalPrivatePayments();
     rebuildAfterDeviceChange();
     render();
@@ -15017,7 +15141,7 @@ async function deleteCurrentRecord() {
     } catch (error) {
       records = previousRecords;
       privatePayments = previousPrivatePayments;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
       saveLocalPrivatePayments();
       rebuildDerivedData();
       render();
@@ -15065,7 +15189,7 @@ async function saveRepairFormRecord(event) {
     });
   } catch (error) {
     repairRecords = previousRepairRecords;
-    localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     rebuildAfterRepairChange();
     render();
     alert(error.message);
@@ -15088,7 +15212,7 @@ async function deleteCurrentRepairRecord() {
       closeRepairDialog();
     } catch (error) {
       repairRecords = previousRepairRecords;
-      localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+      writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
       rebuildDerivedData();
       render();
       alert(error.message);
@@ -15153,7 +15277,7 @@ async function saveDemoFormRecord(event) {
     }
   } catch (error) {
     demoRecords = previousDemoRecords;
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildAfterDemoChange();
     render();
     if (demoDialog.open) {
@@ -15188,7 +15312,7 @@ async function deleteCurrentDemoRecord() {
       closeDemoDialog();
     } catch (error) {
       demoRecords = previousDemoRecords;
-      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+      writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
       rebuildDerivedData();
       render();
       alert(error.message);
@@ -15312,8 +15436,8 @@ async function moveDeviceRecordToDemo(record) {
     delete privatePayments[String(record.id)];
     saveLocalPrivatePayments();
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
   render();
 
@@ -15335,8 +15459,8 @@ async function moveDeviceRecordToDemo(record) {
     records = previousRecords;
     demoRecords = previousDemoRecords;
     privatePayments = previousPrivatePayments;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     saveLocalPrivatePayments();
     rebuildDerivedData();
     render();
@@ -15356,8 +15480,8 @@ async function moveDemoRecordToDevices(record) {
 
   demoRecords = demoRecords.filter((item) => item.id !== record.id);
   records = [movedRecord, ...records];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
   rebuildDerivedData();
   render();
 
@@ -15377,8 +15501,8 @@ async function moveDemoRecordToDevices(record) {
   } catch (error) {
     records = previousRecords;
     demoRecords = previousDemoRecords;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildDerivedData();
     render();
     alert(error.message || "Nie udało się przenieść rekordu do Bazy.");
@@ -15386,7 +15510,14 @@ async function moveDemoRecordToDevices(record) {
   }
 }
 
+function requireSensitiveTransferPermission() {
+  if (canManagePricing()) return true;
+  alert("Eksport i import danych osobowych jest dostępny tylko dla konta SATIS.");
+  return false;
+}
+
 function exportCsv() {
+  if (!requireSensitiveTransferPermission()) return;
   const header = [
     "Data przyjęcia",
     "FIFO dni",
@@ -15441,14 +15572,17 @@ function csvCell(value) {
 }
 
 function exportJson() {
+  if (!requireSensitiveTransferPermission()) return;
   downloadJson(records, `baza-aparatow-${todayStamp()}.json`);
 }
 
 function exportDemoJson() {
+  if (!requireSensitiveTransferPermission()) return;
   downloadJson(demoRecords, `aparaty-demo-${todayStamp()}.json`);
 }
 
 function exportRepairCsv() {
+  if (!requireSensitiveTransferPermission()) return;
   const header = [
     "Data przyjęcia",
     "Typ",
@@ -15481,6 +15615,7 @@ function exportRepairCsv() {
 }
 
 function exportRepairJson() {
+  if (!requireSensitiveTransferPermission()) return;
   downloadJson(repairRecords, `zeszyt-napraw-wkladek-${todayStamp()}.json`);
 }
 
@@ -15516,6 +15651,10 @@ function todayInputValue() {
 }
 
 function importJson(event) {
+  if (!requireSensitiveTransferPermission()) {
+    event.target.value = "";
+    return;
+  }
   const file = event.target.files?.[0];
   if (!file) return;
 
@@ -15539,7 +15678,7 @@ function importJson(event) {
       importInput.value = "";
     } catch (error) {
       records = previousRecords;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
       rebuildDerivedData();
       render();
       alert(`Nie udało się zaimportować pliku: ${error.message}`);
@@ -15549,6 +15688,10 @@ function importJson(event) {
 }
 
 function importRepairJson(event) {
+  if (!requireSensitiveTransferPermission()) {
+    event.target.value = "";
+    return;
+  }
   const file = event.target.files?.[0];
   if (!file) return;
 
@@ -15572,7 +15715,7 @@ function importRepairJson(event) {
       importRepairInput.value = "";
     } catch (error) {
       repairRecords = previousRepairRecords;
-      localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+      writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
       rebuildDerivedData();
       render();
       alert(`Nie udało się zaimportować pliku: ${error.message}`);
@@ -16763,6 +16906,9 @@ document.querySelector("#closeDemoAttachmentPreviewBtn").addEventListener("click
 authForm?.addEventListener("submit", handleAuthSubmit);
 authDialog?.addEventListener("cancel", (event) => event.preventDefault());
 logoutBtn?.addEventListener("click", logoutFromSupabase);
+["pointerdown", "keydown", "touchstart"].forEach((eventName) => {
+  window.addEventListener(eventName, resetInactivityLogoutTimer, { passive: true });
+});
 document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", () => {
   demoManufacturerFilter.value = "";
   demoStatusFilter.value = "DO ZWROTU";
@@ -16925,6 +17071,8 @@ document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
 });
 
 async function init() {
+  document.querySelectorAll("form:not(#authForm)").forEach((form) => form.setAttribute("autocomplete", "off"));
+  updateSensitiveTransferVisibility();
   pricingRecords = loadPricingRecords();
   auditLogs = loadLocalAuditLogs();
   setCurrentYearTitle();
@@ -16954,8 +17102,11 @@ async function init() {
     supabaseClient.auth.onAuthStateChange((event, session) => {
       if (event === "TOKEN_REFRESHED" && session?.user) updateConnectionUser(session.user);
       if (event === "SIGNED_OUT") {
+        window.clearTimeout(inactivityLogoutTimeout);
         updateConnectionUser(null);
+        clearSensitiveApplicationState();
         setConnectionStatus("offline", "Zaloguj się");
+        showAuthDialog("Sesja wygasła. Zaloguj się ponownie.");
       }
     });
 

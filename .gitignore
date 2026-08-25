@@ -1,0 +1,21 @@
+# Dane robocze i kopie zawierające dane osobowe nie mogą trafić do repozytorium.
+data/
+output/
+outputs/
+tmp/
+baza-faktur-email/
+demo-wypozyczenia/
+rendered_editable_pdf/
+rendered_umowa/
+.codex_spreadsheet/
+*.backup.json
+SATIS-private-*
+*.csv
+*.xlsx
+*.xls
+.DS_Store
+.env
+.env.*
+__pycache__/
+*.pyc
+demo-data.js
