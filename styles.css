@@ -498,6 +498,167 @@ h2 {
   font-size: 0.82rem;
 }
 
+.capd-tests-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.capd-tests-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 2px 8px;
+}
+
+.capd-tests-head h3,
+.capd-practical-summary h3 {
+  margin: 2px 0 0;
+  color: #003f5a;
+  font-size: 1rem;
+}
+
+.capd-tests-head > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.capd-test-list {
+  display: grid;
+  gap: 10px;
+}
+
+.capd-test-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(250px, 0.8fr);
+  gap: 16px;
+  border: 1px solid #dce4e2;
+  border-left: 4px solid #5d8c86;
+  border-radius: 6px;
+  padding: 13px 14px;
+  background: #fbfcfc;
+}
+
+.capd-test-item:nth-child(2n) {
+  border-left-color: #8a775f;
+}
+
+.capd-test-item:nth-child(3n) {
+  border-left-color: #748455;
+}
+
+.capd-test-main {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.capd-test-main > p,
+.capd-test-details p,
+.capd-practical-summary p {
+  margin: 0;
+  color: #53666d;
+  font-size: 0.8rem;
+  line-height: 1.48;
+}
+
+.capd-test-title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.capd-test-title strong {
+  color: #003f5a;
+  font-size: 0.98rem;
+}
+
+.capd-test-title span {
+  color: #354f5a;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.capd-result-field {
+  display: grid;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.capd-result-field > span {
+  color: #003f5a;
+  font-size: 0.73rem;
+  font-weight: 900;
+}
+
+.capd-result-field input {
+  min-height: 38px;
+  border-color: #b9cbc7;
+  background: #fff;
+  font-weight: 750;
+}
+
+.capd-result-field small {
+  color: #6d7d82;
+  font-size: 0.69rem;
+  line-height: 1.35;
+}
+
+.capd-test-details {
+  align-self: start;
+  border-left: 1px solid #dce4e2;
+  padding-left: 16px;
+}
+
+.capd-test-details summary {
+  cursor: pointer;
+  color: #49645b;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.capd-test-details[open] summary {
+  margin-bottom: 8px;
+}
+
+.capd-practical-summary {
+  display: grid;
+  gap: 10px;
+  border-left: 4px solid #7d8f99;
+  padding: 12px 14px;
+  background: #f5f8f9;
+}
+
+.capd-practical-summary ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 20px;
+  margin: 0;
+  padding-left: 18px;
+  color: #53666d;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .capd-test-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-test-details {
+    border-top: 1px solid #dce4e2;
+    border-left: 0;
+    padding-top: 10px;
+    padding-left: 0;
+  }
+
+  .capd-practical-summary ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .vacation-saturday-field {
   border-left: 4px solid #9b7d54;
   padding-left: 12px;

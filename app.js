@@ -12377,23 +12377,30 @@ function switchView(viewName, groupName) {
 
 function updateCapdScope() {
   if (!capdScopePanel || !capdScopeTitle || !capdScopeDescription) return;
+  const testsPanel = document.querySelector("#capdTestsPanel");
+  const testItems = testsPanel?.querySelectorAll("[data-capd-min-age]") || [];
   const ageText = String(capdAgeInput?.value || "").trim();
   const age = ageText === "" ? null : Number(ageText);
   if (age === null || !Number.isFinite(age)) {
     capdScopePanel.dataset.scope = "pending";
     capdScopeTitle.textContent = "Podaj wiek dziecka";
     capdScopeDescription.textContent = "Zakres testów zostanie dobrany automatycznie.";
+    if (testsPanel) testsPanel.hidden = true;
     return;
   }
+  if (testsPanel) testsPanel.hidden = false;
+  testItems.forEach((item) => {
+    item.hidden = age < Number(item.dataset.capdMinAge || 0);
+  });
   if (age < 6) {
     capdScopePanel.dataset.scope = "young";
     capdScopeTitle.textContent = "Testy dla dzieci poniżej 6 lat";
-    capdScopeDescription.textContent = "Zakres dostosowany do wieku i możliwości dziecka.";
+    capdScopeDescription.textContent = "Zakres podstawowy: TRW i TRS, dostosowany do wieku i możliwości dziecka.";
     return;
   }
   capdScopePanel.dataset.scope = "full";
   capdScopeTitle.textContent = "Pełne testy CAPD";
-  capdScopeDescription.textContent = "Pełny zakres testów dla dzieci od 6. roku życia.";
+  capdScopeDescription.textContent = "Pełny zakres: TRW, TRS, ASPN-S, ASPN-Z, DDT, FPT, GDT i DLF.";
 }
 
 function resetCapdForm() {
