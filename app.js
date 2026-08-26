@@ -987,13 +987,15 @@ function setCurrentYearTitle() {
   const repairTitle = `Serwis i zamówienia ${year}`;
   const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
   const agreementsTitle = "Umowy";
+  const capdTitle = `CAPD ${year}`;
+  const vacationTitle = `Urlop ${selectedVacationYear()}`;
   const notebookTitles = {
     devices: deviceTitle,
     repairs: repairTitle,
     pricing: pricingTitle,
     agreements: agreementsTitle,
-    capd: "CAPD",
-    vacation: "Urlop"
+    capd: capdTitle,
+    vacation: vacationTitle
   };
   const title = notebookTitles[activeNotebook] || deviceTitle;
 
@@ -17149,7 +17151,10 @@ vacationEmployeeInput?.addEventListener("change", () => {
   input?.addEventListener("input", updateVacationConflictNotice);
   input?.addEventListener("change", updateVacationConflictNotice);
 });
-vacationYearInput?.addEventListener("change", renderVacationModule);
+vacationYearInput?.addEventListener("change", () => {
+  renderVacationModule();
+  setCurrentYearTitle();
+});
 vacationNewEmployeeInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
 });
