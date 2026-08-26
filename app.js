@@ -255,6 +255,7 @@ const collator = new Intl.Collator("pl", { sensitivity: "base", numeric: true })
 const deviceDerived = new Map();
 const repairDerived = new Map();
 const demoDerived = new Map();
+const demoManufacturerModelIndex = new Map();
 const serialIndex = new Map();
 const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
@@ -5566,10 +5567,30 @@ function rebuildDeviceNameCorrectionCandidates() {
 function rebuildDemoFormSuggestions() {
   if (!demoManufacturerSuggestions || !demoDeviceNameSuggestions) return;
 
-  const manufacturers = [...new Set(demoRecords.map((record) => String(record.manufacturer ?? "").trim()).filter(Boolean))].sort((left, right) =>
-    collator.compare(left, right)
-  );
-  const models = rankedModelSuggestions(modelSuggestionSourceRecords());
+  demoManufacturerModelIndex.clear();
+  const addManufacturerModel = (model, manufacturer, weight = 1) => {
+    const modelKey = normalizeDeviceName(model).toLocaleLowerCase("pl-PL");
+    const displayManufacturer = String(manufacturer || "").trim().toLocaleUpperCase("pl-PL");
+    if (!modelKey || !displayManufacturer) return;
+    if (!demoManufacturerModelIndex.has(modelKey)) demoManufacturerModelIndex.set(modelKey, new Map());
+    const manufacturersForModel = demoManufacturerModelIndex.get(modelKey);
+    manufacturersForModel.set(displayManufacturer, (manufacturersForModel.get(displayManufacturer) || 0) + weight);
+  };
+
+  demoRecords.forEach((record) => addManufacturerModel(record.deviceName, record.manufacturer, 5));
+  pricingRecords.forEach((record) => {
+    addManufacturerModel(record.model, record.manufacturer);
+    addManufacturerModel(record.tradeName, record.manufacturer);
+  });
+
+  const manufacturers = [...new Set([
+    ...demoRecords.map((record) => String(record.manufacturer ?? "").trim()),
+    ...pricingRecords.map((record) => String(record.manufacturer ?? "").trim())
+  ].filter(Boolean))].sort((left, right) => collator.compare(left, right));
+  const pricingModels = pricingRecords
+    .map((record) => ({ deviceName: record.model || record.tradeName }))
+    .filter((record) => record.deviceName);
+  const models = rankedModelSuggestions([...modelSuggestionSourceRecords(), ...pricingModels]);
 
   const manufacturerFragment = document.createDocumentFragment();
   manufacturers.forEach((manufacturer) => {
@@ -5586,6 +5607,49 @@ function rebuildDemoFormSuggestions() {
     modelFragment.append(option);
   });
   demoDeviceNameSuggestions.replaceChildren(modelFragment);
+}
+
+function demoManufacturerForModel(modelValue, { allowPrefix = false } = {}) {
+  const modelKey = normalizeDeviceName(modelValue).toLocaleLowerCase("pl-PL");
+  if (!modelKey) return "";
+  let candidates = demoManufacturerModelIndex.get(modelKey);
+  if (!candidates && allowPrefix && modelKey.length >= 4) {
+    const matchingMaps = [...demoManufacturerModelIndex.entries()]
+      .filter(([key]) => key.startsWith(modelKey))
+      .map(([, manufacturers]) => manufacturers);
+    if (matchingMaps.length) {
+      candidates = new Map();
+      matchingMaps.forEach((manufacturers) => manufacturers.forEach((score, manufacturer) => {
+        candidates.set(manufacturer, (candidates.get(manufacturer) || 0) + score);
+      }));
+    }
+  }
+  if (!candidates?.size) return "";
+  const ranked = [...candidates.entries()].sort((left, right) => right[1] - left[1] || collator.compare(left[0], right[0]));
+  if (ranked.length > 1 && ranked[0][1] === ranked[1][1]) return "";
+  return ranked[0][0];
+}
+
+function syncDemoManufacturerFromDeviceName({ allowPrefix = false } = {}) {
+  const manufacturerInput = document.querySelector("#demoManufacturer");
+  const deviceNameInput = document.querySelector("#demoDeviceName");
+  if (!manufacturerInput || !deviceNameInput) return;
+  const currentManufacturer = manufacturerInput.value.trim();
+  const previousAutoValue = manufacturerInput.dataset.autoValue || "";
+  if (currentManufacturer && currentManufacturer !== previousAutoValue) return;
+  const suggestedManufacturer = demoManufacturerForModel(deviceNameInput.value, { allowPrefix });
+  manufacturerInput.value = suggestedManufacturer;
+  manufacturerInput.dataset.autoValue = suggestedManufacturer;
+  syncDemoManufacturerReturnDate();
+}
+
+function syncDemoPurposeChoices() {
+  const purposeInput = document.querySelector("#demoPurpose");
+  const selectedPurpose = purposeInput?.value ? normalizeDemoPurpose(purposeInput.value) : "";
+  document.querySelectorAll("[data-demo-purpose]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(Boolean(selectedPurpose) && normalizeDemoPurpose(button.dataset.demoPurpose) === selectedPurpose));
+  });
+  if (selectedPurpose) document.querySelector("#demoPurposeChoices")?.classList.remove("required-missing");
 }
 
 function rebuildSerialIndex() {
@@ -6883,7 +6947,8 @@ function updateDocumentLocationAccents() {
     locationFilter,
     repairLocationFilter,
     document.querySelector("#location"),
-    document.querySelector("#repairLocation")
+    document.querySelector("#repairLocation"),
+    document.querySelector("#demoLocation")
   ].forEach(updateDocumentLocationAccent);
 }
 
@@ -14612,7 +14677,9 @@ function fillDemoFormValues(record = {}) {
   demoFields.forEach((field) => {
     const input = document.querySelector(fieldMap[field]);
     if (!input) return;
-    const value = field === "purpose" ? normalizeDemoPurpose(record?.purpose) : record?.[field] ?? "";
+    const value = field === "purpose"
+      ? (record?.purpose ? normalizeDemoPurpose(record.purpose) : "")
+      : record?.[field] ?? "";
     if (input.type === "checkbox") {
       input.checked = normalizeBooleanFlag(value) === "1" || Boolean(record?.manufacturerReturnedDate);
       return;
@@ -14716,6 +14783,7 @@ function repairDialogCustomerTitle(record) {
 
 function openDemoDialog(record = null) {
   demoForm.reset();
+  document.querySelector("#demoPurposeChoices")?.classList.remove("required-missing");
   demoLoanHistoryDraft = record ? effectiveDemoLoanHistory(record) : [];
   demoCurrentAttachmentsDraft = record ? demoAttachmentDrafts(record.currentAttachments) : [];
   demoFormError.textContent = "";
@@ -14752,11 +14820,14 @@ function openDemoDialog(record = null) {
   if (!record) {
     setDateInputValue("#demoReceivedDate", todayInputValue());
     document.querySelector("#demoStatus").value = "NA STANIE";
-    document.querySelector("#demoPurpose").value = DEMO_PURPOSE_TEST;
+    document.querySelector("#demoPurpose").value = "";
     document.querySelector("#demoLocation").value = "P63";
     document.querySelector("#demoManufacturerReturned").checked = false;
     setDateInputValue("#demoManufacturerReturnedDate", "");
   }
+  document.querySelector("#demoManufacturer").dataset.autoValue = "";
+  syncDemoPurposeChoices();
+  updateDocumentLocationAccent(document.querySelector("#demoLocation"));
   const calculatedManufacturerReturnDate = calculateDemoManufacturerReturnDate();
   const manufacturerReturnDateInput = document.querySelector("#demoManufacturerReturnDate");
   if (!manufacturerReturnDateInput.value && !isDemoManufacturerReturnDateClearedForm()) {
@@ -15543,6 +15614,16 @@ function syncDemoUppercaseInput(event) {
   if (event.target.id === "demoManufacturer") syncDemoManufacturerReturnDate();
 }
 
+function handleDemoManufacturerInput(event) {
+  event.target.dataset.autoValue = "";
+  syncDemoUppercaseInput(event);
+}
+
+function handleDemoDeviceNameInput() {
+  syncDemoManufacturerFromDeviceName();
+  syncDemoManufacturerReturnDate();
+}
+
 function formatDemoCurrentUserInput(event) {
   event.target.value = titleCaseNameInput(event.target.value);
   syncDemoStatusFromCurrentUser({ setLoanDate: true, clearLoanWhenEmpty: true });
@@ -15756,6 +15837,13 @@ async function saveDemoFormRecord(event) {
   event.preventDefault();
   demoFormError.textContent = "";
   delete demoFormError.dataset.errorType;
+  const purposeInput = document.querySelector("#demoPurpose");
+  if (!purposeInput.value) {
+    document.querySelector("#demoPurposeChoices")?.classList.add("required-missing");
+    demoFormError.textContent = "Wybierz charakter aparatu: Demo albo Zastępczy.";
+    document.querySelector("#demoPurposeChoices button")?.focus();
+    return;
+  }
   if (!validateDemoDateOrder(undefined, { focus: true })) return;
   const id = document.querySelector("#demoId").value;
   const recordId = id || `${DEMO_ID_PREFIX}${makeId()}`;
@@ -17426,12 +17514,20 @@ document.querySelector("#demoManufacturerReturnDate").addEventListener("change",
 document.querySelector("#demoManufacturerReturned").addEventListener("change", (event) => syncDemoManufacturerReturned(event.target.checked));
 document.querySelector("#demoManufacturerReturnedDate").addEventListener("change", markDemoManufacturerReturnedDateChange);
 document.querySelector("#demoReturnDate").addEventListener("change", markDemoReturnDateChange);
-document.querySelector("#demoManufacturer").addEventListener("input", syncDemoUppercaseInput);
-document.querySelector("#demoDeviceName").addEventListener("input", syncDemoManufacturerReturnDate);
+document.querySelector("#demoManufacturer").addEventListener("input", handleDemoManufacturerInput);
+document.querySelector("#demoDeviceName").addEventListener("input", handleDemoDeviceNameInput);
+document.querySelector("#demoDeviceName").addEventListener("blur", () => syncDemoManufacturerFromDeviceName({ allowPrefix: true }));
 document.querySelector("#demoSerialNumber").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoCurrentUser").addEventListener("input", formatDemoCurrentUserInput);
 document.querySelector("#demoCurrentUser").addEventListener("blur", finalizeDemoCurrentUserInput);
 document.querySelector("#demoStatus").addEventListener("change", syncDemoReturnedStatus);
+document.querySelector("#demoLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
+document.querySelector("#demoPurposeChoices").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-demo-purpose]");
+  if (!button) return;
+  document.querySelector("#demoPurpose").value = normalizeDemoPurpose(button.dataset.demoPurpose);
+  syncDemoPurposeChoices();
+});
 DEMO_DATE_VALIDATION_FIELDS.forEach(({ selector }) => {
   const input = document.querySelector(selector);
   input?.addEventListener("change", () => validateDemoDateOrder());
