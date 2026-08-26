@@ -415,38 +415,25 @@ h2 {
 }
 
 .pricing-shortcut {
-  min-height: 38px;
-  gap: 8px;
-  border: 1px solid #a8cbc2;
-  padding: 0 13px 0 8px;
-  color: #155f56;
-  background: #eef8f5;
+  min-height: 32px;
+  border: 1px solid rgba(0, 122, 122, 0.22);
+  padding: 0 11px;
+  color: #003f5a;
+  background: rgba(0, 122, 122, 0.05);
   white-space: nowrap;
 }
 
-.pricing-shortcut span {
-  display: inline-grid;
-  min-width: 31px;
-  height: 22px;
-  place-items: center;
-  border-radius: 5px;
-  color: #fff;
-  background: #3b887b;
-  font-size: 0.61rem;
-  font-weight: 900;
-}
-
 .pricing-shortcut:hover {
-  border-color: #7db3a6;
-  color: #0f574e;
-  background: #e4f4ef;
+  border-color: rgba(0, 122, 122, 0.34);
+  color: #003f5a;
+  background: rgba(0, 122, 122, 0.08);
 }
 
 .pricing-shortcut.active {
-  border-color: #3b887b;
-  color: #0c554c;
-  background: #dff2ec;
-  box-shadow: inset 0 0 0 1px rgba(59, 136, 123, 0.12);
+  border-color: rgba(0, 122, 122, 0.42);
+  color: #003f5a;
+  background: rgba(0, 122, 122, 0.11);
+  box-shadow: none;
 }
 
 .private-notebook-button {
@@ -1301,16 +1288,16 @@ h2 {
 .vacation-employee-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
   margin: 0 0 18px;
-  padding: 0 9px;
+  padding: 2px 8px 0;
 }
 
 .vacation-employee-entry {
   position: relative;
-  display: inline-flex;
+  display: flex;
   min-width: 0;
-  margin-top: 7px;
+  margin-top: 8px;
 }
 
 .vacation-employee-picker-label {
@@ -1321,35 +1308,54 @@ h2 {
 }
 
 .vacation-employee-item {
-  display: inline-flex;
+  display: grid;
   width: 100%;
-  min-height: 42px;
+  min-height: 56px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "employee-name employee-place"
+    "employee-allowance employee-place";
   align-items: center;
-  gap: 6px;
+  column-gap: 9px;
+  row-gap: 2px;
   border-color: #cbdad5;
-  padding: 7px 18px 7px 20px;
+  padding: 8px 11px 8px 20px;
   color: #315f48;
   background: #f3f8f5;
   font-size: 0.84rem;
+  text-align: left;
+}
+
+.vacation-employee-entry.can-delete .vacation-employee-item {
+  padding-right: 31px;
 }
 
 .vacation-employee-item > strong {
-  flex: 1 1 auto;
+  grid-area: employee-name;
   min-width: 0;
-  text-align: left;
+  overflow: hidden;
+  color: #244e59;
+  line-height: 1.2;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .vacation-employee-item .vacation-employee-allowance {
+  grid-area: employee-allowance;
   color: var(--muted);
   font-size: 0.69rem;
+  font-weight: 750;
   white-space: nowrap;
 }
 
 .vacation-employee-item.active {
-  border-color: #3f8975;
+  border-color: #007a7a;
   color: #fff;
-  background: #3f8975;
+  background: #007a7a;
+}
+
+.vacation-employee-item.active > strong {
+  color: #fff;
 }
 
 .vacation-employee-item.active .vacation-employee-allowance {
@@ -1358,8 +1364,8 @@ h2 {
 
 .vacation-employee-percent {
   position: absolute;
-  top: -9px;
-  left: -9px;
+  top: -8px;
+  left: -7px;
   z-index: 2;
   display: inline-flex;
   width: 28px;
@@ -1389,30 +1395,33 @@ h2 {
 
 .vacation-employee-delete {
   position: absolute;
-  top: -7px;
-  right: -7px;
-  width: 22px;
-  min-width: 22px;
-  height: 22px;
-  min-height: 22px;
-  border: 1px solid #d9c6c3;
-  border-radius: 6px;
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border: 0;
+  border-radius: 5px;
   padding: 0;
-  color: #8f4039;
-  background: #fff;
-  font-size: 1rem;
+  color: #8b5b56;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
   line-height: 1;
 }
 
 .vacation-employee-workstation {
   display: inline-flex;
+  grid-area: employee-place;
   align-items: center;
+  align-self: center;
   min-height: 21px;
   border: 1px solid;
   border-radius: 6px;
   padding: 2px 5px;
   font-size: 0.66rem;
   font-weight: 850;
+  white-space: nowrap;
 }
 
 @media (max-width: 980px) {
