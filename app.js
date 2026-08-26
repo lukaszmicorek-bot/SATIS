@@ -13979,7 +13979,11 @@ function switchNotebook(notebookName) {
   notebookSwitchButtons.forEach((button) => {
     const isActive = button.dataset.notebook === notebookName;
     button.classList.toggle("active", isActive);
-    button.setAttribute("aria-selected", String(isActive));
+    if (button.classList.contains("pricing-shortcut")) {
+      button.setAttribute("aria-pressed", String(isActive));
+    } else {
+      button.setAttribute("aria-selected", String(isActive));
+    }
   });
 
   notebookSections.forEach((section) => {
