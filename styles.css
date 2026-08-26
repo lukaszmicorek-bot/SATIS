@@ -1364,38 +1364,44 @@ h2 {
 }
 
 .vacation-employee-entry[data-location-tone="T12"] .vacation-employee-item {
-  border-color: #c9bfb3;
+  border-color: #e2ddd7;
+  border-left: 4px solid #b5a899;
   color: #6f604f;
-  background: #faf8f5;
+  background: linear-gradient(90deg, #faf8f5 0, #ffffff 46%);
 }
 
 .vacation-employee-entry[data-location-tone="P50"] .vacation-employee-item {
-  border-color: #c7cf9d;
+  border-color: #e0e4c9;
+  border-left: 4px solid #b4c184;
   color: #616b2f;
-  background: #f7faec;
+  background: linear-gradient(90deg, #f7faec 0, #ffffff 46%);
 }
 
 .vacation-employee-entry[data-location-tone="P63"] .vacation-employee-item {
-  border-color: #d3c1de;
+  border-color: #e4dce9;
+  border-left: 4px solid #bea9cf;
   color: #7b628b;
-  background: #faf6fc;
+  background: linear-gradient(90deg, #faf6fc 0, #ffffff 46%);
 }
 
 .vacation-employee-entry[data-location-tone="T12"] .vacation-employee-item.active {
   border-color: #b5a899;
-  background: #f5f1ec;
+  border-left-color: #8f806f;
+  background: linear-gradient(90deg, #f5f1ec 0, #ffffff 58%);
   box-shadow: inset 0 0 0 1px rgba(123, 109, 91, 0.14);
 }
 
 .vacation-employee-entry[data-location-tone="P50"] .vacation-employee-item.active {
   border-color: #b4c184;
-  background: #f1f5df;
+  border-left-color: #8f9b5f;
+  background: linear-gradient(90deg, #f1f5df 0, #ffffff 58%);
   box-shadow: inset 0 0 0 1px rgba(97, 107, 47, 0.14);
 }
 
 .vacation-employee-entry[data-location-tone="P63"] .vacation-employee-item.active {
   border-color: #bea9cf;
-  background: #f4edf8;
+  border-left-color: #957cac;
+  background: linear-gradient(90deg, #f4edf8 0, #ffffff 58%);
   box-shadow: inset 0 0 0 1px rgba(123, 98, 139, 0.14);
 }
 
@@ -5581,7 +5587,7 @@ tbody tr.fifo-critical:hover {
 }
 
 tbody tr.repair-open td:first-child {
-  border-left: 6px solid #15966f;
+  border-left: 5px solid #70b7a2;
 }
 
 .repairs-table tbody tr.repair-row > td {
@@ -5589,15 +5595,15 @@ tbody tr.repair-open td:first-child {
 }
 
 .repair-status-received {
-  background: #f7fbff;
+  background: #fafcfd;
 }
 
 .repair-status-progress {
-  background: #f0f7f5;
+  background: #f6faf9;
 }
 
 .repair-status-ready {
-  background: #eef7ff;
+  background: #f4f9fc;
 }
 
 .repair-status-picked-up {
@@ -5605,47 +5611,47 @@ tbody tr.repair-open td:first-child {
 }
 
 tbody tr.repair-status-received:hover {
-  background: #edf6ff;
+  background: #f3f8fb;
 }
 
 tbody tr.repair-status-progress:hover {
-  background: #e5f1ee;
+  background: #eef6f4;
 }
 
 tbody tr.repair-status-ready:hover {
-  background: #e1f1ff;
+  background: #eaf4fa;
 }
 
 tbody tr.repair-overdue-warning {
-  background: #fff0d4;
+  background: #fff8eb;
 }
 
 tbody tr.repair-overdue-warning td:first-child {
-  border-left-color: #d27a16;
+  border-left-color: #d6a35c;
 }
 
 tbody tr.repair-overdue-warning:hover {
-  background: #ffe7bd;
+  background: #fff3de;
 }
 
 tbody tr.repair-document-number-warning {
-  background: #f7f4ff;
+  background: #faf8ff;
 }
 
 tbody tr.repair-document-number-warning td:first-child {
-  box-shadow: inset 5px 0 0 #9580c6;
+  box-shadow: inset 4px 0 0 #b8a8d4;
 }
 
 tbody tr.repair-document-number-warning:hover {
-  background: #f2edff;
+  background: #f6f2fc;
 }
 
 tbody tr.repair-overdue-critical {
-  background: #ffe2de;
+  background: #fff0ee;
 }
 
 tbody tr.repair-overdue-critical td:first-child {
-  border-left-color: #c44032;
+  border-left-color: #cf766d;
 }
 
 .repair-notes-cell {
@@ -5701,7 +5707,7 @@ tbody tr.repair-overdue-critical td:first-child {
 }
 
 tbody tr.repair-overdue-critical:hover {
-  background: #ffd5cf;
+  background: #ffe8e5;
 }
 
 tbody tr.repair-closed {
@@ -5857,18 +5863,18 @@ td {
 }
 
 .date-pill.sent {
-  color: #3f6d68;
-  background: #e7f3f0;
+  color: #52736e;
+  background: #f0f7f5;
 }
 
 .date-pill.return {
-  color: #235c99;
-  background: #e7f1fb;
+  color: #416f9a;
+  background: #f0f6fb;
 }
 
 .date-pill.pickup {
-  color: #157347;
-  background: #e4f4eb;
+  color: #42745b;
+  background: #eef7f2;
 }
 
 .date-pill.past {
@@ -6096,43 +6102,43 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .type-pill.REPAIR {
-  color: #234f86;
-  background: #e8f2ff;
+  color: #466783;
+  background: #f2f7fc;
   box-shadow:
-    inset 0 0 0 1px #aac6e8,
-    inset 4px 0 0 #6f9fd5;
+    inset 0 0 0 1px #cbddeb,
+    inset 3px 0 0 #9bbbd7;
 }
 
 .type-pill.INSERT {
-  color: #745d16;
-  background: #fff4cf;
+  color: #756b42;
+  background: #fffaf0;
   box-shadow:
-    inset 0 0 0 1px #dcc26d,
-    inset 4px 0 0 #c69b2c;
+    inset 0 0 0 1px #eadfb9,
+    inset 3px 0 0 #d8c58b;
 }
 
 .type-pill.WATER-INSERT {
-  color: #00645d;
-  background: #e1f6f2;
+  color: #3f706a;
+  background: #f1faf8;
   box-shadow:
-    inset 0 0 0 1px #91ccc5,
-    inset 4px 0 0 #38a89d;
+    inset 0 0 0 1px #c6e2dd,
+    inset 3px 0 0 #8dc7bd;
 }
 
 .type-pill.ORDER {
-  color: #5a4b7d;
-  background: #f1edfb;
+  color: #675f78;
+  background: #f8f6fc;
   box-shadow:
-    inset 0 0 0 1px #c7b9e5,
-    inset 4px 0 0 #9580c6;
+    inset 0 0 0 1px #ddd5ed,
+    inset 3px 0 0 #bcaed8;
 }
 
 .type-pill.OUT-OF-WARRANTY {
-  color: #8a334b;
-  background: #fde8ef;
+  color: #845564;
+  background: #fcf3f5;
   box-shadow:
-    inset 0 0 0 1px #df9aac,
-    inset 4px 0 0 #c45d78;
+    inset 0 0 0 1px #ebcbd4,
+    inset 3px 0 0 #d99aaa;
 }
 
 .type-pill.warranty-warning {
@@ -6142,27 +6148,27 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .status-pill.PRZYJĘTE {
-  color: #58636d;
-  background: #eef1f3;
-  box-shadow: inset 0 0 0 1px #cfd7dd;
+  color: #667078;
+  background: #f5f7f8;
+  box-shadow: inset 0 0 0 1px #dde3e7;
 }
 
 .status-pill.W-TRAKCIE {
-  color: #3f6d68;
-  background: #e7f3f0;
-  box-shadow: inset 0 0 0 1px #a7c9c2;
+  color: #52736e;
+  background: #f2f8f6;
+  box-shadow: inset 0 0 0 1px #c9ddd8;
 }
 
 .status-pill.GOTOWE {
-  color: #235c99;
-  background: #e2f0fc;
-  box-shadow: inset 0 0 0 1px #9dc6e8;
+  color: #416f9a;
+  background: #f0f7fc;
+  box-shadow: inset 0 0 0 1px #c3dbea;
 }
 
 .status-pill.ODEBRANE {
-  color: #4d675c;
-  background: #e9f2ed;
-  box-shadow: inset 0 0 0 1px #b8cbbf;
+  color: #617269;
+  background: #f3f7f5;
+  box-shadow: inset 0 0 0 1px #d4dfd9;
 }
 
 .age-pill.fresh {
