@@ -949,7 +949,7 @@ h2 {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  margin: 8px 1px 1px;
+  margin: 15px 1px 2px;
   color: #557078;
   font-size: 0.7rem;
   font-weight: 900;
@@ -5439,7 +5439,7 @@ tbody tr.year-separator-row:hover {
 }
 
 tbody tr.year-separator-row > td {
-  padding: 7px 10px 5px;
+  padding: 13px 10px 6px;
   border-bottom: 0;
   color: #557078;
   background: linear-gradient(to bottom, transparent 49%, #d5dfe1 49%, #d5dfe1 52%, transparent 52%);
@@ -5447,6 +5447,10 @@ tbody tr.year-separator-row > td {
   font-weight: 900;
   line-height: 1;
   text-align: left;
+}
+
+tbody tr.year-separator-row:first-child > td {
+  padding-top: 7px;
 }
 
 tbody tr.year-separator-row > td > span {
@@ -8383,7 +8387,7 @@ textarea {
     justify-content: flex-start;
   }
 
-  .offer-actions {
+.offer-actions {
     align-items: stretch;
     flex-direction: column;
   }
@@ -8436,6 +8440,19 @@ textarea {
   .return-reminder-deadline {
     text-align: left;
   }
+}
+
+.document-new-btn {
+  color: #006f73;
+  border-color: #b7d7d6;
+  background: #f1f9f8;
+  font-weight: 850;
+}
+
+.document-new-btn:hover {
+  color: #005c60;
+  border-color: #8fc2c0;
+  background: #e7f5f3;
 }
 
 @page capdReportPage {
