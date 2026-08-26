@@ -13220,6 +13220,7 @@ function renderVacationEmployees() {
     entry.className = "vacation-employee-entry";
     entry.classList.toggle("is-self", employee.id === myEmployeeId);
     entry.classList.toggle("can-delete", canViewPrivateModules());
+    if (employee.workstation) entry.dataset.locationTone = employee.workstation;
     if (vacationSaturdayMarkersDisabled(employee)) entry.dataset.employeeTone = "owner";
     const item = document.createElement("button");
     item.type = "button";
