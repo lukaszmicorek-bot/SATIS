@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260826-64">
+    <link rel="stylesheet" href="styles.css?v=20260826-65">
   </head>
   <body>
     <main class="app-shell">
@@ -64,6 +64,16 @@
           <button id="logoutBtn" class="logout-button" type="button" hidden>Wyloguj</button>
         </div>
       </div>
+
+      <section class="customer-relations-panel" aria-label="Wyszukiwanie powiązań klienta">
+        <label class="customer-relations-search">
+          <span>Powiązania</span>
+          <input id="customerRelationsInput" type="search" placeholder="Imię i nazwisko, model lub nr seryjny..." autocomplete="off">
+        </label>
+        <span id="customerRelationsSummary" class="customer-relations-summary">Wyszukaj klienta we wszystkich modułach</span>
+        <button id="clearCustomerRelationsBtn" class="reset-filters-btn" type="button" hidden>Wyczyść</button>
+        <div id="customerRelationsResults" class="customer-relations-results" hidden></div>
+      </section>
 
       <section id="devicesNotebook" class="notebook-section">
         <section class="tabs" role="tablist" aria-label="Zakładki zeszytu aparatów">
@@ -2347,6 +2357,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260826-63"></script>
+    <script src="app.js?v=20260826-65"></script>
   </body>
 </html>

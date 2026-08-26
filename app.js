@@ -255,6 +255,7 @@ const collator = new Intl.Collator("pl", { sensitivity: "base", numeric: true })
 const deviceDerived = new Map();
 const repairDerived = new Map();
 const demoDerived = new Map();
+const demoRecordBySerial = new Map();
 const serialIndex = new Map();
 const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
@@ -568,6 +569,10 @@ const tableRenderLimits = {
 
 const recordsBody = document.querySelector("#recordsBody");
 const devicesTable = document.querySelector(".devices-table");
+const customerRelationsInput = document.querySelector("#customerRelationsInput");
+const customerRelationsSummary = document.querySelector("#customerRelationsSummary");
+const customerRelationsResults = document.querySelector("#customerRelationsResults");
+const clearCustomerRelationsBtn = document.querySelector("#clearCustomerRelationsBtn");
 const printDevicesBtn = document.querySelector("#printBtn");
 const printRepairsBtn = document.querySelector("#printRepairBtn");
 const privatePaymentColumnHeader = document.querySelector("[data-private-payment-column]");
@@ -2335,6 +2340,7 @@ function clearSensitiveApplicationState() {
   activeCapdHistoryId = "";
   activePricingLoanHistoryId = "";
   demoReturnReminderShown = false;
+  if (customerRelationsInput) customerRelationsInput.value = "";
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
   clearSensitiveBrowserData();
@@ -5078,6 +5084,7 @@ function rebuildRepairDerivedData() {
 
 function rebuildDemoDerivedData() {
   demoDerived.clear();
+  demoRecordBySerial.clear();
   activeDemoLoanCustomerIndex.clear();
   demoStats = { all: demoRecords.length, stock: 0, loaned: 0, returnDue: 0 };
   const serialCounts = new Map();
@@ -5086,6 +5093,7 @@ function rebuildDemoDerivedData() {
     const serial = serialDuplicateKey(record.serialNumber);
     if (!serial) return;
     serialCounts.set(serial, (serialCounts.get(serial) || 0) + 1);
+    if (!demoRecordBySerial.has(serial)) demoRecordBySerial.set(serial, record);
   });
 
   demoRecords.forEach((record) => {
@@ -5162,6 +5170,250 @@ function rebuildCustomerDocumentIndex() {
       linePrefix: `Umowa: ${formatDate(entry.date) || "brak daty"}`
     });
   });
+
+  renderCustomerRelations();
+}
+
+function customerRelationSearchValue(values) {
+  return values
+    .flat(Infinity)
+    .filter((value) => value !== null && value !== undefined)
+    .join(" ")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase("pl-PL")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function customerRelationEntries() {
+  const entries = [];
+  const add = (entry) => {
+    const customer = titleCaseName(entry.customer || "");
+    const normalizedEntry = {
+      ...entry,
+      customer,
+      customerKey: customerNameLookupKey(customer),
+      date: isoDateForSave(entry.date) || String(entry.date || ""),
+      searchBlob: customerRelationSearchValue([
+        customer,
+        entry.kind,
+        entry.detail,
+        entry.date,
+        entry.searchValues
+      ])
+    };
+    if (normalizedEntry.searchBlob) entries.push(normalizedEntry);
+  };
+
+  records.forEach((record) => {
+    const status = deviceDerived.get(record.id)?.displayType ?? displayType(record);
+    const sold = status === "SPRZEDANY" || Boolean(normalizeSalesInvoice(record.salesInvoice));
+    add({
+      id: `device-${record.id}`,
+      kind: sold ? "Zakup aparatu" : "Aparat",
+      tone: sold ? "purchase" : "device",
+      customer: record.customerName,
+      date: record.pickupDate || record.receivedDate,
+      detail: [record.deviceName, record.serialNumber ? `nr ${record.serialNumber}` : "", status, record.salesInvoice ? `FV ${record.salesInvoice}` : "", record.location].filter(Boolean).join(" | "),
+      searchValues: [record.deviceName, record.serialNumber, record.salesInvoice, record.notes],
+      open: () => {
+        switchNotebook("devices");
+        switchView("database", "devices");
+        openDialog(record);
+      }
+    });
+  });
+
+  repairRecords.forEach((record) => {
+    const category = normalizeRepairCategory(record.category);
+    const status = repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record);
+    const documentInfo = repairDocumentInfo(record);
+    const demoRelation = repairDemoRelation(record);
+    const kind = category === "ZAMÓWIENIE"
+      ? "Zamówienie · Serwis"
+      : category.startsWith("WKŁADKA")
+        ? "Wkładka · Serwis"
+        : "Serwis / reklamacja";
+    add({
+      id: `repair-${record.id}`,
+      kind,
+      tone: "service",
+      customer: record.customerName,
+      date: record.receivedDate,
+      detail: [record.deviceName, ...repairSerialNumbers(record).map((serial) => `nr ${serial}`), category, demoRelation?.label, status, documentInfo.number ? `${documentInfo.label} ${documentInfo.number}` : "", record.location].filter(Boolean).join(" | "),
+      searchValues: [record.notes, documentInfo.number, demoRelation?.label],
+      open: () => {
+        switchNotebook("repairs");
+        switchView("repairDatabase", "repairs");
+        openRepairDialog(record);
+      }
+    });
+  });
+
+  demoRecords.forEach((record) => {
+    const purpose = normalizeDemoPurpose(record.purpose);
+    if (record.currentUser) {
+      add({
+        id: `demo-current-${record.id}`,
+        kind: purpose === DEMO_PURPOSE_REPLACEMENT ? "Aparat zastępczy" : "Aparat Demo",
+        tone: "demo",
+        customer: record.currentUser,
+        date: record.loanDate || record.receivedDate,
+        detail: [record.deviceName, record.serialNumber ? `nr ${record.serialNumber}` : "", demoStatus(record), record.loanDate ? `od ${formatDate(record.loanDate)}` : "", record.location].filter(Boolean).join(" | "),
+        searchValues: [record.manufacturer, record.notes],
+        open: () => {
+          switchNotebook("devices");
+          switchView("demo", "devices");
+          openDemoDialog(record);
+        }
+      });
+    }
+    normalizeDemoLoanHistory(record.loanHistory).forEach((loan) => {
+      add({
+        id: `demo-history-${record.id}-${loan.id}`,
+        kind: purpose === DEMO_PURPOSE_REPLACEMENT ? "Aparat zastępczy · historia" : "Demo · historia",
+        tone: "demo",
+        customer: loan.currentUser,
+        date: loan.returnDate || loan.loanDate,
+        detail: [record.deviceName, record.serialNumber ? `nr ${record.serialNumber}` : "", [formatDate(loan.loanDate), formatDate(loan.returnDate)].filter(Boolean).join(" - ")].filter(Boolean).join(" | "),
+        searchValues: [record.manufacturer],
+        open: () => {
+          switchNotebook("devices");
+          switchView("demo", "devices");
+          openDemoDialog(record);
+        }
+      });
+    });
+  });
+
+  normalizePricingOfferHistory(pricingOfferHistory).forEach((entry) => add({
+    id: `offer-${entry.id}`,
+    kind: "Oferta",
+    tone: "offer",
+    customer: entry.customer,
+    date: entry.offerDate,
+    detail: [offerHistoryItemsLabel(entry), entry.location].filter(Boolean).join(" | "),
+    searchValues: entry.items.flatMap((item) => [item.model, item.tradeName, item.manufacturer]),
+    open: () => {
+      switchNotebook("agreements");
+      restorePricingOfferFromHistory(entry);
+    }
+  }));
+
+  normalizePricingLoanHistory(pricingLoanHistory).forEach((entry) => add({
+    id: `loan-${entry.id}`,
+    kind: "Umowa wypożyczenia",
+    tone: "loan",
+    customer: entry.customer,
+    date: entry.date || entry.periodFrom,
+    detail: [entry.number ? `nr ${entry.number}` : "", pricingLoanHistoryDeviceLabel(entry), entry.periodFrom && entry.periodTo ? `${formatDate(entry.periodFrom)} - ${formatDate(entry.periodTo)}` : ""].filter(Boolean).join(" | "),
+    searchValues: [entry.rightDevice?.model, entry.rightDevice?.serial, entry.leftDevice?.model, entry.leftDevice?.serial, entry.charger, entry.chargerSerial],
+    open: () => {
+      switchNotebook("agreements");
+      switchPricingView("loan");
+      restorePricingLoanFromHistory(entry);
+    }
+  }));
+
+  normalizePricingOrderHistory(pricingOrderHistory).forEach((entry) => add({
+    id: `order-${entry.id}`,
+    kind: "Zamówienie",
+    tone: "order",
+    customer: entry.customer,
+    date: entry.date,
+    detail: [entry.number ? `nr ${entry.number}` : "", entry.items.map((item) => [pricingOrderTypeLabel(item.type), item.description].filter(Boolean).join(" ")).join("; "), entry.location].filter(Boolean).join(" | "),
+    searchValues: [entry.phone, entry.notes, entry.items.flatMap((item) => [item.description, item.type])],
+    open: () => {
+      switchNotebook("agreements");
+      restorePricingOrderFromHistory(entry);
+    }
+  }));
+
+  normalizePricingComplaintHistory(pricingComplaintHistory).forEach((entry) => add({
+    id: `complaint-${entry.id}`,
+    kind: "Reklamacja",
+    tone: "complaint",
+    customer: entry.customer,
+    date: entry.date,
+    detail: [entry.number ? `nr ${entry.number}` : "", entry.items.map((item) => [item.productName, item.serial ? `nr ${item.serial}` : ""].filter(Boolean).join(" ")).join("; "), pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
+    searchValues: [entry.phone, entry.defect, entry.notes, entry.items.flatMap((item) => [item.productName, item.serial, item.purchaseDocument])],
+    open: () => {
+      switchNotebook("agreements");
+      restorePricingComplaintFromHistory(entry);
+    }
+  }));
+
+  normalizePricingPcprList(pricingPcprList).forEach((entry) => add({
+    id: `pcpr-${entry.id}`,
+    kind: "PCPR / MOPS",
+    tone: "pcpr",
+    customer: entry.customer,
+    date: entry.createdAt || entry.savedAt,
+    detail: [entry.office, entry.model, entry.model2, entry.place].filter(Boolean).join(" | "),
+    searchValues: [entry.phone, entry.address],
+    open: () => {
+      switchNotebook("agreements");
+      switchPricingView("pcpr");
+      editPricingPcprItem(entry.id);
+    }
+  }));
+
+  return entries;
+}
+
+function customerRelationResultItem(entry) {
+  const item = document.createElement("article");
+  item.className = "customer-relation-item";
+  item.dataset.relationTone = entry.tone || "default";
+  const badge = document.createElement("span");
+  badge.className = "customer-relation-kind";
+  badge.textContent = entry.kind;
+  const content = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = entry.customer || entry.kind;
+  const detail = document.createElement("span");
+  detail.textContent = entry.detail || "Brak dodatkowych informacji";
+  content.append(title, detail);
+  const date = document.createElement("time");
+  date.textContent = formatDate(entry.date) || "bez daty";
+  if (entry.date) date.dateTime = entry.date;
+  const openButton = document.createElement("button");
+  openButton.type = "button";
+  openButton.className = "reset-filters-btn";
+  openButton.textContent = "Otwórz";
+  openButton.addEventListener("click", entry.open);
+  item.append(badge, content, date, openButton);
+  return item;
+}
+
+function renderCustomerRelations() {
+  if (!customerRelationsInput || !customerRelationsResults || !customerRelationsSummary) return;
+  const query = customerRelationSearchValue([customerRelationsInput.value]);
+  clearCustomerRelationsBtn.hidden = !query;
+  if (query.length < 2) {
+    customerRelationsSummary.textContent = "Wyszukaj klienta we wszystkich modułach";
+    customerRelationsResults.hidden = true;
+    customerRelationsResults.replaceChildren();
+    return;
+  }
+
+  const terms = query.split(" ").filter(Boolean);
+  const entries = customerRelationEntries();
+  const directMatches = entries.filter((entry) => terms.every((term) => entry.searchBlob.includes(term)));
+  const directMatchSet = new Set(directMatches);
+  const relatedCustomerKeys = new Set(directMatches.map((entry) => entry.customerKey).filter(Boolean));
+  const matches = entries
+    .filter((entry) => directMatchSet.has(entry) || (entry.customerKey && relatedCustomerKeys.has(entry.customerKey)))
+    .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")))
+    .slice(0, 80);
+
+  const customerCount = new Set(matches.map((entry) => entry.customerKey).filter(Boolean)).size;
+  customerRelationsSummary.textContent = matches.length
+    ? `${matches.length} ${matches.length === 1 ? "powiązanie" : "powiązań"}${customerCount ? ` · ${customerCount} ${customerCount === 1 ? "klient" : "klientów"}` : ""}`
+    : "Brak powiązań w zapisanych danych";
+  customerRelationsResults.hidden = matches.length === 0;
+  customerRelationsResults.replaceChildren(...matches.map(customerRelationResultItem));
 }
 
 function rebuildDemoManufacturerFilter() {
@@ -12093,6 +12345,35 @@ function createRepairDeviceNameCell(record) {
   return name;
 }
 
+function repairDemoRelation(record) {
+  const demoRecord = repairSerialNumbers(record)
+    .map(serialDuplicateKey)
+    .map((serial) => demoRecordBySerial.get(serial))
+    .find(Boolean);
+  if (!demoRecord) return null;
+  const replacement = normalizeDemoPurpose(demoRecord.purpose) === DEMO_PURPOSE_REPLACEMENT;
+  return {
+    label: replacement ? "Zastępczy" : "Demo",
+    className: replacement ? "replacement" : "demo",
+    demoRecord
+  };
+}
+
+function createRepairCategoryCell(record) {
+  const stack = document.createElement("span");
+  stack.className = "repair-category-stack";
+  stack.append(createCategoryPill(record.category, record));
+  const relation = repairDemoRelation(record);
+  if (!relation) return stack;
+
+  const marker = document.createElement("span");
+  marker.className = `repair-demo-relation ${relation.className}`;
+  marker.textContent = relation.label;
+  marker.title = [relation.demoRecord.deviceName, relation.demoRecord.serialNumber].filter(Boolean).join(" · ");
+  stack.append(marker);
+  return stack;
+}
+
 function createRepairRow(record) {
   const row = document.createElement("tr");
   const meta = repairDerived.get(record.id);
@@ -12104,7 +12385,7 @@ function createRepairRow(record) {
   const activeDateType = activeRepairDateType(record);
   const cells = [
     createDateText(record.receivedDate),
-    createCategoryPill(record.category, record),
+    createRepairCategoryCell(record),
     createLocationPill(record.location),
     createRepairCustomerName(record.customerName, status),
     createRepairDeviceNameCell(record),
@@ -17046,6 +17327,12 @@ pasteInputButtons.forEach((button) => {
   });
 });
 searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH_DEBOUNCE_MS));
+customerRelationsInput?.addEventListener("input", debounce(renderCustomerRelations, SEARCH_DEBOUNCE_MS));
+clearCustomerRelationsBtn?.addEventListener("click", () => {
+  customerRelationsInput.value = "";
+  renderCustomerRelations();
+  customerRelationsInput.focus();
+});
 typeFilter.addEventListener("change", resetAndRenderDeviceViews);
 ezwmFilter.addEventListener("change", resetAndRenderDeviceViews);
 fifoFilter.addEventListener("change", resetAndRenderDeviceViews);
