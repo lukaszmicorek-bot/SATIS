@@ -984,7 +984,7 @@ function pricingUpdatedDateTime() {
 function setCurrentYearTitle() {
   const year = new Date().getFullYear();
   const deviceTitle = `Zeszyt aparatów ${year}`;
-  const repairTitle = `Zeszyt serwisu i zamówień ${year}`;
+  const repairTitle = `Serwis i zamówienia ${year}`;
   const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
   const agreementsTitle = "Umowy";
   const notebookTitles = {
