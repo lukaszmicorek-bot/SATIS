@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260825-49">
+    <link rel="stylesheet" href="styles.css?v=20260826-50">
   </head>
   <body>
     <main class="app-shell">
@@ -45,13 +45,18 @@
       </section>
 
       <div class="top-switch-row">
-        <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
-          <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
-          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
-          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="pricing">Cennik</button>
-          <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
-          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>CAPD</button>
-          <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
+        <div class="notebook-navigation">
+          <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
+            <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
+            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
+            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>CAPD</button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
+          </div>
+          <button class="notebook-switch-button pricing-shortcut" type="button" aria-pressed="false" data-notebook="pricing">
+            <span aria-hidden="true">PLN</span>
+            Cennik
+          </button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -2333,6 +2338,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260825-49"></script>
+    <script src="app.js?v=20260826-50"></script>
   </body>
 </html>
