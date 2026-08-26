@@ -944,6 +944,33 @@ h2 {
   gap: 8px;
 }
 
+.year-list-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 8px 1px 1px;
+  color: #557078;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.year-list-separator:first-child {
+  margin-top: 2px;
+}
+
+.year-list-separator::after {
+  content: "";
+  flex: 1;
+  min-width: 20px;
+  border-top: 1px solid #d5dfe1;
+}
+
+.year-list-separator > span {
+  flex: 0 0 auto;
+}
+
 .capd-history-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -5406,6 +5433,28 @@ tbody tr:hover {
   background: #f5f8f7;
 }
 
+tbody tr.year-separator-row,
+tbody tr.year-separator-row:hover {
+  background: #f8fafb;
+}
+
+tbody tr.year-separator-row > td {
+  padding: 7px 10px 5px;
+  border-bottom: 0;
+  color: #557078;
+  background: linear-gradient(to bottom, transparent 49%, #d5dfe1 49%, #d5dfe1 52%, transparent 52%);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: left;
+}
+
+tbody tr.year-separator-row > td > span {
+  display: inline-block;
+  padding-right: 9px;
+  background: #f8fafb;
+}
+
 tbody tr.device-sold-row {
   color: #7e878f;
   background: #fbfcfc;
@@ -5465,7 +5514,9 @@ tbody tr.device-sold-row:hover {
 }
 
 .devices-table tbody tr:first-child .device-name-cell.has-price::after,
-.repairs-table tbody tr:first-child .device-name-cell.has-price::after {
+.devices-table tbody tr.year-separator-row + tr .device-name-cell.has-price::after,
+.repairs-table tbody tr:first-child .device-name-cell.has-price::after,
+.repairs-table tbody tr.year-separator-row + tr .device-name-cell.has-price::after {
   top: calc(100% + 8px);
   bottom: auto;
   z-index: 40;
@@ -5549,7 +5600,8 @@ tbody tr.device-sold-row:hover {
   transform: translateY(0);
 }
 
-.devices-table tbody tr:first-child .customer-activity-cell.has-customer-docs::after {
+.devices-table tbody tr:first-child .customer-activity-cell.has-customer-docs::after,
+.devices-table tbody tr.year-separator-row + tr .customer-activity-cell.has-customer-docs::after {
   top: calc(100% + 8px);
   bottom: auto;
 }

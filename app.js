@@ -1608,7 +1608,11 @@ function renderAuditTrailEntries(notebook, entries) {
     target.list.innerHTML = '<p class="audit-trail-empty">Brak historii zmian.</p>';
     return;
   }
-  target.list.replaceChildren(...entries.map((entry) => createAuditTrailItem(entry, notebook)));
+  target.list.replaceChildren(...yearGroupedListNodes(
+    entries,
+    (entry) => createAuditTrailItem(entry, notebook),
+    (entry) => entry.createdAt
+  ));
 }
 
 function renderAuditTrail(notebook, recordId) {
@@ -4774,6 +4778,66 @@ function renderTableRows(body, rows) {
   body.replaceChildren(fragment);
 }
 
+function yearFromDateValue(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const isoMatch = text.match(/^(\d{4})[-/.]/u);
+  if (isoMatch) return isoMatch[1];
+  const polishMatch = text.match(/^(?:\d{1,2})[./-](?:\d{1,2})[./-](\d{4})/u);
+  if (polishMatch) return polishMatch[1];
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : String(date.getFullYear());
+}
+
+function groupItemsByYear(items, getDate) {
+  const groups = new Map();
+  items.forEach((item) => {
+    const year = yearFromDateValue(getDate(item)) || "Bez daty";
+    if (!groups.has(year)) groups.set(year, []);
+    groups.get(year).push(item);
+  });
+  return [...groups.entries()].sort(([left], [right]) => {
+    if (left === "Bez daty") return 1;
+    if (right === "Bez daty") return -1;
+    return Number(right) - Number(left);
+  });
+}
+
+function createYearListSeparator(year) {
+  const separator = document.createElement("div");
+  separator.className = "year-list-separator";
+  const label = document.createElement("span");
+  label.textContent = year;
+  separator.append(label);
+  return separator;
+}
+
+function createYearTableSeparator(body, year) {
+  const row = document.createElement("tr");
+  row.className = "year-separator-row";
+  const cell = document.createElement("td");
+  cell.colSpan = body.closest("table")?.querySelectorAll("thead th").length || 1;
+  const label = document.createElement("span");
+  label.textContent = year;
+  cell.append(label);
+  row.append(cell);
+  return row;
+}
+
+function yearGroupedListNodes(items, createItem, getDate) {
+  return groupItemsByYear(items, getDate).flatMap(([year, yearItems]) => [
+    createYearListSeparator(year),
+    ...yearItems.map(createItem)
+  ]);
+}
+
+function yearGroupedTableRows(body, items, createRow, getDate) {
+  return groupItemsByYear(items, getDate).flatMap(([year, yearItems]) => [
+    createYearTableSeparator(body, year),
+    ...yearItems.map(createRow)
+  ]);
+}
+
 function visibleTableItems(items, tableKey) {
   return items.slice(0, tableRenderLimits[tableKey] || TABLE_RENDER_BATCH_SIZE);
 }
@@ -5326,7 +5390,7 @@ function renderDeviceViews() {
   updatePrivatePaymentVisibility();
   const visibleRecords = filteredRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
-  renderTableRows(recordsBody, renderedRecords.map(createRow));
+  renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords, createRow, (record) => record.receivedDate));
   emptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(databaseRenderNotice, databaseRenderText, visibleRecords.length, renderedRecords.length, "rekordów");
 }
@@ -5367,7 +5431,7 @@ function filteredDemoRecords() {
 function renderDemoRecords() {
   const visibleRecords = filteredDemoRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "demo");
-  renderTableRows(demoRecordsBody, renderedRecords.map(createDemoRow));
+  renderTableRows(demoRecordsBody, yearGroupedTableRows(demoRecordsBody, renderedRecords, createDemoRow, (record) => record.receivedDate));
   demoEmptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(demoRenderNotice, demoRenderText, visibleRecords.length, renderedRecords.length, "aparatów demo");
   updateDemoChecklistState(visibleRecords);
@@ -6890,7 +6954,12 @@ function renderPricingLoanHistory() {
     item.append(content, actions);
     return item;
   });
-  loanHistoryList.replaceChildren(...items);
+  const itemById = new Map(history.map((entry, index) => [entry.id, items[index]]));
+  loanHistoryList.replaceChildren(...yearGroupedListNodes(
+    history,
+    (entry) => itemById.get(entry.id),
+    (entry) => entry.date || entry.periodFrom || entry.savedAt
+  ));
 }
 
 function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
@@ -7030,7 +7099,11 @@ function showPricingHistoryPreview(kind, entry) {
   pricingHistoryPreviewDialog.showModal();
 }
 
-function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem, { totalCount = entries.length, searchActive = false } = {}) {
+function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem, {
+  totalCount = entries.length,
+  searchActive = false,
+  getDate = (entry) => entry.date || entry.offerDate || entry.savedAt || entry.createdAt
+} = {}) {
   if (!list || !countElement) return;
   countElement.textContent = searchActive
     ? `${entries.length} z ${totalCount}`
@@ -7042,7 +7115,7 @@ function renderPricingHistoryList(list, countElement, entries, emptyText, countL
     list.replaceChildren(empty);
     return;
   }
-  list.replaceChildren(...entries.map(createItem));
+  list.replaceChildren(...yearGroupedListNodes(entries, createItem, getDate));
 }
 
 function restorePricingOfferFromHistory(entry) {
@@ -8417,7 +8490,11 @@ function renderPricingPcprList() {
     return;
   }
 
-  pcprList.replaceChildren(...list.map(createPricingPcprItem));
+  pcprList.replaceChildren(...yearGroupedListNodes(
+    list,
+    createPricingPcprItem,
+    (entry) => entry.createdAt || entry.savedAt
+  ));
 }
 
 function pricingOrderTypeLabel(value) {
@@ -10804,8 +10881,8 @@ function renderRepairRecords() {
   const openRecords = openRepairRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "repairs");
   const renderedOpenRecords = visibleTableItems(openRecords, "repairOpen");
-  renderTableRows(repairRecordsBody, renderedRecords.map(createRepairRow));
-  renderTableRows(repairOpenRecordsBody, renderedOpenRecords.map(createRepairRow));
+  renderTableRows(repairRecordsBody, yearGroupedTableRows(repairRecordsBody, renderedRecords, createRepairRow, (record) => record.receivedDate));
+  renderTableRows(repairOpenRecordsBody, yearGroupedTableRows(repairOpenRecordsBody, renderedOpenRecords, createRepairRow, (record) => record.receivedDate));
   repairEmptyState.hidden = visibleRecords.length > 0;
   repairOpenEmptyState.hidden = openRecords.length > 0;
   renderLimitNotice(repairRenderNotice, repairRenderText, visibleRecords.length, renderedRecords.length, "wpisów");
@@ -12847,7 +12924,12 @@ function renderCapdHistory() {
     card.append(main, actions);
     return card;
   });
-  capdHistoryList.replaceChildren(...cards);
+  const cardById = new Map(visibleHistory.map((entry, index) => [entry.id, cards[index]]));
+  capdHistoryList.replaceChildren(...yearGroupedListNodes(
+    visibleHistory,
+    (entry) => cardById.get(entry.id),
+    (entry) => entry.testDate || entry.savedAt
+  ));
 }
 
 function resetCapdForm() {
@@ -13566,7 +13648,9 @@ function renderVacationHistory() {
     row.append(notesCell);
     return row;
   });
-  vacationHistoryBody.replaceChildren(...rows);
+  vacationHistoryBody.replaceChildren(
+    ...(entries.length ? [createYearTableSeparator(vacationHistoryBody, String(selectedVacationYear())), ...rows] : [])
+  );
 }
 
 function formatVacationWeekday(value) {
@@ -14151,7 +14235,13 @@ function renderDemoLoanHistory(record) {
     empty.textContent = "Brak zakończonych wypożyczeń.";
     fragment.append(empty);
   }
+  let renderedYear = "";
   entries.forEach((entry) => {
+    const year = yearFromDateValue(entry.returnDate || entry.loanDate) || "Bez daty";
+    if (year !== renderedYear) {
+      fragment.append(createYearListSeparator(year));
+      renderedYear = year;
+    }
     const item = document.createElement("div");
     item.className = "demo-loan-history-item";
     const person = document.createElement("strong");
