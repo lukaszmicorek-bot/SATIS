@@ -453,6 +453,7 @@ const pricingEmptyState = document.querySelector("#pricingEmptyState");
 const pricingSearchInput = document.querySelector("#pricingSearchInput");
 const pricingNfzFilter = document.querySelector("#pricingNfzFilter");
 const pricingManufacturerFilter = document.querySelector("#pricingManufacturerFilter");
+const pricingConstructionFilter = document.querySelector("#pricingConstructionFilter");
 const pricingMinPriceFilter = document.querySelector("#pricingMinPriceFilter");
 const pricingMaxPriceFilter = document.querySelector("#pricingMaxPriceFilter");
 const pricingSummary = document.querySelector("#pricingSummary");
@@ -5497,10 +5498,21 @@ function updatePricingManufacturerFilterOptions() {
   pricingManufacturerFilter.value = manufacturerValues.includes(selectedValue) ? selectedValue : "";
 }
 
+function isPricingInEarDevice(record) {
+  const text = [record?.model, record?.tradeName]
+    .map((value) => String(value ?? "").toLocaleUpperCase("pl-PL"))
+    .join(" ");
+  const hasInEarCode = /(?:^|[^A-Z0-9])(?:IIC|CIC|DIC|ITC|ITE|IT|NXTCIC|CUSTOM)(?=$|[^A-Z0-9])/u.test(text)
+    || /(?:^|[^A-Z0-9])CT\.(?=$|[^A-Z0-9])/u.test(text);
+  const hasInEarModel = /(?:^|[^A-Z0-9])(?:INSIO|SILK|IDA|ILEA|ICON|VIRTO|OWN)(?=$|[^A-Z])/u.test(text);
+  return hasInEarCode || hasInEarModel;
+}
+
 function filteredPricingRecords() {
   const query = normalize(pricingSearchInput?.value || "").trim();
   const selectedNfzCode = pricingNfzFilter?.value || "";
   const selectedManufacturer = pricingManufacturerFilter?.value || "";
+  const selectedConstruction = pricingConstructionFilter?.value || "";
   const enteredMinPrice = normalizePricingPrice(pricingMinPriceFilter?.value);
   const enteredMaxPrice = normalizePricingPrice(pricingMaxPriceFilter?.value);
   const hasMinPrice = enteredMinPrice !== "";
@@ -5510,6 +5522,9 @@ function filteredPricingRecords() {
   return pricingRecords.filter((record) => {
     if (selectedNfzCode && record.nfzCode !== selectedNfzCode) return false;
     if (selectedManufacturer && normalize(record.manufacturer).trim() !== selectedManufacturer) return false;
+    const isInEar = isPricingInEarDevice(record);
+    if (selectedConstruction === "IN_EAR" && !isInEar) return false;
+    if (selectedConstruction === "BEHIND_EAR" && isInEar) return false;
     const price = normalizePricingPrice(record.grossPrice);
     if (hasMinPrice && (price === "" || price < minPrice)) return false;
     if (hasMaxPrice && (price === "" || price > maxPrice)) return false;
@@ -15820,6 +15835,7 @@ function resetPricingFiltersAfterFullUpdate() {
   pricingNfzDefaultApplied = false;
   if (pricingNfzFilter) pricingNfzFilter.value = "";
   if (pricingManufacturerFilter) pricingManufacturerFilter.value = "";
+  if (pricingConstructionFilter) pricingConstructionFilter.value = "";
   if (pricingMinPriceFilter) pricingMinPriceFilter.value = "";
   if (pricingMaxPriceFilter) pricingMaxPriceFilter.value = "";
 }
@@ -16493,6 +16509,7 @@ pricingNfzFilter?.addEventListener("change", () => {
   renderPricingRecords();
 });
 pricingManufacturerFilter?.addEventListener("change", renderPricingRecords);
+pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
 [pricingMinPriceFilter, pricingMaxPriceFilter].forEach((input) => {
   input?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
   input?.addEventListener("blur", () => {
