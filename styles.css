@@ -9768,3 +9768,155 @@ textarea {
     border-bottom: 1px solid #66737c;
   }
 }
+.customer-relations-panel {
+  display: grid;
+  grid-template-columns: minmax(280px, 520px) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px 12px;
+  padding: 9px 12px;
+  border-top: 1px solid #dbe5e7;
+  border-bottom: 1px solid #dbe5e7;
+  background: #f8fbfb;
+}
+
+.customer-relations-search {
+  display: grid;
+  gap: 4px;
+}
+
+.customer-relations-search > span {
+  color: #315864;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.customer-relations-search input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #bccdd1;
+  border-radius: 6px;
+  background: #fff;
+  color: #003f5a;
+}
+
+.customer-relations-summary {
+  align-self: center;
+  color: #60777d;
+  font-size: 0.78rem;
+}
+
+.customer-relations-results {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-height: 360px;
+  overflow: auto;
+  padding-top: 3px;
+}
+
+.customer-relations-results[hidden] {
+  display: none;
+}
+
+.customer-relation-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #dce6e8;
+  border-left: 3px solid #66858e;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.customer-relation-item[data-relation-tone="purchase"] { border-left-color: #008784; }
+.customer-relation-item[data-relation-tone="service"] { border-left-color: #b37a44; }
+.customer-relation-item[data-relation-tone="demo"] { border-left-color: #277d91; }
+.customer-relation-item[data-relation-tone="offer"] { border-left-color: #e56b00; }
+.customer-relation-item[data-relation-tone="loan"] { border-left-color: #66588c; }
+.customer-relation-item[data-relation-tone="order"] { border-left-color: #75833f; }
+.customer-relation-item[data-relation-tone="complaint"] { border-left-color: #a55656; }
+
+.customer-relation-kind {
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: #eef4f5;
+  color: #315864;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.customer-relation-item > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.customer-relation-item > div strong,
+.customer-relation-item > div span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-relation-item > div strong {
+  color: #003f5a;
+  font-size: 0.78rem;
+}
+
+.customer-relation-item > div span,
+.customer-relation-item time {
+  color: #647a80;
+  font-size: 0.7rem;
+}
+
+.repair-category-stack {
+  display: inline-grid;
+  justify-items: start;
+  gap: 3px;
+}
+
+.repair-demo-relation {
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.repair-demo-relation.demo {
+  background: #e1f3f1;
+  color: #166c6b;
+}
+
+.repair-demo-relation.replacement {
+  background: #eeeaf5;
+  color: #65577c;
+}
+
+@media (max-width: 800px) {
+  .customer-relations-panel,
+  .customer-relations-results {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-relations-results,
+  .customer-relations-summary,
+  .customer-relations-panel > .reset-filters-btn {
+    grid-column: 1;
+  }
+
+  .customer-relation-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .customer-relation-item > .reset-filters-btn {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
+}
