@@ -9779,6 +9779,10 @@ textarea {
   background: #f8fbfb;
 }
 
+.customer-relations-panel[hidden] {
+  display: none;
+}
+
 .customer-relations-search {
   display: grid;
   gap: 4px;
@@ -9876,6 +9880,12 @@ textarea {
 }
 
 .repair-category-stack {
+  display: inline-grid;
+  justify-items: start;
+  gap: 3px;
+}
+
+.repair-customer-stack {
   display: inline-grid;
   justify-items: start;
   gap: 3px;
