@@ -4998,6 +4998,54 @@ textarea:focus {
   --document-location-bg: #faf6fc;
 }
 
+.demo-purpose-field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.demo-purpose-field > span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.demo-purpose-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.demo-purpose-choices button {
+  min-height: 39px;
+  padding: 7px 9px;
+  border: 1px solid #ccdadd;
+  border-radius: 7px;
+  background: #f8fbfb;
+  color: #49636b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.demo-purpose-choices button[data-demo-purpose="DO TESTOWANIA"][aria-pressed="true"] {
+  border-color: #77aaa9;
+  background: #e7f5f3;
+  color: #176b69;
+}
+
+.demo-purpose-choices button[data-demo-purpose="APARAT ZASTĘPCZY"][aria-pressed="true"] {
+  border-color: #a894bb;
+  background: #f0ebf5;
+  color: #655579;
+}
+
+.demo-purpose-choices.required-missing {
+  padding: 3px;
+  border: 1px solid #bd5a50;
+  border-radius: 8px;
+  background: #fff3f1;
+}
+
 .location-filter-field:not([data-location-tone]) {
   --document-location-accent: #b8c5ca;
   --document-location-bg: #ffffff;
@@ -9900,13 +9948,15 @@ textarea {
 }
 
 .repair-demo-relation.demo {
-  background: #e1f3f1;
-  color: #166c6b;
+  border: 1px solid #b8d9e6;
+  background: #e8f4f8;
+  color: #236a84;
 }
 
 .repair-demo-relation.replacement {
-  background: #eeeaf5;
-  color: #65577c;
+  border: 1px solid #edc99f;
+  background: #fff1df;
+  color: #9a5718;
 }
 
 @media (max-width: 800px) {

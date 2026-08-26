@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260826-68">
+    <link rel="stylesheet" href="styles.css?v=20260826-71">
   </head>
   <body>
     <main class="app-shell">
@@ -2222,14 +2222,15 @@
               <option value="ZWRÓCONO">Zwrócono</option>
             </select>
           </label>
-          <label>
+          <div class="demo-purpose-field">
             <span>Charakter</span>
-            <select id="demoPurpose" name="purpose">
-              <option value="DO TESTOWANIA">Do testowania</option>
-              <option value="APARAT ZASTĘPCZY">Aparat zastępczy</option>
-            </select>
-          </label>
-          <label>
+            <input id="demoPurpose" name="purpose" type="hidden" value="">
+            <div id="demoPurposeChoices" class="demo-purpose-choices" role="group" aria-label="Charakter aparatu demo">
+              <button type="button" data-demo-purpose="DO TESTOWANIA" aria-pressed="false">Demo</button>
+              <button type="button" data-demo-purpose="APARAT ZASTĘPCZY" aria-pressed="false">Zastępczy</button>
+            </div>
+          </div>
+          <label class="document-location-field" data-location-tone="P63">
             <span>Miejsce</span>
             <select id="demoLocation" name="location">
               <option value="T12">T12</option>
@@ -2357,6 +2358,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260826-68"></script>
+    <script src="app.js?v=20260826-70"></script>
   </body>
 </html>
