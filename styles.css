@@ -2113,7 +2113,7 @@ h2 {
 }
 
 .pricing-controls {
-  grid-template-columns: minmax(250px, 1fr) 150px 180px 210px auto auto 150px;
+  grid-template-columns: minmax(230px, 1fr) 140px 160px 155px 200px auto auto 145px;
   gap: 10px;
   margin-bottom: 0;
 }
@@ -2186,6 +2186,22 @@ h2 {
 .pricing-table td:nth-child(7) {
   width: 62px;
   text-align: center;
+}
+
+.pricing-table th:nth-child(7),
+.pricing-table th:nth-child(9) {
+  color: rgba(255, 255, 255, 0.48);
+  background: #405158;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.pricing-table td:nth-child(7),
+.pricing-table td:nth-child(9) {
+  color: #9ba7ab;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.62;
 }
 
 .pricing-table th:nth-child(8),
