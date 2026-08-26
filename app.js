@@ -255,7 +255,6 @@ const collator = new Intl.Collator("pl", { sensitivity: "base", numeric: true })
 const deviceDerived = new Map();
 const repairDerived = new Map();
 const demoDerived = new Map();
-const demoRecordBySerial = new Map();
 const serialIndex = new Map();
 const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
@@ -573,6 +572,7 @@ const customerRelationsInput = document.querySelector("#customerRelationsInput")
 const customerRelationsSummary = document.querySelector("#customerRelationsSummary");
 const customerRelationsResults = document.querySelector("#customerRelationsResults");
 const clearCustomerRelationsBtn = document.querySelector("#clearCustomerRelationsBtn");
+const customerRelationsPanel = document.querySelector(".customer-relations-panel");
 const printDevicesBtn = document.querySelector("#printBtn");
 const printRepairsBtn = document.querySelector("#printRepairBtn");
 const privatePaymentColumnHeader = document.querySelector("[data-private-payment-column]");
@@ -4875,6 +4875,7 @@ function addActiveDemoLoanCustomerIndexEntry(record, status) {
     location: normalizeDemoLocation(record.location),
     loanDate: isoDateForSave(record.loanDate),
     returnDeadline: deadline.source === "loan" ? deadline.date : "",
+    purpose: normalizeDemoPurpose(record.purpose),
     status
   });
 }
@@ -5084,7 +5085,6 @@ function rebuildRepairDerivedData() {
 
 function rebuildDemoDerivedData() {
   demoDerived.clear();
-  demoRecordBySerial.clear();
   activeDemoLoanCustomerIndex.clear();
   demoStats = { all: demoRecords.length, stock: 0, loaned: 0, returnDue: 0 };
   const serialCounts = new Map();
@@ -5093,7 +5093,6 @@ function rebuildDemoDerivedData() {
     const serial = serialDuplicateKey(record.serialNumber);
     if (!serial) return;
     serialCounts.set(serial, (serialCounts.get(serial) || 0) + 1);
-    if (!demoRecordBySerial.has(serial)) demoRecordBySerial.set(serial, record);
   });
 
   demoRecords.forEach((record) => {
@@ -5186,8 +5185,23 @@ function customerRelationSearchValue(values) {
     .trim();
 }
 
+function customerRelationDocumentKey(type, number, sourceId = "") {
+  const normalizedType = normalizeRepairDocumentType(type);
+  const normalizedNumber = customerRelationSearchValue([number]).replaceAll(" ", "");
+  const normalizedSourceId = normalizeLoanHistoryText(sourceId);
+  if (!normalizedType) return "";
+  if (normalizedNumber) return `${normalizedType}:${normalizedNumber}`;
+  return normalizedSourceId ? `${normalizedType}:id:${normalizedSourceId}` : "";
+}
+
+function customerRelationTimeValue(value) {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function customerRelationEntries() {
   const entries = [];
+  const relationKeyIndexes = new Map();
   const add = (entry) => {
     const customer = titleCaseName(entry.customer || "");
     const normalizedEntry = {
@@ -5195,6 +5209,8 @@ function customerRelationEntries() {
       customer,
       customerKey: customerNameLookupKey(customer),
       date: isoDateForSave(entry.date) || String(entry.date || ""),
+      sortTime: customerRelationTimeValue(entry.date || entry.savedAt || entry.createdAt),
+      savedTime: customerRelationTimeValue(entry.savedAt || entry.updatedAt || entry.createdAt),
       searchBlob: customerRelationSearchValue([
         customer,
         entry.kind,
@@ -5203,7 +5219,22 @@ function customerRelationEntries() {
         entry.searchValues
       ])
     };
-    if (normalizedEntry.searchBlob) entries.push(normalizedEntry);
+    if (!normalizedEntry.searchBlob) return;
+    if (normalizedEntry.relationKey && relationKeyIndexes.has(normalizedEntry.relationKey)) {
+      const index = relationKeyIndexes.get(normalizedEntry.relationKey);
+      const previous = entries[index];
+      entries[index] = {
+        ...normalizedEntry,
+        kind: normalizedEntry.mergedKind || previous.mergedKind || normalizedEntry.kind,
+        detail: [...new Set([normalizedEntry.detail, previous.detail].filter(Boolean))].join(" | "),
+        searchBlob: `${normalizedEntry.searchBlob}\n${previous.searchBlob}`,
+        sortTime: Math.max(normalizedEntry.sortTime, previous.sortTime),
+        savedTime: Math.max(normalizedEntry.savedTime, previous.savedTime)
+      };
+      return;
+    }
+    if (normalizedEntry.relationKey) relationKeyIndexes.set(normalizedEntry.relationKey, entries.length);
+    entries.push(normalizedEntry);
   };
 
   records.forEach((record) => {
@@ -5229,7 +5260,8 @@ function customerRelationEntries() {
     const category = normalizeRepairCategory(record.category);
     const status = repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record);
     const documentInfo = repairDocumentInfo(record);
-    const demoRelation = repairDemoRelation(record);
+    const demoRelations = repairActiveDemoRelations(record);
+    const relationKey = customerRelationDocumentKey(documentInfo.type, documentInfo.number, record.sourceDocumentId);
     const kind = category === "ZAMÓWIENIE"
       ? "Zamówienie · Serwis"
       : category.startsWith("WKŁADKA")
@@ -5238,11 +5270,13 @@ function customerRelationEntries() {
     add({
       id: `repair-${record.id}`,
       kind,
+      relationKey,
+      mergedKind: documentInfo.type ? `${documentInfo.label} · Serwis` : "",
       tone: "service",
       customer: record.customerName,
       date: record.receivedDate,
-      detail: [record.deviceName, ...repairSerialNumbers(record).map((serial) => `nr ${serial}`), category, demoRelation?.label, status, documentInfo.number ? `${documentInfo.label} ${documentInfo.number}` : "", record.location].filter(Boolean).join(" | "),
-      searchValues: [record.notes, documentInfo.number, demoRelation?.label],
+      detail: [record.deviceName, ...repairSerialNumbers(record).map((serial) => `nr ${serial}`), category, ...demoRelations.map((relation) => relation.label), status, documentInfo.number ? `${documentInfo.label} ${documentInfo.number}` : "", record.location].filter(Boolean).join(" | "),
+      searchValues: [record.notes, documentInfo.number, demoRelations.map((relation) => relation.label)],
       open: () => {
         switchNotebook("repairs");
         switchView("repairDatabase", "repairs");
@@ -5319,9 +5353,12 @@ function customerRelationEntries() {
   normalizePricingOrderHistory(pricingOrderHistory).forEach((entry) => add({
     id: `order-${entry.id}`,
     kind: "Zamówienie",
+    relationKey: customerRelationDocumentKey("ORDER", entry.number, entry.id),
+    mergedKind: "Zamówienie · Serwis",
     tone: "order",
     customer: entry.customer,
     date: entry.date,
+    savedAt: entry.savedAt,
     detail: [entry.number ? `nr ${entry.number}` : "", entry.items.map((item) => [pricingOrderTypeLabel(item.type), item.description].filter(Boolean).join(" ")).join("; "), entry.location].filter(Boolean).join(" | "),
     searchValues: [entry.phone, entry.notes, entry.items.flatMap((item) => [item.description, item.type])],
     open: () => {
@@ -5333,9 +5370,12 @@ function customerRelationEntries() {
   normalizePricingComplaintHistory(pricingComplaintHistory).forEach((entry) => add({
     id: `complaint-${entry.id}`,
     kind: "Reklamacja",
+    relationKey: customerRelationDocumentKey("COMPLAINT", entry.number, entry.id),
+    mergedKind: "Reklamacja · Serwis",
     tone: "complaint",
     customer: entry.customer,
     date: entry.date,
+    savedAt: entry.savedAt,
     detail: [entry.number ? `nr ${entry.number}` : "", entry.items.map((item) => [item.productName, item.serial ? `nr ${item.serial}` : ""].filter(Boolean).join(" ")).join("; "), pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
     searchValues: [entry.phone, entry.defect, entry.notes, entry.items.flatMap((item) => [item.productName, item.serial, item.purchaseDocument])],
     open: () => {
@@ -5405,7 +5445,11 @@ function renderCustomerRelations() {
   const relatedCustomerKeys = new Set(directMatches.map((entry) => entry.customerKey).filter(Boolean));
   const matches = entries
     .filter((entry) => directMatchSet.has(entry) || (entry.customerKey && relatedCustomerKeys.has(entry.customerKey)))
-    .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")))
+    .sort((left, right) =>
+      right.sortTime - left.sortTime ||
+      right.savedTime - left.savedTime ||
+      collator.compare(right.kind, left.kind)
+    )
     .slice(0, 80);
 
   const customerCount = new Set(matches.map((entry) => entry.customerKey).filter(Boolean)).size;
@@ -10160,12 +10204,20 @@ function normalizePricingComplaintHistory(entries) {
   if (!Array.isArray(entries)) return [];
   const normalizedEntries = [];
   const seenIds = new Set();
-  entries.forEach((entry) => {
-    const normalizedEntry = normalizePricingComplaintHistoryEntry(entry);
-    if (!normalizedEntry || seenIds.has(normalizedEntry.id)) return;
-    seenIds.add(normalizedEntry.id);
-    normalizedEntries.push(normalizedEntry);
-  });
+  const seenNumbers = new Set();
+  entries
+    .map(normalizePricingComplaintHistoryEntry)
+    .filter(Boolean)
+    .sort((left, right) =>
+      customerRelationTimeValue(right.savedAt || right.date) - customerRelationTimeValue(left.savedAt || left.date)
+    )
+    .forEach((normalizedEntry) => {
+      const numberKey = customerRelationSearchValue([normalizedEntry.number]).replaceAll(" ", "");
+      if (seenIds.has(normalizedEntry.id) || (numberKey && seenNumbers.has(numberKey))) return;
+      seenIds.add(normalizedEntry.id);
+      if (numberKey) seenNumbers.add(numberKey);
+      normalizedEntries.push(normalizedEntry);
+    });
   return normalizedEntries
     .sort((left, right) => String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt)))
     .slice(0, MAX_PRICING_COMPLAINT_HISTORY);
@@ -12345,33 +12397,27 @@ function createRepairDeviceNameCell(record) {
   return name;
 }
 
-function repairDemoRelation(record) {
-  const demoRecord = repairSerialNumbers(record)
-    .map(serialDuplicateKey)
-    .map((serial) => demoRecordBySerial.get(serial))
-    .find(Boolean);
-  if (!demoRecord) return null;
-  const replacement = normalizeDemoPurpose(demoRecord.purpose) === DEMO_PURPOSE_REPLACEMENT;
-  return {
-    label: replacement ? "Zastępczy" : "Demo",
-    className: replacement ? "replacement" : "demo",
-    demoRecord
-  };
+function repairActiveDemoRelations(record) {
+  const customerKey = customerNameLookupKey(record?.customerName);
+  if (!customerKey) return [];
+  const relations = activeDemoLoanCustomerIndex.get(customerKey) || [];
+  const seen = new Set();
+  return relations.reduce((result, loan) => {
+    const replacement = normalizeDemoPurpose(loan.purpose) === DEMO_PURPOSE_REPLACEMENT;
+    const label = replacement ? "Zastępczy" : "Demo";
+    if (seen.has(label)) return result;
+    seen.add(label);
+    result.push({
+      label,
+      className: replacement ? "replacement" : "demo",
+      title: [loan.deviceName, loan.serialNumber ? `nr ${loan.serialNumber}` : "", loan.status].filter(Boolean).join(" · ")
+    });
+    return result;
+  }, []);
 }
 
 function createRepairCategoryCell(record) {
-  const stack = document.createElement("span");
-  stack.className = "repair-category-stack";
-  stack.append(createCategoryPill(record.category, record));
-  const relation = repairDemoRelation(record);
-  if (!relation) return stack;
-
-  const marker = document.createElement("span");
-  marker.className = `repair-demo-relation ${relation.className}`;
-  marker.textContent = relation.label;
-  marker.title = [relation.demoRecord.deviceName, relation.demoRecord.serialNumber].filter(Boolean).join(" · ");
-  stack.append(marker);
-  return stack;
+  return createCategoryPill(record.category, record);
 }
 
 function createRepairRow(record) {
@@ -12387,7 +12433,7 @@ function createRepairRow(record) {
     createDateText(record.receivedDate),
     createRepairCategoryCell(record),
     createLocationPill(record.location),
-    createRepairCustomerName(record.customerName, status),
+    createRepairCustomerName(record, status),
     createRepairDeviceNameCell(record),
     createRepairSerialCell(record),
     createRepairDocumentNumberCell(record),
@@ -12512,13 +12558,23 @@ function createRepairDocumentNumberCell(record) {
   return number;
 }
 
-function createRepairCustomerName(customerName, status) {
+function createRepairCustomerName(record, status) {
+  const wrap = document.createElement("span");
+  wrap.className = "repair-customer-stack";
   const name = document.createElement("span");
-  name.textContent = customerName || "-";
+  name.textContent = record?.customerName || "-";
   if (status === "GOTOWE") {
     name.className = "pickup-customer";
   }
-  return name;
+  wrap.append(name);
+  repairActiveDemoRelations(record).forEach((relation) => {
+    const marker = document.createElement("span");
+    marker.className = `repair-demo-relation ${relation.className}`;
+    marker.textContent = relation.label;
+    marker.title = relation.title;
+    wrap.append(marker);
+  });
+  return wrap;
 }
 
 function activeRepairDateType(record) {
@@ -14441,6 +14497,7 @@ function switchNotebook(notebookName) {
   if (["capd", "vacation"].includes(notebookName) && !currentSupabaseUser) return;
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
+  if (customerRelationsPanel) customerRelationsPanel.hidden = !["devices", "repairs"].includes(activeNotebook);
   notebookSwitchButtons.forEach((button) => {
     const isActive = button.dataset.notebook === notebookName;
     button.classList.toggle("active", isActive);
