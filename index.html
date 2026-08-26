@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260826-53">
+    <link rel="stylesheet" href="styles.css?v=20260826-55">
   </head>
   <body>
     <main class="app-shell">
@@ -48,7 +48,7 @@
         <div class="notebook-navigation">
           <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
             <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
-            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Naprawy i wkładki</button>
+            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia</button>
             <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>CAPD</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
@@ -405,13 +405,13 @@
       </section>
 
       <section id="repairsNotebook" class="notebook-section" hidden>
-        <section class="tabs" role="tablist" aria-label="Zakładki zeszytu napraw i wkładek">
+        <section class="tabs" role="tablist" aria-label="Zakładki zeszytu serwisu i zamówień">
           <button id="repairDatabaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="repairDatabaseView" data-view-group="repairs" data-view="repairDatabase">Baza</button>
           <button id="repairOpenTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="repairOpenView" data-view-group="repairs" data-view="repairOpen">Niedokończone</button>
         </section>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
-          <section class="controls repairs-controls" aria-label="Narzędzia zeszytu napraw i wkładek">
+          <section class="controls repairs-controls" aria-label="Narzędzia zeszytu serwisu i zamówień">
             <label class="search-box paste-input-field">
               <span>Szukaj</span>
               <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
@@ -467,7 +467,7 @@
             <input id="importRepairInput" type="file" accept=".csv,text/csv,application/json,.json" hidden>
           </section>
 
-          <section class="table-zone" aria-label="Tabela napraw i wkładek">
+          <section class="table-zone" aria-label="Tabela serwisu i zamówień">
             <table class="repairs-table">
               <thead>
                 <tr>
@@ -497,7 +497,7 @@
         </section>
 
         <section id="repairOpenView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairOpenTab" hidden>
-          <section class="table-zone" aria-label="Niedokończone naprawy i wkładki">
+          <section class="table-zone" aria-label="Niedokończone sprawy serwisowe i zamówienia">
             <table class="repairs-table">
               <thead>
                 <tr>
@@ -2337,6 +2337,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260826-53"></script>
+    <script src="app.js?v=20260826-55"></script>
   </body>
 </html>

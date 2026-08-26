@@ -980,7 +980,7 @@ function pricingUpdatedDateTime() {
 function setCurrentYearTitle() {
   const year = new Date().getFullYear();
   const deviceTitle = `Zeszyt aparatów ${year}`;
-  const repairTitle = `Zeszyt napraw i wkładek usznych ${year}`;
+  const repairTitle = `Zeszyt serwisu i zamówień ${year}`;
   const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
   const agreementsTitle = "Umowy";
   const notebookTitles = {
@@ -2774,9 +2774,9 @@ async function loadRepairRecords() {
   if (hasSharedServer) {
     try {
       const response = await fetch(REPAIR_API_URL, { cache: "no-store" });
-      if (!response.ok) throw new Error("Nie udało się pobrać zeszytu napraw i wkładek.");
+      if (!response.ok) throw new Error("Nie udało się pobrać zeszytu serwisu i zamówień.");
       const sharedRecords = await response.json();
-      if (!Array.isArray(sharedRecords)) throw new Error("Zeszyt napraw i wkładek ma niepoprawny format.");
+      if (!Array.isArray(sharedRecords)) throw new Error("Zeszyt serwisu i zamówień ma niepoprawny format.");
       const normalizedRecords = normalizeRepairRecordsForUse(sharedRecords);
       writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(normalizedRecords));
       return normalizedRecords;
@@ -2857,14 +2857,14 @@ async function refreshRecordsFromServer() {
       fetch(DEMO_API_URL, { cache: "no-store" })
     ]);
     if (!deviceResponse.ok) throw new Error("Nie udało się odświeżyć wspólnej bazy.");
-    if (!repairResponse.ok) throw new Error("Nie udało się odświeżyć zeszytu napraw i wkładek.");
+    if (!repairResponse.ok) throw new Error("Nie udało się odświeżyć zeszytu serwisu i zamówień.");
     if (!demoResponse.ok) throw new Error("Nie udało się odświeżyć aparatów demo.");
 
     const sharedRecords = await deviceResponse.json();
     const sharedRepairRecords = await repairResponse.json();
     const sharedDemoRecords = await demoResponse.json();
     if (!Array.isArray(sharedRecords)) throw new Error("Wspólna baza ma niepoprawny format.");
-    if (!Array.isArray(sharedRepairRecords)) throw new Error("Zeszyt napraw i wkładek ma niepoprawny format.");
+    if (!Array.isArray(sharedRepairRecords)) throw new Error("Zeszyt serwisu i zamówień ma niepoprawny format.");
     if (!Array.isArray(sharedDemoRecords)) throw new Error("Aparaty demo mają niepoprawny format.");
     records = normalizeDeviceRecordsForUse(sharedRecords);
     repairRecords = normalizeRepairRecordsForUse(sharedRepairRecords);
@@ -2896,7 +2896,7 @@ async function saveRepairRecords() {
   });
 
   if (!response.ok) {
-    throw new Error(`Nie udało się zapisać zeszytu napraw i wkładek. Kod: ${response.status}`);
+    throw new Error(`Nie udało się zapisać zeszytu serwisu i zamówień. Kod: ${response.status}`);
   }
 }
 
@@ -5241,7 +5241,7 @@ function rebuildSerialIndex() {
       serialIndex.get(serial).push({
         source: "repairs",
         id: record.id,
-        notebook: "Zeszyt napraw i wkładek",
+        notebook: "Zeszyt serwisu i zamówień",
         serialNumber,
         receivedDate: record.receivedDate,
         sentDate: record.sentDate,
@@ -9562,7 +9562,7 @@ function savePricingOrderAndRepairNotebook() {
     return null;
   }
   syncPricingOrderToRepairNotebook(historyEntry);
-  alert("Zamówienie zapisane i przekazane do Naprawy i wkładki.");
+  alert("Zamówienie zapisane i przekazane do Serwisu i zamówień.");
   return historyEntry;
 }
 
@@ -10479,7 +10479,7 @@ function savePricingComplaintAndRepairNotebook() {
     return null;
   }
   syncPricingComplaintToRepairNotebook(historyEntry);
-  alert("Reklamacja zapisana i przekazana do Naprawy i wkładki.");
+  alert("Reklamacja zapisana i przekazana do Serwisu i zamówień.");
   return historyEntry;
 }
 
@@ -10791,7 +10791,7 @@ function dataControlRecordLabel(issue) {
 
 function dataControlNotebookLabel(source) {
   if (source === "demo") return "Demo";
-  if (source === "repairs") return "Naprawy";
+  if (source === "repairs") return "Serwis";
   return "Baza";
 }
 
@@ -13321,11 +13321,11 @@ function vacationUsesAnnualAllowance(request) {
 function renderVacationYearOptions() {
   if (!vacationYearInput || vacationYearInput.options.length) return;
   const currentYear = new Date().getFullYear();
-  for (let year = currentYear - 2; year <= currentYear + 2; year += 1) {
+  for (let year = 2025; year <= 2030; year += 1) {
     const option = document.createElement("option");
     option.value = String(year);
     option.textContent = String(year);
-    option.selected = year === currentYear;
+    option.selected = year === Math.min(2030, Math.max(2025, currentYear));
     vacationYearInput.append(option);
   }
 }
@@ -13343,6 +13343,7 @@ function renderVacationEmployees() {
     const entry = document.createElement("div");
     entry.className = "vacation-employee-entry";
     entry.classList.toggle("is-self", employee.id === myEmployeeId);
+    entry.classList.toggle("can-delete", canViewPrivateModules());
     if (vacationSaturdayMarkersDisabled(employee)) entry.dataset.employeeTone = "owner";
     const item = document.createElement("button");
     item.type = "button";
@@ -13351,6 +13352,7 @@ function renderVacationEmployees() {
     item.dataset.employeeId = employee.id;
     const name = document.createElement("strong");
     name.textContent = employee.name;
+    name.title = employee.name;
     const allowance = document.createElement("span");
     allowance.className = "vacation-employee-allowance";
     allowance.textContent = vacationEmployeeUsesHours(employee)
@@ -15707,7 +15709,7 @@ function importRepairJson(event) {
       if (!Array.isArray(imported)) throw new Error("Import musi być listą wpisów.");
 
       const importedRepairRecords = normalizeImportedRecords(imported, repairFields);
-      if (!confirm(`Import zastąpi obecny zeszyt napraw i wkładek (${repairRecords.length}) wpisami z pliku (${importedRepairRecords.length}). Kontynuować?`)) {
+      if (!confirm(`Import zastąpi obecny zeszyt serwisu i zamówień (${repairRecords.length}) wpisami z pliku (${importedRepairRecords.length}). Kontynuować?`)) {
         importRepairInput.value = "";
         return;
       }
