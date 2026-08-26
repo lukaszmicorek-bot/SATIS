@@ -568,6 +568,8 @@ const tableRenderLimits = {
 
 const recordsBody = document.querySelector("#recordsBody");
 const devicesTable = document.querySelector(".devices-table");
+const printDevicesBtn = document.querySelector("#printBtn");
+const printRepairsBtn = document.querySelector("#printRepairBtn");
 const privatePaymentColumnHeader = document.querySelector("[data-private-payment-column]");
 const privatePaymentField = document.querySelector("#privatePaymentField");
 const paymentReceivedAmountInput = document.querySelector("#paymentReceivedAmount");
@@ -617,6 +619,7 @@ const offerEarmoldInput = document.querySelector("#offerEarmoldInput");
 const offerDuplicateFirstBtn = document.querySelector("#offerDuplicateFirstBtn");
 const offerMoveRightToLeftBtn = document.querySelector("#offerMoveRightToLeftBtn");
 const offerMoveLeftToRightBtn = document.querySelector("#offerMoveLeftToRightBtn");
+const newPricingOfferBtn = document.querySelector("#newPricingOfferBtn");
 const printPricingOfferBtn = document.querySelector("#printPricingOfferBtn");
 const offerTitle = document.querySelector("#offerTitle");
 const offerMeta = document.querySelector("#offerMeta");
@@ -657,6 +660,7 @@ const loanCopyOfferBtn = document.querySelector("#loanCopyOfferBtn");
 const loanDuplicateRightBtn = document.querySelector("#loanDuplicateRightBtn");
 const loanMoveRightToLeftBtn = document.querySelector("#loanMoveRightToLeftBtn");
 const loanMoveLeftToRightBtn = document.querySelector("#loanMoveLeftToRightBtn");
+const newPricingLoanBtn = document.querySelector("#newPricingLoanBtn");
 const loanClearDeviceButtons = document.querySelectorAll("[data-clear-loan-device]");
 const loanSerialFields = document.querySelectorAll("[data-loan-serial-field]");
 const loanPasteSerialButtons = document.querySelectorAll("[data-paste-loan-serial]");
@@ -1015,6 +1019,7 @@ function updateConnectionUser(user) {
   updatePrivatePaymentVisibility();
   updatePricingManagementVisibility();
   updateSensitiveTransferVisibility();
+  updateNotebookPrintVisibility();
   updatePrivateModulesVisibility();
   if (activeNotebook === "pricing" || activeNotebook === "agreements") renderPricingRecords();
 }
@@ -1174,6 +1179,15 @@ function updateSensitiveTransferVisibility() {
     if (!button) return;
     button.hidden = !allowed;
     button.disabled = !allowed;
+  });
+}
+
+function updateNotebookPrintVisibility() {
+  const visible = !hasSupabaseConfig || canViewPrivateModules();
+  [printDevicesBtn, printRepairsBtn].forEach((button) => {
+    if (!button) return;
+    button.hidden = !visible;
+    button.disabled = !visible;
   });
 }
 
@@ -6105,6 +6119,27 @@ function ensurePricingOfferLocation() {
   return location;
 }
 
+function startNewPricingOffer() {
+  [
+    offerCustomerInput,
+    offerAgeInput,
+    offerDeviceInput1,
+    offerDeviceInput2,
+    offerChargerInput,
+    offerEarmoldInput,
+    offerPfronInput
+  ].forEach((input) => {
+    if (input) input.value = "";
+  });
+  if (offerNoNfzInput) offerNoNfzInput.checked = false;
+  if (offerPfronEnabledInput) offerPfronEnabledInput.checked = false;
+  setDateInputValue(offerDateInput, todayInputValue());
+  syncAgreementDocumentLocations(suggestedDocumentLocation());
+  renderPricingOfferDeviceList();
+  renderPricingOffer();
+  offerCustomerInput?.focus();
+}
+
 function renderPricingOffer() {
   if (!pricingOfferView) return;
   const offerDate = ensurePricingOfferDate();
@@ -7820,6 +7855,51 @@ function ensurePricingLoanDefaults() {
     pricingLoanAutofilledFromOffer = true;
   }
   ensureLoanContractNumber();
+}
+
+function startNewPricingLoan() {
+  activePricingLoanHistoryId = "";
+  pricingLoanValidationRequested = false;
+  pricingLoanAutofilledFromOffer = true;
+  [
+    loanContractNumberInput,
+    loanDateInput,
+    loanDepositInput,
+    loanPeriodFromInput,
+    loanPeriodToInput,
+    loanCustomerInput,
+    loanAddressInput,
+    loanDocumentInput,
+    loanPhoneInput,
+    loanRightDeviceInput,
+    loanRightSerialInput,
+    loanRightManufacturerInput,
+    loanRightValueInput,
+    loanLeftDeviceInput,
+    loanLeftSerialInput,
+    loanLeftManufacturerInput,
+    loanLeftValueInput,
+    loanChargerInput,
+    loanChargerSerialInput,
+    loanChargerMissingValueInput,
+    loanReturnDateInput,
+    loanDepositReturnDateInput,
+    loanDeductionsInput,
+    loanDeductionReasonInput
+  ].forEach((input) => {
+    if (input) input.value = "";
+  });
+  if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
+  if (loanIssueNotesInput) loanIssueNotesInput.value = "bez zastrzeżeń";
+  if (loanChargerStateInput) loanChargerStateInput.value = "wydano";
+  const today = todayInputValue();
+  setDateInputValue(loanDateInput, today);
+  setDateInputValue(loanPeriodFromInput, today);
+  setDateInputValue(loanPeriodToInput, addDaysToIsoDate(today, PRICING_LOAN_DAYS));
+  syncAgreementDocumentLocations(suggestedDocumentLocation());
+  ensureLoanContractNumber({ force: true });
+  renderPricingLoan();
+  loanCustomerInput?.focus();
 }
 
 function renderPricingLoanEquipment(devices) {
@@ -16497,7 +16577,7 @@ function nextFrame() {
 document.querySelector("#addBtn").addEventListener("click", () => openDialog());
 document.querySelector("#exportBtn").addEventListener("click", () => chooseExportFormat(exportCsv, exportJson));
 document.querySelector("#importBtn").addEventListener("click", () => importInput.click());
-document.querySelector("#printBtn").addEventListener("click", () => window.print());
+printDevicesBtn.addEventListener("click", () => window.print());
 printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
@@ -16520,7 +16600,7 @@ showMoreRecordsBtn.addEventListener("click", () => showMoreTableRows("devices", 
 document.querySelector("#addRepairBtn").addEventListener("click", () => openRepairDialog());
 document.querySelector("#exportRepairBtn").addEventListener("click", () => chooseExportFormat(exportRepairCsv, exportRepairJson));
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
-document.querySelector("#printRepairBtn").addEventListener("click", () => window.print());
+printRepairsBtn.addEventListener("click", () => window.print());
 showMoreRepairBtn.addEventListener("click", () => showMoreTableRows("repairs", renderRepairRecords));
 showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairOpen", renderRepairRecords));
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
@@ -16647,6 +16727,7 @@ offerDuplicateFirstBtn?.addEventListener("click", () => {
 });
 offerMoveRightToLeftBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput1, offerDeviceInput2, "P"));
 offerMoveLeftToRightBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput2, offerDeviceInput1, "L"));
+newPricingOfferBtn?.addEventListener("click", startNewPricingOffer);
 savePricingOfferBtn?.addEventListener("click", () => saveCurrentPricingOfferToHistory());
 printPricingOfferBtn?.addEventListener("click", printPricingOffer);
 loanContractNumberInput?.addEventListener("input", () => {
@@ -16753,6 +16834,7 @@ loanCopyOfferBtn?.addEventListener("click", () => {
 loanDuplicateRightBtn?.addEventListener("click", duplicateLoanDevice);
 loanMoveRightToLeftBtn?.addEventListener("click", () => moveLoanDevice("right", "left"));
 loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "right"));
+newPricingLoanBtn?.addEventListener("click", startNewPricingLoan);
 savePricingLoanBtn?.addEventListener("click", () => {
   if (!validatePricingLoanForAction()) return;
   saveCurrentPricingLoanToHistory();
@@ -17170,6 +17252,7 @@ document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
 async function init() {
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.setAttribute("autocomplete", "off"));
   updateSensitiveTransferVisibility();
+  updateNotebookPrintVisibility();
   pricingRecords = loadPricingRecords();
   auditLogs = loadLocalAuditLogs();
   setCurrentYearTitle();
