@@ -5131,6 +5131,95 @@ input.pcpr-done-input,
   grid-template-columns: minmax(250px, 1fr) 170px 170px 150px auto auto auto auto;
 }
 
+.search-with-summary {
+  display: grid;
+  min-width: 0;
+  align-self: end;
+  gap: 5px;
+}
+
+.search-match-summary {
+  display: flex;
+  min-height: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-match-summary[hidden] {
+  display: none;
+}
+
+.search-match-badge {
+  display: inline-flex;
+  min-height: 19px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  padding: 1px 5px;
+  color: #526a72;
+  background: #f8fafb;
+  font-size: 0.62rem;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.search-match-badge strong {
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.search-match-badge[data-tone="total"] {
+  border-color: #b9cdd4;
+  color: #174f63;
+  background: #f0f7f9;
+}
+
+.search-match-badge[data-tone="stock"] {
+  border-color: #b7d7d3;
+  color: #146c68;
+  background: #eff9f7;
+}
+
+.search-match-badge[data-tone="sold"] {
+  border-color: #bddcc9;
+  color: #377456;
+  background: #f1faf4;
+}
+
+.search-match-badge[data-tone="service"] {
+  border-color: #d8cbbf;
+  color: #765c47;
+  background: #faf6f2;
+}
+
+.search-match-badge[data-tone="demo"] {
+  border-color: #c9d9e4;
+  color: #426b82;
+  background: #f3f8fb;
+}
+
+.search-match-badge[data-tone="reservation"] {
+  border-color: #e1d6aa;
+  color: #746326;
+  background: #fbf9ef;
+}
+
+.search-match-badge[data-tone="returned"] {
+  border-color: #d5cddd;
+  color: #6b5a78;
+  background: #f8f5fa;
+}
+
+.search-match-empty {
+  color: #7b898d;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
 .reset-filters-btn {
   min-height: 28px;
   align-self: end;

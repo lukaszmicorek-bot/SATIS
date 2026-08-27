@@ -880,17 +880,20 @@ const countSoldLabel = document.querySelector("#countSoldLabel");
 const countInvoiceLabel = document.querySelector("#countInvoiceLabel");
 const countStockLabel = document.querySelector("#countStockLabel");
 const searchInput = document.querySelector("#searchInput");
+const deviceSearchSummary = document.querySelector("#deviceSearchSummary");
 const typeFilter = document.querySelector("#typeFilter");
 const ezwmFilter = document.querySelector("#ezwmFilter");
 const typeSelect = document.querySelector("#type");
 const fifoFilter = document.querySelector("#fifoFilter");
 const locationFilter = document.querySelector("#locationFilter");
 const repairSearchInput = document.querySelector("#repairSearchInput");
+const repairSearchSummary = document.querySelector("#repairSearchSummary");
 const pasteInputButtons = document.querySelectorAll("[data-paste-target]");
 const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
 const repairLocationFilter = document.querySelector("#repairLocationFilter");
 const demoSearchInput = document.querySelector("#demoSearchInput");
+const demoSearchSummary = document.querySelector("#demoSearchSummary");
 const demoStatusFilter = document.querySelector("#demoStatusFilter");
 const demoManufacturerFilter = document.querySelector("#demoManufacturerFilter");
 const demoLocationFilter = document.querySelector("#demoLocationFilter");
@@ -5968,6 +5971,79 @@ function deviceSortValue(record, key) {
   return String(record[key] ?? "");
 }
 
+function searchMatchCounts(value) {
+  const query = normalize(value).trim();
+  if (!query) return null;
+
+  const matchingDevices = records.filter((record) => deviceDerived.get(record.id)?.searchBlob.includes(query));
+  const matchingDemo = demoRecords.filter((record) => demoDerived.get(record.id)?.searchBlob.includes(query));
+  const matchingRepairs = repairRecords.filter((record) => repairDerived.get(record.id)?.searchBlob.includes(query));
+  const counts = {
+    stock: 0,
+    sold: 0,
+    reservation: 0,
+    returned: 0,
+    demo: matchingDemo.length,
+    service: matchingRepairs.length
+  };
+
+  matchingDevices.forEach((record) => {
+    const type = deviceDerived.get(record.id)?.displayType ?? displayType(record);
+    if (type === "NA STANIE") counts.stock += 1;
+    else if (type === "SPRZEDANY") counts.sold += 1;
+    else if (type === "REZERWACJA") counts.reservation += 1;
+    else if (type === "ZWROT") counts.returned += 1;
+  });
+
+  return {
+    ...counts,
+    total: matchingDevices.length + matchingDemo.length + matchingRepairs.length
+  };
+}
+
+function renderSearchMatchSummary(input, container) {
+  if (!input || !container) return;
+  const counts = searchMatchCounts(input.value);
+  if (!counts) {
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+
+  if (!counts.total) {
+    const empty = document.createElement("span");
+    empty.className = "search-match-empty";
+    empty.textContent = "Brak wyników w Aparatach, Demo i Serwisie";
+    container.replaceChildren(empty);
+    container.hidden = false;
+    return;
+  }
+
+  const items = [
+    ["Znaleziono", counts.total, "total"],
+    ["Na stanie", counts.stock, "stock"],
+    ["Sprzedane", counts.sold, "sold"],
+    ["Serwis", counts.service, "service"],
+    ["Demo", counts.demo, "demo"]
+  ];
+  if (counts.reservation) items.push(["Rezerwacja", counts.reservation, "reservation"]);
+  if (counts.returned) items.push(["Zwrot", counts.returned, "returned"]);
+
+  const badges = items.map(([label, count, tone]) => {
+    const badge = document.createElement("span");
+    badge.className = "search-match-badge";
+    badge.dataset.tone = tone;
+    const text = document.createElement("span");
+    text.textContent = label;
+    const number = document.createElement("strong");
+    number.textContent = String(count);
+    badge.append(text, number);
+    return badge;
+  });
+  container.replaceChildren(...badges);
+  container.hidden = false;
+}
+
 function filteredRecords() {
   const query = normalize(searchInput.value).trim();
   const selectedType = typeFilter.value;
@@ -6050,6 +6126,7 @@ function render() {
 
 function renderDeviceViews() {
   updatePrivatePaymentVisibility();
+  renderSearchMatchSummary(searchInput, deviceSearchSummary);
   const visibleRecords = filteredRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
   renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords, createRow, (record) => record.receivedDate));
@@ -6091,6 +6168,7 @@ function filteredDemoRecords() {
 }
 
 function renderDemoRecords() {
+  renderSearchMatchSummary(demoSearchInput, demoSearchSummary);
   const visibleRecords = filteredDemoRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "demo");
   renderTableRows(demoRecordsBody, yearGroupedTableRows(demoRecordsBody, renderedRecords, createDemoRow, (record) => record.receivedDate));
@@ -11631,6 +11709,7 @@ function isRepairClosed(record) {
 }
 
 function renderRepairRecords() {
+  renderSearchMatchSummary(repairSearchInput, repairSearchSummary);
   const visibleRecords = filteredRepairRecords();
   const openRecords = openRepairRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "repairs");
