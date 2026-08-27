@@ -104,58 +104,59 @@ const MAX_PRICING_COMPLAINT_HISTORY = 300;
 const MAX_PRICING_PCPR_LIST = 1000;
 const MAX_CAPD_HISTORY = 1000;
 const CAPD_NORMATIVE_VALUES = {
+  4: {
+    TRW: { value: "≤ 721,85", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    TRS: { value: "≤ 706,69", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    "ASPN-S": { value: "≤ 4,66", note: "25. percentyl; test słów w szumie", source: "Neuroflow / APD-Medical 2016" }
+  },
   5: {
-    TRW: { value: "≤ 700", note: "typowo 550–700 ms" },
-    TRS: { value: "≤ 700", note: "typowo 550–700 ms" },
-    "ASPN-S": { value: "≤ +2", note: "typowo od +2 do 0 dB SNR" }
+    TRW: { value: "≤ 751,23", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    TRS: { value: "≤ 660,89", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    "ASPN-S": { value: "≤ 3,00", note: "25. percentyl; test słów w szumie", source: "Neuroflow / APD-Medical 2016" }
   },
   6: {
-    TRW: { value: "≤ 600", note: "typowo 500–600 ms" },
-    TRS: { value: "≤ 600", note: "typowo 500–600 ms" },
-    "ASPN-S": { value: "≤ -1", note: "typowo od -1 do -2 dB SNR" },
-    "ASPN-Z": { value: "≤ -1", note: "typowo od -1 do -2 dB SNR" },
-    DDT: { value: "P ≥ 50; L ≥ 40", note: "ucho prawe / ucho lewe" },
-    FPT: { value: "ocena jakościowa (<20)", note: "brak jednoznacznego progu liczbowego", manual: true }
+    TRW: { value: "≤ 585,20", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    TRS: { value: "≤ 585,95", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    "ASPN-S": { value: "≤ 1,33", note: "25. percentyl; test słów w szumie", source: "Neuroflow / APD-Medical 2016" },
+    DDT: { value: "P ≥ 60; L ≥ 35", note: "ucho prawe / ucho lewe; 25. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    FPT: { value: "≥ 35", note: "25. percentyl", source: "Neuroflow / APD-Medical 2016" }
   },
   7: {
-    TRW: { value: "≤ 520", note: "typowo 450–520 ms" },
-    TRS: { value: "≤ 520", note: "typowo 450–520 ms" },
-    "ASPN-S": { value: "≤ -3", note: "dB SNR" },
-    "ASPN-Z": { value: "≤ -3", note: "dB SNR" },
-    DDT: { value: "P ≥ 65; L ≥ 55", note: "ucho prawe / ucho lewe" },
-    FPT: { value: "≥ 35", note: "dolna granica" }
+    TRW: { value: "≤ 467,33", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    TRS: { value: "≤ 514,10", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    "ASPN-S": { value: "≤ 1,00", note: "25. percentyl; test słów w szumie", source: "Neuroflow / APD-Medical 2016" },
+    DDT: { value: "P ≥ 62; L ≥ 50", note: "ucho prawe / ucho lewe; 25. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    FPT: { value: "≥ 40", note: "25. percentyl", source: "Neuroflow / APD-Medical 2016" }
   },
   8: {
-    TRW: { value: "≤ 460", note: "typowo 400–460 ms" },
-    TRS: { value: "≤ 460", note: "typowo 400–460 ms" },
-    "ASPN-S": { value: "≤ -4", note: "dB SNR" },
-    "ASPN-Z": { value: "≤ -4", note: "dB SNR" },
-    DDT: { value: "P ≥ 75; L ≥ 65", note: "ucho prawe / ucho lewe" },
-    FPT: { value: "≥ 42", note: "dolna granica" }
+    TRW: { value: "≤ 455,58", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    TRS: { value: "≤ 488,93", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    "ASPN-S": { value: "≤ -0,33", note: "25. percentyl; test słów w szumie", source: "Neuroflow / APD-Medical 2016" },
+    DDT: { value: "P ≥ 70; L ≥ 56", note: "ucho prawe / ucho lewe; 25. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    FPT: { value: "≥ 40", note: "25. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    GDT: { value: "≤ 10,00", note: "adaptacyjny aGDT; 75. percentyl", source: "Neuroflow / APD-Medical 2017" },
+    DLF: { value: "≤ 75,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
   },
   9: {
-    TRW: { value: "≤ 430", note: "typowo 380–430 ms" },
-    TRS: { value: "≤ 430", note: "typowo 380–430 ms" },
-    "ASPN-S": { value: "≤ -5", note: "dB SNR" },
-    "ASPN-Z": { value: "≤ -5", note: "dB SNR" },
-    DDT: { value: "P ≥ 80; L ≥ 75", note: "ucho prawe / ucho lewe" },
-    FPT: { value: "≥ 63", note: "dolna granica" }
+    TRW: { value: "≤ 395,63", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    TRS: { value: "≤ 432,63", note: "75. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    "ASPN-S": { value: "≤ -0,33", note: "25. percentyl; test słów w szumie", source: "Neuroflow / APD-Medical 2016" },
+    DDT: { value: "P ≥ 72; L ≥ 61", note: "ucho prawe / ucho lewe; 25. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    FPT: { value: "≥ 55", note: "25. percentyl", source: "Neuroflow / APD-Medical 2016" },
+    GDT: { value: "≤ 4,00", note: "adaptacyjny aGDT; 75. percentyl", source: "Neuroflow / APD-Medical 2017" },
+    DLF: { value: "≤ 70,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
   },
   10: {
-    TRW: { value: "≤ 390", note: "typowo 340–390 ms" },
-    TRS: { value: "≤ 390", note: "typowo 340–390 ms" },
-    "ASPN-S": { value: "≤ -5,5", note: "dB SNR" },
-    "ASPN-Z": { value: "≤ -5,5", note: "dB SNR" },
-    DDT: { value: "P ≥ 80; L ≥ 80", note: "wynik zbliżony do dojrzałości słuchowej" },
-    FPT: { value: "≥ 78", note: "dolna granica" }
+    GDT: { value: "≤ 6,00", note: "adaptacyjny aGDT; 75. percentyl", source: "Neuroflow / APD-Medical 2017" },
+    DLF: { value: "≤ 75,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
+  },
+  11: {
+    GDT: { value: "≤ 4,00", note: "adaptacyjny aGDT; 75. percentyl", source: "Neuroflow / APD-Medical 2017" },
+    DLF: { value: "≤ 45,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
   },
   12: {
-    TRW: { value: "≤ 330", note: "typowo 280–330 ms" },
-    TRS: { value: "≤ 330", note: "typowo 280–330 ms" },
-    "ASPN-S": { value: "≤ -6", note: "dB SNR" },
-    "ASPN-Z": { value: "≤ -6", note: "dB SNR" },
-    DDT: { value: "P ≥ 90; L ≥ 85", note: "ucho prawe / ucho lewe" },
-    FPT: { value: "≥ 80", note: "poziom dorosłych" }
+    GDT: { value: "≤ 4,00", note: "adaptacyjny aGDT; 75. percentyl", source: "Neuroflow / APD-Medical 2017" },
+    DLF: { value: "≤ 55,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
   }
 };
 const CAPD_NORM_CODES = ["TRW", "TRS", "ASPN-S", "ASPN-Z", "DDT", "FPT", "GDT", "DLF"];
@@ -951,6 +952,8 @@ const capdDateInput = document.querySelector("#capdDateInput");
 const capdScopePanel = document.querySelector("#capdScopePanel");
 const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
+const capdNormToggle = document.querySelector("#capdNormToggle");
+const capdNormReferenceContent = document.querySelector("#capdNormReferenceContent");
 const capdNormAgeSelect = document.querySelector("#capdNormAgeSelect");
 const capdNormReferenceBody = document.querySelector("#capdNormReferenceBody");
 const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
@@ -13342,9 +13345,8 @@ function setCapdPeselStatus(message = "", state = "") {
 
 function capdNormSourceAge(age) {
   const numericAge = Number(age);
-  if (!Number.isFinite(numericAge) || numericAge < 5) return null;
-  if (numericAge >= 12) return 12;
-  return [10, 9, 8, 7, 6, 5].find((candidate) => numericAge >= candidate) || null;
+  if (!Number.isFinite(numericAge) || numericAge < 4) return null;
+  return numericAge > 12 ? 13 : Math.floor(numericAge);
 }
 
 function capdNormDefinition(code, age = capdAgeValue()) {
@@ -13454,15 +13456,14 @@ function syncCapdNormsForAge({ force = false } = {}) {
       input.value = definition?.value || "";
       delete input.dataset.manual;
     }
-    input.placeholder = definition ? "Wpisz normę" : "Brak w załączniku – wpisz ręcznie";
+    input.placeholder = definition ? "Wpisz normę" : "Brak opublikowanej normy – wpisz ręcznie";
     updateCapdTestEvaluation(item);
   });
 }
 
 function renderCapdNormReference() {
   if (!capdNormReferenceBody) return;
-  const selectedAge = Number(capdNormAgeSelect?.value || 5);
-  const sourceAge = capdNormSourceAge(selectedAge);
+  const selectedAge = Number(capdNormAgeSelect?.value || 4);
   const rows = CAPD_NORM_CODES.map((code) => {
     const item = document.querySelector(`#capdTestsPanel [data-capd-code="${code}"]`);
     const definition = capdNormDefinition(code, selectedAge);
@@ -13476,7 +13477,7 @@ function renderCapdNormReference() {
     const normCell = document.createElement("td");
     normCell.textContent = definition
       ? `${definition.value} ${item?.dataset.capdUnit || ""}${definition.note ? ` · ${definition.note}` : ""}`
-      : "Brak wartości w załączniku";
+      : "Brak opublikowanej normy Neuroflow dla tego wieku/testu";
     if (!definition) normCell.classList.add("muted-cell");
     const ruleCell = document.createElement("td");
     ruleCell.textContent = definition?.manual
@@ -13486,14 +13487,15 @@ function renderCapdNormReference() {
       : ["TRW", "TRS", "ASPN-S", "ASPN-Z", "GDT", "DLF"].includes(code)
         ? "Niższy wynik jest lepszy"
         : "Ocena ręczna";
-    row.append(testCell, normCell, ruleCell);
+    const sourceCell = document.createElement("td");
+    sourceCell.textContent = definition?.source || "—";
+    if (!definition) sourceCell.classList.add("muted-cell");
+    row.append(testCell, normCell, ruleCell, sourceCell);
     return row;
   });
   capdNormReferenceBody.replaceChildren(...rows);
   const heading = document.querySelector("#capdNormReferencePanel .capd-norm-reference-head h3");
-  if (heading) heading.textContent = sourceAge && sourceAge !== selectedAge
-    ? `Normy dla ${selectedAge} lat (wg wartości dla ${sourceAge} lat)`
-    : `Normy dla ${selectedAge >= 12 ? "12 lat i więcej" : `${selectedAge} lat`}`;
+  if (heading) heading.textContent = `Normy dla ${selectedAge === 13 ? "wieku powyżej 12 lat" : selectedAge === 12 ? "12 lat" : `${selectedAge} lat`}`;
 }
 
 function updateCapdFromPesel() {
@@ -13534,8 +13536,8 @@ function updateCapdScope() {
   const normAgeChanged = capdForm?.dataset.normAge !== normAgeKey;
   if (capdForm) capdForm.dataset.normAge = normAgeKey;
   syncCapdNormsForAge({ force: normAgeChanged });
-  if (Number.isFinite(age) && age >= 5 && capdNormAgeSelect) {
-    const referenceAge = age >= 12 ? 12 : Math.max(5, Math.min(11, Math.floor(age)));
+  if (Number.isFinite(age) && age >= 4 && capdNormAgeSelect) {
+    const referenceAge = age > 12 ? 13 : Math.max(4, Math.floor(age));
     capdNormAgeSelect.value = String(referenceAge);
   }
   renderCapdNormReference();
@@ -18000,6 +18002,12 @@ capdPeselInput?.addEventListener("input", () => {
 capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
 capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
+capdNormToggle?.addEventListener("click", () => {
+  const expanded = capdNormToggle.getAttribute("aria-expanded") === "true";
+  capdNormToggle.setAttribute("aria-expanded", String(!expanded));
+  capdNormToggle.querySelector("span").textContent = expanded ? "Rozwiń" : "Zwiń";
+  if (capdNormReferenceContent) capdNormReferenceContent.hidden = expanded;
+});
 capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
 capdForm?.addEventListener("input", (event) => {
   const testItem = event.target.closest?.("[data-capd-code]");
