@@ -10404,10 +10404,11 @@ textarea {
 
 .manufacturer-brand-logos {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(11, minmax(44px, 1fr));
+  grid-auto-rows: 36px;
   align-items: center;
   justify-items: center;
-  gap: 5px 11px;
+  gap: 6px 9px;
   padding: 8px 10px;
   border: 1px solid #d9e3e6;
   background: #fff;
@@ -10415,22 +10416,17 @@ textarea {
 
 .manufacturer-logo-image {
   display: block;
-  width: min(100%, 112px);
-  height: 30px;
+  width: 100%;
+  max-width: 92px;
+  height: 28px;
   object-fit: contain;
   object-position: center;
 }
 
-.manufacturer-logo-image.logo-audio-service,
-.manufacturer-logo-image.logo-signia,
-.manufacturer-logo-image.logo-sonic,
-.manufacturer-logo-image.logo-starkey {
-  height: 38px;
-}
-
-@media screen and (max-width: 800px) {
+@media screen and (max-width: 980px) {
   .manufacturer-brand-logos {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 38px;
   }
 }
 
@@ -10552,22 +10548,18 @@ textarea {
   }
 
   body.pricing-offer-print .manufacturer-brand-logos {
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    grid-auto-rows: 6.8mm;
     gap: 1mm 2.5mm;
     padding: 1.4mm 2mm;
     border: 0.25mm solid #d5e0e3;
   }
 
   body.pricing-offer-print .manufacturer-logo-image {
-    width: min(100%, 25mm);
-    height: 5.8mm;
+    width: 100%;
+    max-width: 20mm;
+    height: 5.4mm;
     image-rendering: auto;
-  }
-
-  body.pricing-offer-print .manufacturer-logo-image.logo-audio-service,
-  body.pricing-offer-print .manufacturer-logo-image.logo-signia,
-  body.pricing-offer-print .manufacturer-logo-image.logo-sonic,
-  body.pricing-offer-print .manufacturer-logo-image.logo-starkey {
-    height: 7.2mm;
   }
 
   body.pricing-loan-print .loan-testing-information {
