@@ -625,15 +625,26 @@ h2 {
   display: none;
 }
 
-.capd-norm-age-field {
+.capd-norm-reference-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.capd-norm-age-field,
+.capd-norm-version-field {
   display: grid;
   min-width: 150px;
   width: min(180px, 100%);
-  margin-left: auto;
   gap: 4px;
 }
 
-.capd-norm-age-field > span {
+.capd-norm-version-field {
+  width: min(210px, 100%);
+}
+
+.capd-norm-age-field > span,
+.capd-norm-version-field > span {
   color: #5d747b;
   font-size: 0.68rem;
   font-weight: 850;
@@ -1288,6 +1299,16 @@ h2 {
   .capd-norm-reference-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .capd-norm-reference-controls {
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .capd-norm-age-field,
+  .capd-norm-version-field {
+    width: 100%;
   }
 
   .capd-norm-editor {
