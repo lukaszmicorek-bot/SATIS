@@ -1030,6 +1030,7 @@ function updateConnectionUser(user) {
   updateSensitiveTransferVisibility();
   updateNotebookPrintVisibility();
   updatePrivateModulesVisibility();
+  updateCustomerRelationsPanelVisibility();
   if (activeNotebook === "pricing" || activeNotebook === "agreements") renderPricingRecords();
 }
 
@@ -1152,6 +1153,24 @@ function canManagePricingPcprList() {
 
 function canViewPrivateModules() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
+function canViewCustomerRelations() {
+  return canViewPrivateModules();
+}
+
+function updateCustomerRelationsPanelVisibility() {
+  if (!customerRelationsPanel) return;
+  const permitted = canViewCustomerRelations();
+  const visible = permitted && ["devices", "repairs"].includes(activeNotebook);
+  customerRelationsPanel.hidden = !visible;
+  if (permitted) return;
+  if (customerRelationsInput) customerRelationsInput.value = "";
+  if (customerRelationsResults) {
+    customerRelationsResults.hidden = true;
+    customerRelationsResults.replaceChildren();
+  }
+  if (clearCustomerRelationsBtn) clearCustomerRelationsBtn.hidden = true;
 }
 
 function updatePrivateModulesVisibility() {
@@ -3674,11 +3693,9 @@ function dataControlDuplicateSerialMatches(record, source, duplicateIndex) {
 function duplicateSerialTitle(matches) {
   if (!matches.length) return "";
 
-  const matchList = matches
-    .slice(0, 5)
-    .map((match) => `${match.notebook}: ${match.label || "bez opisu"}`)
-    .join("\n");
-  const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
+  const lines = [...new Set(matches.map((match) => `${match.notebook}: ${match.label || "bez opisu"}`))];
+  const matchList = lines.slice(0, 5).join("\n");
+  const extraCount = lines.length > 5 ? `\n+ ${lines.length - 5} więcej` : "";
   return `Duplikat numeru seryjnego:\n${matchList}${extraCount}`;
 }
 
@@ -3711,11 +3728,9 @@ function serviceSerialHistoryLine(match) {
 function serviceSerialTitle(matches) {
   if (!matches.length) return "";
 
-  const matchList = matches
-    .slice(0, 5)
-    .map(serviceSerialHistoryLine)
-    .join("\n");
-  const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
+  const lines = [...new Set(matches.map(serviceSerialHistoryLine))];
+  const matchList = lines.slice(0, 5).join("\n");
+  const extraCount = lines.length > 5 ? `\n+ ${lines.length - 5} więcej` : "";
   return `Historia serwisu:\n${matchList}${extraCount}`;
 }
 
@@ -3740,11 +3755,9 @@ function saleSerialHistoryLine(match) {
 function saleSerialTitle(matches) {
   if (!matches.length) return "";
 
-  const matchList = matches
-    .slice(0, 5)
-    .map(saleSerialHistoryLine)
-    .join("\n");
-  const extraCount = matches.length > 5 ? `\n+ ${matches.length - 5} więcej` : "";
+  const lines = [...new Set(matches.map(saleSerialHistoryLine))];
+  const matchList = lines.slice(0, 5).join("\n");
+  const extraCount = lines.length > 5 ? `\n+ ${lines.length - 5} więcej` : "";
   return `Sprzedaż aparatu:\n${matchList}${extraCount}`;
 }
 
@@ -3849,9 +3862,52 @@ function repairModelWarrantyTooltip(record) {
 function applyModelTooltip(element, tooltip, label) {
   if (!tooltip) return;
   element.classList.add("has-price");
-  element.title = tooltip;
   element.dataset.priceTooltip = tooltip;
+  element.tabIndex = 0;
   element.setAttribute("aria-label", `${label}. ${tooltip.replace(/\n/gu, " ")}`);
+  attachTableHoverTooltip(element, "priceTooltip");
+}
+
+function tableHoverTooltipElement() {
+  let tooltip = document.querySelector("#tableHoverTooltip");
+  if (tooltip) return tooltip;
+  tooltip = document.createElement("div");
+  tooltip.id = "tableHoverTooltip";
+  tooltip.className = "table-hover-tooltip";
+  tooltip.setAttribute("role", "tooltip");
+  tooltip.hidden = true;
+  document.body.append(tooltip);
+  return tooltip;
+}
+
+function showTableHoverTooltip(anchor, dataKey) {
+  const text = String(anchor?.dataset?.[dataKey] || "").trim();
+  if (!anchor || !text) return;
+  const tooltip = tableHoverTooltipElement();
+  tooltip.textContent = text;
+  tooltip.hidden = false;
+  tooltip.style.visibility = "hidden";
+  const anchorBox = anchor.getBoundingClientRect();
+  const tooltipBox = tooltip.getBoundingClientRect();
+  const left = Math.max(12, Math.min(anchorBox.left, window.innerWidth - tooltipBox.width - 12));
+  const topBelow = anchorBox.bottom + 8;
+  const topAbove = anchorBox.top - tooltipBox.height - 8;
+  const top = topBelow + tooltipBox.height <= window.innerHeight - 12 ? topBelow : Math.max(12, topAbove);
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+  tooltip.style.visibility = "visible";
+}
+
+function hideTableHoverTooltip() {
+  const tooltip = document.querySelector("#tableHoverTooltip");
+  if (tooltip) tooltip.hidden = true;
+}
+
+function attachTableHoverTooltip(element, dataKey) {
+  element.addEventListener("mouseenter", () => showTableHoverTooltip(element, dataKey));
+  element.addEventListener("mouseleave", hideTableHoverTooltip);
+  element.addEventListener("focus", () => showTableHoverTooltip(element, dataKey));
+  element.addEventListener("blur", hideTableHoverTooltip);
 }
 
 function serialRelationTitle(duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "") {
@@ -5430,6 +5486,10 @@ function customerRelationResultItem(entry) {
 
 function renderCustomerRelations() {
   if (!customerRelationsInput || !customerRelationsResults || !customerRelationsSummary) return;
+  if (!canViewCustomerRelations()) {
+    updateCustomerRelationsPanelVisibility();
+    return;
+  }
   const query = customerRelationSearchValue([customerRelationsInput.value]);
   clearCustomerRelationsBtn.hidden = !query;
   if (query.length < 2) {
@@ -11634,11 +11694,18 @@ function customerDocumentInfoForRecord(record) {
   const customerKey = customerNameLookupKey(record?.customerName);
   if (!customerKey) return null;
   const sameNameCount = customerSameNameCount(customerKey);
+  const seenLines = new Set();
   const matches = [
     ...customerOfferMatches(record, customerKey, sameNameCount),
     ...customerLoanMatches(record, customerKey, sameNameCount)
   ]
     .sort((left, right) => left.score - right.score || String(right.date).localeCompare(String(left.date)))
+    .filter((match) => {
+      const key = normalize(match.line);
+      if (!key || seenLines.has(key)) return false;
+      seenLines.add(key);
+      return true;
+    })
     .slice(0, 4);
 
   if (!matches.length) return null;
@@ -11706,8 +11773,8 @@ function createCustomerActivityCell(record) {
     if (demoLoanWarning) wrap.classList.add("customer-demo-warning");
     const tooltip = [demoLoanWarning?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
     wrap.dataset.customerTooltip = tooltip;
-    wrap.title = tooltip;
     wrap.tabIndex = 0;
+    attachTableHoverTooltip(wrap, "customerTooltip");
     if (documentInfo) {
       const badge = document.createElement("span");
       badge.className = "customer-docs-badge";
@@ -11730,10 +11797,8 @@ function createRow(record) {
   const serviceMatches = serviceSerialMatches(record, "devices");
   if (duplicateMatches.length) {
     row.classList.add("serial-duplicate-row");
-    row.title = serialRelationTitle(duplicateMatches, serviceMatches);
   } else if (serviceMatches.length) {
     row.classList.add("serial-service-row");
-    row.title = serviceSerialTitle(serviceMatches);
   }
   if (displayType(record) === "SPRZEDANY") {
     row.classList.add("device-sold-row");
@@ -11783,10 +11848,8 @@ function createDemoRow(record) {
   const serviceMatches = serviceSerialMatches(record, "demo");
   if (duplicateMatches.length) {
     row.classList.add("serial-duplicate-row");
-    row.title = serialRelationTitle(duplicateMatches, serviceMatches);
   } else if (serviceMatches.length) {
     row.classList.add("serial-service-row");
-    row.title = serviceSerialTitle(serviceMatches);
   }
   if (meta?.issues.length) row.classList.add("demo-needs-review");
   if (meta?.status === "BRAK") row.classList.add("demo-missing");
@@ -12125,10 +12188,14 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
   const hasSerialNumber = Boolean(String(serialNumber ?? "").trim());
   const serialText = hasSerialNumber ? String(serialNumber).trim() : "brak numeru";
   const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches, saleMatches, extraTitle);
-  const defaultTitle = relationTitle
-    ? `Kliknij, aby skopiować numer seryjny. ${relationTitle}`
-    : "Kliknij, aby skopiować numer seryjny";
-  pill.title = defaultTitle;
+  const copyTitle = "Kliknij, aby skopiować numer seryjny";
+  const defaultTitle = relationTitle ? "" : copyTitle;
+  if (relationTitle) {
+    pill.dataset.serialTooltip = `${copyTitle}\n\n${relationTitle}`;
+    attachTableHoverTooltip(pill, "serialTooltip");
+  } else {
+    pill.title = defaultTitle;
+  }
   pill.setAttribute("aria-label", `Kopiuj numer seryjny ${serialText}`);
 
   const number = document.createElement("span");
@@ -12278,6 +12345,7 @@ function copyTextWithFallback(text) {
 }
 
 function showSerialCopied(pill, defaultTitle) {
+  hideTableHoverTooltip();
   pill.classList.add("copied");
   pill.title = "Skopiowano numer seryjny";
   pill.setAttribute("aria-label", "Skopiowano numer seryjny");
@@ -12286,7 +12354,8 @@ function showSerialCopied(pill, defaultTitle) {
   window.clearTimeout(Number(pill.dataset.copyTimer || 0));
   pill.dataset.copyTimer = String(window.setTimeout(() => {
     pill.classList.remove("copied");
-    pill.title = defaultTitle;
+    if (defaultTitle) pill.title = defaultTitle;
+    else pill.removeAttribute("title");
     const number = pill.querySelector(".serial-pill-number")?.textContent || "";
     pill.setAttribute("aria-label", `Kopiuj numer seryjny ${number}`);
     delete pill.dataset.copyTimer;
@@ -12544,7 +12613,6 @@ function createRepairNotesCell(record) {
     preview.className = "repair-notes-preview";
     preview.dataset.repairNotesTooltip = notes;
     preview.tabIndex = 0;
-    preview.title = notes;
     preview.addEventListener("mouseenter", () => showRepairNotesTooltip(preview));
     preview.addEventListener("mouseleave", hideRepairNotesTooltip);
     preview.addEventListener("focus", () => showRepairNotesTooltip(preview));
@@ -14562,7 +14630,7 @@ function switchNotebook(notebookName) {
   if (["capd", "vacation"].includes(notebookName) && !currentSupabaseUser) return;
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
-  if (customerRelationsPanel) customerRelationsPanel.hidden = !["devices", "repairs"].includes(activeNotebook);
+  updateCustomerRelationsPanelVisibility();
   notebookSwitchButtons.forEach((button) => {
     const isActive = button.dataset.notebook === notebookName;
     button.classList.toggle("active", isActive);
@@ -16972,8 +17040,26 @@ function resetAndRenderRepairRecords() {
   renderRepairRecords();
 }
 
+function syncLinkedSearchInputs(value, source = "") {
+  if (!canViewCustomerRelations()) return;
+  const text = String(value || "");
+  if (source !== "devices" && searchInput) searchInput.value = text;
+  if (source !== "repairs" && repairSearchInput) repairSearchInput.value = text;
+  if (source !== "relations" && customerRelationsInput) customerRelationsInput.value = text;
+}
+
+function renderActiveLinkedSearchView() {
+  if (activeNotebook === "repairs") {
+    resetAndRenderRepairRecords();
+  } else if (activeNotebook === "devices") {
+    resetAndRenderDeviceViews();
+  }
+}
+
 function resetDeviceFilters() {
   searchInput.value = "";
+  syncLinkedSearchInputs("", "devices");
+  renderCustomerRelations();
   typeFilter.value = "";
   ezwmFilter.value = "";
   fifoFilter.value = "";
@@ -16992,6 +17078,8 @@ function resetDemoFilters() {
 
 function resetRepairFilters() {
   repairSearchInput.value = "";
+  syncLinkedSearchInputs("", "repairs");
+  renderCustomerRelations();
   repairCategoryFilter.value = "";
   repairStatusFilter.value = "";
   repairLocationFilter.value = "";
@@ -17034,6 +17122,8 @@ workstationBtn?.addEventListener("click", () => {
   renderVacationModule();
 });
 window.addEventListener("scroll", updateScrollTopButton, { passive: true });
+window.addEventListener("scroll", hideTableHoverTooltip, { passive: true, capture: true });
+window.addEventListener("resize", hideTableHoverTooltip, { passive: true });
 stockAuditPersonInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
 });
@@ -17471,11 +17561,25 @@ pasteInputButtons.forEach((button) => {
     void pasteClipboardToInput(button.dataset.pasteTarget, button.dataset.pasteFormat || "");
   });
 });
-searchInput.addEventListener("input", debounce(resetAndRenderDeviceViews, SEARCH_DEBOUNCE_MS));
-customerRelationsInput?.addEventListener("input", debounce(renderCustomerRelations, SEARCH_DEBOUNCE_MS));
+const debouncedDeviceSearchRender = debounce(resetAndRenderDeviceViews, SEARCH_DEBOUNCE_MS);
+const debouncedRepairSearchRender = debounce(resetAndRenderRepairRecords, SEARCH_DEBOUNCE_MS);
+const debouncedRelationsRender = debounce(renderCustomerRelations, SEARCH_DEBOUNCE_MS);
+const debouncedActiveLinkedSearchRender = debounce(renderActiveLinkedSearchView, SEARCH_DEBOUNCE_MS);
+
+searchInput.addEventListener("input", () => {
+  syncLinkedSearchInputs(searchInput.value, "devices");
+  debouncedDeviceSearchRender();
+  debouncedRelationsRender();
+});
+customerRelationsInput?.addEventListener("input", () => {
+  syncLinkedSearchInputs(customerRelationsInput.value, "relations");
+  debouncedRelationsRender();
+  debouncedActiveLinkedSearchRender();
+});
 clearCustomerRelationsBtn?.addEventListener("click", () => {
-  customerRelationsInput.value = "";
+  syncLinkedSearchInputs("", "");
   renderCustomerRelations();
+  renderActiveLinkedSearchView();
   customerRelationsInput.focus();
 });
 typeFilter.addEventListener("change", resetAndRenderDeviceViews);
@@ -17485,7 +17589,11 @@ locationFilter.addEventListener("change", (event) => {
   updateDocumentLocationAccent(event.target);
   resetAndRenderDeviceViews();
 });
-repairSearchInput.addEventListener("input", debounce(resetAndRenderRepairRecords, SEARCH_DEBOUNCE_MS));
+repairSearchInput.addEventListener("input", () => {
+  syncLinkedSearchInputs(repairSearchInput.value, "repairs");
+  debouncedRepairSearchRender();
+  debouncedRelationsRender();
+});
 repairCategoryFilter.addEventListener("change", resetAndRenderRepairRecords);
 repairStatusFilter.addEventListener("change", resetAndRenderRepairRecords);
 repairLocationFilter.addEventListener("change", (event) => {
