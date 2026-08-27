@@ -103,6 +103,62 @@ const MAX_PRICING_ORDER_HISTORY = 300;
 const MAX_PRICING_COMPLAINT_HISTORY = 300;
 const MAX_PRICING_PCPR_LIST = 1000;
 const MAX_CAPD_HISTORY = 1000;
+const CAPD_NORMATIVE_VALUES = {
+  5: {
+    TRW: { value: "≤ 700", note: "typowo 550–700 ms" },
+    TRS: { value: "≤ 700", note: "typowo 550–700 ms" },
+    "ASPN-S": { value: "≤ +2", note: "typowo od +2 do 0 dB SNR" }
+  },
+  6: {
+    TRW: { value: "≤ 600", note: "typowo 500–600 ms" },
+    TRS: { value: "≤ 600", note: "typowo 500–600 ms" },
+    "ASPN-S": { value: "≤ -1", note: "typowo od -1 do -2 dB SNR" },
+    "ASPN-Z": { value: "≤ -1", note: "typowo od -1 do -2 dB SNR" },
+    DDT: { value: "P ≥ 50; L ≥ 40", note: "ucho prawe / ucho lewe" },
+    FPT: { value: "ocena jakościowa (<20)", note: "brak jednoznacznego progu liczbowego", manual: true }
+  },
+  7: {
+    TRW: { value: "≤ 520", note: "typowo 450–520 ms" },
+    TRS: { value: "≤ 520", note: "typowo 450–520 ms" },
+    "ASPN-S": { value: "≤ -3", note: "dB SNR" },
+    "ASPN-Z": { value: "≤ -3", note: "dB SNR" },
+    DDT: { value: "P ≥ 65; L ≥ 55", note: "ucho prawe / ucho lewe" },
+    FPT: { value: "≥ 35", note: "dolna granica" }
+  },
+  8: {
+    TRW: { value: "≤ 460", note: "typowo 400–460 ms" },
+    TRS: { value: "≤ 460", note: "typowo 400–460 ms" },
+    "ASPN-S": { value: "≤ -4", note: "dB SNR" },
+    "ASPN-Z": { value: "≤ -4", note: "dB SNR" },
+    DDT: { value: "P ≥ 75; L ≥ 65", note: "ucho prawe / ucho lewe" },
+    FPT: { value: "≥ 42", note: "dolna granica" }
+  },
+  9: {
+    TRW: { value: "≤ 430", note: "typowo 380–430 ms" },
+    TRS: { value: "≤ 430", note: "typowo 380–430 ms" },
+    "ASPN-S": { value: "≤ -5", note: "dB SNR" },
+    "ASPN-Z": { value: "≤ -5", note: "dB SNR" },
+    DDT: { value: "P ≥ 80; L ≥ 75", note: "ucho prawe / ucho lewe" },
+    FPT: { value: "≥ 63", note: "dolna granica" }
+  },
+  10: {
+    TRW: { value: "≤ 390", note: "typowo 340–390 ms" },
+    TRS: { value: "≤ 390", note: "typowo 340–390 ms" },
+    "ASPN-S": { value: "≤ -5,5", note: "dB SNR" },
+    "ASPN-Z": { value: "≤ -5,5", note: "dB SNR" },
+    DDT: { value: "P ≥ 80; L ≥ 80", note: "wynik zbliżony do dojrzałości słuchowej" },
+    FPT: { value: "≥ 78", note: "dolna granica" }
+  },
+  12: {
+    TRW: { value: "≤ 330", note: "typowo 280–330 ms" },
+    TRS: { value: "≤ 330", note: "typowo 280–330 ms" },
+    "ASPN-S": { value: "≤ -6", note: "dB SNR" },
+    "ASPN-Z": { value: "≤ -6", note: "dB SNR" },
+    DDT: { value: "P ≥ 90; L ≥ 85", note: "ucho prawe / ucho lewe" },
+    FPT: { value: "≥ 80", note: "poziom dorosłych" }
+  }
+};
+const CAPD_NORM_CODES = ["TRW", "TRS", "ASPN-S", "ASPN-Z", "DDT", "FPT", "GDT", "DLF"];
 const DOCUMENT_LOCATIONS = [
   { key: "T12", value: "Bielsko-Biała, ul. Traugutta 12" },
   { key: "P63", value: "Bielsko-Biała, ul. Partyzantów 63" },
@@ -895,6 +951,8 @@ const capdDateInput = document.querySelector("#capdDateInput");
 const capdScopePanel = document.querySelector("#capdScopePanel");
 const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
+const capdNormAgeSelect = document.querySelector("#capdNormAgeSelect");
+const capdNormReferenceBody = document.querySelector("#capdNormReferenceBody");
 const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
 const saveCapdHistoryBtn = document.querySelector("#saveCapdHistoryBtn");
 const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
@@ -13282,6 +13340,162 @@ function setCapdPeselStatus(message = "", state = "") {
   capdPeselStatus.dataset.state = state;
 }
 
+function capdNormSourceAge(age) {
+  const numericAge = Number(age);
+  if (!Number.isFinite(numericAge) || numericAge < 5) return null;
+  if (numericAge >= 12) return 12;
+  return [10, 9, 8, 7, 6, 5].find((candidate) => numericAge >= candidate) || null;
+}
+
+function capdNormDefinition(code, age = capdAgeValue()) {
+  const sourceAge = capdNormSourceAge(age);
+  if (!sourceAge) return null;
+  const definition = CAPD_NORMATIVE_VALUES[sourceAge]?.[code];
+  return definition ? { ...definition, sourceAge } : null;
+}
+
+function capdNumberValues(value) {
+  return (String(value || "").match(/[-+]?\d+(?:[.,]\d+)?/gu) || [])
+    .map((number) => Number(number.replace(",", ".")))
+    .filter(Number.isFinite);
+}
+
+function capdSideValues(value) {
+  const text = String(value || "").toLocaleUpperCase("pl-PL");
+  const sideValue = (side) => {
+    const match = text.match(new RegExp(`${side}[^\\d+\\-]*([-+]?\\d+(?:[.,]\\d+)?)`, "u"));
+    return match ? Number(match[1].replace(",", ".")) : null;
+  };
+  const values = capdNumberValues(text);
+  return {
+    right: sideValue("P") ?? values[0] ?? null,
+    left: sideValue("L") ?? values[1] ?? null
+  };
+}
+
+function capdResultEvaluation(code, resultValue, normValue) {
+  if (!String(resultValue || "").trim() || !String(normValue || "").trim()) return "";
+  if (normalize(normValue).includes("jakosciow")) return "";
+  if (code === "DDT") {
+    const result = capdSideValues(resultValue);
+    const norm = capdSideValues(normValue);
+    const checks = [];
+    if (result.right !== null && norm.right !== null) checks.push(result.right >= norm.right);
+    if (result.left !== null && norm.left !== null) checks.push(result.left >= norm.left);
+    return checks.length ? (checks.every(Boolean) ? "good" : "bad") : "";
+  }
+  const result = capdNumberValues(resultValue)[0];
+  const norm = capdNumberValues(normValue)[0];
+  if (!Number.isFinite(result) || !Number.isFinite(norm)) return "";
+  const lowerIsBetter = ["TRW", "TRS", "ASPN-S", "ASPN-Z", "GDT", "DLF"].includes(code);
+  return lowerIsBetter ? (result <= norm ? "good" : "bad") : (result >= norm ? "good" : "bad");
+}
+
+function capdEvaluationLabel(evaluation) {
+  if (evaluation === "good") return "W normie";
+  if (evaluation === "bad") return "Poza normą";
+  return "Brak oceny";
+}
+
+function ensureCapdNormEditors() {
+  document.querySelectorAll("#capdTestsPanel [data-capd-code]").forEach((item) => {
+    if (item.querySelector("[data-capd-norm-input]")) return;
+    const field = item.querySelector(".capd-result-field");
+    if (!field) return;
+    const editor = document.createElement("div");
+    editor.className = "capd-norm-editor";
+    const label = document.createElement("label");
+    const labelText = document.createElement("span");
+    labelText.textContent = "Norma";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.autocomplete = "off";
+    input.dataset.capdNormInput = "1";
+    input.setAttribute("aria-label", `Norma ${item.dataset.capdCode || "CAPD"}`);
+    const evaluation = document.createElement("span");
+    evaluation.className = "capd-evaluation-badge";
+    evaluation.dataset.capdEvaluation = "";
+    evaluation.textContent = "Brak oceny";
+    label.append(labelText, input);
+    editor.append(label, evaluation);
+    field.append(editor);
+    input.addEventListener("input", () => {
+      input.dataset.manual = "1";
+      updateCapdTestEvaluation(item);
+      renderCapdReport();
+    });
+  });
+}
+
+function updateCapdTestEvaluation(item) {
+  const code = item?.dataset?.capdCode || "";
+  const resultInput = item?.querySelector(".capd-result-control input");
+  const normInput = item?.querySelector("[data-capd-norm-input]");
+  const evaluation = capdResultEvaluation(code, resultInput?.value, normInput?.value);
+  const resultControl = item?.querySelector(".capd-result-control");
+  const badge = item?.querySelector(".capd-evaluation-badge");
+  if (resultControl) resultControl.dataset.evaluation = evaluation;
+  if (badge) {
+    badge.dataset.evaluation = evaluation;
+    badge.textContent = capdEvaluationLabel(evaluation);
+  }
+  return evaluation;
+}
+
+function syncCapdNormsForAge({ force = false } = {}) {
+  ensureCapdNormEditors();
+  const age = capdAgeValue();
+  document.querySelectorAll("#capdTestsPanel [data-capd-code]").forEach((item) => {
+    const code = item.dataset.capdCode || "";
+    const input = item.querySelector("[data-capd-norm-input]");
+    if (!input) return;
+    const definition = capdNormDefinition(code, age);
+    if (force || input.dataset.manual !== "1") {
+      input.value = definition?.value || "";
+      delete input.dataset.manual;
+    }
+    input.placeholder = definition ? "Wpisz normę" : "Brak w załączniku – wpisz ręcznie";
+    updateCapdTestEvaluation(item);
+  });
+}
+
+function renderCapdNormReference() {
+  if (!capdNormReferenceBody) return;
+  const selectedAge = Number(capdNormAgeSelect?.value || 5);
+  const sourceAge = capdNormSourceAge(selectedAge);
+  const rows = CAPD_NORM_CODES.map((code) => {
+    const item = document.querySelector(`#capdTestsPanel [data-capd-code="${code}"]`);
+    const definition = capdNormDefinition(code, selectedAge);
+    const row = document.createElement("tr");
+    const testCell = document.createElement("td");
+    const testCode = document.createElement("strong");
+    testCode.textContent = code;
+    const testName = document.createElement("span");
+    testName.textContent = item?.dataset.capdName || "";
+    testCell.append(testCode, testName);
+    const normCell = document.createElement("td");
+    normCell.textContent = definition
+      ? `${definition.value} ${item?.dataset.capdUnit || ""}${definition.note ? ` · ${definition.note}` : ""}`
+      : "Brak wartości w załączniku";
+    if (!definition) normCell.classList.add("muted-cell");
+    const ruleCell = document.createElement("td");
+    ruleCell.textContent = definition?.manual
+      ? "Ocena jakościowa"
+      : code === "DDT" || code === "FPT"
+      ? "Wyższy wynik jest lepszy"
+      : ["TRW", "TRS", "ASPN-S", "ASPN-Z", "GDT", "DLF"].includes(code)
+        ? "Niższy wynik jest lepszy"
+        : "Ocena ręczna";
+    row.append(testCell, normCell, ruleCell);
+    return row;
+  });
+  capdNormReferenceBody.replaceChildren(...rows);
+  const heading = document.querySelector("#capdNormReferencePanel .capd-norm-reference-head h3");
+  if (heading) heading.textContent = sourceAge && sourceAge !== selectedAge
+    ? `Normy dla ${selectedAge} lat (wg wartości dla ${sourceAge} lat)`
+    : `Normy dla ${selectedAge >= 12 ? "12 lat i więcej" : `${selectedAge} lat`}`;
+}
+
 function updateCapdFromPesel() {
   if (!capdPeselInput || !capdAgeInput || !capdBirthDateInput) return;
   const sanitized = capdPeselInput.value.replace(/\D/g, "").slice(0, 11);
@@ -13291,7 +13505,7 @@ function updateCapdFromPesel() {
 
   if (!parsed) {
     capdBirthDateInput.value = "";
-    capdAgeInput.value = "";
+    if (capdAgeInput.dataset.manual !== "1") capdAgeInput.value = "";
     setCapdPeselStatus(sanitized.length === 11 ? "Nieprawidłowy numer PESEL" : "", sanitized.length === 11 ? "error" : "");
     updateCapdScope();
     return;
@@ -13301,10 +13515,10 @@ function updateCapdFromPesel() {
   const age = ageOnDate(parsed.birthDate, testDate);
   capdBirthDateInput.value = formatDate(parsed.birthDate);
   if (age === null) {
-    capdAgeInput.value = "";
+    if (capdAgeInput.dataset.manual !== "1") capdAgeInput.value = "";
     setCapdPeselStatus("Data badania jest wcześniejsza niż data urodzenia", "error");
   } else {
-    capdAgeInput.value = String(age);
+    if (capdAgeInput.dataset.manual !== "1") capdAgeInput.value = String(age);
     setCapdPeselStatus("PESEL poprawny", "valid");
   }
   updateCapdScope();
@@ -13316,6 +13530,15 @@ function updateCapdScope() {
   const testItems = testsPanel?.querySelectorAll("[data-capd-min-age]") || [];
   const ageText = String(capdAgeInput?.value || "").trim();
   const age = ageText === "" ? null : Number(ageText);
+  const normAgeKey = String(capdNormSourceAge(age) || "");
+  const normAgeChanged = capdForm?.dataset.normAge !== normAgeKey;
+  if (capdForm) capdForm.dataset.normAge = normAgeKey;
+  syncCapdNormsForAge({ force: normAgeChanged });
+  if (Number.isFinite(age) && age >= 5 && capdNormAgeSelect) {
+    const referenceAge = age >= 12 ? 12 : Math.max(5, Math.min(11, Math.floor(age)));
+    capdNormAgeSelect.value = String(referenceAge);
+  }
+  renderCapdNormReference();
   if (age === null || !Number.isFinite(age)) {
     capdScopePanel.dataset.scope = "pending";
     capdScopeTitle.textContent = "Podaj wiek dziecka";
@@ -13363,9 +13586,20 @@ function capdReportTestItems() {
     .filter((item) => effectiveAge >= Number(item.dataset.capdMinAge || 0));
 }
 
-function appendCapdReportResultCell(row, value, unit) {
+function appendCapdReportNormCell(row, value, unit) {
   const cell = document.createElement("td");
-  cell.className = "capd-report-result";
+  cell.className = "capd-report-norm";
+  const norm = document.createElement("strong");
+  norm.textContent = String(value || "").trim() || "-";
+  const normUnit = document.createElement("span");
+  normUnit.textContent = value ? unit : "";
+  cell.append(norm, normUnit);
+  row.append(cell);
+}
+
+function appendCapdReportResultCell(row, value, unit, evaluation = "") {
+  const cell = document.createElement("td");
+  cell.className = `capd-report-result${evaluation ? ` ${evaluation}` : ""}`;
   const result = document.createElement("strong");
   result.textContent = String(value || "").trim() || "-";
   const resultUnit = document.createElement("span");
@@ -13408,7 +13642,11 @@ function renderCapdReport() {
     const purposeCell = document.createElement("td");
     purposeCell.textContent = item.querySelector(".capd-test-main > p")?.textContent?.trim() || "-";
     row.append(testCell, purposeCell);
-    appendCapdReportResultCell(row, item.querySelector("input")?.value, item.dataset.capdUnit || "");
+    const resultValue = item.querySelector(".capd-result-control input")?.value || "";
+    const normValue = item.querySelector("[data-capd-norm-input]")?.value || "";
+    const evaluation = capdResultEvaluation(item.dataset.capdCode || "", resultValue, normValue);
+    appendCapdReportNormCell(row, normValue, item.dataset.capdUnit || "");
+    appendCapdReportResultCell(row, resultValue, item.dataset.capdUnit || "", evaluation);
     return row;
   });
   capdReportResults.replaceChildren(...rows);
@@ -13429,7 +13667,8 @@ function normalizeCapdHistoryEntry(entry) {
     code: normalizeLoanHistoryText(result?.code).toLocaleUpperCase("pl-PL"),
     name: normalizeLoanHistoryText(result?.name),
     unit: normalizeLoanHistoryText(result?.unit),
-    value: normalizeLoanHistoryText(result?.value)
+    value: normalizeLoanHistoryText(result?.value),
+    norm: normalizeLoanHistoryText(result?.norm)
   })).filter((result) => result.code) : [];
   const normalizedEntry = {
     id: normalizeLoanHistoryText(entry.id || makeId()),
@@ -13515,7 +13754,8 @@ function currentCapdSnapshot() {
       code: item.dataset.capdCode || "",
       name: item.dataset.capdName || "",
       unit: item.dataset.capdUnit || "",
-      value: String(item.querySelector("input")?.value || "").trim()
+      value: String(item.querySelector(".capd-result-control input")?.value || "").trim(),
+      norm: String(item.querySelector("[data-capd-norm-input]")?.value || "").trim()
     }))
   };
 }
@@ -13586,10 +13826,24 @@ function restoreCapdHistoryEntry(entry) {
   const descriptionInput = document.querySelector("#capdDescriptionInput");
   if (descriptionInput) descriptionInput.value = historyEntry.description;
   document.querySelectorAll("#capdTestsPanel [data-capd-code] input").forEach((input) => {
+    if (input.dataset.capdNormInput) return;
     const code = input.closest("[data-capd-code]")?.dataset.capdCode || "";
     input.value = historyEntry.results.find((result) => result.code === code)?.value || "";
   });
   updateCapdFromPesel();
+  if (historyEntry.age !== "") {
+    capdAgeInput.value = String(historyEntry.age);
+    capdAgeInput.dataset.manual = "1";
+    updateCapdScope();
+  }
+  document.querySelectorAll("#capdTestsPanel [data-capd-code]").forEach((item) => {
+    const savedResult = historyEntry.results.find((result) => result.code === item.dataset.capdCode);
+    const normInput = item.querySelector("[data-capd-norm-input]");
+    if (!normInput || !savedResult?.norm) return;
+    normInput.value = savedResult.norm;
+    normInput.dataset.manual = "1";
+    updateCapdTestEvaluation(item);
+  });
   renderCapdReport();
   capdForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -13688,6 +13942,8 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  if (capdAgeInput) delete capdAgeInput.dataset.manual;
+  if (capdForm) delete capdForm.dataset.normAge;
   activeCapdHistoryId = "";
   capdPeselInput?.classList.remove("invalid");
   setCapdPeselStatus();
@@ -17727,13 +17983,29 @@ notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));
 });
 
-capdAgeInput?.addEventListener("input", updateCapdScope);
+capdAgeInput?.addEventListener("input", () => {
+  if (String(capdAgeInput.value || "").trim()) {
+    capdAgeInput.dataset.manual = "1";
+    updateCapdScope();
+  } else {
+    delete capdAgeInput.dataset.manual;
+    updateCapdFromPesel();
+  }
+});
 capdAgeInput?.addEventListener("change", updateCapdScope);
-capdPeselInput?.addEventListener("input", updateCapdFromPesel);
+capdPeselInput?.addEventListener("input", () => {
+  if (capdAgeInput) delete capdAgeInput.dataset.manual;
+  updateCapdFromPesel();
+});
 capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
 capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
-capdForm?.addEventListener("input", renderCapdReport);
+capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
+capdForm?.addEventListener("input", (event) => {
+  const testItem = event.target.closest?.("[data-capd-code]");
+  if (testItem && event.target.matches(".capd-result-control input")) updateCapdTestEvaluation(testItem);
+  renderCapdReport();
+});
 capdForm?.addEventListener("change", renderCapdReport);
 capdPatientInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
