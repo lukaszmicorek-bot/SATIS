@@ -3925,6 +3925,12 @@ h2 {
   background: #fff7f5 !important;
 }
 
+.loan-number-invalid {
+  border-color: #cf6f64 !important;
+  color: #873b33;
+  background: #fff5f3 !important;
+}
+
 .loan-required-field-empty > span {
   color: #a13f35 !important;
 }
@@ -10392,40 +10398,36 @@ textarea {
 }
 
 .manufacturer-brand-logos {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: center;
-  justify-content: space-between;
+  justify-items: center;
   gap: 5px 11px;
   padding: 8px 10px;
   border: 1px solid #d9e3e6;
   background: #fff;
 }
 
-.manufacturer-wordmark {
-  display: inline-flex;
-  align-items: center;
-  min-height: 21px;
-  color: #324850;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 0.75rem;
-  font-weight: 850;
-  letter-spacing: 0;
-  line-height: 1;
-  white-space: nowrap;
+.manufacturer-logo-image {
+  display: block;
+  width: min(100%, 112px);
+  height: 30px;
+  object-fit: contain;
+  object-position: center;
 }
 
-.brand-audibel { color: #443078; font-style: italic; }
-.brand-audio-service { color: #d24a38; font-weight: 700; }
-.brand-beltone { color: #5d8f3e; font-style: italic; }
-.brand-bernafon { color: #3f6679; font-weight: 700; }
-.brand-oticon { color: #2e3135; font-size: 0.82rem; font-weight: 900; }
-.brand-philips { color: #12549a; font-weight: 900; }
-.brand-phonak { color: #4a4a48; font-weight: 950; }
-.brand-resound { color: #16705c; font-size: 0.8rem; font-weight: 800; }
-.brand-signia { color: #c93638; font-size: 0.82rem; font-weight: 750; }
-.brand-sonic { color: #16527d; font-style: italic; font-weight: 900; }
-.brand-starkey { color: #232f78; font-size: 0.8rem; font-weight: 800; }
+.manufacturer-logo-image.logo-audio-service,
+.manufacturer-logo-image.logo-signia,
+.manufacturer-logo-image.logo-sonic,
+.manufacturer-logo-image.logo-starkey {
+  height: 38px;
+}
+
+@media screen and (max-width: 800px) {
+  .manufacturer-brand-logos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
 .document-description-page {
   margin-top: 20px;
@@ -10550,9 +10552,17 @@ textarea {
     border: 0.25mm solid #d5e0e3;
   }
 
-  body.pricing-offer-print .manufacturer-wordmark {
-    min-height: 4mm;
-    font-size: 7pt;
+  body.pricing-offer-print .manufacturer-logo-image {
+    width: min(100%, 25mm);
+    height: 5.8mm;
+    image-rendering: auto;
+  }
+
+  body.pricing-offer-print .manufacturer-logo-image.logo-audio-service,
+  body.pricing-offer-print .manufacturer-logo-image.logo-signia,
+  body.pricing-offer-print .manufacturer-logo-image.logo-sonic,
+  body.pricing-offer-print .manufacturer-logo-image.logo-starkey {
+    height: 7.2mm;
   }
 
   body.pricing-loan-print .loan-testing-information {
