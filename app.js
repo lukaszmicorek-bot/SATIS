@@ -371,6 +371,7 @@ const demoManufacturerModelIndex = new Map();
 const serialIndex = new Map();
 const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
+const customerPhoneIndex = new Map();
 const activeDemoLoanCustomerIndex = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
@@ -5337,9 +5338,93 @@ function addCustomerDocumentIndexEntry(customerKey, entry) {
   customerDocumentIndex.get(customerKey).push(entry);
 }
 
+function customerPhoneCandidates(value) {
+  const matches = String(value || "").match(/(?:(?:\+|00)?48)?(?:[\s().-]*\d){9}/gu) || [];
+  return [...new Set(matches.map((match) => {
+    let digits = match.replace(/\D/gu, "");
+    if (digits.startsWith("0048")) digits = digits.slice(4);
+    else if (digits.startsWith("48") && digits.length === 11) digits = digits.slice(2);
+    return digits;
+  }).filter((digits) => digits.length === 9))];
+}
+
+function addCustomerPhoneIndexEntry(customer, value, source, date = "") {
+  const customerKey = customerNameLookupKey(customer);
+  if (!customerKey) return;
+  customerPhoneCandidates(value).forEach((digits) => {
+    if (!customerPhoneIndex.has(customerKey)) customerPhoneIndex.set(customerKey, []);
+    customerPhoneIndex.get(customerKey).push({
+      digits,
+      formatted: formatPcprPhone(digits),
+      source,
+      date: isoDateForSave(date) || String(date || ""),
+      sortTime: customerRelationTimeValue(date)
+    });
+  });
+}
+
+function rebuildCustomerPhoneIndex() {
+  customerPhoneIndex.clear();
+  normalizePricingLoanHistory(pricingLoanHistory).forEach((entry) => {
+    addCustomerPhoneIndexEntry(entry.customer, entry.phone, "Umowa", entry.date || entry.savedAt);
+  });
+  normalizePricingOrderHistory(pricingOrderHistory).forEach((entry) => {
+    addCustomerPhoneIndexEntry(entry.customer, entry.phone, "Zamówienie", entry.date || entry.savedAt);
+  });
+  normalizePricingComplaintHistory(pricingComplaintHistory).forEach((entry) => {
+    addCustomerPhoneIndexEntry(entry.customer, entry.phone, "Reklamacja", entry.date || entry.savedAt);
+  });
+  normalizePricingPcprList(pricingPcprList).forEach((entry) => {
+    addCustomerPhoneIndexEntry(entry.customer, entry.phone, "PCPR / MOPS", entry.savedAt || entry.createdAt);
+  });
+}
+
+function customerPhoneInfo(customer) {
+  const customerKey = customerNameLookupKey(customer);
+  if (!customerKey) return null;
+  const entries = [...(customerPhoneIndex.get(customerKey) || [])].sort((left, right) => right.sortTime - left.sortTime);
+  const byNumber = new Map();
+  entries.forEach((entry) => {
+    if (!byNumber.has(entry.digits)) byNumber.set(entry.digits, { ...entry, sources: [] });
+    const phone = byNumber.get(entry.digits);
+    const sourceLabel = [entry.source, entry.date ? formatDate(entry.date) : ""].filter(Boolean).join(" · ");
+    if (sourceLabel && !phone.sources.includes(sourceLabel)) phone.sources.push(sourceLabel);
+  });
+  const phones = [...byNumber.values()];
+  if (!phones.length) return null;
+  const heading = phones.length === 1
+    ? "Telefon klienta:"
+    : "Znaleziono różne numery telefonu. Sprawdź zgodność osoby:";
+  return {
+    phones,
+    uncertain: phones.length > 1,
+    tooltip: [
+      heading,
+      ...phones.map((phone) => `• ${phone.formatted}${phone.sources.length ? ` · ${phone.sources.join(", ")}` : ""}`)
+    ].join("\n")
+  };
+}
+
+function createCustomerPhoneBadge(customer, { attachTooltip = true } = {}) {
+  const info = customerPhoneInfo(customer);
+  if (!info) return null;
+  const badge = info.phones.length === 1 ? document.createElement("a") : document.createElement("span");
+  badge.className = "customer-phone-badge";
+  if (info.uncertain) badge.classList.add("uncertain");
+  badge.textContent = info.phones.length === 1 ? "tel." : `tel. ${info.phones.length}`;
+  badge.dataset.customerPhoneTooltip = info.tooltip;
+  badge.title = info.tooltip.replace(/\n/gu, " ");
+  badge.tabIndex = 0;
+  badge.setAttribute("aria-label", info.tooltip.replace(/\n/gu, " "));
+  if (badge instanceof HTMLAnchorElement) badge.href = `tel:+48${info.phones[0].digits}`;
+  if (attachTooltip) attachTableHoverTooltip(badge, "customerPhoneTooltip");
+  return badge;
+}
+
 function rebuildCustomerDocumentIndex() {
   customerNameCounts.clear();
   customerDocumentIndex.clear();
+  rebuildCustomerPhoneIndex();
 
   records.forEach((record) => {
     const customerKey = customerNameLookupKey(record.customerName);
@@ -5546,7 +5631,7 @@ function customerRelationEntries() {
     customer: entry.customer,
     date: entry.date || entry.periodFrom,
     detail: [entry.number ? `nr ${entry.number}` : "", pricingLoanHistoryDeviceLabel(entry), entry.periodFrom && entry.periodTo ? `${formatDate(entry.periodFrom)} - ${formatDate(entry.periodTo)}` : ""].filter(Boolean).join(" | "),
-    searchValues: [entry.rightDevice?.model, entry.rightDevice?.serial, entry.leftDevice?.model, entry.leftDevice?.serial, entry.charger, entry.chargerSerial],
+    searchValues: [entry.phone, entry.rightDevice?.model, entry.rightDevice?.serial, entry.leftDevice?.model, entry.leftDevice?.serial, entry.charger, entry.chargerSerial],
     open: () => {
       switchNotebook("agreements");
       switchPricingView("loan");
@@ -12034,11 +12119,13 @@ function createCustomerActivityCell(record) {
 
   const documentInfo = customerDocumentInfoForRecord(record);
   const demoInfo = customerActiveDemoInfoForRecord(record);
-  if (documentInfo || demoInfo) {
+  const phoneInfo = customerPhoneInfo(customerName);
+  const phoneBadge = createCustomerPhoneBadge(customerName, { attachTooltip: false });
+  if (documentInfo || demoInfo || phoneInfo) {
     wrap.classList.add("has-customer-docs");
-    if (documentInfo?.uncertain) wrap.classList.add("customer-docs-uncertain");
+    if (documentInfo?.uncertain || phoneInfo?.uncertain) wrap.classList.add("customer-docs-uncertain");
     if (demoInfo?.warning) wrap.classList.add("customer-demo-warning");
-    const tooltip = [demoInfo?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
+    const tooltip = [phoneInfo?.tooltip, demoInfo?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
     wrap.dataset.customerTooltip = tooltip;
     wrap.tabIndex = 0;
     attachTableHoverTooltip(wrap, "customerTooltip");
@@ -12048,6 +12135,7 @@ function createCustomerActivityCell(record) {
       badge.textContent = "info";
       wrap.append(badge);
     }
+    if (phoneBadge) wrap.append(phoneBadge);
     demoInfo?.groups.forEach((group) => {
       const badge = document.createElement("span");
       badge.className = `customer-docs-badge customer-loan-badge ${group.key}`;
@@ -12266,6 +12354,8 @@ function createDemoCurrentUser(currentUser, loanDate = "") {
   const name = document.createElement("strong");
   name.textContent = currentUser;
   wrap.append(label, name);
+  const phoneBadge = createCustomerPhoneBadge(currentUser);
+  if (phoneBadge) wrap.append(phoneBadge);
   if (loanDate) {
     const date = document.createElement("span");
     date.append("od ", createDateText(loanDate) || formatDate(loanDate));
@@ -12961,6 +13051,8 @@ function createRepairCustomerName(record, status) {
     name.className = "pickup-customer";
   }
   wrap.append(name);
+  const phoneBadge = createCustomerPhoneBadge(record?.customerName);
+  if (phoneBadge) wrap.append(phoneBadge);
   repairActiveDemoRelations(record).forEach((relation) => {
     const marker = document.createElement("span");
     marker.className = `repair-demo-relation ${relation.className}`;
