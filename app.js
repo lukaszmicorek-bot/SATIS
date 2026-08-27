@@ -3880,11 +3880,37 @@ function tableHoverTooltipElement() {
   return tooltip;
 }
 
+function warrantyDateTone(formattedDate) {
+  const match = String(formattedDate || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/u);
+  if (!match) return "";
+  const isoDate = `${match[3]}-${match[2]}-${match[1]}`;
+  return isoDate < todayInputValue() ? "expired" : "active";
+}
+
+function renderWarrantyDateText(element, value) {
+  const text = String(value || "");
+  const pattern = /((?:gwarancj(?:a|i)\s+do\s*:?\s*|po gwarancji\s*\())(\d{2}\.\d{2}\.\d{4})/giu;
+  const fragment = document.createDocumentFragment();
+  let lastIndex = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    fragment.append(text.slice(lastIndex, match.index), match[1]);
+    const date = document.createElement("span");
+    const tone = warrantyDateTone(match[2]);
+    date.className = `warranty-date${tone ? ` ${tone}` : ""}`;
+    date.textContent = match[2];
+    fragment.append(date);
+    lastIndex = pattern.lastIndex;
+  }
+  fragment.append(text.slice(lastIndex));
+  element.replaceChildren(fragment);
+}
+
 function showTableHoverTooltip(anchor, dataKey) {
   const text = String(anchor?.dataset?.[dataKey] || "").trim();
   if (!anchor || !text) return;
   const tooltip = tableHoverTooltipElement();
-  tooltip.textContent = text;
+  renderWarrantyDateText(tooltip, text);
   tooltip.hidden = false;
   tooltip.style.visibility = "hidden";
   const anchorBox = anchor.getBoundingClientRect();
@@ -10801,8 +10827,9 @@ function updateComplaintWarrantyHints(items = complaintFormItems({ includeBlank:
       parts.push("sprawdź żądanie");
     }
 
-    hint.textContent = parts.filter(Boolean).join(" · ");
-    hint.hidden = !hint.textContent;
+    const hintText = parts.filter(Boolean).join(" · ");
+    renderWarrantyDateText(hint, hintText);
+    hint.hidden = !hintText;
   });
 }
 
@@ -10978,7 +11005,9 @@ function renderPricingComplaintProducts(items) {
     appendOfferCell(row, item.serial, "complaint-products-serial");
     appendOfferCell(row, item.purchaseDocument);
     appendOfferCell(row, formatDate(item.purchaseDate) || item.purchaseDate);
-    appendOfferCell(row, complaintWarrantyTableLabel(item));
+    const warrantyLabel = complaintWarrantyTableLabel(item);
+    const warrantyCell = appendOfferCell(row, warrantyLabel, "complaint-warranty-cell");
+    if (warrantyLabel) renderWarrantyDateText(warrantyCell, warrantyLabel);
     return row;
   });
   renderTableRows(complaintProductsBody, rows);
@@ -12553,6 +12582,7 @@ function createRepairDeviceNameCell(record) {
   const name = document.createElement("span");
   name.className = "device-name-cell";
   name.textContent = deviceName;
+  applyModelTooltip(name, repairModelWarrantyTooltip(record), deviceName);
   return name;
 }
 
@@ -12702,7 +12732,8 @@ function createRepairDocumentNumberCell(record) {
   if (!documentInfo.number) return "";
 
   const number = document.createElement("span");
-  number.className = "repair-document-number";
+  const documentClass = documentInfo.type === "COMPLAINT" ? "complaint" : documentInfo.type === "ORDER" ? "order" : "other";
+  number.className = `repair-document-number ${documentClass}`;
   number.textContent = documentInfo.number;
   number.title = documentInfo.label ? `${documentInfo.label}: ${documentInfo.number}` : documentInfo.number;
   return number;
@@ -12796,7 +12827,10 @@ function createCategoryPill(category, record = null) {
     const warrantyWarning = repairWarrantyWarning(record, record.id);
     if (warrantyWarning) {
       pill.classList.add("warranty-warning");
-      pill.title = warrantyWarning;
+      pill.dataset.warrantyTooltip = warrantyWarning;
+      pill.tabIndex = 0;
+      pill.setAttribute("aria-label", `${normalizedCategory}. ${warrantyWarning}`);
+      attachTableHoverTooltip(pill, "warrantyTooltip");
     }
   }
   return pill;
