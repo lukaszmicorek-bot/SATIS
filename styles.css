@@ -5629,9 +5629,14 @@ tbody tr.device-sold-row:hover {
   font-weight: 820;
 }
 
-.customer-demo-badge {
-  color: #8a392b;
-  background: #fff0ec;
+.customer-loan-badge.demo {
+  color: #236a84;
+  background: #e8f4f8;
+}
+
+.customer-loan-badge.replacement {
+  color: #89511d;
+  background: #fff1df;
 }
 
 .customer-activity-cell.has-customer-docs::after {

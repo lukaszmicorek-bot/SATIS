@@ -5763,7 +5763,12 @@ function rebuildSerialIndex() {
       source: "demo",
       id: record.id,
       notebook: "Aparaty demo",
-      label: [record.manufacturer, record.deviceName, demoDerived.get(record.id)?.status ?? demoStatus(record)].filter(Boolean).join(" / ")
+      label: [
+        normalizeDemoPurpose(record.purpose) === DEMO_PURPOSE_REPLACEMENT ? "Zastępczy" : "Demo",
+        record.manufacturer,
+        record.deviceName,
+        demoDerived.get(record.id)?.status ?? demoStatus(record)
+      ].filter(Boolean).join(" / ")
     });
   });
 }
@@ -11737,21 +11742,41 @@ function activeDemoLoanLine(loan) {
   ].filter(Boolean).join(" | ");
 }
 
-function customerDemoLoanWarningForRecord(record) {
-  if (!soldDeviceHasCompletedPurchase(record)) return null;
-  const customerKey = customerNameLookupKey(record?.customerName);
-  if (!customerKey) return null;
-  const activeLoans = activeDemoLoanCustomerIndex.get(customerKey) || [];
-  if (!activeLoans.length) return null;
+function activeDemoLoanGroupsForCustomer(customerName) {
+  const customerKey = customerNameLookupKey(customerName);
+  if (!customerKey) return [];
+  const groups = new Map();
+  (activeDemoLoanCustomerIndex.get(customerKey) || []).forEach((loan) => {
+    const replacement = normalizeDemoPurpose(loan.purpose) === DEMO_PURPOSE_REPLACEMENT;
+    const key = replacement ? "replacement" : "demo";
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        label: replacement ? "Zastępczy" : "Demo",
+        loans: []
+      });
+    }
+    groups.get(key).loans.push(loan);
+  });
+  return [...groups.values()];
+}
 
-  const saleDate = isoDateForSave(record.pickupDate);
-  const invoice = normalizeSalesInvoice(record.salesInvoice);
+function customerActiveDemoInfoForRecord(record) {
+  const groups = activeDemoLoanGroupsForCustomer(record?.customerName);
+  if (!groups.length) return null;
+  const completedPurchase = soldDeviceHasCompletedPurchase(record);
+  const saleDate = isoDateForSave(record?.pickupDate);
+  const invoice = normalizeSalesInvoice(record?.salesInvoice);
+  const detailLines = groups.flatMap((group) => group.loans.map((loan) => `• ${group.label}: ${activeDemoLoanLine(loan)}`));
   return {
-    count: activeLoans.length,
+    groups,
+    warning: completedPurchase,
     tooltip: [
-      `Demo do zamknięcia: klient kupił aparat ${formatDate(saleDate)}${invoice ? `, FV ${invoice}` : ""}.`,
-      "Zakończ wypożyczenie w zakładce Demo.",
-      ...activeLoans.map((loan) => `• ${activeDemoLoanLine(loan)}`)
+      completedPurchase
+        ? `Aparat Demo/Zastępczy do zamknięcia: klient kupił aparat ${formatDate(saleDate)}${invoice ? `, FV ${invoice}` : ""}.`
+        : "Aktualnie przypisany aparat:",
+      completedPurchase ? "Zakończ wypożyczenie w zakładce Demo." : "",
+      ...detailLines
     ].join("\n")
   };
 }
@@ -11766,12 +11791,12 @@ function createCustomerActivityCell(record) {
   wrap.append(name);
 
   const documentInfo = customerDocumentInfoForRecord(record);
-  const demoLoanWarning = customerDemoLoanWarningForRecord(record);
-  if (documentInfo || demoLoanWarning) {
+  const demoInfo = customerActiveDemoInfoForRecord(record);
+  if (documentInfo || demoInfo) {
     wrap.classList.add("has-customer-docs");
     if (documentInfo?.uncertain) wrap.classList.add("customer-docs-uncertain");
-    if (demoLoanWarning) wrap.classList.add("customer-demo-warning");
-    const tooltip = [demoLoanWarning?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
+    if (demoInfo?.warning) wrap.classList.add("customer-demo-warning");
+    const tooltip = [demoInfo?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
     wrap.dataset.customerTooltip = tooltip;
     wrap.tabIndex = 0;
     attachTableHoverTooltip(wrap, "customerTooltip");
@@ -11781,12 +11806,12 @@ function createCustomerActivityCell(record) {
       badge.textContent = "info";
       wrap.append(badge);
     }
-    if (demoLoanWarning) {
+    demoInfo?.groups.forEach((group) => {
       const badge = document.createElement("span");
-      badge.className = "customer-docs-badge customer-demo-badge";
-      badge.textContent = demoLoanWarning.count > 1 ? `demo ${demoLoanWarning.count}` : "demo";
+      badge.className = `customer-docs-badge customer-loan-badge ${group.key}`;
+      badge.textContent = group.loans.length > 1 ? `${group.label} ${group.loans.length}` : group.label;
       wrap.append(badge);
-    }
+    });
   }
   return wrap;
 }
@@ -12532,22 +12557,14 @@ function createRepairDeviceNameCell(record) {
 }
 
 function repairActiveDemoRelations(record) {
-  const customerKey = customerNameLookupKey(record?.customerName);
-  if (!customerKey) return [];
-  const relations = activeDemoLoanCustomerIndex.get(customerKey) || [];
-  const seen = new Set();
-  return relations.reduce((result, loan) => {
-    const replacement = normalizeDemoPurpose(loan.purpose) === DEMO_PURPOSE_REPLACEMENT;
-    const label = replacement ? "Zastępczy" : "Demo";
-    if (seen.has(label)) return result;
-    seen.add(label);
-    result.push({
-      label,
-      className: replacement ? "replacement" : "demo",
-      title: [loan.deviceName, loan.serialNumber ? `nr ${loan.serialNumber}` : "", loan.status].filter(Boolean).join(" · ")
-    });
-    return result;
-  }, []);
+  return activeDemoLoanGroupsForCustomer(record?.customerName).map((group) => ({
+    label: group.loans.length > 1 ? `${group.label} ${group.loans.length}` : group.label,
+    className: group.key,
+    tooltip: [
+      group.key === "replacement" ? "Aparat zastępczy:" : "Aparat Demo:",
+      ...group.loans.map((loan) => `• ${activeDemoLoanLine(loan)}`)
+    ].join("\n")
+  }));
 }
 
 function createRepairCategoryCell(record) {
@@ -12704,7 +12721,10 @@ function createRepairCustomerName(record, status) {
     const marker = document.createElement("span");
     marker.className = `repair-demo-relation ${relation.className}`;
     marker.textContent = relation.label;
-    marker.title = relation.title;
+    marker.dataset.demoRelationTooltip = relation.tooltip;
+    marker.tabIndex = 0;
+    marker.setAttribute("aria-label", `${relation.label}. ${relation.tooltip.replace(/\n/gu, " ")}`);
+    attachTableHoverTooltip(marker, "demoRelationTooltip");
     wrap.append(marker);
   });
   return wrap;
