@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260619-2">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260619-2">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260619-2">
-    <link rel="stylesheet" href="styles.css?v=20260827-76">
+    <link rel="stylesheet" href="styles.css?v=20260827-78">
   </head>
   <body>
     <main class="app-shell">
@@ -1555,7 +1555,8 @@
             </label>
             <label class="capd-age-field">
               <span>Wiek</span>
-              <input id="capdAgeInput" type="number" min="0" step="1" placeholder="-" readonly>
+              <input id="capdAgeInput" type="number" min="0" max="99" step="1" placeholder="-">
+              <small>Wyliczany z PESEL, z możliwością poprawy.</small>
             </label>
             <label class="capd-date-field">
               <span>Data badania</span>
@@ -1566,6 +1567,35 @@
               <span>Zakres badania</span>
               <strong id="capdScopeTitle">Podaj wiek dziecka</strong>
               <p id="capdScopeDescription">Zakres testów zostanie dobrany automatycznie.</p>
+            </section>
+
+            <section id="capdNormReferencePanel" class="capd-norm-reference-panel private-form-wide" aria-label="Wartości normatywne CAPD">
+              <header class="capd-norm-reference-head">
+                <div>
+                  <p class="eyebrow">Wartości normatywne</p>
+                  <h3>Normy według wieku i rodzaju testu</h3>
+                </div>
+                <label>
+                  <span>Wiek</span>
+                  <select id="capdNormAgeSelect">
+                    <option value="5">5 lat</option>
+                    <option value="6">6 lat</option>
+                    <option value="7">7 lat</option>
+                    <option value="8">8 lat</option>
+                    <option value="9">9 lat</option>
+                    <option value="10">10 lat</option>
+                    <option value="11">11 lat</option>
+                    <option value="12">12 lat i więcej</option>
+                  </select>
+                </label>
+              </header>
+              <div class="capd-norm-reference-table-wrap">
+                <table class="capd-norm-reference-table">
+                  <thead><tr><th>Test</th><th>Wartość normatywna</th><th>Ocena</th></tr></thead>
+                  <tbody id="capdNormReferenceBody"></tbody>
+                </table>
+              </div>
+              <p class="capd-norm-reference-note">Wartości przepisane z załącznika. W formularzu badania można poprawić normę ręcznie. Dla GDT i DLF załącznik nie podaje wartości liczbowych.</p>
             </section>
 
             <section id="capdTestsPanel" class="capd-tests-panel private-form-wide" hidden>
@@ -1745,7 +1775,7 @@
               <span>Data badania<strong id="capdReportDate">-</strong></span>
             </div>
             <table class="capd-report-table">
-              <thead><tr><th>Badanie</th><th>Co sprawdza</th><th>Wynik</th></tr></thead>
+              <thead><tr><th>Badanie</th><th>Co sprawdza</th><th>Norma</th><th>Wynik</th></tr></thead>
               <tbody id="capdReportResults"></tbody>
             </table>
             <section class="capd-report-conclusions">
@@ -2358,6 +2388,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260827-76"></script>
+    <script src="app.js?v=20260827-78"></script>
   </body>
 </html>
