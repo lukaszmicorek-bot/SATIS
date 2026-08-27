@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260827-89">
+    <link rel="stylesheet" href="styles.css?v=20260827-91">
   </head>
   <body>
     <main class="app-shell">
@@ -1784,7 +1784,7 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="GDT" data-capd-name="Wykrywanie przerw w szumie" data-capd-unit="ms">
+                <section class="capd-test-item" data-capd-min-age="8" data-capd-code="GDT" data-capd-name="Wykrywanie przerw w szumie" data-capd-unit="ms">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>GDT</strong><span>Wykrywanie przerw w szumie</span></div>
                     <p>Sprawdza, jak krótką przerwę pomiędzy dźwiękami dziecko potrafi zauważyć.</p>
@@ -1799,7 +1799,7 @@
                   </details>
                 </section>
 
-                <section class="capd-test-item" data-capd-min-age="6" data-capd-code="DLF" data-capd-name="Różnicowanie wysokości dźwięków" data-capd-unit="Hz">
+                <section class="capd-test-item" data-capd-min-age="8" data-capd-code="DLF" data-capd-name="Różnicowanie wysokości dźwięków" data-capd-unit="Hz">
                   <div class="capd-test-main">
                     <div class="capd-test-title"><strong>DLF</strong><span>Różnicowanie wysokości dźwięków</span></div>
                     <p>Sprawdza, jak małą różnicę w wysokości dwóch dźwięków dziecko potrafi usłyszeć.</p>
@@ -1846,7 +1846,7 @@
             <header class="offer-document-head">
               <div>
                 <p>SATIS Pracownia Słuchu</p>
-                <h2 id="capdReportTitle">Badanie CAPD</h2>
+                <h2 id="capdReportTitle">Ocena przetwarzania słuchowego APD/CAPD</h2>
                 <span id="capdReportMeta">Podaj dane dziecka i datę badania</span>
               </div>
               <img src="satis-monogram.png" alt="SATIS">
@@ -2226,7 +2226,7 @@
             <input id="repairCustomerName" name="customerName" type="text" list="customerNameSuggestions" required>
           </label>
           <label class="wide">
-            <span>Aparat / wkładka</span>
+            <span id="repairDeviceNameLabel">Aparat / wkładka</span>
             <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </label>
           <label>
@@ -2472,6 +2472,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260827-89"></script>
+    <script src="app.js?v=20260827-91"></script>
   </body>
 </html>

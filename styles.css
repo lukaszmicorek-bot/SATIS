@@ -571,6 +571,11 @@ h2 {
   background: #fbf5ea;
 }
 
+.capd-scope-panel[data-scope="six-tests"] {
+  border-left-color: #477d8d;
+  background: #eef5f7;
+}
+
 .capd-scope-panel[data-scope="full"] {
   border-left-color: #3a8a7f;
   background: #edf7f4;

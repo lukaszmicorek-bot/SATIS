@@ -2180,6 +2180,11 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedPcprList) pricingPcprList = sharedPcprList;
     if (sharedCapdHistory) capdHistory = sharedCapdHistory;
     await loadPrivatePayments();
+    try {
+      await backfillRepairDeviceNamesFromSerials({ persist: true });
+    } catch (backfillError) {
+      console.warn(backfillError);
+    }
     writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
     writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
@@ -4158,10 +4163,73 @@ function normalizeRepairRecordForUse(record) {
   normalizedRecord.category = normalizeRepairCategory(normalizedRecord.category);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.customerName = titleCaseName(normalizedRecord.customerName);
+  normalizedRecord.deviceName = normalizeDeviceName(normalizedRecord.deviceName);
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
   normalizedRecord.serialNumber2 = normalizeSerialNumber(normalizedRecord.serialNumber2);
   normalizedRecord.status = effectiveRepairStatus(normalizedRecord);
   return normalizedRecord;
+}
+
+function repairDeviceNameNeedsBackfill(value) {
+  const normalizedName = normalizeDeviceName(value).toLocaleUpperCase("pl-PL");
+  return !normalizedName || normalizedName === "APARAT" || normalizedName === "APARAT SŁUCHOWY";
+}
+
+function knownRepairModelsBySerial(excludedRepairId = "") {
+  const models = new Map();
+  const addModel = (serialNumber, deviceName, priority) => {
+    const serialKey = serialDuplicateKey(serialNumber);
+    const normalizedName = normalizeDeviceName(deviceName);
+    if (!serialKey || repairDeviceNameNeedsBackfill(normalizedName)) return;
+    const current = models.get(serialKey);
+    if (!current || priority > current.priority) models.set(serialKey, { name: normalizedName, priority });
+  };
+
+  repairRecords.forEach((record) => {
+    if (String(record.id) === String(excludedRepairId)) return;
+    repairSerialNumbers(record).forEach((serialNumber) => addModel(serialNumber, record.deviceName, 1));
+  });
+  demoRecords.forEach((record) => addModel(record.serialNumber, record.deviceName, 2));
+  records.forEach((record) => addModel(record.serialNumber, record.deviceName, 3));
+  return models;
+}
+
+function inferredRepairDeviceName(record, knownModels = knownRepairModelsBySerial(record?.id)) {
+  const names = repairSerialNumbers(record)
+    .map((serialNumber) => knownModels.get(serialDuplicateKey(serialNumber))?.name || "")
+    .filter(Boolean);
+  return [...new Map(names.map((name) => [normalize(name), name])).values()].join(" / ");
+}
+
+async function backfillRepairDeviceNamesFromSerials({ persist = false } = {}) {
+  const knownModels = knownRepairModelsBySerial();
+  const changedRecords = [];
+
+  repairRecords = repairRecords.map((record) => {
+    if (!repairDeviceNameNeedsBackfill(record.deviceName)) return record;
+    const inferredName = inferredRepairDeviceName(record, knownModels);
+    if (!inferredName) return record;
+    const updatedRecord = normalizeRepairRecordForUse({ ...record, deviceName: inferredName });
+    changedRecords.push(updatedRecord);
+    return updatedRecord;
+  });
+
+  if (!changedRecords.length) return 0;
+  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+  if (!persist) return changedRecords.length;
+
+  if (hasSupabaseConfig && currentSupabaseUser) {
+    for (let from = 0; from < changedRecords.length; from += SUPABASE_PAGE_SIZE) {
+      const rows = changedRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
+      const { error } = await supabaseClient.from(SUPABASE_REPAIR_TABLE).upsert(rows, { onConflict: "id" });
+      if (error) throw new Error(`Nie udało się uzupełnić modeli w serwisie: ${error.message}`);
+    }
+  } else if (hasSharedServer) {
+    await saveRepairRecords();
+  }
+
+  console.info(`Uzupełniono modele w ${changedRecords.length} pozycjach serwisu.`);
+  return changedRecords.length;
 }
 
 function normalizeDeviceRecordForUse(record) {
@@ -13994,14 +14062,21 @@ function updateCapdScope() {
   });
   if (age < 6) {
     capdScopePanel.dataset.scope = "young";
-    capdScopeTitle.textContent = "Testy dla dzieci poniżej 6 lat";
-    capdScopeDescription.textContent = "Zakres podstawowy: TRW, TRS i ASPN-S, dostosowany do wieku i możliwości dziecka.";
+    capdScopeTitle.textContent = "Ocena ryzyka trudności w przetwarzaniu słuchowym";
+    capdScopeDescription.textContent = "3 testy: TRW, TRS i ASPN-S, dostosowane do wieku i możliwości dziecka.";
+    renderCapdReport();
+    return;
+  }
+  if (age < 8) {
+    capdScopePanel.dataset.scope = "six-tests";
+    capdScopeTitle.textContent = "Ocena przetwarzania słuchowego APD/CAPD";
+    capdScopeDescription.textContent = "6 testów dla dzieci w wieku 6–7 lat: TRW, TRS, ASPN-S, ASPN-Z, DDT i FPT.";
     renderCapdReport();
     return;
   }
   capdScopePanel.dataset.scope = "full";
-  capdScopeTitle.textContent = "Pełne testy CAPD";
-  capdScopeDescription.textContent = "Pełny zakres: TRW, TRS, ASPN-S, ASPN-Z, DDT, FPT, GDT i DLF.";
+  capdScopeTitle.textContent = "Ocena przetwarzania słuchowego APD/CAPD";
+  capdScopeDescription.textContent = "Pełny zakres od 8 roku życia: TRW, TRS, ASPN-S, ASPN-Z, DDT, FPT, GDT i DLF.";
   renderCapdReport();
 }
 
@@ -14056,10 +14131,19 @@ function renderCapdReport() {
   const birthDate = String(capdBirthDateInput?.value || "").trim();
   const age = capdAgeValue();
   const dateIso = isoDateForSave(capdDateInput?.value || "");
-  const scope = age === null ? "Zakres podstawowy" : age < 6 ? "Testy dla dzieci poniżej 6 lat" : "Pełne testy CAPD";
+  const scope = age === null
+    ? "Zakres dobierany według wieku"
+    : age < 6
+      ? "3 testy · dziecko poniżej 6 lat"
+      : age < 8
+        ? "6 testów · wiek 6–7 lat"
+        : "Pełny zakres · od 8 roku życia";
+  const reportTitle = age !== null && age < 6
+    ? "Ocena ryzyka trudności w przetwarzaniu słuchowym"
+    : "Ocena przetwarzania słuchowego APD/CAPD";
   const description = String(document.querySelector("#capdDescriptionInput")?.value || "").trim();
 
-  if (capdReportTitle) capdReportTitle.textContent = patient ? `Badanie CAPD - ${patient}` : "Badanie CAPD";
+  if (capdReportTitle) capdReportTitle.textContent = reportTitle;
   if (capdReportMeta) capdReportMeta.textContent = `Zakres: ${scope}`;
   if (capdReportPatient) capdReportPatient.textContent = patient || "-";
   if (capdReportPesel) capdReportPesel.textContent = pesel || "-";
@@ -14189,7 +14273,7 @@ function currentCapdSnapshot() {
     birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
     age: age ?? "",
     testDate: isoDateForSave(capdDateInput?.value || ""),
-    scope: age !== null && age < 6 ? "PODSTAWOWY" : "PEŁNY",
+    scope: age === null ? "" : age < 6 ? "RYZYKO" : age < 8 ? "6 TESTÓW" : "PEŁNY",
     description: String(document.querySelector("#capdDescriptionInput")?.value || "").trim(),
     results: capdReportTestItems().map((item) => ({
       code: item.dataset.capdCode || "",
@@ -15538,6 +15622,9 @@ function openDialog(record = null) {
 function openRepairDialog(record = null) {
   repairForm.reset();
   clearRepairDateOrderError();
+  const repairDeviceNameInput = document.querySelector("#repairDeviceName");
+  delete repairDeviceNameInput.dataset.autoFromSerial;
+  repairDeviceNameInput.removeAttribute("title");
   document.querySelector("#repairId").value = record?.id ?? "";
   deleteRepairBtn.hidden = !record;
   const repairLocationInput = document.querySelector("#repairLocation");
@@ -15577,6 +15664,8 @@ function openRepairDialog(record = null) {
   }
   updateDocumentLocationAccent(repairLocationInput);
   updateDateInputsTodayState(repairForm);
+  syncRepairDeviceNameFromSerials();
+  syncRepairModelRequirement();
   updateRepairWarrantyHint();
   renderQualityHints("repairs");
   renderAuditTrail("repairs", record?.id || "");
@@ -15895,7 +15984,46 @@ function finalizeRepairCustomerNameInput(event) {
 
 function syncRepairSerialInput(event) {
   syncDemoUppercaseInput(event);
+  syncRepairDeviceNameFromSerials();
+  syncRepairModelRequirement();
   if (validateRepairDateOrder()) updateRepairWarrantyHint();
+}
+
+function syncRepairDeviceNameFromSerials() {
+  const deviceNameInput = document.querySelector("#repairDeviceName");
+  const repairId = document.querySelector("#repairId")?.value || "";
+  if (!deviceNameInput) return;
+
+  const inferredName = inferredRepairDeviceName({
+    id: repairId,
+    serialNumber: document.querySelector("#repairSerialNumber")?.value,
+    serialNumber2: document.querySelector("#repairSerialNumber2")?.value
+  });
+  const currentName = normalizeDeviceName(deviceNameInput.value);
+  const mayReplace = !currentName || repairDeviceNameNeedsBackfill(currentName) || deviceNameInput.dataset.autoFromSerial === "1";
+  if (!inferredName || !mayReplace) return;
+
+  deviceNameInput.value = inferredName;
+  deviceNameInput.dataset.autoFromSerial = "1";
+  deviceNameInput.title = "Uzupełniono na podstawie numeru seryjnego";
+}
+
+function syncRepairModelRequirement() {
+  const deviceNameInput = document.querySelector("#repairDeviceName");
+  const deviceNameLabel = document.querySelector("#repairDeviceNameLabel");
+  const hasSerial = Boolean(
+    normalizeSerialNumber(document.querySelector("#repairSerialNumber")?.value) ||
+    normalizeSerialNumber(document.querySelector("#repairSerialNumber2")?.value)
+  );
+  if (!deviceNameInput) return;
+  deviceNameInput.required = hasSerial;
+  deviceNameInput.setAttribute("aria-required", String(hasSerial));
+  if (deviceNameLabel) deviceNameLabel.textContent = hasSerial ? "Aparat / wkładka *" : "Aparat / wkładka";
+}
+
+function markRepairDeviceNameManualChange(event) {
+  delete event.target.dataset.autoFromSerial;
+  event.target.removeAttribute("title");
 }
 
 function repairFormRecord() {
@@ -15905,6 +16033,7 @@ function repairFormRecord() {
   });
   normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   data.customerName = titleCaseName(data.customerName);
+  data.deviceName = normalizeDeviceName(data.deviceName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.serialNumber2 = normalizeSerialNumber(data.serialNumber2);
   data.category = normalizeRepairCategory(data.category);
@@ -16167,8 +16296,18 @@ function repairRequiredSerialViolation(data) {
   };
 }
 
+function repairRequiredModelViolation(data) {
+  const hasSerial = Boolean(normalizeSerialNumber(data?.serialNumber) || normalizeSerialNumber(data?.serialNumber2));
+  if (!hasSerial || normalizeDeviceName(data?.deviceName)) return null;
+  return {
+    field: "deviceName",
+    selector: "#repairDeviceName",
+    message: "Po wpisaniu numeru seryjnego uzupełnij pole Aparat / wkładka. Jeśli modelu nie znaleziono automatycznie, wpisz go ręcznie."
+  };
+}
+
 function repairDateValidationViolation(data) {
-  return repairRequiredDateViolation(data) || repairDateOrderViolation(data) || repairRequiredSerialViolation(data);
+  return repairRequiredDateViolation(data) || repairDateOrderViolation(data) || repairRequiredSerialViolation(data) || repairRequiredModelViolation(data);
 }
 
 function clearRepairDateOrderError() {
@@ -16178,7 +16317,7 @@ function clearRepairDateOrderError() {
     input?.removeAttribute("aria-invalid");
     input?.closest(".date-input-wrap")?.classList.remove("invalid-date");
   });
-  ["#repairSerialNumber", "#repairSerialNumber2"].forEach((selector) => {
+  ["#repairSerialNumber", "#repairSerialNumber2", "#repairDeviceName"].forEach((selector) => {
     document.querySelector(selector)?.removeAttribute("aria-invalid");
   });
 }
@@ -18375,6 +18514,7 @@ document.querySelector("#repairLocation").addEventListener("change", markRepairL
 document.querySelector("#repairLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
+document.querySelector("#repairDeviceName").addEventListener("input", markRepairDeviceNameManualChange);
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
 document.querySelector("#demoManufacturerReturnDate").addEventListener("change", markDemoManufacturerReturnDateChange);
 document.querySelector("#demoManufacturerReturned").addEventListener("change", (event) => syncDemoManufacturerReturned(event.target.checked));
