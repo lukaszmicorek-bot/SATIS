@@ -159,6 +159,61 @@ const CAPD_NORMATIVE_VALUES = {
     DLF: { value: "≤ 55,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
   }
 };
+const CAPD_LEGACY_NORMATIVE_VALUES = {
+  5: {
+    TRW: { value: "≤ 700", note: "typowo 550–700 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 700", note: "typowo 550–700 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ +2", note: "typowo od +2 do 0 dB SNR", source: "Stara wersja orientacyjna" }
+  },
+  6: {
+    TRW: { value: "≤ 600", note: "typowo 500–600 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 600", note: "typowo 500–600 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ -1", note: "typowo od -1 do -2 dB SNR", source: "Stara wersja orientacyjna" },
+    "ASPN-Z": { value: "≤ -1", note: "typowo od -1 do -2 dB SNR", source: "Stara wersja orientacyjna" },
+    DDT: { value: "P ≥ 50; L ≥ 40", note: "ucho prawe / ucho lewe", source: "Stara wersja orientacyjna" },
+    FPT: { value: "ocena jakościowa (<20)", note: "brak jednoznacznego progu", source: "Stara wersja orientacyjna", manual: true }
+  },
+  7: {
+    TRW: { value: "≤ 520", note: "typowo 450–520 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 520", note: "typowo 450–520 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ -3", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    "ASPN-Z": { value: "≤ -3", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    DDT: { value: "P ≥ 65; L ≥ 55", note: "ucho prawe / ucho lewe", source: "Stara wersja orientacyjna" },
+    FPT: { value: "≥ 35", note: "dolna granica", source: "Stara wersja orientacyjna" }
+  },
+  8: {
+    TRW: { value: "≤ 460", note: "typowo 400–460 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 460", note: "typowo 400–460 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ -4", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    "ASPN-Z": { value: "≤ -4", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    DDT: { value: "P ≥ 75; L ≥ 65", note: "ucho prawe / ucho lewe", source: "Stara wersja orientacyjna" },
+    FPT: { value: "≥ 42", note: "dolna granica", source: "Stara wersja orientacyjna" }
+  },
+  9: {
+    TRW: { value: "≤ 430", note: "typowo 380–430 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 430", note: "typowo 380–430 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ -5", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    "ASPN-Z": { value: "≤ -5", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    DDT: { value: "P ≥ 80; L ≥ 75", note: "ucho prawe / ucho lewe", source: "Stara wersja orientacyjna" },
+    FPT: { value: "≥ 63", note: "dolna granica", source: "Stara wersja orientacyjna" }
+  },
+  10: {
+    TRW: { value: "≤ 390", note: "typowo 340–390 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 390", note: "typowo 340–390 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ -5,5", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    "ASPN-Z": { value: "≤ -5,5", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    DDT: { value: "P ≥ 80; L ≥ 80", note: "wynik orientacyjny", source: "Stara wersja orientacyjna" },
+    FPT: { value: "≥ 78", note: "dolna granica", source: "Stara wersja orientacyjna" }
+  },
+  12: {
+    TRW: { value: "≤ 330", note: "typowo 280–330 ms", source: "Stara wersja orientacyjna" },
+    TRS: { value: "≤ 330", note: "typowo 280–330 ms", source: "Stara wersja orientacyjna" },
+    "ASPN-S": { value: "≤ -6", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    "ASPN-Z": { value: "≤ -6", note: "dB SNR", source: "Stara wersja orientacyjna" },
+    DDT: { value: "P ≥ 90; L ≥ 85", note: "ucho prawe / ucho lewe", source: "Stara wersja orientacyjna" },
+    FPT: { value: "≥ 80", note: "poziom dorosłych", source: "Stara wersja orientacyjna" }
+  }
+};
 const CAPD_NORM_CODES = ["TRW", "TRS", "ASPN-S", "ASPN-Z", "DDT", "FPT", "GDT", "DLF"];
 const DOCUMENT_LOCATIONS = [
   { key: "T12", value: "Bielsko-Biała, ul. Traugutta 12" },
@@ -957,8 +1012,10 @@ const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
 const capdNormToggle = document.querySelector("#capdNormToggle");
 const capdNormReferenceContent = document.querySelector("#capdNormReferenceContent");
+const capdNormVersionSelect = document.querySelector("#capdNormVersionSelect");
 const capdNormAgeSelect = document.querySelector("#capdNormAgeSelect");
 const capdNormReferenceBody = document.querySelector("#capdNormReferenceBody");
+const capdNormReferenceNote = document.querySelector("#capdNormReferenceNote");
 const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
 const saveCapdHistoryBtn = document.querySelector("#saveCapdHistoryBtn");
 const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
@@ -13422,17 +13479,29 @@ function setCapdPeselStatus(message = "", state = "") {
   capdPeselStatus.dataset.state = state;
 }
 
-function capdNormSourceAge(age) {
+function capdNormVersion() {
+  return capdNormVersionSelect?.value === "legacy" ? "legacy" : "current";
+}
+
+function capdNormSourceAge(age, version = capdNormVersion()) {
   const numericAge = Number(age);
-  if (!Number.isFinite(numericAge) || numericAge < 4) return null;
+  if (!Number.isFinite(numericAge)) return null;
+  if (version === "legacy") {
+    if (numericAge < 5) return null;
+    if (numericAge >= 12) return 12;
+    return [10, 9, 8, 7, 6, 5].find((candidate) => numericAge >= candidate) || null;
+  }
+  if (numericAge < 4) return null;
   return numericAge > 12 ? 13 : Math.floor(numericAge);
 }
 
 function capdNormDefinition(code, age = capdAgeValue()) {
-  const sourceAge = capdNormSourceAge(age);
+  const version = capdNormVersion();
+  const sourceAge = capdNormSourceAge(age, version);
   if (!sourceAge) return null;
-  const definition = CAPD_NORMATIVE_VALUES[sourceAge]?.[code];
-  return definition ? { ...definition, sourceAge } : null;
+  const normSet = version === "legacy" ? CAPD_LEGACY_NORMATIVE_VALUES : CAPD_NORMATIVE_VALUES;
+  const definition = normSet[sourceAge]?.[code];
+  return definition ? { ...definition, sourceAge, version } : null;
 }
 
 function capdNumberValues(value) {
@@ -13543,6 +13612,8 @@ function syncCapdNormsForAge({ force = false } = {}) {
 function renderCapdNormReference() {
   if (!capdNormReferenceBody) return;
   const selectedAge = Number(capdNormAgeSelect?.value || 4);
+  const version = capdNormVersion();
+  const sourceAge = capdNormSourceAge(selectedAge, version);
   const rows = CAPD_NORM_CODES.map((code) => {
     const item = document.querySelector(`#capdTestsPanel [data-capd-code="${code}"]`);
     const definition = capdNormDefinition(code, selectedAge);
@@ -13574,7 +13645,16 @@ function renderCapdNormReference() {
   });
   capdNormReferenceBody.replaceChildren(...rows);
   const heading = document.querySelector("#capdNormReferencePanel .capd-norm-reference-head h3");
-  if (heading) heading.textContent = `Normy dla ${selectedAge === 13 ? "wieku powyżej 12 lat" : selectedAge === 12 ? "12 lat" : `${selectedAge} lat`}`;
+  if (heading) {
+    const ageLabel = selectedAge === 13 ? "wieku powyżej 12 lat" : selectedAge === 12 ? "12 lat" : `${selectedAge} lat`;
+    const sourceLabel = sourceAge && sourceAge !== selectedAge ? `, według grupy ${sourceAge} lat` : "";
+    heading.textContent = `${version === "legacy" ? "Stare normy" : "Nowe normy"} dla ${ageLabel}${sourceLabel}`;
+  }
+  if (capdNormReferenceNote) {
+    capdNormReferenceNote.textContent = version === "legacy"
+      ? "Stara wersja zawiera wartości orientacyjne używane wcześniej w aplikacji. Nie są to dokładne progi z tabel Neuroflow; do nowych badań zalecana jest wersja nowa. W formularzu normę nadal można poprawić ręcznie."
+      : "Dokładne wartości referencyjne platformy Neuroflow / APD-Medical: TRW, TRS, ASPN-S, DDT i FPT dla wieku 4–9 lat oraz adaptacyjne aGDT i aDLF dla wieku 8–12 lat. Brakujące progi nie są wyliczane ani przenoszone z innej grupy wiekowej. Normę można wpisać ręcznie.";
+  }
 }
 
 function updateCapdFromPesel() {
@@ -13611,7 +13691,7 @@ function updateCapdScope() {
   const testItems = testsPanel?.querySelectorAll("[data-capd-min-age]") || [];
   const ageText = String(capdAgeInput?.value || "").trim();
   const age = ageText === "" ? null : Number(ageText);
-  const normAgeKey = String(capdNormSourceAge(age) || "");
+  const normAgeKey = `${capdNormVersion()}:${capdNormSourceAge(age) || ""}`;
   const normAgeChanged = capdForm?.dataset.normAge !== normAgeKey;
   if (capdForm) capdForm.dataset.normAge = normAgeKey;
   syncCapdNormsForAge({ force: normAgeChanged });
@@ -18086,6 +18166,12 @@ capdNormToggle?.addEventListener("click", () => {
   capdNormToggle.setAttribute("aria-expanded", String(!expanded));
   capdNormToggle.querySelector("span").textContent = expanded ? "Rozwiń" : "Zwiń";
   if (capdNormReferenceContent) capdNormReferenceContent.hidden = expanded;
+});
+capdNormVersionSelect?.addEventListener("change", () => {
+  if (capdForm) capdForm.dataset.normAge = "";
+  syncCapdNormsForAge({ force: true });
+  renderCapdNormReference();
+  renderCapdReport();
 });
 capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
 capdForm?.addEventListener("input", (event) => {
