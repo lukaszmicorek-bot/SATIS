@@ -5708,6 +5708,22 @@ tbody tr.device-sold-row:hover {
   display: none;
 }
 
+.warranty-date {
+  font-weight: 900;
+}
+
+.warranty-date.active {
+  color: #28734f;
+}
+
+.warranty-date.expired {
+  color: #b33f35;
+}
+
+.complaint-warranty-cell .warranty-date {
+  font-size: 1.02em;
+}
+
 tbody tr.serial-duplicate-row {
   background: #fff7f2;
 }
@@ -7487,6 +7503,18 @@ tbody tr.demo-return-critical:hover {
   font-size: 0.7rem;
   font-weight: 850;
   white-space: nowrap;
+}
+
+.repair-document-number.order {
+  border-color: #cbd2a9;
+  color: #596423;
+  background: #f3f5e7;
+}
+
+.repair-document-number.complaint {
+  border-color: #e7c1bc;
+  color: #8a433a;
+  background: #fff0ed;
 }
 
 .stock-table th {
