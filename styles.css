@@ -5674,6 +5674,35 @@ tbody tr.device-sold-row:hover {
   bottom: auto;
 }
 
+/* Podpowiedzi tabel są przenoszone do body, aby nie ucinało ich przewijane pole tabeli. */
+.device-name-cell.has-price::after,
+.customer-activity-cell.has-customer-docs::after {
+  display: none !important;
+}
+
+.table-hover-tooltip {
+  position: fixed;
+  z-index: 300;
+  width: min(430px, calc(100vw - 24px));
+  max-height: min(340px, calc(100vh - 24px));
+  overflow: auto;
+  padding: 9px 10px;
+  border: 1px solid #c9d8d4;
+  border-radius: 8px;
+  color: #20343b;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(28, 31, 36, 0.14);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.38;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+.table-hover-tooltip[hidden] {
+  display: none;
+}
+
 tbody tr.serial-duplicate-row {
   background: #fff7f2;
 }
