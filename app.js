@@ -642,6 +642,7 @@ let privatePayments = {};
 let auditLogs = [];
 let privatePaymentSyncWarningShown = false;
 let auditLogSyncWarningShown = false;
+let pricingLoanSaveInProgress = false;
 let pricingLoanHistorySupabaseAvailable = null;
 let pricingOfferHistorySupabaseAvailable = null;
 let pricingOrderHistorySupabaseAvailable = null;
@@ -7613,6 +7614,54 @@ function ensureLoanContractNumber({ force = false } = {}) {
   const dateValue = isoDateForSave(loanDateInput?.value) || todayInputValue();
   loanContractNumberInput.value = nextLoanContractNumber(dateValue, activePricingLoanHistoryId);
   loanContractNumberInput.dataset.autoNumber = "1";
+  updateLoanContractNumberValidity();
+}
+
+function canonicalLoanContractNumber(value) {
+  const parts = loanContractNumberParts(value);
+  if (!parts?.year) return "";
+  return monthlyDocumentNumber(parts.sequence, parts.month, parts.year);
+}
+
+function loanContractNumberValidationMessage(numberValue, dateValue, ignoredId = "") {
+  const parts = loanContractNumberParts(numberValue);
+  if (!parts?.year) return "Numer umowy powinien mieć format: kolejny numer/miesiąc/rok, np. 1/08/2026.";
+
+  const dateParts = loanContractDateParts(dateValue);
+  if (!dateParts) return "Najpierw podaj prawidłową datę umowy.";
+  if (parts.month !== dateParts.month || parts.year !== dateParts.year) {
+    return `Numer umowy musi odpowiadać dacie: miesiąc ${String(dateParts.month).padStart(2, "0")}/${dateParts.year}.`;
+  }
+
+  const canonicalNumber = canonicalLoanContractNumber(numberValue);
+  const duplicate = pricingLoanHistory.find((entry) => (
+    entry.id !== ignoredId && canonicalLoanContractNumber(entry.number) === canonicalNumber
+  ));
+  if (duplicate) {
+    const owner = duplicate.customer ? ` (${duplicate.customer})` : "";
+    return `Numer ${canonicalNumber} jest już zapisany${owner}.`;
+  }
+
+  const activeEntry = ignoredId ? pricingLoanHistory.find((entry) => entry.id === ignoredId) : null;
+  if (activeEntry && canonicalLoanContractNumber(activeEntry.number) === canonicalNumber) return "";
+
+  const expectedNumber = nextLoanContractNumber(dateValue, ignoredId);
+  if (canonicalNumber !== expectedNumber) return `Kolejny prawidłowy numer to ${expectedNumber}.`;
+  return "";
+}
+
+function updateLoanContractNumberValidity() {
+  if (!loanContractNumberInput) return true;
+  const dateValue = isoDateForSave(loanDateInput?.value) || loanInputValue(loanDateInput);
+  const message = loanContractNumberValidationMessage(
+    loanInputValue(loanContractNumberInput),
+    dateValue,
+    activePricingLoanHistoryId
+  );
+  loanContractNumberInput.setCustomValidity(message);
+  loanContractNumberInput.classList.toggle("loan-number-invalid", Boolean(message));
+  loanContractNumberInput.title = message;
+  return !message;
 }
 
 function currentPricingLoanSnapshot() {
@@ -7650,62 +7699,105 @@ function currentPricingLoanSnapshot() {
 }
 
 async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingLoanHistorySupabaseAvailable === false) return;
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingLoanHistorySupabaseAvailable === false) return true;
 
   try {
     const { error } = await supabaseClient.from(SUPABASE_LOAN_CONTRACT_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
     if (error) throw error;
     pricingLoanHistorySupabaseAvailable = true;
+    return true;
   } catch (error) {
     if (isMissingSupabaseTableError(error)) {
       pricingLoanHistorySupabaseAvailable = false;
       console.warn("Historia umów zapisana lokalnie. Brakuje tabeli Supabase:", error.message);
-      return;
+      return true;
+    }
+
+    if (error?.code === "23505" || /duplicate key|unique constraint/iu.test(error?.message || "")) {
+      console.warn("Numer umowy jest już zajęty:", error?.message || error);
+      return false;
     }
 
     console.warn("Historia umów zapisana lokalnie, bez synchronizacji Supabase:", error.message);
     if (!silent) alert("Umowa zapisana lokalnie. Supabase nie przyjął historii umowy, sprawdź połączenie i spróbuj ponownie.");
+    return true;
   }
 }
 
-function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
-  const snapshot = normalizePricingLoanHistoryEntry(currentPricingLoanSnapshot());
-  if (!snapshot) {
-    if (!silent) alert("Uzupełnij osobę lub aparat słuchowy, żeby zapisać umowę w historii.");
-    return null;
+async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
+  if (pricingLoanSaveInProgress) return null;
+  pricingLoanSaveInProgress = true;
+  if (savePricingLoanBtn) savePricingLoanBtn.disabled = true;
+
+  try {
+    if (hasSupabaseConfig && currentSupabaseUser && pricingLoanHistorySupabaseAvailable !== false) {
+      await loadSupabasePricingLoanHistory();
+    }
+    ensureLoanContractNumber();
+
+    const dateValue = isoDateForSave(loanDateInput?.value) || loanInputValue(loanDateInput);
+    const numberMessage = loanContractNumberValidationMessage(
+      loanInputValue(loanContractNumberInput),
+      dateValue,
+      activePricingLoanHistoryId
+    );
+    updateLoanContractNumberValidity();
+    if (numberMessage) {
+      alert(numberMessage);
+      loanContractNumberInput?.focus();
+      return null;
+    }
+
+    const snapshot = normalizePricingLoanHistoryEntry(currentPricingLoanSnapshot());
+    if (!snapshot) {
+      if (!silent) alert("Uzupełnij osobę lub aparat słuchowy, żeby zapisać umowę w historii.");
+      return null;
+    }
+
+    const now = new Date().toISOString();
+    const snapshotKey = pricingLoanSnapshotKey(snapshot);
+    const existingIndex = activePricingLoanHistoryId
+      ? pricingLoanHistory.findIndex((entry) => entry.id === activePricingLoanHistoryId)
+      : pricingLoanHistory.findIndex((entry) => pricingLoanSnapshotKey(entry) === snapshotKey);
+    const existingEntry = existingIndex >= 0 ? pricingLoanHistory[existingIndex] : null;
+    const historyEntry = normalizePricingLoanHistoryEntry({
+      ...snapshot,
+      id: existingEntry?.id || snapshot.id,
+      createdAt: existingEntry?.createdAt || snapshot.createdAt,
+      savedAt: now,
+      savedBy: currentSupabaseUser?.email || snapshot.savedBy,
+      workstation: currentWorkstationName() || snapshot.workstation
+    });
+
+    if (!historyEntry) return null;
+    const persisted = await persistPricingLoanHistoryEntry(historyEntry, { silent });
+    if (!persisted) {
+      await loadSupabasePricingLoanHistory();
+      if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
+      ensureLoanContractNumber({ force: true });
+      renderPricingLoan();
+      alert(`Ten numer został właśnie użyty na innym komputerze. Nadano nowy numer ${loanInputValue(loanContractNumberInput)}. Sprawdź dane i zapisz ponownie.`);
+      return null;
+    }
+
+    pricingLoanHistory = [
+      historyEntry,
+      ...pricingLoanHistory.filter((entry) => entry.id !== historyEntry.id)
+    ].slice(0, MAX_PRICING_LOAN_HISTORY);
+    activePricingLoanHistoryId = historyEntry.id;
+    saveLocalPricingLoanHistory();
+    recordDocumentLocationUsage(historyEntry.city, historyEntry.workstation);
+    rebuildCustomerDocumentIndex();
+    rebuildCustomerNameSuggestions();
+    renderPricingLoanHistory();
+    renderDeviceViews();
+    markAgreementDraftSaved("loan");
+    if (!silent) alert("Umowa zapisana w historii.");
+    return historyEntry;
+  } finally {
+    pricingLoanSaveInProgress = false;
+    if (savePricingLoanBtn) savePricingLoanBtn.disabled = false;
   }
-
-  const now = new Date().toISOString();
-  const snapshotKey = pricingLoanSnapshotKey(snapshot);
-  const existingIndex = activePricingLoanHistoryId
-    ? pricingLoanHistory.findIndex((entry) => entry.id === activePricingLoanHistoryId)
-    : pricingLoanHistory.findIndex((entry) => pricingLoanSnapshotKey(entry) === snapshotKey);
-  const existingEntry = existingIndex >= 0 ? pricingLoanHistory[existingIndex] : null;
-  const historyEntry = normalizePricingLoanHistoryEntry({
-    ...snapshot,
-    id: existingEntry?.id || snapshot.id,
-    createdAt: existingEntry?.createdAt || snapshot.createdAt,
-    savedAt: now,
-    savedBy: currentSupabaseUser?.email || snapshot.savedBy,
-    workstation: currentWorkstationName() || snapshot.workstation
-  });
-
-  if (!historyEntry) return null;
-  pricingLoanHistory = [
-    historyEntry,
-    ...pricingLoanHistory.filter((entry) => entry.id !== historyEntry.id)
-  ].slice(0, MAX_PRICING_LOAN_HISTORY);
-  activePricingLoanHistoryId = historyEntry.id;
-  saveLocalPricingLoanHistory();
-  recordDocumentLocationUsage(historyEntry.city, historyEntry.workstation);
-  rebuildCustomerDocumentIndex();
-  rebuildCustomerNameSuggestions();
-  renderPricingLoanHistory();
-  renderDeviceViews();
-  persistPricingLoanHistoryEntry(historyEntry, { silent });
-  markAgreementDraftSaved("loan");
-  if (!silent) alert("Umowa zapisana w historii.");
-  return historyEntry;
 }
 
 function setLoanSnapshotInput(input, value, options = {}) {
@@ -8788,7 +8880,13 @@ function validatePricingLoanForAction() {
   pricingLoanValidationRequested = true;
   const missingInputs = updatePricingLoanRequiredHighlights();
   missingInputs[0]?.focus();
-  return missingInputs.length === 0;
+  if (missingInputs.length) return false;
+  if (!updateLoanContractNumberValidity()) {
+    alert(loanContractNumberInput?.validationMessage || "Sprawdź numer umowy.");
+    loanContractNumberInput?.focus();
+    return false;
+  }
+  return true;
 }
 
 function renderPricingLoan() {
@@ -8841,10 +8939,11 @@ function renderPricingLoan() {
   if (printPricingLoanBtn) printPricingLoanBtn.disabled = false;
 }
 
-function printPricingLoan() {
+async function printPricingLoan() {
   if (!validatePricingLoanForAction()) return;
   renderPricingLoan();
-  saveCurrentPricingLoanToHistory({ silent: true });
+  const savedEntry = await saveCurrentPricingLoanToHistory({ silent: true });
+  if (!savedEntry) return;
   const cleanup = () => document.body.classList.remove("pricing-loan-print");
   document.body.classList.add("pricing-loan-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -17920,7 +18019,13 @@ savePricingOfferBtn?.addEventListener("click", () => saveCurrentPricingOfferToHi
 printPricingOfferBtn?.addEventListener("click", printPricingOffer);
 loanContractNumberInput?.addEventListener("input", () => {
   loanContractNumberInput.dataset.autoNumber = "";
+  updateLoanContractNumberValidity();
 }, { capture: true });
+loanContractNumberInput?.addEventListener("blur", updateLoanContractNumberValidity);
+loanDateInput?.addEventListener("change", () => {
+  if (loanContractNumberInput?.dataset.autoNumber === "1") ensureLoanContractNumber({ force: true });
+  updateLoanContractNumberValidity();
+});
 [
   loanContractNumberInput,
   loanDateInput,
@@ -18025,9 +18130,9 @@ loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "
 newPricingLoanBtn?.addEventListener("click", startNewPricingLoan);
 savePricingLoanBtn?.addEventListener("click", () => {
   if (!validatePricingLoanForAction()) return;
-  saveCurrentPricingLoanToHistory();
+  void saveCurrentPricingLoanToHistory();
 });
-printPricingLoanBtn?.addEventListener("click", printPricingLoan);
+printPricingLoanBtn?.addEventListener("click", () => void printPricingLoan());
 loanHistorySearchInput?.addEventListener("input", debounce(renderPricingLoanHistory, SEARCH_DEBOUNCE_MS));
 pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
 orderNumberInput?.addEventListener("input", () => {
