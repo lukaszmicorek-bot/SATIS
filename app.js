@@ -9269,7 +9269,12 @@ function createPricingPcprItem(entry) {
 
   const model = document.createElement("span");
   model.className = "pcpr-item-model";
-  model.textContent = [entry.model, entry.model2].filter(Boolean).join(" | ") || "Brak wstępnego modelu";
+  const models = [entry.model, entry.model2].map((value) => normalizeLoanHistoryText(value)).filter(Boolean);
+  if (!models.length) {
+    item.classList.add("missing-model");
+    model.classList.add("missing");
+  }
+  model.textContent = models.join(" | ") || "Brak wstępnego modelu";
 
   const meta = document.createElement("small");
   const savedAt = formatAuditDateTime(entry.savedAt);
@@ -11971,8 +11976,19 @@ function activeDemoLoanLine(loan) {
 function activeDemoLoanGroupsForCustomer(customerName) {
   const customerKey = customerNameLookupKey(customerName);
   if (!customerKey) return [];
-  const groups = new Map();
+  const uniqueLoans = new Map();
   (activeDemoLoanCustomerIndex.get(customerKey) || []).forEach((loan) => {
+    const serial = normalizeSerialNumber(loan.serialNumber);
+    const fallback = [normalizeDeviceName(loan.deviceName), loan.loanDate, loan.location].filter(Boolean).join("|");
+    const key = serial ? `serial:${serial}` : fallback ? `details:${fallback}` : `id:${loan.id}`;
+    const existing = uniqueLoans.get(key);
+    const isReplacement = normalizeDemoPurpose(loan.purpose) === DEMO_PURPOSE_REPLACEMENT;
+    const existingIsReplacement = existing && normalizeDemoPurpose(existing.purpose) === DEMO_PURPOSE_REPLACEMENT;
+    if (!existing || (isReplacement && !existingIsReplacement)) uniqueLoans.set(key, loan);
+  });
+
+  const groups = new Map();
+  uniqueLoans.forEach((loan) => {
     const replacement = normalizeDemoPurpose(loan.purpose) === DEMO_PURPOSE_REPLACEMENT;
     const key = replacement ? "replacement" : "demo";
     if (!groups.has(key)) {
