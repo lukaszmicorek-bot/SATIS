@@ -51,6 +51,7 @@ const DEMO_RETURN_CRITICAL_DAYS = 14;
 const DEMO_LOAN_DAYS = 14;
 const DEMO_RETURN_REMINDER_STORAGE_KEY = "zeszyt-aparatow-demo-return-reminder-last-shown";
 const DEMO_RETURN_REMINDER_INTERVAL_MS = 60 * 60 * 1000;
+const AGREEMENT_SAVE_REMINDER_DELAY_MS = 60 * 1000;
 const DEMO_PURPOSE_TEST = "DO TESTOWANIA";
 const DEMO_PURPOSE_REPLACEMENT = "APARAT ZASTĘPCZY";
 const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
@@ -373,6 +374,7 @@ const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
 const customerPhoneIndex = new Map();
 const activeDemoLoanCustomerIndex = new Map();
+const agreementDraftStates = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
@@ -6886,6 +6888,7 @@ function startNewPricingOffer() {
   syncAgreementDocumentLocations(suggestedDocumentLocation());
   renderPricingOfferDeviceList();
   renderPricingOffer();
+  markAgreementDraftSaved("offer");
   offerCustomerInput?.focus();
 }
 
@@ -7046,6 +7049,59 @@ function switchPricingView(viewName) {
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
   if (activePricingView === "history") renderPricingDocumentHistory();
+}
+
+function markAgreementDraftDirty(key) {
+  const state = agreementDraftStates.get(key);
+  if (!state) return;
+  state.dirty = true;
+  state.saveButton.classList.add("has-unsaved-changes");
+  state.saveButton.classList.remove("save-reminder-active");
+  state.saveButton.title = "Formularz zawiera niezapisane zmiany";
+  state.reminder.hidden = true;
+  window.clearTimeout(state.timer);
+  state.timer = window.setTimeout(() => {
+    if (!state.dirty) return;
+    state.saveButton.classList.add("save-reminder-active");
+    state.reminder.hidden = false;
+  }, AGREEMENT_SAVE_REMINDER_DELAY_MS);
+}
+
+function markAgreementDraftSaved(key) {
+  const state = agreementDraftStates.get(key);
+  if (!state) return;
+  state.dirty = false;
+  window.clearTimeout(state.timer);
+  state.timer = 0;
+  state.saveButton.classList.remove("has-unsaved-changes", "save-reminder-active");
+  state.saveButton.title = "";
+  state.reminder.hidden = true;
+}
+
+function setupAgreementDraftTracking() {
+  [
+    ["offer", pricingOfferView, savePricingOfferBtn],
+    ["loan", pricingLoanView, savePricingLoanBtn],
+    ["order", pricingOrderView, savePricingOrderBtn],
+    ["complaint", pricingComplaintView, savePricingComplaintBtn]
+  ].forEach(([key, view, saveButton]) => {
+    const editor = view?.querySelector(".offer-builder");
+    if (!editor || !saveButton) return;
+    const reminder = document.createElement("span");
+    reminder.className = "agreement-save-reminder";
+    reminder.textContent = "Niezapisane zmiany";
+    reminder.setAttribute("role", "status");
+    reminder.setAttribute("aria-live", "polite");
+    reminder.hidden = true;
+    saveButton.after(reminder);
+    agreementDraftStates.set(key, { dirty: false, editor, saveButton, reminder, timer: 0 });
+    ["input", "change"].forEach((eventName) => {
+      editor.addEventListener(eventName, (event) => {
+        if (!event.target.matches("input, select, textarea")) return;
+        markAgreementDraftDirty(key);
+      }, { capture: true });
+    });
+  });
 }
 
 function printPricingOffer() {
@@ -7264,6 +7320,7 @@ function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
   persistPricingOfferHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
   renderDeviceViews();
+  markAgreementDraftSaved("offer");
   if (!silent) alert("Oferta zapisana w historii.");
   return historyEntry;
 }
@@ -7646,6 +7703,7 @@ function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   renderPricingLoanHistory();
   renderDeviceViews();
   persistPricingLoanHistoryEntry(historyEntry, { silent });
+  markAgreementDraftSaved("loan");
   if (!silent) alert("Umowa zapisana w historii.");
   return historyEntry;
 }
@@ -7698,6 +7756,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanDeductionsInput, historyEntry.deductions);
   setLoanSnapshotInput(loanDeductionReasonInput, historyEntry.deductionReason);
   renderPricingLoan();
+  markAgreementDraftSaved("loan");
   pricingLoanView?.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
@@ -8070,6 +8129,7 @@ function restorePricingOfferFromHistory(entry) {
   renderPricingOfferDeviceList();
   switchPricingView("offer");
   renderPricingOffer();
+  markAgreementDraftSaved("offer");
 }
 
 function restorePricingOrderFromHistory(entry) {
@@ -8088,6 +8148,7 @@ function restorePricingOrderFromHistory(entry) {
   (saved.items.length ? saved.items : [{}]).forEach((savedItem) => addPricingOrderItemRow(savedItem));
   switchPricingView("order");
   renderPricingOrder();
+  markAgreementDraftSaved("order");
 }
 
 function restorePricingComplaintFromHistory(entry) {
@@ -8112,6 +8173,7 @@ function restorePricingComplaintFromHistory(entry) {
   setComplaintSecondItemVisible(Boolean(saved.items[1]));
   switchPricingView("complaint");
   renderPricingComplaint();
+  markAgreementDraftSaved("complaint");
 }
 
 async function deletePricingComplaintHistoryEntry(id) {
@@ -8649,6 +8711,7 @@ function startNewPricingLoan() {
   syncAgreementDocumentLocations(suggestedDocumentLocation());
   ensureLoanContractNumber({ force: true });
   renderPricingLoan();
+  markAgreementDraftSaved("loan");
   loanCustomerInput?.focus();
 }
 
@@ -9728,6 +9791,7 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   rebuildCustomerNameSuggestions();
   persistPricingOrderHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
+  markAgreementDraftSaved("order");
   if (!silent) alert("Zamówienie zapisane w historii.");
   return historyEntry;
 }
@@ -10459,6 +10523,7 @@ function resetPricingOrderForm() {
   if (orderNumberInput) orderNumberInput.dataset.autoNumber = "1";
   ensurePricingOrderNumber({ force: true });
   renderPricingOrder();
+  markAgreementDraftSaved("order");
 }
 
 function savePricingOrderAndRepairNotebook() {
@@ -10481,6 +10546,9 @@ function savePricingOrderAndRepairNotebook() {
 function printPricingOrder() {
   if (printPricingOrderBtn?.disabled) return;
   renderPricingOrder();
+  const historyEntry = saveCurrentPricingOrderToHistory({ silent: true });
+  if (!historyEntry) return;
+  syncPricingOrderToRepairNotebook(historyEntry);
   const cleanup = () => document.body.classList.remove("pricing-order-print");
   document.body.classList.add("pricing-order-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -10934,6 +11002,7 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   rebuildCustomerNameSuggestions();
   persistPricingComplaintHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
+  markAgreementDraftSaved("complaint");
   return historyEntry;
 }
 
@@ -11392,6 +11461,7 @@ function resetPricingComplaintForm() {
   if (complaintNumberInput) complaintNumberInput.dataset.autoNumber = "1";
   ensurePricingComplaintNumber({ force: true });
   renderPricingComplaint();
+  markAgreementDraftSaved("complaint");
 }
 
 function savePricingComplaintAndRepairNotebook() {
@@ -11408,6 +11478,9 @@ function savePricingComplaintAndRepairNotebook() {
 
 function printPricingComplaint() {
   renderPricingComplaint();
+  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: true });
+  if (!historyEntry) return;
+  syncPricingComplaintToRepairNotebook(historyEntry);
   const cleanup = () => document.body.classList.remove("pricing-complaint-print");
   document.body.classList.add("pricing-complaint-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -17740,6 +17813,7 @@ pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
 pricingViewButtons.forEach((button) => {
   button.addEventListener("click", () => switchPricingView(button.dataset.pricingView));
 });
+setupAgreementDraftTracking();
 pcprForm?.addEventListener("submit", addPricingPcprItem);
 pcprCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
