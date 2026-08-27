@@ -10316,6 +10316,325 @@ textarea {
     border-bottom: 1px solid #66737c;
   }
 }
+
+.document-description {
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: 1px solid #d3e0e3;
+}
+
+.document-description h3,
+.document-description-page h3,
+.document-service-notice h3 {
+  margin: 0 0 8px;
+  color: #003f5a;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.offer-description-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 10px;
+}
+
+.offer-description-grid p,
+.document-rule-cards p {
+  margin: 0;
+  padding: 8px 9px;
+  border-left: 3px solid #8fb9c4;
+  background: #f7fafb;
+}
+
+.offer-description-grid strong,
+.offer-description-grid span,
+.document-rule-cards strong,
+.document-rule-cards span {
+  display: block;
+}
+
+.offer-description-grid strong,
+.document-rule-cards strong {
+  margin-bottom: 3px;
+  color: #164f5f;
+  font-size: 0.75rem;
+}
+
+.offer-description-grid span,
+.document-rule-cards span {
+  color: #405861;
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+
+.document-description-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid #df9b55;
+  color: #5c4935;
+  background: #fff9f2;
+  font-size: 0.73rem;
+  line-height: 1.34;
+}
+
+.manufacturer-brand-block {
+  margin-top: 9px;
+}
+
+.manufacturer-brand-title {
+  display: block;
+  margin-bottom: 6px;
+  color: #51666e;
+  font-size: 0.65rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.manufacturer-brand-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px 11px;
+  padding: 8px 10px;
+  border: 1px solid #d9e3e6;
+  background: #fff;
+}
+
+.manufacturer-wordmark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  color: #324850;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-audibel { color: #443078; font-style: italic; }
+.brand-audio-service { color: #d24a38; font-weight: 700; }
+.brand-beltone { color: #5d8f3e; font-style: italic; }
+.brand-bernafon { color: #3f6679; font-weight: 700; }
+.brand-oticon { color: #2e3135; font-size: 0.82rem; font-weight: 900; }
+.brand-philips { color: #12549a; font-weight: 900; }
+.brand-phonak { color: #4a4a48; font-weight: 950; }
+.brand-resound { color: #16705c; font-size: 0.8rem; font-weight: 800; }
+.brand-signia { color: #c93638; font-size: 0.82rem; font-weight: 750; }
+.brand-sonic { color: #16527d; font-style: italic; font-weight: 900; }
+.brand-starkey { color: #232f78; font-size: 0.8rem; font-weight: 800; }
+
+.document-description-page {
+  margin-top: 20px;
+  padding: 20px 22px;
+  border: 1px solid #cad9dd;
+  background: #fff;
+}
+
+.document-description-page > header {
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #003f5a;
+}
+
+.document-description-page > header span {
+  color: #2b8a78;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.document-description-page > header h3 {
+  margin: 4px 0 0;
+  font-size: 1.12rem;
+}
+
+.document-description-page > p,
+.document-description-page li {
+  color: #273d47;
+  font-size: 0.8rem;
+  line-height: 1.44;
+}
+
+.document-description-page h4 {
+  margin: 14px 0 6px;
+  color: #003f5a;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.document-description-page ul {
+  margin: 7px 0 0;
+  padding-left: 20px;
+}
+
+.document-rule-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 12px 0;
+}
+
+.document-service-notice {
+  margin-top: 11px;
+  padding: 10px 12px;
+  border-left: 4px solid #b76854;
+  background: #fff6f3;
+}
+
+.document-service-notice h3 {
+  margin-bottom: 5px;
+  color: #7f3e33;
+}
+
+.document-service-notice p {
+  margin: 3px 0;
+  color: #533f3a;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+@media print {
+  body.pricing-offer-print .document-description {
+    margin-top: 3.5mm;
+    padding-top: 2.5mm;
+    border-top: 0.25mm solid #cbd8dc;
+  }
+
+  body.pricing-offer-print .document-description h3 {
+    margin-bottom: 1.5mm;
+    font-size: 8pt;
+  }
+
+  body.pricing-offer-print .offer-description-grid {
+    gap: 1.2mm 2mm;
+  }
+
+  body.pricing-offer-print .offer-description-grid p {
+    padding: 1.3mm 1.6mm;
+    border-left-width: 0.7mm;
+  }
+
+  body.pricing-offer-print .offer-description-grid strong {
+    margin-bottom: 0.5mm;
+    font-size: 7pt;
+  }
+
+  body.pricing-offer-print .offer-description-grid span,
+  body.pricing-offer-print .document-description-note {
+    font-size: 6.8pt;
+    line-height: 1.25;
+  }
+
+  body.pricing-offer-print .document-description-note {
+    margin-top: 1.5mm;
+    padding: 1.3mm 1.8mm;
+    border-left-width: 0.7mm;
+  }
+
+  body.pricing-offer-print .manufacturer-brand-block {
+    margin-top: 1.8mm;
+  }
+
+  body.pricing-offer-print .manufacturer-brand-title {
+    margin-bottom: 1mm;
+    font-size: 6.4pt;
+  }
+
+  body.pricing-offer-print .manufacturer-brand-logos {
+    gap: 1mm 2.5mm;
+    padding: 1.4mm 2mm;
+    border: 0.25mm solid #d5e0e3;
+  }
+
+  body.pricing-offer-print .manufacturer-wordmark {
+    min-height: 4mm;
+    font-size: 7pt;
+  }
+
+  body.pricing-loan-print .loan-testing-information {
+    min-height: 245mm;
+    margin: 0;
+    padding: 10mm 11mm;
+    border: 0;
+    break-before: page;
+    page-break-before: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.pricing-loan-print .loan-testing-information > header {
+    margin-bottom: 5mm;
+    padding-bottom: 3mm;
+    border-bottom: 0.55mm solid #003f5a;
+  }
+
+  body.pricing-loan-print .loan-testing-information > header span {
+    font-size: 8pt;
+  }
+
+  body.pricing-loan-print .loan-testing-information > header h3 {
+    margin-top: 1mm;
+    font-size: 16pt;
+  }
+
+  body.pricing-loan-print .loan-testing-information > p,
+  body.pricing-loan-print .loan-testing-information li {
+    font-size: 9pt;
+    line-height: 1.42;
+  }
+
+  body.pricing-loan-print .loan-testing-information h4 {
+    margin: 5mm 0 2mm;
+    font-size: 10pt;
+  }
+
+  body.pricing-loan-print .document-rule-cards {
+    gap: 3mm;
+    margin: 4mm 0;
+  }
+
+  body.pricing-loan-print .document-rule-cards p {
+    padding: 3mm;
+    border-left-width: 1mm;
+  }
+
+  body.pricing-loan-print .document-rule-cards strong {
+    font-size: 8.5pt;
+  }
+
+  body.pricing-loan-print .document-rule-cards span {
+    font-size: 8pt;
+  }
+
+  body.pricing-loan-print .loan-testing-information + .document-gabinet-title,
+  body.pricing-loan-print .loan-testing-information ~ .document-gabinet-locations {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.pricing-complaint-print .document-service-notice {
+    margin-top: 2.5mm;
+    padding: 2mm 2.4mm;
+    border-left-width: 1mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.pricing-complaint-print .document-service-notice h3 {
+    margin-bottom: 1mm;
+    font-size: 8pt;
+  }
+
+  body.pricing-complaint-print .document-service-notice p {
+    margin: 0.6mm 0;
+    font-size: 7.2pt;
+    line-height: 1.25;
+  }
+}
 .customer-relations-panel {
   display: grid;
   grid-template-columns: minmax(280px, 520px) minmax(0, 1fr) auto;
