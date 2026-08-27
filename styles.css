@@ -5024,6 +5024,16 @@ input.pcpr-done-input,
   font-weight: 920;
 }
 
+.pcpr-item-model.missing {
+  border: 1px solid #edb8c0;
+  color: #a33f50;
+  background: #fff0f3;
+}
+
+.pcpr-item.missing-model:not(.done) {
+  box-shadow: inset 0 0 0 1px rgba(196, 78, 96, 0.08);
+}
+
 .pcpr-item-content small {
   color: #6c7b84;
   font-size: 0.68rem;
