@@ -2882,8 +2882,41 @@ h2 {
 
 .offer-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.offer-actions button.has-unsaved-changes {
+  border-color: #69aaa0;
+  color: #075c57;
+  background: #eaf7f4;
+  box-shadow: 0 0 0 2px rgba(43, 138, 120, 0.1);
+}
+
+.offer-actions button.save-reminder-active {
+  border-color: #d79a70;
+  color: #874b24;
+  background: #fff3e9;
+  box-shadow: 0 0 0 3px rgba(199, 112, 52, 0.12);
+}
+
+.agreement-save-reminder {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid #edc7aa;
+  border-radius: 6px;
+  padding: 2px 7px;
+  color: #89542d;
+  background: #fff7f0;
+  font-size: 0.66rem;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.agreement-save-reminder[hidden] {
+  display: none;
 }
 
 #printPricingOfferBtn,
@@ -8919,6 +8952,10 @@ textarea {
     flex-direction: column;
   }
 
+  .agreement-save-reminder {
+    justify-content: center;
+  }
+
   .demo-attachment-item {
     grid-template-columns: minmax(0, 1fr) auto auto;
   }
@@ -10441,5 +10478,225 @@ textarea {
   .customer-relation-item > .reset-filters-btn {
     grid-column: 2 / -1;
     justify-self: end;
+  }
+}
+
+/* Wspolny profil wysokiej jakosci dla dokumentow z zakladki Umowy. */
+@media print {
+  body.pricing-offer-print,
+  body.pricing-loan-print,
+  body.pricing-order-print,
+  body.pricing-complaint-print {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    line-height: 1.3;
+    text-rendering: geometricPrecision;
+  }
+
+  body.pricing-offer-print *,
+  body.pricing-loan-print *,
+  body.pricing-order-print *,
+  body.pricing-complaint-print * {
+    box-sizing: border-box;
+    box-shadow: none !important;
+    filter: none !important;
+    text-shadow: none !important;
+    transform: none !important;
+  }
+
+  body.pricing-offer-print .offer-document,
+  body.pricing-loan-print .loan-document,
+  body.pricing-order-print .order-document,
+  body.pricing-complaint-print .complaint-document {
+    width: 190mm;
+    max-width: 190mm;
+    color: #17272e;
+    font-size: 9pt;
+    line-height: 1.3;
+  }
+
+  body.pricing-offer-print .offer-document-head,
+  body.pricing-loan-print .offer-document-head,
+  body.pricing-order-print .offer-document-head,
+  body.pricing-complaint-print .offer-document-head {
+    border-bottom: 0.55mm solid #003f5a;
+  }
+
+  body.pricing-offer-print .offer-document-head h2,
+  body.pricing-loan-print .offer-document-head h2,
+  body.pricing-order-print .offer-document-head h2,
+  body.pricing-complaint-print .offer-document-head h2 {
+    color: #003f5a;
+    font-size: 16pt;
+    font-weight: 700;
+    line-height: 1.12;
+  }
+
+  body.pricing-offer-print .offer-document-head p,
+  body.pricing-loan-print .offer-document-head p,
+  body.pricing-order-print .offer-document-head p,
+  body.pricing-complaint-print .offer-document-head p {
+    font-size: 8pt;
+    font-weight: 700;
+  }
+
+  body.pricing-offer-print .offer-document-head span,
+  body.pricing-loan-print .offer-document-head span,
+  body.pricing-order-print .offer-document-head span,
+  body.pricing-complaint-print .offer-document-head span {
+    color: #465860;
+    font-size: 8.5pt;
+    font-weight: 600;
+  }
+
+  body.pricing-offer-print .offer-document-head img,
+  body.pricing-loan-print .offer-document-head img,
+  body.pricing-order-print .offer-document-head img,
+  body.pricing-complaint-print .offer-document-head img {
+    image-rendering: auto;
+  }
+
+  body.pricing-loan-print .loan-doc-section h3,
+  body.pricing-order-print .loan-doc-section h3,
+  body.pricing-complaint-print .loan-doc-section h3 {
+    border-bottom: 0.25mm solid #bdcdd2;
+    font-size: 9pt;
+    font-weight: 700;
+  }
+
+  body.pricing-loan-print .loan-doc-grid p,
+  body.pricing-loan-print .loan-protocol-grid p,
+  body.pricing-loan-print .loan-signatures p,
+  body.pricing-order-print .loan-doc-grid p,
+  body.pricing-order-print .order-signatures p,
+  body.pricing-complaint-print .loan-doc-grid p,
+  body.pricing-complaint-print .complaint-signatures p,
+  body.pricing-complaint-print .complaint-text-box,
+  body.pricing-order-print .order-print-notes {
+    border: 0.25mm solid #cbd8dc;
+    background: #fff;
+  }
+
+  body.pricing-loan-print .loan-doc-grid p span,
+  body.pricing-loan-print .loan-protocol-grid p span,
+  body.pricing-loan-print .loan-signatures p span,
+  body.pricing-order-print .loan-doc-grid p span,
+  body.pricing-order-print .order-signatures span,
+  body.pricing-complaint-print .loan-doc-grid p span,
+  body.pricing-complaint-print .complaint-signatures span {
+    color: #52656d;
+    font-size: 7.3pt;
+    font-weight: 700;
+  }
+
+  body.pricing-loan-print .loan-doc-grid p strong,
+  body.pricing-loan-print .loan-protocol-grid p strong,
+  body.pricing-loan-print .loan-signatures p strong,
+  body.pricing-order-print .loan-doc-grid p strong,
+  body.pricing-order-print .order-signatures strong,
+  body.pricing-complaint-print .loan-doc-grid p strong,
+  body.pricing-complaint-print .complaint-signatures strong {
+    color: #17272e;
+    font-size: 8.7pt;
+    font-weight: 700;
+  }
+
+  body.pricing-offer-print .offer-items-table,
+  body.pricing-offer-print .offer-payments-table,
+  body.pricing-loan-print .loan-equipment-table,
+  body.pricing-order-print .order-items-table,
+  body.pricing-complaint-print .complaint-products-table {
+    border-collapse: collapse;
+    border: 0.25mm solid #bdcbd0;
+    color: #17272e;
+    font-size: 8.3pt;
+  }
+
+  body.pricing-offer-print .offer-items-table th,
+  body.pricing-offer-print .offer-items-table td,
+  body.pricing-offer-print .offer-payments-table th,
+  body.pricing-offer-print .offer-payments-table td,
+  body.pricing-loan-print .loan-equipment-table th,
+  body.pricing-loan-print .loan-equipment-table td,
+  body.pricing-order-print .order-items-table th,
+  body.pricing-order-print .order-items-table td,
+  body.pricing-complaint-print .complaint-products-table th,
+  body.pricing-complaint-print .complaint-products-table td {
+    border: 0.25mm solid #cbd8dc;
+    font-size: 8.3pt;
+    line-height: 1.25;
+  }
+
+  body.pricing-offer-print .offer-items-table th,
+  body.pricing-offer-print .offer-payments-table th,
+  body.pricing-loan-print .loan-equipment-table th,
+  body.pricing-order-print .order-items-table th,
+  body.pricing-complaint-print .complaint-products-table th {
+    color: #243f4a;
+    background: #edf4f5;
+    font-size: 7.4pt;
+    font-weight: 700;
+  }
+
+  body.pricing-offer-print .offer-items-table strong {
+    font-size: 9.4pt;
+    font-weight: 700;
+  }
+
+  body.pricing-loan-print .loan-doc-note,
+  body.pricing-loan-print .loan-terms p,
+  body.pricing-order-print .order-print-notes,
+  body.pricing-complaint-print .complaint-text-box {
+    font-size: 7.8pt;
+    line-height: 1.3;
+  }
+
+  body.pricing-offer-print .document-gabinet-title,
+  body.pricing-loan-print .document-gabinet-title,
+  body.pricing-order-print .document-gabinet-title,
+  body.pricing-complaint-print .document-gabinet-title {
+    font-size: 7.6pt;
+    font-weight: 700;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations,
+  body.pricing-loan-print .document-gabinet-locations,
+  body.pricing-order-print .document-gabinet-locations,
+  body.pricing-complaint-print .document-gabinet-locations {
+    color: #253b44;
+    font-size: 7.2pt;
+    line-height: 1.25;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations > span,
+  body.pricing-loan-print .document-gabinet-locations > span,
+  body.pricing-order-print .document-gabinet-locations > span,
+  body.pricing-complaint-print .document-gabinet-locations > span {
+    border-left: 0.8mm solid #78aebc;
+    background: #f6fafb;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations strong,
+  body.pricing-loan-print .document-gabinet-locations strong,
+  body.pricing-order-print .document-gabinet-locations strong,
+  body.pricing-complaint-print .document-gabinet-locations strong,
+  body.pricing-offer-print .document-gabinet-locations .location-phone,
+  body.pricing-loan-print .document-gabinet-locations .location-phone,
+  body.pricing-order-print .document-gabinet-locations .location-phone,
+  body.pricing-complaint-print .document-gabinet-locations .location-phone {
+    font-size: 7.2pt;
+    font-weight: 700;
+  }
+
+  body.pricing-offer-print tr,
+  body.pricing-loan-print tr,
+  body.pricing-order-print tr,
+  body.pricing-complaint-print tr,
+  body.pricing-offer-print .offer-total-line,
+  body.pricing-loan-print .loan-doc-section,
+  body.pricing-order-print .loan-doc-section,
+  body.pricing-complaint-print .loan-doc-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
