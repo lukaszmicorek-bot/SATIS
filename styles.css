@@ -5980,6 +5980,39 @@ tbody tr.device-sold-row:hover {
   text-transform: uppercase;
 }
 
+.customer-phone-badge {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 17px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b8d8d2;
+  border-radius: 6px;
+  padding: 1px 5px;
+  color: #176d68;
+  background: #eef8f6;
+  font-size: 0.61rem;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.customer-phone-badge:hover,
+.customer-phone-badge:focus-visible {
+  border-color: #72aaa1;
+  color: #07534f;
+  background: #e4f4f1;
+}
+
+.customer-phone-badge.uncertain {
+  border-color: #e0c39d;
+  color: #825924;
+  background: #fbf3e8;
+  cursor: help;
+}
+
 .customer-activity-cell.customer-docs-uncertain .customer-docs-badge {
   color: #7a5130;
   background: #f8eadb;
@@ -7431,6 +7464,13 @@ tbody tr.demo-return-critical:hover {
 .demo-current-user strong {
   font-size: 0.88rem;
   font-weight: 850;
+}
+
+.demo-current-user .customer-phone-badge {
+  margin-top: 2px;
+  color: #176d68;
+  font-size: 0.61rem;
+  font-weight: 900;
 }
 
 .demo-current-user span {
