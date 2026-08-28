@@ -17942,7 +17942,7 @@ function renderDatePicker() {
     hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
   if (isVacationCalendarInput()) {
-    hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne. Jasnoczerwone dni z kropką to święta; po najechaniu zobaczysz ich nazwę. Terminy zajęte przez inną osobę nadal można wybrać i wysłać do zatwierdzenia.";
+    hint.textContent = "Żółto-pomarańczowe: Twój urlop. Czerwona kropka: święto. Kolory pracowników oznaczają zatwierdzone dni wolne; zajęty termin nadal można wysłać do zatwierdzenia.";
   } else {
     hint.textContent = [
       hint.textContent,
@@ -18010,7 +18010,8 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     const occupiedPeople = vacationOccupiedPeopleOnDate(isoDate);
     const ownLeave = vacationOwnLeaveOnDate(isoDate);
     if (publicHoliday) {
-      button.classList.add("vacation-public-holiday");
+      button.classList.add("public-holiday");
+      button.dataset.publicHoliday = publicHoliday.name;
       button.setAttribute("aria-label", `${day}, ${publicHoliday.name}, dzień ustawowo wolny od pracy`);
       appendDatePickerTitle(button, `Dzień wolny: ${publicHoliday.name}`);
     }
@@ -18020,6 +18021,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     }
     if (ownLeave) {
       button.classList.add("vacation-own-leave");
+      if (ownLeave.ownerLeave) button.classList.add("vacation-owner-leave");
       const ownEmployee = vacationEmployees.find((employee) => employee.id === ownLeave.employeeId);
       const employeeTone = ownEmployee?.workstation?.toLocaleLowerCase("pl-PL") || "default";
       button.classList.add(`vacation-own-${employeeTone}`);
