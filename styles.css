@@ -1691,6 +1691,24 @@ h2 {
   box-shadow: inset 0 0 0 1px rgba(123, 98, 139, 0.14);
 }
 
+.vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-item {
+  border-color: #b5dcd7;
+  border-left: 4px solid #69b5ae;
+  color: #176d69;
+  background: linear-gradient(90deg, #e8f7f5 0, #ffffff 50%);
+}
+
+.vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-item > strong {
+  color: #176d69;
+}
+
+.vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-item.active {
+  border-color: #69b5ae;
+  border-left-color: #2f9189;
+  background: linear-gradient(90deg, #dff3f0 0, #ffffff 60%);
+  box-shadow: inset 0 0 0 1px rgba(47, 145, 137, 0.14);
+}
+
 .vacation-employee-percent {
   position: absolute;
   top: -8px;
@@ -2225,12 +2243,12 @@ h2 {
 }
 
 .date-picker-day.vacation-own-leave.vacation-owner-leave {
-  --vacation-own-border: #e3b76d;
-  --vacation-own-color: #855515;
-  --vacation-own-background: #fff3d9;
-  --vacation-own-hover-border: #cf963b;
-  --vacation-own-hover-background: #ffe8bb;
-  --vacation-own-selected: #c68124;
+  --vacation-own-border: #82c8c1;
+  --vacation-own-color: #176d69;
+  --vacation-own-background: #e8f7f5;
+  --vacation-own-hover-border: #54aaa1;
+  --vacation-own-hover-background: #d8f0ed;
+  --vacation-own-selected: #2f9189;
 }
 
 .vacation-approve-btn {
@@ -10851,6 +10869,16 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
   margin: 12px 0;
+}
+
+.document-rule-cards .testing-fee-rule {
+  grid-column: 1 / -1;
+  border-left-color: #df9b55;
+  background: #fff9f2;
+}
+
+.document-rule-cards .testing-fee-rule strong {
+  color: #76502c;
 }
 
 .document-service-notice {

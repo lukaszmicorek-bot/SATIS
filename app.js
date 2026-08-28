@@ -5861,7 +5861,17 @@ function rebuildDemoManufacturerFilter() {
 }
 
 function modelSuggestionSourceRecords() {
-  return [...records, ...demoRecords];
+  const cutoff = modelSuggestionCutoffDate();
+  return [...records, ...demoRecords].filter((record) => {
+    const recordDate = modelSuggestionRecordDate(record);
+    return recordDate && recordDate >= cutoff;
+  });
+}
+
+function modelSuggestionCutoffDate() {
+  const today = parseIsoDate(todayInputValue()) || new Date();
+  const cutoff = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+  return isoDateFromParts(cutoff.getFullYear(), cutoff.getMonth() + 1, cutoff.getDate());
 }
 
 function customerNameSuggestionKeys() {
@@ -5907,7 +5917,7 @@ function modelSuggestionMatchRank(name, query) {
 }
 
 function modelSuggestionRecordDate(record) {
-  return isoDateForSave(record?.pickupDate) || isoDateForSave(record?.receivedDate) || isoDateForSave(record?.returnDate) || "";
+  return isoDateForSave(record?.receivedDate) || isoDateForSave(record?.pickupDate) || isoDateForSave(record?.returnDate) || "";
 }
 
 function rankedModelSuggestions(sourceRecords, query = "") {
@@ -5939,6 +5949,7 @@ function rankedModelSuggestions(sourceRecords, query = "") {
     .filter((suggestion) => !String(query).trim() || suggestion.matchRank < 20)
     .sort((left, right) =>
       left.matchRank - right.matchRank ||
+      String(right.latestDate).slice(0, 7).localeCompare(String(left.latestDate).slice(0, 7)) ||
       right.count - left.count ||
       String(right.latestDate).localeCompare(String(left.latestDate)) ||
       right.latestPosition - left.latestPosition ||
@@ -5952,7 +5963,7 @@ function rebuildDeviceNameCorrectionCandidates() {
   const candidates = new Map();
   const customerKeys = customerNameSuggestionKeys();
 
-  records.forEach((record) => {
+  modelSuggestionSourceRecords().forEach((record) => {
     const name = cleanModelSuggestion(record.deviceName);
     if (!isLikelyModelSuggestion(name, customerKeys)) return;
     const displayToken = name.split(" ")[0];
@@ -5997,10 +6008,7 @@ function rebuildDemoFormSuggestions() {
     ...demoRecords.map((record) => String(record.manufacturer ?? "").trim()),
     ...pricingRecords.map((record) => String(record.manufacturer ?? "").trim())
   ].filter(Boolean))].sort((left, right) => collator.compare(left, right));
-  const pricingModels = pricingRecords
-    .map((record) => ({ deviceName: record.model || record.tradeName }))
-    .filter((record) => record.deviceName);
-  const models = rankedModelSuggestions([...modelSuggestionSourceRecords(), ...pricingModels]);
+  const models = rankedModelSuggestions(modelSuggestionSourceRecords());
 
   const manufacturerFragment = document.createDocumentFragment();
   manufacturers.forEach((manufacturer) => {
