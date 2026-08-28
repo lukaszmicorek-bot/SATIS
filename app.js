@@ -7740,13 +7740,17 @@ function latestPricingLoanBySerial(entries = pricingLoanHistory) {
   return assignments;
 }
 
-function completedDemoLoanMatches(record, customer, loanDate) {
+function completedDemoLoanEntry(record, customer, loanDate) {
   const customerKey = customerNameLookupKey(customer);
-  return effectiveDemoLoanHistory(record).some((entry) => (
+  return effectiveDemoLoanHistory(record).find((entry) => (
     Boolean(entry.returnDate) &&
     customerNameLookupKey(entry.currentUser) === customerKey &&
     (!loanDate || !entry.loanDate || entry.loanDate === loanDate)
   ));
+}
+
+function completedDemoLoanMatches(record, customer, loanDate) {
+  return Boolean(completedDemoLoanEntry(record, customer, loanDate));
 }
 
 function demoRecordFromPricingLoan(record, assignment) {
@@ -8352,9 +8356,11 @@ function pricingLoanDataIssues(entry) {
     const demoRecord = demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
     const deviceRecord = records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
 
-    // Umowy mogą obejmować zarówno aparaty Demo, jak i aparaty z głównej Bazy.
+    // Aparat z Bazy jest poprawnym numerem, ale aktywna umowa wymaga też pozycji w Demo.
     if (!demoRecord) {
-      if (!deviceRecord) issues.push(`${serial}: numeru nie znaleziono w Bazie ani w Demo.`);
+      issues.push(deviceRecord
+        ? `${serial}: aparat jest w Bazie, ale nie występuje w Demo.`
+        : `${serial}: numeru nie znaleziono w Bazie ani w Demo.`);
       return;
     }
 
@@ -8363,8 +8369,11 @@ function pricingLoanDataIssues(entry) {
       issues.push(`${serial}: w Demo aparat jest przypisany do ${titleCaseName(demoRecord.currentUser)}.`);
       return;
     }
-    if (!currentUserKey && completedDemoLoanMatches(demoRecord, entry.customer, loanDate)) {
-      issues.push(`${serial}: zwrot jest zapisany w Demo, ale umowa nie ma daty zwrotu.`);
+    const completedLoan = !currentUserKey
+      ? completedDemoLoanEntry(demoRecord, entry.customer, loanDate)
+      : null;
+    if (completedLoan) {
+      issues.push(`${serial}: Demo pokazuje zwrot ${formatDate(completedLoan.returnDate)}, ale umowa nie ma daty zwrotu.`);
       return;
     }
     if (!currentUserKey) issues.push(`${serial}: umowa jest aktywna, ale aparat w Demo nie jest wypożyczony.`);
@@ -8474,6 +8483,18 @@ function renderPricingLoanHistory() {
     const device = document.createElement("span");
     device.textContent = pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego";
     content.append(titleRow, meta, device);
+    if (dataIssues.length) {
+      const issueDetails = document.createElement("p");
+      issueDetails.className = "loan-data-review-details";
+      issueDetails.textContent = `Do poprawy: ${dataIssues.join(" • ")}`;
+      content.append(issueDetails);
+    }
+    if (duplicateOf) {
+      const duplicateDetails = document.createElement("p");
+      duplicateDetails.className = "loan-data-duplicate-details";
+      duplicateDetails.textContent = `Duplikat umowy ${duplicateOf.number || "bez numeru"}.`;
+      content.append(duplicateDetails);
+    }
 
     const actions = document.createElement("div");
     actions.className = "loan-history-actions";
@@ -8541,6 +8562,18 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, warning
   content.append(headingRow);
   if (information.textContent) content.append(information);
   content.append(description);
+  if (warning.length) {
+    const warningDetails = document.createElement("p");
+    warningDetails.className = "loan-data-review-details";
+    warningDetails.textContent = `Do poprawy: ${warning.join(" • ")}`;
+    content.append(warningDetails);
+  }
+  if (duplicateOf) {
+    const duplicateDetails = document.createElement("p");
+    duplicateDetails.className = "loan-data-duplicate-details";
+    duplicateDetails.textContent = `Duplikat umowy ${duplicateOf.number || "bez numeru"}.`;
+    content.append(duplicateDetails);
+  }
 
   const actions = document.createElement("div");
   actions.className = "loan-history-actions";
