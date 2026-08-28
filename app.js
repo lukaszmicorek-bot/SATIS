@@ -602,6 +602,10 @@ const pricingFields = [
 ];
 
 const DEVICE_DATE_FIELDS = ["receivedDate", "pickupDate", "returnDate"];
+const DEVICE_DATE_VALIDATION_FIELDS = [
+  { field: "receivedDate", label: "Data przyjęcia", selector: "#receivedDate" },
+  { field: "pickupDate", label: "Data odbioru", selector: "#pickupDate" }
+];
 const REPAIR_DATE_FIELDS = ["receivedDate", "sentDate", "returnDate", "pickupDate"];
 const DEMO_DATE_FIELDS = ["receivedDate", "manufacturerReturnDate", "manufacturerReturnedDate", "loanDate", "returnDate"];
 const REPAIR_DATE_ORDER = [
@@ -965,6 +969,10 @@ const recordForm = document.querySelector("#recordForm");
 const recordEyebrow = document.querySelector("#recordEyebrow");
 const dialogTitle = document.querySelector("#dialogTitle");
 const dialogSerial = document.querySelector("#dialogSerial");
+const dialogLocationBadge = document.querySelector("#dialogLocationBadge");
+const dialogStatusBadge = document.querySelector("#dialogStatusBadge");
+const deviceFormError = document.querySelector("#deviceFormError");
+const deviceModelQuickSuggestions = document.querySelector("#deviceModelQuickSuggestions");
 const deleteBtn = document.querySelector("#deleteBtn");
 const duplicateRecordBtn = document.querySelector("#duplicateRecordBtn");
 const moveToDemoBtn = document.querySelector("#moveToDemoBtn");
@@ -974,6 +982,12 @@ const repairDialog = document.querySelector("#repairDialog");
 const repairForm = document.querySelector("#repairForm");
 const repairRecordEyebrow = document.querySelector("#repairRecordEyebrow");
 const repairDialogTitle = document.querySelector("#repairDialogTitle");
+const repairDialogSerial = document.querySelector("#repairDialogSerial");
+const repairDialogSerial2 = document.querySelector("#repairDialogSerial2");
+const repairDialogStatusBadge = document.querySelector("#repairDialogStatusBadge");
+const repairSerial2Field = document.querySelector("#repairSerial2Field");
+const addRepairSerial2Btn = document.querySelector("#addRepairSerial2Btn");
+const removeRepairSerial2Btn = document.querySelector("#removeRepairSerial2Btn");
 const deleteRepairBtn = document.querySelector("#deleteRepairBtn");
 const repairFormError = document.querySelector("#repairFormError");
 const demoDialog = document.querySelector("#demoDialog");
@@ -5876,27 +5890,61 @@ function isLikelyModelSuggestion(value, customerKeys = customerNameSuggestionKey
   return true;
 }
 
-function rankedModelSuggestions(sourceRecords) {
+function modelSuggestionMatchRank(name, query) {
+  const normalizedName = normalize(name).trim();
+  const normalizedQuery = normalize(query).trim();
+  if (!normalizedQuery) return 5;
+  if (normalizedName === normalizedQuery) return 0;
+  if (normalizedName.startsWith(normalizedQuery)) return 1;
+  if (normalizedName.split(/\s+/u).some((token) => token.startsWith(normalizedQuery))) return 2;
+  if (normalizedName.includes(normalizedQuery)) return 3;
+
+  const compactName = compactQualityKey(normalizedName);
+  const compactQuery = compactQualityKey(normalizedQuery);
+  if (compactQuery.length < 4) return 20;
+  const prefix = compactName.slice(0, Math.max(compactQuery.length, Math.min(compactName.length, compactQuery.length + 2)));
+  const distance = damerauLevenshtein(compactQuery, prefix);
+  return distance <= qualityDistanceLimit(compactQuery.length) ? 4 + distance * 0.1 : 20;
+}
+
+function modelSuggestionRecordDate(record) {
+  return isoDateForSave(record?.pickupDate) || isoDateForSave(record?.receivedDate) || isoDateForSave(record?.returnDate) || "";
+}
+
+function rankedModelSuggestions(sourceRecords, query = "") {
   const customerKeys = customerNameSuggestionKeys();
   const suggestions = new Map();
 
-  sourceRecords.forEach((record) => {
+  sourceRecords.forEach((record, index) => {
     const name = cleanModelSuggestion(record.deviceName);
     if (!isLikelyModelSuggestion(name, customerKeys)) return;
 
     const key = name.toLocaleUpperCase("pl-PL");
-    const suggestion = suggestions.get(key) || { count: 0, displayForms: new Map() };
+    const suggestion = suggestions.get(key) || { count: 0, displayForms: new Map(), latestDate: "", latestPosition: -1 };
     suggestion.count += 1;
     suggestion.displayForms.set(name, (suggestion.displayForms.get(name) || 0) + 1);
+    const recordDate = modelSuggestionRecordDate(record);
+    if (recordDate > suggestion.latestDate) suggestion.latestDate = recordDate;
+    suggestion.latestPosition = Math.max(suggestion.latestPosition, sourceRecords.length - index);
     suggestions.set(key, suggestion);
   });
 
   return [...suggestions.values()]
     .map((suggestion) => ({
       count: suggestion.count,
+      latestDate: suggestion.latestDate,
+      latestPosition: suggestion.latestPosition,
       name: [...suggestion.displayForms.entries()].sort((left, right) => right[1] - left[1] || collator.compare(left[0], right[0]))[0][0]
     }))
-    .sort((left, right) => right.count - left.count || collator.compare(left.name, right.name))
+    .map((suggestion) => ({ ...suggestion, matchRank: modelSuggestionMatchRank(suggestion.name, query) }))
+    .filter((suggestion) => !String(query).trim() || suggestion.matchRank < 20)
+    .sort((left, right) =>
+      left.matchRank - right.matchRank ||
+      right.count - left.count ||
+      String(right.latestDate).localeCompare(String(left.latestDate)) ||
+      right.latestPosition - left.latestPosition ||
+      collator.compare(left.name, right.name)
+    )
     .slice(0, MAX_MODEL_NAME_SUGGESTIONS)
     .map((suggestion) => suggestion.name);
 }
@@ -6076,10 +6124,7 @@ function rebuildSerialIndex() {
   });
 }
 
-function rebuildDeviceNameSuggestions() {
-  const names = rankedModelSuggestions(modelSuggestionSourceRecords());
-  rebuildDeviceNameCorrectionCandidates();
-
+function renderDeviceNameSuggestionOptions(names) {
   const fragment = document.createDocumentFragment();
   names.forEach((name) => {
     const option = document.createElement("option");
@@ -6088,6 +6133,49 @@ function rebuildDeviceNameSuggestions() {
   });
 
   deviceNameSuggestions.replaceChildren(fragment);
+}
+
+function rebuildDeviceNameSuggestions() {
+  rebuildDeviceNameCorrectionCandidates();
+  renderDeviceNameSuggestionOptions(rankedModelSuggestions(modelSuggestionSourceRecords()));
+}
+
+function renderDeviceModelQuickSuggestions(query = "") {
+  if (!deviceModelQuickSuggestions) return;
+  const names = rankedModelSuggestions(modelSuggestionSourceRecords(), query).slice(0, 6);
+  const normalizedQuery = normalizeDeviceName(query);
+  const visibleNames = names.filter((name) => normalize(name) !== normalize(normalizedQuery));
+  deviceModelQuickSuggestions.hidden = !visibleNames.length;
+  if (!visibleNames.length) {
+    deviceModelQuickSuggestions.replaceChildren();
+    return;
+  }
+
+  const buttons = visibleNames.map((name) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = name;
+    button.title = `Użyj modelu: ${name}`;
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => {
+      const input = document.querySelector("#deviceName");
+      if (!input) return;
+      input.value = name;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      deviceModelQuickSuggestions.hidden = true;
+      input.focus();
+    });
+    return button;
+  });
+  deviceModelQuickSuggestions.replaceChildren(...buttons);
+}
+
+function refreshDeviceModelSuggestions() {
+  const input = document.querySelector("#deviceName");
+  const query = input?.value || "";
+  renderDeviceNameSuggestionOptions(rankedModelSuggestions(modelSuggestionSourceRecords(), query));
+  renderDeviceModelQuickSuggestions(query);
 }
 
 function rebuildCustomerNameSuggestions() {
@@ -14558,6 +14646,18 @@ function isVacationCalendarInput(input = activeDateInput) {
   return input === vacationDateFromInput || input === vacationDateToInput;
 }
 
+function vacationPublicHolidayOnDate(isoDate) {
+  if (!isVacationCalendarInput() || !isoDate) return null;
+  const year = Number(String(isoDate).slice(0, 4));
+  if (!Number.isInteger(year)) return null;
+  return polishPublicHolidays(year).find((holiday) => holiday.date === isoDate) || null;
+}
+
+function appendDatePickerTitle(button, text) {
+  if (!button || !text) return;
+  button.title = [button.title, text].filter(Boolean).join("\n");
+}
+
 function vacationOccupiedPeopleOnDate(isoDate) {
   if (!isVacationCalendarInput() || !isoDate) return [];
   const selectedEmployeeId = vacationEmployeeInput?.value || "";
@@ -15562,6 +15662,31 @@ function fillPrivatePaymentForm(record = {}) {
   }
 }
 
+function deviceStatusDisplayLabel(value) {
+  const status = normalizeDeviceType(value || "NA STANIE");
+  return {
+    "NA STANIE": "Na stanie",
+    SPRZEDANY: "Sprzedany",
+    REZERWACJA: "Rezerwacja",
+    ZWROT: "Zwrot"
+  }[status] || status;
+}
+
+function syncDeviceDialogHeaderMeta() {
+  const locationInput = document.querySelector("#location");
+  const location = normalizeRepairLocation(locationInput?.value || "P63") || "P63";
+  const status = normalizeDeviceType(typeSelect?.value || "NA STANIE");
+  if (dialogLocationBadge) {
+    dialogLocationBadge.textContent = location;
+    dialogLocationBadge.dataset.locationTone = location;
+    dialogLocationBadge.title = locationInput?.selectedOptions?.[0]?.textContent || location;
+  }
+  if (dialogStatusBadge) {
+    dialogStatusBadge.textContent = deviceStatusDisplayLabel(status);
+    dialogStatusBadge.dataset.statusTone = status.replaceAll(" ", "-");
+  }
+}
+
 function privatePaymentFormValue() {
   if (!canViewPrivatePayments()) return null;
   return normalizePrivatePaymentEntry({
@@ -15605,6 +15730,7 @@ function fillDemoFormValues(record = {}) {
 
 function openDialog(record = null) {
   recordForm.reset();
+  clearDeviceDateValidationError();
   document.querySelector("#recordId").value = record?.id ?? "";
   dialogTitle.textContent = record ? modelTitleForRecord(record, "Aparat") : "Aparat";
   const serialNumber = normalizeSerialNumber(record?.serialNumber);
@@ -15627,10 +15753,64 @@ function openDialog(record = null) {
   }
   syncDeviceEzwmForType();
   updateDocumentLocationAccent(document.querySelector("#location"));
+  syncDeviceDialogHeaderMeta();
+  renderDeviceModelQuickSuggestions(document.querySelector("#deviceName")?.value || "");
   updateDateInputsTodayState(recordForm);
   renderQualityHints("devices");
   renderAuditTrail("devices", record?.id || "");
   recordDialog.showModal();
+}
+
+function repairStatusDisplayLabel(value) {
+  const status = String(value || "PRZYJĘTE").trim().toLocaleUpperCase("pl-PL");
+  return {
+    "PRZYJĘTE": "Przyjęte",
+    "W TRAKCIE": "W trakcie",
+    "GOTOWE": "Gotowe",
+    "ODEBRANE": "Odebrane"
+  }[status] || status;
+}
+
+function repairDialogProductTitle() {
+  const category = normalizeRepairCategory(document.querySelector("#repairCategory")?.value);
+  const enteredProduct = normalizeDeviceName(document.querySelector("#repairDeviceName")?.value);
+  const fallbackProduct = {
+    "WKŁADKA USZNA": "Wkładka uszna",
+    "WKŁADKA PRZECIWWODNA": "Wkładka przeciwwodna",
+    "NAPRAWA GWARANCYJNA": "Aparat słuchowy",
+    "NAPRAWA POGWARANCYJNA": "Aparat słuchowy",
+    "ZAMÓWIENIE": "Produkt"
+  }[category] || "Produkt";
+  const prefix = category === "ZAMÓWIENIE" ? "Zamówienie" : "Serwis";
+  return `${prefix} · ${enteredProduct || fallbackProduct}`;
+}
+
+function syncRepairDialogHeaderMeta() {
+  const serials = [
+    normalizeSerialNumber(document.querySelector("#repairSerialNumber")?.value),
+    normalizeSerialNumber(document.querySelector("#repairSerialNumber2")?.value)
+  ];
+  const status = String(document.querySelector("#repairStatus")?.value || "PRZYJĘTE")
+    .trim()
+    .toLocaleUpperCase("pl-PL");
+
+  if (repairDialogTitle) repairDialogTitle.textContent = repairDialogProductTitle();
+  [repairDialogSerial, repairDialogSerial2].forEach((badge, index) => {
+    if (!badge) return;
+    badge.textContent = serials[index];
+    badge.hidden = !serials[index];
+  });
+  if (repairDialogStatusBadge) {
+    repairDialogStatusBadge.textContent = repairStatusDisplayLabel(status);
+    repairDialogStatusBadge.dataset.statusTone = status.replaceAll(" ", "-");
+  }
+}
+
+function setRepairSerial2Visibility(show, options = {}) {
+  if (!repairSerial2Field || !addRepairSerial2Btn) return;
+  repairSerial2Field.hidden = !show;
+  addRepairSerial2Btn.hidden = show;
+  if (show && options.focus) document.querySelector("#repairSerialNumber2")?.focus();
 }
 
 function openRepairDialog(record = null) {
@@ -15648,7 +15828,6 @@ function openRepairDialog(record = null) {
   repairRecordEyebrow.textContent = normalizedRecord
     ? `Edytuj · ${repairDialogProductLabel(normalizedRecord)}`
     : "Dodaj";
-  repairDialogTitle.textContent = normalizedRecord ? repairDialogCustomerTitle(normalizedRecord) : "Pozycja serwisowa";
 
   const fieldMap = {
     receivedDate: "#repairReceivedDate",
@@ -15678,11 +15857,13 @@ function openRepairDialog(record = null) {
   } else {
     repairLocationInput.dataset.userChanged = "1";
   }
+  setRepairSerial2Visibility(Boolean(normalizeSerialNumber(normalizedRecord?.serialNumber2)));
   updateDocumentLocationAccent(repairLocationInput);
   updateDateInputsTodayState(repairForm);
   syncRepairDeviceNameFromSerials();
   syncRepairModelRequirement();
   updateRepairWarrantyHint();
+  syncRepairDialogHeaderMeta();
   renderQualityHints("repairs");
   renderAuditTrail("repairs", record?.id || "");
 
@@ -15897,6 +16078,7 @@ function syncDeviceTypeFromFields() {
   if (nextType === "NA STANIE" && !document.querySelector("#location").value) document.querySelector("#location").value = "P63";
   syncDeviceEzwmForType();
   updateDeviceTypeSelectStyles();
+  syncDeviceDialogHeaderMeta();
 }
 
 function syncStockLocationFromType() {
@@ -15905,6 +16087,7 @@ function syncStockLocationFromType() {
   }
   syncDeviceEzwmForType();
   updateDeviceTypeSelectStyles();
+  syncDeviceDialogHeaderMeta();
 }
 
 function repairLocationSuggestionSortValue(record) {
@@ -15986,6 +16169,7 @@ function syncRepairDeviceNameFromCategory({ force = false } = {}) {
 function syncRepairCategoryInput() {
   syncRepairDeviceNameFromCategory({ force: true });
   updateRepairWarrantyHint();
+  syncRepairDialogHeaderMeta();
 }
 
 function syncRepairCustomerNameInput(event) {
@@ -16003,6 +16187,7 @@ function syncRepairSerialInput(event) {
   syncRepairDeviceNameFromSerials();
   syncRepairModelRequirement();
   if (validateRepairDateOrder()) updateRepairWarrantyHint();
+  syncRepairDialogHeaderMeta();
 }
 
 function syncRepairDeviceNameFromSerials() {
@@ -16040,6 +16225,7 @@ function syncRepairModelRequirement() {
 function markRepairDeviceNameManualChange(event) {
   delete event.target.dataset.autoFromSerial;
   event.target.removeAttribute("title");
+  syncRepairDialogHeaderMeta();
 }
 
 function repairFormRecord() {
@@ -16293,6 +16479,53 @@ function repairDateOrderViolation(data) {
   return null;
 }
 
+function deviceDateValidationData() {
+  return Object.fromEntries(
+    DEVICE_DATE_VALIDATION_FIELDS.map(({ field, selector }) => [field, isoDateForSave(document.querySelector(selector)?.value)])
+  );
+}
+
+function deviceDateValidationViolation(data = deviceDateValidationData()) {
+  for (const fieldInfo of DEVICE_DATE_VALIDATION_FIELDS) {
+    const rawValue = String(document.querySelector(fieldInfo.selector)?.value ?? "").trim();
+    if (rawValue && !isoDateForSave(rawValue)) {
+      return {
+        selector: fieldInfo.selector,
+        message: `${fieldInfo.label} ma nieprawidłowy format. Wpisz datę jako dd.mm.rrrr.`
+      };
+    }
+  }
+
+  if (data.receivedDate && data.pickupDate && data.pickupDate < data.receivedDate) {
+    return {
+      selector: "#pickupDate",
+      message: "Data odbioru nie może być wcześniejsza niż data przyjęcia."
+    };
+  }
+  return null;
+}
+
+function clearDeviceDateValidationError() {
+  if (deviceFormError) deviceFormError.textContent = "";
+  DEVICE_DATE_VALIDATION_FIELDS.forEach(({ selector }) => {
+    const input = document.querySelector(selector);
+    input?.removeAttribute("aria-invalid");
+    input?.closest(".date-input-wrap")?.classList.remove("invalid-date");
+  });
+}
+
+function validateDeviceDateOrder(data = deviceDateValidationData(), options = {}) {
+  clearDeviceDateValidationError();
+  const violation = deviceDateValidationViolation(data);
+  if (!violation) return true;
+  const input = document.querySelector(violation.selector);
+  if (deviceFormError) deviceFormError.textContent = violation.message;
+  input?.setAttribute("aria-invalid", "true");
+  input?.closest(".date-input-wrap")?.classList.add("invalid-date");
+  if (options.focus) input?.focus();
+  return false;
+}
+
 function repairRequiredDateViolation(data) {
   if (data?.receivedDate) return null;
   return {
@@ -16453,6 +16686,7 @@ function syncRepairStatusFromDates() {
   data.serialNumber2 = normalizeSerialNumber(data.serialNumber2);
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
   if (validateRepairDateOrder(data)) updateRepairWarrantyHint(data);
+  syncRepairDialogHeaderMeta();
 }
 
 function syncDemoStatusFromCurrentUser(options = {}) {
@@ -16643,6 +16877,7 @@ function handleClearDateClick(event) {
     return;
   }
 
+  validateDeviceDateOrder();
   syncDeviceTypeFromFields();
 }
 
@@ -16652,6 +16887,7 @@ async function saveFormRecord(event) {
   const data = formRecord();
   const privatePaymentValue = privatePaymentFormValue();
   let savedRecord;
+  if (!validateDeviceDateOrder({ receivedDate: data.receivedDate, pickupDate: data.pickupDate }, { focus: true })) return;
   if (!confirmSerialNumberSave(data.serialNumber, "devices", id)) return;
   const previousDeviceRecord = id ? auditSnapshot(records.find((record) => record.id === id)) : null;
   const previousRecords = records;
@@ -17723,6 +17959,12 @@ function positionDatePicker() {
   picker.style.top = `${top}px`;
 }
 
+function activeDeviceDateMinimumInfo() {
+  if (!activeDateInput || activeDateInput !== document.querySelector("#pickupDate")) return null;
+  const receivedDate = isoDateForSave(document.querySelector("#receivedDate")?.value);
+  return receivedDate ? { field: "receivedDate", label: "Data przyjęcia", date: receivedDate } : null;
+}
+
 function activeRepairDateMinimumInfo() {
   if (!activeDateInput) return null;
 
@@ -17768,7 +18010,7 @@ function activeDemoDateMinimumInfo() {
 }
 
 function activeDateMinimumInfo() {
-  return activeRepairDateMinimumInfo() || activeDemoDateMinimumInfo();
+  return activeDeviceDateMinimumInfo() || activeRepairDateMinimumInfo() || activeDemoDateMinimumInfo();
 }
 
 function renderDatePicker() {
@@ -17825,7 +18067,7 @@ function renderDatePicker() {
     hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
   if (isVacationCalendarInput()) {
-    hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne wybranego pracownika. Czerwone są zajęte przez inną osobę; nadal możesz je wybrać i wysłać wniosek.";
+    hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne. Jasnoczerwone dni z kropką to święta; po najechaniu zobaczysz ich nazwę. Terminy zajęte przez inną osobę nadal można wybrać i wysłać do zatwierdzenia.";
   }
 
   const months = document.createElement("div");
@@ -17881,13 +18123,20 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     if (isoDate === todayIsoDate) button.classList.add("today");
     if (dateMinimum && isoDate < dateMinimum.date) {
       button.classList.add("invalid-order");
-      button.title = `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
+      button.setAttribute("aria-disabled", "true");
+      appendDatePickerTitle(button, `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`);
     }
+    const publicHoliday = vacationPublicHolidayOnDate(isoDate);
     const occupiedPeople = vacationOccupiedPeopleOnDate(isoDate);
     const ownLeave = vacationOwnLeaveOnDate(isoDate);
+    if (publicHoliday) {
+      button.classList.add("vacation-public-holiday");
+      button.setAttribute("aria-label", `${day}, ${publicHoliday.name}, dzień ustawowo wolny od pracy`);
+      appendDatePickerTitle(button, `Dzień wolny: ${publicHoliday.name}`);
+    }
     if (occupiedPeople.length) {
       button.classList.add("vacation-occupied");
-      button.title = `Urlop: ${occupiedPeople.join(", ")}. Termin można wybrać, ale wymaga zatwierdzenia.`;
+      appendDatePickerTitle(button, `Urlop: ${occupiedPeople.join(", ")}. Termin można wybrać, ale wymaga zatwierdzenia.`);
     }
     if (ownLeave) {
       button.classList.add("vacation-own-leave");
@@ -17895,11 +18144,12 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       const employeeTone = ownEmployee?.workstation?.toLocaleLowerCase("pl-PL") || "default";
       button.classList.add(`vacation-own-${employeeTone}`);
       const ownerLabel = canViewPrivateModules() ? ownLeave.employeeName : "Twój dzień wolny";
-      button.title = `${ownerLabel}: ${vacationCompensatesWeekend(ownLeave) ? "wolne za weekend" : vacationTypeLabel(ownLeave.type).toLocaleLowerCase("pl-PL")}.`;
+      appendDatePickerTitle(button, `${ownerLabel}: ${vacationCompensatesWeekend(ownLeave) ? "wolne za weekend" : vacationTypeLabel(ownLeave.type).toLocaleLowerCase("pl-PL")}.`);
     }
 
     button.addEventListener("click", () => {
       if (!activeDateInput) return;
+      if (dateMinimum && isoDate < dateMinimum.date) return;
       activeDateInput.value = displayDateForInput(isoDate);
       activeDateInput.dispatchEvent(new Event("input", { bubbles: true }));
       activeDateInput.dispatchEvent(new Event("change", { bubbles: true }));
@@ -18460,13 +18710,29 @@ demoForm.addEventListener("click", handleClearDateClick);
 registerQualityHintListeners("devices", ["#deviceName", "#serialNumber", "#customerName"]);
 registerQualityHintListeners("repairs", ["#repairCustomerName", "#repairDeviceName", "#repairSerialNumber", "#repairSerialNumber2"]);
 registerQualityHintListeners("demo", ["#demoDeviceName", "#demoSerialNumber", "#demoCurrentUser"]);
+const deviceModelInput = document.querySelector("#deviceName");
+const debouncedDeviceModelSuggestions = debounce(refreshDeviceModelSuggestions, SEARCH_DEBOUNCE_MS);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
-document.querySelector("#deviceName").addEventListener("blur", correctDeviceNameInput);
+deviceModelInput.addEventListener("input", debouncedDeviceModelSuggestions);
+deviceModelInput.addEventListener("focus", refreshDeviceModelSuggestions);
+deviceModelInput.addEventListener("blur", () => {
+  correctDeviceNameInput();
+  window.setTimeout(() => {
+    if (deviceModelQuickSuggestions) deviceModelQuickSuggestions.hidden = true;
+  }, 140);
+});
 document.querySelector("#serialNumber").addEventListener("input", syncUppercaseTextInput);
+document.querySelector("#receivedDate").addEventListener("input", () => validateDeviceDateOrder());
+document.querySelector("#receivedDate").addEventListener("change", () => validateDeviceDateOrder());
+document.querySelector("#pickupDate").addEventListener("input", () => validateDeviceDateOrder());
+document.querySelector("#pickupDate").addEventListener("change", () => validateDeviceDateOrder());
 document.querySelector("#returnDate").addEventListener("change", syncDeviceTypeFromFields);
 typeSelect.addEventListener("change", syncStockLocationFromType);
-document.querySelector("#location").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
+document.querySelector("#location").addEventListener("change", (event) => {
+  updateDocumentLocationAccent(event.target);
+  syncDeviceDialogHeaderMeta();
+});
 pasteInputButtons.forEach((button) => {
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -18524,6 +18790,7 @@ document.querySelector("#repairSentDate").addEventListener("change", syncRepairS
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
+document.querySelector("#repairStatus").addEventListener("change", syncRepairDialogHeaderMeta);
 document.querySelector("#repairCustomerName").addEventListener("input", syncRepairCustomerNameInput);
 document.querySelector("#repairCustomerName").addEventListener("blur", finalizeRepairCustomerNameInput);
 document.querySelector("#repairLocation").addEventListener("change", markRepairLocationManualChange);
@@ -18531,6 +18798,16 @@ document.querySelector("#repairLocation").addEventListener("change", (event) => 
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairDeviceName").addEventListener("input", markRepairDeviceNameManualChange);
+addRepairSerial2Btn.addEventListener("click", () => setRepairSerial2Visibility(true, { focus: true }));
+removeRepairSerial2Btn.addEventListener("click", () => {
+  const input = document.querySelector("#repairSerialNumber2");
+  if (input) {
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  setRepairSerial2Visibility(false);
+  syncRepairDialogHeaderMeta();
+});
 document.querySelector("#demoReceivedDate").addEventListener("change", syncDemoManufacturerReturnDate);
 document.querySelector("#demoManufacturerReturnDate").addEventListener("change", markDemoManufacturerReturnDateChange);
 document.querySelector("#demoManufacturerReturned").addEventListener("change", (event) => syncDemoManufacturerReturned(event.target.checked));

@@ -5706,6 +5706,59 @@ input[aria-invalid="true"] {
   font-weight: 1000;
 }
 
+.date-picker-day.vacation-public-holiday {
+  position: relative;
+  border-color: #edc7c1;
+  color: #963f38;
+  background: #fff5f3;
+  font-weight: 900;
+}
+
+.date-picker-day.vacation-public-holiday::after {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c95d4f;
+  content: "";
+}
+
+.date-picker-day.vacation-public-holiday:hover {
+  border-color: #d98d84;
+  color: #87352f;
+  background: #ffebe8;
+}
+
+.date-picker-day.vacation-public-holiday.selected {
+  border-color: #a64b43;
+  color: #fff;
+  background: #a64b43;
+}
+
+.date-picker-day.vacation-public-holiday.selected::after {
+  background: #fff;
+}
+
+.date-picker-day.vacation-public-holiday.vacation-own-leave {
+  border-color: var(--vacation-own-border);
+  color: var(--vacation-own-color);
+  background: var(--vacation-own-background);
+}
+
+.date-picker-day.vacation-public-holiday.vacation-own-leave:hover {
+  border-color: var(--vacation-own-hover-border);
+  color: var(--vacation-own-color);
+  background: var(--vacation-own-hover-background);
+}
+
+.date-picker-day.vacation-public-holiday.vacation-own-leave.selected {
+  border-color: var(--vacation-own-selected);
+  color: #fff;
+  background: var(--vacation-own-selected);
+}
+
 .date-picker-day.invalid-order {
   border-color: #e7aaa3;
   color: #983428;
@@ -6093,6 +6146,195 @@ tbody tr.device-sold-row:hover {
 
 .device-form-zone-grid label {
   min-width: 0;
+}
+
+.serial-highlight-field,
+.person-highlight-field {
+  border-radius: 7px;
+  padding: 7px 9px 9px;
+}
+
+.serial-highlight-field {
+  border-left: 3px solid #007f80;
+  background: #edf8f7;
+}
+
+.serial-highlight-field > span,
+.serial-highlight-field > label {
+  display: block;
+  margin-bottom: 6px;
+  color: #075f61;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.serial-highlight-field input {
+  border-color: #9bcac6;
+  color: #003f5a;
+  background: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.person-highlight-field {
+  border-left: 3px solid #d96a00;
+  background: #fff7ee;
+}
+
+.person-highlight-field > span {
+  color: #8c4c18;
+  font-weight: 850;
+}
+
+.person-highlight-field input {
+  border-color: #e7c5a7;
+  background: #ffffff;
+  font-weight: 780;
+}
+
+.device-dialog-meta-badge {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border: 1px solid #ccd9dc;
+  border-radius: 7px;
+  padding: 2px 7px;
+  color: #425d66;
+  background: #f3f7f8;
+  font-size: 0.67rem;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.device-dialog-meta-badge.location[data-location-tone="T12"] {
+  border-color: #cfc5ba;
+  color: #695c50;
+  background: #f8f5f1;
+}
+
+.device-dialog-meta-badge.location[data-location-tone="P50"] {
+  border-color: #c7cf9d;
+  color: #5f6a2e;
+  background: #f5f8e8;
+}
+
+.device-dialog-meta-badge.location[data-location-tone="P63"] {
+  border-color: #d2bfdf;
+  color: #725789;
+  background: #f8f2fb;
+}
+
+.device-dialog-meta-badge.status[data-status-tone="NA-STANIE"] {
+  border-color: #add4ce;
+  color: #0b6660;
+  background: #eaf7f4;
+}
+
+.device-dialog-meta-badge.status[data-status-tone="SPRZEDANY"] {
+  border-color: #afd7b8;
+  color: #287044;
+  background: #edf8ef;
+}
+
+.device-dialog-meta-badge.status[data-status-tone="REZERWACJA"] {
+  border-color: #ddc78a;
+  color: #765f1d;
+  background: #fff8e2;
+}
+
+.device-dialog-meta-badge.status[data-status-tone="ZWROT"] {
+  border-color: #c8bdde;
+  color: #685681;
+  background: #f4f0f8;
+}
+
+.repair-status-badge[data-status-tone="PRZYJĘTE"] {
+  border-color: #b7d7d2;
+  color: #176860;
+  background: #edf8f6;
+}
+
+.repair-status-badge[data-status-tone="W-TRAKCIE"] {
+  border-color: #b8ccd8;
+  color: #315f78;
+  background: #eef6fa;
+}
+
+.repair-status-badge[data-status-tone="GOTOWE"] {
+  border-color: #a8ceda;
+  color: #24677b;
+  background: #eaf6fa;
+}
+
+.repair-status-badge[data-status-tone="ODEBRANE"] {
+  border-color: #bed4c3;
+  color: #4b6f55;
+  background: #f0f6f1;
+}
+
+.repair-dialog-serial {
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: #075f61;
+  background: #edf8f7;
+  font-weight: 850;
+}
+
+.repair-serial-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.repair-add-serial-btn {
+  min-height: 34px;
+  margin-bottom: 3px;
+  padding: 5px 9px;
+  color: #35636e;
+  font-size: 0.72rem;
+}
+
+.repair-serial-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+  align-items: center;
+}
+
+.repair-serial-input-row .clear-date-btn {
+  width: 34px;
+}
+
+.model-quick-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.model-quick-suggestions[hidden] {
+  display: none;
+}
+
+.model-quick-suggestions button {
+  min-height: 23px;
+  border: 1px solid #c9dce2;
+  border-radius: 6px;
+  padding: 2px 7px;
+  color: #275968;
+  background: #f3f8fa;
+  font-size: 0.67rem;
+  font-weight: 760;
+}
+
+.model-quick-suggestions button:hover,
+.model-quick-suggestions button:focus-visible {
+  border-color: #89b6c2;
+  color: #003f5a;
+  background: #eaf4f6;
+  transform: none;
 }
 
 .customer-phone-badge:hover,
@@ -8932,6 +9174,7 @@ textarea {
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
   .device-form-zone-grid,
+  .repair-serial-fields,
   .form-grid,
   .private-payment-field {
     grid-template-columns: 1fr;

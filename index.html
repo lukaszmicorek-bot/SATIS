@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260828-99">
+    <link rel="stylesheet" href="styles.css?v=20260828-103">
   </head>
   <body>
     <main class="app-shell">
@@ -2044,6 +2044,8 @@
             <div class="dialog-title-row">
               <h2 id="dialogTitle">Aparat</h2>
               <span id="dialogSerial" class="dialog-title-serial" hidden></span>
+              <span id="dialogLocationBadge" class="device-dialog-meta-badge location">P63</span>
+              <span id="dialogStatusBadge" class="device-dialog-meta-badge status">Na stanie</span>
             </div>
           </div>
           <button class="ghost close-btn" type="button" id="closeDialogBtn" aria-label="Zamknij">Zamknij</button>
@@ -2078,7 +2080,7 @@
                   <option value="P50">Żywiec, al. Piłsudskiego 50</option>
                 </select>
               </label>
-              <label>
+              <label class="serial-highlight-field">
                 <span>Numer seryjny</span>
                 <input id="serialNumber" name="serialNumber" type="text" required>
               </label>
@@ -2086,6 +2088,7 @@
                 <span>Model aparatu</span>
                 <input id="deviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                 <datalist id="deviceNameSuggestions"></datalist>
+                <div id="deviceModelQuickSuggestions" class="model-quick-suggestions" hidden></div>
               </label>
             </div>
           </section>
@@ -2093,7 +2096,7 @@
           <section class="device-form-zone device-pickup-zone wide" aria-label="Odbiór i sprzedaż aparatu">
             <span class="device-form-zone-title">Odbiór</span>
             <div class="device-form-zone-grid device-form-zone-grid-three">
-              <label class="wide">
+              <label class="wide person-highlight-field">
                 <span>Imię i nazwisko</span>
                 <input id="customerName" name="customerName" type="text" list="customerNameSuggestions">
                 <datalist id="customerNameSuggestions"></datalist>
@@ -2156,6 +2159,7 @@
           </section>
         </div>
 
+        <p id="deviceFormError" class="form-error" role="alert"></p>
         <section id="recordQualityHints" class="quality-hints" hidden aria-live="polite"></section>
 
         <section id="recordAuditTrail" class="audit-trail" hidden>
@@ -2185,7 +2189,12 @@
         <div class="dialog-head">
           <div>
             <p id="repairRecordEyebrow" class="eyebrow">Dodaj</p>
-            <h2 id="repairDialogTitle">Pozycja serwisowa</h2>
+            <div class="dialog-title-row">
+              <h2 id="repairDialogTitle">Serwis · Wkładka uszna</h2>
+              <span id="repairDialogSerial" class="dialog-title-serial repair-dialog-serial" hidden></span>
+              <span id="repairDialogSerial2" class="dialog-title-serial repair-dialog-serial" hidden></span>
+              <span id="repairDialogStatusBadge" class="device-dialog-meta-badge repair-status-badge">Przyjęte</span>
+            </div>
           </div>
           <button class="ghost close-btn" type="button" id="closeRepairDialogBtn" aria-label="Zamknij">Zamknij</button>
         </div>
@@ -2220,6 +2229,14 @@
               <button class="clear-date-btn" type="button" data-target="repairPickupDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
+          <label class="document-location-field" data-location-tone="P63">
+            <span>Miejsce</span>
+            <select id="repairLocation" name="location">
+              <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
+              <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
+              <option value="P50">Żywiec, al. Piłsudskiego 50</option>
+            </select>
+          </label>
           <label>
             <span>Typ</span>
             <select id="repairCategory" name="category">
@@ -2230,15 +2247,7 @@
               <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
             </select>
           </label>
-          <label class="document-location-field" data-location-tone="P63">
-            <span>Miejsce</span>
-            <select id="repairLocation" name="location">
-              <option value="T12">T12</option>
-              <option value="P50">P50</option>
-              <option value="P63">P63</option>
-            </select>
-          </label>
-          <label class="wide">
+          <label class="wide person-highlight-field">
             <span>Imię i nazwisko</span>
             <input id="repairCustomerName" name="customerName" type="text" list="customerNameSuggestions" required>
           </label>
@@ -2246,14 +2255,20 @@
             <span id="repairDeviceNameLabel">Aparat / wkładka</span>
             <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </label>
-          <label>
-            <span>Numer seryjny 1</span>
-            <input id="repairSerialNumber" name="serialNumber" type="text">
-          </label>
-          <label>
-            <span>Numer seryjny 2</span>
-            <input id="repairSerialNumber2" name="serialNumber2" type="text">
-          </label>
+          <div class="repair-serial-fields wide">
+            <label class="serial-highlight-field">
+              <span>Numer seryjny</span>
+              <input id="repairSerialNumber" name="serialNumber" type="text">
+            </label>
+            <button id="addRepairSerial2Btn" class="ghost repair-add-serial-btn" type="button">Dodaj drugi numer</button>
+            <div id="repairSerial2Field" class="serial-highlight-field repair-serial-second" hidden>
+              <label for="repairSerialNumber2">Numer seryjny 2</label>
+              <div class="repair-serial-input-row">
+                <input id="repairSerialNumber2" name="serialNumber2" type="text">
+                <button id="removeRepairSerial2Btn" class="clear-date-btn" type="button" aria-label="Usuń drugi numer seryjny">×</button>
+              </div>
+            </div>
+          </div>
           <label>
             <span>Status</span>
             <select id="repairStatus" name="status">
@@ -2489,6 +2504,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260828-97"></script>
+    <script src="app.js?v=20260828-103"></script>
   </body>
 </html>
