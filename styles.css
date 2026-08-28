@@ -6016,34 +6016,48 @@ tbody tr.device-sold-row:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  min-height: 16px;
-  padding: 0 5px;
-  border-radius: 8px;
+  min-width: 30px;
+  height: 18px;
+  border: 1px solid #b8d8d2;
+  border-radius: 6px;
+  padding: 1px 5px;
   color: #1f5a63;
-  background: #e8f4f3;
-  font-size: 0.58rem;
+  background: #eef8f6;
+  font-size: 0.6rem;
   font-weight: 900;
+  line-height: 1;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .customer-phone-badge {
   display: inline-flex;
   width: fit-content;
-  min-height: 17px;
+  min-width: 30px;
+  height: 18px;
   align-items: center;
   justify-content: center;
   border: 1px solid #b8d8d2;
   border-radius: 6px;
   padding: 1px 5px;
-  color: #176d68;
+  color: #1f5a63;
   background: #eef8f6;
-  font-size: 0.61rem;
+  font-size: 0.6rem;
   font-weight: 900;
   line-height: 1;
   text-decoration: none;
   text-transform: lowercase;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.customer-contact-badges {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
 }
 
 .customer-phone-badge:hover,
@@ -6061,6 +6075,7 @@ tbody tr.device-sold-row:hover {
 }
 
 .customer-activity-cell.customer-docs-uncertain .customer-docs-badge {
+  border-color: #e0c39d;
   color: #7a5130;
   background: #f8eadb;
 }
@@ -6071,13 +6086,15 @@ tbody tr.device-sold-row:hover {
 }
 
 .customer-loan-badge.demo {
-  color: #236a84;
-  background: #e8f4f8;
+  border-color: #9fcfca;
+  color: #0b6666;
+  background: #e7f6f4;
 }
 
 .customer-loan-badge.replacement {
-  color: #89511d;
-  background: #fff1df;
+  border-color: #edc198;
+  color: #8b4b17;
+  background: #fff0e1;
 }
 
 .customer-activity-cell.has-customer-docs::after {
@@ -10805,15 +10822,15 @@ textarea {
 }
 
 .repair-demo-relation.demo {
-  border: 1px solid #b8d9e6;
-  background: #e8f4f8;
-  color: #236a84;
+  border: 1px solid #9fcfca;
+  background: #e7f6f4;
+  color: #0b6666;
 }
 
 .repair-demo-relation.replacement {
-  border: 1px solid #edc99f;
-  background: #fff1df;
-  color: #9a5718;
+  border: 1px solid #edc198;
+  background: #fff0e1;
+  color: #8b4b17;
 }
 
 @media (max-width: 800px) {

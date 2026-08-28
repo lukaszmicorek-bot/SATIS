@@ -12378,13 +12378,16 @@ function createCustomerActivityCell(record) {
     wrap.dataset.customerTooltip = tooltip;
     wrap.tabIndex = 0;
     attachTableHoverTooltip(wrap, "customerTooltip");
+    const contactBadges = document.createElement("span");
+    contactBadges.className = "customer-contact-badges";
     if (documentInfo) {
       const badge = document.createElement("span");
       badge.className = "customer-docs-badge";
       badge.textContent = "info";
-      wrap.append(badge);
+      contactBadges.append(badge);
     }
-    if (phoneBadge) wrap.append(phoneBadge);
+    if (phoneBadge) contactBadges.append(phoneBadge);
+    if (contactBadges.childElementCount) wrap.append(contactBadges);
     demoInfo?.groups.forEach((group) => {
       const badge = document.createElement("span");
       badge.className = `customer-docs-badge customer-loan-badge ${group.key}`;
