@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260828-98">
+    <link rel="stylesheet" href="styles.css?v=20260828-99">
   </head>
   <body>
     <main class="app-shell">
@@ -2050,93 +2050,110 @@
         </div>
 
         <input id="recordId" type="hidden">
-        <div class="form-grid">
-          <label>
-            <span>Data przyjęcia</span>
-            <div class="date-input-wrap">
-              <input id="receivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="receivedDate" aria-label="Wyczyść datę">×</button>
+        <div class="form-grid device-form-sections">
+          <section class="device-form-zone device-intake-zone wide" aria-label="Przyjęcie aparatu">
+            <span class="device-form-zone-title">Przyjęcie</span>
+            <div class="device-form-zone-grid device-form-zone-grid-two">
+              <label>
+                <span>Data przyjęcia</span>
+                <div class="date-input-wrap">
+                  <input id="receivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="receivedDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="type" name="type" class="device-type-select">
+                  <option value="NA STANIE">Na stanie</option>
+                  <option value="SPRZEDANY">Sprzedany</option>
+                  <option value="REZERWACJA">Rezerwacja</option>
+                  <option value="ZWROT">Zwrot</option>
+                </select>
+              </label>
+              <label class="document-location-field" data-location-tone="P63">
+                <span>Miejsce</span>
+                <select id="location" name="location">
+                  <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
+                  <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
+                  <option value="P50">Żywiec, al. Piłsudskiego 50</option>
+                </select>
+              </label>
+              <label>
+                <span>Numer seryjny</span>
+                <input id="serialNumber" name="serialNumber" type="text" required>
+              </label>
+              <label class="wide highlight-field">
+                <span>Model aparatu</span>
+                <input id="deviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                <datalist id="deviceNameSuggestions"></datalist>
+              </label>
             </div>
-          </label>
-          <label>
-            <span>Status</span>
-            <select id="type" name="type" class="device-type-select">
-              <option value="NA STANIE">Na stanie</option>
-              <option value="SPRZEDANY">Sprzedany</option>
-              <option value="REZERWACJA">Rezerwacja</option>
-              <option value="ZWROT">Zwrot</option>
-            </select>
-          </label>
-          <label class="document-location-field" data-location-tone="P63">
-            <span>Miejsce</span>
-            <select id="location" name="location">
-              <option value="T12">T12</option>
-              <option value="P50">P50</option>
-              <option value="P63">P63</option>
-            </select>
-          </label>
-          <label>
-            <span>EZWM</span>
-            <select id="ezwm" name="ezwm">
-              <option value="">Brak</option>
-              <option value="POBRANE">Pobrane</option>
-              <option value="REALIZACJA">Realizacja</option>
-              <option value="BEZ REFUNDACJI">Bez refundacji</option>
-            </select>
-          </label>
-          <label class="wide highlight-field">
-            <span>Model aparatu</span>
-            <input id="deviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-            <datalist id="deviceNameSuggestions"></datalist>
-          </label>
-          <label>
-            <span>Numer seryjny</span>
-            <input id="serialNumber" name="serialNumber" type="text" required>
-          </label>
-          <label>
-            <span>Data odbioru</span>
-            <div class="date-input-wrap">
-              <input id="pickupDate" name="pickupDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="pickupDate" aria-label="Wyczyść datę">×</button>
+          </section>
+
+          <section class="device-form-zone device-pickup-zone wide" aria-label="Odbiór i sprzedaż aparatu">
+            <span class="device-form-zone-title">Odbiór</span>
+            <div class="device-form-zone-grid device-form-zone-grid-three">
+              <label class="wide">
+                <span>Imię i nazwisko</span>
+                <input id="customerName" name="customerName" type="text" list="customerNameSuggestions">
+                <datalist id="customerNameSuggestions"></datalist>
+              </label>
+              <label>
+                <span>Data odbioru</span>
+                <div class="date-input-wrap">
+                  <input id="pickupDate" name="pickupDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="pickupDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label>
+                <span>Faktura sprzedaży</span>
+                <input id="salesInvoice" name="salesInvoice" type="text">
+              </label>
+              <label>
+                <span>EZWM</span>
+                <select id="ezwm" name="ezwm">
+                  <option value="">Brak</option>
+                  <option value="POBRANE">Pobrane</option>
+                  <option value="REALIZACJA">Realizacja</option>
+                  <option value="BEZ REFUNDACJI">Bez refundacji</option>
+                </select>
+              </label>
             </div>
-          </label>
-          <label class="wide">
-            <span>Imię i nazwisko</span>
-            <input id="customerName" name="customerName" type="text" list="customerNameSuggestions">
-            <datalist id="customerNameSuggestions"></datalist>
-          </label>
-          <label class="wide">
-            <span>Faktura sprzedaży</span>
-            <input id="salesInvoice" name="salesInvoice" type="text">
-          </label>
-          <label>
-            <span>Data zwrotu/wymiany</span>
-            <div class="date-input-wrap">
-              <input id="returnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="returnDate" aria-label="Wyczyść datę">×</button>
-            </div>
-          </label>
-          <label>
-            <span>Nr listu przewozowego/WZ</span>
-            <input id="waybillNumber" name="waybillNumber" type="text">
-          </label>
-          <div id="privatePaymentField" class="wide private-payment-field" data-private-payment-field hidden>
-            <label>
-              <span>Odebrałem pieniądze</span>
-              <input id="paymentReceivedAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="Kwota">
-            </label>
-            <label>
-              <span>Kiedy odebrałem</span>
-              <div class="date-input-wrap">
-                <input id="paymentReceivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-                <button class="clear-date-btn" type="button" data-target="paymentReceivedDate" aria-label="Wyczyść datę">×</button>
+          </section>
+
+          <section class="device-form-zone device-return-zone wide" aria-label="Zwrot i informacje dodatkowe">
+            <span class="device-form-zone-title">Zwrot i dodatkowe</span>
+            <div class="device-form-zone-grid device-form-zone-grid-two">
+              <label>
+                <span>Data zwrotu/wymiany</span>
+                <div class="date-input-wrap">
+                  <input id="returnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="returnDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label>
+                <span>Nr listu przewozowego/WZ</span>
+                <input id="waybillNumber" name="waybillNumber" type="text">
+              </label>
+              <div id="privatePaymentField" class="wide private-payment-field" data-private-payment-field hidden>
+                <label>
+                  <span>Odebrałem pieniądze</span>
+                  <input id="paymentReceivedAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="Kwota">
+                </label>
+                <label>
+                  <span>Kiedy odebrałem</span>
+                  <div class="date-input-wrap">
+                    <input id="paymentReceivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                    <button class="clear-date-btn" type="button" data-target="paymentReceivedDate" aria-label="Wyczyść datę">×</button>
+                  </div>
+                </label>
               </div>
-            </label>
-          </div>
-          <label class="wide">
-            <span>Uwagi</span>
-            <textarea id="notes" name="notes" rows="3"></textarea>
-          </label>
+              <label class="wide">
+                <span>Uwagi</span>
+                <textarea id="notes" name="notes" rows="3"></textarea>
+              </label>
+            </div>
+          </section>
         </div>
 
         <section id="recordQualityHints" class="quality-hints" hidden aria-live="polite"></section>

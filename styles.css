@@ -6060,6 +6060,41 @@ tbody tr.device-sold-row:hover {
   white-space: nowrap;
 }
 
+.device-form-zone {
+  display: grid;
+  gap: 8px;
+}
+
+.device-form-zone + .device-form-zone {
+  border-top: 1px solid #dce6e8;
+  padding-top: 13px;
+}
+
+.device-form-zone-title {
+  color: #607780;
+  font-size: 0.67rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.device-form-zone-grid {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.device-form-zone-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.device-form-zone-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.device-form-zone-grid label {
+  min-width: 0;
+}
+
 .customer-phone-badge:hover,
 .customer-phone-badge:focus-visible {
   border-color: #72aaa1;
@@ -8896,6 +8931,7 @@ textarea {
   .complaint-signatures,
   .stock-audit-preview-head,
   .stock-audit-preview-lists,
+  .device-form-zone-grid,
   .form-grid,
   .private-payment-field {
     grid-template-columns: 1fr;
