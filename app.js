@@ -6344,7 +6344,7 @@ function renderDeviceViews() {
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
   renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords, createRow, (record) => record.receivedDate));
   emptyState.hidden = visibleRecords.length > 0;
-  renderLimitNotice(databaseRenderNotice, databaseRenderText, visibleRecords.length, renderedRecords.length, "rekordów");
+  renderLimitNotice(databaseRenderNotice, databaseRenderText, visibleRecords.length, renderedRecords.length, "aparatów");
 }
 
 function filteredDemoRecords() {
@@ -7944,10 +7944,23 @@ async function deletePricingLoanHistoryEntry(id) {
   }
 }
 
+function polishCountCategory(count) {
+  const value = Math.abs(Math.trunc(Number(count) || 0));
+  const lastTwoDigits = value % 100;
+  const lastDigit = value % 10;
+  if (value === 1) return "one";
+  if (!(lastTwoDigits >= 12 && lastTwoDigits <= 14) && lastDigit >= 2 && lastDigit <= 4) return "few";
+  return "many";
+}
+
+function polishCountLabel(count, singular, few, plural) {
+  const category = polishCountCategory(count);
+  const label = category === "one" ? singular : category === "few" ? few : plural;
+  return `${count} ${label}`;
+}
+
 function pricingLoanHistoryCountLabel(count) {
-  if (count === 1) return "1 umowa";
-  if (count > 1 && count < 5) return `${count} umowy`;
-  return `${count} umów`;
+  return polishCountLabel(count, "umowa", "umowy", "umów");
 }
 
 function pricingLoanHistoryDeviceLabel(entry) {
@@ -7998,10 +8011,8 @@ function updatePricingLoanDeadlineSummary(deadlines) {
   loanDeadlineSummary.classList.toggle("critical", overdueCount > 0);
   loanDeadlineSummary.textContent = deadlines.length
     ? [
-        overdueCount ? (overdueCount === 1 ? "1 umowa przeterminowana" : `${overdueCount} umowy przeterminowane`) : "",
-        endingCount ? (endingCount === 1
-          ? `1 umowa kończy się w ciągu ${PRICING_LOAN_END_WARNING_DAYS} dni`
-          : `${endingCount} umowy kończą się w ciągu ${PRICING_LOAN_END_WARNING_DAYS} dni`) : ""
+        overdueCount ? polishCountLabel(overdueCount, "umowa przeterminowana", "umowy przeterminowane", "umów przeterminowanych") : "",
+        endingCount ? `${polishCountLabel(endingCount, "umowa", "umowy", "umów")} ${polishCountCategory(endingCount) === "few" ? "kończą się" : "kończy się"} w ciągu ${PRICING_LOAN_END_WARNING_DAYS} dni` : ""
       ].filter(Boolean).join(" · ")
     : "";
 }
@@ -8060,12 +8071,12 @@ function renderPricingLoanHistory() {
     const savedAt = formatAuditDateTime(entry.savedAt);
     const contractDetails = [
       entry.number ? `nr ${entry.number}` : "",
-      entry.date ? `z ${formatDate(entry.date)}` : "",
+      entry.date ? `data ${formatDate(entry.date)}` : "",
       [entry.periodFrom, entry.periodTo].filter(Boolean).length
-        ? `okres ${[formatDate(entry.periodFrom), formatDate(entry.periodTo)].filter(Boolean).join(" - ")}`
+        ? `okres ${[formatDate(entry.periodFrom), formatDate(entry.periodTo)].filter(Boolean).join(" – ")}`
         : ""
     ].filter(Boolean).join(" · ");
-    meta.textContent = [contractDetails, savedAt ? `zapis: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
+    meta.textContent = [contractDetails, savedAt ? `zapisano: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
     const device = document.createElement("span");
     device.textContent = pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego";
     content.append(titleRow, meta, device);
@@ -8100,9 +8111,7 @@ function renderPricingLoanHistory() {
 }
 
 function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
-  if (count === 1) return `1 ${singular}`;
-  if (count > 1 && count < 5) return `${count} ${few}`;
-  return `${count} ${plural}`;
+  return polishCountLabel(count, singular, few, plural);
 }
 
 function createPricingDocumentHistoryItem(entry, { title, meta, details, onPreview, onOpen, onDelete }) {
@@ -12105,7 +12114,7 @@ function renderRepairRecords() {
   renderTableRows(repairOpenRecordsBody, yearGroupedTableRows(repairOpenRecordsBody, renderedOpenRecords, createRepairRow, (record) => record.receivedDate));
   repairEmptyState.hidden = visibleRecords.length > 0;
   repairOpenEmptyState.hidden = openRecords.length > 0;
-  renderLimitNotice(repairRenderNotice, repairRenderText, visibleRecords.length, renderedRecords.length, "wpisów");
+  renderLimitNotice(repairRenderNotice, repairRenderText, visibleRecords.length, renderedRecords.length, "pozycji");
   renderLimitNotice(repairOpenRenderNotice, repairOpenRenderText, openRecords.length, renderedOpenRecords.length, "spraw");
 }
 
@@ -13440,7 +13449,7 @@ function updateStats() {
     document.querySelector("#countSold").textContent = repairStats.repairs;
     document.querySelector("#countInvoice").textContent = repairStats.inserts;
     document.querySelector("#countStock").textContent = repairStats.open;
-    countAllLabel.textContent = "wpisów";
+    countAllLabel.textContent = "pozycji";
     countSoldLabel.textContent = "naprawy";
     countInvoiceLabel.textContent = "wkładki";
     countStockLabel.textContent = "otwarte";
@@ -13479,7 +13488,7 @@ function updateStats() {
   document.querySelector("#countSold").textContent = deviceStats.sold;
   document.querySelector("#countInvoice").textContent = deviceStats.reserved;
   document.querySelector("#countStock").textContent = deviceStats.stock;
-  countAllLabel.textContent = "rekordów";
+  countAllLabel.textContent = "aparatów";
   countSoldLabel.textContent = "sprzedane";
   countInvoiceLabel.textContent = "rezerwacje";
   countStockLabel.textContent = "na stanie";
@@ -14595,8 +14604,8 @@ function updateVacationConflictNotice() {
   vacationConflictNotice.hidden = people.length === 0;
   vacationConflictNotice.textContent = people.length
     ? canViewPrivateModules()
-      ? `Ten termin jest już zajęty przez: ${people.join(", ")}. Prośbę nadal można wysłać; ostateczną decyzję podejmuje SATIS.`
-      : "Ten termin jest już zajęty przez inną osobę. Prośbę nadal można wysłać; ostateczną decyzję podejmuje SATIS."
+      ? `Ten termin jest już zajęty przez: ${people.join(", ")}. Wniosek nadal można wysłać; ostateczną decyzję podejmuje SATIS.`
+      : "Ten termin jest już zajęty przez inną osobę. Wniosek nadal można wysłać; ostateczną decyzję podejmuje SATIS."
     : "";
 }
 
@@ -14950,7 +14959,7 @@ function renderVacationSaturdayHolidays() {
   const holidays = saturdayPublicHolidays(selectedVacationYear());
   const selectedDate = holidays.some((holiday) => holiday.date === vacationSaturdayInput.value) ? vacationSaturdayInput.value : "";
   vacationSaturdayInput.value = selectedDate;
-  vacationSaturdayHolidayCount.textContent = holidays.length ? `${holidays.length} dni` : "Brak";
+  vacationSaturdayHolidayCount.textContent = holidays.length ? polishCountLabel(holidays.length, "dzień", "dni", "dni") : "Brak";
   vacationSaturdayHolidayList.replaceChildren(...holidays.map((holiday) => {
     const item = document.createElement("div");
     const status = vacationSaturdayHolidayStatus(holiday.date);
@@ -15057,8 +15066,8 @@ function renderVacationPendingReminder() {
   const content = document.createElement("span");
   content.className = "vacation-pending-reminder-content";
   const title = document.createElement("strong");
-  const pendingNoun = pending.length === 1 ? "wniosek" : pending.length >= 2 && pending.length <= 4 ? "wnioski" : "wniosków";
-  title.textContent = pending.length === 1 ? "Wniosek czeka na decyzję" : `${pending.length} ${pendingNoun} czeka na decyzję`;
+  const pendingCategory = polishCountCategory(pending.length);
+  title.textContent = `${polishCountLabel(pending.length, "wniosek", "wnioski", "wniosków")} ${pendingCategory === "few" ? "czekają" : "czeka"} na decyzję`;
   const details = document.createElement("span");
   details.textContent = pending.slice(0, 3).map((request) =>
     `${request.employeeName}: ${formatDate(request.dateFrom)}${request.dateTo !== request.dateFrom ? ` → ${formatDate(request.dateTo)}` : ""}`
@@ -15086,7 +15095,7 @@ function renderVacationHistory() {
     (!employee || request.employeeId === employee.id) &&
     (canViewPrivateModules() || !request.ownerLeave)
   );
-  vacationHistoryCount.textContent = `${entries.length} ${entries.length === 1 ? "prośba" : "próśb"}`;
+  vacationHistoryCount.textContent = polishCountLabel(entries.length, "wniosek", "wnioski", "wniosków");
   vacationHistoryEmpty.hidden = entries.length > 0;
   const rows = entries.map((request) => {
     const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
@@ -15206,7 +15215,7 @@ function updateVacationSaturdayField() {
 function resetVacationForm() {
   activeVacationRequestId = "";
   vacationForm?.reset();
-  if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Wyślij prośbę o urlop";
+  if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Wyślij wniosek urlopowy";
   if (resetVacationFormBtn) resetVacationFormBtn.textContent = "Wyczyść formularz";
   renderVacationEmployees();
   renderVacationSaturdayHolidays();
@@ -15288,7 +15297,7 @@ async function deleteVacationEmployee(id) {
   if (!employee) return;
   const relatedRequests = vacationRequests.filter((request) => request.employeeId === id);
   const historyInfo = relatedRequests.length
-    ? ` Usunięta zostanie również historia: ${relatedRequests.length} ${relatedRequests.length === 1 ? "wpis" : "wpisów"}.`
+    ? ` Usunięta zostanie również historia: ${polishCountLabel(relatedRequests.length, "wpis", "wpisy", "wpisów")}.`
     : "";
   if (!confirm(`Usunąć pracownika ${employee.name}?${historyInfo}`)) return;
 
@@ -15338,11 +15347,11 @@ async function submitVacationRequest(event) {
     return;
   }
   if (dateFrom.slice(0, 4) !== dateTo.slice(0, 4)) {
-    alert("Jedna prośba o urlop musi mieścić się w jednym roku.");
+    alert("Jeden wniosek urlopowy musi mieścić się w jednym roku.");
     return;
   }
   if (Number(dateFrom.slice(0, 4)) !== selectedVacationYear()) {
-    alert("Termin prośby musi dotyczyć roku wybranego u góry zakładki.");
+    alert("Termin wniosku musi dotyczyć roku wybranego u góry zakładki.");
     return;
   }
   const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
@@ -15408,7 +15417,7 @@ async function submitVacationRequest(event) {
     resetVacationForm();
     alert(isEditing
       ? "Wniosek urlopowy został poprawiony."
-      : request.status === "ZATWIERDZONY" ? "Mój urlop został zapisany." : "Prośba o urlop została wysłana do zatwierdzenia.");
+      : request.status === "ZATWIERDZONY" ? "Mój urlop został zapisany." : "Wniosek urlopowy został wysłany do zatwierdzenia.");
   } catch (error) {
     vacationRequests = previous;
     saveLocalVacationData();
@@ -15594,11 +15603,13 @@ function fillDemoFormValues(record = {}) {
 function openDialog(record = null) {
   recordForm.reset();
   document.querySelector("#recordId").value = record?.id ?? "";
-  dialogTitle.textContent = record ? modelTitleForRecord(record, "Aparat") : "Dodaj aparat";
+  dialogTitle.textContent = record ? modelTitleForRecord(record, "Aparat") : "Aparat";
   const serialNumber = normalizeSerialNumber(record?.serialNumber);
   dialogSerial.textContent = serialNumber;
   dialogSerial.hidden = !serialNumber;
-  recordEyebrow.textContent = record ? `${records.findIndex((item) => item.id === record.id) + 1}/${records.length}` : "Nowy rekord";
+  recordEyebrow.textContent = record
+    ? `Edytuj · ${records.findIndex((item) => item.id === record.id) + 1}/${records.length}`
+    : "Dodaj";
   deleteBtn.hidden = !record;
   duplicateRecordBtn.hidden = !record;
   moveToDemoBtn.hidden = !record;
@@ -15631,8 +15642,10 @@ function openRepairDialog(record = null) {
   delete repairLocationInput.dataset.userChanged;
   clearRepairLocationSuggestion(repairLocationInput);
   const normalizedRecord = record ? normalizeRepairRecordForUse(record) : null;
-  repairRecordEyebrow.textContent = normalizedRecord ? repairDialogProductLabel(normalizedRecord) : "Produkt";
-  repairDialogTitle.textContent = normalizedRecord ? repairDialogCustomerTitle(normalizedRecord) : "Dodaj naprawę lub wkładkę";
+  repairRecordEyebrow.textContent = normalizedRecord
+    ? `Edytuj · ${repairDialogProductLabel(normalizedRecord)}`
+    : "Dodaj";
+  repairDialogTitle.textContent = normalizedRecord ? repairDialogCustomerTitle(normalizedRecord) : "Pozycja serwisowa";
 
   const fieldMap = {
     receivedDate: "#repairReceivedDate",
@@ -16691,7 +16704,7 @@ async function deleteCurrentRecord() {
   const id = document.querySelector("#recordId").value;
   if (!id) return;
   const record = records.find((item) => item.id === id);
-  const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten rekord";
+  const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten aparat";
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRecords = records;
@@ -16771,7 +16784,7 @@ async function deleteCurrentRepairRecord() {
   const id = document.querySelector("#repairId").value;
   if (!id) return;
   const record = repairRecords.find((item) => item.id === id);
-  const label = record ? `${record.customerName} (${record.category})` : "ten wpis";
+  const label = record ? `${record.customerName} (${record.category})` : "tę pozycję serwisową";
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousRepairRecords = repairRecords;
@@ -16822,7 +16835,7 @@ async function saveDemoFormRecord(event) {
   saveDemoBtn.textContent = "Wysyłanie załączników...";
 
   try {
-    if (id && !existingRecord) throw new Error("Nie znaleziono edytowanego rekordu. Zamknij okno i otwórz go ponownie.");
+    if (id && !existingRecord) throw new Error("Nie znaleziono edytowanego aparatu demo. Zamknij okno i otwórz go ponownie.");
     await prepareDemoAttachmentsForSave(recordId);
     data = prepareDemoLoanData(existingRecord, demoFormRecord());
     savedRecord = { ...(existingRecord || {}), id: recordId, ...data };
@@ -16859,9 +16872,9 @@ async function saveDemoFormRecord(event) {
     rebuildAfterDemoChange();
     render();
     if (demoDialog.open) {
-      demoFormError.textContent = error.message || "Nie udało się zapisać rekordu.";
+      demoFormError.textContent = error.message || "Nie udało się zapisać aparatu demo.";
     } else {
-      alert(error.message || "Nie udało się zapisać rekordu.");
+      alert(error.message || "Nie udało się zapisać aparatu demo.");
     }
   } finally {
     saveDemoBtn.disabled = false;
@@ -16873,7 +16886,7 @@ async function deleteCurrentDemoRecord() {
   const id = document.querySelector("#demoId").value;
   if (!id) return;
   const record = demoRecords.find((item) => item.id === id);
-  const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten wpis";
+  const label = record ? `${record.deviceName} (${record.serialNumber})` : "ten aparat demo";
 
   if (confirm(`Usunąć ${label}?`)) {
     const previousDemoRecords = demoRecords;
@@ -16957,8 +16970,8 @@ function duplicateCurrentDeviceRecord() {
     openDialog();
     fillDeviceFormValues(draft);
     document.querySelector("#recordId").value = "";
-    dialogTitle.textContent = draft.deviceName || "Dodaj podobny aparat";
-    recordEyebrow.textContent = "Nowy rekord";
+    dialogTitle.textContent = draft.deviceName || "Aparat";
+    recordEyebrow.textContent = "Dodaj podobny";
     dialogSerial.textContent = "";
     dialogSerial.hidden = true;
     syncDeviceTypeFromFields();
@@ -17241,10 +17254,10 @@ function importJson(event) {
     const previousRecords = records;
     try {
       const imported = parseImportFile(file, reader.result);
-      if (!Array.isArray(imported)) throw new Error("Import musi być listą rekordów.");
+      if (!Array.isArray(imported)) throw new Error("Import musi być listą aparatów.");
 
       const importedRecords = normalizeImportedRecords(imported, fields);
-      if (!confirm(`Import zastąpi obecną bazę aparatów (${records.length}) rekordami z pliku (${importedRecords.length}). Kontynuować?`)) {
+      if (!confirm(`Import zastąpi obecną bazę aparatów (${records.length}) aparatami z pliku (${importedRecords.length}). Kontynuować?`)) {
         importInput.value = "";
         return;
       }
@@ -17278,10 +17291,10 @@ function importRepairJson(event) {
     const previousRepairRecords = repairRecords;
     try {
       const imported = parseImportFile(file, reader.result);
-      if (!Array.isArray(imported)) throw new Error("Import musi być listą wpisów.");
+      if (!Array.isArray(imported)) throw new Error("Import musi być listą pozycji serwisowych.");
 
       const importedRepairRecords = normalizeImportedRecords(imported, repairFields);
-      if (!confirm(`Import zastąpi obecny zeszyt serwisu i zamówień (${repairRecords.length}) wpisami z pliku (${importedRepairRecords.length}). Kontynuować?`)) {
+      if (!confirm(`Import zastąpi obecny zeszyt serwisu i zamówień (${repairRecords.length}) pozycjami z pliku (${importedRepairRecords.length}). Kontynuować?`)) {
         importRepairInput.value = "";
         return;
       }
@@ -17809,7 +17822,7 @@ function renderDatePicker() {
     hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
   if (isVacationCalendarInput()) {
-    hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne wybranego pracownika. Czerwone są zajęte przez inną osobę; nadal możesz je wybrać i wysłać prośbę.";
+    hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne wybranego pracownika. Czerwone są zajęte przez inną osobę; nadal możesz je wybrać i wysłać wniosek.";
   }
 
   const months = document.createElement("div");
