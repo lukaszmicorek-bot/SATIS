@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260828-94">
+    <link rel="stylesheet" href="styles.css?v=20260828-96">
   </head>
   <body>
     <main class="app-shell">
@@ -27,7 +27,7 @@
         <div class="stats" aria-label="Podsumowanie bazy">
           <div>
             <span id="countAll">0</span>
-            <small id="countAllLabel">rekordów</small>
+            <small id="countAllLabel">aparatów</small>
           </div>
           <div>
             <span id="countSold">0</span>
@@ -88,7 +88,7 @@
             <div class="search-with-summary">
               <label class="search-box paste-input-field">
                 <span>Szukaj</span>
-                <input id="searchInput" type="search" placeholder="Nazwa, numer, klient, faktura...">
+                <input id="searchInput" type="search" placeholder="Model, numer seryjny, klient, faktura...">
                 <button class="paste-input-btn" type="button" data-paste-target="searchInput">Wklej</button>
               </label>
               <div id="deviceSearchSummary" class="search-match-summary" aria-live="polite" hidden></div>
@@ -157,7 +157,7 @@
                 <tr>
                   <th data-sort="receivedDate">Data przyjęcia</th>
                   <th data-sort="stockAge">FIFO</th>
-                  <th data-sort="deviceName">Nazwa aparatu</th>
+                  <th data-sort="deviceName">Model aparatu</th>
                   <th data-sort="serialNumber">Numer seryjny</th>
                   <th data-sort="type">Typ</th>
                   <th data-sort="location">Miejsce</th>
@@ -173,7 +173,7 @@
               </thead>
               <tbody id="recordsBody"></tbody>
             </table>
-            <p id="emptyState" class="empty-state" hidden>Brak rekordów dla wybranych filtrów.</p>
+            <p id="emptyState" class="empty-state" hidden>Brak aparatów dla wybranych filtrów.</p>
             <div id="databaseRenderNotice" class="render-limit-notice" hidden>
               <span id="databaseRenderText"></span>
               <button id="showMoreRecordsBtn" type="button">Pokaż więcej</button>
@@ -431,7 +431,7 @@
             <div class="search-with-summary">
               <label class="search-box paste-input-field">
                 <span>Szukaj</span>
-                <input id="repairSearchInput" type="search" placeholder="Klient, aparat, numer, uwagi...">
+                <input id="repairSearchInput" type="search" placeholder="Klient, aparat lub wkładka, numer seryjny, uwagi...">
                 <button class="paste-input-btn" type="button" data-paste-target="repairSearchInput">Wklej</button>
               </label>
               <div id="repairSearchSummary" class="search-match-summary" aria-live="polite" hidden></div>
@@ -507,7 +507,7 @@
               </thead>
               <tbody id="repairRecordsBody"></tbody>
             </table>
-            <p id="repairEmptyState" class="empty-state" hidden>Brak wpisów dla wybranych filtrów.</p>
+            <p id="repairEmptyState" class="empty-state" hidden>Brak pozycji serwisowych dla wybranych filtrów.</p>
             <div id="repairRenderNotice" class="render-limit-notice" hidden>
               <span id="repairRenderText"></span>
               <button id="showMoreRepairBtn" type="button">Pokaż więcej</button>
@@ -965,7 +965,7 @@
               <header class="offer-document-head">
                 <div>
                   <p>SATIS Pracownia Słuchu</p>
-                  <h2>Umowa bezpłatnego użyczenia / testowania aparatu słuchowego</h2>
+                  <h2>Umowa bezpłatnego użyczenia aparatu słuchowego do testowania</h2>
                   <span id="loanPrintMeta">Data umowy: dziś</span>
                 </div>
                 <img src="satis-monogram.png" alt="SATIS">
@@ -975,7 +975,7 @@
                 <h3>Dane umowy</h3>
                 <div class="loan-doc-grid">
                   <p><span>Nr umowy</span><strong data-loan-out="number">-</strong></p>
-                  <p><span>Data</span><strong data-loan-out="date">-</strong></p>
+                  <p><span>Data umowy</span><strong data-loan-out="date">-</strong></p>
                   <p><span>Miejsce</span><strong data-loan-out="city">-</strong></p>
                   <p><span>Okres</span><strong data-loan-out="period">-</strong></p>
                   <p><span>Kaucja pobrana</span><strong data-loan-out="deposit">-</strong></p>
@@ -1023,10 +1023,10 @@
               <section class="loan-doc-section loan-terms">
                 <h3>Warunki i zabezpieczenia</h3>
                 <div>
-                  <p><strong>§1. Charakter umowy.</strong> W okresie podstawowym aparat słuchowy jest udostępniany bezpłatnie jako użyczenie/testowanie. Przedłużenie po terminie wymaga zgody SATIS utrwalonej e-mailem, SMS-em albo pisemnie i kosztuje 100 zł za każdy rozpoczęty dzień, chyba że strony pisemnie uzgodnią inaczej.</p>
+                  <p><strong>§1. Charakter umowy.</strong> W okresie podstawowym aparat słuchowy jest udostępniany bezpłatnie do testowania na zasadach użyczenia. Przedłużenie okresu użyczenia wymaga zgody SATIS utrwalonej e-mailem, SMS-em albo pisemnie i kosztuje 100 zł za każdy rozpoczęty dzień, chyba że strony pisemnie uzgodnią inaczej.</p>
                   <p><strong>§2. Obowiązki użytkownika.</strong> Użytkownik używa aparatu słuchowego wyłącznie osobiście, zgodnie z instrukcją i zasadami higieny; chroni go przed wilgocią, upadkiem, zabrudzeniem i osobami trzecimi; nie naprawia, nie przerabia, nie oddaje, nie sprzedaje i nie zastawia aparatu słuchowego.</p>
                   <p><strong>§3. Kaucja.</strong> Kaucja zabezpiecza roszczenia z umowy, w szczególności brak zwrotu, opóźnienie, uszkodzenie, zniszczenie, utratę, brak ładowarki, czyszczenie, dezynfekcję, serwis i koszty dochodzenia roszczeń.</p>
-                  <p><strong>§4. Brak zwrotu / szkoda.</strong> Po zakończeniu umowy użytkownik zwraca aparat słuchowy najpóźniej w ostatnim dniu okresu podstawowego albo przedłużenia. Brak zwrotu w terminie skutkuje opłatą 100 zł za każdy rozpoczęty dzień opóźnienia.</p>
+                  <p><strong>§4. Brak zwrotu lub szkoda.</strong> Po zakończeniu umowy użytkownik zwraca aparat słuchowy najpóźniej w ostatnim dniu okresu podstawowego albo przedłużenia. Brak zwrotu w terminie skutkuje opłatą 100 zł za każdy rozpoczęty dzień opóźnienia.</p>
                   <p><strong>§5. Zwrot i dowody.</strong> Ze zwrotu sporządza się protokół. SATIS może wykonać zdjęcia przy wydaniu i zwrocie. W razie sporu podstawą rozliczenia może być opinia serwisu, producenta, dystrybutora albo punktu protetyki słuchu.</p>
                   <p><strong>§6. Dane i spory.</strong> SATIS przetwarza wyłącznie dane niezbędne do zawarcia, wykonania i rozliczenia umowy oraz dochodzenia roszczeń. Spory rozstrzyga sąd właściwy według powszechnie obowiązujących przepisów prawa.</p>
                 </div>
@@ -1107,7 +1107,7 @@
                     <input id="pcprPhoneInput" type="text" inputmode="tel" autocomplete="off">
                   </label>
                   <label class="pcpr-postal-field">
-                    <span>Kod</span>
+                    <span>Kod pocztowy</span>
                     <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300">
                   </label>
                   <label class="pcpr-city-field">
@@ -1935,7 +1935,7 @@
             </div>
             <label id="vacationOwnerLeaveField" class="vacation-owner-leave-field" hidden>
               <input id="vacationOwnerLeaveInput" type="checkbox">
-              <span>Mój urlop - zapisz od razu jako zatwierdzony</span>
+              <span>Mój urlop – zapisz od razu jako zatwierdzony</span>
             </label>
             <div class="vacation-date-range">
               <label>
@@ -1953,7 +1953,7 @@
             </label>
             <p id="vacationConflictNotice" class="vacation-conflict-notice private-form-wide" hidden></p>
             <label id="vacationSaturdayField" class="vacation-saturday-field" hidden>
-              <span>Sobota, za którą oddawany jest dzień wolny</span>
+              <span>Święto przypadające w sobotę</span>
               <div id="vacationSaturdayChoices" class="vacation-saturday-choices" role="group" aria-label="Wybierz święto przypadające w sobotę"></div>
               <input id="vacationSaturdayInput" type="hidden">
             </label>
@@ -1963,7 +1963,7 @@
             </label>
             <div class="private-form-actions private-form-wide">
               <button id="resetVacationFormBtn" class="ghost" type="button">Wyczyść formularz</button>
-              <button id="submitVacationRequestBtn" type="submit">Wyślij prośbę o urlop</button>
+              <button id="submitVacationRequestBtn" type="submit">Wyślij wniosek urlopowy</button>
             </div>
           </form>
 
@@ -1979,8 +1979,8 @@
             <section class="vacation-saturday-holidays">
               <div class="vacation-section-head">
                 <div>
-                  <p class="eyebrow">Dodatkowe dni do oddania</p>
-                  <h3>Święta wypadające w sobotę</h3>
+                  <p class="eyebrow">Dni wolne do wykorzystania</p>
+                  <h3>Święta przypadające w sobotę</h3>
                 </div>
                 <span id="vacationSaturdayHolidayCount"></span>
               </div>
@@ -1991,7 +1991,7 @@
               <div class="vacation-section-head">
                 <div>
                   <p class="eyebrow">Historia</p>
-                  <h3>Prośby o urlop</h3>
+                  <h3>Wnioski urlopowe</h3>
                 </div>
                 <span id="vacationHistoryCount"></span>
               </div>
@@ -2001,7 +2001,7 @@
                     <tr>
                       <th>Pracownik</th>
                       <th>Rodzaj</th>
-                      <th>Termin od-do</th>
+                      <th>Termin</th>
                       <th>Dni / godz.</th>
                       <th>Status</th>
                       <th>Uwagi</th>
@@ -2010,7 +2010,7 @@
                   <tbody id="vacationHistoryBody"></tbody>
                 </table>
               </div>
-              <p id="vacationHistoryEmpty" class="empty-state">Brak próśb o urlop w wybranym roku.</p>
+              <p id="vacationHistoryEmpty" class="empty-state">Brak wniosków urlopowych w wybranym roku.</p>
             </section>
           </section>
         </section>
@@ -2040,9 +2040,9 @@
       <form id="recordForm" method="dialog">
         <div class="dialog-head">
           <div>
-            <p id="recordEyebrow" class="eyebrow">Nowy rekord</p>
+            <p id="recordEyebrow" class="eyebrow">Dodaj</p>
             <div class="dialog-title-row">
-              <h2 id="dialogTitle">Dodaj aparat</h2>
+              <h2 id="dialogTitle">Aparat</h2>
               <span id="dialogSerial" class="dialog-title-serial" hidden></span>
             </div>
           </div>
@@ -2167,8 +2167,8 @@
       <form id="repairForm" method="dialog">
         <div class="dialog-head">
           <div>
-            <p id="repairRecordEyebrow" class="eyebrow">Produkt</p>
-            <h2 id="repairDialogTitle">Dodaj naprawę lub wkładkę</h2>
+            <p id="repairRecordEyebrow" class="eyebrow">Dodaj</p>
+            <h2 id="repairDialogTitle">Pozycja serwisowa</h2>
           </div>
           <button class="ghost close-btn" type="button" id="closeRepairDialogBtn" aria-label="Zamknij">Zamknij</button>
         </div>
@@ -2472,6 +2472,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260828-94"></script>
+    <script src="app.js?v=20260828-96"></script>
   </body>
 </html>

@@ -392,6 +392,7 @@ h2 {
 }
 
 .notebook-switch-button {
+  flex: 0 0 auto;
   min-height: 30px;
   border: 0;
   border-radius: 6px;
@@ -400,6 +401,7 @@ h2 {
   background: transparent;
   font-size: 0.82rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .notebook-switch-button:hover {
@@ -2007,6 +2009,7 @@ h2 {
 
 .vacation-history-table {
   width: 100%;
+  min-width: 960px;
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 0.78rem;
@@ -2034,28 +2037,28 @@ h2 {
 
 .vacation-history-table th:nth-child(1),
 .vacation-history-table td:nth-child(1) {
-  width: 20%;
+  width: 150px;
 }
 
 .vacation-history-table th:nth-child(2),
 .vacation-history-table td:nth-child(2) {
-  width: 18%;
+  width: 150px;
 }
 
 .vacation-history-table th:nth-child(3),
 .vacation-history-table td:nth-child(3) {
-  width: 190px;
+  width: 180px;
 }
 
 .vacation-history-table th:nth-child(4),
 .vacation-history-table td:nth-child(4) {
-  width: 82px;
+  width: 80px;
   text-align: center;
 }
 
 .vacation-history-table th:nth-child(5),
 .vacation-history-table td:nth-child(5) {
-  width: 205px;
+  width: 220px;
 }
 
 .vacation-history-employee {
@@ -8799,8 +8802,37 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .pricing-panel,
+  .pricing-view-section {
+    min-width: 0;
+  }
+
+  .pricing-subtabs {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .loan-document {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
   .vacation-type-choices {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vacation-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vacation-summary > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .vacation-summary.gabinet-view > div:last-child {
+    grid-column: auto;
   }
 
   .vacation-date-range {
@@ -8829,7 +8861,6 @@ textarea {
     .stock-audit-panel,
     .private-form-grid,
     .vacation-admin,
-    .vacation-summary,
   .offer-form-grid,
     .loan-form-grid,
     .pcpr-form-grid,
