@@ -1067,7 +1067,6 @@ const vacationDateFromInput = document.querySelector("#vacationDateFromInput");
 const vacationDateToInput = document.querySelector("#vacationDateToInput");
 const vacationHoursField = document.querySelector("#vacationHoursField");
 const vacationHoursInput = document.querySelector("#vacationHoursInput");
-const vacationConflictNotice = document.querySelector("#vacationConflictNotice");
 const vacationSaturdayField = document.querySelector("#vacationSaturdayField");
 const vacationSaturdayChoices = document.querySelector("#vacationSaturdayChoices");
 const vacationSaturdayInput = document.querySelector("#vacationSaturdayInput");
@@ -14685,33 +14684,6 @@ function vacationOwnLeaveOnDate(isoDate) {
   ) || null;
 }
 
-function vacationConflictingPeople(dateFrom, dateTo, employeeId = vacationEmployeeInput?.value || "") {
-  if (!dateFrom || !dateTo) return [];
-  const people = [...new Set(vacationRequests
-    .filter((request) =>
-      request.status === "ZATWIERDZONY" &&
-      request.employeeId !== employeeId &&
-      request.dateFrom <= dateTo &&
-      request.dateTo >= dateFrom
-    )
-    .map((request) => request.employeeName)
-    .filter(Boolean))];
-  return canViewPrivateModules() ? people : people.length ? ["inna osoba"] : [];
-}
-
-function updateVacationConflictNotice() {
-  if (!vacationConflictNotice) return;
-  const dateFrom = isoDateForSave(vacationDateFromInput?.value);
-  const dateTo = isoDateForSave(vacationDateToInput?.value || vacationDateFromInput?.value);
-  const people = vacationConflictingPeople(dateFrom, dateTo);
-  vacationConflictNotice.hidden = people.length === 0;
-  vacationConflictNotice.textContent = people.length
-    ? canViewPrivateModules()
-      ? `Ten termin jest już zajęty przez: ${people.join(", ")}. Wniosek nadal można wysłać; ostateczną decyzję podejmuje SATIS.`
-      : "Ten termin jest już zajęty przez inną osobę. Wniosek nadal można wysłać; ostateczną decyzję podejmuje SATIS."
-    : "";
-}
-
 function normalizeVacationEmployee(entry) {
   const name = titleCaseName(entry?.name || entry?.employeeName || "");
   const year = Number(entry?.year) || new Date().getFullYear();
@@ -15306,7 +15278,6 @@ function renderVacationModule() {
   renderVacationSummary();
   renderVacationPendingReminder();
   renderVacationHistory();
-  updateVacationConflictNotice();
 }
 
 function updateVacationSaturdayField() {
@@ -15325,7 +15296,6 @@ function resetVacationForm() {
   updateVacationSaturdayField();
   renderVacationSummary();
   renderVacationHistory();
-  updateVacationConflictNotice();
 }
 
 function editVacationRequest(id) {
@@ -15349,7 +15319,6 @@ function editVacationRequest(id) {
   renderVacationSaturdayHolidays();
   updateVacationSaturdayField();
   updateVacationUnitFields();
-  updateVacationConflictNotice();
   if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Zapisz zmiany";
   if (resetVacationFormBtn) resetVacationFormBtn.textContent = "Anuluj edycję";
   vacationForm?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -18066,14 +18035,6 @@ function renderDatePicker() {
   if (dateMinimum) {
     hint.textContent = `Czerwone daty są wcześniejsze niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`;
   }
-  if (isVacationCalendarInput()) {
-    hint.textContent = "Żółto-pomarańczowe: Twój urlop. Czerwona kropka: święto. Kolory pracowników oznaczają zatwierdzone dni wolne; zajęty termin nadal można wysłać do zatwierdzenia.";
-  } else {
-    hint.textContent = [
-      hint.textContent,
-      "Jasnoczerwone dni z kropką oznaczają święta; po najechaniu zobaczysz ich nazwę."
-    ].filter(Boolean).join(" ");
-  }
 
   const months = document.createElement("div");
   months.className = "date-picker-months";
@@ -18137,8 +18098,9 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     if (publicHoliday) {
       button.classList.add("public-holiday");
       button.dataset.publicHoliday = publicHoliday.name;
+      button.dataset.holidayTooltip = publicHoliday.name;
+      if (leadingEmptyCells + day <= 14) button.classList.add("holiday-tooltip-below");
       button.setAttribute("aria-label", `${day}, ${publicHoliday.name}, dzień ustawowo wolny od pracy`);
-      appendDatePickerTitle(button, `Dzień wolny: ${publicHoliday.name}`);
     }
     if (occupiedPeople.length) {
       button.classList.add("vacation-occupied");
@@ -18936,11 +18898,6 @@ vacationEmployeeInput?.addEventListener("change", () => {
   renderVacationSummary();
   renderVacationHistory();
   updateVacationUnitFields();
-  updateVacationConflictNotice();
-});
-[vacationDateFromInput, vacationDateToInput].forEach((input) => {
-  input?.addEventListener("input", updateVacationConflictNotice);
-  input?.addEventListener("change", updateVacationConflictNotice);
 });
 vacationYearInput?.addEventListener("change", () => {
   renderVacationModule();
