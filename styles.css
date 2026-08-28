@@ -4481,6 +4481,22 @@ h2 {
   white-space: nowrap;
 }
 
+.loan-data-review-details {
+  margin: 5px 0 0;
+  color: #873f37;
+  font-size: 0.7rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.loan-data-duplicate-details {
+  margin: 5px 0 0;
+  color: #80501d;
+  font-size: 0.7rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 .loan-history-item.loan-data-duplicate {
   border-color: #d7b180;
   border-left: 4px solid #b9792e;
