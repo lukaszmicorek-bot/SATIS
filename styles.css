@@ -5692,6 +5692,10 @@ input[aria-invalid="true"] {
   font-weight: 900;
 }
 
+.date-picker-weekday.weekend-label {
+  color: #9a7773;
+}
+
 .date-picker-empty {
   min-height: 30px;
 }
@@ -5713,6 +5717,18 @@ input[aria-invalid="true"] {
   color: var(--accent);
   background: #eef7f4;
   transform: none;
+}
+
+.date-picker-day.weekend:not(.selected):not(.today):not(.public-holiday):not(.vacation-occupied):not(.vacation-own-leave):not(.invalid-order) {
+  border-color: #e4e7e9;
+  color: #7f898e;
+  background: #f3f5f6;
+}
+
+.date-picker-day.weekend:not(.selected):not(.today):not(.public-holiday):not(.vacation-occupied):not(.vacation-own-leave):not(.invalid-order):hover {
+  border-color: #cfd5d8;
+  color: #5f6c72;
+  background: #e9edef;
 }
 
 .date-picker-day.today {

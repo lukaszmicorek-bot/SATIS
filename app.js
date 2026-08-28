@@ -18069,9 +18069,10 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
 
   const grid = document.createElement("div");
   grid.className = "date-picker-grid";
-  ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach((weekday) => {
+  ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach((weekday, index) => {
     const item = document.createElement("span");
     item.className = "date-picker-weekday";
+    if (index >= 5) item.classList.add("weekend-label");
     item.textContent = weekday;
     grid.append(item);
   });
@@ -18092,6 +18093,8 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     button.type = "button";
     button.textContent = String(day);
     button.dataset.value = isoDate;
+    const weekday = new Date(monthDate.getFullYear(), monthDate.getMonth(), day).getDay();
+    if (weekday === 0 || weekday === 6) button.classList.add("weekend");
 
     if (isoDate === selectedIsoDate) button.classList.add("selected");
     if (isoDate === todayIsoDate) button.classList.add("today");
