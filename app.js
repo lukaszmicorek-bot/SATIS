@@ -1311,7 +1311,7 @@ function updatePrivateModulesVisibility() {
   });
   if (vacationEmployeeAdmin) vacationEmployeeAdmin.hidden = !ownerVisible;
   if (vacationOwnerLeaveField) vacationOwnerLeaveField.hidden = !ownerVisible;
-  if (vacationRemainingCard) vacationRemainingCard.hidden = !ownerVisible;
+  if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible;
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
   if (!sharedVisible && ["capd", "vacation"].includes(activeNotebook)) switchNotebook("devices");
 }
