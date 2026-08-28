@@ -762,6 +762,8 @@ const loanCityInput = document.querySelector("#loanCityInput");
 const loanDepositInput = document.querySelector("#loanDepositInput");
 const loanPeriodFromInput = document.querySelector("#loanPeriodFromInput");
 const loanPeriodToInput = document.querySelector("#loanPeriodToInput");
+const loanPeriod7Btn = document.querySelector("#loanPeriod7Btn");
+const loanPeriod14Btn = document.querySelector("#loanPeriod14Btn");
 const loanCustomerInput = document.querySelector("#loanCustomerInput");
 const loanAddressInput = document.querySelector("#loanAddressInput");
 const loanDocumentInput = document.querySelector("#loanDocumentInput");
@@ -2142,6 +2144,11 @@ async function seedDemoRecordsIfEmpty() {
 
   demoRecords = seedRecords;
   writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  try {
+    await syncPricingLoansToDemo({ persist: true, renderChanges: false });
+  } catch (demoSyncError) {
+    console.warn("Nie udało się uzupełnić wypożyczeń w zaimportowanych danych Demo:", demoSyncError?.message || demoSyncError);
+  }
   rebuildDerivedData();
   render();
 }
@@ -2194,6 +2201,11 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedCapdHistory) capdHistory = sharedCapdHistory;
     await loadPrivatePayments();
     try {
+      await syncPricingLoansToDemo({ persist: true, renderChanges: false });
+    } catch (demoSyncError) {
+      console.warn("Nie udało się uzgodnić wypożyczeń Demo z historią umów:", demoSyncError?.message || demoSyncError);
+    }
+    try {
       await backfillRepairDeviceNamesFromSerials({ persist: true });
     } catch (backfillError) {
       console.warn(backfillError);
@@ -2228,6 +2240,11 @@ async function refreshPricingFromSupabase() {
   if (sharedOrderHistory) pricingOrderHistory = sharedOrderHistory;
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
   if (sharedPcprList) pricingPcprList = sharedPcprList;
+  try {
+    await syncPricingLoansToDemo({ persist: true, renderChanges: false });
+  } catch (demoSyncError) {
+    console.warn("Nie udało się zaktualizować Demo po odświeżeniu umów:", demoSyncError?.message || demoSyncError);
+  }
   renderPricingRecords();
   if (!["pricing", "agreements"].includes(activeNotebook)) renderDeviceViews();
   setCurrentYearTitle();
@@ -6609,6 +6626,29 @@ function addDaysToIsoDate(value, days) {
   return isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
 }
 
+function nextPolishWorkingDay(value) {
+  let dateValue = isoDateForSave(value);
+  for (let attempt = 0; dateValue && attempt < 10; attempt += 1) {
+    const date = parseIsoDate(dateValue);
+    const day = date?.getDay();
+    if (day !== 0 && day !== 6 && !polishPublicHolidayOnDate(dateValue)) return dateValue;
+    dateValue = addDaysToIsoDate(dateValue, 1);
+  }
+  return dateValue;
+}
+
+function pricingLoanEndDate(periodFrom, days = PRICING_LOAN_DAYS) {
+  return nextPolishWorkingDay(addDaysToIsoDate(periodFrom, days));
+}
+
+function setPricingLoanPeriod(days) {
+  const periodFrom = isoDateForSave(loanPeriodFromInput?.value) || isoDateForSave(loanDateInput?.value) || todayInputValue();
+  if (!isoDateForSave(loanPeriodFromInput?.value)) setDateInputValue(loanPeriodFromInput, periodFrom);
+  setDateInputValue(loanPeriodToInput, pricingLoanEndDate(periodFrom, days));
+  renderPricingLoan();
+  markAgreementDraftDirty("loan");
+}
+
 function pricingOfferDeviceLabel(record) {
   return [
     record.model || record.tradeName,
@@ -7664,6 +7704,139 @@ function normalizePricingLoanHistory(entries) {
     .slice(0, MAX_PRICING_LOAN_HISTORY);
 }
 
+function pricingLoanHistoryDevices(entry) {
+  return [entry?.rightDevice, entry?.leftDevice]
+    .map((device) => ({
+      device,
+      serial: normalizeSerialNumber(device?.serial),
+      serialKey: serialDuplicateKey(device?.serial)
+    }))
+    .filter((item) => item.serialKey);
+}
+
+function latestPricingLoanBySerial(entries = pricingLoanHistory) {
+  const assignments = new Map();
+  normalizePricingLoanHistory(entries).forEach((entry) => {
+    pricingLoanHistoryDevices(entry).forEach((item) => {
+      if (!assignments.has(item.serialKey)) assignments.set(item.serialKey, { entry, ...item });
+    });
+  });
+  return assignments;
+}
+
+function completedDemoLoanMatches(record, customer, loanDate) {
+  const customerKey = customerNameLookupKey(customer);
+  return effectiveDemoLoanHistory(record).some((entry) => (
+    Boolean(entry.returnDate) &&
+    customerNameLookupKey(entry.currentUser) === customerKey &&
+    (!loanDate || !entry.loanDate || entry.loanDate === loanDate)
+  ));
+}
+
+function demoRecordFromPricingLoan(record, assignment) {
+  const { entry } = assignment;
+  const customer = titleCaseName(entry.customer);
+  const customerKey = customerNameLookupKey(customer);
+  const currentCustomerKey = customerNameLookupKey(record.currentUser);
+  const loanDate = entry.periodFrom || entry.date || todayInputValue();
+  const location = documentLocationKey(entry.city) || record.location;
+
+  if (!customer || record.manufacturerReturnedDate) return { record, reason: "ignored" };
+
+  if (entry.returnDate) {
+    if (!currentCustomerKey) return { record, reason: "already-returned" };
+    if (currentCustomerKey !== customerKey) return { record, reason: "conflict" };
+    return {
+      record: normalizeDemoRecordForUse(completeDemoLoan(record, {
+        ...record,
+        returnDate: entry.returnDate,
+        loanHistory: effectiveDemoLoanHistory(record),
+        loanHistoryManaged: true
+      })),
+      reason: "returned"
+    };
+  }
+
+  if (completedDemoLoanMatches(record, customer, loanDate)) return { record, reason: "already-returned" };
+  if (currentCustomerKey && currentCustomerKey !== customerKey) return { record, reason: "conflict" };
+
+  return {
+    record: normalizeDemoRecordForUse({
+      ...record,
+      currentUser: customer,
+      loanDate,
+      returnDate: "",
+      status: "WYPOŻYCZONY",
+      location,
+      loanHistoryManaged: true
+    }),
+    reason: "loaned"
+  };
+}
+
+function demoLoanSyncChanged(beforeRecord, afterRecord) {
+  return ["currentUser", "loanDate", "returnDate", "status", "location", "loanHistory"]
+    .some((field) => auditCompareValue(beforeRecord?.[field]) !== auditCompareValue(afterRecord?.[field]));
+}
+
+async function syncPricingLoansToDemo({ entries = pricingLoanHistory, persist = true, renderChanges = true } = {}) {
+  if (!demoRecords.length || !entries?.length) return { updated: 0, conflicts: [] };
+  const assignments = latestPricingLoanBySerial(entries);
+  if (!assignments.size) return { updated: 0, conflicts: [] };
+
+  const changes = [];
+  const conflicts = [];
+  const previousDemoRecords = demoRecords;
+  const nextDemoRecords = demoRecords.map((record) => {
+    const assignment = assignments.get(serialDuplicateKey(record.serialNumber));
+    if (!assignment) return record;
+    const result = demoRecordFromPricingLoan(record, assignment);
+    if (result.reason === "conflict") {
+      conflicts.push({
+        serial: normalizeSerialNumber(record.serialNumber),
+        currentUser: titleCaseName(record.currentUser),
+        contractUser: titleCaseName(assignment.entry.customer)
+      });
+      return record;
+    }
+    if (!demoLoanSyncChanged(record, result.record)) return record;
+    changes.push({ beforeRecord: auditSnapshot(record), afterRecord: result.record });
+    return result.record;
+  });
+
+  if (!changes.length) return { updated: 0, conflicts };
+  demoRecords = nextDemoRecords;
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+
+  try {
+    if (persist) {
+      for (const change of changes) await persistDemoRecord(change.afterRecord);
+    }
+    rebuildAfterDemoChange();
+    if (renderChanges) {
+      renderDemoRecords();
+      updateStats();
+    }
+    changes.forEach((change) => logAuditEvent({
+      notebook: "demo",
+      action: "edit",
+      recordId: change.afterRecord.id,
+      beforeRecord: change.beforeRecord,
+      afterRecord: change.afterRecord
+    }));
+    return { updated: changes.length, conflicts };
+  } catch (error) {
+    demoRecords = previousDemoRecords;
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    rebuildAfterDemoChange();
+    if (renderChanges) {
+      renderDemoRecords();
+      updateStats();
+    }
+    throw error;
+  }
+}
+
 function loadPricingLoanHistory() {
   try {
     return normalizePricingLoanHistory(JSON.parse(readSensitiveStorage(PRICING_LOAN_HISTORY_STORAGE_KEY) || "[]"));
@@ -7957,10 +8130,29 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     recordDocumentLocationUsage(historyEntry.city, historyEntry.workstation);
     rebuildCustomerDocumentIndex();
     rebuildCustomerNameSuggestions();
+    let demoSyncResult = { updated: 0, conflicts: [] };
+    let demoSyncError = null;
+    try {
+      demoSyncResult = await syncPricingLoansToDemo({ entries: [historyEntry] });
+    } catch (error) {
+      demoSyncError = error;
+      console.warn("Umowa zapisana, ale nie udało się zaktualizować Demo:", error?.message || error);
+    }
     renderPricingLoanHistory();
     renderDeviceViews();
     markAgreementDraftSaved("loan");
-    if (!silent) alert("Umowa zapisana w historii.");
+    if (!silent) {
+      if (demoSyncError) {
+        alert("Umowa zapisana w historii, ale nie udało się zaktualizować aparatu Demo. Sprawdź połączenie i odśwież aplikację.");
+      } else if (demoSyncResult.conflicts.length) {
+        const conflict = demoSyncResult.conflicts[0];
+        alert(`Umowa zapisana. Aparat ${conflict.serial} jest już przypisany w Demo do: ${conflict.currentUser}. Sprawdź wypożyczenie ręcznie.`);
+      } else if (demoSyncResult.updated) {
+        alert("Umowa zapisana w historii. Wypożyczenie zostało również zapisane w Demo.");
+      } else {
+        alert("Umowa zapisana w historii.");
+      }
+    }
     return historyEntry;
   } finally {
     pricingLoanSaveInProgress = false;
@@ -8912,7 +9104,7 @@ function syncLoanFormFromOffer(overwrite = false) {
   if (offerDate && (overwrite || !loanInputValue(loanDateInput))) setDateInputValue(loanDateInput, offerDate);
   if (offerDate && (overwrite || !loanInputValue(loanPeriodFromInput))) setDateInputValue(loanPeriodFromInput, offerDate);
   if (offerDate && (overwrite || !loanInputValue(loanPeriodToInput))) {
-    setDateInputValue(loanPeriodToInput, addDaysToIsoDate(offerDate, PRICING_LOAN_DAYS));
+    setDateInputValue(loanPeriodToInput, pricingLoanEndDate(offerDate));
   }
 
   const offerItems = selectedPricingOfferItems();
@@ -8925,7 +9117,7 @@ function ensurePricingLoanDefaults() {
   if (!loanInputValue(loanDateInput)) setDateInputValue(loanDateInput, today);
   if (!loanInputValue(loanPeriodFromInput)) setDateInputValue(loanPeriodFromInput, isoDateForSave(loanDateInput?.value) || today);
   if (!loanInputValue(loanPeriodToInput)) {
-    setDateInputValue(loanPeriodToInput, addDaysToIsoDate(isoDateForSave(loanPeriodFromInput?.value) || today, PRICING_LOAN_DAYS));
+    setDateInputValue(loanPeriodToInput, pricingLoanEndDate(isoDateForSave(loanPeriodFromInput?.value) || today));
   }
   if (!loanInputValue(loanCityInput)) setLoanInputValue(loanCityInput, suggestedDocumentLocation());
   else setLoanInputValue(loanCityInput, normalizeDocumentLocationValue(loanCityInput.value));
@@ -8976,7 +9168,7 @@ function startNewPricingLoan() {
   const today = todayInputValue();
   setDateInputValue(loanDateInput, today);
   setDateInputValue(loanPeriodFromInput, today);
-  setDateInputValue(loanPeriodToInput, addDaysToIsoDate(today, PRICING_LOAN_DAYS));
+  setDateInputValue(loanPeriodToInput, pricingLoanEndDate(today));
   syncAgreementDocumentLocations(suggestedDocumentLocation());
   ensureLoanContractNumber({ force: true });
   renderPricingLoan();
@@ -17995,6 +18187,14 @@ function activeDateMinimumInfo() {
   return activeDeviceDateMinimumInfo() || activeRepairDateMinimumInfo() || activeDemoDateMinimumInfo();
 }
 
+function activeLoanPeriodRange() {
+  if (activeDateInput !== loanPeriodFromInput && activeDateInput !== loanPeriodToInput) return null;
+  const start = isoDateForSave(loanPeriodFromInput?.value);
+  const end = isoDateForSave(loanPeriodToInput?.value);
+  if (!start || !end || end < start) return null;
+  return { start, end };
+}
+
 function renderDatePicker() {
   const picker = ensureDatePicker();
   const selectedDate = parseIsoDate(activeDateInput?.value);
@@ -18002,6 +18202,7 @@ function renderDatePicker() {
   const currentMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth(), 1);
   const nextMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() + 1, 1);
   const dateMinimum = activeDateMinimumInfo();
+  const loanPeriodRange = activeLoanPeriodRange();
 
   const head = document.createElement("div");
   head.className = "date-picker-head";
@@ -18052,15 +18253,15 @@ function renderDatePicker() {
   const months = document.createElement("div");
   months.className = "date-picker-months";
   months.append(
-    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum),
-    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum)
+    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum, loanPeriodRange),
+    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum, loanPeriodRange)
   );
 
   picker.replaceChildren(head, hint, months);
   positionDatePicker();
 }
 
-function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null) {
+function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null, loanPeriodRange = null) {
   const month = document.createElement("section");
   month.className = "date-picker-month";
   const selectedIsoDate = selectedDate
@@ -18100,6 +18301,13 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     button.dataset.value = isoDate;
     const weekday = new Date(monthDate.getFullYear(), monthDate.getMonth(), day).getDay();
     if (weekday === 0 || weekday === 6) button.classList.add("weekend");
+
+    if (loanPeriodRange && isoDate >= loanPeriodRange.start && isoDate <= loanPeriodRange.end) {
+      button.classList.add("loan-period-range");
+      if (isoDate === loanPeriodRange.start) button.classList.add("loan-period-start");
+      if (isoDate === loanPeriodRange.end) button.classList.add("loan-period-end");
+      appendDatePickerTitle(button, `Okres umowy: ${displayDateForInput(loanPeriodRange.start)}–${displayDateForInput(loanPeriodRange.end)}`);
+    }
 
     if (isoDate === selectedIsoDate) button.classList.add("selected");
     if (isoDate === todayIsoDate) button.classList.add("today");
@@ -18416,6 +18624,8 @@ loanDateInput?.addEventListener("change", () => {
   if (loanContractNumberInput?.dataset.autoNumber === "1") ensureLoanContractNumber({ force: true });
   updateLoanContractNumberValidity();
 });
+loanPeriod7Btn?.addEventListener("click", () => setPricingLoanPeriod(7));
+loanPeriod14Btn?.addEventListener("click", () => setPricingLoanPeriod(14));
 [
   loanContractNumberInput,
   loanDateInput,
@@ -19083,6 +19293,11 @@ async function init() {
   privatePayments = loadLocalPrivatePayments();
   updatePrivatePaymentVisibility();
   [records, repairRecords, demoRecords] = await Promise.all([loadRecords(), loadRepairRecords(), loadDemoRecords()]);
+  try {
+    await syncPricingLoansToDemo({ persist: false, renderChanges: false });
+  } catch (demoSyncError) {
+    console.warn("Nie udało się uzgodnić lokalnych wypożyczeń Demo:", demoSyncError?.message || demoSyncError);
+  }
   rebuildDerivedData();
   render();
 

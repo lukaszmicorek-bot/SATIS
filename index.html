@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260828-110">
+    <link rel="stylesheet" href="styles.css?v=20260828-113">
   </head>
   <body>
     <main class="app-shell">
@@ -828,10 +828,16 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
-                <label class="loan-deposit-field">
-                  <span>Kaucja pobrana</span>
-                  <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
-                </label>
+                <div class="loan-deposit-field loan-deposit-control">
+                  <label>
+                    <span>Kaucja pobrana</span>
+                    <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
+                  </label>
+                  <div class="loan-period-presets" role="group" aria-label="Szybki okres wypożyczenia">
+                    <button id="loanPeriod7Btn" type="button">7 dni</button>
+                    <button id="loanPeriod14Btn" type="button">14 dni</button>
+                  </div>
+                </div>
 
                 <p class="loan-form-title loan-full">Dane klienta</p>
                 <label class="loan-wide person-name-field">
@@ -2504,6 +2510,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260828-110"></script>
+    <script src="app.js?v=20260828-113"></script>
   </body>
 </html>

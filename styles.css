@@ -3983,6 +3983,42 @@ h2 {
   grid-column: span 2;
 }
 
+.loan-deposit-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
+.loan-deposit-control > label {
+  min-width: 0;
+}
+
+.loan-period-presets {
+  display: flex;
+  gap: 5px;
+}
+
+.loan-period-presets button {
+  min-width: 52px;
+  height: 37px;
+  padding: 0 9px;
+  border: 1px solid #b8cdd2;
+  border-radius: 6px;
+  color: #315964;
+  background: #f6fafb;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.loan-period-presets button:hover {
+  border-color: #6f9eaa;
+  color: #003f5a;
+  background: #edf6f7;
+}
+
 .loan-full {
   grid-column: 1 / -1;
 }
@@ -5844,6 +5880,24 @@ input[aria-invalid="true"] {
   border-color: var(--vacation-own-selected);
   color: #fff;
   background: var(--vacation-own-selected);
+}
+
+.date-picker-day.loan-period-range:not(.public-holiday):not(.selected):not(.invalid-order) {
+  border-color: #c4dce1;
+  color: #245a66;
+  background: #eaf4f6;
+}
+
+.date-picker-day.loan-period-start:not(.public-holiday):not(.selected):not(.invalid-order),
+.date-picker-day.loan-period-end:not(.public-holiday):not(.selected):not(.invalid-order) {
+  border-color: #78aebc;
+  color: #003f5a;
+  background: #d8ebee;
+  font-weight: 950;
+}
+
+.date-picker-day.public-holiday.loan-period-range:not(.selected) {
+  box-shadow: inset 0 0 0 2px rgba(0, 63, 90, 0.2);
 }
 
 .date-picker-day.invalid-order {
