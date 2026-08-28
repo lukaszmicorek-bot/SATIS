@@ -2234,6 +2234,15 @@ h2 {
   --vacation-own-selected: #8d6d9f;
 }
 
+.date-picker-day.vacation-own-leave.vacation-owner-leave {
+  --vacation-own-border: #e3b76d;
+  --vacation-own-color: #855515;
+  --vacation-own-background: #fff3d9;
+  --vacation-own-hover-border: #cf963b;
+  --vacation-own-hover-background: #ffe8bb;
+  --vacation-own-selected: #c68124;
+}
+
 .vacation-approve-btn {
   color: #276348;
   background: #e5f4eb;
@@ -5598,12 +5607,13 @@ input[aria-invalid="true"] {
 
 .date-picker-hint {
   margin: -4px 0 10px;
-  border-radius: 8px;
-  padding: 7px 9px;
-  color: #9b3327;
-  background: #fff1ee;
-  font-size: 0.72rem;
-  font-weight: 800;
+  border: 1px solid #e3eaeb;
+  border-radius: 7px;
+  padding: 6px 8px;
+  color: #667980;
+  background: #f8faf9;
+  font-size: 0.69rem;
+  font-weight: 650;
   line-height: 1.3;
 }
 
@@ -5706,54 +5716,54 @@ input[aria-invalid="true"] {
   font-weight: 1000;
 }
 
-.date-picker-day.vacation-public-holiday {
+.date-picker-day.public-holiday {
   position: relative;
-  border-color: #edc7c1;
-  color: #963f38;
-  background: #fff5f3;
+  border-color: #dfa39b;
+  color: #8f3730;
+  background: #fdece9;
   font-weight: 900;
 }
 
-.date-picker-day.vacation-public-holiday::after {
+.date-picker-day.public-holiday::after {
   position: absolute;
   right: 3px;
   bottom: 3px;
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #c95d4f;
   content: "";
 }
 
-.date-picker-day.vacation-public-holiday:hover {
+.date-picker-day.public-holiday:hover {
   border-color: #d98d84;
   color: #87352f;
   background: #ffebe8;
 }
 
-.date-picker-day.vacation-public-holiday.selected {
+.date-picker-day.public-holiday.selected {
   border-color: #a64b43;
   color: #fff;
   background: #a64b43;
 }
 
-.date-picker-day.vacation-public-holiday.selected::after {
+.date-picker-day.public-holiday.selected::after {
   background: #fff;
 }
 
-.date-picker-day.vacation-public-holiday.vacation-own-leave {
+.date-picker-day.public-holiday.vacation-own-leave {
   border-color: var(--vacation-own-border);
   color: var(--vacation-own-color);
   background: var(--vacation-own-background);
 }
 
-.date-picker-day.vacation-public-holiday.vacation-own-leave:hover {
+.date-picker-day.public-holiday.vacation-own-leave:hover {
   border-color: var(--vacation-own-hover-border);
   color: var(--vacation-own-color);
   background: var(--vacation-own-hover-background);
 }
 
-.date-picker-day.vacation-public-holiday.vacation-own-leave.selected {
+.date-picker-day.public-holiday.vacation-own-leave.selected {
   border-color: var(--vacation-own-selected);
   color: #fff;
   background: var(--vacation-own-selected);
