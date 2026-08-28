@@ -4110,9 +4110,25 @@ function confirmSerialNumberSave(serialNumber, source, currentId) {
     .join("\n");
   const extraCount = matches.length > 6 ? `\n- oraz ${matches.length - 6} więcej` : "";
 
-  return confirm(
-    `Numer seryjny ${normalizeSerialNumber(serialNumber)} już występuje:\n${matchList}${extraCount}\n\nZapisać mimo to?`
-  );
+  alert(`Nie można zapisać duplikatu. Numer seryjny ${normalizeSerialNumber(serialNumber)} już występuje:\n${matchList}${extraCount}`);
+  return false;
+}
+
+function repairRecordDuplicateKey(record) {
+  return [
+    isoDateForSave(record?.receivedDate),
+    normalizeRepairCategory(record?.category),
+    customerNameLookupKey(record?.customerName),
+    normalizeDeviceName(record?.deviceName),
+    ...repairSerialNumbers(record).map(serialDuplicateKey).sort(),
+    normalizeLoanHistoryText(record?.sourceDocumentNumber)
+  ].map((value) => normalize(value)).join("|");
+}
+
+function duplicateRepairRecord(data, currentId = "") {
+  const checkedKey = repairRecordDuplicateKey(data);
+  if (!checkedKey.replaceAll("|", "")) return null;
+  return repairRecords.find((record) => record.id !== currentId && repairRecordDuplicateKey(record) === checkedKey) || null;
 }
 
 function stockAge(record) {
@@ -7893,6 +7909,29 @@ function pricingLoanSnapshotKey(entry) {
   ].map((value) => normalize(value)).join("|");
 }
 
+function pricingLoanSemanticKey(entry) {
+  return [
+    entry?.date,
+    entry?.customer,
+    entry?.periodFrom,
+    entry?.periodTo,
+    entry?.rightDevice?.serial,
+    entry?.leftDevice?.serial,
+    entry?.rightDevice?.model,
+    entry?.leftDevice?.model
+  ].map((value) => normalize(value)).join("|");
+}
+
+function pricingLoanDuplicateOf(entry, history = pricingLoanHistory) {
+  if (!entry) return null;
+  const semanticKey = pricingLoanSemanticKey(entry);
+  const matchingEntries = normalizePricingLoanHistory(history)
+    .filter((candidate) => pricingLoanSemanticKey(candidate) === semanticKey)
+    .sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt)));
+  if (matchingEntries.length < 2 || matchingEntries[0].id === entry.id) return null;
+  return matchingEntries[0];
+}
+
 function loanContractNumberParts(value) {
   const match = normalizeLoanHistoryText(value).match(/^(\d+)\s*\/\s*(\d{1,2})(?:\s*\/\s*(\d{2}|\d{4}))?$/u);
   if (!match) return null;
@@ -8092,6 +8131,14 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     const snapshot = normalizePricingLoanHistoryEntry(currentPricingLoanSnapshot());
     if (!snapshot) {
       if (!silent) alert("Uzupełnij osobę lub aparat słuchowy, żeby zapisać umowę w historii.");
+      return null;
+    }
+
+    const semanticDuplicate = pricingLoanHistory.find((entry) => (
+      entry.id !== activePricingLoanHistoryId && pricingLoanSemanticKey(entry) === pricingLoanSemanticKey(snapshot)
+    ));
+    if (semanticDuplicate) {
+      alert(`Taka umowa już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}. Otwórz istniejącą pozycję zamiast tworzyć duplikat.`);
       return null;
     }
 
@@ -8295,6 +8342,37 @@ function pricingLoanDeadlineStatus(entry) {
   return { level: "ending", days, label: `Kończy się za ${formatDaysLabel(days)}` };
 }
 
+function pricingLoanDataIssues(entry) {
+  if (!entry || entry.returnDate) return [];
+  const customerKey = customerNameLookupKey(entry.customer);
+  const loanDate = entry.periodFrom || entry.date || "";
+  const issues = [];
+
+  pricingLoanHistoryDevices(entry).forEach(({ serial, serialKey }) => {
+    const demoRecord = demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+    const deviceRecord = records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+
+    // Umowy mogą obejmować zarówno aparaty Demo, jak i aparaty z głównej Bazy.
+    if (!demoRecord) {
+      if (!deviceRecord) issues.push(`${serial}: numeru nie znaleziono w Bazie ani w Demo.`);
+      return;
+    }
+
+    const currentUserKey = customerNameLookupKey(demoRecord.currentUser);
+    if (currentUserKey && currentUserKey !== customerKey) {
+      issues.push(`${serial}: w Demo aparat jest przypisany do ${titleCaseName(demoRecord.currentUser)}.`);
+      return;
+    }
+    if (!currentUserKey && completedDemoLoanMatches(demoRecord, entry.customer, loanDate)) {
+      issues.push(`${serial}: zwrot jest zapisany w Demo, ale umowa nie ma daty zwrotu.`);
+      return;
+    }
+    if (!currentUserKey) issues.push(`${serial}: umowa jest aktywna, ale aparat w Demo nie jest wypożyczony.`);
+  });
+
+  return [...new Set(issues)];
+}
+
 function updatePricingLoanDeadlineSummary(deadlines) {
   if (!loanDeadlineSummary) return;
   const overdueCount = deadlines.filter(({ status }) => status.level === "overdue").length;
@@ -8318,9 +8396,15 @@ function renderPricingLoanHistory() {
     .filter(({ status }) => status);
   updatePricingLoanDeadlineSummary(deadlines);
   const deadlineById = new Map(deadlines.map(({ entry, status }) => [entry.id, status]));
+  const dataIssuesById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDataIssues(entry)]));
+  const duplicateById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDuplicateOf(entry, normalizedHistory)]));
   const history = normalizedHistory
     .filter((entry) => !searchQuery || pricingLoanHistorySearchText(entry).includes(searchQuery))
-    .sort((left, right) => {
+  .sort((left, right) => {
+    const duplicateRankDifference = Number(Boolean(duplicateById.get(right.id))) - Number(Boolean(duplicateById.get(left.id)));
+    if (duplicateRankDifference) return duplicateRankDifference;
+    const issueRankDifference = Number(dataIssuesById.get(right.id)?.length > 0) - Number(dataIssuesById.get(left.id)?.length > 0);
+    if (issueRankDifference) return issueRankDifference;
     const leftStatus = deadlineById.get(left.id);
     const rightStatus = deadlineById.get(right.id);
     const rank = (status) => status?.level === "overdue" ? 0 : status?.level === "ending" ? 1 : 2;
@@ -8345,7 +8429,11 @@ function renderPricingLoanHistory() {
     const item = document.createElement("article");
     item.className = "loan-history-item";
     const deadlineStatus = deadlineById.get(entry.id);
+    const dataIssues = dataIssuesById.get(entry.id) || [];
+    const duplicateOf = duplicateById.get(entry.id);
     if (deadlineStatus) item.classList.add(`loan-deadline-${deadlineStatus.level}`);
+    if (dataIssues.length) item.classList.add("loan-data-review");
+    if (duplicateOf) item.classList.add("loan-data-duplicate");
 
     const content = document.createElement("div");
     const titleRow = document.createElement("div");
@@ -8357,6 +8445,20 @@ function renderPricingLoanHistory() {
       const badge = document.createElement("span");
       badge.className = `loan-deadline-badge ${deadlineStatus.level}`;
       badge.textContent = deadlineStatus.label;
+      titleRow.append(badge);
+    }
+    if (dataIssues.length) {
+      const badge = document.createElement("span");
+      badge.className = "loan-data-review-badge";
+      badge.textContent = "Do poprawy";
+      badge.title = dataIssues.join("\n");
+      titleRow.append(badge);
+    }
+    if (duplicateOf) {
+      const badge = document.createElement("span");
+      badge.className = "loan-data-duplicate-badge";
+      badge.textContent = "Duplikat";
+      badge.title = `Powtórzenie umowy ${duplicateOf.number || "bez numeru"}.`;
       titleRow.append(badge);
     }
     const meta = document.createElement("small");
@@ -8406,18 +8508,37 @@ function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
   return polishCountLabel(count, singular, few, plural);
 }
 
-function createPricingDocumentHistoryItem(entry, { title, meta, details, onPreview, onOpen, onDelete }) {
+function createPricingDocumentHistoryItem(entry, { title, meta, details, warning = [], duplicateOf = null, onPreview, onOpen, onDelete }) {
   const item = document.createElement("article");
   item.className = "loan-history-item";
 
   const content = document.createElement("div");
+  const headingRow = document.createElement("div");
+  headingRow.className = "loan-history-title-row";
   const heading = document.createElement("strong");
   heading.textContent = title || "Bez danych";
+  headingRow.append(heading);
+  if (warning.length) {
+    item.classList.add("loan-data-review");
+    const badge = document.createElement("span");
+    badge.className = "loan-data-review-badge";
+    badge.textContent = "Do poprawy";
+    badge.title = warning.join("\n");
+    headingRow.append(badge);
+  }
+  if (duplicateOf) {
+    item.classList.add("loan-data-duplicate");
+    const badge = document.createElement("span");
+    badge.className = "loan-data-duplicate-badge";
+    badge.textContent = "Duplikat";
+    badge.title = `Powtórzenie umowy ${duplicateOf.number || "bez numeru"}.`;
+    headingRow.append(badge);
+  }
   const information = document.createElement("small");
   information.textContent = meta || "";
   const description = document.createElement("span");
   description.textContent = details || "Brak pozycji";
-  content.append(heading);
+  content.append(headingRow);
   if (information.textContent) content.append(information);
   content.append(description);
 
@@ -8703,6 +8824,8 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Umowa bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
       details: pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego",
+      warning: pricingLoanDataIssues(entry),
+      duplicateOf: pricingLoanDuplicateOf(entry, agreementsAll),
       onOpen: () => restorePricingLoanFromHistory(entry)
     }),
     { totalCount: agreementsAll.length, searchActive: Boolean(searchQuery) }
@@ -10178,6 +10301,15 @@ function pricingOrderSnapshotKey(entry) {
   ].map((value) => normalize(value)).join("|");
 }
 
+function pricingOrderSemanticKey(entry) {
+  return [
+    entry?.date,
+    entry?.customer,
+    entry?.location,
+    (entry?.items || []).map((item) => [item.type, item.side, item.quantity, item.description, item.notes].join(":")).join("|")
+  ].map((value) => normalize(value)).join("|");
+}
+
 function pricingOrderFormItems({ includeBlank = false } = {}) {
   if (!orderItemsFormBody) return [];
   return [...orderItemsFormBody.querySelectorAll("[data-order-row]")]
@@ -10241,6 +10373,13 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   const now = new Date().toISOString();
   const snapshotKey = pricingOrderSnapshotKey(snapshot);
   const existingEntry = pricingOrderHistory.find((entry) => pricingOrderSnapshotKey(entry) === snapshotKey || entry.number === snapshot.number);
+  const semanticDuplicate = pricingOrderHistory.find((entry) => (
+    entry.id !== existingEntry?.id && pricingOrderSemanticKey(entry) === pricingOrderSemanticKey(snapshot)
+  ));
+  if (semanticDuplicate) {
+    if (!silent) alert(`Takie zamówienie już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}.`);
+    return null;
+  }
   const historyEntry = normalizePricingOrderHistoryEntry({
     ...snapshot,
     id: existingEntry?.id || snapshot.id,
@@ -11443,6 +11582,15 @@ function pricingComplaintSnapshotKey(entry) {
   ].map((value) => normalize(value)).join("|");
 }
 
+function pricingComplaintSemanticKey(entry) {
+  const itemsKey = (entry?.items || [])
+    .map((item) => [item?.productType, item?.productName, item?.serial, item?.purchaseDocument, item?.purchaseDate]
+      .map((value) => normalize(value)).join(":"))
+    .join("|");
+  return [entry?.date, entry?.customer, itemsKey, entry?.defect]
+    .map((value) => normalize(value)).join("|");
+}
+
 function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   const snapshot = normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot());
   if (!snapshot) {
@@ -11452,6 +11600,13 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   const now = new Date().toISOString();
   const snapshotKey = pricingComplaintSnapshotKey(snapshot);
   const existingEntry = pricingComplaintHistory.find((entry) => pricingComplaintSnapshotKey(entry) === snapshotKey || entry.number === snapshot.number);
+  const semanticDuplicate = pricingComplaintHistory.find((entry) => (
+    entry.id !== existingEntry?.id && pricingComplaintSemanticKey(entry) === pricingComplaintSemanticKey(snapshot)
+  ));
+  if (semanticDuplicate) {
+    if (!silent) alert(`Taka reklamacja już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}.`);
+    return null;
+  }
   const historyEntry = normalizePricingComplaintHistoryEntry({
     ...snapshot,
     id: existingEntry?.id || snapshot.id,
@@ -17154,6 +17309,11 @@ async function saveRepairFormRecord(event) {
   let savedRecord;
   if (!validateRepairDateOrder(data, { focus: true })) return;
   if (!confirmSerialNumberSave(data.serialNumber, "repairs", id)) return;
+  const existingDuplicate = duplicateRepairRecord(data, id);
+  if (existingDuplicate) {
+    alert("Nie można zapisać identycznej pozycji serwisowej. Taki wpis z tą samą datą, osobą i numerem seryjnym już istnieje.");
+    return;
+  }
   if (!confirmRepairWarrantySave(data, id)) return;
   const previousRepairRecord = id ? auditSnapshot(repairRecords.find((record) => record.id === id)) : null;
   const previousRepairRecords = repairRecords;

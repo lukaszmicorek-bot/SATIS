@@ -4460,6 +4460,48 @@ h2 {
   background: #fff8f7;
 }
 
+.loan-history-item.loan-data-review {
+  border-color: #e2aaa4;
+  border-left: 4px solid #c85f54;
+  background: #fff8f7;
+}
+
+.loan-data-review-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid #dc9c95;
+  border-radius: 6px;
+  padding: 2px 7px;
+  color: #923d34;
+  background: #fde9e6;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.loan-history-item.loan-data-duplicate {
+  border-color: #d7b180;
+  border-left: 4px solid #b9792e;
+  background: #fffaf3;
+}
+
+.loan-data-duplicate-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid #d9af79;
+  border-radius: 6px;
+  padding: 2px 7px;
+  color: #80501d;
+  background: #fff0d9;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .loan-history-title-row {
   display: flex;
   flex-wrap: wrap;
