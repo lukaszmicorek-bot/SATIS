@@ -14646,8 +14646,8 @@ function isVacationCalendarInput(input = activeDateInput) {
   return input === vacationDateFromInput || input === vacationDateToInput;
 }
 
-function vacationPublicHolidayOnDate(isoDate) {
-  if (!isVacationCalendarInput() || !isoDate) return null;
+function polishPublicHolidayOnDate(isoDate) {
+  if (!isoDate) return null;
   const year = Number(String(isoDate).slice(0, 4));
   if (!Number.isInteger(year)) return null;
   return polishPublicHolidays(year).find((holiday) => holiday.date === isoDate) || null;
@@ -18068,6 +18068,11 @@ function renderDatePicker() {
   }
   if (isVacationCalendarInput()) {
     hint.textContent = "Kolorowe daty oznaczają zatwierdzone dni wolne. Jasnoczerwone dni z kropką to święta; po najechaniu zobaczysz ich nazwę. Terminy zajęte przez inną osobę nadal można wybrać i wysłać do zatwierdzenia.";
+  } else {
+    hint.textContent = [
+      hint.textContent,
+      "Jasnoczerwone dni z kropką oznaczają święta; po najechaniu zobaczysz ich nazwę."
+    ].filter(Boolean).join(" ");
   }
 
   const months = document.createElement("div");
@@ -18126,7 +18131,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       button.setAttribute("aria-disabled", "true");
       appendDatePickerTitle(button, `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`);
     }
-    const publicHoliday = vacationPublicHolidayOnDate(isoDate);
+    const publicHoliday = polishPublicHolidayOnDate(isoDate);
     const occupiedPeople = vacationOccupiedPeopleOnDate(isoDate);
     const ownLeave = vacationOwnLeaveOnDate(isoDate);
     if (publicHoliday) {
