@@ -6149,8 +6149,13 @@ function rebuildDeviceNameSuggestions() {
 
 function renderDeviceModelQuickSuggestions(query = "") {
   if (!deviceModelQuickSuggestions) return;
-  const names = rankedModelSuggestions(modelSuggestionSourceRecords(), query).slice(0, 6);
   const normalizedQuery = normalizeDeviceName(query);
+  if (normalizedQuery.length < 2) {
+    deviceModelQuickSuggestions.hidden = true;
+    deviceModelQuickSuggestions.replaceChildren();
+    return;
+  }
+  const names = rankedModelSuggestions(modelSuggestionSourceRecords(), query).slice(0, 4);
   const visibleNames = names.filter((name) => normalize(name) !== normalize(normalizedQuery));
   deviceModelQuickSuggestions.hidden = !visibleNames.length;
   if (!visibleNames.length) {
@@ -18695,7 +18700,6 @@ const debouncedDeviceModelSuggestions = debounce(refreshDeviceModelSuggestions, 
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
 deviceModelInput.addEventListener("input", debouncedDeviceModelSuggestions);
-deviceModelInput.addEventListener("focus", refreshDeviceModelSuggestions);
 deviceModelInput.addEventListener("blur", () => {
   correctDeviceNameInput();
   window.setTimeout(() => {

@@ -2848,6 +2848,7 @@ h2 {
 .offer-option-field {
   grid-column: 1 / span 2;
   grid-row: 5;
+  align-self: start;
 }
 
 .offer-pfron-field {
@@ -4733,7 +4734,14 @@ h2 {
 
 .pcpr-place-field select {
   padding-right: 26px;
-  font-size: 0.78rem;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 740;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pcpr-form-row-bottom .pcpr-ear-field {
