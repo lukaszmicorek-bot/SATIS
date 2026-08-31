@@ -11931,7 +11931,13 @@ function clearComplaintItem(slot = 1) {
 function setComplaintSecondItemVisible(visible, { clear = false, focus = false } = {}) {
   if (clear) clearComplaintItem(2);
   if (complaintProductCard2) complaintProductCard2.hidden = !visible;
-  if (addComplaintItemBtn) addComplaintItemBtn.hidden = visible;
+  if (addComplaintItemBtn) {
+    addComplaintItemBtn.hidden = false;
+    addComplaintItemBtn.disabled = visible;
+    addComplaintItemBtn.title = visible ? "Reklamacja może zawierać dwa modele. Usuń pozycję, aby dodać inną." : "Dodaj model do reklamacji";
+    const limit = addComplaintItemBtn.querySelector("[data-complaint-item-limit]");
+    if (limit) limit.hidden = !visible;
+  }
   if (visible && focus) complaintProductTypeInput2?.focus();
 }
 
