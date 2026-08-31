@@ -2517,6 +2517,7 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearLoanPrintCopies();
+  hideVacationPeriodPreview();
   records = [];
   repairRecords = [];
   demoRecords = [];
@@ -16521,8 +16522,112 @@ function createVacationStatus(status) {
   return pill;
 }
 
+let vacationPeriodPreviewTimer = 0;
+
+function hideVacationPeriodPreview() {
+  window.clearTimeout(vacationPeriodPreviewTimer);
+  const preview = document.querySelector("#vacationPeriodPreview");
+  if (preview) {
+    preview.hidden = true;
+    preview.replaceChildren();
+  }
+}
+
+function vacationPeriodPreviewMonths(from, to) {
+  const start = parseIsoDate(from);
+  const end = parseIsoDate(to);
+  if (!start || !end || end < start) return [];
+  const count = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1;
+  if (count > 72) return [];
+  return Array.from({ length: count }, (_, index) => new Date(start.getFullYear(), start.getMonth() + index, 1));
+}
+
+function createVacationPeriodMonth(monthDate, from, to) {
+  const section = document.createElement("section");
+  section.className = "date-picker-month";
+  const title = document.createElement("h3");
+  title.textContent = monthDate.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  const grid = document.createElement("div");
+  grid.className = "date-picker-grid";
+  ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach((name) => {
+    const label = document.createElement("span");
+    label.className = "date-picker-weekday";
+    label.textContent = name;
+    grid.append(label);
+  });
+  const offset = (monthDate.getDay() + 6) % 7;
+  for (let index = 0; index < offset; index++) grid.append(document.createElement("span"));
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const holidays = new Map(polishPublicHolidays(year).map((holiday) => [holiday.date, holiday.name]));
+  const today = todayInputValue();
+  const dayCount = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= dayCount; day++) {
+    const iso = isoDateFromParts(year, month + 1, day);
+    const item = document.createElement("span");
+    item.className = "vacation-preview-day";
+    item.textContent = String(day);
+    item.dataset.date = iso;
+    const weekday = new Date(year, month, day).getDay();
+    item.classList.toggle("weekend", weekday === 0 || weekday === 6);
+    item.classList.toggle("in-period", iso >= from && iso <= to);
+    item.classList.toggle("period-edge", iso === from || iso === to);
+    item.classList.toggle("today", iso === today);
+    item.classList.toggle("public-holiday", holidays.has(iso));
+    item.title = [formatDate(iso), holidays.get(iso)].filter(Boolean).join(" · ");
+    item.setAttribute("aria-label", `${item.title}${iso >= from && iso <= to ? ", wybrany okres" : ""}`);
+    grid.append(item);
+  }
+  section.append(title, grid);
+  return section;
+}
+
+function showVacationPeriodPreview(anchor, requestId) {
+  window.clearTimeout(vacationPeriodPreviewTimer);
+  const request = vacationRequests.find((item) => item.id === requestId);
+  if (!currentSupabaseUser || !request || (!canViewPrivateModules() && request.ownerLeave)) return;
+  const months = vacationPeriodPreviewMonths(request.dateFrom, request.dateTo);
+  if (!months.length) return;
+  let preview = document.querySelector("#vacationPeriodPreview");
+  if (!preview) {
+    preview = document.createElement("div");
+    preview.id = "vacationPeriodPreview";
+    preview.className = "vacation-period-preview";
+    preview.setAttribute("role", "tooltip");
+    preview.addEventListener("mouseenter", () => window.clearTimeout(vacationPeriodPreviewTimer));
+    preview.addEventListener("mouseleave", hideVacationPeriodPreview);
+    document.body.append(preview);
+  }
+  const heading = document.createElement("strong");
+  heading.textContent = `${formatDate(request.dateFrom)} – ${formatDate(request.dateTo)}`;
+  const calendar = document.createElement("div");
+  calendar.className = "vacation-preview-months";
+  calendar.dataset.single = String(months.length === 1);
+  calendar.append(...months.map((month) => createVacationPeriodMonth(month, request.dateFrom, request.dateTo)));
+  preview.replaceChildren(heading, calendar);
+  preview.hidden = false;
+  preview.style.visibility = "hidden";
+  const rect = anchor.getBoundingClientRect();
+  const box = preview.getBoundingClientRect();
+  preview.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - box.width - 8))}px`;
+  preview.style.top = `${rect.bottom + box.height + 8 <= window.innerHeight ? rect.bottom + 6 : Math.max(8, rect.top - box.height - 6)}px`;
+  preview.style.visibility = "visible";
+}
+
+function attachVacationPeriodPreview(term, request) {
+  term.setAttribute("aria-describedby", "vacationPeriodPreview");
+  term.addEventListener("mouseenter", () => showVacationPeriodPreview(term, request.id));
+  term.addEventListener("focus", () => showVacationPeriodPreview(term, request.id));
+  term.addEventListener("click", () => showVacationPeriodPreview(term, request.id));
+  term.addEventListener("mouseleave", () => {
+    vacationPeriodPreviewTimer = window.setTimeout(hideVacationPeriodPreview, 150);
+  });
+  term.addEventListener("blur", hideVacationPeriodPreview);
+}
+
 function renderVacationHistory() {
   if (!vacationHistoryBody || !vacationHistoryEmpty || !vacationHistoryCount) return;
+  hideVacationPeriodPreview();
   const employee = selectedVacationEmployee();
   const entries = vacationRequests.filter((request) =>
     request.year === selectedVacationYear() &&
@@ -16545,11 +16650,13 @@ function renderVacationHistory() {
     typeCell.classList.toggle("vacation-private-detail", !canViewDetails);
     const termCell = document.createElement("td");
     termCell.className = "vacation-history-term";
-    const term = document.createElement("span");
+    const term = document.createElement("button");
+    term.type = "button";
     term.className = "vacation-history-date";
     term.textContent = request.dateFrom === request.dateTo
       ? formatDate(request.dateFrom)
       : `${formatDate(request.dateFrom)} → ${formatDate(request.dateTo)}`;
+    attachVacationPeriodPreview(term, request);
     termCell.append(term);
     if (canViewPrivateModules()) {
       const weekday = document.createElement("small");
@@ -16903,6 +17010,7 @@ async function deleteVacationRequest(id) {
 
 function switchNotebook(notebookName) {
   if (["capd", "vacation"].includes(notebookName) && !currentSupabaseUser) return;
+  hideVacationPeriodPreview();
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
   updateCustomerRelationsPanelVisibility();
@@ -20569,6 +20677,15 @@ async function checkForPublishedAppUpdate() {
 }
 
 window.addEventListener("resize", scheduleSerialLineFit);
+window.addEventListener("resize", hideVacationPeriodPreview);
+window.addEventListener("scroll", (event) => {
+  const preview = document.querySelector("#vacationPeriodPreview");
+  if (preview && event.target instanceof Node && preview.contains(event.target)) return;
+  hideVacationPeriodPreview();
+}, true);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideVacationPeriodPreview();
+});
 window.addEventListener("beforeprint", () => fitSerialLines());
 window.addEventListener("afterprint", scheduleSerialLineFit);
 document.fonts?.ready.then(scheduleSerialLineFit);

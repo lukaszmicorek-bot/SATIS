@@ -2091,11 +2091,56 @@ h2 {
 
 .vacation-history-term .vacation-history-date {
   display: inline-flex;
-  border-radius: 6px;
-  padding: 5px 8px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   color: #365b6a;
-  background: #edf4f6;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
   font-weight: 850;
+  cursor: help;
+}
+
+.vacation-history-date:focus-visible { outline: 2px solid #548699; outline-offset: 3px; }
+.vacation-history-term .vacation-history-date:hover { background: transparent; box-shadow: none; }
+
+.vacation-period-preview {
+  position: fixed;
+  z-index: 10050;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #cad9de;
+  border-radius: 8px;
+  background: #fff;
+  color: #003f5a;
+  box-shadow: 0 6px 24px #003f5a20;
+}
+.vacation-period-preview[hidden] { display: none; }
+.vacation-period-preview > strong { display: block; margin-bottom: 12px; font-size: 0.85rem; }
+.vacation-preview-months { display: grid; grid-template-columns: repeat(2, 220px); gap: 16px; }
+.vacation-preview-months[data-single="true"] { grid-template-columns: 220px; }
+.vacation-preview-day {
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  color: #304d5b;
+}
+.vacation-preview-day.weekend { background: #f5f6f7; color: #849097; }
+.vacation-preview-day.in-period { background: #dceef5; color: #235d75; }
+.vacation-preview-day.period-edge { background: #bbddea; font-weight: 700; }
+.vacation-preview-day.public-holiday { color: #ae3848; }
+.vacation-preview-day.today { font-weight: 900; text-decoration: underline; }
+@media (max-width: 520px) {
+  .vacation-preview-months { grid-template-columns: minmax(0, 220px); }
+}
+@media print {
+  .vacation-period-preview { display: none !important; }
 }
 
 .vacation-history-weekday {
