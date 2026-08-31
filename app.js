@@ -2511,6 +2511,7 @@ function resetInactivityLogoutTimer() {
 }
 
 function clearSensitiveApplicationState() {
+  clearLoanPrintCopies();
   records = [];
   repairRecords = [];
   demoRecords = [];
@@ -2848,6 +2849,39 @@ function renderStockAuditReport(stockRecords = stockAuditRecords()) {
   renderTableRows(stockAuditReportBody, rows);
 }
 
+async function printWithReadyFonts(cleanup = () => {}) {
+  let timeout;
+  try {
+    if (document.fonts) {
+      const sample = "Zażółć gęślą jaźń 0123456789";
+      const fontsReady = Promise.all([
+        document.fonts.load('400 12px "Inter"', sample),
+        document.fonts.load('700 12px "Inter"', sample),
+        document.fonts.load('italic 400 12px "Inter"', sample)
+      ]).then(async (faces) => {
+        if (faces.some((loaded) => loaded.length === 0)) throw new Error("Brak czcionki Inter. Odśwież stronę i spróbuj ponownie.");
+        await document.fonts.ready;
+      });
+      await Promise.race([
+        fontsReady,
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Nie udało się załadować czcionek. Sprawdź połączenie i spróbuj ponownie.")), 10000);
+        })
+      ]);
+    }
+    clearTimeout(timeout);
+    window.print();
+    return true;
+  } catch (error) {
+    window.removeEventListener("afterprint", cleanup);
+    cleanup();
+    alert(`Nie udało się przygotować wydruku: ${error.message || "błąd wydruku"}`);
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function exportStockAuditPdf() {
   if (!isStockAuditActive()) {
     alert("Najpierw zapisz albo zaznacz remanent.");
@@ -2858,7 +2892,7 @@ function exportStockAuditPdf() {
   const cleanup = () => document.body.classList.remove("stock-audit-pdf-print");
   document.body.classList.add("stock-audit-pdf-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function fillStockAuditForm() {
@@ -4183,6 +4217,105 @@ function repairDocumentDuplicate(incomingRecord) {
 }
 
 let repairWriteCheckInProgress = false;
+
+const nearbyEntryWarningTimers = new Map();
+
+function nearbyEntryMatches(draft, entries) {
+  const date = isoDateForSave(draft.date);
+  if (!date) return [];
+  const customer = customerNameLookupKey(draft.customer);
+  const hasFullName = customer.split(/\s+/u).filter(Boolean).length >= 2;
+  const serials = new Set((draft.serials || []).map(serialDuplicateKey).filter(Boolean));
+  if (!serials.size && !hasFullName) return [];
+  const day = Date.parse(date) / 86400000;
+  return entries.flatMap((entry) => {
+    if (draft.id && entry.id === draft.id) return [];
+    const entryDate = isoDateForSave(entry.date);
+    if (!entryDate || Math.abs(Date.parse(entryDate) / 86400000 - day) > 3) return [];
+    const sharedSerials = (entry.serials || []).filter((serial) => serials.has(serialDuplicateKey(serial)));
+    const sameCustomer = hasFullName && customerNameLookupKey(entry.customer) === customer;
+    if (!sharedSerials.length && !sameCustomer) return [];
+    return [{ ...entry, date: entryDate, sharedSerials, sameCustomer }];
+  }).sort((left, right) => Number(Boolean(right.sharedSerials.length)) - Number(Boolean(left.sharedSerials.length)) || right.date.localeCompare(left.date));
+}
+
+function nearbyEntryWarningData(source) {
+  if (source === "loan") {
+    return {
+      draft: {
+        id: activePricingLoanHistoryId,
+        date: loanDateInput?.value,
+        customer: loanCustomerInput?.value,
+        serials: [loanRightSerialInput?.value, loanLeftSerialInput?.value, loanChargerSerialInput?.value]
+      },
+      entries: pricingLoanHistory.map((entry) => ({
+        id: entry.id, date: entry.date, customer: entry.customer,
+        reference: `Umowa ${entry.number || "bez numeru"}`,
+        model: [entry.rightDevice?.model, entry.leftDevice?.model, entry.charger].filter(Boolean).join(" / "),
+        serials: [entry.rightDevice?.serial, entry.leftDevice?.serial, entry.chargerSerial].filter(Boolean)
+      })),
+      customerInput: loanCustomerInput,
+      serialInputs: [loanRightSerialInput, loanLeftSerialInput, loanChargerSerialInput]
+    };
+  }
+  return {
+    draft: {
+      id: document.querySelector("#repairId").value,
+      date: document.querySelector("#repairReceivedDate").value,
+      customer: document.querySelector("#repairCustomerName").value,
+      serials: [document.querySelector("#repairSerialNumber").value, document.querySelector("#repairSerialNumber2").value]
+    },
+    entries: repairRecords.map((record) => {
+      const info = repairDocumentInfo(record);
+      return {
+        id: record.id, date: record.receivedDate, customer: record.customerName,
+        reference: info.number ? `${info.label} ${info.number}` : "Wpis serwisowy",
+        model: record.deviceName, serials: repairSerialNumbers(record)
+      };
+    }),
+    customerInput: document.querySelector("#repairCustomerName"),
+    serialInputs: [document.querySelector("#repairSerialNumber"), document.querySelector("#repairSerialNumber2")]
+  };
+}
+
+function renderNearbyEntryWarning(source) {
+  const panel = document.querySelector(source === "loan" ? "#loanNearbyWarning" : "#repairNearbyWarning");
+  if (!panel) return;
+  const { draft, entries, customerInput, serialInputs } = nearbyEntryWarningData(source);
+  const matches = nearbyEntryMatches(draft, entries);
+  customerInput?.classList.toggle("nearby-entry-match", matches.some((match) => match.sameCustomer));
+  serialInputs.forEach((input) => input?.classList.toggle("nearby-entry-match", matches.some((match) => match.sharedSerials.some((serial) => serialDuplicateKey(serial) === serialDuplicateKey(input.value)))));
+  panel.hidden = !matches.length;
+  if (!matches.length) {
+    panel.replaceChildren();
+    return;
+  }
+  const title = document.createElement("strong");
+  title.textContent = `Sprawdź podobne wpisy: ${matches.length} (do 3 dni różnicy)`;
+  const list = document.createElement("ul");
+  matches.slice(0, 5).forEach((match) => {
+    const item = document.createElement("li");
+    const reason = match.sharedSerials.length
+      ? `Ten sam nr ser.: ${[...new Set(match.sharedSerials.map(normalizeSerialNumber))].join(" / ")}`
+      : "Ta sama osoba";
+    item.textContent = [reason, match.reference, formatDate(match.date), match.customer, match.model].filter(Boolean).join(" · ");
+    list.append(item);
+  });
+  panel.replaceChildren(title, list);
+  if (matches.length > 5) {
+    const more = document.createElement("p");
+    more.textContent = `Pozostałe podobne wpisy: ${matches.length - 5}. Sprawdź historię przed zapisem.`;
+    panel.append(more);
+  }
+}
+
+function scheduleNearbyEntryWarning(source) {
+  clearTimeout(nearbyEntryWarningTimers.get(source));
+  nearbyEntryWarningTimers.set(source, setTimeout(() => {
+    nearbyEntryWarningTimers.delete(source);
+    renderNearbyEntryWarning(source);
+  }, 200));
+}
 
 async function withFreshRepairRecords(action) {
   if (repairWriteCheckInProgress) return null;
@@ -7441,7 +7574,7 @@ function printPricingOffer() {
   const cleanup = () => document.body.classList.remove("pricing-offer-print");
   document.body.classList.add("pricing-offer-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function normalizePricingOfferHistoryItem(item) {
@@ -9708,7 +9841,7 @@ function renderPricingLoanEquipment(devices) {
   if (!loanEquipmentBody) return;
   const rows = devices.map((device) => {
     const row = document.createElement("tr");
-    appendOfferCell(row, device.side);
+    appendOfferCell(row, { prawe: "Prawy", lewe: "Lewy" }[device.side] || device.side);
     appendOfferCell(row, device.model);
     appendOfferCell(row, device.serial);
     appendOfferCell(row, device.manufacturer);
@@ -9790,6 +9923,7 @@ function validatePricingLoanForAction() {
 function renderPricingLoan() {
   if (!pricingLoanView) return;
   ensurePricingLoanDefaults();
+  scheduleNearbyEntryWarning("loan");
   updateDocumentLocationAccent(loanCityInput);
   updateLoanSerialPasteHints();
 
@@ -9837,15 +9971,61 @@ function renderPricingLoan() {
   if (printPricingLoanBtn) printPricingLoanBtn.disabled = false;
 }
 
+function clearLoanPrintCopies() {
+  const source = document.querySelector("#pricingLoanPrint");
+  source?.querySelectorAll(":scope > .loan-print-copy").forEach((copy) => copy.remove());
+  source?.classList.remove("loan-print-packet");
+  document.body.classList.remove("pricing-loan-print");
+}
+
+function prepareLoanPrintCopies() {
+  clearLoanPrintCopies();
+  const source = document.querySelector("#pricingLoanPrint");
+  if (!source) throw new Error("Nie znaleziono podglądu umowy do wydruku.");
+  const template = source.cloneNode(true);
+  const copies = [
+    { label: "Egzemplarz dla SATIS", testingRules: false },
+    { label: "Egzemplarz dla klienta", testingRules: true }
+  ].map(({ label, testingRules }) => {
+    const copy = document.createElement("article");
+    copy.className = "loan-print-copy";
+    copy.setAttribute("aria-label", label);
+    Array.from(template.childNodes).forEach((child) => copy.append(child.cloneNode(true)));
+    copy.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+    copy.querySelectorAll("[data-loan-out]").forEach((element) => element.removeAttribute("data-loan-out"));
+    if (!testingRules) copy.querySelectorAll(".loan-testing-information").forEach((section) => section.remove());
+    const heading = document.createElement("p");
+    heading.className = "loan-print-copy-label";
+    heading.textContent = label;
+    copy.querySelector(".offer-document-head > div")?.prepend(heading);
+    const rulesHeader = copy.querySelector(".loan-testing-information > header");
+    if (rulesHeader) {
+      const reference = document.createElement("p");
+      reference.className = "loan-print-copy-label";
+      reference.textContent = `${label} · Umowa ${source.querySelector('[data-loan-out="number"]')?.textContent || ""}`;
+      rulesHeader.append(reference);
+    }
+    return copy;
+  });
+  source.append(...copies);
+  source.classList.add("loan-print-packet");
+}
+
 async function printPricingLoan() {
   if (!validatePricingLoanForAction()) return;
   renderPricingLoan();
   const savedEntry = await saveCurrentPricingLoanToHistory({ silent: true });
   if (!savedEntry) return;
-  const cleanup = () => document.body.classList.remove("pricing-loan-print");
-  document.body.classList.add("pricing-loan-print");
-  window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  try {
+    prepareLoanPrintCopies();
+    document.body.classList.add("pricing-loan-print");
+    window.addEventListener("afterprint", clearLoanPrintCopies, { once: true });
+    await printWithReadyFonts(clearLoanPrintCopies);
+  } catch (error) {
+    window.removeEventListener("afterprint", clearLoanPrintCopies);
+    clearLoanPrintCopies();
+    alert(`Nie udało się przygotować wydruku umowy: ${error.message || "błąd wydruku"}`);
+  }
 }
 
 function normalizePricingPcprEar(value) {
@@ -11683,7 +11863,7 @@ async function printPricingOrder() {
   const cleanup = () => document.body.classList.remove("pricing-order-print");
   document.body.classList.add("pricing-order-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function pricingComplaintProductTypeLabel(value) {
@@ -12704,7 +12884,7 @@ async function printPricingComplaint() {
   const cleanup = () => document.body.classList.remove("pricing-complaint-print");
   document.body.classList.add("pricing-complaint-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function updateDemoChecklistState(visibleRecords) {
@@ -12756,7 +12936,7 @@ function printDemoChecklist() {
   const cleanup = () => document.body.classList.remove("demo-checklist-print");
   document.body.classList.add("demo-checklist-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function renderDataControlView() {
@@ -14672,7 +14852,7 @@ function printStockChecklist() {
   const cleanup = () => document.body.classList.remove("stock-checklist-print");
   document.body.classList.add("stock-checklist-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function groupStockRecords(stockRecords) {
@@ -15285,7 +15465,7 @@ function printCapdReport() {
   const cleanup = () => document.body.classList.remove("capd-report-print");
   document.body.classList.add("capd-report-print");
   window.addEventListener("afterprint", cleanup, { once: true });
-  window.print();
+  return printWithReadyFonts(cleanup);
 }
 
 function normalizeCapdHistoryEntry(entry) {
@@ -16845,6 +17025,7 @@ function openRepairDialog(record = null) {
   renderQualityHints("repairs");
   renderAuditTrail("repairs", record?.id || "");
 
+  renderNearbyEntryWarning("repairs");
   repairDialog.showModal();
 }
 
@@ -19297,7 +19478,7 @@ function nextFrame() {
 document.querySelector("#addBtn").addEventListener("click", () => openDialog());
 document.querySelector("#exportBtn").addEventListener("click", () => chooseExportFormat(exportCsv, exportJson));
 document.querySelector("#importBtn").addEventListener("click", () => importInput.click());
-printDevicesBtn.addEventListener("click", () => window.print());
+printDevicesBtn.addEventListener("click", () => printWithReadyFonts());
 printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
@@ -19322,7 +19503,7 @@ showMoreRecordsBtn.addEventListener("click", () => showMoreTableRows("devices", 
 document.querySelector("#addRepairBtn").addEventListener("click", () => openRepairDialog());
 document.querySelector("#exportRepairBtn").addEventListener("click", () => chooseExportFormat(exportRepairCsv, exportRepairJson));
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
-printRepairsBtn.addEventListener("click", () => window.print());
+printRepairsBtn.addEventListener("click", () => printWithReadyFonts());
 showMoreRepairBtn.addEventListener("click", () => showMoreTableRows("repairs", renderRepairRecords));
 showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairOpen", renderRepairRecords));
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
@@ -19775,6 +19956,12 @@ recordForm.addEventListener("submit", saveFormRecord);
 repairForm.addEventListener("submit", (event) => {
   event.preventDefault();
   withFreshRepairRecords(() => saveRepairFormRecord(event));
+});
+["#repairReceivedDate", "#repairCustomerName", "#repairSerialNumber", "#repairSerialNumber2"].forEach((selector) => {
+  const input = document.querySelector(selector);
+  ["input", "change", "blur"].forEach((eventName) => {
+    input?.addEventListener(eventName, () => scheduleNearbyEntryWarning("repairs"));
+  });
 });
 demoForm.addEventListener("submit", saveDemoFormRecord);
 recordForm.addEventListener("click", handleClearDateClick);
