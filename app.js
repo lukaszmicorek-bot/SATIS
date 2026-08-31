@@ -7170,7 +7170,8 @@ function renderPricingOffer() {
     offerPfronInput.title = "";
   }
 
-  if (offerTitle) offerTitle.textContent = customer ? `Oferta dla ${customer}${customerAgeLabel}` : "Oferta aparatów słuchowych";
+  const offerHeading = deviceItems.length === 1 ? "Oferta aparatu słuchowego" : "Oferta aparatów słuchowych";
+  if (offerTitle) offerTitle.textContent = customer ? `${offerHeading} dla ${customer}${customerAgeLabel}` : offerHeading;
   if (offerMeta) {
     offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
   }
