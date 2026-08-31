@@ -7745,6 +7745,7 @@ function completedDemoLoanEntry(record, customer, loanDate) {
   return effectiveDemoLoanHistory(record).find((entry) => (
     Boolean(entry.returnDate) &&
     customerNameLookupKey(entry.currentUser) === customerKey &&
+    (!loanDate || entry.returnDate >= loanDate) &&
     (!loanDate || !entry.loanDate || entry.loanDate === loanDate)
   ));
 }
@@ -7766,6 +7767,7 @@ function demoRecordFromPricingLoan(record, assignment) {
   if (entry.returnDate) {
     if (!currentCustomerKey) return { record, reason: "already-returned" };
     if (currentCustomerKey !== customerKey) return { record, reason: "conflict" };
+    if (record.loanDate && record.loanDate !== loanDate) return { record, reason: "conflict" };
     return {
       record: normalizeDemoRecordForUse(completeDemoLoan(record, {
         ...record,
@@ -7779,6 +7781,7 @@ function demoRecordFromPricingLoan(record, assignment) {
 
   if (completedDemoLoanMatches(record, customer, loanDate)) return { record, reason: "already-returned" };
   if (currentCustomerKey && currentCustomerKey !== customerKey) return { record, reason: "conflict" };
+  if (currentCustomerKey && record.loanDate && record.loanDate !== loanDate) return { record, reason: "conflict" };
 
   return {
     record: normalizeDemoRecordForUse({
@@ -7914,16 +7917,55 @@ function pricingLoanSnapshotKey(entry) {
 }
 
 function pricingLoanSemanticKey(entry) {
+  const devices = [entry?.rightDevice, entry?.leftDevice]
+    .filter((device) => device && hasLoanDeviceData(device))
+    .map((device) => serialDuplicateKey(device.serial) || normalize(device.model))
+    .sort();
   return [
     entry?.date,
     entry?.customer,
     entry?.periodFrom,
     entry?.periodTo,
-    entry?.rightDevice?.serial,
-    entry?.leftDevice?.serial,
-    entry?.rightDevice?.model,
-    entry?.leftDevice?.model
+    ...devices
   ].map((value) => normalize(value)).join("|");
+}
+
+function pricingLoanHandoverIssues(entry, history, demos, ignoredId = "") {
+  const issues = [];
+  const devices = pricingLoanHistoryDevices(entry);
+  const start = isoDateForSave(entry.periodFrom || entry.date);
+  const end = isoDateForSave(entry.returnDate);
+  if (!start) issues.push("Podaj prawidłową datę rozpoczęcia wypożyczenia.");
+  if (entry.returnDate && !end) issues.push("Podaj prawidłową datę zwrotu.");
+  if (end && start && end < start) issues.push("Data zwrotu nie może być wcześniejsza niż rozpoczęcie wypożyczenia.");
+  if (end && end > todayInputValue()) issues.push("Data faktycznego zwrotu nie może być w przyszłości.");
+  if (new Set(devices.map(({ serialKey }) => serialKey)).size !== devices.length) {
+    issues.push("Ten sam numer seryjny wpisano po obu stronach umowy. Każdy aparat musi mieć własny numer.");
+  }
+  devices.forEach(({ serial, serialKey }) => {
+    history.filter((other) => other.id !== ignoredId).forEach((other) => {
+      if (!pricingLoanHistoryDevices(other).some((device) => device.serialKey === serialKey)) return;
+      const otherStart = isoDateForSave(other.periodFrom || other.date);
+      const otherEnd = isoDateForSave(other.returnDate);
+      // Zwrot i kolejne wydanie tego samego dnia sa dozwolone, ale planowany koniec nie jest zwrotem.
+      if (otherEnd && start && otherEnd <= start) return;
+      if (end && otherStart && end <= otherStart) return;
+      issues.push(otherEnd
+        ? `${serial}: okres nachodzi na umowę ${other.number || "bez numeru"} (${other.customer || "brak osoby"}), zwrot ${formatDate(otherEnd)}. Sprawdź daty.`
+        : `${serial}: umowa ${other.number || "bez numeru"} (${other.customer || "brak osoby"}) nie ma daty zwrotu. Najpierw zapisz rzeczywisty zwrot na tej umowie.`);
+    });
+    if (end) return;
+    const customerKey = customerNameLookupKey(entry.customer);
+    demos.filter((record) => serialDuplicateKey(record.serialNumber) === serialKey).forEach((record) => {
+      const completed = completedDemoLoanEntry(record, entry.customer, start);
+      if (completed) issues.push(`${serial}: w Demo zapisano zwrot ${formatDate(completed.returnDate)}. Uzupełnij datę zwrotu umowy.`);
+      const currentKey = customerNameLookupKey(record.currentUser);
+      if (currentKey && (currentKey !== customerKey || (record.loanDate && start !== isoDateForSave(record.loanDate)))) {
+        issues.push(`${serial}: Demo nadal wskazuje wypożyczenie dla ${titleCaseName(record.currentUser)}. Najpierw zakończ je w Demo i sprawdź poprzednią umowę.`);
+      }
+    });
+  });
+  return [...new Set(issues)];
 }
 
 function pricingLoanDuplicateOf(entry, history = pricingLoanHistory) {
@@ -8083,7 +8125,8 @@ function currentPricingLoanSnapshot() {
 }
 
 async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingLoanHistorySupabaseAvailable === false) return true;
+  if (!hasSupabaseConfig) return true;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem umowy.");
 
   try {
     const { error } = await supabaseClient.from(SUPABASE_LOAN_CONTRACT_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
@@ -8091,20 +8134,12 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
     pricingLoanHistorySupabaseAvailable = true;
     return true;
   } catch (error) {
-    if (isMissingSupabaseTableError(error)) {
-      pricingLoanHistorySupabaseAvailable = false;
-      console.warn("Historia umów zapisana lokalnie. Brakuje tabeli Supabase:", error.message);
-      return true;
-    }
-
     if (error?.code === "23505" || /duplicate key|unique constraint/iu.test(error?.message || "")) {
       console.warn("Numer umowy jest już zajęty:", error?.message || error);
       return false;
     }
 
-    console.warn("Historia umów zapisana lokalnie, bez synchronizacji Supabase:", error.message);
-    if (!silent) alert("Umowa zapisana lokalnie. Supabase nie przyjął historii umowy, sprawdź połączenie i spróbuj ponownie.");
-    return true;
+    throw new Error(`Umowa nie została zapisana na serwerze: ${error.message || "błąd połączenia"}`);
   }
 }
 
@@ -8114,8 +8149,15 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   if (savePricingLoanBtn) savePricingLoanBtn.disabled = true;
 
   try {
-    if (hasSupabaseConfig && currentSupabaseUser && pricingLoanHistorySupabaseAvailable !== false) {
-      await loadSupabasePricingLoanHistory();
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem umowy.");
+      // Kontrola obejmuje cala historie, nie tylko 300 ostatnich pozycji widocznych na liscie.
+      const history = await loadSupabaseTable(SUPABASE_LOAN_CONTRACT_TABLE,
+        (entries) => entries.map(normalizePricingLoanHistoryEntry).filter(Boolean));
+      const demos = await loadDemoRecords();
+      pricingLoanHistory = history;
+      demoRecords = demos;
+      pricingLoanHistorySupabaseAvailable = true;
     }
     ensureLoanContractNumber();
 
@@ -8143,6 +8185,12 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     ));
     if (semanticDuplicate) {
       alert(`Taka umowa już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}. Otwórz istniejącą pozycję zamiast tworzyć duplikat.`);
+      return null;
+    }
+
+    const handoverIssues = pricingLoanHandoverIssues(snapshot, pricingLoanHistory, demoRecords, activePricingLoanHistoryId);
+    if (handoverIssues.length) {
+      alert(`Nie można zapisać ani wydrukować umowy:\n\n${handoverIssues.join("\n\n")}`);
       return null;
     }
 
@@ -8205,6 +8253,9 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
       }
     }
     return historyEntry;
+  } catch (error) {
+    alert(`Zapis i druk zostały wstrzymane. ${error.message || "Nie udało się sprawdzić historii umów."} Sprawdź połączenie i spróbuj ponownie.`);
+    return null;
   } finally {
     pricingLoanSaveInProgress = false;
     if (savePricingLoanBtn) savePricingLoanBtn.disabled = false;
