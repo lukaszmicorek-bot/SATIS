@@ -3315,13 +3315,23 @@ h2 {
   grid-column: span 2;
 }
 
-.order-contact-field,
 .order-location-field {
   grid-column: span 2;
 }
 
+.order-contact-field,
+.order-patient-group {
+  grid-column: span 1;
+  min-width: 0;
+}
+
 .order-notes-field {
   grid-column: 1 / -1;
+}
+
+.order-notes-field textarea {
+  min-height: 56px;
+  resize: vertical;
 }
 
 .order-editor {

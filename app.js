@@ -827,6 +827,10 @@ const orderNumberInput = document.querySelector("#orderNumberInput");
 const orderDateInput = document.querySelector("#orderDateInput");
 const orderCustomerInput = document.querySelector("#orderCustomerInput");
 const orderPhoneInput = document.querySelector("#orderPhoneInput");
+const orderPatientGroupInputs = [...document.querySelectorAll('input[name="orderPatientGroup"]')];
+const pricingOrderModelList = document.querySelector("#pricingOrderModelList");
+const orderModelUsage = new Map();
+let orderModelSuggestionCandidates = [];
 const orderLocationInput = document.querySelector("#orderLocationInput");
 const orderNotesInput = document.querySelector("#orderNotesInput");
 const orderItemsFormBody = document.querySelector("#orderItemsFormBody");
@@ -8827,6 +8831,7 @@ function restorePricingOrderFromHistory(entry) {
   }
   if (orderCustomerInput) orderCustomerInput.value = saved.customer;
   if (orderPhoneInput) orderPhoneInput.value = saved.phone;
+  setPricingOrderPatientGroup(saved.patientGroup);
   if (orderLocationInput) orderLocationInput.value = normalizeDocumentLocationValue(saved.location);
   if (orderNotesInput) orderNotesInput.value = saved.notes;
   setDateInputValue(orderDateInput, saved.date);
@@ -10298,6 +10303,7 @@ function normalizePricingOrderHistoryEntry(entry) {
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
+    patientGroup: ["adult", "child"].includes(entry.patientGroup) ? entry.patientGroup : "",
     location: normalizeDocumentLocationValue(entry.location),
     notes: normalizeLoanHistoryText(entry.notes),
     items
@@ -10398,6 +10404,86 @@ function orderInputValue(input) {
   return loanInputValue(input);
 }
 
+function pricingOrderPatientGroup() {
+  return orderPatientGroupInputs.find((input) => input.checked)?.value || "";
+}
+
+function setPricingOrderPatientGroup(group) {
+  orderPatientGroupInputs.forEach((input) => { input.checked = input.value === group; });
+}
+
+function buildPricingOrderModelCandidates() {
+  const cutoff = modelSuggestionCutoffDate();
+  const today = todayInputValue();
+  const customerKeys = customerNameSuggestionKeys();
+  const models = new Map();
+  const add = (value, { date = "", code = "", alias = "" } = {}) => {
+    const name = cleanModelSuggestion(value);
+    if (!isLikelyModelSuggestion(name, customerKeys)) return;
+    const key = normalize(name).trim();
+    const candidate = models.get(key) || { name, key, count: 0, latestDate: "", codes: new Set(), aliases: new Set() };
+    if (date >= cutoff && date <= today) {
+      candidate.count += 1;
+      if (date > candidate.latestDate) candidate.latestDate = date;
+    }
+    if (code) candidate.codes.add(normalizePricingNfzCode(code));
+    if (alias) candidate.aliases.add(normalize(alias));
+    models.set(key, candidate);
+  };
+  // Build once on focus; keystrokes only filter this compact, deduplicated index.
+  [...records, ...demoRecords, ...repairRecords].forEach((record) => {
+    const date = modelSuggestionRecordDate(record);
+    if (date >= cutoff && date <= today) add(record.deviceName, { date });
+  });
+  pricingOrderHistory.forEach((entry) => {
+    const date = isoDateForSave(entry.date);
+    if (date >= cutoff && date <= today) {
+      (entry.items || []).forEach((item) => add(item.description, { date }));
+    }
+  });
+  pricingRecords.forEach((record) => add(record.model || record.tradeName, {
+    code: record.nfzCode, alias: [record.tradeName, record.manufacturer].filter(Boolean).join(" ")
+  }));
+  return [...models.values()];
+}
+
+function rankedPricingOrderModels(candidates, query = "", group = pricingOrderPatientGroup()) {
+  const suffix = group === "child" ? "01" : group === "adult" ? "00" : "";
+  const search = normalize(query).trim();
+  return candidates
+    .filter((item) => !suffix || !item.codes.size || [...item.codes].some((code) =>
+      code.endsWith(`.${suffix}`) || (!code.includes(".") && code.endsWith(suffix))))
+    .map((item) => ({ ...item, matchRank: Math.min(
+      modelSuggestionMatchRank(item.name, query),
+      search && [...item.aliases].some((alias) => alias.includes(search)) ? 3 : 20
+    ) }))
+    .filter((item) => item.matchRank < 20)
+    .sort((left, right) => left.matchRank - right.matchRank ||
+      (orderModelUsage.get(right.key) || 0) - (orderModelUsage.get(left.key) || 0) ||
+      String(right.latestDate).slice(0, 7).localeCompare(String(left.latestDate).slice(0, 7)) ||
+      right.count - left.count || right.latestDate.localeCompare(left.latestDate) ||
+      collator.compare(left.name, right.name))
+    .slice(0, MAX_MODEL_NAME_SUGGESTIONS);
+}
+
+function refreshPricingOrderModelSuggestions(query = "", { rebuild = false } = {}) {
+  if (!pricingOrderModelList) return;
+  if (rebuild) orderModelSuggestionCandidates = buildPricingOrderModelCandidates();
+  const options = rankedPricingOrderModels(orderModelSuggestionCandidates, query).map((item) => {
+    const option = document.createElement("option");
+    option.value = item.name;
+    return option;
+  });
+  pricingOrderModelList.replaceChildren(...options);
+}
+
+function rememberPricingOrderModel(value) {
+  const key = normalize(cleanModelSuggestion(value)).trim();
+  if (!orderModelSuggestionCandidates.some((item) => item.key === key)) return;
+  // Keep only confirmed model choices, never partial searches or customer data.
+  orderModelUsage.set(key, (orderModelUsage.get(key) || 0) + 1);
+}
+
 function pricingOrderSnapshotKey(entry) {
   return [
     entry?.number,
@@ -10442,6 +10528,7 @@ function currentPricingOrderSnapshot() {
     date: isoDateForSave(orderDateInput?.value) || orderInputValue(orderDateInput),
     customer: titleCaseName(orderInputValue(orderCustomerInput)),
     phone: orderInputValue(orderPhoneInput),
+    patientGroup: pricingOrderPatientGroup(),
     location: normalizeDocumentLocationValue(orderInputValue(orderLocationInput)),
     notes: orderInputValue(orderNotesInput),
     items: pricingOrderFormItems()
@@ -11042,7 +11129,7 @@ function addPricingOrderItemRow(item = {}) {
   descriptionInput.type = "text";
   descriptionInput.setAttribute("aria-label", "Pozycja lub model");
   descriptionInput.dataset.orderField = "description";
-  descriptionInput.setAttribute("list", "pricingOfferDeviceList");
+  descriptionInput.setAttribute("list", "pricingOrderModelList");
   descriptionInput.autocomplete = "off";
   descriptionInput.placeholder = "Model, wkładka, kolor...";
   descriptionInput.value = normalizedItem.description || "";
@@ -11112,6 +11199,8 @@ function handlePricingOrderItemsInput(event) {
   }
   if (event.target.matches?.("[data-order-field='description']")) {
     delete event.target.dataset.autoDescription;
+    if (event.type === "change") rememberPricingOrderModel(event.target.value);
+    refreshPricingOrderModelSuggestions(event.target.value);
   }
   renderPricingOrder();
 }
@@ -11219,6 +11308,7 @@ function copyPricingOfferToOrder() {
     });
   });
   setLoanInputValue(orderCustomerInput, titleCaseName(orderInputValue(offerCustomerInput)), true);
+  setPricingOrderPatientGroup(pricingOfferPatientGroup());
   setLoanInputValue(orderLocationInput, normalizeDocumentLocationValue(offerLocationInput?.value), true);
   const offerDate = isoDateForSave(offerDateInput?.value);
   if (offerDate) setDateInputValue(orderDateInput, offerDate);
@@ -11229,6 +11319,7 @@ function copyPricingOfferToOrder() {
 }
 
 function resetPricingOrderForm() {
+  setPricingOrderPatientGroup("");
   [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
     if (input) input.value = "";
   });
@@ -19085,6 +19176,15 @@ orderCustomerInput?.addEventListener("blur", (event) => {
   renderPricingOrder();
 });
 orderItemsFormBody?.addEventListener("input", handlePricingOrderItemsInput);
+orderItemsFormBody?.addEventListener("focusin", (event) => {
+  if (event.target.matches?.("[data-order-field='description']")) {
+    refreshPricingOrderModelSuggestions(event.target.value, { rebuild: true });
+  }
+});
+orderPatientGroupInputs.forEach((input) => input.addEventListener("change", () => {
+  refreshPricingOrderModelSuggestions("", { rebuild: true });
+  renderPricingOrder();
+}));
 orderItemsFormBody?.addEventListener("change", handlePricingOrderItemsInput);
 orderItemsFormBody?.addEventListener("click", handlePricingOrderItemsClick);
 addOrderItemBtn?.addEventListener("click", () => {
