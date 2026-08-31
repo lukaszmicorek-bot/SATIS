@@ -2011,20 +2011,22 @@ async function retrySupabaseWrite(action) {
 
 async function loadSupabaseTable(tableName, normalizer, options = {}) {
   const loadedRecords = [];
+  let totalCount = null;
 
-  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+  for (let from = 0; ;) {
     let query = supabaseClient
       .from(tableName)
-      .select("id,data,updated_at");
+      .select("id,data,updated_at", from === 0 ? { count: "exact" } : undefined);
     if (options.idPrefix) query = query.like("id", `${options.idPrefix}%`);
     if (options.excludeIdPrefix) query = query.not("id", "like", `${options.excludeIdPrefix}%`);
 
-    const { data, error } = await query
+    const { data, error, count } = await query
       .order("updated_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, from + SUPABASE_PAGE_SIZE - 1);
 
     if (error) throw new Error(`Nie udało się pobrać danych z Supabase: ${error.message}`);
+    if (Number.isFinite(count)) totalCount = count;
 
     const page = data || [];
     loadedRecords.push(
@@ -2034,7 +2036,10 @@ async function loadSupabaseTable(tableName, normalizer, options = {}) {
       }))
     );
 
-    if (page.length < SUPABASE_PAGE_SIZE) break;
+    if (page.length === 0) break;
+    // The server may cap a page below the requested size; never skip the remainder.
+    from += page.length;
+    if (totalCount !== null && from >= totalCount) break;
   }
 
   return normalizer(loadedRecords);
@@ -3353,6 +3358,26 @@ function updateDateInputsTodayState(root = document) {
 
 function normalize(value) {
   return String(value ?? "").toLocaleLowerCase("pl-PL");
+}
+
+function normalizeDeviceSearchText(value) {
+  return normalize(value).normalize("NFD").replace(/\p{M}/gu, "")
+    .replace(/ł/gu, "l").replace(/[\u200B-\u200D\uFEFF]/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function deviceSearchQuery(value) {
+  const text = normalizeDeviceSearchText(value);
+  return { tokens: text ? text.split(" ") : [], serial: text.replaceAll(" ", "") };
+}
+
+function deviceMatchesSearch(record, query) {
+  if (!query.tokens.length) return true;
+  const meta = deviceDerived.get(record.id);
+  const text = meta?.deviceSearchText ?? normalizeDeviceSearchText(fields.map((field) => record[field]).join(" "));
+  if (query.tokens.every((token) => text.includes(token))) return true;
+  const serial = meta?.serialSearchText ?? normalizeDeviceSearchText(record.serialNumber).replaceAll(" ", "");
+  return Boolean(query.serial && serial.includes(query.serial));
 }
 
 function titleCaseName(value) {
@@ -5577,6 +5602,8 @@ function rebuildDeviceDerivedData() {
       fifoLevel: fifoExcluded ? "" : age === null ? "" : age >= 180 ? "critical" : age >= 90 ? "warning" : "",
       ageLevel: fifoExcluded ? "" : age === null ? "missing" : age >= 180 ? "critical" : age >= 90 ? "warning" : age >= 30 ? "aging" : "fresh",
       location,
+      deviceSearchText: normalizeDeviceSearchText(fields.map((field) => record[field]).join(" ")),
+      serialSearchText: normalizeDeviceSearchText(record.serialNumber).replaceAll(" ", ""),
       searchBlob: fields.map((field) => normalize(record[field])).join("\n")
     });
   });
@@ -5828,13 +5855,78 @@ function customerRelationTimeValue(value) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function customerRelationAttention(source, record, context) {
+  const messages = [];
+  const add = (label, detail, level = "pending") => messages.push({ label, detail, level });
+  if (source === "device") {
+    if (displayType(record) === "ZWROT" || !soldDeviceHasCompletedPurchase(record)) return messages;
+    const loans = activeDemoLoanGroupsForCustomer(record.customerName).flatMap((group) => group.loans)
+      .filter((loan) => loan.loanDate && loan.loanDate <= record.pickupDate);
+    if (loans.length) add("Sprawdź wypożyczenie", `Zakup odebrany ${formatDate(record.pickupDate)}, a Demo/Zastępczy nadal przypisany do tego nazwiska: ${loans.map((loan) => loan.serialNumber || loan.deviceName).join(", ")}. Potwierdź osobę i uzupełnij zwrot, jeśli aparat oddano.`, "warning");
+  }
+  if (source === "repair") {
+    const status = repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record);
+    if (status !== "ODEBRANE") {
+      const age = repairStatusAge(record, status);
+      const waiting = age === null ? "" : ` (${formatDaysLabel(age)})`;
+      add(status === "GOTOWE" ? "Do odbioru" : "Sprawa niezakończona",
+        status === "GOTOWE" ? `Sprzęt wrócił z serwisu, brak odbioru przez klienta${waiting}.`
+          : status === "W TRAKCIE" ? `Sprzęt wysłany, brak daty powrotu${waiting}.`
+            : `Przyjęto zgłoszenie, brak zakończenia${waiting}.`, age > 15 ? "critical" : age > 7 ? "warning" : "pending");
+    }
+    (repairDerived.get(record.id)?.documentNumberIssues || []).forEach((issue) => add(issue.title || "Sprawdź dane", issue.detail, "warning"));
+  }
+  if (source === "demo" && isActiveDemoLoan(record)) {
+    const deadline = demoReturnDeadlineInfo(record);
+    const days = deadline.source === "loan" ? daysUntilDate(deadline.date) : null;
+    add(days !== null && days < 0 ? "Zwrot po terminie" : "Wypożyczenie niezakończone",
+      !record.loanDate ? "Brak daty wypożyczenia. Uzupełnij datę i sprawdź termin zwrotu."
+        : `Brak odnotowanego zwrotu${deadline.source === "loan" ? `; termin ${formatDate(deadline.date)}` : ""}.`,
+      days !== null && days < 0 ? "critical" : "pending");
+  }
+  if (source === "loan") {
+    const numberKey = canonicalLoanContractNumber(record.number);
+    if (numberKey && context.loanNumbers.get(numberKey) > 1) add("Powtórzony numer", `Numer umowy ${record.number} występuje więcej niż raz. Sprawdź numerację.`, "warning");
+    if (!record.returnDate) {
+      const deadline = pricingLoanDeadlineStatus(record);
+      const issues = pricingLoanDataIssues(record, context);
+      issues.forEach((detail) => add("Niezgodność z Demo", detail, "warning"));
+      if (deadline || !issues.length) add(deadline?.level === "overdue" ? "Zwrot po terminie" : "Umowa niezakończona",
+        `Brak daty zwrotu${record.periodTo ? `; termin ${formatDate(record.periodTo)}` : "; brak terminu zakończenia"}.`, deadline?.level === "overdue" ? "critical" : "pending");
+    }
+  }
+  if (source === "order" || source === "complaint") {
+    const type = source === "order" ? "ORDER" : "COMPLAINT";
+    const key = `${customerRelationDocumentKey(type, record.number, record.id)}:${customerNameLookupKey(record.customer)}`;
+    if (!context.serviceDocuments.has(key)) add("Brak wpisu w serwisie", "Dokument jest w historii, ale nie znaleziono odpowiadającej mu pozycji w Serwisie i zamówieniach. Sprawdź przekazanie zgłoszenia.", "warning");
+  }
+  if (source === "pcpr" && !String(record.model || "").trim()) add("Brak modelu", "Uzupełnij wstępny model aparatu w PCPR / MOPS.", "warning");
+  return messages;
+}
+
 function customerRelationEntries() {
   const entries = [];
   const relationKeyIndexes = new Map();
+  const loanHistory = normalizePricingLoanHistory(pricingLoanHistory);
+  const context = {
+    loanNumbers: new Map(),
+    demoBySerial: new Map(demoRecords.map((record) => [serialDuplicateKey(record.serialNumber), record])),
+    deviceBySerial: new Map(records.map((record) => [serialDuplicateKey(record.serialNumber), record])),
+    serviceDocuments: new Set(repairRecords.map((record) => {
+      const info = repairDocumentInfo(record);
+      return `${customerRelationDocumentKey(info.type, info.number, record.sourceDocumentId)}:${customerNameLookupKey(record.customerName)}`;
+    }))
+  };
+  loanHistory.forEach((entry) => {
+    const key = canonicalLoanContractNumber(entry.number);
+    if (key) context.loanNumbers.set(key, (context.loanNumbers.get(key) || 0) + 1);
+  });
   const add = (entry) => {
     const customer = titleCaseName(entry.customer || "");
     const normalizedEntry = {
       ...entry,
+      attention: entry.source ? customerRelationAttention(entry.source, entry.record, context) : [],
+      relationKey: entry.relationKey ? `${entry.relationKey}:${customerNameLookupKey(customer)}` : "",
       customer,
       customerKey: customerNameLookupKey(customer),
       date: isoDateForSave(entry.date) || String(entry.date || ""),
@@ -5848,12 +5940,15 @@ function customerRelationEntries() {
         entry.searchValues
       ])
     };
+    normalizedEntry.searchBlob += `\n${customerRelationSearchValue(normalizedEntry.attention.map((message) => [message.label, message.detail]))}`;
     if (!normalizedEntry.searchBlob) return;
     if (normalizedEntry.relationKey && relationKeyIndexes.has(normalizedEntry.relationKey)) {
       const index = relationKeyIndexes.get(normalizedEntry.relationKey);
       const previous = entries[index];
       entries[index] = {
         ...normalizedEntry,
+        attention: [...previous.attention, ...normalizedEntry.attention],
+        open: previous.attention.length ? previous.open : normalizedEntry.open,
         kind: normalizedEntry.mergedKind || previous.mergedKind || normalizedEntry.kind,
         detail: [...new Set([normalizedEntry.detail, previous.detail].filter(Boolean))].join(" | "),
         searchBlob: `${normalizedEntry.searchBlob}\n${previous.searchBlob}`,
@@ -5871,6 +5966,7 @@ function customerRelationEntries() {
     const sold = status === "SPRZEDANY" || Boolean(normalizeSalesInvoice(record.salesInvoice));
     add({
       id: `device-${record.id}`,
+      source: "device", record,
       kind: sold ? "Zakup aparatu" : "Aparat",
       tone: sold ? "purchase" : "device",
       customer: record.customerName,
@@ -5898,6 +5994,7 @@ function customerRelationEntries() {
         : "Serwis / reklamacja";
     add({
       id: `repair-${record.id}`,
+      source: "repair", record,
       kind,
       relationKey,
       mergedKind: documentInfo.type ? `${documentInfo.label} · Serwis` : "",
@@ -5919,6 +6016,7 @@ function customerRelationEntries() {
     if (record.currentUser) {
       add({
         id: `demo-current-${record.id}`,
+        source: "demo", record,
         kind: purpose === DEMO_PURPOSE_REPLACEMENT ? "Aparat zastępczy" : "Aparat Demo",
         tone: "demo",
         customer: record.currentUser,
@@ -5964,8 +6062,9 @@ function customerRelationEntries() {
     }
   }));
 
-  normalizePricingLoanHistory(pricingLoanHistory).forEach((entry) => add({
+  loanHistory.forEach((entry) => add({
     id: `loan-${entry.id}`,
+    source: "loan", record: entry,
     kind: "Umowa wypożyczenia",
     tone: "loan",
     customer: entry.customer,
@@ -5981,6 +6080,7 @@ function customerRelationEntries() {
 
   normalizePricingOrderHistory(pricingOrderHistory).forEach((entry) => add({
     id: `order-${entry.id}`,
+    source: "order", record: entry,
     kind: "Zamówienie",
     relationKey: customerRelationDocumentKey("ORDER", entry.number, entry.id),
     mergedKind: "Zamówienie · Serwis",
@@ -5998,6 +6098,7 @@ function customerRelationEntries() {
 
   normalizePricingComplaintHistory(pricingComplaintHistory).forEach((entry) => add({
     id: `complaint-${entry.id}`,
+    source: "complaint", record: entry,
     kind: "Reklamacja",
     relationKey: customerRelationDocumentKey("COMPLAINT", entry.number, entry.id),
     mergedKind: "Reklamacja · Serwis",
@@ -6015,6 +6116,7 @@ function customerRelationEntries() {
 
   normalizePricingPcprList(pricingPcprList).forEach((entry) => add({
     id: `pcpr-${entry.id}`,
+    source: "pcpr", record: entry,
     kind: "PCPR / MOPS",
     tone: "pcpr",
     customer: entry.customer,
@@ -6044,6 +6146,15 @@ function customerRelationResultItem(entry) {
   const detail = document.createElement("span");
   detail.textContent = entry.detail || "Brak dodatkowych informacji";
   content.append(title, detail);
+  (entry.attention || []).forEach((message) => {
+    const reason = document.createElement("p");
+    reason.className = "customer-relation-attention";
+    reason.dataset.level = message.level;
+    const label = document.createElement("b");
+    label.textContent = `${message.label}: `;
+    reason.append(label, document.createTextNode(message.detail));
+    content.append(reason);
+  });
   const date = document.createElement("time");
   date.textContent = formatDate(entry.date) || "bez daty";
   if (entry.date) date.dateTime = entry.date;
@@ -6058,7 +6169,7 @@ function customerRelationResultItem(entry) {
 
 function renderCustomerRelations() {
   if (!customerRelationsInput || !customerRelationsResults || !customerRelationsSummary) return;
-  if (!canViewCustomerRelations()) {
+  if (!canViewCustomerRelations() || !["devices", "repairs"].includes(activeNotebook)) {
     updateCustomerRelationsPanelVisibility();
     return;
   }
@@ -6068,9 +6179,9 @@ function renderCustomerRelations() {
     customerRelationsSummary.textContent = "Wyszukaj klienta we wszystkich modułach";
     customerRelationsResults.hidden = true;
     customerRelationsResults.replaceChildren();
+    updateCustomerRelationsPanelVisibility();
     return;
   }
-
   const terms = query.split(" ").filter(Boolean);
   const entries = customerRelationEntries();
   const directMatches = entries.filter((entry) => terms.every((term) => entry.searchBlob.includes(term)));
@@ -6082,15 +6193,16 @@ function renderCustomerRelations() {
       right.sortTime - left.sortTime ||
       right.savedTime - left.savedTime ||
       collator.compare(right.kind, left.kind)
-    )
-    .slice(0, 80);
+    );
 
   const customerCount = new Set(matches.map((entry) => entry.customerKey).filter(Boolean)).size;
+  const attentionCount = matches.filter((entry) => entry.attention.length > 0).length;
   customerRelationsSummary.textContent = matches.length
-    ? `${matches.length} ${matches.length === 1 ? "powiązanie" : "powiązań"}${customerCount ? ` · ${customerCount} ${customerCount === 1 ? "klient" : "klientów"}` : ""}`
+    ? `${polishCountLabel(matches.length, "powiązanie", "powiązania", "powiązań")}${customerCount ? ` · ${polishCountLabel(customerCount, "klient", "klientów", "klientów")}` : ""}${attentionCount ? ` · ${attentionCount} do sprawdzenia` : ""}${matches.length > 80 ? " · pokazano 80 najnowszych" : ""}`
     : "Brak powiązań w zapisanych danych";
   customerRelationsResults.hidden = matches.length === 0;
-  customerRelationsResults.replaceChildren(...matches.map(customerRelationResultItem));
+  customerRelationsResults.replaceChildren(...matches.slice(0, 80).map(customerRelationResultItem));
+  updateCustomerRelationsPanelVisibility();
 }
 
 function rebuildDemoManufacturerFilter() {
@@ -6544,7 +6656,8 @@ function searchMatchCounts(value) {
   const query = normalize(value).trim();
   if (!query) return null;
 
-  const matchingDevices = records.filter((record) => deviceDerived.get(record.id)?.searchBlob.includes(query));
+  const deviceQuery = deviceSearchQuery(value);
+  const matchingDevices = records.filter((record) => deviceMatchesSearch(record, deviceQuery));
   const matchingDemo = demoRecords.filter((record) => demoDerived.get(record.id)?.searchBlob.includes(query));
   const matchingRepairs = repairRecords.filter((record) => repairDerived.get(record.id)?.searchBlob.includes(query));
   const counts = {
@@ -6566,6 +6679,7 @@ function searchMatchCounts(value) {
 
   return {
     ...counts,
+    devices: matchingDevices.length,
     total: matchingDevices.length + matchingDemo.length + matchingRepairs.length
   };
 }
@@ -6585,7 +6699,7 @@ function renderSearchMatchSummary(input, container) {
     empty.textContent = "Brak wyników w Aparatach, Demo i Serwisie";
     container.replaceChildren(empty);
     container.hidden = false;
-    return;
+    return counts;
   }
 
   const items = [
@@ -6611,10 +6725,35 @@ function renderSearchMatchSummary(input, container) {
   });
   container.replaceChildren(...badges);
   container.hidden = false;
+  return counts;
+}
+
+function showDeviceSearchAcrossFilters() {
+  [typeFilter, ezwmFilter, fifoFilter, locationFilter].forEach((filter) => { filter.value = ""; });
+  updateDeviceTypeSelectStyles();
+  updateDocumentLocationAccents();
+  resetAndRenderDeviceViews();
+}
+
+function renderDeviceSearchFilterNotice(total, visible) {
+  const notice = document.querySelector("#deviceSearchFilterNotice");
+  if (!notice) return;
+  const hiddenCount = Math.max(0, total - visible);
+  notice.hidden = !String(searchInput.value).trim() || hiddenCount === 0;
+  notice.replaceChildren();
+  if (notice.hidden) return;
+  const text = document.createElement("span");
+  text.textContent = `W całej Bazie (wszystkie lata): ${total}. Ukryte przez filtry: ${hiddenCount}.`;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "reset-filters-btn";
+  button.textContent = "Pokaż bez filtrów";
+  button.addEventListener("click", showDeviceSearchAcrossFilters);
+  notice.append(text, button);
 }
 
 function filteredRecords() {
-  const query = normalize(searchInput.value).trim();
+  const query = deviceSearchQuery(searchInput.value);
   const selectedType = typeFilter.value;
   const selectedEzwm = ezwmFilter.value;
   const selectedFifo = fifoFilter.value;
@@ -6623,9 +6762,10 @@ function filteredRecords() {
   return records
     .filter((record) => {
       const meta = deviceDerived.get(record.id);
-      const matchesType = !selectedType || meta?.displayType === selectedType;
+      const recordType = meta?.displayType ?? displayType(record);
+      const matchesType = !selectedType || recordType === selectedType;
       const matchesLocation = !selectedLocation || (meta?.location ?? normalizeRepairLocation(record.location)) === selectedLocation;
-      const ezwm = meta?.displayType === "ZWROT" ? "" : normalizeEzwmStatus(record.ezwm);
+      const ezwm = recordType === "ZWROT" ? "" : normalizeEzwmStatus(record.ezwm);
       const matchesEzwm = !selectedEzwm || (selectedEzwm === "BRAK" ? !ezwm : ezwm === selectedEzwm);
       const age = meta?.age ?? null;
       const matchesFifo =
@@ -6633,7 +6773,7 @@ function filteredRecords() {
         (!meta?.fifoExcluded && selectedFifo === "fifo") ||
         (!meta?.fifoExcluded && selectedFifo === "90" && age !== null && age >= 90) ||
         (!meta?.fifoExcluded && selectedFifo === "180" && age !== null && age >= 180);
-      const matchesQuery = !query || meta?.searchBlob.includes(query);
+      const matchesQuery = deviceMatchesSearch(record, query);
       return matchesType && matchesLocation && matchesEzwm && matchesFifo && matchesQuery;
     })
     .sort((left, right) => {
@@ -6695,8 +6835,9 @@ function render() {
 
 function renderDeviceViews() {
   updatePrivatePaymentVisibility();
-  renderSearchMatchSummary(searchInput, deviceSearchSummary);
+  const searchCounts = renderSearchMatchSummary(searchInput, deviceSearchSummary);
   const visibleRecords = filteredRecords();
+  renderDeviceSearchFilterNotice(searchCounts?.devices || 0, visibleRecords.length);
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
   renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords, createRow, (record) => record.receivedDate));
   emptyState.hidden = visibleRecords.length > 0;
@@ -8642,15 +8783,15 @@ function pricingLoanDeadlineStatus(entry) {
   return { level: "ending", days, label: `Kończy się za ${formatDaysLabel(days)}` };
 }
 
-function pricingLoanDataIssues(entry) {
+function pricingLoanDataIssues(entry, indexes = null) {
   if (!entry || entry.returnDate) return [];
   const customerKey = customerNameLookupKey(entry.customer);
   const loanDate = entry.periodFrom || entry.date || "";
   const issues = [];
 
   pricingLoanHistoryDevices(entry).forEach(({ serial, serialKey }) => {
-    const demoRecord = demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
-    const deviceRecord = records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+    const demoRecord = indexes ? indexes.demoBySerial.get(serialKey) : demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+    const deviceRecord = indexes ? indexes.deviceBySerial.get(serialKey) : records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
 
     // Aparat z Bazy jest poprawnym numerem, ale aktywna umowa wymaga też pozycji w Demo.
     if (!demoRecord) {
@@ -16731,6 +16872,7 @@ function switchNotebook(notebookName) {
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
   updateCustomerRelationsPanelVisibility();
+  if (["devices", "repairs"].includes(activeNotebook)) renderCustomerRelations();
   notebookSwitchButtons.forEach((button) => {
     const isActive = button.dataset.notebook === notebookName;
     button.classList.toggle("active", isActive);

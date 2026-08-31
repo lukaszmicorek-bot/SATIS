@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-153">
+    <link rel="stylesheet" href="styles.css?v=20260831-156">
   </head>
   <body>
     <main class="app-shell">
@@ -66,12 +66,12 @@
         </div>
       </div>
 
-      <section class="customer-relations-panel" aria-label="Wyszukiwanie powiązań klienta" hidden>
+      <section class="customer-relations-panel" aria-label="Powiązania klienta i sprawy wymagające uwagi" hidden>
         <label class="customer-relations-search">
           <span>Powiązania</span>
           <input id="customerRelationsInput" type="search" placeholder="Imię i nazwisko, model lub nr seryjny..." autocomplete="off">
         </label>
-        <span id="customerRelationsSummary" class="customer-relations-summary">Wyszukaj klienta we wszystkich modułach</span>
+        <span id="customerRelationsSummary" class="customer-relations-summary" role="status" aria-live="polite"></span>
         <button id="clearCustomerRelationsBtn" class="reset-filters-btn" type="button" hidden>Wyczyść</button>
         <div id="customerRelationsResults" class="customer-relations-results" hidden></div>
       </section>
@@ -89,10 +89,11 @@
             <div class="search-with-summary">
               <label class="search-box paste-input-field">
                 <span>Szukaj</span>
-                <input id="searchInput" type="search" placeholder="Model, numer seryjny, klient, faktura...">
+                <input id="searchInput" type="search" placeholder="Model, numer seryjny, klient, faktura..." title="Wyszukiwanie we wszystkich latach bazy. Możesz pominąć polskie znaki i separatory numeru seryjnego.">
                 <button class="paste-input-btn" type="button" data-paste-target="searchInput">Wklej</button>
               </label>
               <div id="deviceSearchSummary" class="search-match-summary" aria-live="polite" hidden></div>
+              <div id="deviceSearchFilterNotice" class="device-search-filter-notice" role="status" aria-live="polite" hidden></div>
             </div>
             <label>
               <span>Status</span>
@@ -2592,6 +2593,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-153"></script>
+    <script src="app.js?v=20260831-156"></script>
   </body>
 </html>
