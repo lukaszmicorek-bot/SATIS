@@ -412,6 +412,11 @@ h2 {
   white-space: nowrap;
 }
 
+.workstation-button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .notebook-switch-button {
   flex: 0 0 auto;
   min-height: 30px;
@@ -2630,6 +2635,33 @@ h2 {
   background: linear-gradient(90deg, color-mix(in srgb, var(--pricing-tone-bg-strong) 58%, #fff), color-mix(in srgb, var(--pricing-tone-bg) 42%, #fff));
   font-weight: 760;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.pricing-table tbody tr.pricing-model-unavailable,
+.pricing-table tbody tr.pricing-model-unavailable:hover {
+  background: #f6f7f7;
+}
+
+.pricing-table tr.pricing-model-unavailable td:not(.row-actions),
+.pricing-table tr.pricing-model-unavailable .pricing-price-value {
+  color: #748087;
+}
+
+.pricing-table tr.pricing-model-unavailable .pricing-manufacturer-cell {
+  background: transparent;
+}
+
+.pricing-unavailable-label {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #e9edef;
+  color: #56656e;
+  font-size: 0.67rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .pricing-manufacturer-tone-0 {
@@ -5108,6 +5140,30 @@ h2 {
   align-content: start;
 }
 
+.pcpr-notes-field {
+  grid-column: 1 / -2;
+  min-width: 0;
+}
+
+#pcprNotesInput {
+  width: 100%;
+  min-height: 58px;
+  resize: vertical;
+}
+
+.pcpr-form-grid .pcpr-form-row-notes {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.pcpr-item-notes {
+  margin: 6px 0 0;
+  color: #53666f;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .pcpr-name-field,
 .pcpr-ear-field {
   display: grid;
@@ -5813,15 +5869,38 @@ textarea:focus {
 }
 
 .demo-purpose-choices button[data-demo-purpose="DO TESTOWANIA"][aria-pressed="true"] {
-  border-color: #77aaa9;
-  background: #e7f5f3;
-  color: #176b69;
+  border-color: #79acc7;
+  background: #dfeff8;
+  color: #245978;
 }
 
 .demo-purpose-choices button[data-demo-purpose="APARAT ZASTĘPCZY"][aria-pressed="true"] {
-  border-color: #a894bb;
-  background: #f0ebf5;
-  color: #655579;
+  border-color: #d6a17b;
+  background: #fbe9db;
+  color: #87512d;
+}
+
+.demo-purpose-choices button[data-demo-purpose="DO TESTOWANIA"][aria-pressed="false"] {
+  border-color: #d2e0e9;
+  background: #f6fafc;
+  color: #46687b;
+}
+
+.demo-purpose-choices button[data-demo-purpose="APARAT ZASTĘPCZY"][aria-pressed="false"] {
+  border-color: #eadbd0;
+  background: #fdf9f6;
+  color: #85664f;
+}
+
+.demo-purpose-choices button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transform: none;
+}
+
+.demo-purpose-choices button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .demo-purpose-choices.required-missing {
@@ -5829,6 +5908,78 @@ textarea:focus {
   border: 1px solid #bd5a50;
   border-radius: 8px;
   background: #fff3f1;
+}
+
+#demoStatus {
+  --demo-status-bg: #f5f7f8;
+  --demo-status-ink: #52636c;
+  --demo-status-border: #cad4d9;
+  background-color: var(--demo-status-bg);
+  color: var(--demo-status-ink);
+  border-color: var(--demo-status-border);
+  font-weight: 700;
+}
+
+#demoStatus:has(option[value="NA STANIE"]:checked) {
+  --demo-status-bg: #e7f2fa;
+  --demo-status-ink: #2d6080;
+  --demo-status-border: #a8c9dd;
+}
+
+#demoStatus:has(option[value="WYPOŻYCZONY"]:checked) {
+  --demo-status-bg: #faf3d9;
+  --demo-status-ink: #786019;
+  --demo-status-border: #dbc992;
+}
+
+#demoStatus:has(option[value="DO ZWROTU"]:checked) {
+  --demo-status-bg: #fcebdd;
+  --demo-status-ink: #925226;
+  --demo-status-border: #ddaf8c;
+}
+
+#demoStatus:has(option[value="BRAK"]:checked) {
+  --demo-status-bg: #fbe8ea;
+  --demo-status-ink: #973f4c;
+  --demo-status-border: #dfaab3;
+}
+
+#demoStatus:has(option[value="ZWRÓCONO"]:checked) {
+  --demo-status-bg: #eef1f2;
+  --demo-status-ink: #596971;
+  --demo-status-border: #c5cfd3;
+}
+
+#demoStatus option { background: #fff; color: #304d5b; }
+
+#repairCategory {
+  --repair-category-border: #c5d1d7;
+  border: 2px solid var(--repair-category-border);
+}
+
+#repairCategory:has(option[value="WKŁADKA USZNA"]:checked) {
+  --repair-category-border: #d8c58b;
+}
+
+#repairCategory:has(option[value="WKŁADKA PRZECIWWODNA"]:checked) {
+  --repair-category-border: #8dc7bd;
+}
+
+#repairCategory:has(option[value="ZAMÓWIENIE"]:checked) {
+  --repair-category-border: #bcaed8;
+}
+
+#repairCategory:has(option[value="NAPRAWA GWARANCYJNA"]:checked) {
+  --repair-category-border: #9bbbd7;
+}
+
+#repairCategory:has(option[value="NAPRAWA POGWARANCYJNA"]:checked) {
+  --repair-category-border: #d99aaa;
+}
+
+#repairCategory:focus {
+  border-color: var(--repair-category-border);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--repair-category-border) 24%, transparent);
 }
 
 .location-filter-field:not([data-location-tone]) {
