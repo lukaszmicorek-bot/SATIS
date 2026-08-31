@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-138">
+    <link rel="stylesheet" href="styles.css?v=20260831-139">
   </head>
   <body>
     <main class="app-shell">
@@ -1403,7 +1403,7 @@
                     <button id="addComplaintItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj model do reklamacji">
                       <span aria-hidden="true">+</span>
                       Dodaj model
-                      <span data-complaint-item-limit hidden>(2/2)</span>
+                      <span data-complaint-item-limit hidden>(3/3)</span>
                     </button>
                   </div>
                   <div class="complaint-editor-scroll">
@@ -1473,6 +1473,33 @@
                           <td colspan="7"><p id="complaintWarrantyHint2" class="complaint-warranty-hint" hidden></p></td>
                         </tr>
                       </tbody>
+                      <tbody class="complaint-product-card" data-complaint-product-card="3" hidden>
+                        <tr>
+                          <td class="complaint-position-cell">3</td>
+                          <td>
+                            <select id="complaintProductTypeInput3" aria-label="Typ pozycji 3">
+                              <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
+                              <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                              <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                              <option value="ŁADOWARKA">Ładowarka</option>
+                              <option value="INNE">Inne</option>
+                            </select>
+                          </td>
+                          <td><input id="complaintProductNameInput3" type="text" list="pricingOfferDeviceList" placeholder="Trzeci model, wkładka lub produkt" autocomplete="off" aria-label="Nazwa lub model pozycji 3"></td>
+                          <td>
+                            <div class="paste-input-field complaint-table-paste">
+                              <input id="complaintSerialInput3" type="text" autocomplete="off" aria-label="Numer seryjny pozycji 3">
+                              <button class="paste-input-btn" type="button" data-paste-target="complaintSerialInput3" data-paste-format="serial">Wklej</button>
+                            </div>
+                          </td>
+                          <td><input id="complaintPurchaseDocumentInput3" type="text" placeholder="np. FS 00/B/2026" autocomplete="off" aria-label="Dokument zakupu pozycji 3"></td>
+                          <td><input id="complaintPurchaseDateInput3" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" aria-label="Data sprzedaży pozycji 3"></td>
+                          <td><button id="removeComplaintItemBtn3" class="complaint-remove-item-btn" type="button" aria-label="Usuń pozycję 3">×</button></td>
+                        </tr>
+                        <tr class="complaint-warranty-row">
+                          <td colspan="7"><p id="complaintWarrantyHint3" class="complaint-warranty-hint" hidden></p></td>
+                        </tr>
+                      </tbody>
                     </table>
                   </div>
                 </div>
@@ -1494,6 +1521,7 @@
                 <div class="complaint-device-picker-actions">
                   <button id="complaintUseDeviceItem1Btn" class="complaint-device-picker-btn" type="button">Do pozycji 1</button>
                   <button id="complaintUseDeviceItem2Btn" class="complaint-device-picker-btn" type="button">Do pozycji 2</button>
+                  <button id="complaintUseDeviceItem3Btn" class="complaint-device-picker-btn" type="button">Do pozycji 3</button>
                 </div>
               </div>
 
@@ -2534,6 +2562,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-138"></script>
+    <script src="app.js?v=20260831-139"></script>
   </body>
 </html>

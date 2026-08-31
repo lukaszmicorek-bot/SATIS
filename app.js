@@ -8865,6 +8865,8 @@ function restorePricingComplaintFromHistory(entry) {
   setComplaintItemFields(1, saved.items[0] || {});
   setComplaintItemFields(2, saved.items[1] || {});
   setComplaintSecondItemVisible(Boolean(saved.items[1]));
+  setComplaintItemFields(3, saved.items[2] || {});
+  setComplaintItemVisible(3, Boolean(saved.items[2]));
   switchPricingView("complaint");
   renderPricingComplaint();
   markAgreementDraftSaved("complaint");
@@ -11643,6 +11645,14 @@ function updatePricingComplaintRequestTone(value) {
 }
 
 function complaintItemInputs(slot = 1) {
+  if (slot === 3) return {
+    productType: document.querySelector("#complaintProductTypeInput3"),
+    productName: document.querySelector("#complaintProductNameInput3"),
+    serial: document.querySelector("#complaintSerialInput3"),
+    purchaseDocument: document.querySelector("#complaintPurchaseDocumentInput3"),
+    purchaseDate: document.querySelector("#complaintPurchaseDateInput3"),
+    warrantyHint: document.querySelector("#complaintWarrantyHint3")
+  };
   return slot === 2
     ? {
         productType: complaintProductTypeInput2,
@@ -11663,7 +11673,7 @@ function complaintItemInputs(slot = 1) {
 }
 
 function complaintItemInputGroups() {
-  return [complaintItemInputs(1), complaintItemInputs(2)];
+  return [1, 2, 3].map(complaintItemInputs);
 }
 
 function selectedComplaintProductNameFromInput(input) {
@@ -11698,7 +11708,7 @@ function normalizePricingComplaintItems(entry = {}) {
   const items = rawItems
     .map(normalizePricingComplaintItem)
     .filter(pricingComplaintItemHasContent)
-    .slice(0, 2);
+    .slice(0, 3);
 
   const legacyItem = normalizePricingComplaintItem({
     productType: entry.productType,
@@ -11890,7 +11900,7 @@ function complaintFormItem(slot = 1) {
 }
 
 function complaintFormItems({ includeBlank = false } = {}) {
-  return [complaintFormItem(1), complaintFormItem(2)]
+  return [1, 2, 3].map(complaintFormItem)
     .filter((item) => includeBlank || pricingComplaintItemHasContent(item));
 }
 
@@ -11929,23 +11939,37 @@ function clearComplaintItem(slot = 1) {
 }
 
 function setComplaintSecondItemVisible(visible, { clear = false, focus = false } = {}) {
-  if (clear) clearComplaintItem(2);
-  if (complaintProductCard2) complaintProductCard2.hidden = !visible;
+  setComplaintItemVisible(2, visible, { clear, focus });
+}
+
+function updateComplaintAddButton() {
+  const full = [2, 3].every((slot) => document.querySelector(`[data-complaint-product-card="${slot}"]`)?.hidden === false);
   if (addComplaintItemBtn) {
     addComplaintItemBtn.hidden = false;
-    addComplaintItemBtn.disabled = visible;
-    addComplaintItemBtn.title = visible ? "Reklamacja może zawierać dwa modele. Usuń pozycję, aby dodać inną." : "Dodaj model do reklamacji";
+    addComplaintItemBtn.disabled = full;
+    addComplaintItemBtn.title = full ? "Reklamacja może zawierać trzy modele. Usuń pozycję, aby dodać inną." : "Dodaj model do reklamacji";
     const limit = addComplaintItemBtn.querySelector("[data-complaint-item-limit]");
-    if (limit) limit.hidden = !visible;
+    if (limit) limit.hidden = !full;
   }
-  if (visible && focus) complaintProductTypeInput2?.focus();
+}
+
+function setComplaintItemVisible(slot, visible, { clear = false, focus = false } = {}) {
+  if (clear) clearComplaintItem(slot);
+  const card = document.querySelector(`[data-complaint-product-card="${slot}"]`);
+  if (card) card.hidden = !visible;
+  updateComplaintAddButton();
+  if (visible && focus) complaintItemInputs(slot).productType?.focus();
 }
 
 function addPricingComplaintItem() {
-  if (complaintProductTypeInput2 && !pricingComplaintItemHasContent(complaintFormItem(2))) {
-    complaintProductTypeInput2.value = normalizePricingComplaintProductType(complaintProductTypeInput?.value);
+  const slot = [2, 3].find((value) => document.querySelector(`[data-complaint-product-card="${value}"]`)?.hidden);
+  if (!slot) return;
+  const inputs = complaintItemInputs(slot);
+  if (inputs.productType && !pricingComplaintItemHasContent(complaintFormItem(slot))) {
+    inputs.productType.value = normalizePricingComplaintProductType(complaintItemInputs(slot - 1).productType?.value);
   }
-  setComplaintSecondItemVisible(true, { focus: true });
+  setComplaintItemVisible(slot, true, { focus: true });
+  markAgreementDraftDirty("complaint");
   renderPricingComplaint();
 }
 
@@ -11962,14 +11986,12 @@ function complaintItemCanBeCustomerAutofilled(slot = 1) {
 }
 
 function removePricingComplaintItem(slot = 1) {
-  if (slot === 1 && pricingComplaintItemHasContent(complaintFormItem(2))) {
-    setComplaintItemFields(1, complaintFormItem(2));
-    setComplaintSecondItemVisible(false, { clear: true });
-  } else if (slot === 2) {
-    setComplaintSecondItemVisible(false, { clear: true });
-  } else {
-    clearComplaintItem(slot);
-  }
+  const remaining = [1, 2, 3].filter((value) => value !== slot)
+    .map(complaintFormItem).filter(pricingComplaintItemHasContent);
+  [1, 2, 3].forEach((value, index) => {
+    setComplaintItemFields(value, remaining[index] || {});
+    if (value > 1) setComplaintItemVisible(value, Boolean(remaining[index]));
+  });
   syncComplaintRequestFromWarranty();
   updateComplaintWarrantyHints();
   markAgreementDraftDirty("complaint");
@@ -12127,6 +12149,8 @@ function updateComplaintCustomerDevicePickerActions() {
   const disabled = !complaintCustomerDeviceSelect?.value;
   if (complaintUseDeviceItem1Btn) complaintUseDeviceItem1Btn.disabled = disabled;
   if (complaintUseDeviceItem2Btn) complaintUseDeviceItem2Btn.disabled = disabled;
+  const thirdButton = document.querySelector("#complaintUseDeviceItem3Btn");
+  if (thirdButton) thirdButton.disabled = disabled;
 }
 
 function updateComplaintCustomerDevicePicker(matches = []) {
@@ -12211,7 +12235,7 @@ function syncComplaintRequestFromWarranty(items = complaintFormItems()) {
 }
 
 function updateComplaintWarrantyHints(items = complaintFormItems({ includeBlank: true })) {
-  const normalizedItems = [items[0] || normalizePricingComplaintItem(), items[1] || normalizePricingComplaintItem()];
+  const normalizedItems = [0, 1, 2].map((index) => items[index] || normalizePricingComplaintItem());
   const selectedRequest = normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput));
 
   normalizedItems.forEach((item, index) => {
@@ -12278,7 +12302,7 @@ function updateComplaintCustomerMatchHint(matchCount, matchedRecords = [], chang
     return;
   }
   const details = matches
-    .slice(0, 2)
+    .slice(0, 3)
     .map((record) => {
       const saleDate = soldDeviceSaleDate(record);
       return [
@@ -12291,7 +12315,7 @@ function updateComplaintCustomerMatchHint(matchCount, matchedRecords = [], chang
     .filter(Boolean)
     .join(" | ");
   const prefix = changed ? "Uzupełniono z bazy" : "Znaleziono w bazie";
-  const suffix = matchCount > matches.length ? `Znaleziono ${matchCount} sprzedane wpisy, uzupełniono pierwsze dwie pozycje.` : "";
+  const suffix = matchCount > matches.length ? `Znaleziono ${matchCount} sprzedane wpisy. Formularz mieści trzy pozycje.` : "";
   complaintCustomerMatchHint.textContent = [prefix, details, suffix].filter(Boolean).join(". ");
   complaintCustomerMatchHint.hidden = false;
 }
@@ -12333,7 +12357,10 @@ function selectedComplaintCustomerDeviceRecord() {
 function useComplaintCustomerDevice(slot = 1) {
   const record = selectedComplaintCustomerDeviceRecord();
   if (!record) return;
-  if (slot === 2) setComplaintSecondItemVisible(true);
+  if (slot > 1) {
+    setComplaintSecondItemVisible(true);
+    setComplaintItemVisible(slot, true);
+  }
   fillComplaintFromDeviceRecord(record, slot, { overwrite: true });
   updateComplaintCustomerMatchHint(1, [record], true);
   syncComplaintRequestFromWarranty();
@@ -12355,9 +12382,10 @@ function syncPricingComplaintFromCustomer() {
   }
   updateComplaintCustomerDevicePicker(matches);
   let changed = false;
-  const matchedRows = matches.slice(0, 2);
+  const matchedRows = matches.slice(0, 3);
   if (matchedRows[1]) setComplaintSecondItemVisible(true);
-  [1, 2].forEach((slot) => {
+  if (matchedRows[2]) setComplaintItemVisible(3, true);
+  [1, 2, 3].forEach((slot) => {
     const record = matchedRows[slot - 1];
     const canAutofill = complaintItemCanBeCustomerAutofilled(slot);
     if (record) {
@@ -12519,6 +12547,7 @@ function resetPricingComplaintForm() {
     complaintRequestInput.dataset.complaintAutofilled = "";
   }
   setComplaintSecondItemVisible(false, { clear: true });
+  setComplaintItemVisible(3, false, { clear: true });
   updateComplaintCustomerMatchHint(0);
   updateComplaintCustomerDevicePicker([]);
   updateComplaintWarrantyHints([]);
@@ -19498,8 +19527,19 @@ complaintRequestInput?.addEventListener("change", () => {
 complaintCustomerDeviceSelect?.addEventListener("change", updateComplaintCustomerDevicePickerActions);
 complaintUseDeviceItem1Btn?.addEventListener("click", () => useComplaintCustomerDevice(1));
 complaintUseDeviceItem2Btn?.addEventListener("click", () => useComplaintCustomerDevice(2));
-[1, 2].forEach((slot) => {
+[1, 2, 3].forEach((slot) => {
   const inputs = complaintItemInputs(slot);
+  if (slot === 3) {
+    [inputs.productType, inputs.productName, inputs.serial, inputs.purchaseDocument, inputs.purchaseDate].forEach((input) => {
+      ["input", "change"].forEach((eventName) => input?.addEventListener(eventName, () => {
+        input.dataset.complaintAutofilled = "";
+      }, { capture: true }));
+    });
+    inputs.purchaseDate?.addEventListener("input", renderPricingComplaint);
+    inputs.purchaseDate?.addEventListener("change", renderPricingComplaint);
+    document.querySelector("#removeComplaintItemBtn3")?.addEventListener("click", () => removePricingComplaintItem(3));
+    document.querySelector("#complaintUseDeviceItem3Btn")?.addEventListener("click", () => useComplaintCustomerDevice(3));
+  }
   inputs.productType?.addEventListener("change", () => {
     syncComplaintProductNameForType(slot);
     renderPricingComplaint();
@@ -19520,6 +19560,12 @@ complaintUseDeviceItem2Btn?.addEventListener("click", () => useComplaintCustomer
   });
 });
 newPricingComplaintBtn?.addEventListener("click", resetPricingComplaintForm);
+document.querySelectorAll(".complaint-editor-table tbody > tr:not(.complaint-warranty-row)").forEach((row) => {
+  const labels = ["Pozycja", "Typ", "Nazwa / model", "Nr seryjny", "Dokument zakupu", "Data sprzedaży", ""];
+  [...row.children].forEach((cell, index) => {
+    if (labels[index]) cell.dataset.fieldLabel = labels[index];
+  });
+});
 addComplaintItemBtn?.addEventListener("click", addPricingComplaintItem);
 removeComplaintItemBtn1?.addEventListener("click", () => removePricingComplaintItem(1));
 removeComplaintItemBtn2?.addEventListener("click", () => removePricingComplaintItem(2));
