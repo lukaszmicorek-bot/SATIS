@@ -429,6 +429,7 @@ const repairFields = [
   "category",
   "location",
   "customerName",
+  "phone",
   "deviceName",
   "serialNumber",
   "serialNumber2",
@@ -3993,15 +3994,85 @@ function repairRecordDuplicateKey(record) {
     normalizeRepairCategory(record?.category),
     customerNameLookupKey(record?.customerName),
     normalizeDeviceName(record?.deviceName),
-    ...repairSerialNumbers(record).map(serialDuplicateKey).sort(),
-    normalizeLoanHistoryText(record?.sourceDocumentNumber)
+    ...repairSerialNumbers(record).map(serialDuplicateKey).sort()
   ].map((value) => normalize(value)).join("|");
 }
 
 function duplicateRepairRecord(data, currentId = "") {
-  const checkedKey = repairRecordDuplicateKey(data);
-  if (!checkedKey.replaceAll("|", "")) return null;
-  return repairRecords.find((record) => record.id !== currentId && repairRecordDuplicateKey(record) === checkedKey) || null;
+  const keys = new Set(repairDuplicateKeys(data));
+  if (!keys.size) return null;
+  return repairRecords.find((record) => record.id !== currentId && repairDuplicateKeys(record).some((key) => keys.has(key))) || null;
+}
+
+function repairDuplicateKeys(record) {
+  const date = isoDateForSave(record?.receivedDate);
+  const customer = customerNameLookupKey(record?.customerName);
+  if (!date || !customer) return [];
+  const serials = repairSerialNumbers(record).map(serialDuplicateKey).sort();
+  if (serials.length) return serials.map((serial) => JSON.stringify([date, customer, serial]));
+  if (!normalizeDeviceName(record?.deviceName)) return [];
+  return [`no-serial:${repairRecordDuplicateKey(record)}`];
+}
+
+function repairDuplicateMessage(record) {
+  const info = repairDocumentInfo(record);
+  const reference = info.number ? `${info.label || "Dokument"} ${info.number}` : `wpis ${record.id}`;
+  return `Taki wpis już istnieje: ${record.customerName}, ${formatDate(record.receivedDate)}, nr ser. ${repairSerialNumbers(record).join(" / ") || "brak"}. ${reference}. Otwórz istniejący wpis zamiast dodawać kolejny.`;
+}
+
+function repairDuplicateIssueMap(recordsToCheck) {
+  const groups = new Map();
+  recordsToCheck.forEach((record) => {
+    repairDuplicateKeys(record).forEach((key) => {
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(record);
+    });
+  });
+  const issues = new Map();
+  groups.forEach((group) => {
+    if (group.length < 2) return;
+    group.forEach((record) => {
+      if (issues.has(record.id)) return;
+      const other = group[0].id === record.id ? group[1] : group[0];
+      issues.set(record.id, [{
+        kind: "repair-duplicate", severity: "warning", title: "Możliwy duplikat serwisu",
+        detail: `Ta sama osoba i data przyjęcia oraz zgodny numer seryjny (albo identyczna pozycja bez numeru). ${repairDuplicateMessage(other)}`
+      }]);
+    });
+  });
+  return issues;
+}
+
+function repairDocumentDuplicate(incomingRecord) {
+  const existing = repairRecords.find((record) => repairDocumentSourceMatches(record,
+    incomingRecord.sourceDocumentType, incomingRecord.sourceDocumentId, incomingRecord.sourceDocumentNumber));
+  return duplicateRepairRecord(incomingRecord, existing?.id || "");
+}
+
+let repairWriteCheckInProgress = false;
+
+async function withFreshRepairRecords(action) {
+  if (repairWriteCheckInProgress) return null;
+  repairWriteCheckInProgress = true;
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed sprawdzaniem duplikatów.");
+      repairRecords = await loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse);
+    } else if (hasSharedServer) {
+      const response = await fetch(REPAIR_API_URL, { cache: "no-store" });
+      if (!response.ok) throw new Error("Nie udało się sprawdzić aktualnych wpisów serwisowych.");
+      const records = await response.json();
+      if (!Array.isArray(records)) throw new Error("Niepoprawne dane serwisowe.");
+      repairRecords = normalizeRepairRecordsForUse(records);
+    }
+    rebuildAfterRepairChange();
+    return await action();
+  } catch (error) {
+    alert(`Nie udało się zapisać: ${error.message || "nie można sprawdzić duplikatów"}`);
+    return null;
+  } finally {
+    repairWriteCheckInProgress = false;
+  }
 }
 
 function stockAge(record) {
@@ -4079,6 +4150,7 @@ function normalizeRepairCategory(category) {
 
 function normalizeRepairRecordForUse(record) {
   const normalizedRecord = { ...record };
+  normalizedRecord.phone = String(record.phone ?? "").trim();
   normalizedRecord.category = normalizeRepairCategory(normalizedRecord.category);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.customerName = titleCaseName(normalizedRecord.customerName);
@@ -5248,13 +5320,14 @@ function rebuildRepairDerivedData() {
   repairDerived.clear();
   repairStats = { all: repairRecords.length, repairs: 0, inserts: 0, open: 0 };
   const documentNumberIssues = repairDocumentNumberIssueMap(repairRecords);
+  const duplicateIssues = repairDuplicateIssueMap(repairRecords);
 
   repairRecords.forEach((record) => {
     const category = normalizeRepairCategory(record.category);
     const status = effectiveRepairStatus(record);
     const location = normalizeRepairLocation(record.location);
     const closed = status === "ODEBRANE";
-    const issues = documentNumberIssues.get(record.id) || [];
+    const issues = [...(documentNumberIssues.get(record.id) || []), ...(duplicateIssues.get(record.id) || [])];
     const documentInfo = repairDocumentInfo(record);
 
     if (category.startsWith("NAPRAWA")) repairStats.repairs += 1;
@@ -5357,6 +5430,9 @@ function addCustomerPhoneIndexEntry(customer, value, source, date = "") {
 
 function rebuildCustomerPhoneIndex() {
   customerPhoneIndex.clear();
+  repairRecords.forEach((record) => {
+    addCustomerPhoneIndexEntry(record.customerName, record.phone, "Serwis i zamówienia", record.receivedDate);
+  });
   demoRecords.forEach((record) => {
     addCustomerPhoneIndexEntry(record.currentUser, record.phone, "Demo", record.loanDate);
     effectiveDemoLoanHistory(record).forEach((entry) => {
@@ -10655,11 +10731,20 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   const now = new Date().toISOString();
   const snapshotKey = pricingOrderSnapshotKey(snapshot);
   const existingEntry = pricingOrderHistory.find((entry) => pricingOrderSnapshotKey(entry) === snapshotKey || entry.number === snapshot.number);
+  if (existingEntry && customerNameLookupKey(existingEntry.customer) !== customerNameLookupKey(snapshot.customer)) {
+    alert(`Numer zamówienia ${existingEntry.number} należy już do innego klienta. Wybierz nowy numer zamiast nadpisywać dokument.`);
+    return null;
+  }
   const semanticDuplicate = pricingOrderHistory.find((entry) => (
     entry.id !== existingEntry?.id && pricingOrderSemanticKey(entry) === pricingOrderSemanticKey(snapshot)
   ));
   if (semanticDuplicate) {
     if (!silent) alert(`Takie zamówienie już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}.`);
+    return null;
+  }
+  const serviceDuplicate = repairDocumentDuplicate(pricingOrderRepairRecord({ ...snapshot, id: existingEntry?.id || snapshot.id }));
+  if (serviceDuplicate) {
+    alert(repairDuplicateMessage(serviceDuplicate));
     return null;
   }
   const historyEntry = normalizePricingOrderHistoryEntry({
@@ -10707,7 +10792,7 @@ function repairDocumentSourceMatches(record, sourceType, sourceId, sourceNumber)
   const recordSourceId = normalizeLoanHistoryText(record?.sourceDocumentId);
   const recordSourceNumber = normalizeLoanHistoryText(record?.sourceDocumentNumber);
   if (recordType && recordType !== checkedType) return false;
-  if (sourceId && recordSourceId === sourceId) return true;
+  if (sourceId && recordSourceId) return recordSourceId === sourceId;
   if (sourceNumber && recordSourceNumber === sourceNumber) return true;
   const sourceTag = repairDocumentSourceTag(checkedType, sourceNumber);
   return Boolean(sourceNumber && normalize(record?.notes).includes(normalize(sourceTag)));
@@ -10975,6 +11060,7 @@ function pricingOrderRepairRecord(entry) {
     category: "ZAMÓWIENIE",
     location: documentLocationToRepairLocation(normalizedEntry.location),
     customerName: normalizedEntry.customer,
+    phone: normalizedEntry.phone,
     deviceName: pricingOrderRepairDeviceName(normalizedEntry.items) || "Zamówienie",
     serialNumber: "",
     serialNumber2: "",
@@ -11007,6 +11093,7 @@ function pricingComplaintRepairRecord(entry) {
     category: normalizePricingComplaintRequest(normalizedEntry.request),
     location: documentLocationToRepairLocation(normalizedEntry.location),
     customerName: normalizedEntry.customer,
+    phone: normalizedEntry.phone,
     deviceName: pricingComplaintRepairDeviceName(items) || "Reklamacja",
     serialNumber: items[0]?.serial || "",
     serialNumber2: items[1]?.serial || "",
@@ -11038,6 +11125,7 @@ function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
     category: incomingRecord.category || existingRecord.category,
     location: incomingRecord.location || existingRecord.location,
     customerName: incomingRecord.customerName || existingRecord.customerName,
+    phone: incomingRecord.phone || existingRecord.phone || "",
     deviceName: incomingRecord.deviceName || existingRecord.deviceName,
     serialNumber: incomingRecord.serialNumber || existingRecord.serialNumber,
     serialNumber2: incomingRecord.serialNumber2 || existingRecord.serialNumber2,
@@ -11046,8 +11134,13 @@ function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
   });
 }
 
-function upsertRepairRecordFromDocument(incomingRecord) {
+async function upsertRepairRecordFromDocument(incomingRecord) {
   if (!incomingRecord) return null;
+  const duplicate = repairDocumentDuplicate(incomingRecord);
+  if (duplicate) {
+    alert(repairDuplicateMessage(duplicate));
+    return null;
+  }
   const existingIndex = repairRecords.findIndex((record) =>
     repairDocumentSourceMatches(
       record,
@@ -11058,14 +11151,17 @@ function upsertRepairRecordFromDocument(incomingRecord) {
   );
   const existingRecord = existingIndex >= 0 ? repairRecords[existingIndex] : null;
   const savedRecord = mergeDocumentRepairRecord(existingRecord, incomingRecord);
+  if (!existingRecord && incomingRecord.sourceDocumentId) {
+    savedRecord.id = `document-${incomingRecord.sourceDocumentType}-${incomingRecord.sourceDocumentId}`;
+  }
   const isNewRecord = !existingRecord;
+  const previousRecords = repairRecords;
   repairRecords = existingRecord
     ? repairRecords.map((record, index) => (index === existingIndex ? savedRecord : record))
     : [savedRecord, ...repairRecords];
   writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-  const persistPromise = persistRepairRecord(savedRecord);
-  persistPromise
-    .then(() => {
+  try {
+    await persistRepairRecord(savedRecord);
       if (isNewRecord) {
         logAuditEvent({
           notebook: "repairs",
@@ -11075,8 +11171,14 @@ function upsertRepairRecordFromDocument(incomingRecord) {
           afterRecord: savedRecord
         });
       }
-    })
-    .catch((error) => console.warn("Nie udało się zsynchronizować wpisu dokumentu z zeszytem napraw:", error));
+  } catch (error) {
+    repairRecords = previousRecords;
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    rebuildAfterRepairChange();
+    render();
+    alert(`Dokument jest w historii, ale nie udało się zapisać wpisu w serwisie: ${error.message || "błąd połączenia"}. Ponów zapis tego samego dokumentu.`);
+    return null;
+  }
   rebuildAfterRepairChange();
   render();
   return savedRecord;
@@ -11422,7 +11524,7 @@ function resetPricingOrderForm() {
   markAgreementDraftSaved("order");
 }
 
-function savePricingOrderAndRepairNotebook() {
+async function savePricingOrderAndRepairNotebook() {
   renderPricingOrder();
   const formItems = pricingOrderFormItems();
   if (pricingOrderItemsMissingRequiredSide(formItems)) {
@@ -11434,17 +11536,17 @@ function savePricingOrderAndRepairNotebook() {
     alert("Dodaj przynajmniej jedną pozycję zamówienia.");
     return null;
   }
-  syncPricingOrderToRepairNotebook(historyEntry);
+  if (!await syncPricingOrderToRepairNotebook(historyEntry)) return null;
   alert("Zamówienie zapisane i przekazane do Serwisu i zamówień.");
   return historyEntry;
 }
 
-function printPricingOrder() {
+async function printPricingOrder() {
   if (printPricingOrderBtn?.disabled) return;
   renderPricingOrder();
   const historyEntry = saveCurrentPricingOrderToHistory({ silent: true });
   if (!historyEntry) return;
-  syncPricingOrderToRepairNotebook(historyEntry);
+  if (!await syncPricingOrderToRepairNotebook(historyEntry)) return;
   const cleanup = () => document.body.classList.remove("pricing-order-print");
   document.body.classList.add("pricing-order-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -11931,6 +12033,14 @@ function pricingComplaintSemanticKey(entry) {
     .map((value) => normalize(value)).join("|");
 }
 
+function pricingComplaintsShareIntake(left, right) {
+  if (!isoDateForSave(left?.date) || isoDateForSave(left.date) !== isoDateForSave(right?.date)) return false;
+  const customer = customerNameLookupKey(left?.customer);
+  if (!customer || customer !== customerNameLookupKey(right?.customer)) return false;
+  const serials = new Set(normalizePricingComplaintItems(left).map((item) => serialDuplicateKey(item.serial)).filter(Boolean));
+  return normalizePricingComplaintItems(right).some((item) => serials.has(serialDuplicateKey(item.serial)));
+}
+
 function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   const snapshot = normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot());
   if (!snapshot) {
@@ -11940,11 +12050,20 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   const now = new Date().toISOString();
   const snapshotKey = pricingComplaintSnapshotKey(snapshot);
   const existingEntry = pricingComplaintHistory.find((entry) => pricingComplaintSnapshotKey(entry) === snapshotKey || entry.number === snapshot.number);
+  if (existingEntry && customerNameLookupKey(existingEntry.customer) !== customerNameLookupKey(snapshot.customer)) {
+    alert(`Numer reklamacji ${existingEntry.number} należy już do innego klienta. Wybierz nowy numer zamiast nadpisywać dokument.`);
+    return null;
+  }
   const semanticDuplicate = pricingComplaintHistory.find((entry) => (
-    entry.id !== existingEntry?.id && pricingComplaintSemanticKey(entry) === pricingComplaintSemanticKey(snapshot)
+    entry.id !== existingEntry?.id && (pricingComplaintsShareIntake(entry, snapshot) || pricingComplaintSemanticKey(entry) === pricingComplaintSemanticKey(snapshot))
   ));
   if (semanticDuplicate) {
-    if (!silent) alert(`Taka reklamacja już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}.`);
+    alert(`Taka reklamacja już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}: ${semanticDuplicate.customer}, ${formatDate(semanticDuplicate.date)}. Ten sam numer seryjny nie może zostać ponownie przyjęty dla tej osoby tego samego dnia.`);
+    return null;
+  }
+  const serviceDuplicate = repairDocumentDuplicate(pricingComplaintRepairRecord({ ...snapshot, id: existingEntry?.id || snapshot.id }));
+  if (serviceDuplicate) {
+    alert(repairDuplicateMessage(serviceDuplicate));
     return null;
   }
   const historyEntry = normalizePricingComplaintHistoryEntry({
@@ -12435,23 +12554,20 @@ function resetPricingComplaintForm() {
   markAgreementDraftSaved("complaint");
 }
 
-function savePricingComplaintAndRepairNotebook() {
+async function savePricingComplaintAndRepairNotebook() {
   renderPricingComplaint();
-  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: true });
-  if (!historyEntry) {
-    alert("Uzupełnij klienta, produkt albo opis, żeby zapisać reklamację.");
-    return null;
-  }
-  syncPricingComplaintToRepairNotebook(historyEntry);
+  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: false });
+  if (!historyEntry) return null;
+  if (!await syncPricingComplaintToRepairNotebook(historyEntry)) return null;
   alert("Reklamacja zapisana i przekazana do Serwisu i zamówień.");
   return historyEntry;
 }
 
-function printPricingComplaint() {
+async function printPricingComplaint() {
   renderPricingComplaint();
-  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: true });
+  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return;
-  syncPricingComplaintToRepairNotebook(historyEntry);
+  if (!await syncPricingComplaintToRepairNotebook(historyEntry)) return;
   const cleanup = () => document.body.classList.remove("pricing-complaint-print");
   document.body.classList.add("pricing-complaint-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -13978,7 +14094,20 @@ function repairActiveDemoRelations(record) {
 }
 
 function createRepairCategoryCell(record) {
-  return createCategoryPill(record.category, record);
+  const category = createCategoryPill(record.category, record);
+  const issue = repairDerived.get(record.id)?.documentNumberIssues?.find((item) => item.kind === "repair-duplicate");
+  if (!issue) return category;
+  const wrap = document.createElement("div");
+  wrap.className = "repair-category-stack";
+  const warning = document.createElement("span");
+  warning.className = "serial-duplicate-marker";
+  warning.textContent = "Sprawdź duplikat";
+  warning.dataset.repairDuplicateTooltip = issue.detail;
+  warning.title = issue.detail;
+  warning.tabIndex = 0;
+  attachTableHoverTooltip(warning, "repairDuplicateTooltip");
+  wrap.append(category, warning);
+  return wrap;
 }
 
 function createRepairRow(record) {
@@ -16555,6 +16684,7 @@ function openRepairDialog(record = null) {
     category: "#repairCategory",
     location: "#repairLocation",
     customerName: "#repairCustomerName",
+    phone: "#repairPhone",
     deviceName: "#repairDeviceName",
     serialNumber: "#repairSerialNumber",
     serialNumber2: "#repairSerialNumber2",
@@ -16570,6 +16700,8 @@ function openRepairDialog(record = null) {
     const value = normalizedRecord?.[field] ?? "";
     input.value = REPAIR_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
+  document.querySelector("#repairPhone").dataset.customerKey = customerNameLookupKey(normalizedRecord?.customerName);
+  syncRepairPhoneOwner();
 
   if (!record) {
     setDateInputValue("#repairReceivedDate", todayInputValue());
@@ -16901,6 +17033,22 @@ function syncRepairCustomerNameInput(event) {
 function finalizeRepairCustomerNameInput(event) {
   event.target.value = titleCaseName(event.target.value);
   syncRepairLocationFromCustomerName({ force: true });
+  syncRepairPhoneOwner();
+}
+
+function syncRepairPhoneOwner() {
+  const input = document.querySelector("#repairPhone");
+  const customer = document.querySelector("#repairCustomerName").value;
+  const customerKey = customerNameLookupKey(customer);
+  if (input.dataset.customerKey && input.dataset.customerKey !== customerKey) input.value = "";
+  input.dataset.customerKey = customerKey;
+  const suggestions = document.querySelector("#repairPhoneSuggestions");
+  const phones = customerPhoneInfo(customer)?.phones || [];
+  suggestions.replaceChildren(...phones.map((phone) => {
+    const option = document.createElement("option");
+    option.value = phone.formatted;
+    return option;
+  }));
 }
 
 function syncRepairSerialInput(event) {
@@ -16950,6 +17098,7 @@ function markRepairDeviceNameManualChange(event) {
 }
 
 function repairFormRecord() {
+  syncRepairPhoneOwner();
   const data = Object.fromEntries(new FormData(repairForm).entries());
   repairFields.forEach((field) => {
     data[field] = String(data[field] ?? "").trim();
@@ -17714,8 +17863,9 @@ async function saveRepairFormRecord(event) {
   if (!validateRepairDateOrder(data, { focus: true })) return;
   if (!confirmSerialNumberSave(data.serialNumber, "repairs", id)) return;
   const existingDuplicate = duplicateRepairRecord(data, id);
-  if (existingDuplicate) {
-    alert("Nie można zapisać identycznej pozycji serwisowej. Taki wpis z tą samą datą, osobą i numerem seryjnym już istnieje.");
+  const previousIdentity = repairRecords.find((record) => record.id === id);
+  if (existingDuplicate && JSON.stringify(repairDuplicateKeys(previousIdentity)) !== JSON.stringify(repairDuplicateKeys(data))) {
+    alert(repairDuplicateMessage(existingDuplicate));
     return;
   }
   if (!confirmRepairWarrantySave(data, id)) return;
@@ -19350,8 +19500,8 @@ addOrderItemBtn?.addEventListener("click", () => {
 });
 orderCopyOfferBtn?.addEventListener("click", copyPricingOfferToOrder);
 newPricingOrderBtn?.addEventListener("click", resetPricingOrderForm);
-savePricingOrderBtn?.addEventListener("click", savePricingOrderAndRepairNotebook);
-printPricingOrderBtn?.addEventListener("click", printPricingOrder);
+savePricingOrderBtn?.addEventListener("click", () => withFreshRepairRecords(savePricingOrderAndRepairNotebook));
+printPricingOrderBtn?.addEventListener("click", () => withFreshRepairRecords(printPricingOrder));
 complaintNumberInput?.addEventListener("input", () => {
   complaintNumberInput.dataset.autoNumber = "";
 }, { capture: true });
@@ -19468,8 +19618,8 @@ document.querySelectorAll(".complaint-editor-table tbody > tr:not(.complaint-war
 addComplaintItemBtn?.addEventListener("click", addPricingComplaintItem);
 removeComplaintItemBtn1?.addEventListener("click", () => removePricingComplaintItem(1));
 removeComplaintItemBtn2?.addEventListener("click", () => removePricingComplaintItem(2));
-savePricingComplaintBtn?.addEventListener("click", savePricingComplaintAndRepairNotebook);
-printPricingComplaintBtn?.addEventListener("click", printPricingComplaint);
+savePricingComplaintBtn?.addEventListener("click", () => withFreshRepairRecords(savePricingComplaintAndRepairNotebook));
+printPricingComplaintBtn?.addEventListener("click", () => withFreshRepairRecords(printPricingComplaint));
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
@@ -19497,7 +19647,10 @@ deleteDemoBtn.addEventListener("click", deleteCurrentDemoRecord);
 duplicateDemoBtn.addEventListener("click", duplicateCurrentDemoRecord);
 moveToDevicesBtn.addEventListener("click", moveCurrentDemoRecordToDevices);
 recordForm.addEventListener("submit", saveFormRecord);
-repairForm.addEventListener("submit", saveRepairFormRecord);
+repairForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  withFreshRepairRecords(() => saveRepairFormRecord(event));
+});
 demoForm.addEventListener("submit", saveDemoFormRecord);
 recordForm.addEventListener("click", handleClearDateClick);
 repairForm.addEventListener("click", handleClearDateClick);
@@ -19587,6 +19740,9 @@ document.querySelector("#repairCategory").addEventListener("change", syncRepairC
 document.querySelector("#repairStatus").addEventListener("change", syncRepairDialogHeaderMeta);
 document.querySelector("#repairCustomerName").addEventListener("input", syncRepairCustomerNameInput);
 document.querySelector("#repairCustomerName").addEventListener("blur", finalizeRepairCustomerNameInput);
+document.querySelector("#repairPhone").addEventListener("input", (event) => {
+  event.target.dataset.customerKey = customerNameLookupKey(document.querySelector("#repairCustomerName").value);
+});
 document.querySelector("#repairLocation").addEventListener("change", markRepairLocationManualChange);
 document.querySelector("#repairLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
@@ -19613,9 +19769,6 @@ document.querySelector("#demoDeviceName").addEventListener("blur", () => syncDem
 document.querySelector("#demoSerialNumber").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoCurrentUser").addEventListener("input", formatDemoCurrentUserInput);
 document.querySelector("#demoCurrentUser").addEventListener("blur", finalizeDemoCurrentUserInput);
-document.querySelector("#demoPhone").addEventListener("input", (event) => {
-  event.target.dataset.customerKey = customerNameLookupKey(document.querySelector("#demoCurrentUser").value);
-});
 document.querySelector("#demoStatus").addEventListener("change", syncDemoReturnedStatus);
 document.querySelector("#demoLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
 document.querySelector("#demoPurposeChoices").addEventListener("click", (event) => {

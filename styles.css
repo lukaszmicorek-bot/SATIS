@@ -3463,7 +3463,11 @@ h2 {
 
 .order-editor-table th:nth-child(1),
 .order-editor-table td:nth-child(1) {
-  width: 190px;
+  width: 220px;
+}
+
+.order-editor-table select[data-order-field="type"] {
+  padding: 6px 8px;
 }
 
 .order-editor-table th:nth-child(2),
@@ -3827,7 +3831,7 @@ h2 {
 
 .complaint-editor-table th:nth-child(2),
 .complaint-editor-table td:nth-child(2) {
-  width: 200px;
+  width: 220px;
 }
 
 .complaint-editor-table th:nth-child(4),

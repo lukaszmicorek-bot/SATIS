@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-142">
+    <link rel="stylesheet" href="styles.css?v=20260831-147">
   </head>
   <body>
     <main class="app-shell">
@@ -2305,10 +2305,17 @@
               <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
             </select>
           </label>
-          <label class="wide person-highlight-field">
-            <span>Imię i nazwisko</span>
-            <input id="repairCustomerName" name="customerName" type="text" list="customerNameSuggestions" required>
-          </label>
+          <div class="wide demo-model-contact">
+            <label class="person-highlight-field">
+              <span>Imię i nazwisko</span>
+              <input id="repairCustomerName" name="customerName" type="text" list="customerNameSuggestions" required>
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input id="repairPhone" name="phone" type="tel" autocomplete="off" placeholder="500 600 800" list="repairPhoneSuggestions">
+              <datalist id="repairPhoneSuggestions"></datalist>
+            </label>
+          </div>
           <label class="wide">
             <span id="repairDeviceNameLabel">Aparat / wkładka</span>
             <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -2372,114 +2379,129 @@
         </div>
 
         <input id="demoId" type="hidden">
+        <input id="demoPhone" name="phone" type="hidden">
         <input id="demoManufacturerReturnDateCleared" name="manufacturerReturnDateCleared" type="hidden">
-        <div class="form-grid">
-          <label>
-            <span>Data przyjęcia</span>
-            <div class="date-input-wrap">
-              <input id="demoReceivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="demoReceivedDate" aria-label="Wyczyść datę">×</button>
-            </div>
-          </label>
-          <label>
-            <span>Termin zwrotu do producenta</span>
-            <div class="date-input-wrap">
-              <input id="demoManufacturerReturnDate" name="manufacturerReturnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="demoManufacturerReturnDate" aria-label="Wyczyść datę">×</button>
-            </div>
-          </label>
-          <label class="demo-manufacturer-returned-toggle">
-            <span>Zwrócono do producenta</span>
-            <span class="checkbox-control">
-              <input id="demoManufacturerReturned" name="manufacturerReturned" type="checkbox" value="1">
-              <span>Tak</span>
-            </span>
-          </label>
-          <label>
-            <span>Data zwrócenia do producenta</span>
-            <div class="date-input-wrap">
-              <input id="demoManufacturerReturnedDate" name="manufacturerReturnedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="demoManufacturerReturnedDate" aria-label="Wyczyść datę">×</button>
-            </div>
-          </label>
-          <label>
-            <span>Producent</span>
-            <input id="demoManufacturer" name="manufacturer" type="text" list="demoManufacturerSuggestions">
-            <datalist id="demoManufacturerSuggestions"></datalist>
-          </label>
-          <label>
-            <span id="demoSerialNumberLabel">Numer seryjny</span>
-            <input id="demoSerialNumber" name="serialNumber" type="text">
-          </label>
-          <div class="wide demo-model-contact">
-            <label class="highlight-field">
-              <span>Nazwa aparatu</span>
-              <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-              <datalist id="demoDeviceNameSuggestions"></datalist>
-            </label>
-            <label>
-              <span>Telefon</span>
-              <input id="demoPhone" name="phone" type="tel" autocomplete="off" placeholder="500 600 800" aria-label="Telefon aktualnego użytkownika">
-            </label>
-          </div>
-          <label>
-            <span>Status</span>
-            <select id="demoStatus" name="status">
-              <option value="NA STANIE">Na stanie</option>
-              <option value="WYPOŻYCZONY">Wypożyczony</option>
-              <option value="BRAK">Brak</option>
-              <option value="DO ZWROTU">Do zwrotu</option>
-              <option value="ZWRÓCONO">Zwrócono</option>
-            </select>
-          </label>
-          <div class="demo-purpose-field">
-            <span>Charakter</span>
-            <input id="demoPurpose" name="purpose" type="hidden" value="">
-            <div id="demoPurposeChoices" class="demo-purpose-choices" role="group" aria-label="Charakter aparatu demo">
-              <button type="button" data-demo-purpose="DO TESTOWANIA" aria-pressed="false">Demo</button>
-              <button type="button" data-demo-purpose="APARAT ZASTĘPCZY" aria-pressed="false">Zastępczy</button>
-            </div>
-          </div>
-          <label class="document-location-field" data-location-tone="P63">
-            <span>Miejsce</span>
-            <select id="demoLocation" name="location">
-              <option value="T12">T12</option>
-              <option value="P50">P50</option>
-              <option value="P63">P63</option>
-            </select>
-          </label>
-          <label>
-            <span>Aktualnie używany</span>
-            <input id="demoCurrentUser" name="currentUser" type="text">
-          </label>
-          <div class="wide demo-attachments-field">
-            <div class="demo-attachments-head">
-              <span>Załączniki aktualnej osoby</span>
-              <label class="demo-attachment-add">
-                <input id="demoCurrentAttachmentInput" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
-                Dodaj pliki
+        <div class="form-grid device-form-sections">
+          <section class="device-form-zone wide" aria-label="Przyjęcie aparatu demo">
+            <span class="device-form-zone-title">Przyjęcie i aparat</span>
+            <div class="device-form-zone-grid device-form-zone-grid-two">
+              <label>
+                <span>Data przyjęcia</span>
+                <div class="date-input-wrap">
+                  <input id="demoReceivedDate" name="receivedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="demoReceivedDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="demoStatus" name="status">
+                  <option value="NA STANIE">Na stanie</option>
+                  <option value="WYPOŻYCZONY">Wypożyczony</option>
+                  <option value="BRAK">Brak</option>
+                  <option value="DO ZWROTU">Do zwrotu</option>
+                  <option value="ZWRÓCONO">Zwrócono</option>
+                </select>
+              </label>
+              <label class="document-location-field" data-location-tone="P63">
+                <span>Miejsce</span>
+                <select id="demoLocation" name="location">
+                  <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
+                  <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
+                  <option value="P50">Żywiec, al. Piłsudskiego 50</option>
+                </select>
+              </label>
+              <div class="demo-purpose-field">
+                <span>Charakter</span>
+                <input id="demoPurpose" name="purpose" type="hidden" value="">
+                <div id="demoPurposeChoices" class="demo-purpose-choices" role="group" aria-label="Charakter aparatu demo">
+                  <button type="button" data-demo-purpose="DO TESTOWANIA" aria-pressed="false">Demo</button>
+                  <button type="button" data-demo-purpose="APARAT ZASTĘPCZY" aria-pressed="false">Zastępczy</button>
+                </div>
+              </div>
+              <label>
+                <span>Producent</span>
+                <input id="demoManufacturer" name="manufacturer" type="text" list="demoManufacturerSuggestions">
+                <datalist id="demoManufacturerSuggestions"></datalist>
+              </label>
+              <label class="serial-highlight-field">
+                <span id="demoSerialNumberLabel">Numer seryjny</span>
+                <input id="demoSerialNumber" name="serialNumber" type="text">
+              </label>
+              <label class="wide highlight-field">
+                <span>Nazwa aparatu</span>
+                <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <datalist id="demoDeviceNameSuggestions"></datalist>
               </label>
             </div>
-            <div id="demoCurrentAttachmentsList" class="demo-attachments-list"></div>
-          </div>
-          <label>
-            <span>Data wypożyczenia</span>
-            <div class="date-input-wrap">
-              <input id="demoLoanDate" name="loanDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="demoLoanDate" aria-label="Wyczyść datę">×</button>
+          </section>
+
+          <section class="device-form-zone wide" aria-label="Wypożyczenie aparatu demo">
+            <span class="device-form-zone-title">Wypożyczenie</span>
+            <div class="device-form-zone-grid device-form-zone-grid-two">
+              <label class="wide person-highlight-field">
+                <span>Aktualnie używany przez</span>
+                <input id="demoCurrentUser" name="currentUser" type="text" list="customerNameSuggestions">
+              </label>
+              <label>
+                <span>Data wypożyczenia</span>
+                <div class="date-input-wrap">
+                  <input id="demoLoanDate" name="loanDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="demoLoanDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label>
+                <span>Data zwrotu z wypożyczenia</span>
+                <div class="date-input-wrap">
+                  <input id="demoReturnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="demoReturnDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <div class="wide demo-attachments-field">
+                <div class="demo-attachments-head">
+                  <span>Załączniki aktualnej osoby</span>
+                  <label class="demo-attachment-add">
+                    <input id="demoCurrentAttachmentInput" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
+                    Dodaj pliki
+                  </label>
+                </div>
+                <div id="demoCurrentAttachmentsList" class="demo-attachments-list"></div>
+              </div>
             </div>
-          </label>
-          <label>
-            <span>Data zwrotu z wypożyczenia</span>
-            <div class="date-input-wrap">
-              <input id="demoReturnDate" name="returnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
-              <button class="clear-date-btn" type="button" data-target="demoReturnDate" aria-label="Wyczyść datę">×</button>
+          </section>
+
+          <section class="device-form-zone wide" aria-label="Zwrot aparatu do producenta">
+            <span class="device-form-zone-title">Zwrot do producenta</span>
+            <div class="device-form-zone-grid device-form-zone-grid-two">
+              <label>
+                <span>Termin zwrotu do producenta</span>
+                <div class="date-input-wrap">
+                  <input id="demoManufacturerReturnDate" name="manufacturerReturnDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="demoManufacturerReturnDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label>
+                <span>Data zwrócenia do producenta</span>
+                <div class="date-input-wrap">
+                  <input id="demoManufacturerReturnedDate" name="manufacturerReturnedDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
+                  <button class="clear-date-btn" type="button" data-target="demoManufacturerReturnedDate" aria-label="Wyczyść datę">×</button>
+                </div>
+              </label>
+              <label class="wide demo-manufacturer-returned-toggle">
+                <span>Zwrócono do producenta</span>
+                <span class="checkbox-control">
+                  <input id="demoManufacturerReturned" name="manufacturerReturned" type="checkbox" value="1">
+                  <span>Tak</span>
+                </span>
+              </label>
             </div>
-          </label>
-          <label class="wide">
-            <span>Uwagi</span>
-            <textarea id="demoNotes" name="notes" rows="3"></textarea>
-          </label>
+          </section>
+
+          <section class="device-form-zone wide" aria-label="Uwagi do aparatu demo">
+            <label class="wide">
+              <span>Uwagi</span>
+              <textarea id="demoNotes" name="notes" rows="3"></textarea>
+            </label>
+          </section>
         </div>
 
         <section id="demoQualityHints" class="quality-hints" hidden aria-live="polite"></section>
@@ -2568,6 +2590,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-142"></script>
+    <script src="app.js?v=20260831-147"></script>
   </body>
 </html>
