@@ -16062,6 +16062,14 @@ function polishPublicHolidayOnDate(isoDate) {
   return polishPublicHolidays(year).find((holiday) => holiday.date === isoDate) || null;
 }
 
+function vacationHolidayDateIssue(dateFrom, dateTo) {
+  for (const [field, date] of [["from", dateFrom], ["to", dateTo]]) {
+    const holiday = polishPublicHolidayOnDate(date);
+    if (holiday) return { field, message: `${formatDate(date)}: ${holiday.name}. Nie można złożyć wniosku urlopowego na dzień świąteczny. Wybierz inny termin.` };
+  }
+  return null;
+}
+
 function appendDatePickerTitle(button, text) {
   if (!button || !text) return;
   button.title = [button.title, text].filter(Boolean).join("\n");
@@ -17002,6 +17010,12 @@ async function submitVacationRequest(event) {
     alert("Termin wniosku musi dotyczyć roku wybranego u góry zakładki.");
     return;
   }
+  const holidayIssue = vacationHolidayDateIssue(dateFrom, dateTo);
+  if (holidayIssue) {
+    alert(holidayIssue.message);
+    (holidayIssue.field === "from" ? vacationDateFromInput : vacationDateToInput)?.focus();
+    return;
+  }
   const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
   const usesHours = vacationEmployeeUsesHours(employee);
   const hours = usesHours ? Number(String(vacationHoursInput?.value || "").replace(",", ".")) : 0;
@@ -17078,6 +17092,11 @@ async function decideVacationRequest(id, status) {
   if (!canViewPrivateModules()) return;
   const current = vacationRequests.find((request) => request.id === id);
   if (!current) return;
+  const holidayIssue = status === "ZATWIERDZONY" ? vacationHolidayDateIssue(current.dateFrom, current.dateTo) : null;
+  if (holidayIssue) {
+    alert(`${holidayIssue.message} Popraw daty przed zatwierdzeniem.`);
+    return;
+  }
   const updated = normalizeVacationRequest({
     ...current,
     status,
@@ -19710,6 +19729,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       appendDatePickerTitle(button, `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`);
     }
     const publicHoliday = polishPublicHolidayOnDate(isoDate);
+    const vacationHolidayBlocked = Boolean(publicHoliday && isVacationCalendarInput());
     const occupiedPeople = vacationOccupiedPeopleOnDate(isoDate);
     const ownLeave = vacationOwnLeaveOnDate(isoDate);
     if (publicHoliday) {
@@ -19748,8 +19768,17 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       button.setAttribute("aria-label", `${button.getAttribute("aria-label") || formatDate(isoDate)}. ${label}`);
     }
 
+    if (vacationHolidayBlocked) {
+      const message = "Nie można wybrać dnia świątecznego jako terminu urlopu.";
+      button.classList.add("vacation-holiday-blocked");
+      button.setAttribute("aria-disabled", "true");
+      button.dataset.holidayTooltip = `${button.dataset.holidayTooltip}. ${message}`;
+      appendDatePickerTitle(button, `${publicHoliday.name}. ${message}`);
+      button.setAttribute("aria-label", `${button.getAttribute("aria-label")}. ${message}`);
+    }
+
     button.addEventListener("click", () => {
-      if (!activeDateInput) return;
+      if (!activeDateInput || vacationHolidayBlocked) return;
       if (dateMinimum && isoDate < dateMinimum.date) return;
       activeDateInput.value = displayDateForInput(isoDate);
       activeDateInput.dispatchEvent(new Event("input", { bubbles: true }));
