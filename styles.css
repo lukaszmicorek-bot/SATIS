@@ -2329,6 +2329,7 @@ h2 {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   gap: 4px;
   margin: 12px 0 0;
@@ -6259,7 +6260,21 @@ input[aria-invalid="true"] {
   font-weight: 900;
 }
 
-.date-picker-day.public-holiday::before {
+.date-picker-day.vacation-saturday-linked {
+  position: relative;
+}
+
+.vacation-saturday-arrow {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.date-picker-day[data-holiday-tooltip]::before {
   position: absolute;
   left: 50%;
   bottom: calc(100% + 9px);
@@ -6286,19 +6301,19 @@ input[aria-invalid="true"] {
   white-space: normal;
 }
 
-.date-picker-day.public-holiday.holiday-tooltip-below::before {
+.date-picker-day[data-holiday-tooltip].holiday-tooltip-below::before {
   top: calc(100% + 9px);
   bottom: auto;
   transform: translate(-50%, -4px);
 }
 
-.date-picker-day.public-holiday:hover,
-.date-picker-day.public-holiday:focus-visible {
+.date-picker-day[data-holiday-tooltip]:hover,
+.date-picker-day[data-holiday-tooltip]:focus-visible {
   z-index: 89;
 }
 
-.date-picker-day.public-holiday:hover::before,
-.date-picker-day.public-holiday:focus-visible::before {
+.date-picker-day[data-holiday-tooltip]:hover::before,
+.date-picker-day[data-holiday-tooltip]:focus-visible::before {
   opacity: 1;
   transform: translate(-50%, 0);
   visibility: visible;
