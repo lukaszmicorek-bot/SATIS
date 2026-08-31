@@ -11435,6 +11435,100 @@ textarea {
   }
 }
 
+/* Wspolna typografia formularzy i podgladow w zakladce Umowy. */
+:is(#pricingOfferView, #pricingLoanView, #pricingOrderView, #pricingComplaintView, #pricingPcprView, #pricingHistoryView) {
+  --agreement-font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--agreement-font-family);
+}
+
+#pricingNotebook .offer-builder :is(input, select, textarea) {
+  font-family: var(--agreement-font-family);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+#pricingNotebook .offer-builder :is(input, textarea)::placeholder {
+  font: inherit;
+  opacity: 1;
+  color: var(--muted);
+}
+
+#pricingNotebook .offer-builder :is(label > span, legend) {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+#pricingNotebook .offer-builder :is(.person-name-field input, .pcpr-model-field input, input.today-date-input) {
+  font-weight: 700;
+}
+
+#pricingNotebook :is(.offer-actions button, .loan-period-presets button, .order-add-item-btn, .complaint-device-picker-btn, .pcpr-form-actions button) {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+#pricingNotebook .offer-builder :is(.loan-form-title, .order-editor-head) {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+#pricingNotebook .offer-builder :is(.order-editor-table, .complaint-editor-table) th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+@media screen {
+  #pricingNotebook :is(.offer-document, .loan-document, .order-document, .complaint-document) {
+    font-family: var(--agreement-font-family);
+    font-size: 0.875rem;
+    line-height: 1.3;
+  }
+
+  #pricingNotebook .offer-document-head h2 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  #pricingNotebook .offer-document-head > div {
+    min-width: 0;
+  }
+
+  #pricingNotebook :is(.loan-doc-section h3, .offer-document-head p) {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  #pricingNotebook :is(.loan-doc-grid, .loan-protocol-grid, .loan-signatures, .order-signatures, .complaint-signatures) :is(span, strong) {
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.3;
+  }
+
+  #pricingNotebook :is(.loan-doc-grid, .loan-protocol-grid, .loan-signatures, .order-signatures, .complaint-signatures) strong {
+    font-weight: 700;
+  }
+
+  #pricingNotebook :is(.offer-items-table, .offer-payments-table, .loan-equipment-table, .order-items-table, .complaint-products-table) td {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+  }
+
+  #pricingNotebook :is(.offer-items-table, .offer-payments-table, .loan-equipment-table, .order-items-table, .complaint-products-table) th {
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+}
+
 /* Wspolny profil wysokiej jakosci dla dokumentow z zakladki Umowy. */
 @media print {
   body.pricing-offer-print,
