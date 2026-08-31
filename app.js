@@ -600,7 +600,7 @@ const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList")
 const pricingOfferChargerList = document.querySelector("#pricingOfferChargerList");
 const pricingOfferEarmoldList = document.querySelector("#pricingOfferEarmoldList");
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
-const offerAgeInput = document.querySelector("#offerAgeInput");
+const offerPatientGroupInputs = [...document.querySelectorAll('input[name="offerPatientGroup"]')];
 const offerDateInput = document.querySelector("#offerDateInput");
 const offerLocationInput = document.querySelector("#offerLocationInput");
 const offerPfronInput = document.querySelector("#offerPfronInput");
@@ -6545,9 +6545,24 @@ function normalizePricingNfzCode(value) {
   return String(value ?? "").trim().replace(/\s+/g, "").toLocaleUpperCase("pl-PL");
 }
 
-function pricingOfferAgeValue() {
-  const value = Number.parseInt(String(offerAgeInput?.value ?? "").trim(), 10);
-  return Number.isFinite(value) && value >= 0 ? value : null;
+function pricingOfferPatientGroup() {
+  return offerPatientGroupInputs.find((input) => input.checked)?.value || "";
+}
+
+function pricingOfferHistoryPatientGroup(entry) {
+  if (["adult", "child"].includes(entry?.patientGroup)) return entry.patientGroup;
+  const rawAge = String(entry?.age ?? "").trim();
+  const age = Number(rawAge);
+  // Preserve the NFZ group used by offers saved with the previous age field.
+  return rawAge && Number.isFinite(age) && age >= 0 ? (age <= 26 ? "child" : "adult") : "";
+}
+
+function pricingOfferPatientGroupLabel(group) {
+  return group === "adult" ? "Dorosły" : group === "child" ? "Dziecko" : "";
+}
+
+function setPricingOfferPatientGroup(group) {
+  offerPatientGroupInputs.forEach((input) => { input.checked = input.value === group; });
 }
 
 function formatOfferAge(age) {
@@ -6561,9 +6576,8 @@ function formatOfferAge(age) {
 }
 
 function pricingOfferNfzSuffixForAge() {
-  const age = pricingOfferAgeValue();
-  if (age === null) return "";
-  return age <= 26 ? "01" : "00";
+  const group = pricingOfferPatientGroup();
+  return group === "child" ? "01" : group === "adult" ? "00" : "";
 }
 
 function pricingOfferNfzCodeMatchesAge(record) {
@@ -6628,7 +6642,7 @@ function pricingOfferAccessoryKind(record) {
 function pricingOfferAccessoryRecords(kind) {
   return pricingOfferPricedRecords().filter((record) => {
     if (pricingOfferAccessoryKind(record) !== kind) return false;
-    return kind !== "earmold" || pricingOfferAgeValue() === null || pricingOfferNfzCodeMatchesAge(record);
+    return kind !== "earmold" || !pricingOfferPatientGroup() || pricingOfferNfzCodeMatchesAge(record);
   });
 }
 
@@ -6656,7 +6670,7 @@ function renderPricingOfferDeviceList() {
   if (!pricingOfferDeviceList) return;
   renderPricingOfferAccessoryLists();
   const fragment = document.createDocumentFragment();
-  if (pricingOfferAgeValue() === null) {
+  if (!pricingOfferPatientGroup()) {
     pricingOfferDeviceList.replaceChildren(fragment);
     return;
   }
@@ -6752,8 +6766,8 @@ function setPricingOfferInput(input, record) {
 }
 
 function movePricingOfferDevice(fromInput, toInput, sourceLabel) {
-  if (pricingOfferAgeValue() === null) {
-    offerAgeInput?.focus();
+  if (!pricingOfferPatientGroup()) {
+    offerPatientGroupInputs[0]?.focus();
     return;
   }
   if (!fromInput?.value.trim()) {
@@ -6767,8 +6781,8 @@ function movePricingOfferDevice(fromInput, toInput, sourceLabel) {
 }
 
 function duplicatePricingOfferDevice() {
-  if (pricingOfferAgeValue() === null) {
-    offerAgeInput?.focus();
+  if (!pricingOfferPatientGroup()) {
+    offerPatientGroupInputs[0]?.focus();
     return;
   }
   const source = offerDeviceInput1?.value.trim() ? offerDeviceInput1 : offerDeviceInput2;
@@ -6794,9 +6808,9 @@ function addPricingRecordToOffer(record) {
     pricingOfferView?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
-  if (pricingOfferAgeValue() === null) {
-    alert("Najpierw podaj wiek, aby wybrać aparat do oferty.");
-    offerAgeInput?.focus();
+  if (!pricingOfferPatientGroup()) {
+    alert("Najpierw wybierz: Dorosły lub Dziecko, aby wybrać aparat do oferty.");
+    offerPatientGroupInputs[0]?.focus();
     return;
   }
 
@@ -6845,7 +6859,7 @@ function renderPricingOfferItems(items) {
     const row = document.createElement("tr");
     if (item.kind === "device" && !pricingOfferNfzCodeMatchesAge(record)) {
       row.classList.add("offer-age-mismatch");
-      row.title = "Kod NFZ tej pozycji nie pasuje do wpisanego wieku.";
+      row.title = "Kod NFZ tej pozycji nie pasuje do wybranej grupy pacjenta.";
     }
     appendOfferCell(row, String(index + 1));
 
@@ -6877,9 +6891,9 @@ function renderPricingOfferItems(items) {
 function renderPricingOfferAgeWarning(items) {
   if (!offerAgeWarning) return;
   const suffix = pricingOfferNfzSuffixForAge();
-  const age = pricingOfferAgeValue();
-  if (age === null) {
-    offerAgeWarning.textContent = "Podaj wiek przed wyborem aparatu. Na tej podstawie wybierany jest właściwy kod NFZ.";
+  const group = pricingOfferPatientGroup();
+  if (!group) {
+    offerAgeWarning.textContent = "Wybierz: Dorosły lub Dziecko przed wyborem aparatu.";
     offerAgeWarning.hidden = false;
     return;
   }
@@ -6902,7 +6916,7 @@ function renderPricingOfferAgeWarning(items) {
   const names = mismatches
     .map((record) => `${pricingOfferDeviceName(record)} (${normalizePricingNfzCode(record.nfzCode) || "brak kodu NFZ"})`)
     .join(", ");
-  offerAgeWarning.textContent = `Wiek ${formatOfferAge(age)}: kod NFZ powinien kończyć się na .${suffix}. Sprawdź: ${names}.`;
+  offerAgeWarning.textContent = `${pricingOfferPatientGroupLabel(group)}: kod NFZ powinien kończyć się na .${suffix}. Sprawdź: ${names}.`;
   offerAgeWarning.hidden = false;
 }
 
@@ -6967,7 +6981,6 @@ function ensurePricingOfferLocation() {
 function startNewPricingOffer() {
   [
     offerCustomerInput,
-    offerAgeInput,
     offerDeviceInput1,
     offerDeviceInput2,
     offerChargerInput,
@@ -6977,6 +6990,7 @@ function startNewPricingOffer() {
     if (input) input.value = "";
   });
   if (offerNoNfzInput) offerNoNfzInput.checked = false;
+  setPricingOfferPatientGroup("");
   if (offerPfronEnabledInput) offerPfronEnabledInput.checked = false;
   setDateInputValue(offerDateInput, todayInputValue());
   syncAgreementDocumentLocations(suggestedDocumentLocation());
@@ -6993,8 +7007,8 @@ function renderPricingOffer() {
   updateDocumentLocationAccent(offerLocationInput);
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
-  const age = pricingOfferAgeValue();
-  const ageRequired = age === null;
+  const group = pricingOfferPatientGroup();
+  const ageRequired = !group;
   [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
     if (input) input.disabled = ageRequired;
   });
@@ -7002,7 +7016,7 @@ function renderPricingOffer() {
   [offerDuplicateFirstBtn, offerMoveRightToLeftBtn, offerMoveLeftToRightBtn].forEach((button) => {
     if (button) button.disabled = ageRequired || !hasOfferDevice;
   });
-  const customerAgeLabel = age === null ? "" : `, ${formatOfferAge(age)}`;
+  const customerAgeLabel = group ? `, ${pricingOfferPatientGroupLabel(group).toLocaleLowerCase("pl-PL")}` : "";
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
   const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
@@ -7244,6 +7258,7 @@ function normalizePricingOfferHistoryEntry(entry) {
     workstation: normalizeLoanHistoryText(entry.workstation),
     customer: titleCaseName(entry.customer || ""),
     age: normalizeLoanHistoryText(entry.age),
+    patientGroup: pricingOfferHistoryPatientGroup(entry),
     location: normalizeDocumentLocationValue(entry.location),
     offerDate,
     validUntil: isoDateForSave(entry.validUntil) || normalizeLoanHistoryText(entry.validUntil),
@@ -7344,7 +7359,8 @@ function currentPricingOfferSnapshot() {
     savedBy: currentSupabaseUser?.email || "",
     workstation: currentWorkstationName(),
     customer: titleCaseName(offerCustomerInput?.value || ""),
-    age: pricingOfferAgeValue() ?? "",
+    age: "",
+    patientGroup: pricingOfferPatientGroup(),
     location,
     offerDate,
     validUntil: addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS),
@@ -7363,6 +7379,7 @@ function pricingOfferSnapshotKey(entry) {
     entry?.customer,
     entry?.offerDate,
     entry?.location,
+    pricingOfferHistoryPatientGroup(entry),
     (entry?.items || []).map((item) => [item.model, item.nfzCode, item.grossPrice].join(":")).join("|")
   ].map((value) => normalize(value)).join("|");
 }
@@ -8555,6 +8572,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Ważna do", formatDate(saved.validUntil));
     appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
     appendPricingHistoryPreviewField(summary, "Wiek", saved.age !== "" ? formatOfferAge(Number(saved.age)) : "");
+    appendPricingHistoryPreviewField(summary, "Pacjent", pricingOfferPatientGroupLabel(saved.patientGroup));
     appendPricingHistoryPreviewField(summary, "Cena", formatPricingPrice(saved.total));
     appendPricingHistoryPreviewField(summary, "NFZ", formatPricingPrice(saved.nfz));
     appendPricingHistoryPreviewField(summary, "PFRON", formatPricingPrice(saved.pfron));
@@ -8634,7 +8652,7 @@ function restorePricingOfferFromHistory(entry) {
   const saved = normalizePricingOfferHistoryEntry(entry);
   if (!saved) return;
   if (offerCustomerInput) offerCustomerInput.value = saved.customer;
-  if (offerAgeInput) offerAgeInput.value = saved.age;
+  setPricingOfferPatientGroup(saved.patientGroup);
   if (offerLocationInput) offerLocationInput.value = normalizeDocumentLocationValue(saved.location);
   setDateInputValue(offerDateInput, saved.offerDate);
   if (offerNoNfzInput) offerNoNfzInput.checked = saved.withoutNfz;
@@ -8742,6 +8760,7 @@ async function deletePricingComplaintHistoryEntry(id) {
 function pricingOfferHistorySearchText(entry) {
   return normalize([
     entry?.customer,
+    pricingOfferPatientGroupLabel(pricingOfferHistoryPatientGroup(entry)),
     ...normalizePricingOfferHistoryEntry(entry)?.items?.flatMap((item) => [item.model, item.tradeName, item.manufacturer]) || []
   ].filter(Boolean).join(" "));
 }
@@ -8796,7 +8815,7 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Oferta bez osoby",
       meta: [
         entry.offerDate ? formatDate(entry.offerDate) : "",
-        entry.age !== "" ? formatOfferAge(Number(entry.age)) : "",
+        entry.age !== "" ? formatOfferAge(Number(entry.age)) : pricingOfferPatientGroupLabel(entry.patientGroup),
         entry.location,
         formatAuditDateTime(entry.savedAt) ? `zapis: ${formatAuditDateTime(entry.savedAt)}` : ""
       ].filter(Boolean).join(" | "),
@@ -12767,9 +12786,13 @@ function createCustomerActivityCell(record) {
   if (!customerName) return "";
   const wrap = document.createElement("span");
   wrap.className = "customer-activity-cell";
+  const nameLine = document.createElement("span");
+  nameLine.className = "customer-name-line";
   const name = document.createElement("span");
+  name.className = "customer-name-text";
   name.textContent = customerName;
-  wrap.append(name);
+  nameLine.append(name);
+  wrap.append(nameLine);
 
   const documentInfo = customerDocumentInfoForRecord(record);
   const demoInfo = customerActiveDemoInfoForRecord(record);
@@ -12785,14 +12808,14 @@ function createCustomerActivityCell(record) {
     attachTableHoverTooltip(wrap, "customerTooltip");
     const contactBadges = document.createElement("span");
     contactBadges.className = "customer-contact-badges";
+    if (phoneBadge) contactBadges.append(phoneBadge);
     if (documentInfo) {
       const badge = document.createElement("span");
       badge.className = "customer-docs-badge";
       badge.textContent = "info";
       contactBadges.append(badge);
     }
-    if (phoneBadge) contactBadges.append(phoneBadge);
-    if (contactBadges.childElementCount) wrap.append(contactBadges);
+    if (contactBadges.childElementCount) nameLine.append(contactBadges);
     demoInfo?.groups.forEach((group) => {
       const badge = document.createElement("span");
       badge.className = `customer-docs-badge customer-loan-badge ${group.key}`;
@@ -12974,8 +12997,8 @@ function createPricingRow(record, index) {
   offerButton.textContent = "+";
   offerButton.title = "Dodaj aparat do oferty";
   offerButton.setAttribute("aria-label", `Dodaj do oferty: ${record.model || record.tradeName || "aparat"}`);
-  offerButton.disabled = normalizePricingPrice(record.grossPrice) === "" || pricingOfferAgeValue() === null;
-  if (pricingOfferAgeValue() === null) offerButton.title = "Najpierw podaj wiek w Ofercie.";
+  offerButton.disabled = normalizePricingPrice(record.grossPrice) === "" || !pricingOfferPatientGroup();
+  if (!pricingOfferPatientGroup()) offerButton.title = "Najpierw wybierz Dorosły lub Dziecko w Ofercie.";
   offerButton.addEventListener("click", () => addPricingRecordToOffer(record));
   offerCell.append(offerButton);
   if (canManagePricing()) {
@@ -13008,11 +13031,15 @@ function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "") {
   wrap.className = "demo-current-user";
   const label = document.createElement("small");
   label.textContent = "Używa";
+  const nameLine = document.createElement("span");
+  nameLine.className = "customer-name-line";
   const name = document.createElement("strong");
+  name.className = "customer-name-text";
   name.textContent = currentUser;
-  wrap.append(label, name);
+  nameLine.append(name);
+  wrap.append(label, nameLine);
   const phoneBadge = createCustomerPhoneBadge(currentUser);
-  if (phoneBadge) wrap.append(phoneBadge);
+  if (phoneBadge) nameLine.append(phoneBadge);
   if (loanDate || dueDate) {
     const period = document.createElement("span");
     period.className = "demo-current-user-period";
@@ -13708,14 +13735,18 @@ function createRepairDocumentNumberCell(record) {
 function createRepairCustomerName(record, status) {
   const wrap = document.createElement("span");
   wrap.className = "repair-customer-stack";
+  const nameLine = document.createElement("span");
+  nameLine.className = "customer-name-line";
   const name = document.createElement("span");
+  name.className = "customer-name-text";
   name.textContent = record?.customerName || "-";
   if (status === "GOTOWE") {
-    name.className = "pickup-customer";
+    name.classList.add("pickup-customer");
   }
-  wrap.append(name);
+  nameLine.append(name);
+  wrap.append(nameLine);
   const phoneBadge = createCustomerPhoneBadge(record?.customerName);
-  if (phoneBadge) wrap.append(phoneBadge);
+  if (phoneBadge) nameLine.append(phoneBadge);
   repairActiveDemoRelations(record).forEach((relation) => {
     const marker = document.createElement("span");
     marker.className = `repair-demo-relation ${relation.className}`;
@@ -18722,16 +18753,11 @@ updatePcprFormMode();
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
-offerAgeInput?.addEventListener("input", () => {
+offerPatientGroupInputs.forEach((input) => input.addEventListener("change", () => {
   renderPricingOfferDeviceList();
   renderPricingOffer();
   if (activeNotebook === "agreements" && activePricingView === "list") renderPricingRecords();
-});
-offerAgeInput?.addEventListener("change", () => {
-  renderPricingOfferDeviceList();
-  renderPricingOffer();
-  if (activeNotebook === "agreements" && activePricingView === "list") renderPricingRecords();
-});
+}));
 offerCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
 });
