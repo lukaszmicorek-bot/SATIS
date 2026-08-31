@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-168">
+    <link rel="stylesheet" href="styles.css?v=20260831-171">
   </head>
   <body>
     <main class="app-shell">
@@ -50,7 +50,7 @@
           <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
             <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
             <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia</button>
-            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>CAPD</button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>APD</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="pcpr" data-private-shared hidden>PCPR</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="history" data-private-owner hidden>Historia</button>
           </div>
@@ -1653,11 +1653,11 @@
       </section>
 
       <section id="capdNotebook" class="notebook-section private-module-section" hidden>
-        <section class="private-module-panel" aria-label="CAPD">
+        <section class="private-module-panel" aria-label="APD">
           <header class="private-module-head">
             <div>
               <p class="eyebrow">Badanie przetwarzania słuchowego</p>
-              <h2>CAPD</h2>
+              <h2>APD</h2>
             </div>
             <span class="private-module-badge">Gabinet</span>
           </header>
@@ -1691,7 +1691,7 @@
               <p id="capdScopeDescription">Zakres testów zostanie dobrany automatycznie.</p>
             </section>
 
-            <section id="capdNormReferencePanel" class="capd-norm-reference-panel private-form-wide" aria-label="Wartości normatywne CAPD">
+            <section id="capdNormReferencePanel" class="capd-norm-reference-panel private-form-wide" aria-label="Wartości normatywne APD">
               <header class="capd-norm-reference-head">
                 <div>
                   <p class="eyebrow">Wartości normatywne</p>
@@ -1741,7 +1741,7 @@
               <header class="capd-tests-head">
                 <div>
                   <p class="eyebrow">Wyniki badań</p>
-                  <h3>Testy CAPD</h3>
+                  <h3>Testy APD</h3>
                 </div>
                 <span>Każdy wynik wpisz osobno</span>
               </header>
@@ -1897,11 +1897,11 @@
             </div>
           </form>
 
-          <section id="capdReport" class="capd-report offer-document" aria-label="Gotowy formularz badania CAPD">
+          <section id="capdReport" class="capd-report offer-document" aria-label="Gotowy formularz badania APD">
             <header class="offer-document-head">
               <div>
                 <p>SATIS Pracownia Słuchu</p>
-                <h2 id="capdReportTitle">Ocena przetwarzania słuchowego APD/CAPD</h2>
+                <h2 id="capdReportTitle">Ocena przetwarzania słuchowego APD</h2>
                 <span id="capdReportMeta">Podaj dane dziecka i datę badania</span>
               </div>
               <img src="satis-monogram.png" alt="SATIS">
@@ -1924,11 +1924,11 @@
             <p class="capd-report-disclaimer">Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu. Nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania.</p>
           </section>
 
-          <section class="capd-history-panel" aria-label="Historia badań CAPD">
+          <section class="capd-history-panel" aria-label="Historia badań APD">
             <header class="capd-history-head">
               <div>
                 <p class="eyebrow">Zapisane badania</p>
-                <h3>Historia CAPD</h3>
+                <h3>Historia APD</h3>
               </div>
               <span id="capdHistoryCount">0 badań</span>
             </header>
@@ -1937,7 +1937,7 @@
               <input id="capdHistorySearchInput" type="search" placeholder="Imię i nazwisko, PESEL lub data" autocomplete="off">
             </label>
             <div id="capdHistoryList" class="capd-history-list"></div>
-            <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych badań CAPD.</p>
+            <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych badań APD.</p>
           </section>
         </section>
       </section>
@@ -2587,6 +2587,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-168"></script>
+    <script src="app.js?v=20260831-171"></script>
   </body>
 </html>

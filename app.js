@@ -1002,7 +1002,7 @@ function setCurrentYearTitle() {
   const deviceTitle = `Zeszyt aparatów ${year}`;
   const repairTitle = `Serwis i zamówienia ${year}`;
   const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
-  const capdTitle = `CAPD ${year}`;
+  const capdTitle = `APD ${year}`;
   const vacationTitle = `Urlop ${selectedVacationYear()}`;
   const notebookTitles = {
     devices: deviceTitle,
@@ -2301,7 +2301,7 @@ function subscribeToSupabaseChanges() {
 
   if (capdHistorySupabaseAvailable !== false) {
     channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_CAPD_HISTORY_TABLE }, () => {
-      loadSupabaseCapdHistory().catch((error) => console.warn("Nie udało się odświeżyć historii CAPD:", error.message));
+      loadSupabaseCapdHistory().catch((error) => console.warn("Nie udało się odświeżyć historii APD:", error.message));
     });
   }
 
@@ -15285,7 +15285,7 @@ function ensureCapdNormEditors() {
     input.type = "text";
     input.autocomplete = "off";
     input.dataset.capdNormInput = "1";
-    input.setAttribute("aria-label", `Norma ${item.dataset.capdCode || "CAPD"}`);
+    input.setAttribute("aria-label", `Norma ${item.dataset.capdCode || "APD"}`);
     const evaluation = document.createElement("span");
     evaluation.className = "capd-evaluation-badge";
     evaluation.dataset.capdEvaluation = "";
@@ -15445,13 +15445,13 @@ function updateCapdScope() {
   }
   if (age < 8) {
     capdScopePanel.dataset.scope = "six-tests";
-    capdScopeTitle.textContent = "Ocena przetwarzania słuchowego APD/CAPD";
+    capdScopeTitle.textContent = "Ocena przetwarzania słuchowego APD";
     capdScopeDescription.textContent = "6 testów dla dzieci w wieku 6–7 lat: TRW, TRS, ASPN-S, ASPN-Z, DDT i FPT.";
     renderCapdReport();
     return;
   }
   capdScopePanel.dataset.scope = "full";
-  capdScopeTitle.textContent = "Ocena przetwarzania słuchowego APD/CAPD";
+  capdScopeTitle.textContent = "Ocena przetwarzania słuchowego APD";
   capdScopeDescription.textContent = "Pełny zakres od 8 roku życia: TRW, TRS, ASPN-S, ASPN-Z, DDT, FPT, GDT i DLF.";
   renderCapdReport();
 }
@@ -15516,7 +15516,7 @@ function renderCapdReport() {
         : "Pełny zakres · od 8 roku życia";
   const reportTitle = age !== null && age < 6
     ? "Ocena ryzyka trudności w przetwarzaniu słuchowym"
-    : "Ocena przetwarzania słuchowego APD/CAPD";
+    : "Ocena przetwarzania słuchowego APD";
   const description = String(document.querySelector("#capdDescriptionInput")?.value || "").trim();
 
   if (capdReportTitle) capdReportTitle.textContent = reportTitle;
@@ -15628,7 +15628,7 @@ async function loadSupabaseCapdHistory() {
     renderCapdHistory();
     return capdHistory;
   } catch (error) {
-    console.warn("Historia CAPD działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    console.warn("Historia APD działa lokalnie, bez tabeli Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) capdHistorySupabaseAvailable = false;
     renderCapdHistory();
     return null;
@@ -15702,13 +15702,13 @@ async function saveCurrentCapdToHistory() {
   }
   try {
     await persistCapdHistoryEntry(historyEntry);
-    alert(existing ? "Badanie CAPD zostało zaktualizowane." : "Badanie CAPD zostało zapisane w historii.");
+    alert(existing ? "Badanie APD zostało zaktualizowane." : "Badanie APD zostało zapisane w historii.");
   } catch (error) {
     capdHistory = previousHistory;
     activeCapdHistoryId = existing?.id || "";
     saveLocalCapdHistory();
     renderCapdHistory();
-    alert(`Nie udało się zapisać historii CAPD: ${error.message}`);
+    alert(`Nie udało się zapisać historii APD: ${error.message}`);
   } finally {
     if (saveCapdHistoryBtn) {
       saveCapdHistoryBtn.disabled = false;
@@ -15752,7 +15752,7 @@ function restoreCapdHistoryEntry(entry) {
 async function deleteCapdHistoryEntry(id) {
   if (!canViewPrivateModules()) return;
   const entry = capdHistory.find((item) => item.id === id);
-  if (!entry || !confirm(`Usunąć badanie CAPD: ${entry.patient}, ${formatDate(entry.testDate)}?`)) return;
+  if (!entry || !confirm(`Usunąć badanie APD: ${entry.patient}, ${formatDate(entry.testDate)}?`)) return;
   const previousHistory = capdHistory.slice();
   capdHistory = capdHistory.filter((item) => item.id !== id);
   if (activeCapdHistoryId === id) activeCapdHistoryId = "";
@@ -15766,7 +15766,7 @@ async function deleteCapdHistoryEntry(id) {
     capdHistory = previousHistory;
     saveLocalCapdHistory();
     renderCapdHistory();
-    alert(`Nie udało się usunąć badania CAPD: ${error.message}`);
+    alert(`Nie udało się usunąć badania APD: ${error.message}`);
   }
 }
 
@@ -15961,12 +15961,15 @@ function vacationOwnLeaveOnDate(isoDate) {
   ) || null;
 }
 
-function vacationSaturdayLinksOnDate(isoDate) {
-  if (!isVacationCalendarInput() || !isoDate) return [];
-  const employee = selectedVacationEmployee();
-  if (!employee || vacationSaturdayMarkersDisabled(employee)) return [];
+function vacationSaturdayLinksOnDate(isoDate, previewRequest = null) {
+  if (!isoDate || (!previewRequest && !isVacationCalendarInput())) return [];
+  const employee = previewRequest
+    ? vacationEmployees.find((item) => item.id === previewRequest.employeeId)
+      || { id: previewRequest.employeeId, name: previewRequest.employeeName }
+    : selectedVacationEmployee();
+  if (!employee?.id || vacationSaturdayMarkersDisabled(employee)) return [];
   if (!canViewPrivateModules() && employee.id !== vacationMyEmployeeId()) return [];
-  return vacationRequests.flatMap((request) => {
+  return (previewRequest ? [previewRequest] : vacationRequests).flatMap((request) => {
     if (request.employeeId !== employee.id || request.ownerLeave || request.type !== "ZA SOBOTĘ"
       || request.status !== "ZATWIERDZONY" || !request.saturdayDate || !request.dateFrom || !request.dateTo) return [];
     if (isoDate === request.saturdayDate) {
@@ -16488,7 +16491,7 @@ function vacationPeriodPreviewMonths(from, to) {
   return Array.from({ length: count }, (_, index) => new Date(start.getFullYear(), start.getMonth() + index, 1));
 }
 
-function createVacationPeriodMonth(monthDate, from, to) {
+function createVacationPeriodMonth(monthDate, from, to, request = null) {
   const section = document.createElement("section");
   section.className = "date-picker-month";
   const title = document.createElement("h3");
@@ -16521,6 +16524,17 @@ function createVacationPeriodMonth(monthDate, from, to) {
     item.classList.toggle("today", iso === today);
     item.classList.toggle("public-holiday", holidays.has(iso));
     item.title = [formatDate(iso), holidays.get(iso)].filter(Boolean).join(" · ");
+    const saturdayLinks = request ? vacationSaturdayLinksOnDate(iso, request) : [];
+    if (saturdayLinks.length) {
+      const arrow = document.createElement("span");
+      arrow.className = "vacation-saturday-arrow";
+      arrow.textContent = saturdayLinks[0].symbol;
+      arrow.setAttribute("aria-hidden", "true");
+      item.append(arrow);
+      item.tabIndex = 0;
+      item.classList.toggle("saturday-linked", true);
+      item.title += `. ${saturdayLinks.map((link) => link.label).join(". ")}`;
+    }
     item.setAttribute("aria-label", `${item.title}${iso >= from && iso <= to ? ", wybrany okres" : ""}`);
     grid.append(item);
   }
@@ -16534,6 +16548,14 @@ function showVacationPeriodPreview(anchor, requestId) {
   if (!currentSupabaseUser || !request || (!canViewPrivateModules() && request.ownerLeave)) return;
   const months = vacationPeriodPreviewMonths(request.dateFrom, request.dateTo);
   if (!months.length) return;
+  const saturdayLinks = vacationSaturdayLinksOnDate(request.dateFrom, request);
+  if (saturdayLinks.length) {
+    const saturday = parseIsoDate(request.saturdayDate);
+    if (saturday && !months.some((month) => month.getFullYear() === saturday.getFullYear() && month.getMonth() === saturday.getMonth())) {
+      months.push(new Date(saturday.getFullYear(), saturday.getMonth(), 1));
+      months.sort((left, right) => left - right);
+    }
+  }
   let preview = document.querySelector("#vacationPeriodPreview");
   if (!preview) {
     preview = document.createElement("div");
@@ -16549,8 +16571,14 @@ function showVacationPeriodPreview(anchor, requestId) {
   const calendar = document.createElement("div");
   calendar.className = "vacation-preview-months";
   calendar.dataset.single = String(months.length === 1);
-  calendar.append(...months.map((month) => createVacationPeriodMonth(month, request.dateFrom, request.dateTo)));
+  calendar.append(...months.map((month) => createVacationPeriodMonth(month, request.dateFrom, request.dateTo, request)));
   preview.replaceChildren(heading, calendar);
+  if (saturdayLinks.length) {
+    const explanation = document.createElement("p");
+    explanation.className = "vacation-preview-saturday-link";
+    explanation.textContent = `↩ ${formatDate(request.dateFrom)}${request.dateFrom !== request.dateTo ? ` – ${formatDate(request.dateTo)}` : ""}: ${saturdayLinks.map((link) => link.label).join(". ")}`;
+    preview.append(explanation);
+  }
   preview.hidden = false;
   preview.style.visibility = "hidden";
   const rect = anchor.getBoundingClientRect();
@@ -16561,6 +16589,17 @@ function showVacationPeriodPreview(anchor, requestId) {
 }
 
 function attachVacationPeriodPreview(term, request) {
+  const saturdayLinks = vacationSaturdayLinksOnDate(request.dateFrom, request);
+  if (saturdayLinks.length) {
+    const label = saturdayLinks.map((link) => link.label).join(". ");
+    term.title = label;
+    term.setAttribute("aria-label", `${term.textContent}. ${label}`);
+    const arrow = document.createElement("span");
+    arrow.className = "vacation-history-saturday-arrow";
+    arrow.textContent = "↩";
+    arrow.setAttribute("aria-hidden", "true");
+    term.append(arrow);
+  }
   term.setAttribute("aria-describedby", "vacationPeriodPreview");
   term.addEventListener("mouseenter", () => showVacationPeriodPreview(term, request.id));
   term.addEventListener("focus", () => showVacationPeriodPreview(term, request.id));
