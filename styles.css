@@ -2110,6 +2110,16 @@ h2 {
 .vacation-history-date:focus-visible { outline: 2px solid #548699; outline-offset: 3px; }
 .vacation-history-term .vacation-history-date:hover { background: transparent; box-shadow: none; }
 
+.vacation-history-saturday-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: 5px;
+  color: #287a7d;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .vacation-period-preview {
   position: fixed;
   z-index: 10050;
@@ -2129,6 +2139,7 @@ h2 {
 .vacation-preview-months { display: grid; grid-template-columns: repeat(2, 220px); gap: 16px; }
 .vacation-preview-months[data-single="true"] { grid-template-columns: 220px; }
 .vacation-preview-day {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 28px;
@@ -2141,6 +2152,20 @@ h2 {
 .vacation-preview-day.period-edge { background: #bbddea; font-weight: 700; }
 .vacation-preview-day.public-holiday { color: #ae3848; }
 .vacation-preview-day.today { font-weight: 900; text-decoration: underline; }
+
+.vacation-preview-day.saturday-linked { font-weight: 800; }
+.vacation-preview-day.saturday-linked:focus-visible { outline: 2px solid #007c80; outline-offset: 1px; }
+.vacation-preview-saturday-link {
+  max-width: 456px;
+  margin: 12px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid #d6e4e7;
+  color: #235d75;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 520px) {
   .vacation-preview-months { grid-template-columns: minmax(0, 220px); }
 }
