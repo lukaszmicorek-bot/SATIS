@@ -813,6 +813,7 @@ const pcprCityInput = document.querySelector("#pcprCityInput");
 const pcprStreetInput = document.querySelector("#pcprStreetInput");
 const pcprModelInput = document.querySelector("#pcprModelInput");
 const pcprModelInput2 = document.querySelector("#pcprModelInput2");
+const pcprNotesInput = document.querySelector("#pcprNotesInput");
 const pcprSecondModelField = document.querySelector("#pcprSecondModelField");
 const addPcprSecondModelBtn = document.querySelector("#addPcprSecondModelBtn");
 const removePcprSecondModelBtn = document.querySelector("#removePcprSecondModelBtn");
@@ -1248,22 +1249,30 @@ function suggestedDocumentLocation() {
   return workstationLocation || mostUsedDocumentLocationForWorkstation(currentWorkstationName());
 }
 
+function canManageWorkstation() {
+  return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
 function updateWorkstationButton() {
   if (!workstationBtn) return;
   workstationBtn.hidden = !currentSupabaseUser;
   const name = currentWorkstationName();
-  workstationBtn.textContent = name ? `Stanowisko: ${name}` : "Ustaw stanowisko";
-  workstationBtn.title = name ? `To stanowisko: ${name}` : "Podaj T12, P50, P63 lub inicjały";
+  const canEdit = canManageWorkstation();
+  workstationBtn.disabled = !canEdit;
+  workstationBtn.textContent = name ? `Stanowisko: ${name}` : canEdit ? "Ustaw stanowisko" : "Stanowisko: nie ustawiono";
+  workstationBtn.title = canEdit
+    ? "Stanowisko zapamiętane w tej przeglądarce. Kliknij, aby zmienić."
+    : "Stanowisko może ustawić lub zmienić tylko SATIS.";
 }
 
 function promptForWorkstationName({ force = false } = {}) {
   const currentName = currentWorkstationName();
-  if (currentName && !force) return currentName;
+  if (!canManageWorkstation()) return currentName || "Nie ustawiono";
+  if (currentName && currentName !== "Nie ustawiono" && !force) return currentName;
 
   const value = prompt("Podaj stanowisko: T12, P50, P63 lub inicjały.", currentName || "");
   if (value === null) {
     const fallbackName = currentName || "Nie ustawiono";
-    if (!currentName) localStorage.setItem(WORKSTATION_STORAGE_KEY, fallbackName);
     updateWorkstationButton();
     return fallbackName;
   }
@@ -10421,6 +10430,7 @@ function normalizePricingPcprItem(item) {
     place: normalizePcprPlace(item.place || pcprPlaceForOffice(item.office || item.pcpr || item.institution)),
     customer: titleCaseName(item.customer || item.customerName || ""),
     phone: formatPcprPhone(item.phone),
+    notes: String(item.notes ?? "").trim(),
     postalCode,
     city,
     street,
@@ -10581,6 +10591,7 @@ function currentPricingPcprItemSnapshot() {
     place: normalizePcprPlace(pcprPlaceInput?.value || pcprPlaceForOffice(pcprOfficeInput?.value)),
     customer: titleCaseName(pcprCustomerInput?.value || ""),
     phone: formatPcprPhone(pcprPhoneInput?.value),
+    notes: pcprNotesInput?.value || "",
     postalCode,
     city,
     street,
@@ -10606,7 +10617,7 @@ function updatePcprFormMode() {
 
 function resetPricingPcprForm() {
   clearPostalAutofill(pcprPostalCodeInput, "pcprPostalHint");
-  [pcprOfficeInput, pcprPlaceInput, pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput, pcprModelInput2].forEach((input) => {
+  [pcprOfficeInput, pcprPlaceInput, pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput, pcprModelInput2, pcprNotesInput].forEach((input) => {
     if (input) input.value = "";
   });
   activePricingPcprEditId = "";
@@ -10635,6 +10646,7 @@ function editPricingPcprItem(id) {
   }
   if (pcprCustomerInput) pcprCustomerInput.value = entry.customer || "";
   if (pcprPhoneInput) pcprPhoneInput.value = entry.phone || "";
+  if (pcprNotesInput) pcprNotesInput.value = entry.notes || "";
   if (pcprPostalCodeInput) pcprPostalCodeInput.value = entry.postalCode || "";
   if (pcprCityInput) {
     pcprCityInput.value = entry.city || "";
@@ -10786,6 +10798,12 @@ function createPricingPcprItem(entry) {
   content.append(nameLine);
   if (details.textContent) content.append(details);
   content.append(model);
+  if (entry.notes) {
+    const notes = document.createElement("p");
+    notes.className = "pcpr-item-notes";
+    notes.textContent = entry.notes;
+    content.append(notes);
+  }
   if (meta.textContent) content.append(meta);
 
   const ear = document.createElement("span");
@@ -13922,8 +13940,16 @@ function pricingChargerWarrantyTooltip(record) {
   return [record.model || record.tradeName, "Gwarancja ładowarki: 24 miesiące", "Akumulator: 12 miesięcy"].filter(Boolean).join("\n");
 }
 
+function isPricingModelUnavailable(record) {
+  return [record?.model, record?.tradeName].some((value) =>
+    /(?:^|[^\p{L}\p{N}])(?:more|ruby|opn[\s-]+s|opn[\s-]+play)(?=$|[^\p{L}\p{N}]|\d)/iu.test(String(value || ""))
+  );
+}
+
 function createPricingRow(record, index) {
   const row = document.createElement("tr");
+  const unavailable = isPricingModelUnavailable(record);
+  row.classList.toggle("pricing-model-unavailable", unavailable);
   const manufacturerTone = pricingManufacturerTone(record.manufacturer);
   row.classList.add("pricing-manufacturer-row");
   row.style.setProperty("--pricing-tone-bg", manufacturerTone.bg);
@@ -13968,6 +13994,12 @@ function createPricingRow(record, index) {
       cell.textContent = value || "-";
     }
     if (cellIndex === 4) {
+      if (unavailable) {
+        const availability = document.createElement("span");
+        availability.className = "pricing-unavailable-label";
+        availability.textContent = "Niedostępne";
+        cell.append(availability);
+      }
       const warrantyTooltip = pricingChargerWarrantyTooltip(record);
       if (warrantyTooltip) {
         cell.classList.add("pricing-charger-warranty");
@@ -19769,6 +19801,7 @@ exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
 scrollTopBtn?.addEventListener("click", scrollToPageTop);
 workstationBtn?.addEventListener("click", () => {
+  if (!canManageWorkstation()) return;
   promptForWorkstationName({ force: true });
   syncAgreementDocumentLocations("", { useWorkstation: true });
   if (!canViewPrivateModules() && vacationEmployeeInput) vacationEmployeeInput.value = "";

@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-158">
+    <link rel="stylesheet" href="styles.css?v=20260831-164">
   </head>
   <body>
     <main class="app-shell">
@@ -1195,6 +1195,12 @@
                       </label>
                     </div>
                   </div>
+                </div>
+                <div class="pcpr-form-row pcpr-form-row-notes">
+                  <label class="pcpr-notes-field">
+                    <span>Uwagi</span>
+                    <textarea id="pcprNotesInput" rows="2"></textarea>
+                  </label>
                   <div class="pcpr-form-actions">
                     <button id="savePcprBtn" type="submit">Dodaj</button>
                     <button id="cancelPcprEditBtn" class="reset-filters-btn pcpr-cancel-edit-btn" type="button" hidden>Anuluj</button>
@@ -2593,6 +2599,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-158"></script>
+    <script src="app.js?v=20260831-164"></script>
   </body>
 </html>
