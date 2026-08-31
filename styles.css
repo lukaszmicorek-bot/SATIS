@@ -6333,6 +6333,10 @@ input[aria-invalid="true"] {
   font-weight: 900;
 }
 
+.date-picker-day.vacation-holiday-blocked {
+  cursor: not-allowed;
+}
+
 .date-picker-day.vacation-saturday-linked {
   position: relative;
 }
