@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-139">
+    <link rel="stylesheet" href="styles.css?v=20260831-141">
   </head>
   <body>
     <main class="app-shell">
@@ -2407,15 +2407,21 @@
             <input id="demoManufacturer" name="manufacturer" type="text" list="demoManufacturerSuggestions">
             <datalist id="demoManufacturerSuggestions"></datalist>
           </label>
-          <label class="highlight-field">
-            <span>Nazwa aparatu</span>
-            <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <datalist id="demoDeviceNameSuggestions"></datalist>
-          </label>
           <label>
             <span id="demoSerialNumberLabel">Numer seryjny</span>
             <input id="demoSerialNumber" name="serialNumber" type="text">
           </label>
+          <div class="wide demo-model-contact">
+            <label class="highlight-field">
+              <span>Nazwa aparatu</span>
+              <input id="demoDeviceName" name="deviceName" type="text" list="demoDeviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+              <datalist id="demoDeviceNameSuggestions"></datalist>
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input id="demoPhone" name="phone" type="tel" autocomplete="off" placeholder="500 600 800" aria-label="Telefon aktualnego użytkownika">
+            </label>
+          </div>
           <label>
             <span>Status</span>
             <select id="demoStatus" name="status">
@@ -2562,6 +2568,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-139"></script>
+    <script src="app.js?v=20260831-141"></script>
   </body>
 </html>

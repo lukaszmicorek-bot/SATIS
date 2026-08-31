@@ -3827,12 +3827,12 @@ h2 {
 
 .complaint-editor-table th:nth-child(2),
 .complaint-editor-table td:nth-child(2) {
-  width: 150px;
+  width: calc(150px + 8.4%);
 }
 
 .complaint-editor-table th:nth-child(4),
 .complaint-editor-table td:nth-child(4) {
-  width: 21%;
+  width: 12.6%;
 }
 
 .complaint-editor-table th:nth-child(5),
@@ -9251,6 +9251,23 @@ form {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin: 20px 0;
+}
+
+.demo-model-contact {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.demo-model-contact > label {
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .demo-model-contact {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .wide {
