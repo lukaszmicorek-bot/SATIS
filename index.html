@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260831-128">
+    <link rel="stylesheet" href="styles.css?v=20260831-130">
   </head>
   <body>
     <main class="app-shell">
@@ -1229,10 +1229,6 @@
                   <span>Klient</span>
                   <input id="orderCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
-                <label class="order-contact-field">
-                  <span>Telefon</span>
-                  <input id="orderPhoneInput" type="text" autocomplete="off">
-                </label>
                 <label class="order-location-field document-location-field">
                   <span>Miejsce</span>
                   <select id="orderLocationInput">
@@ -1240,6 +1236,10 @@
                     <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
+                </label>
+                <label class="order-contact-field">
+                  <span>Telefon</span>
+                  <input id="orderPhoneInput" type="text" autocomplete="off">
                 </label>
                 <label class="order-notes-field">
                   <span>Uwagi</span>
@@ -1360,9 +1360,13 @@
                   <span>Klient</span>
                   <input id="complaintCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
                 </label>
-                <label>
-                  <span>Telefon</span>
-                  <input id="complaintPhoneInput" type="text" autocomplete="off">
+                <label class="complaint-location-field document-location-field">
+                  <span>Miejsce</span>
+                  <select id="complaintLocationInput">
+                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
+                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
+                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
+                  </select>
                 </label>
                 <label class="complaint-request-field">
                   <span>Żądanie klienta</span>
@@ -1371,13 +1375,9 @@
                     <option value="NAPRAWA POGWARANCYJNA" class="complaint-request-option-out-of-warranty">Naprawa pogwarancyjna</option>
                   </select>
                 </label>
-                <label class="complaint-location-field document-location-field">
-                  <span>Miejsce</span>
-                  <select id="complaintLocationInput">
-                    <option value="Bielsko-Biała, ul. Traugutta 12">Bielsko-Biała, ul. Traugutta 12</option>
-                    <option value="Bielsko-Biała, ul. Partyzantów 63">Bielsko-Biała, ul. Partyzantów 63</option>
-                    <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
-                  </select>
+                <label>
+                  <span>Telefon</span>
+                  <input id="complaintPhoneInput" type="text" autocomplete="off">
                 </label>
                 <div class="complaint-editor complaint-full">
                   <div class="order-editor-head">
@@ -1408,6 +1408,7 @@
                               <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
                               <option value="WKŁADKA USZNA">Wkładka uszna</option>
                               <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                              <option value="ŁADOWARKA">Ładowarka</option>
                               <option value="INNE">Inne</option>
                             </select>
                           </td>
@@ -1434,6 +1435,7 @@
                               <option value="APARAT SŁUCHOWY">Aparat słuchowy</option>
                               <option value="WKŁADKA USZNA">Wkładka uszna</option>
                               <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                              <option value="ŁADOWARKA">Ładowarka</option>
                               <option value="INNE">Inne</option>
                             </select>
                           </td>
@@ -2513,6 +2515,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-128"></script>
+    <script src="app.js?v=20260831-130"></script>
   </body>
 </html>
