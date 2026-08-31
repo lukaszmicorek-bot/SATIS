@@ -3827,7 +3827,7 @@ h2 {
 
 .complaint-editor-table th:nth-child(2),
 .complaint-editor-table td:nth-child(2) {
-  width: calc(150px + 8.4%);
+  width: 200px;
 }
 
 .complaint-editor-table th:nth-child(4),
