@@ -4144,11 +4144,49 @@ function renderWarrantyDateText(element, value) {
   element.replaceChildren(fragment);
 }
 
+function renderCustomerPhoneTooltip(element, info, text) {
+  const fragment = document.createDocumentFragment();
+  const heading = document.createElement("div");
+  heading.className = "phone-tooltip-heading";
+  heading.textContent = info.uncertain
+    ? "Znaleziono różne numery telefonu. Sprawdź zgodność osoby:"
+    : "Telefon klienta:";
+  fragment.append(heading);
+  info.phones.forEach((phone) => {
+    const line = document.createElement("div");
+    line.className = "phone-tooltip-line";
+    const number = document.createElement("strong");
+    number.className = "phone-tooltip-number";
+    number.textContent = phone.formatted;
+    line.append(number);
+    if (phone.sources.length) {
+      const source = document.createElement("span");
+      source.className = "phone-tooltip-source";
+      source.textContent = ` · ${phone.sources.join(", ")}`;
+      line.append(source);
+    }
+    fragment.append(line);
+  });
+  const remainder = text.slice(info.tooltip.length).trim();
+  if (remainder) {
+    const details = document.createElement("div");
+    details.className = "phone-tooltip-details";
+    renderWarrantyDateText(details, remainder);
+    fragment.append(details);
+  }
+  element.replaceChildren(fragment);
+}
+
 function showTableHoverTooltip(anchor, dataKey) {
   const text = String(anchor?.dataset?.[dataKey] || "").trim();
   if (!anchor || !text) return;
   const tooltip = tableHoverTooltipElement();
-  renderWarrantyDateText(tooltip, text);
+  const phoneInfo = anchor.customerPhoneDetails;
+  if (phoneInfo && text.startsWith(phoneInfo.tooltip)) {
+    renderCustomerPhoneTooltip(tooltip, phoneInfo, text);
+  } else {
+    renderWarrantyDateText(tooltip, text);
+  }
   tooltip.hidden = false;
   tooltip.style.visibility = "hidden";
   const anchorBox = anchor.getBoundingClientRect();
@@ -5818,7 +5856,7 @@ function createCustomerPhoneBadge(customer, { attachTooltip = true } = {}) {
   if (info.uncertain) badge.classList.add("uncertain");
   badge.textContent = info.phones.length === 1 ? "tel." : `tel. ${info.phones.length}`;
   badge.dataset.customerPhoneTooltip = info.tooltip;
-  badge.title = info.tooltip.replace(/\n/gu, " ");
+  badge.customerPhoneDetails = info;
   badge.tabIndex = 0;
   badge.setAttribute("aria-label", info.tooltip.replace(/\n/gu, " "));
   if (badge instanceof HTMLAnchorElement) badge.href = `tel:+48${info.phones[0].digits}`;
@@ -13821,6 +13859,7 @@ function createCustomerActivityCell(record) {
     if (demoInfo?.warning) wrap.classList.add("customer-demo-warning");
     const tooltip = [phoneInfo?.tooltip, demoInfo?.tooltip, documentInfo?.tooltip].filter(Boolean).join("\n\n");
     wrap.dataset.customerTooltip = tooltip;
+    wrap.customerPhoneDetails = phoneInfo;
     wrap.tabIndex = 0;
     attachTableHoverTooltip(wrap, "customerTooltip");
     const contactBadges = document.createElement("span");
