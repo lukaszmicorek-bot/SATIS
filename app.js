@@ -8114,6 +8114,7 @@ function updateLoanContractNumberValidity() {
 }
 
 function currentPricingLoanSnapshot() {
+  syncLoanPostalCode();
   ensurePricingLoanDefaults();
   ensureLoanContractNumber();
   const now = new Date().toISOString();
@@ -8300,6 +8301,8 @@ function setLoanSnapshotInput(input, value, options = {}) {
 }
 
 function restorePricingLoanFromHistory(entry) {
+  hideLoanCustomerHistorySuggestions();
+  clearPostalAutofill(loanAddressInput, "loanPostalHint");
   const historyEntry = normalizePricingLoanHistoryEntry(entry);
   if (!historyEntry) return;
   activePricingLoanHistoryId = historyEntry.id;
@@ -9024,6 +9027,207 @@ function formatLoanAddress(value, { final = false } = {}) {
     .replace(/\bOs\./gu, "os.");
 }
 
+function customerHistoryContactEntries(customer) {
+  const key = customerNameLookupKey(customer);
+  if (!key || key.split(/\s+/u).length < 2) return [];
+  const entries = [];
+  const add = (entry, source) => {
+    if (customerNameLookupKey(entry.customer) !== key) return;
+    const contact = {
+      customerKey: key,
+      phone: normalizeLoanHistoryText(entry.phone),
+      document: normalizeLoanHistoryText(entry.document),
+      address: formatLoanAddress(entry.address, { final: true }),
+      source,
+      date: isoDateForSave(entry.date) || isoDateForSave(entry.savedAt) || isoDateForSave(entry.createdAt),
+      sortTime: customerRelationTimeValue(entry.date || entry.savedAt || entry.createdAt)
+    };
+    if (contact.phone || contact.document || contact.address) entries.push(contact);
+  };
+  pricingLoanHistory.forEach((entry) => add(entry, "Umowa"));
+  pricingPcprList.forEach((entry) => add({ ...entry, address: pcprAddressLabel(entry) }, "PCPR / MOPS"));
+  pricingOrderHistory.forEach((entry) => add({ customer: entry.customer, phone: entry.phone, date: entry.date, savedAt: entry.savedAt }, "Zamówienie"));
+  pricingComplaintHistory.forEach((entry) => add({ customer: entry.customer, phone: entry.phone, date: entry.date, savedAt: entry.savedAt }, "Reklamacja"));
+  const unique = new Map();
+  entries.sort((left, right) => right.sortTime - left.sortTime).forEach((entry) => {
+    const profileKey = JSON.stringify([entry.phone, entry.document, entry.address].map((value) => normalize(value).trim()));
+    if (!unique.has(profileKey)) unique.set(profileKey, entry);
+  });
+  return [...unique.values()];
+}
+
+function hideLoanCustomerHistorySuggestions() {
+  const panel = document.getElementById("loanCustomerHistorySuggestions");
+  if (panel) {
+    panel.hidden = true;
+    panel.replaceChildren();
+  }
+}
+
+function applyLoanCustomerHistoryContact(entry) {
+  if (customerNameLookupKey(loanCustomerInput?.value) !== entry.customerKey) return;
+  let changed = false;
+  [[loanPhoneInput, entry.phone], [loanDocumentInput, entry.document], [loanAddressInput, entry.address]].forEach(([input, value]) => {
+    if (input && !input.value.trim() && value) {
+      input.value = value;
+      changed = true;
+      if (input === loanAddressInput) clearPostalAutofill(input, "loanPostalHint");
+    }
+  });
+  if (changed) {
+    syncLoanPostalCode();
+    renderPricingLoan();
+    markAgreementDraftDirty("loan");
+  }
+  hideLoanCustomerHistorySuggestions();
+}
+
+function renderLoanCustomerHistorySuggestions() {
+  const panel = document.getElementById("loanCustomerHistorySuggestions");
+  if (!panel) return;
+  hideLoanCustomerHistorySuggestions();
+  const entries = customerHistoryContactEntries(loanCustomerInput?.value).filter((entry) =>
+    (!loanPhoneInput?.value.trim() && entry.phone) ||
+    (!loanDocumentInput?.value.trim() && entry.document) ||
+    (!loanAddressInput?.value.trim() && entry.address));
+  if (!entries.length) return;
+  const heading = document.createElement("p");
+  heading.textContent = entries.length > 1
+    ? "Różne dane w historii. Sprawdź, czy dotyczą tej samej osoby. Wybierz wpis, aby uzupełnić puste pola."
+    : "Dane z historii. Sprawdź zgodność osoby i wybierz wpis, aby uzupełnić puste pola.";
+  const buttons = entries.slice(0, 8).map((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.title = "Uzupełnij tylko puste pola. Wpisane dane pozostaną bez zmian.";
+    const documentHint = entry.document ? `Dokument: •••• ${entry.document.slice(-4)}` : "";
+    [entry.source + (entry.date ? ` · ${formatDate(entry.date)}` : ""), entry.phone, documentHint, entry.address]
+      .filter(Boolean).forEach((text) => {
+        const span = document.createElement("span");
+        span.textContent = text;
+        button.append(span);
+      });
+    button.addEventListener("click", () => applyLoanCustomerHistoryContact(entry));
+    return button;
+  });
+  panel.replaceChildren(heading, ...buttons);
+  panel.hidden = false;
+}
+
+function postalAddressParts(value) {
+  const text = normalizeLoanHistoryText(value);
+  const postalMatch = text.match(/(?:^|[\s,])(\d{2}[-\s]?\d{3})(?=$|[\s,])/u);
+  const postalCode = postalMatch ? formatPcprPostalCode(postalMatch[1]) : "";
+  const address = normalizeLoanHistoryText(postalMatch ? text.replace(postalMatch[1], "") : text).replace(/^,\s*|,\s*$/gu, "");
+  const parts = address.split(/\s*,\s*/u).filter(Boolean);
+  let city = "";
+  let street = "";
+  const isCity = (part) => /^[\p{L}\s.'’–-]+$/u.test(part) && !/^(?:ul|al|os)\./iu.test(part);
+  if (parts.length === 2 && isCity(parts[0])) [city, street] = parts;
+  else if (parts.length === 2 && isCity(parts[1])) [street, city] = parts;
+  else if (parts.length === 1) {
+    const match = address.match(/^(.+?)\s+((?:ul\.|al\.|os\.)\s*.+)$/iu);
+    if (match && isCity(match[1])) [, city, street] = match;
+    else if (isCity(address)) city = address;
+  }
+  return { postalCode, city, street, address };
+}
+
+function postalStreetKey(value) {
+  return normalize(value).replace(/^(?:ul\.?|ulica)\s+/u, "").replace(/\s+/gu, " ").trim();
+}
+
+function knownPostalAddresses() {
+  return [
+    ...pricingPcprList.map((entry) => ({ postalCode: entry.postalCode, city: entry.city, street: entry.street })),
+    ...pricingLoanHistory.map((entry) => postalAddressParts(entry.address))
+  ].filter((entry) => /^\d{2}-\d{3}$/u.test(entry.postalCode || "") && entry.city);
+}
+
+function suggestPostalCode(city, street, entries = knownPostalAddresses()) {
+  const cityKey = normalize(city).trim();
+  if (!cityKey) return { code: "", codes: [] };
+  const cityMatches = entries.filter((entry) => normalize(entry.city).trim() === cityKey);
+  const streetKey = postalStreetKey(street);
+  const exactMatches = streetKey ? cityMatches.filter((entry) => postalStreetKey(entry.street) === streetKey) : [];
+  const codes = [...new Set((exactMatches.length ? exactMatches : cityMatches)
+    .map((entry) => entry.postalCode).filter((code) => /^\d{2}-\d{3}$/u.test(code || "")))].sort();
+  return { code: codes.length === 1 ? codes[0] : "", codes };
+}
+
+function showPostalCodeHint(id, suggestion, auto = false) {
+  const hint = document.getElementById(id);
+  if (!hint) return;
+  hint.textContent = auto ? `Kod ${suggestion.code} uzupełniony z historii adresów. Sprawdź poprawność.`
+    : suggestion.codes.length > 1 ? `Pasujące kody z historii: ${suggestion.codes.join(", ")}. Wpisz właściwy kod.`
+    : "Brak jednoznacznego kodu w historii. Uzupełnij kod pocztowy.";
+  hint.hidden = false;
+}
+
+function syncLoanPostalCode() {
+  if (!loanAddressInput) return;
+  let text = formatLoanAddress(loanAddressInput.value, { final: true });
+  let parts = postalAddressParts(text);
+  const previousCode = loanAddressInput.dataset.autoPostalCode;
+  if (previousCode && parts.postalCode === previousCode && normalize(parts.address) === loanAddressInput.dataset.autoPostalAddress) {
+    loanAddressInput.value = text;
+    showPostalCodeHint("loanPostalHint", { code: previousCode, codes: [previousCode] }, true);
+    return;
+  }
+  if (previousCode && parts.postalCode === previousCode && normalize(parts.address) !== loanAddressInput.dataset.autoPostalAddress) {
+    text = parts.address;
+    parts = postalAddressParts(text);
+  }
+  delete loanAddressInput.dataset.autoPostalCode;
+  delete loanAddressInput.dataset.autoPostalAddress;
+  const hint = document.getElementById("loanPostalHint");
+  if (hint) hint.hidden = true;
+  loanAddressInput.value = text;
+  if (!text || parts.postalCode || /\d{2}-\d{0,2}(?!\d)/u.test(text)) return;
+  const suggestion = suggestPostalCode(parts.city, parts.street);
+  if (suggestion.code) {
+    // Place the code next to the city, retaining the user's address order.
+    loanAddressInput.value = text.replace(parts.city, `${suggestion.code} ${parts.city}`);
+    loanAddressInput.dataset.autoPostalCode = suggestion.code;
+    loanAddressInput.dataset.autoPostalAddress = normalize(parts.address);
+  }
+  showPostalCodeHint("loanPostalHint", suggestion, Boolean(suggestion.code));
+}
+
+function syncPcprPostalCodeFromAddress() {
+  if (!pcprPostalCodeInput || !pcprCityInput) return;
+  const addressKey = normalize([pcprCityInput.value, pcprStreetInput?.value || ""].join(", "));
+  const previousCode = pcprPostalCodeInput.dataset.autoPostalCode;
+  if (previousCode && pcprPostalCodeInput.value === previousCode && pcprPostalCodeInput.dataset.autoPostalAddress === addressKey) {
+    showPostalCodeHint("pcprPostalHint", { code: previousCode, codes: [previousCode] }, true);
+    return;
+  }
+  if (previousCode && pcprPostalCodeInput.value === previousCode && pcprPostalCodeInput.dataset.autoPostalAddress !== addressKey) {
+    pcprPostalCodeInput.value = "";
+  }
+  delete pcprPostalCodeInput.dataset.autoPostalCode;
+  delete pcprPostalCodeInput.dataset.autoPostalAddress;
+  const hint = document.getElementById("pcprPostalHint");
+  if (hint) hint.hidden = true;
+  if (pcprPostalCodeInput.value.trim() || !pcprCityInput.value.trim()) return;
+  const suggestion = suggestPostalCode(pcprCityInput.value, pcprStreetInput?.value);
+  if (suggestion.code) {
+    pcprPostalCodeInput.value = suggestion.code;
+    pcprPostalCodeInput.dataset.autoPostalCode = suggestion.code;
+    pcprPostalCodeInput.dataset.autoPostalAddress = addressKey;
+    pcprCityInput.dataset.autoCity = "";
+  }
+  showPostalCodeHint("pcprPostalHint", suggestion, Boolean(suggestion.code));
+}
+
+function clearPostalAutofill(input, hintId) {
+  if (input) {
+    delete input.dataset.autoPostalCode;
+    delete input.dataset.autoPostalAddress;
+  }
+  const hint = document.getElementById(hintId);
+  if (hint) hint.hidden = true;
+}
+
 function setLoanInputValue(input, value, overwrite = false) {
   if (!input || !String(value ?? "").trim()) return;
   if (overwrite || !loanInputValue(input)) input.value = value;
@@ -9365,6 +9569,8 @@ function ensurePricingLoanDefaults() {
 }
 
 function startNewPricingLoan() {
+  hideLoanCustomerHistorySuggestions();
+  clearPostalAutofill(loanAddressInput, "loanPostalHint");
   activePricingLoanHistoryId = "";
   pricingLoanValidationRequested = false;
   pricingLoanAutofilledFromOffer = true;
@@ -9480,6 +9686,7 @@ function updatePricingLoanRequiredHighlights() {
 }
 
 function validatePricingLoanForAction() {
+  syncLoanPostalCode();
   pricingLoanValidationRequested = true;
   const missingInputs = updatePricingLoanRequiredHighlights();
   missingInputs[0]?.focus();
@@ -9913,6 +10120,7 @@ function syncPcprSecondModelForEar() {
 function currentPricingPcprItemSnapshot() {
   syncPcprModelFromPricing();
   syncPcprSecondModelFromPricing();
+  syncPcprPostalCodeFromAddress();
   syncPcprCityFromPostalCode({ force: false });
   const now = new Date().toISOString();
   const existingEntry = activePricingPcprEditId ? pricingPcprList.find((entry) => entry.id === activePricingPcprEditId) : null;
@@ -9953,6 +10161,7 @@ function updatePcprFormMode() {
 }
 
 function resetPricingPcprForm() {
+  clearPostalAutofill(pcprPostalCodeInput, "pcprPostalHint");
   [pcprOfficeInput, pcprPlaceInput, pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput, pcprModelInput2].forEach((input) => {
     if (input) input.value = "";
   });
@@ -9970,6 +10179,7 @@ function resetPricingPcprForm() {
 }
 
 function editPricingPcprItem(id) {
+  clearPostalAutofill(pcprPostalCodeInput, "pcprPostalHint");
   const entry = normalizePricingPcprItem(pricingPcprList.find((item) => item.id === id));
   if (!entry) return;
   activePricingPcprEditId = entry.id;
@@ -18945,18 +19155,24 @@ pcprPhoneInput?.addEventListener("input", (event) => {
   event.target.value = formatPcprPhone(event.target.value);
 });
 pcprPostalCodeInput?.addEventListener("input", (event) => {
+  delete event.target.dataset.autoPostalCode;
+  delete event.target.dataset.autoPostalAddress;
+  const hint = document.getElementById("pcprPostalHint");
+  if (hint) hint.hidden = true;
   event.target.value = formatPcprPostalCode(event.target.value);
   syncPcprCityFromPostalCode({ force: false });
 });
-pcprPostalCodeInput?.addEventListener("blur", () => syncPcprCityFromPostalCode({ force: true }));
+pcprPostalCodeInput?.addEventListener("blur", () => syncPcprCityFromPostalCode({ force: false }));
 pcprCityInput?.addEventListener("input", () => {
   if (pcprCityInput) pcprCityInput.dataset.autoCity = "";
 });
 pcprCityInput?.addEventListener("blur", (event) => {
   event.target.value = normalizePcprCity(event.target.value);
+  syncPcprPostalCodeFromAddress();
 });
 pcprStreetInput?.addEventListener("blur", (event) => {
   event.target.value = normalizePcprStreet(event.target.value);
+  syncPcprPostalCodeFromAddress();
 });
 pcprModelInput?.addEventListener("input", syncPcprSecondModelForEar);
 pcprModelInput?.addEventListener("change", () => {
@@ -19074,11 +19290,17 @@ loanPeriod14Btn?.addEventListener("click", () => setPricingLoanPeriod(14));
   input?.addEventListener("change", renderPricingLoan);
 });
 loanCustomerInput?.addEventListener("input", (event) => {
+  hideLoanCustomerHistorySuggestions();
   event.target.value = titleCaseNameInput(event.target.value);
 });
 loanCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
   renderPricingLoan();
+  renderLoanCustomerHistorySuggestions();
+});
+loanCustomerInput?.addEventListener("change", renderLoanCustomerHistorySuggestions);
+[loanPhoneInput, loanDocumentInput, loanAddressInput].forEach((input) => {
+  input?.addEventListener("focus", renderLoanCustomerHistorySuggestions);
 });
 loanAddressInput?.addEventListener("input", (event) => {
   const formattedAddress = formatLoanAddress(event.target.value);
@@ -19087,6 +19309,7 @@ loanAddressInput?.addEventListener("input", (event) => {
 });
 loanAddressInput?.addEventListener("blur", (event) => {
   event.target.value = formatLoanAddress(event.target.value, { final: true });
+  syncLoanPostalCode();
   renderPricingLoan();
 });
 [loanRightSerialInput, loanLeftSerialInput, loanChargerSerialInput].forEach((input) => {

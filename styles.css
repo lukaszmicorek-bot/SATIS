@@ -3334,6 +3334,48 @@ h2 {
   resize: vertical;
 }
 
+.postal-code-hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.customer-history-suggestions {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.customer-history-suggestions p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.customer-history-suggestions button {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 12px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #dce6e8;
+  border-radius: 6px;
+  background: #f6f9fa;
+  color: #003f5a;
+  box-shadow: none;
+  text-align: left;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.customer-history-suggestions button span {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .order-editor {
   display: grid;
   gap: 8px;
@@ -4247,9 +4289,23 @@ h2 {
   transform: none;
 }
 
-.loan-clear-device-btn {
-  align-self: end;
-  justify-self: end;
+.loan-value-field {
+  display: grid;
+  grid-column: span 2;
+  gap: 6px;
+  min-width: 0;
+}
+
+.loan-value-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 8px;
+}
+
+.loan-value-controls .loan-clear-device-btn {
+  align-self: center;
+  justify-self: center;
 }
 
 .loan-document {
@@ -9556,15 +9612,15 @@ textarea {
   }
 
   .loan-device-row .loan-side-badge {
-    grid-row: span 5;
+    grid-row: span 4;
   }
 
   .loan-device-model-field {
     grid-column: auto;
   }
 
-  .loan-clear-device-btn {
-    grid-column: 2;
+  .loan-value-field {
+    grid-column: auto;
   }
 
   .loan-wide,
