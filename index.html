@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-134">
+    <link rel="stylesheet" href="styles.css?v=20260831-137">
   </head>
   <body>
     <main class="app-shell">
@@ -858,8 +858,11 @@
                 </label>
                 <label class="loan-full">
                   <span>Adres</span>
-                  <input id="loanAddressInput" type="text" placeholder="Adres użytkownika" autocomplete="off">
+                  <input id="loanAddressInput" type="text" placeholder="Miejscowość, ulica i numer" autocomplete="off" aria-describedby="loanPostalHint">
+                  <small id="loanPostalHint" class="postal-code-hint" aria-live="polite" hidden></small>
                 </label>
+
+                <div id="loanCustomerHistorySuggestions" class="loan-full customer-history-suggestions" aria-label="Dane klienta z historii" hidden></div>
 
                 <p class="loan-form-title loan-full">Aparat słuchowy</p>
                 <div class="loan-device-row loan-full">
@@ -877,11 +880,13 @@
                     <span>Producent</span>
                     <input id="loanRightManufacturerInput" type="text" autocomplete="off">
                   </label>
-                  <label>
-                    <span>Wartość brutto</span>
-                    <input id="loanRightValueInput" type="text" inputmode="decimal" autocomplete="off">
-                  </label>
-                  <button class="loan-clear-device-btn" type="button" data-clear-loan-device="right" aria-label="Usuń prawy aparat">×</button>
+                  <div class="loan-value-field">
+                    <label for="loanRightValueInput"><span>Wartość brutto</span></label>
+                    <div class="loan-value-controls">
+                      <input id="loanRightValueInput" type="text" inputmode="decimal" autocomplete="off">
+                      <button class="loan-clear-device-btn" type="button" data-clear-loan-device="right" aria-label="Usuń prawy aparat">×</button>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="loan-device-row loan-full">
@@ -899,11 +904,13 @@
                     <span>Producent</span>
                     <input id="loanLeftManufacturerInput" type="text" autocomplete="off">
                   </label>
-                  <label>
-                    <span>Wartość brutto</span>
-                    <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
-                  </label>
-                  <button class="loan-clear-device-btn" type="button" data-clear-loan-device="left" aria-label="Usuń lewy aparat">×</button>
+                  <div class="loan-value-field">
+                    <label for="loanLeftValueInput"><span>Wartość brutto</span></label>
+                    <div class="loan-value-controls">
+                      <input id="loanLeftValueInput" type="text" inputmode="decimal" autocomplete="off">
+                      <button class="loan-clear-device-btn" type="button" data-clear-loan-device="left" aria-label="Usuń lewy aparat">×</button>
+                    </div>
+                  </div>
                 </div>
 
                 <p class="loan-form-title loan-full">Ładowarka</p>
@@ -1119,7 +1126,8 @@
                   </label>
                   <label class="pcpr-postal-field">
                     <span>Kod pocztowy</span>
-                    <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300">
+                    <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300" aria-describedby="pcprPostalHint">
+                    <small id="pcprPostalHint" class="postal-code-hint" aria-live="polite" hidden></small>
                   </label>
                   <label class="pcpr-city-field">
                     <span>Miasto</span>
@@ -2525,6 +2533,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-134"></script>
+    <script src="app.js?v=20260831-136"></script>
   </body>
 </html>
