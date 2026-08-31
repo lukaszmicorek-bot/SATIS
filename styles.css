@@ -6771,7 +6771,7 @@ tbody tr.device-sold-row:hover {
 .customer-name-line {
   display: inline-flex;
   flex-wrap: nowrap;
-  align-items: center;
+  align-items: baseline;
   gap: 5px;
   min-width: 0;
   max-width: 100%;
@@ -7165,6 +7165,33 @@ tbody tr.device-sold-row:hover {
 
 .table-hover-tooltip[hidden] {
   display: none;
+}
+
+.phone-tooltip-heading {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.phone-tooltip-line + .phone-tooltip-line {
+  margin-top: 5px;
+}
+
+.phone-tooltip-number {
+  color: #003f5a;
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.phone-tooltip-source {
+  color: #687880;
+  font-size: 0.72rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.phone-tooltip-details {
+  margin-top: 10px;
 }
 
 .warranty-date {
