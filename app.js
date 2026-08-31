@@ -452,6 +452,7 @@ const demoFields = [
   "purpose",
   "location",
   "currentUser",
+  "phone",
   "loanDate",
   "returnDate",
   "notes"
@@ -1559,6 +1560,7 @@ function auditFieldLabel(field) {
     manufacturerReturnedDate: "Data zwrotu do producenta",
     manufacturerReturned: "Zwrócono do producenta",
     currentUser: "Aktualnie używany",
+    phone: "Telefon",
     loanDate: "Data wypożyczenia",
     purpose: "Charakter",
     notes: "Uwagi"
@@ -4655,6 +4657,7 @@ function normalizeDemoLoanHistory(history) {
     .map((entry) => ({
       id: String(entry?.id || makeId()),
       currentUser: titleCaseName(entry?.currentUser),
+      phone: String(entry?.phone ?? "").trim(),
       loanDate: String(entry?.loanDate ?? "").trim(),
       returnDate: String(entry?.returnDate ?? "").trim(),
       attachments: normalizeDemoAttachments(entry?.attachments)
@@ -4695,6 +4698,7 @@ function effectiveDemoLoanHistory(record) {
   return [{
     id: `legacy-${record.id || "demo"}-${record.loanDate || "bez-daty"}-${record.returnDate}`,
     currentUser: titleCaseName(record.currentUser),
+    phone: String(record.phone ?? "").trim(),
     loanDate: String(record.loanDate ?? "").trim(),
     returnDate: String(record.returnDate ?? "").trim(),
     attachments: []
@@ -5353,6 +5357,12 @@ function addCustomerPhoneIndexEntry(customer, value, source, date = "") {
 
 function rebuildCustomerPhoneIndex() {
   customerPhoneIndex.clear();
+  demoRecords.forEach((record) => {
+    addCustomerPhoneIndexEntry(record.currentUser, record.phone, "Demo", record.loanDate);
+    effectiveDemoLoanHistory(record).forEach((entry) => {
+      addCustomerPhoneIndexEntry(entry.currentUser, entry.phone, "Historia Demo", entry.loanDate || entry.returnDate);
+    });
+  });
   normalizePricingLoanHistory(pricingLoanHistory).forEach((entry) => {
     addCustomerPhoneIndexEntry(entry.customer, entry.phone, "Umowa", entry.date || entry.savedAt);
   });
@@ -16420,6 +16430,7 @@ function fillDemoFormValues(record = {}) {
     serialNumber: "#demoSerialNumber",
     location: "#demoLocation",
     currentUser: "#demoCurrentUser",
+    phone: "#demoPhone",
     notes: "#demoNotes"
   };
 
@@ -16435,6 +16446,7 @@ function fillDemoFormValues(record = {}) {
     }
     input.value = DEMO_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
+  document.querySelector("#demoPhone").dataset.customerKey = customerNameLookupKey(record?.currentUser);
 }
 
 function openDialog(record = null) {
@@ -16954,6 +16966,7 @@ function repairFormRecord() {
 }
 
 function demoFormRecord() {
+  syncDemoPhoneOwner();
   const data = Object.fromEntries(new FormData(demoForm).entries());
   demoFields.forEach((field) => {
     data[field] = String(data[field] ?? "").trim();
@@ -17013,6 +17026,7 @@ function completeDemoLoan(existingRecord, data) {
       history.push({
         id: makeId(),
         currentUser,
+        phone: String(data.currentUser ? (data.phone ?? "") : (existingRecord?.phone ?? "")).trim(),
         loanDate,
         returnDate,
         attachments: normalizeDemoAttachments(data.currentAttachments)
@@ -17024,6 +17038,7 @@ function completeDemoLoan(existingRecord, data) {
     ...data,
     status: "NA STANIE",
     currentUser: "",
+    phone: "",
     loanDate: "",
     returnDate,
     currentAttachments: [],
@@ -17054,6 +17069,7 @@ function prepareDemoLoanData(existingRecord, data) {
       manufacturerReturned: "1",
       loanHistory: history,
       currentUser: "",
+      phone: "",
       loanDate: "",
       returnDate: ""
     };
@@ -17548,6 +17564,14 @@ function formatDemoCurrentUserInput(event) {
 
 function finalizeDemoCurrentUserInput(event) {
   event.target.value = titleCaseName(event.target.value);
+  syncDemoPhoneOwner();
+}
+
+function syncDemoPhoneOwner() {
+  const input = document.querySelector("#demoPhone");
+  const customerKey = customerNameLookupKey(document.querySelector("#demoCurrentUser").value);
+  if (input.dataset.customerKey && input.dataset.customerKey !== customerKey) input.value = "";
+  input.dataset.customerKey = customerKey;
 }
 
 function syncSalesInvoiceUppercase(event) {
@@ -19589,6 +19613,9 @@ document.querySelector("#demoDeviceName").addEventListener("blur", () => syncDem
 document.querySelector("#demoSerialNumber").addEventListener("input", syncDemoUppercaseInput);
 document.querySelector("#demoCurrentUser").addEventListener("input", formatDemoCurrentUserInput);
 document.querySelector("#demoCurrentUser").addEventListener("blur", finalizeDemoCurrentUserInput);
+document.querySelector("#demoPhone").addEventListener("input", (event) => {
+  event.target.dataset.customerKey = customerNameLookupKey(document.querySelector("#demoCurrentUser").value);
+});
 document.querySelector("#demoStatus").addEventListener("change", syncDemoReturnedStatus);
 document.querySelector("#demoLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
 document.querySelector("#demoPurposeChoices").addEventListener("click", (event) => {
