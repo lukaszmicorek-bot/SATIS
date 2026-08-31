@@ -17091,7 +17091,7 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   notebookSwitchButtons.forEach((button) => {
     const isActive = button.dataset.notebook === notebookName;
     button.classList.toggle("active", isActive);
-    if (button.classList.contains("pricing-shortcut")) {
+    if (button.classList.contains("notebook-shortcut")) {
       button.setAttribute("aria-pressed", String(isActive));
     } else {
       button.setAttribute("aria-selected", String(isActive));
