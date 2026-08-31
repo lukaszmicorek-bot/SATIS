@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-133">
+    <link rel="stylesheet" href="styles.css?v=20260831-134">
   </head>
   <body>
     <main class="app-shell">
@@ -1238,13 +1238,16 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
+                <fieldset class="offer-patient-group order-patient-group">
+                  <legend>Dla</legend>
+                  <div class="offer-patient-options">
+                    <label><input type="radio" name="orderPatientGroup" value="adult"><span>Dorosły</span></label>
+                    <label><input type="radio" name="orderPatientGroup" value="child"><span>Dziecko</span></label>
+                  </div>
+                </fieldset>
                 <label class="order-contact-field">
                   <span>Telefon</span>
                   <input id="orderPhoneInput" type="text" autocomplete="off">
-                </label>
-                <label class="order-notes-field">
-                  <span>Uwagi</span>
-                  <input id="orderNotesInput" type="text" placeholder="np. pilne, kolor, ucho prawe/lewe" autocomplete="off">
                 </label>
               </div>
 
@@ -1271,6 +1274,12 @@
                 </table>
                 <p id="orderSideWarning" class="order-side-warning" hidden>Wybierz stronę P lub L dla każdej wkładki.</p>
               </div>
+
+              <datalist id="pricingOrderModelList"></datalist>
+              <label class="order-notes-field">
+                <span>Uwagi</span>
+                <textarea id="orderNotesInput" rows="2" placeholder="np. pilne, kolor, ucho prawe/lewe" autocomplete="off"></textarea>
+              </label>
 
               <div class="offer-actions">
                 <button id="orderCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
@@ -2516,6 +2525,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-130"></script>
+    <script src="app.js?v=20260831-134"></script>
   </body>
 </html>
