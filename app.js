@@ -7149,7 +7149,6 @@ function renderPricingOffer() {
   [offerDuplicateFirstBtn, offerMoveRightToLeftBtn, offerMoveLeftToRightBtn].forEach((button) => {
     if (button) button.disabled = ageRequired || !hasOfferDevice;
   });
-  const customerAgeLabel = group ? `, ${pricingOfferPatientGroupLabel(group).toLocaleLowerCase("pl-PL")}` : "";
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
   const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
@@ -7171,7 +7170,7 @@ function renderPricingOffer() {
   }
 
   const offerHeading = deviceItems.length === 1 ? "Oferta aparatu słuchowego" : "Oferta aparatów słuchowych";
-  if (offerTitle) offerTitle.textContent = customer ? `${offerHeading} dla ${customer}${customerAgeLabel}` : offerHeading;
+  if (offerTitle) offerTitle.textContent = customer ? `${offerHeading} dla ${customer}` : offerHeading;
   if (offerMeta) {
     offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
   }

@@ -2888,27 +2888,27 @@ h2 {
 }
 
 .offer-patient-options input[value="adult"] + span {
-  border-color: #d4ddca;
-  background: #f2f5ed;
-  color: #4d5d3d;
+  border-color: #cbd5e5;
+  background: #f1f4fa;
+  color: #263f65;
 }
 
 .offer-patient-options input[value="child"] + span {
-  border-color: #dfe8b9;
-  background: #f6fae9;
-  color: #53621f;
+  border-color: #c7e4f5;
+  background: #f0f9ff;
+  color: #246188;
 }
 
 .offer-patient-options input[value="adult"]:checked + span {
-  border-color: #899c73;
-  background: #dce6d0;
-  color: #37472b;
+  border-color: #8298ba;
+  background: #dce5f3;
+  color: #1d3559;
 }
 
 .offer-patient-options input[value="child"]:checked + span {
-  border-color: #a8bd54;
-  background: #e6f2bb;
-  color: #425214;
+  border-color: #7fbde3;
+  background: #d4efff;
+  color: #18567e;
 }
 
 .offer-patient-options input:focus-visible + span {
