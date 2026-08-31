@@ -575,12 +575,6 @@ h2 {
   font-weight: 850;
 }
 
-.capd-age-field small {
-  color: #728287;
-  font-size: 0.64rem;
-  line-height: 1.3;
-}
-
 .capd-scope-panel {
   display: grid;
   gap: 4px;
