@@ -1,4 +1,21 @@
+@font-face {
+  font-family: "Inter";
+  src: url("InterVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("InterVariable-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
+  --app-font-family: "Inter", sans-serif;
   color-scheme: light;
   --ink: #1c1f24;
   --muted: #66707a;
@@ -18,7 +35,11 @@
   --sold: #157347;
   --sold-soft: #dff4e8;
   --shadow: 0 20px 50px rgba(28, 31, 36, 0.12);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--app-font-family);
+}
+
+code, kbd, samp, pre {
+  font-family: var(--app-font-family);
 }
 
 * {
@@ -7083,7 +7104,7 @@ tbody tr.device-sold-row .date-text.today-date {
   padding: 2px 5px;
   color: #003f5a;
   background: #eef6f8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: var(--app-font-family);
   font-size: 0.9rem;
   font-weight: 920;
   letter-spacing: 0;
@@ -7266,7 +7287,7 @@ tbody tr.device-sold-row .serial-pill.service {
   color: #607b3d;
   background: #f8fbf2;
   flex: 0 0 auto;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--app-font-family);
   font-size: 0.58rem;
   font-weight: 900;
   line-height: 1;
@@ -9653,7 +9674,7 @@ textarea {
   @bottom-center {
     content: "Strona " counter(page) " / " counter(pages);
     color: #60737a;
-    font-family: Arial, sans-serif;
+    font-family: "Inter", sans-serif;
     font-size: 8pt;
   }
 }
@@ -10600,7 +10621,7 @@ textarea {
   .stock-checklist-table th:nth-child(4),
   .stock-checklist-table td:nth-child(4) {
     width: 33mm;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--app-font-family);
   }
 
   .stock-checklist-table th:nth-child(5),
@@ -10801,7 +10822,7 @@ textarea {
   .stock-audit-report-table th:nth-child(4),
   .stock-audit-report-table td:nth-child(4) {
     width: 36mm;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--app-font-family);
   }
 
   .stock-audit-report-table th:nth-child(5),
@@ -10910,7 +10931,7 @@ textarea {
   .demo-checklist-table th:nth-child(5),
   .demo-checklist-table td:nth-child(5) {
     width: 28mm;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--app-font-family);
   }
 
   .demo-checklist-table th:nth-child(6),
@@ -11437,7 +11458,7 @@ textarea {
 
 /* Wspolna typografia formularzy i podgladow w zakladce Umowy. */
 :is(#pricingOfferView, #pricingLoanView, #pricingOrderView, #pricingComplaintView, #pricingPcprView, #pricingHistoryView) {
-  --agreement-font-family: Verdana, Geneva, sans-serif;
+  --agreement-font-family: var(--app-font-family);
   font-family: var(--agreement-font-family);
 }
 
@@ -11535,7 +11556,7 @@ textarea {
   body.pricing-loan-print,
   body.pricing-order-print,
   body.pricing-complaint-print {
-    font-family: Verdana, Geneva, sans-serif;
+    font-family: var(--app-font-family);
     font-size: 9pt;
     line-height: 1.3;
     text-rendering: geometricPrecision;
