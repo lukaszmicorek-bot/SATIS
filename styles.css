@@ -3821,23 +3821,23 @@ h2 {
 
 .complaint-editor-table th:nth-child(1),
 .complaint-editor-table td:nth-child(1) {
-  width: 48px;
+  width: 40px;
   text-align: center;
 }
 
 .complaint-editor-table th:nth-child(2),
 .complaint-editor-table td:nth-child(2) {
-  width: 160px;
+  width: 150px;
 }
 
 .complaint-editor-table th:nth-child(4),
 .complaint-editor-table td:nth-child(4) {
-  width: 150px;
+  width: 220px;
 }
 
 .complaint-editor-table th:nth-child(5),
 .complaint-editor-table td:nth-child(5) {
-  width: 170px;
+  width: 150px;
 }
 
 .complaint-editor-table th:nth-child(6),
@@ -3847,7 +3847,7 @@ h2 {
 
 .complaint-editor-table th:nth-child(7),
 .complaint-editor-table td:nth-child(7) {
-  width: 46px;
+  width: 40px;
   text-align: center;
 }
 
