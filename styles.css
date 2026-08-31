@@ -7247,6 +7247,9 @@ tbody tr.device-sold-row .date-text.today-date {
 
 .serial-pill {
   appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
   border: 0;
   gap: 5px;
   padding: 2px 5px;
@@ -7266,6 +7269,29 @@ tbody tr.device-sold-row .date-text.today-date {
 
 .serial-pill-number {
   pointer-events: none;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.serial-single-line {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.dialog-title-serial,
+.repair-dialog-serial {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .repair-serial-list {

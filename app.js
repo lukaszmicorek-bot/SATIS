@@ -5493,6 +5493,32 @@ function renderTableRows(body, rows) {
   const fragment = document.createDocumentFragment();
   rows.forEach((row) => fragment.append(row));
   body.replaceChildren(fragment);
+  scheduleSerialLineFit();
+}
+
+let serialLineFitFrame = 0;
+
+function fitSerialLines(root = document) {
+  const lines = [...root.querySelectorAll(".serial-pill-number, .serial-single-line")];
+  lines.forEach((line) => line.style.removeProperty("font-size"));
+  const sizes = lines.map((line) => {
+    const width = line.clientWidth;
+    const textWidth = line.scrollWidth;
+    if (!width || textWidth <= width) return null;
+    const fontSize = Number.parseFloat(window.getComputedStyle(line).fontSize);
+    return { line, size: fontSize * (width - 1) / textWidth };
+  });
+  sizes.forEach((entry) => {
+    if (entry && Number.isFinite(entry.size) && entry.size > 0) entry.line.style.fontSize = `${entry.size}px`;
+  });
+}
+
+function scheduleSerialLineFit() {
+  if (serialLineFitFrame) return;
+  serialLineFitFrame = window.requestAnimationFrame(() => {
+    serialLineFitFrame = 0;
+    fitSerialLines();
+  });
 }
 
 function yearFromDateValue(value) {
@@ -7337,6 +7363,12 @@ function appendOfferCell(row, value, className = "") {
   const cell = document.createElement("td");
   cell.textContent = value || "-";
   if (className) cell.className = className;
+  if (["loan-equipment-serial", "complaint-products-serial"].includes(className)) {
+    const serial = document.createElement("span");
+    serial.className = "serial-single-line";
+    serial.textContent = value || "-";
+    cell.replaceChildren(serial);
+  }
   row.append(cell);
   return cell;
 }
@@ -9612,6 +9644,7 @@ function loanMoneyElement(value) {
 function setLoanOutput(name, value) {
   document.querySelectorAll(`[data-loan-out="${name}"]`).forEach((element) => {
     element.textContent = String(value ?? "").trim() || "-";
+    if (name === "chargerSerial") element.classList.add("serial-single-line");
   });
 }
 
@@ -9984,7 +10017,7 @@ function renderPricingLoanEquipment(devices) {
     const row = document.createElement("tr");
     appendOfferCell(row, { prawe: "Prawy", lewe: "Lewy" }[device.side] || device.side);
     appendOfferCell(row, device.model);
-    appendOfferCell(row, device.serial);
+    appendOfferCell(row, device.serial, "loan-equipment-serial");
     appendOfferCell(row, device.manufacturer);
     appendOfferCell(row, device.year);
     const valueCell = document.createElement("td");
@@ -9993,6 +10026,7 @@ function renderPricingLoanEquipment(devices) {
     return row;
   });
   loanEquipmentBody.replaceChildren(...rows);
+  scheduleSerialLineFit();
 }
 
 function updatePricingLoanRequiredHighlights() {
@@ -20533,6 +20567,11 @@ async function checkForPublishedAppUpdate() {
     console.warn("Nie udało się sprawdzić aktualizacji aplikacji:", error?.message || error);
   }
 }
+
+window.addEventListener("resize", scheduleSerialLineFit);
+window.addEventListener("beforeprint", () => fitSerialLines());
+window.addEventListener("afterprint", scheduleSerialLineFit);
+document.fonts?.ready.then(scheduleSerialLineFit);
 
 window.setTimeout(checkForPublishedAppUpdate, 15000);
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
