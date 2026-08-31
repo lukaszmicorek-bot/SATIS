@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-147">
+    <link rel="stylesheet" href="styles.css?v=20260831-152">
   </head>
   <body>
     <main class="app-shell">
@@ -932,6 +932,8 @@
                   <input id="loanChargerMissingValueInput" type="text" inputmode="decimal" autocomplete="off">
                 </label>
 
+                <section id="loanNearbyWarning" class="loan-full nearby-entry-warning" role="status" aria-live="polite" hidden></section>
+
                 <p class="loan-form-title loan-full">Wydanie i zwrot</p>
                 <label class="loan-wide">
                   <span>Uwagi przy wydaniu</span>
@@ -961,7 +963,7 @@
                 <button id="loanDuplicateRightBtn" class="reset-filters-btn" type="button">2x ten sam</button>
                 <button id="newPricingLoanBtn" class="reset-filters-btn document-new-btn" type="button">Nowa</button>
                 <button id="savePricingLoanBtn" class="reset-filters-btn" type="button">Zapisz w historii</button>
-                <button id="printPricingLoanBtn" type="button">Drukuj / PDF</button>
+                <button id="printPricingLoanBtn" type="button" title="Egzemplarz dla SATIS oraz egzemplarz dla klienta z zasadami testowania">Drukuj 2 egz. / PDF</button>
               </div>
             </section>
 
@@ -2343,6 +2345,7 @@
               <option value="ODEBRANE">Odebrane</option>
             </select>
           </label>
+          <section id="repairNearbyWarning" class="wide nearby-entry-warning" role="status" aria-live="polite" hidden></section>
           <label class="wide">
             <span>Uwagi</span>
             <textarea id="repairNotes" name="notes" rows="3"></textarea>
@@ -2590,6 +2593,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-147"></script>
+    <script src="app.js?v=20260831-152"></script>
   </body>
 </html>

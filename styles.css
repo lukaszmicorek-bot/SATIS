@@ -4366,6 +4366,10 @@ h2 {
   justify-self: center;
 }
 
+.loan-print-copy {
+  display: none;
+}
+
 .loan-document {
   margin-top: 16px;
 }
@@ -4906,13 +4910,39 @@ h2 {
 }
 
 .pcpr-model-field {
+  --pcpr-model-border: #c4d0d4;
+  --pcpr-model-background: #f7f9fa;
+  --pcpr-model-ink: #49616b;
   grid-column: span 6;
   display: grid;
   gap: 6px;
   padding: 8px 10px 10px;
-  border: 1.5px solid #78aebc;
+  border: 1.5px solid var(--pcpr-model-border);
   border-radius: 8px;
-  background: #f4fafb;
+  background: var(--pcpr-model-background);
+}
+
+.pcpr-form-row-bottom:has(input[name="pcprEar"][value="P"]:checked) .pcpr-model-field,
+.pcpr-form-row-bottom:has(input[name="pcprEar"][value="B"]:checked) .pcpr-model-field:not(.pcpr-second-model-field) {
+  --pcpr-model-border: #e1a39b;
+  --pcpr-model-background: #fff5f3;
+  --pcpr-model-ink: #9c342b;
+}
+
+.pcpr-form-row-bottom:has(input[name="pcprEar"][value="L"]:checked) .pcpr-model-field,
+.pcpr-form-row-bottom:has(input[name="pcprEar"][value="B"]:checked) .pcpr-second-model-field {
+  --pcpr-model-border: #9fc9d5;
+  --pcpr-model-background: #f0f8fa;
+  --pcpr-model-ink: #1f6372;
+}
+
+.pcpr-model-stack .pcpr-model-field > span,
+.pcpr-model-stack .pcpr-model-field input {
+  color: var(--pcpr-model-ink);
+}
+
+.pcpr-model-stack .pcpr-model-field input {
+  border-color: var(--pcpr-model-border);
 }
 
 .pcpr-place-field {
@@ -9828,6 +9858,10 @@ textarea {
 
   body {
     background: #fff;
+    font-family: var(--app-font-family);
+    text-rendering: auto;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
   }
 
   .top-panel,
@@ -11316,7 +11350,7 @@ textarea {
 
   body.pricing-offer-print .offer-description-grid span,
   body.pricing-offer-print .document-description-note {
-    font-size: 6.8pt;
+    font-size: 7.5pt;
     line-height: 1.25;
   }
 
@@ -11332,7 +11366,7 @@ textarea {
 
   body.pricing-offer-print .manufacturer-brand-title {
     margin-bottom: 1mm;
-    font-size: 6.4pt;
+    font-size: 7.5pt;
   }
 
   body.pricing-offer-print .manufacturer-brand-logos {
@@ -11409,6 +11443,32 @@ textarea {
   body.pricing-loan-print .loan-testing-information ~ .document-gabinet-locations {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  body.pricing-loan-print #pricingLoanView > #pricingLoanPrint.loan-print-packet {
+    display: block !important;
+    min-height: 0;
+  }
+
+  body.pricing-loan-print #pricingLoanPrint.loan-print-packet > :not(.loan-print-copy) {
+    display: none !important;
+  }
+
+  body.pricing-loan-print #pricingLoanPrint > .loan-print-copy {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.pricing-loan-print .loan-print-copy + .loan-print-copy {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  body.pricing-loan-print .loan-print-copy-label {
+    margin: 0 0 2mm;
+    font-weight: 700;
+    text-transform: uppercase;
   }
 
   body.pricing-complaint-print .document-service-notice {
@@ -11545,6 +11605,33 @@ textarea {
   display: inline-grid;
   justify-items: start;
   gap: 3px;
+}
+
+.nearby-entry-warning {
+  min-width: 0;
+  max-height: 170px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-left: 3px solid #c77848;
+  background: #fff7ef;
+  color: #79452e;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.nearby-entry-warning ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.nearby-entry-warning li + li {
+  margin-top: 6px;
+}
+
+input.nearby-entry-match {
+  outline: 2px solid #e5bc9f;
+  outline-offset: 1px;
 }
 
 .repair-customer-stack {
@@ -11700,7 +11787,7 @@ textarea {
     font-family: var(--app-font-family);
     font-size: 9pt;
     line-height: 1.3;
-    text-rendering: geometricPrecision;
+    text-rendering: auto;
   }
 
   body.pricing-offer-print *,
@@ -11720,7 +11807,7 @@ textarea {
   body.pricing-complaint-print .complaint-document {
     width: 190mm;
     max-width: 190mm;
-    color: #17272e;
+    color: #111;
     font-size: 9pt;
     line-height: 1.3;
   }
@@ -11754,7 +11841,7 @@ textarea {
   body.pricing-loan-print .offer-document-head span,
   body.pricing-order-print .offer-document-head span,
   body.pricing-complaint-print .offer-document-head span {
-    color: #465860;
+    color: #222;
     font-size: 8.5pt;
     font-weight: 600;
   }
@@ -11794,8 +11881,8 @@ textarea {
   body.pricing-order-print .order-signatures span,
   body.pricing-complaint-print .loan-doc-grid p span,
   body.pricing-complaint-print .complaint-signatures span {
-    color: #52656d;
-    font-size: 7.3pt;
+    color: #222;
+    font-size: 7.5pt;
     font-weight: 700;
   }
 
@@ -11806,7 +11893,7 @@ textarea {
   body.pricing-order-print .order-signatures strong,
   body.pricing-complaint-print .loan-doc-grid p strong,
   body.pricing-complaint-print .complaint-signatures strong {
-    color: #17272e;
+    color: #111;
     font-size: 8.7pt;
     font-weight: 700;
   }
@@ -11818,7 +11905,7 @@ textarea {
   body.pricing-complaint-print .complaint-products-table {
     border-collapse: collapse;
     border: 0.25mm solid #bdcbd0;
-    color: #17272e;
+    color: #111;
     font-size: 8.3pt;
   }
 
@@ -11842,9 +11929,9 @@ textarea {
   body.pricing-loan-print .loan-equipment-table th,
   body.pricing-order-print .order-items-table th,
   body.pricing-complaint-print .complaint-products-table th {
-    color: #243f4a;
+    color: #111;
     background: #edf4f5;
-    font-size: 7.4pt;
+    font-size: 7.5pt;
     font-weight: 700;
   }
 
@@ -11873,8 +11960,8 @@ textarea {
   body.pricing-loan-print .document-gabinet-locations,
   body.pricing-order-print .document-gabinet-locations,
   body.pricing-complaint-print .document-gabinet-locations {
-    color: #253b44;
-    font-size: 7.2pt;
+    color: #111;
+    font-size: 7.5pt;
     line-height: 1.25;
   }
 
@@ -11894,8 +11981,20 @@ textarea {
   body.pricing-loan-print .document-gabinet-locations .location-phone,
   body.pricing-order-print .document-gabinet-locations .location-phone,
   body.pricing-complaint-print .document-gabinet-locations .location-phone {
-    font-size: 7.2pt;
+    font-size: 7.5pt;
     font-weight: 700;
+  }
+
+  body.pricing-offer-print .document-description,
+  body.pricing-offer-print .document-description :is(p, span),
+  body.pricing-loan-print .loan-doc-note,
+  body.pricing-loan-print .loan-terms,
+  body.pricing-loan-print .loan-testing-information :is(p, li, span),
+  body.pricing-order-print .order-print-notes,
+  body.pricing-complaint-print .complaint-text-box,
+  body.pricing-complaint-print .document-service-notice p {
+    color: #111;
+    opacity: 1;
   }
 
   body.pricing-offer-print tr,
