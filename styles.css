@@ -11595,6 +11595,41 @@ textarea {
   font-size: 0.7rem;
 }
 
+.customer-relation-attention {
+  margin: 3px 0 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  color: #305b70;
+  background: #eff6fa;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.device-search-filter-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: #81502e;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.device-search-filter-notice[hidden] {
+  display: none;
+}
+
+.customer-relation-attention[data-level="warning"] {
+  color: #81502e;
+  background: #fff5ea;
+}
+
+.customer-relation-attention[data-level="critical"] {
+  color: #963d45;
+  background: #fdf0f1;
+}
+
 .repair-category-stack {
   display: inline-grid;
   justify-items: start;
