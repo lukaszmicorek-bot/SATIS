@@ -2556,6 +2556,15 @@ h2 {
   box-shadow: inset 4px 0 0 color-mix(in srgb, var(--pricing-tone-accent) 72%, #fff);
 }
 
+.pricing-charger-warranty {
+  cursor: help;
+}
+
+.pricing-charger-warranty:focus-visible {
+  outline: 2px solid #007b7d;
+  outline-offset: -2px;
+}
+
 .pricing-manufacturer-cell {
   color: var(--pricing-tone-text);
   background: linear-gradient(90deg, color-mix(in srgb, var(--pricing-tone-bg-strong) 58%, #fff), color-mix(in srgb, var(--pricing-tone-bg) 42%, #fff));

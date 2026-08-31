@@ -13073,6 +13073,12 @@ function createDemoRow(record) {
   return row;
 }
 
+function pricingChargerWarrantyTooltip(record) {
+  const manufacturer = normalizePricingManufacturerName(record?.manufacturer).toLocaleLowerCase("pl-PL");
+  if (!["philips", "sonic", "oticon"].includes(manufacturer) || pricingOfferAccessoryKind(record) !== "charger") return "";
+  return [record.model || record.tradeName, "Gwarancja ładowarki: 24 miesiące", "Akumulator: 12 miesięcy"].filter(Boolean).join("\n");
+}
+
 function createPricingRow(record, index) {
   const row = document.createElement("tr");
   const manufacturerTone = pricingManufacturerTone(record.manufacturer);
@@ -13117,6 +13123,16 @@ function createPricingRow(record, index) {
       cell.append(wrap);
     } else {
       cell.textContent = value || "-";
+    }
+    if (cellIndex === 4) {
+      const warrantyTooltip = pricingChargerWarrantyTooltip(record);
+      if (warrantyTooltip) {
+        cell.classList.add("pricing-charger-warranty");
+        cell.dataset.chargerWarrantyTooltip = warrantyTooltip;
+        cell.tabIndex = 0;
+        cell.setAttribute("aria-label", warrantyTooltip.replace(/\n/gu, ". "));
+        attachTableHoverTooltip(cell, "chargerWarrantyTooltip");
+      }
     }
     if (!value) cell.classList.add("muted-cell");
     row.append(cell);
