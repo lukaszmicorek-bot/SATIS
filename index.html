@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="256x256" href="favicon.png?v=20260827-3">
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
-    <link rel="stylesheet" href="styles.css?v=20260831-118">
+    <link rel="stylesheet" href="styles.css?v=20260831-121">
   </head>
   <body>
     <main class="app-shell">
@@ -812,14 +812,20 @@
                   <span>Data umowy</span>
                   <input id="loanDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
-                <label>
-                  <span>Okres od</span>
-                  <input id="loanPeriodFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
-                <label>
-                  <span>Okres do</span>
-                  <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
-                </label>
+                <div class="loan-period-fields loan-wide">
+                  <label>
+                    <span>Okres od</span>
+                    <input id="loanPeriodFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Okres do</span>
+                    <input id="loanPeriodToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                  </label>
+                  <div class="loan-period-presets" role="group" aria-label="Szybki okres wypożyczenia">
+                    <button id="loanPeriod7Btn" type="button">7 dni</button>
+                    <button id="loanPeriod14Btn" type="button">14 dni</button>
+                  </div>
+                </div>
                 <label class="document-location-field loan-contract-location-field">
                   <span>Miejsce</span>
                   <select id="loanCityInput">
@@ -828,16 +834,10 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
-                <div class="loan-deposit-field loan-deposit-control">
-                  <label>
-                    <span>Kaucja pobrana</span>
-                    <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
-                  </label>
-                  <div class="loan-period-presets" role="group" aria-label="Szybki okres wypożyczenia">
-                    <button id="loanPeriod7Btn" type="button">7 dni</button>
-                    <button id="loanPeriod14Btn" type="button">14 dni</button>
-                  </div>
-                </div>
+                <label class="loan-deposit-field">
+                  <span>Kaucja pobrana</span>
+                  <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
+                </label>
 
                 <p class="loan-form-title loan-full">Dane klienta</p>
                 <label class="loan-wide person-name-field">
@@ -1247,9 +1247,9 @@
               <div class="order-editor">
                 <div class="order-editor-head">
                   <span>Wybór</span>
-                  <button id="addOrderItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj pozycję zamówienia">
+                  <button id="addOrderItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj model do zamówienia">
                     <span aria-hidden="true">+</span>
-                    <span data-order-add-label>Dodaj pozycję</span>
+                    <span data-order-add-label>Dodaj model</span>
                   </button>
                 </div>
                 <table class="order-editor-table">
@@ -1286,7 +1286,7 @@
                 <img src="satis-monogram.png" alt="SATIS">
               </header>
 
-              <p id="orderEmptyState" class="offer-empty-state">Dodaj pozycję zamówienia.</p>
+              <p id="orderEmptyState" class="offer-empty-state">Dodaj model do zamówienia.</p>
               <div id="orderContent" hidden>
                 <section class="loan-doc-section">
                   <h3>Dane</h3>
@@ -1379,9 +1379,9 @@
                 <div class="complaint-editor complaint-full">
                   <div class="order-editor-head">
                     <span>Pozycje reklamacji</span>
-                    <button id="addComplaintItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj pozycję reklamacji">
+                    <button id="addComplaintItemBtn" class="order-add-item-btn" type="button" aria-label="Dodaj model do reklamacji">
                       <span aria-hidden="true">+</span>
-                      Dodaj pozycję
+                      Dodaj model
                     </button>
                   </div>
                   <div class="complaint-editor-scroll">
@@ -2510,6 +2510,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-118"></script>
+    <script src="app.js?v=20260831-121"></script>
   </body>
 </html>

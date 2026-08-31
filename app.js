@@ -6736,6 +6736,7 @@ function pricingOfferItemDescription(item) {
 function removePricingOfferItem(item) {
   if (!item?.input) return;
   item.input.value = "";
+  markAgreementDraftDirty("offer");
   renderPricingOffer();
 }
 
@@ -6862,8 +6863,9 @@ function renderPricingOfferItems(items) {
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "offer-remove-item-btn";
-    removeButton.textContent = "Usuń";
+    removeButton.textContent = "×";
     removeButton.title = `Usuń pozycję: ${pricingOfferItemKindLabel(item)}`;
+    removeButton.setAttribute("aria-label", removeButton.title);
     removeButton.addEventListener("click", () => removePricingOfferItem(item));
     removeCell.append(removeButton);
     row.append(removeCell);
@@ -9123,6 +9125,7 @@ function clearLoanDevice(side) {
     if (input) input.value = "";
   });
   updateLoanSerialPasteHint(side);
+  markAgreementDraftDirty("loan");
   renderPricingLoan();
 }
 
@@ -10908,7 +10911,9 @@ function addPricingOrderItemRow(item = {}) {
   removeButton.type = "button";
   removeButton.className = "order-remove-item-btn";
   removeButton.dataset.orderAction = "remove";
-  removeButton.textContent = "Usuń";
+  removeButton.textContent = "×";
+  removeButton.title = "Usuń model z zamówienia";
+  removeButton.setAttribute("aria-label", removeButton.title);
   actionCell.append(removeButton);
 
   row.append(typeCell, sideCell, quantityCell, descriptionCell, notesCell, actionCell);
@@ -10925,8 +10930,8 @@ function clearPricingOrderRows() {
 function updatePricingOrderAddButton() {
   if (!addOrderItemBtn) return;
   const labelElement = addOrderItemBtn.querySelector("[data-order-add-label]");
-  if (labelElement) labelElement.textContent = "Dodaj pozycję";
-  addOrderItemBtn.setAttribute("aria-label", "Dodaj pozycję zamówienia");
+  if (labelElement) labelElement.textContent = "Dodaj model";
+  addOrderItemBtn.setAttribute("aria-label", "Dodaj model do zamówienia");
 }
 
 function syncPricingOrderDescriptionForType(row) {
@@ -10979,6 +10984,7 @@ function handlePricingOrderItemsClick(event) {
   const row = button.closest("[data-order-row]");
   row?.remove();
   if (!orderItemsFormBody?.querySelector("[data-order-row]")) addPricingOrderItemRow();
+  markAgreementDraftDirty("order");
   renderPricingOrder();
 }
 
@@ -11483,6 +11489,7 @@ function removePricingComplaintItem(slot = 1) {
   }
   syncComplaintRequestFromWarranty();
   updateComplaintWarrantyHints();
+  markAgreementDraftDirty("complaint");
   renderPricingComplaint();
 }
 
@@ -12884,7 +12891,7 @@ function createDemoRow(record) {
     record.deviceName,
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
     record.location,
-    createDemoCurrentUser(record.currentUser, record.loanDate),
+    createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : ""),
     createDemoNotesCell(record)
   ];
 
@@ -12995,7 +13002,7 @@ function createDemoPurposePill(value) {
   return pill;
 }
 
-function createDemoCurrentUser(currentUser, loanDate = "") {
+function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "") {
   if (!currentUser) return "";
   const wrap = document.createElement("span");
   wrap.className = "demo-current-user";
@@ -13006,10 +13013,16 @@ function createDemoCurrentUser(currentUser, loanDate = "") {
   wrap.append(label, name);
   const phoneBadge = createCustomerPhoneBadge(currentUser);
   if (phoneBadge) wrap.append(phoneBadge);
-  if (loanDate) {
-    const date = document.createElement("span");
-    date.append("od ", createDateText(loanDate) || formatDate(loanDate));
-    wrap.append(date);
+  if (loanDate || dueDate) {
+    const period = document.createElement("span");
+    period.className = "demo-current-user-period";
+    for (const [label, value] of [["od ", loanDate], ["do ", dueDate]]) {
+      if (!value) continue;
+      const date = document.createElement("span");
+      date.append(label, createDateText(value) || formatDate(value));
+      period.append(date);
+    }
+    wrap.append(period);
   }
   return wrap;
 }
