@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-166">
+    <link rel="stylesheet" href="styles.css?v=20260831-167">
   </head>
   <body>
     <main class="app-shell">
@@ -83,8 +83,10 @@
           <button id="demoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="demoView" data-view-group="devices" data-view="demo">Demo</button>
           <button id="stockTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="stockView" data-view-group="devices" data-view="stock">Stan</button>
           <button id="dataControlTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="dataControlView" data-view-group="devices" data-view="dataControl">Kontrola danych</button>
-          <button id="offerTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOfferView" data-view-group="devices" data-view="offer">Oferta</button>
-          <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
+          <div class="document-tab-group" role="presentation">
+            <button id="offerTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOfferView" data-view-group="devices" data-view="offer">Oferta</button>
+            <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
+          </div>
         </section>
 
         <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
@@ -429,8 +431,10 @@
         <section class="tabs" role="tablist" aria-label="Zakładki zeszytu serwisu i zamówień">
           <button id="repairDatabaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="repairDatabaseView" data-view-group="repairs" data-view="repairDatabase">Baza</button>
           <button id="repairOpenTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="repairOpenView" data-view-group="repairs" data-view="repairOpen">Niedokończone</button>
-          <button id="orderTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOrderView" data-view-group="repairs" data-view="order">Zamówienie</button>
-          <button id="complaintTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingComplaintView" data-view-group="repairs" data-view="complaint">Reklamacja</button>
+          <div class="document-tab-group" role="presentation">
+            <button id="orderTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOrderView" data-view-group="repairs" data-view="order">Zamówienie</button>
+            <button id="complaintTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingComplaintView" data-view-group="repairs" data-view="complaint">Reklamacja</button>
+          </div>
         </section>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
@@ -1565,8 +1569,9 @@
 
               <section class="document-service-notice" aria-label="Informacja o opłacie serwisowej">
                 <h3>Opłata za przyjęcie aparatu do serwisu</h3>
-                <p>Przy naprawie pogwarancyjnej lub intensywnym czyszczeniu mocno zabrudzonego aparatu pobierana jest opłata serwisowa <strong>60 zł</strong>, płatna w dniu przyjęcia urządzenia.</p>
+                <p>Przy każdej naprawie pogwarancyjnej pobierana jest opłata serwisowa <strong>60 zł</strong>, płatna w dniu przyjęcia urządzenia.</p>
                 <p>Opłata obejmuje przyjęcie aparatu, wstępną ocenę i przygotowanie do dalszej obsługi. Nie obejmuje naprawy, części zamiennych ani usług producenta lub zewnętrznego serwisu. Dodatkowy koszt jest ustalany po otrzymaniu wyceny albo zgodnie z cennikiem.</p>
+                <p>W przypadku mocno zabrudzonego aparatu słuchowego na gwarancji pobierana jest opłata <strong>od 20 zł</strong>.</p>
               </section>
 
               <section class="loan-doc-section">
@@ -2582,6 +2587,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-166"></script>
+    <script src="app.js?v=20260831-167"></script>
   </body>
 </html>

@@ -2364,6 +2364,54 @@ h2 {
   padding-top: 16px;
 }
 
+.document-tab-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: 10px;
+  padding-left: 14px;
+  border-left: 1px solid #bfd6d4;
+}
+
+.document-tab-group .tab-button {
+  color: #276d70;
+  border-color: #c6dddb;
+  background: #f0f8f7;
+}
+
+.document-tab-group .tab-button:hover {
+  color: #005f64;
+  background: #e5f3f1;
+}
+
+.document-tab-group .tab-button.active {
+  color: #005f64;
+  border-color: #8cbfba;
+  background: #dcefeb;
+  box-shadow: inset 0 2px 0 #007c80;
+}
+
+.document-tab-group .tab-button:focus-visible {
+  outline: 2px solid #007c80;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .document-tab-group {
+    margin: 8px 0 0;
+    padding: 8px 0 0;
+    border-left: 0;
+    border-top: 1px solid #bfd6d4;
+  }
+
+  .document-tab-group .tab-button {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+}
+
 .pricing-panel {
   display: grid;
   gap: 12px;
