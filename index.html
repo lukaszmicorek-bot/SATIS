@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260831-164">
+    <link rel="stylesheet" href="styles.css?v=20260831-166">
   </head>
   <body>
     <main class="app-shell">
@@ -50,8 +50,9 @@
           <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
             <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
             <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia</button>
-            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="agreements">Umowy</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>CAPD</button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="pcpr" data-private-shared hidden>PCPR</button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="history" data-private-owner hidden>Historia</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
           </div>
           <button class="notebook-switch-button pricing-shortcut" type="button" aria-pressed="false" data-notebook="pricing">
@@ -82,6 +83,8 @@
           <button id="demoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="demoView" data-view-group="devices" data-view="demo">Demo</button>
           <button id="stockTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="stockView" data-view-group="devices" data-view="stock">Stan</button>
           <button id="dataControlTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="dataControlView" data-view-group="devices" data-view="dataControl">Kontrola danych</button>
+          <button id="offerTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOfferView" data-view-group="devices" data-view="offer">Oferta</button>
+          <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
         </section>
 
         <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
@@ -426,6 +429,8 @@
         <section class="tabs" role="tablist" aria-label="Zakładki zeszytu serwisu i zamówień">
           <button id="repairDatabaseTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="repairDatabaseView" data-view-group="repairs" data-view="repairDatabase">Baza</button>
           <button id="repairOpenTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="repairOpenView" data-view-group="repairs" data-view="repairOpen">Niedokończone</button>
+          <button id="orderTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOrderView" data-view-group="repairs" data-view="order">Zamówienie</button>
+          <button id="complaintTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingComplaintView" data-view-group="repairs" data-view="complaint">Reklamacja</button>
         </section>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
@@ -550,16 +555,6 @@
 
       <section id="pricingNotebook" class="notebook-section" hidden>
         <section class="pricing-panel" aria-label="Cennik">
-          <section class="pricing-subtabs" role="tablist" aria-label="Zakładki cennika">
-            <button class="pricing-view-button active" type="button" role="tab" aria-selected="true" data-pricing-view="list">Cennik</button>
-            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="pcpr">PCPR</button>
-            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="loan">Umowa</button>
-            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="offer">Oferta</button>
-            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="order">Zamówienie</button>
-            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="complaint">Reklamacja</button>
-            <button class="pricing-view-button" type="button" role="tab" aria-selected="false" data-pricing-view="history">Historia</button>
-          </section>
-
           <section id="pricingListView" class="pricing-view-section">
             <section class="controls pricing-controls" aria-label="Narzędzia cennika">
               <label class="search-box">
@@ -645,7 +640,7 @@
             </div>
           </section>
 
-          <section id="pricingOfferView" class="pricing-view-section pricing-offer-section" hidden>
+          <section id="pricingOfferView" class="pricing-view-section pricing-offer-section" role="tabpanel" aria-labelledby="offerTab" hidden>
             <section class="offer-builder" aria-label="Ustawienia oferty">
               <div class="offer-form-grid">
                 <label class="offer-customer-field person-name-field">
@@ -805,7 +800,7 @@
             </section>
           </section>
 
-          <section id="pricingLoanView" class="pricing-view-section pricing-loan-section" hidden>
+          <section id="pricingLoanView" class="pricing-view-section pricing-loan-section" role="tabpanel" aria-labelledby="loanTab" hidden>
             <section class="offer-builder loan-builder" aria-label="Ustawienia umowy wypożyczenia">
               <div class="loan-form-grid">
                 <p class="loan-form-title loan-full">Dane umowy</p>
@@ -966,19 +961,6 @@
                 <button id="savePricingLoanBtn" class="reset-filters-btn" type="button">Zapisz w historii</button>
                 <button id="printPricingLoanBtn" type="button" title="Egzemplarz dla SATIS oraz egzemplarz dla klienta z zasadami testowania">Drukuj 2 egz. / PDF</button>
               </div>
-            </section>
-
-            <section class="loan-history-panel" aria-label="Historia umów">
-              <div class="loan-history-head">
-                <h3>Historia umów</h3>
-                <span id="loanHistoryCount">0 umów</span>
-              </div>
-              <label class="loan-history-search">
-                <span>Szukaj umowy</span>
-                <input id="loanHistorySearchInput" type="search" placeholder="Imię i nazwisko, model lub nr seryjny" autocomplete="off">
-              </label>
-              <p id="loanDeadlineSummary" class="loan-deadline-summary" hidden></p>
-              <div id="loanHistoryList" class="loan-history-list"></div>
             </section>
 
             <section id="pricingLoanPrint" class="offer-document loan-document" aria-label="Umowa wypożyczenia">
@@ -1232,7 +1214,7 @@
             </section>
           </section>
 
-          <section id="pricingOrderView" class="pricing-view-section pricing-order-section" hidden>
+          <section id="pricingOrderView" class="pricing-view-section pricing-order-section" role="tabpanel" aria-labelledby="orderTab" hidden>
             <section class="offer-builder order-builder" aria-label="Ustawienia zamówienia">
               <div class="order-form-grid">
                 <label>
@@ -1372,7 +1354,7 @@
             </section>
           </section>
 
-          <section id="pricingComplaintView" class="pricing-view-section pricing-complaint-section" hidden>
+          <section id="pricingComplaintView" class="pricing-view-section pricing-complaint-section" role="tabpanel" aria-labelledby="complaintTab" hidden>
             <section class="offer-builder complaint-builder" aria-label="Ustawienia reklamacji">
               <div class="complaint-form-grid">
                 <label>
@@ -1635,9 +1617,10 @@
             <section class="loan-history-panel" aria-label="Historia umów">
               <div class="loan-history-head">
                 <h3>Umowy</h3>
-                <span id="agreementHistoryCount">0 umów</span>
+                <span id="loanHistoryCount">0 umów</span>
               </div>
-              <div id="agreementHistoryList" class="loan-history-list"></div>
+              <p id="loanDeadlineSummary" class="loan-deadline-summary" hidden></p>
+              <div id="loanHistoryList" class="loan-history-list"></div>
             </section>
             <section class="loan-history-panel" aria-label="Historia ofert">
               <div class="loan-history-head">
@@ -2599,6 +2582,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260831-164"></script>
+    <script src="app.js?v=20260831-166"></script>
   </body>
 </html>

@@ -543,7 +543,6 @@ let demoSortState = { key: "receivedDate", direction: "desc" };
 let activeNotebook = "devices";
 let activeDeviceView = "database";
 let activePricingView = "list";
-let lastAgreementPricingView = "offer";
 let activeAgreementDocumentLocation = "";
 let dataControlIssuesCache = null;
 let dataControlRenderToken = 0;
@@ -591,7 +590,6 @@ const replacePricingBtn = document.querySelector("#replacePricingBtn");
 const resetPricingBtn = document.querySelector("#resetPricingBtn");
 const pricingImportInput = document.querySelector("#pricingImportInput");
 const pricingReplaceInput = document.querySelector("#pricingReplaceInput");
-const pricingViewButtons = document.querySelectorAll(".pricing-view-button");
 const pricingListView = document.querySelector("#pricingListView");
 const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingLoanView = document.querySelector("#pricingLoanView");
@@ -668,7 +666,6 @@ const loanPrintMeta = document.querySelector("#loanPrintMeta");
 const loanEquipmentBody = document.querySelector("#loanEquipmentBody");
 const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanDeadlineSummary = document.querySelector("#loanDeadlineSummary");
-const loanHistorySearchInput = document.querySelector("#loanHistorySearchInput");
 const loanHistoryList = document.querySelector("#loanHistoryList");
 const pcprForm = document.querySelector("#pcprForm");
 const pcprOfficeInput = document.querySelector("#pcprOfficeInput");
@@ -740,8 +737,6 @@ const complaintTitle = document.querySelector("#complaintTitle");
 const complaintMeta = document.querySelector("#complaintMeta");
 const pricingHistoryView = document.querySelector("#pricingHistoryView");
 const pricingHistorySearchInput = document.querySelector("#pricingHistorySearchInput");
-const agreementHistoryCount = document.querySelector("#agreementHistoryCount");
-const agreementHistoryList = document.querySelector("#agreementHistoryList");
 const savePricingOfferBtn = document.querySelector("#savePricingOfferBtn");
 const offerHistoryCount = document.querySelector("#offerHistoryCount");
 const offerHistoryList = document.querySelector("#offerHistoryList");
@@ -1007,14 +1002,14 @@ function setCurrentYearTitle() {
   const deviceTitle = `Zeszyt aparatów ${year}`;
   const repairTitle = `Serwis i zamówienia ${year}`;
   const pricingTitle = `Cennik ${pricingUpdatedLabel()}`;
-  const agreementsTitle = "Umowy";
   const capdTitle = `CAPD ${year}`;
   const vacationTitle = `Urlop ${selectedVacationYear()}`;
   const notebookTitles = {
     devices: deviceTitle,
     repairs: repairTitle,
     pricing: pricingTitle,
-    agreements: agreementsTitle,
+    pcpr: "PCPR",
+    history: "Historia",
     capd: capdTitle,
     vacation: vacationTitle
   };
@@ -1045,7 +1040,7 @@ function updateConnectionUser(user) {
   updateNotebookPrintVisibility();
   updatePrivateModulesVisibility();
   updateCustomerRelationsPanelVisibility();
-  if (activeNotebook === "pricing" || activeNotebook === "agreements") renderPricingRecords();
+  if (["pricing", "pcpr", "history"].includes(activeNotebook)) renderPricingRecords();
 }
 
 function normalizeWorkstationName(value) {
@@ -1210,7 +1205,14 @@ function updatePrivateModulesVisibility() {
   if (vacationOwnerLeaveField) vacationOwnerLeaveField.hidden = !ownerVisible;
   if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible;
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
-  if (!sharedVisible && ["capd", "vacation"].includes(activeNotebook)) switchNotebook("devices");
+  if (!ownerVisible) {
+    if (pricingHistoryView) pricingHistoryView.hidden = true;
+    if (pricingHistoryPreviewDialog?.open) pricingHistoryPreviewDialog.close();
+    pricingHistoryPreviewContent?.replaceChildren();
+    [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
+  }
+  if ((!sharedVisible && ["capd", "vacation", "pcpr"].includes(activeNotebook))
+    || (!ownerVisible && activeNotebook === "history")) switchNotebook("devices");
 }
 
 function updatePricingManagementVisibility() {
@@ -2134,7 +2136,7 @@ async function refreshPricingFromSupabase() {
     console.warn("Nie udało się zaktualizować Demo po odświeżeniu umów:", demoSyncError?.message || demoSyncError);
   }
   renderPricingRecords();
-  if (!["pricing", "agreements"].includes(activeNotebook)) renderDeviceViews();
+  if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
   setCurrentYearTitle();
 }
 
@@ -2239,7 +2241,7 @@ function subscribeToSupabaseChanges() {
     channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_LOAN_CONTRACT_TABLE }, () => {
       loadSupabasePricingLoanHistory()
         .then(() => {
-          if (!["pricing", "agreements"].includes(activeNotebook)) renderDeviceViews();
+          if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
         })
         .catch((error) => console.warn("Nie udało się odświeżyć historii umów:", error.message));
     });
@@ -2249,7 +2251,7 @@ function subscribeToSupabaseChanges() {
     channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_OFFER_HISTORY_TABLE }, () => {
       loadSupabasePricingOfferHistory()
         .then(() => {
-          if (!["pricing", "agreements"].includes(activeNotebook)) renderDeviceViews();
+          if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
         })
         .catch((error) => console.warn("Nie udało się odświeżyć historii ofert:", error.message));
     });
@@ -5960,7 +5962,6 @@ function customerRelationEntries() {
     detail: [offerHistoryItemsLabel(entry), entry.location].filter(Boolean).join(" | "),
     searchValues: entry.items.flatMap((item) => [item.model, item.tradeName, item.manufacturer]),
     open: () => {
-      switchNotebook("agreements");
       restorePricingOfferFromHistory(entry);
     }
   }));
@@ -5975,7 +5976,6 @@ function customerRelationEntries() {
     detail: [entry.number ? `nr ${entry.number}` : "", pricingLoanHistoryDeviceLabel(entry), entry.periodFrom && entry.periodTo ? `${formatDate(entry.periodFrom)} - ${formatDate(entry.periodTo)}` : ""].filter(Boolean).join(" | "),
     searchValues: [entry.phone, entry.rightDevice?.model, entry.rightDevice?.serial, entry.leftDevice?.model, entry.leftDevice?.serial, entry.charger, entry.chargerSerial],
     open: () => {
-      switchNotebook("agreements");
       switchPricingView("loan");
       restorePricingLoanFromHistory(entry);
     }
@@ -5994,7 +5994,6 @@ function customerRelationEntries() {
     detail: [entry.number ? `nr ${entry.number}` : "", entry.items.map((item) => [pricingOrderTypeLabel(item.type), item.description].filter(Boolean).join(" ")).join("; "), entry.location].filter(Boolean).join(" | "),
     searchValues: [entry.phone, entry.notes, entry.items.flatMap((item) => [item.description, item.type])],
     open: () => {
-      switchNotebook("agreements");
       restorePricingOrderFromHistory(entry);
     }
   }));
@@ -6012,7 +6011,6 @@ function customerRelationEntries() {
     detail: [entry.number ? `nr ${entry.number}` : "", entry.items.map((item) => [item.productName, item.serial ? `nr ${item.serial}` : ""].filter(Boolean).join(" ")).join("; "), pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
     searchValues: [entry.phone, entry.defect, entry.notes, entry.items.flatMap((item) => [item.productName, item.serial, item.purchaseDocument])],
     open: () => {
-      switchNotebook("agreements");
       restorePricingComplaintFromHistory(entry);
     }
   }));
@@ -6027,7 +6025,6 @@ function customerRelationEntries() {
     detail: [entry.office, entry.model, entry.model2, entry.place].filter(Boolean).join(" | "),
     searchValues: [entry.phone, entry.address],
     open: () => {
-      switchNotebook("agreements");
       switchPricingView("pcpr");
       editPricingPcprItem(entry.id);
     }
@@ -6705,13 +6702,18 @@ function render() {
   updateDocumentLocationAccents();
   scheduleDemoReturnReminder();
 
+  if (activeNotebook !== "pricing" && pricingViewNotebook(activePricingView) === activeNotebook) {
+    switchPricingView(activePricingView);
+    return;
+  }
+
   if (activeNotebook === "repairs") {
     updateStats();
     renderRepairRecords();
     return;
   }
 
-  if (activeNotebook === "pricing" || activeNotebook === "agreements") {
+  if (activeNotebook === "pricing") {
     renderPricingRecords();
     return;
   }
@@ -7202,7 +7204,6 @@ function addPricingRecordToOffer(record) {
   if (accessoryKind) {
     const accessoryInput = accessoryKind === "charger" ? offerChargerInput : offerEarmoldInput;
     setPricingOfferInput(accessoryInput, record);
-    if (activeNotebook !== "agreements") switchNotebook("agreements");
     switchPricingView("offer");
     renderPricingOffer();
     pricingOfferView?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -7224,7 +7225,6 @@ function addPricingRecordToOffer(record) {
     return;
   }
 
-  if (activeNotebook !== "agreements") switchNotebook("agreements");
   switchPricingView("offer");
   renderPricingOffer();
   pricingOfferView?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -7542,13 +7542,39 @@ async function deletePricingRecord(record) {
   }
 }
 
+function pricingViewNotebook(viewName) {
+  return { list: "pricing", offer: "devices", loan: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
+}
+
+function syncNotebookPanels() {
+  // Keep the shared document host intact so form values and print layouts survive navigation.
+  const documentVisible = pricingViewNotebook(activePricingView) === activeNotebook;
+  notebookSections.forEach((section) => {
+    section.hidden = section.id === "pricingNotebook"
+      ? !documentVisible
+      : section.id !== `${activeNotebook}Notebook`;
+  });
+  if (statsPanel) statsPanel.hidden = (documentVisible && activeNotebook !== "pricing") || ["capd", "vacation", "pcpr", "history"].includes(activeNotebook);
+}
+
 function switchPricingView(viewName) {
-  activePricingView = ["list", "offer", "loan", "pcpr", "order", "complaint", "history"].includes(viewName) ? viewName : "list";
-  if (activePricingView !== "list") lastAgreementPricingView = activePricingView;
-  pricingViewButtons.forEach((button) => {
-    const isActive = button.dataset.pricingView === activePricingView;
+  const nextView = pricingViewNotebook(viewName) ? viewName : "list";
+  const notebook = pricingViewNotebook(nextView);
+  if ((nextView === "history" && !canViewPrivateModules()) || (nextView === "pcpr" && !currentSupabaseUser)) return;
+  if (activeNotebook !== notebook) {
+    switchNotebook(notebook, { documentView: nextView });
+    return;
+  }
+  activePricingView = nextView;
+  if (notebook === "devices") activeDeviceView = nextView;
+  tabButtons.forEach((button) => {
+    if (button.dataset.viewGroup !== notebook) return;
+    const isActive = button.dataset.view === nextView;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", String(isActive));
+  });
+  viewSections.forEach((section) => {
+    if (section.dataset.viewGroup === notebook) section.hidden = true;
   });
   if (pricingListView) pricingListView.hidden = activePricingView !== "list";
   if (pricingOfferView) pricingOfferView.hidden = activePricingView !== "offer";
@@ -7557,6 +7583,8 @@ function switchPricingView(viewName) {
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
   if (pricingHistoryView) pricingHistoryView.hidden = activePricingView !== "history";
+  syncNotebookPanels();
+  renderPricingOfferDeviceList();
   if (activePricingView === "offer") renderPricingOffer();
   if (activePricingView === "loan") renderPricingLoan();
   if (activePricingView === "pcpr") renderPricingPcprList();
@@ -8604,6 +8632,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanDepositReturnDateInput, historyEntry.depositReturnDate, { date: true });
   setLoanSnapshotInput(loanDeductionsInput, historyEntry.deductions);
   setLoanSnapshotInput(loanDeductionReasonInput, historyEntry.deductionReason);
+  switchPricingView("loan");
   renderPricingLoan();
   markAgreementDraftSaved("loan");
   pricingLoanView?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -8744,8 +8773,14 @@ function updatePricingLoanDeadlineSummary(deadlines) {
 
 function renderPricingLoanHistory() {
   if (!loanHistoryList || !loanHistoryCount) return;
+  if (!canViewPrivateModules()) {
+    loanHistoryList.replaceChildren();
+    loanHistoryCount.textContent = "";
+    if (loanDeadlineSummary) loanDeadlineSummary.hidden = true;
+    return;
+  }
   const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory);
-  const searchQuery = normalize(loanHistorySearchInput?.value || "").trim();
+  const searchQuery = normalize(pricingHistorySearchInput?.value || "").trim();
   const deadlines = normalizedHistory
     .map((entry) => ({ entry, status: pricingLoanDeadlineStatus(entry) }))
     .filter(({ status }) => status);
@@ -8963,6 +8998,7 @@ function appendPricingHistoryPreviewField(container, label, value) {
 }
 
 function showPricingHistoryPreview(kind, entry) {
+  if (!canViewPrivateModules()) return;
   if (!pricingHistoryPreviewDialog || !pricingHistoryPreviewContent) return;
   const content = document.createDocumentFragment();
   const summary = document.createElement("section");
@@ -9192,28 +9228,15 @@ function pricingComplaintHistorySearchText(entry) {
 }
 
 function renderPricingDocumentHistory() {
+  if (!canViewPrivateModules()) {
+    [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
+    return;
+  }
   const searchQuery = normalize(pricingHistorySearchInput?.value || "").trim();
   const historyMatches = (entry, getSearchText) => !searchQuery || getSearchText(entry).includes(searchQuery);
   const historyEmptyText = (defaultText) => searchQuery ? "Nie znaleziono pasujących pozycji." : defaultText;
 
-  const agreementsAll = normalizePricingLoanHistory(pricingLoanHistory);
-  const agreements = agreementsAll.filter((entry) => historyMatches(entry, pricingLoanHistorySearchText));
-  renderPricingHistoryList(
-    agreementHistoryList,
-    agreementHistoryCount,
-    agreements,
-    historyEmptyText("Brak zapisanych umów."),
-    ["umowa", "umowy", "umów"],
-    (entry) => createPricingDocumentHistoryItem(entry, {
-      title: entry.customer || "Umowa bez osoby",
-      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
-      details: pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego",
-      warning: pricingLoanDataIssues(entry),
-      duplicateOf: pricingLoanDuplicateOf(entry, agreementsAll),
-      onOpen: () => restorePricingLoanFromHistory(entry)
-    }),
-    { totalCount: agreementsAll.length, searchActive: Boolean(searchQuery) }
-  );
+  renderPricingLoanHistory();
 
   const offersAll = normalizePricingOfferHistory(pricingOfferHistory);
   const offers = offersAll.filter((entry) => historyMatches(entry, pricingOfferHistorySearchText));
@@ -14781,18 +14804,6 @@ function updateStats() {
     return;
   }
 
-  if (activeNotebook === "agreements") {
-    document.querySelector("#countAll").textContent = "5";
-    document.querySelector("#countSold").textContent = pricingOfferHistory.length;
-    document.querySelector("#countInvoice").textContent = pricingLoanHistory.length;
-    document.querySelector("#countStock").textContent = pricingPcprList.length;
-    countAllLabel.textContent = "druki";
-    countSoldLabel.textContent = "oferty";
-    countInvoiceLabel.textContent = "umowy";
-    countStockLabel.textContent = "PCPR";
-    return;
-  }
-
   if (activeNotebook === "repairs") {
     document.querySelector("#countAll").textContent = repairStats.all;
     document.querySelector("#countSold").textContent = repairStats.repairs;
@@ -15096,6 +15107,11 @@ function createSerialList(serialItems) {
 }
 
 function switchView(viewName, groupName) {
+  if (pricingViewNotebook(viewName) === groupName) {
+    switchPricingView(viewName);
+    return;
+  }
+  activePricingView = "";
   tabButtons.forEach((button) => {
     if (button.dataset.viewGroup !== groupName) return;
     const isActive = button.dataset.view === viewName;
@@ -15107,6 +15123,8 @@ function switchView(viewName, groupName) {
     if (section.dataset.viewGroup !== groupName) return;
     section.hidden = section.id !== `${viewName}View`;
   });
+
+  syncNotebookPanels();
 
   if (groupName === "repairs") {
     renderRepairRecords();
@@ -15941,6 +15959,27 @@ function vacationOwnLeaveOnDate(isoDate) {
     request.dateFrom <= isoDate &&
     request.dateTo >= isoDate
   ) || null;
+}
+
+function vacationSaturdayLinksOnDate(isoDate) {
+  if (!isVacationCalendarInput() || !isoDate) return [];
+  const employee = selectedVacationEmployee();
+  if (!employee || vacationSaturdayMarkersDisabled(employee)) return [];
+  if (!canViewPrivateModules() && employee.id !== vacationMyEmployeeId()) return [];
+  return vacationRequests.flatMap((request) => {
+    if (request.employeeId !== employee.id || request.ownerLeave || request.type !== "ZA SOBOTĘ"
+      || request.status !== "ZATWIERDZONY" || !request.saturdayDate || !request.dateFrom || !request.dateTo) return [];
+    if (isoDate === request.saturdayDate) {
+      const period = request.dateFrom === request.dateTo ? formatDate(request.dateFrom)
+        : `${formatDate(request.dateFrom)} – ${formatDate(request.dateTo)}`;
+      return [{ symbol: "→", label: `Dzień wolny za tę sobotę: ${period}` }];
+    }
+    if (isoDate >= request.dateFrom && isoDate <= request.dateTo) {
+      const holiday = polishPublicHolidayOnDate(request.saturdayDate);
+      return [{ symbol: "↩", label: `Dzień wolny za sobotę ${formatDate(request.saturdayDate)}${holiday ? ` (${holiday.name})` : ""}` }];
+    }
+    return [];
+  });
 }
 
 function normalizeVacationEmployee(entry) {
@@ -16915,8 +16954,10 @@ async function deleteVacationRequest(id) {
   }
 }
 
-function switchNotebook(notebookName) {
-  if (["capd", "vacation"].includes(notebookName) && !currentSupabaseUser) return;
+function switchNotebook(notebookName, { documentView = "" } = {}) {
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation"].includes(notebookName)) return;
+  if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
+  if (notebookName === "history" && !canViewPrivateModules()) return;
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
@@ -16932,17 +16973,10 @@ function switchNotebook(notebookName) {
     }
   });
 
-  notebookSections.forEach((section) => {
-    const visibleSectionId = activeNotebook === "agreements" ? "pricingNotebook" : `${notebookName}Notebook`;
-    section.hidden = section.id !== visibleSectionId;
-  });
-  document.querySelector("#pricingNotebook")?.setAttribute("data-mode", activeNotebook === "agreements" ? "agreements" : "pricing");
-
   setCurrentYearTitle();
-
-  if (activeNotebook === "repairs") {
-    updateStats();
-    renderRepairRecords();
+  if (["devices", "repairs"].includes(activeNotebook)) {
+    const selectedTab = [...tabButtons].find((button) => button.dataset.viewGroup === activeNotebook && button.classList.contains("active"));
+    switchView(documentView || selectedTab?.dataset.view || (activeNotebook === "devices" ? "database" : "repairDatabase"), activeNotebook);
     return;
   }
 
@@ -16952,11 +16986,13 @@ function switchNotebook(notebookName) {
     return;
   }
 
-  if (activeNotebook === "agreements") {
-    switchPricingView(lastAgreementPricingView || "offer");
-    renderPricingRecords();
+  if (["pcpr", "history"].includes(activeNotebook)) {
+    switchPricingView(activeNotebook);
     return;
   }
+
+  activePricingView = "";
+  syncNotebookPanels();
 
   if (activeNotebook === "capd") {
     updateCapdScope();
@@ -16968,24 +17004,6 @@ function switchNotebook(notebookName) {
     renderVacationModule();
     return;
   }
-
-  activeDeviceView = document.querySelector('.tab-button.active[data-view-group="devices"]')?.dataset.view || "database";
-  if (activeDeviceView === "demo") {
-    updateStats();
-    renderDemoRecords();
-    return;
-  }
-  if (activeDeviceView === "dataControl") {
-    renderDataControlView();
-    return;
-  }
-  if (activeDeviceView === "stock") {
-    updateStats();
-    renderStockView();
-    return;
-  }
-  updateStats();
-  renderDeviceViews();
 }
 
 function fillDeviceFormValues(record = {}) {
@@ -19551,6 +19569,21 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       appendDatePickerTitle(button, `${ownerLabel}: ${vacationCompensatesWeekend(ownLeave) ? "wolne za weekend" : vacationTypeLabel(ownLeave.type).toLocaleLowerCase("pl-PL")}.`);
     }
 
+    const saturdayLinks = vacationSaturdayLinksOnDate(isoDate);
+    if (saturdayLinks.length) {
+      const arrow = document.createElement("span");
+      arrow.className = "vacation-saturday-arrow";
+      arrow.textContent = saturdayLinks[0].symbol;
+      arrow.setAttribute("aria-hidden", "true");
+      button.append(arrow);
+      button.classList.add("vacation-saturday-linked");
+      const label = [...new Set(saturdayLinks.map((link) => link.label))].join(". ");
+      button.dataset.holidayTooltip = [publicHoliday?.name, label].filter(Boolean).join(". ");
+      if (leadingEmptyCells + day <= 14) button.classList.add("holiday-tooltip-below");
+      appendDatePickerTitle(button, label);
+      button.setAttribute("aria-label", `${button.getAttribute("aria-label") || formatDate(isoDate)}. ${label}`);
+    }
+
     button.addEventListener("click", () => {
       if (!activeDateInput) return;
       if (dateMinimum && isoDate < dateMinimum.date) return;
@@ -19719,9 +19752,6 @@ pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
     input.value = price === "" ? "" : formatPricingAmount(price, " ");
   });
 });
-pricingViewButtons.forEach((button) => {
-  button.addEventListener("click", () => switchPricingView(button.dataset.pricingView));
-});
 setupAgreementDraftTracking();
 pcprForm?.addEventListener("submit", addPricingPcprItem);
 pcprCustomerInput?.addEventListener("input", (event) => {
@@ -19811,7 +19841,7 @@ updatePcprFormMode();
 offerPatientGroupInputs.forEach((input) => input.addEventListener("change", () => {
   renderPricingOfferDeviceList();
   renderPricingOffer();
-  if (activeNotebook === "agreements" && activePricingView === "list") renderPricingRecords();
+  if (activeNotebook === "pricing") renderPricingRecords();
 }));
 offerCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
@@ -19953,7 +19983,6 @@ savePricingLoanBtn?.addEventListener("click", () => {
   void saveCurrentPricingLoanToHistory();
 });
 printPricingLoanBtn?.addEventListener("click", () => void printPricingLoan());
-loanHistorySearchInput?.addEventListener("input", debounce(renderPricingLoanHistory, SEARCH_DEBOUNCE_MS));
 pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
 orderNumberInput?.addEventListener("input", () => {
   orderNumberInput.dataset.autoNumber = "";
