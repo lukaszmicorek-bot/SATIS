@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260901-174">
+    <link rel="stylesheet" href="styles.css?v=20260901-176">
   </head>
   <body>
     <main class="app-shell">
@@ -502,13 +502,13 @@
               <thead>
                 <tr>
                   <th data-repair-sort="receivedDate">Przebieg</th>
+                  <th data-repair-sort="status">Status</th>
                   <th data-repair-sort="category">Typ</th>
                   <th data-repair-sort="location">Miejsce</th>
                   <th data-repair-sort="customerName">Imię i nazwisko</th>
                   <th data-repair-sort="deviceName">Aparat / wkładka</th>
                   <th data-repair-sort="serialNumber">Numery seryjne</th>
                   <th data-repair-sort="sourceDocumentNumber">Nr zamówienia / reklamacji</th>
-                  <th data-repair-sort="status">Status</th>
                   <th data-repair-sort="notes">Uwagi</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
@@ -529,13 +529,13 @@
               <thead>
                 <tr>
                   <th data-repair-sort="receivedDate">Przebieg</th>
+                  <th data-repair-sort="status">Status</th>
                   <th data-repair-sort="category">Typ</th>
                   <th data-repair-sort="location">Miejsce</th>
                   <th data-repair-sort="customerName">Imię i nazwisko</th>
                   <th data-repair-sort="deviceName">Aparat / wkładka</th>
                   <th data-repair-sort="serialNumber">Numery seryjne</th>
                   <th data-repair-sort="sourceDocumentNumber">Nr zamówienia / reklamacji</th>
-                  <th data-repair-sort="status">Status</th>
                   <th data-repair-sort="notes">Uwagi</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
@@ -2286,13 +2286,12 @@
             </select>
           </label>
           <label>
-            <span>Typ</span>
-            <select id="repairCategory" name="category">
-              <option value="WKŁADKA USZNA">Wkładka uszna</option>
-              <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-              <option value="ZAMÓWIENIE">Zamówienie</option>
-              <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
-              <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
+            <span>Status</span>
+            <select id="repairStatus" name="status">
+              <option value="PRZYJĘTE">Przyjęte</option>
+              <option value="W TRAKCIE">W trakcie</option>
+              <option value="GOTOWE">Gotowe</option>
+              <option value="ODEBRANE">Odebrane</option>
             </select>
           </label>
           <div class="wide demo-model-contact">
@@ -2325,12 +2324,13 @@
             </div>
           </div>
           <label>
-            <span>Status</span>
-            <select id="repairStatus" name="status">
-              <option value="PRZYJĘTE">Przyjęte</option>
-              <option value="W TRAKCIE">W trakcie</option>
-              <option value="GOTOWE">Gotowe</option>
-              <option value="ODEBRANE">Odebrane</option>
+            <span>Typ</span>
+            <select id="repairCategory" name="category">
+              <option value="WKŁADKA USZNA">Wkładka uszna</option>
+              <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+              <option value="ZAMÓWIENIE">Zamówienie</option>
+              <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
+              <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
             </select>
           </label>
           <section id="repairNearbyWarning" class="wide nearby-entry-warning" role="status" aria-live="polite" hidden></section>
@@ -2581,6 +2581,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260901-174"></script>
+    <script src="app.js?v=20260901-176"></script>
   </body>
 </html>

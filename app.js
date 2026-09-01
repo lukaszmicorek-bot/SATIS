@@ -14704,19 +14704,19 @@ function createRepairRow(record) {
   const activeDateType = activeRepairDateType(record);
   const cells = [
     createRepairTimeline(record, activeDateType),
+    createStatusPill(status),
     createRepairCategoryCell(record),
     createLocationPill(record.location),
     createRepairCustomerName(record, status),
     createRepairDeviceNameCell(record),
     createRepairSerialCell(record),
     createRepairDocumentNumberCell(record),
-    createStatusPill(status),
     createRepairNotesCell(record)
   ];
 
   cells.forEach((value, index) => {
     const cell = document.createElement("td");
-    if (index === 3 && status === "GOTOWE") {
+    if (index === 4 && status === "GOTOWE") {
       cell.classList.add("pickup-customer-cell");
     }
     fillTableCell(cell, value);
