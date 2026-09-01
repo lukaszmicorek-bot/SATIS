@@ -7654,22 +7654,35 @@ tbody tr.repair-overdue-critical td:first-child {
 
 .repair-notes-cell {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   gap: 5px;
 }
 
 .repair-notes-preview {
   position: relative;
   display: block;
+  min-width: 0;
+  max-width: 100%;
   cursor: help;
 }
 
 .repair-notes-preview-text {
   display: -webkit-box;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
   color: #40525a;
   line-height: 1.32;
+  overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
+}
+
+.repairs-table td:nth-last-child(2) {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .repair-notes-tooltip {
