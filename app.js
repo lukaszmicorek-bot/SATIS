@@ -14703,7 +14703,7 @@ function createRepairRow(record) {
   if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
   const activeDateType = activeRepairDateType(record);
   const cells = [
-    createDateText(record.receivedDate),
+    createRepairTimeline(record, activeDateType),
     createRepairCategoryCell(record),
     createLocationPill(record.location),
     createRepairCustomerName(record, status),
@@ -14711,9 +14711,6 @@ function createRepairRow(record) {
     createRepairSerialCell(record),
     createRepairDocumentNumberCell(record),
     createStatusPill(status),
-    createDatePill(record.sentDate, "sent", activeDateType),
-    createDatePill(record.returnDate, "return", activeDateType),
-    createDatePill(record.pickupDate, "pickup", activeDateType),
     createRepairNotesCell(record)
   ];
 
@@ -14737,6 +14734,32 @@ function createRepairRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createRepairTimeline(record, activeDateType = activeRepairDateType(record)) {
+  const timeline = document.createElement("span");
+  timeline.className = "repair-timeline";
+  const steps = [
+    ["received", "Przyjęto", record?.receivedDate],
+    ["sent", "Wysłano", record?.sentDate],
+    ["return", "Powrót", record?.returnDate],
+    ["pickup", "Odebrano", record?.pickupDate]
+  ];
+  steps.forEach(([type, label, value]) => {
+    const step = document.createElement("span");
+    step.className = `repair-timeline-step ${type}`;
+    if (!value) step.classList.add("missing");
+    else if (type === activeDateType) step.classList.add("active");
+    else step.classList.add("past");
+    const caption = document.createElement("small");
+    caption.textContent = label;
+    const date = document.createElement("strong");
+    date.textContent = value ? formatDate(value) : "—";
+    if (value && isTodayDate(value)) date.classList.add("today-date");
+    step.append(caption, date);
+    timeline.append(step);
+  });
+  return timeline;
 }
 
 function createRepairNotesCell(record) {
@@ -14863,6 +14886,7 @@ function activeRepairDateType(record) {
   if (record.pickupDate) return "pickup";
   if (record.returnDate) return "return";
   if (record.sentDate) return "sent";
+  if (record.receivedDate) return "received";
   return "";
 }
 
