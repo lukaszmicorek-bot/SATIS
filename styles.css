@@ -6980,15 +6980,15 @@ tbody tr.device-sold-row:hover {
 }
 
 .repair-status-badge[data-status-tone="W-TRAKCIE"] {
-  border-color: #b8ccd8;
-  color: #315f78;
-  background: #eef6fa;
-}
-
-.repair-status-badge[data-status-tone="GOTOWE"] {
   border-color: #a8ceda;
   color: #24677b;
   background: #eaf6fa;
+}
+
+.repair-status-badge[data-status-tone="GOTOWE"] {
+  border-color: #b8ccd8;
+  color: #315f78;
+  background: #eef6fa;
 }
 
 .repair-status-badge[data-status-tone="ODEBRANE"] {
@@ -7255,11 +7255,11 @@ tbody tr.repair-open td:first-child {
 }
 
 .repair-status-progress {
-  background: #f6faf9;
+  background: #f4f9fc;
 }
 
 .repair-status-ready {
-  background: #f4f9fc;
+  background: #f6faf9;
 }
 
 .repair-status-picked-up {
@@ -7271,11 +7271,11 @@ tbody tr.repair-status-received:hover {
 }
 
 tbody tr.repair-status-progress:hover {
-  background: #eef6f4;
+  background: #eaf4fa;
 }
 
 tbody tr.repair-status-ready:hover {
-  background: #eaf4fa;
+  background: #eef6f4;
 }
 
 tbody tr.repair-overdue-warning {
@@ -7914,15 +7914,15 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .status-pill.W-TRAKCIE {
-  color: #52736e;
-  background: #f2f8f6;
-  box-shadow: inset 0 0 0 1px #c9ddd8;
-}
-
-.status-pill.GOTOWE {
   color: #416f9a;
   background: #f0f7fc;
   box-shadow: inset 0 0 0 1px #c3dbea;
+}
+
+.status-pill.GOTOWE {
+  color: #52736e;
+  background: #f2f8f6;
+  box-shadow: inset 0 0 0 1px #c9ddd8;
 }
 
 .status-pill.ODEBRANE {
