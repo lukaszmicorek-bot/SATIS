@@ -7373,6 +7373,7 @@ tbody tr.repair-closed {
 tbody tr.repair-closed .type-pill,
 tbody tr.repair-closed .status-pill,
 tbody tr.repair-closed .date-pill,
+tbody tr.repair-closed .repair-timeline,
 tbody tr.repair-closed .serial-pill {
   opacity: 0.56;
 }
@@ -7536,6 +7537,71 @@ td {
 .date-pill.past {
   opacity: 0.42;
   filter: saturate(0.45);
+}
+
+.repair-timeline {
+  display: inline-grid;
+  min-width: 142px;
+  gap: 1px;
+  text-align: left;
+}
+
+.repair-timeline-step {
+  display: grid;
+  grid-template-columns: 57px auto;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 17px;
+  color: #53636a;
+  white-space: nowrap;
+}
+
+.repair-timeline-step small {
+  color: #7a878d;
+  font-size: 0.61rem;
+  font-weight: 650;
+}
+
+.repair-timeline-step strong {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.repair-timeline-step.past {
+  opacity: 0.5;
+}
+
+.repair-timeline-step.active {
+  color: #003f5a;
+}
+
+.repair-timeline-step.active small,
+.repair-timeline-step.active strong {
+  color: inherit;
+  font-weight: 900;
+}
+
+.repair-timeline-step.missing {
+  color: #a5adb1;
+  opacity: 0.55;
+}
+
+.repair-timeline-step.sent.active {
+  color: #52736e;
+}
+
+.repair-timeline-step.return.active {
+  color: #416f9a;
+}
+
+.repair-timeline-step.pickup.active {
+  color: #42745b;
+}
+
+.repair-timeline-step .today-date {
+  color: #003f5a;
+  font-size: 0.72rem;
+  font-weight: 1000;
 }
 
 .date-text.today-date {
@@ -8435,7 +8501,7 @@ td.row-actions {
 }
 
 .repairs-table {
-  min-width: 1300px;
+  min-width: 1120px;
 }
 
 .demo-table {
@@ -8949,7 +9015,7 @@ tbody tr.demo-return-critical:hover {
 
 .repairs-table th:nth-child(1),
 .repairs-table td:nth-child(1) {
-  min-width: 118px;
+  min-width: 158px;
 }
 
 .repairs-table th:nth-child(2),
@@ -8993,32 +9059,17 @@ tbody tr.demo-return-critical:hover {
 .repairs-table th:nth-child(3),
 .repairs-table td:nth-child(3),
 .repairs-table th:nth-child(8),
-.repairs-table td:nth-child(8),
-.repairs-table th:nth-child(9),
-.repairs-table td:nth-child(9),
-.repairs-table th:nth-child(10),
-.repairs-table td:nth-child(10),
-.repairs-table th:nth-child(11),
-.repairs-table td:nth-child(11) {
+.repairs-table td:nth-child(8) {
   text-align: center;
 }
 
 .repairs-table th:nth-child(9),
-.repairs-table td:nth-child(9),
-.repairs-table th:nth-child(10),
-.repairs-table td:nth-child(10),
-.repairs-table th:nth-child(11),
-.repairs-table td:nth-child(11) {
-  min-width: 118px;
-}
-
-.repairs-table th:nth-child(12),
-.repairs-table td:nth-child(12) {
+.repairs-table td:nth-child(9) {
   min-width: 220px;
 }
 
-.repairs-table th:nth-child(13),
-.repairs-table td:nth-child(13) {
+.repairs-table th:nth-child(10),
+.repairs-table td:nth-child(10) {
   width: 96px;
   min-width: 96px;
 }
@@ -9180,56 +9231,52 @@ tbody tr.demo-return-critical:hover {
 
 .repairs-table th:nth-child(1),
 .repairs-table td:nth-child(1) {
-  width: 7%;
+  width: 11%;
 }
 
 .repairs-table th:nth-child(2),
 .repairs-table td:nth-child(2) {
-  width: 11.6%;
+  width: 11%;
 }
 
 .repairs-table th:nth-child(3),
 .repairs-table td:nth-child(3) {
-  width: 5%;
+  width: 6%;
 }
 
 .repairs-table th:nth-child(4),
 .repairs-table td:nth-child(4) {
-  width: 13.3%;
+  width: 14%;
 }
 
 .repairs-table th:nth-child(5),
 .repairs-table td:nth-child(5) {
-  width: 14.4%;
+  width: 17%;
 }
 
 .repairs-table th:nth-child(6),
 .repairs-table td:nth-child(6) {
-  width: 9.3%;
+  width: 10%;
 }
 
 .repairs-table th:nth-child(7),
 .repairs-table td:nth-child(7) {
-  width: 7.8%;
+  width: 9%;
 }
 
 .repairs-table th:nth-child(8),
-.repairs-table td:nth-child(8),
-.repairs-table th:nth-child(9),
-.repairs-table td:nth-child(9),
-.repairs-table th:nth-child(10),
-.repairs-table td:nth-child(10) {
-  width: 6.4%;
-}
-
-.repairs-table th:nth-child(11),
-.repairs-table td:nth-child(11) {
+.repairs-table td:nth-child(8) {
   width: 8%;
 }
 
-.repairs-table th:nth-child(12),
-.repairs-table td:nth-child(12) {
-  width: 4.4%;
+.repairs-table th:nth-child(9),
+.repairs-table td:nth-child(9) {
+  width: 10%;
+}
+
+.repairs-table th:nth-child(10),
+.repairs-table td:nth-child(10) {
+  width: 4%;
 }
 
 .demo-table th:nth-child(1),
