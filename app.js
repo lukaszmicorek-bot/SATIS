@@ -1240,12 +1240,16 @@ function mostUsedDocumentLocationForWorkstation(workstation = currentWorkstation
   return ranked[0]?.count ? ranked[0].value : DEFAULT_DOCUMENT_LOCATION;
 }
 
-function suggestedDocumentLocation() {
-  if (activeAgreementDocumentLocation) return activeAgreementDocumentLocation;
-  const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
+function documentLocationForWorkstation(workstationName = currentWorkstationName()) {
+  const workstation = normalizeWorkstationName(workstationName).toLocaleUpperCase("pl-PL");
   const workstationKey = ["T12", "P50", "P63"].find((key) => workstation.includes(key));
-  const workstationLocation = DOCUMENT_LOCATIONS.find((entry) => entry.key === workstationKey)?.value;
-  return workstationLocation || mostUsedDocumentLocationForWorkstation(currentWorkstationName());
+  return DOCUMENT_LOCATIONS.find((entry) => entry.key === workstationKey)?.value || "";
+}
+
+function suggestedDocumentLocation() {
+  return documentLocationForWorkstation()
+    || activeAgreementDocumentLocation
+    || mostUsedDocumentLocationForWorkstation(currentWorkstationName());
 }
 
 function canManageWorkstation() {
@@ -8110,12 +8114,8 @@ function syncAgreementDocumentLocations(sourceOrLocation, { useWorkstation = fal
     ? sourceOrLocation.value
     : sourceOrLocation;
   const requestedLocation = useWorkstation
-    ? (() => {
-        const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
-        const workstationKey = ["T12", "P50", "P63"].find((key) => workstation.includes(key));
-        return DOCUMENT_LOCATIONS.find((entry) => entry.key === workstationKey)?.value
-          || mostUsedDocumentLocationForWorkstation(currentWorkstationName());
-      })()
+    ? documentLocationForWorkstation()
+      || mostUsedDocumentLocationForWorkstation(currentWorkstationName())
     : sourceValue;
   const location = normalizeDocumentLocationValue(requestedLocation);
   const locationKey = documentLocationKey(location);
@@ -9059,6 +9059,12 @@ function renderPricingLoanHistory() {
 
     const actions = document.createElement("div");
     actions.className = "loan-history-actions";
+    const previewButton = document.createElement("button");
+    previewButton.type = "button";
+    previewButton.className = "reset-filters-btn";
+    previewButton.textContent = "Podgląd";
+    previewButton.addEventListener("click", () => showPricingHistoryPreview("loan", entry));
+    actions.append(previewButton);
     const openButton = document.createElement("button");
     openButton.type = "button";
     openButton.className = "reset-filters-btn";
@@ -9189,7 +9195,36 @@ function showPricingHistoryPreview(kind, entry) {
   itemsTitle.textContent = "Pozycje";
   items.append(itemsTitle);
 
-  if (kind === "offer") {
+  if (kind === "loan") {
+    const saved = normalizePricingLoanHistoryEntry(entry);
+    if (!saved) return;
+    if (pricingHistoryPreviewTitle) pricingHistoryPreviewTitle.textContent = `Umowa${saved.number ? ` ${saved.number}` : ""}${saved.customer ? ` - ${saved.customer}` : ""}`;
+    appendPricingHistoryPreviewField(summary, "Data umowy", formatDate(saved.date));
+    appendPricingHistoryPreviewField(summary, "Miejsce", saved.city);
+    appendPricingHistoryPreviewField(summary, "Okres od", formatDate(saved.periodFrom));
+    appendPricingHistoryPreviewField(summary, "Okres do", formatDate(saved.periodTo));
+    appendPricingHistoryPreviewField(summary, "Dla", saved.customer);
+    appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
+    appendPricingHistoryPreviewField(summary, "Adres", saved.address);
+    appendPricingHistoryPreviewField(summary, "Dokument", saved.document);
+    appendPricingHistoryPreviewField(summary, "Kaucja", saved.deposit);
+    appendPricingHistoryPreviewField(summary, "Data zwrotu", formatDate(saved.returnDate));
+    appendPricingHistoryPreviewField(summary, "Zwrot kaucji", formatDate(saved.depositReturnDate));
+    appendPricingHistoryPreviewField(summary, "Potrącenia", saved.deductions);
+    appendPricingHistoryPreviewField(summary, "Powód potrącenia", saved.deductionReason);
+    [saved.rightDevice, saved.leftDevice].filter(hasLoanDeviceData).forEach((device) => {
+      const row = document.createElement("p");
+      const side = normalizeLoanHistoryText(device.side).toLocaleLowerCase("pl-PL").includes("lew") ? "Aparat L" : "Aparat P";
+      row.textContent = `${side}: ${[device.model, device.serial ? `nr seryjny ${device.serial}` : "", device.manufacturer, device.year, device.value ? `wartość ${device.value}` : ""].filter(Boolean).join(" | ")}`;
+      items.append(row);
+    });
+    if (saved.charger || saved.chargerSerial) {
+      const row = document.createElement("p");
+      row.textContent = `Ładowarka: ${[saved.charger, saved.chargerSerial ? `nr seryjny ${saved.chargerSerial}` : "", saved.chargerState, saved.chargerMissingValue].filter(Boolean).join(" | ")}`;
+      items.append(row);
+    }
+    if (saved.issueNotes) appendPricingHistoryPreviewField(summary, "Stan / uwagi", saved.issueNotes);
+  } else if (kind === "offer") {
     const saved = normalizePricingOfferHistoryEntry(entry);
     if (!saved) return;
     if (pricingHistoryPreviewTitle) pricingHistoryPreviewTitle.textContent = `Oferta${saved.customer ? ` - ${saved.customer}` : ""}`;
