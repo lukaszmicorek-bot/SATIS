@@ -14970,7 +14970,7 @@ function createStatusPill(status) {
   const pill = document.createElement("span");
   const normalizedStatus = status || "PRZYJĘTE";
   pill.className = `status-pill ${normalizedStatus.replaceAll(" ", "-")}`;
-  pill.textContent = normalizedStatus;
+  pill.textContent = repairStatusDisplayLabel(normalizedStatus);
   return pill;
 }
 
@@ -17375,8 +17375,8 @@ function repairStatusDisplayLabel(value) {
   const status = String(value || "PRZYJĘTE").trim().toLocaleUpperCase("pl-PL");
   return {
     "PRZYJĘTE": "Przyjęte",
-    "W TRAKCIE": "W trakcie",
-    "GOTOWE": "Gotowe",
+    "W TRAKCIE": "Wysłano",
+    "GOTOWE": "Do odbioru",
     "ODEBRANE": "Odebrane"
   }[status] || status;
 }
