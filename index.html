@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260901-185">
+    <link rel="stylesheet" href="styles.css?v=20260901-187">
   </head>
   <body>
     <main class="app-shell">
@@ -1635,39 +1635,47 @@
           </section>
 
           <section id="pricingHistoryView" class="pricing-view-section pricing-history-section" hidden>
-            <label class="loan-history-search pricing-history-search">
-              <span>Szukaj w historii</span>
-              <input id="pricingHistorySearchInput" type="search" placeholder="Imię i nazwisko, model lub nr seryjny" autocomplete="off">
-            </label>
-            <section class="loan-history-panel" aria-label="Historia umów">
-              <div class="loan-history-head">
-                <h3>Umowy</h3>
-                <span id="loanHistoryCount">0 umów</span>
-              </div>
-              <p id="loanDeadlineSummary" class="loan-deadline-summary" hidden></p>
-              <div id="loanHistoryList" class="loan-history-list"></div>
+            <section class="pricing-history-toolbar" aria-label="Filtry historii">
+              <label class="loan-history-search pricing-history-search">
+                <span>Szukaj w historii</span>
+                <input id="pricingHistorySearchInput" type="search" placeholder="Imię i nazwisko, model lub nr seryjny" autocomplete="off">
+              </label>
+              <label><span>Rodzaj</span><select id="pricingHistoryTypeFilter"><option value="">Wszystkie</option><option value="loan">Umowy</option><option value="offer">Oferty</option><option value="order">Zamówienia</option><option value="complaint">Reklamacje</option></select></label>
+              <label><span>Rok</span><select id="pricingHistoryYearFilter"><option value="">Wszystkie</option></select></label>
+              <label><span>Miejsce</span><select id="pricingHistoryLocationFilter"><option value="">Wszystkie</option><option value="T12">T12</option><option value="P50">P50</option><option value="P63">P63</option></select></label>
+              <button id="resetPricingHistoryFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             </section>
-            <section class="loan-history-panel" aria-label="Historia ofert">
-              <div class="loan-history-head">
-                <h3>Oferty</h3>
-                <span id="offerHistoryCount">0 ofert</span>
-              </div>
-              <div id="offerHistoryList" class="loan-history-list"></div>
-            </section>
-            <section class="loan-history-panel" aria-label="Historia zamówień">
-              <div class="loan-history-head">
-                <h3>Zamówienia</h3>
-                <span id="orderHistoryCount">0 zamówień</span>
-              </div>
-              <div id="orderHistoryList" class="loan-history-list"></div>
-            </section>
-            <section class="loan-history-panel" aria-label="Historia reklamacji">
-              <div class="loan-history-head">
-                <h3>Reklamacje</h3>
-                <span id="complaintHistoryCount">0 reklamacji</span>
-              </div>
-              <div id="complaintHistoryList" class="loan-history-list"></div>
-            </section>
+            <div class="pricing-history-lists-grid">
+              <section class="loan-history-panel" data-history-kind="loan" aria-label="Historia umów">
+                <div class="loan-history-head">
+                  <h3>Umowy</h3>
+                  <span id="loanHistoryCount">0 umów</span>
+                </div>
+                <p id="loanDeadlineSummary" class="loan-deadline-summary" hidden></p>
+                <div id="loanHistoryList" class="loan-history-list"></div>
+              </section>
+              <section class="loan-history-panel" data-history-kind="offer" aria-label="Historia ofert">
+                <div class="loan-history-head">
+                  <h3>Oferty</h3>
+                  <span id="offerHistoryCount">0 ofert</span>
+                </div>
+                <div id="offerHistoryList" class="loan-history-list"></div>
+              </section>
+              <section class="loan-history-panel" data-history-kind="order" aria-label="Historia zamówień">
+                <div class="loan-history-head">
+                  <h3>Zamówienia</h3>
+                  <span id="orderHistoryCount">0 zamówień</span>
+                </div>
+                <div id="orderHistoryList" class="loan-history-list"></div>
+              </section>
+              <section class="loan-history-panel" data-history-kind="complaint" aria-label="Historia reklamacji">
+                <div class="loan-history-head">
+                  <h3>Reklamacje</h3>
+                  <span id="complaintHistoryCount">0 reklamacji</span>
+                </div>
+                <div id="complaintHistoryList" class="loan-history-list"></div>
+              </section>
+            </div>
           </section>
         </section>
       </section>
@@ -2607,6 +2615,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260901-186"></script>
+    <script src="app.js?v=20260901-188"></script>
   </body>
 </html>

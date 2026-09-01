@@ -2910,12 +2910,55 @@ h2 {
 }
 
 .pricing-history-section {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
 .pricing-history-section .loan-history-panel {
   margin-top: 0;
+}
+
+.pricing-history-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 150px 120px 130px auto;
+  align-items: end;
+  gap: 9px;
+  padding: 10px;
+  border-top: 1px solid #d8e3e5;
+  border-bottom: 1px solid #d8e3e5;
+  background: #fbfdfd;
+}
+
+.pricing-history-toolbar > label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.pricing-history-toolbar > label > span {
+  color: #536a75;
+  font-size: 0.67rem;
+  font-weight: 850;
+}
+
+.pricing-history-toolbar select,
+.pricing-history-toolbar input {
+  width: 100%;
+  min-height: 32px;
+  font-size: 0.74rem;
+}
+
+.pricing-history-toolbar .reset-filters-btn {
+  min-height: 29px;
+  padding: 2px 7px;
+  font-size: 0.63rem;
+}
+
+.pricing-history-lists-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
 }
 
 .offer-builder {
@@ -4740,14 +4783,13 @@ h2 {
 }
 
 .pricing-history-search {
-  grid-column: 1 / -1;
   justify-content: start;
-  margin-bottom: 12px;
+  margin: 0;
 }
 
 .pricing-history-search input {
-  width: min(62vw, 620px);
-  max-width: 620px;
+  width: 100%;
+  max-width: none;
 }
 
 .loan-history-list {
@@ -10094,8 +10136,16 @@ textarea {
 }
 
 @media (max-width: 980px) {
-  .pricing-history-section {
+  .pricing-history-lists-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pricing-history-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pricing-history-search {
+    grid-column: 1 / -1;
   }
 
   .pricing-history-preview-grid {
