@@ -7680,23 +7680,15 @@ tbody tr.repair-overdue-critical td:first-child {
   -webkit-line-clamp: 4;
 }
 
-.repairs-table td:nth-last-child(2) {
+.table-notes-column {
   min-width: 0;
-  width: auto;
+  max-width: 0;
   overflow: hidden;
+  vertical-align: top;
 }
 
-.repairs-table th:nth-child(9),
-.repairs-table td:nth-child(9) {
-  min-width: 0;
-  width: auto;
-}
-
-.repairs-table th:nth-child(10),
-.repairs-table td:nth-child(10) {
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
+.table-notes-cell {
+  width: 100%;
 }
 
 .repair-notes-tooltip {
@@ -8569,15 +8561,17 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .row-actions {
-  display: flex;
-  gap: 5px;
   width: auto;
   min-width: 0;
 }
 
 td.row-actions {
+  display: table-cell;
   width: auto;
   min-width: 0;
+  padding-inline: 4px;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .devices-table td.row-actions,
@@ -8589,10 +8583,10 @@ td.row-actions {
 
 .row-actions button {
   min-height: 29px;
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0 5px;
+  min-width: 58px;
+  padding: 0 7px;
   font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 .move-record-btn {
@@ -10015,11 +10009,11 @@ tbody tr.demo-return-critical:hover {
 .repairs-table:not(.repair-open-table) th:nth-child(1),
 .repairs-table:not(.repair-open-table) td:nth-child(1) { width: 8%; }
 .repairs-table:not(.repair-open-table) th:nth-child(2),
-.repairs-table:not(.repair-open-table) td:nth-child(2) { width: 11%; }
+.repairs-table:not(.repair-open-table) td:nth-child(2) { width: 10%; }
 .repairs-table:not(.repair-open-table) th:nth-child(3),
-.repairs-table:not(.repair-open-table) td:nth-child(3) { width: 15%; }
+.repairs-table:not(.repair-open-table) td:nth-child(3) { width: 14%; }
 .repairs-table:not(.repair-open-table) th:nth-child(4),
-.repairs-table:not(.repair-open-table) td:nth-child(4) { width: 16%; }
+.repairs-table:not(.repair-open-table) td:nth-child(4) { width: 15%; }
 .repairs-table:not(.repair-open-table) th:nth-child(5),
 .repairs-table:not(.repair-open-table) td:nth-child(5) { width: 10%; }
 .repairs-table:not(.repair-open-table) th:nth-child(6),
@@ -10031,7 +10025,28 @@ tbody tr.demo-return-critical:hover {
 .repairs-table:not(.repair-open-table) th:nth-child(9),
 .repairs-table:not(.repair-open-table) td:nth-child(9) { width: 10%; }
 .repairs-table:not(.repair-open-table) th:nth-child(10),
-.repairs-table:not(.repair-open-table) td:nth-child(10) { width: 4%; }
+.repairs-table:not(.repair-open-table) td:nth-child(10) { width: 7%; }
+
+.repair-open-table th:nth-child(1),
+.repair-open-table td:nth-child(1) { width: 8%; }
+.repair-open-table th:nth-child(2),
+.repair-open-table td:nth-child(2) { width: 11%; }
+.repair-open-table th:nth-child(3),
+.repair-open-table td:nth-child(3) { width: 14%; }
+.repair-open-table th:nth-child(4),
+.repair-open-table td:nth-child(4) { width: 15%; }
+.repair-open-table th:nth-child(5),
+.repair-open-table td:nth-child(5) { width: 10%; }
+.repair-open-table th:nth-child(6),
+.repair-open-table td:nth-child(6) { width: 10%; }
+.repair-open-table th:nth-child(7),
+.repair-open-table td:nth-child(7) { width: 6%; }
+.repair-open-table th:nth-child(8),
+.repair-open-table td:nth-child(8) { width: 9%; }
+.repair-open-table th:nth-child(9),
+.repair-open-table td:nth-child(9) { width: 10%; }
+.repair-open-table th:nth-child(10),
+.repair-open-table td:nth-child(10) { width: 7%; }
 
 /* Keep the service action readable instead of squeezing "Edytuj" into a narrow cell. */
 .repairs-table th.actions-head,
@@ -10041,13 +10056,31 @@ tbody tr.demo-return-critical:hover {
   white-space: nowrap;
 }
 
-.repairs-table td.row-actions {
-  justify-content: center;
+.repairs-table td.row-actions button {
+  min-width: 62px;
+  white-space: nowrap;
 }
 
-.repairs-table td.row-actions button {
-  flex: 0 0 auto;
-  min-width: 62px;
+.devices-table td.table-notes-column,
+.repairs-table td.table-notes-column {
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+}
+
+.devices-table th.notes-head,
+.devices-table td.table-notes-column {
+  width: 9%;
+}
+
+.repairs-table th.notes-head,
+.repairs-table td.table-notes-column {
+  width: 10%;
+}
+
+.devices-table th.actions-head,
+.devices-table td.row-actions {
+  min-width: 64px;
   white-space: nowrap;
 }
 
