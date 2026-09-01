@@ -14326,7 +14326,9 @@ function createDemoReturnDeadlineCell(meta) {
   if (!meta?.returnDeadline) return "";
 
   const wrap = document.createElement("span");
-  wrap.className = `demo-return-date ${meta.returnLevel || "regular"}`;
+  wrap.className = ["demo-return-date", demoReturnSourceClass(meta.returnSource), meta.returnLevel || "regular"]
+    .filter(Boolean)
+    .join(" ");
 
   const date = document.createElement("strong");
   date.textContent = formatDate(meta.returnDeadline);
@@ -14337,6 +14339,12 @@ function createDemoReturnDeadlineCell(meta) {
   time.textContent = demoReturnDeadlineLabel(meta);
   wrap.append(time);
   return wrap;
+}
+
+function demoReturnSourceClass(source) {
+  if (["loan", "returned"].includes(source)) return "client-return";
+  if (["manufacturer", "philips", "manufacturerReturned"].includes(source)) return "manufacturer-return";
+  return "";
 }
 
 function demoReturnDeadlineLabel(meta) {
