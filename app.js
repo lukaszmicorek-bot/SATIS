@@ -870,6 +870,10 @@ const complaintTitle = document.querySelector("#complaintTitle");
 const complaintMeta = document.querySelector("#complaintMeta");
 const pricingHistoryView = document.querySelector("#pricingHistoryView");
 const pricingHistorySearchInput = document.querySelector("#pricingHistorySearchInput");
+const pricingHistoryTypeFilter = document.querySelector("#pricingHistoryTypeFilter");
+const pricingHistoryYearFilter = document.querySelector("#pricingHistoryYearFilter");
+const pricingHistoryLocationFilter = document.querySelector("#pricingHistoryLocationFilter");
+const resetPricingHistoryFiltersBtn = document.querySelector("#resetPricingHistoryFiltersBtn");
 const savePricingOfferBtn = document.querySelector("#savePricingOfferBtn");
 const offerHistoryCount = document.querySelector("#offerHistoryCount");
 const offerHistoryList = document.querySelector("#offerHistoryList");
@@ -8953,7 +8957,8 @@ function renderPricingLoanHistory() {
     if (loanDeadlineSummary) loanDeadlineSummary.hidden = true;
     return;
   }
-  const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory);
+  const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory)
+    .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "loan"));
   const searchQuery = normalize(pricingHistorySearchInput?.value || "").trim();
   const deadlines = normalizedHistory
     .map((entry) => ({ entry, status: pricingLoanDeadlineStatus(entry) }))
@@ -9401,18 +9406,78 @@ function pricingComplaintHistorySearchText(entry) {
   ].filter(Boolean).join(" "));
 }
 
+function pricingHistoryEntryDate(entry, kind) {
+  if (kind === "loan") return entry?.date || entry?.periodFrom || entry?.savedAt || "";
+  if (kind === "offer") return entry?.offerDate || entry?.savedAt || "";
+  return entry?.date || entry?.savedAt || "";
+}
+
+function pricingHistoryEntryLocation(entry) {
+  const source = [entry?.location, entry?.workstation].filter(Boolean).join(" ");
+  const direct = source.toLocaleUpperCase("pl-PL").match(/(?:^|[^A-Z0-9])(T12|P50|P63)(?=$|[^A-Z0-9])/u)?.[1];
+  if (direct) return direct;
+  const normalizedLocation = normalizeDocumentLocationValue(entry?.location || "");
+  return DOCUMENT_LOCATIONS.find((location) => normalize(location.value) === normalize(normalizedLocation))?.key || "";
+}
+
+function pricingHistoryEntryMatchesFilters(entry, kind) {
+  const selectedType = pricingHistoryTypeFilter?.value || "";
+  const selectedYear = pricingHistoryYearFilter?.value || "";
+  const selectedLocation = pricingHistoryLocationFilter?.value || "";
+  if (selectedType && selectedType !== kind) return false;
+  const date = pricingHistoryEntryDate(entry, kind);
+  if (selectedYear && String(date).slice(0, 4) !== selectedYear) return false;
+  if (selectedLocation && pricingHistoryEntryLocation(entry) !== selectedLocation) return false;
+  return true;
+}
+
+function pricingHistoryEntriesWithKinds() {
+  return [
+    ...normalizePricingLoanHistory(pricingLoanHistory).map((entry) => ({ entry, kind: "loan" })),
+    ...normalizePricingOfferHistory(pricingOfferHistory).map((entry) => ({ entry, kind: "offer" })),
+    ...normalizePricingOrderHistory(pricingOrderHistory).map((entry) => ({ entry, kind: "order" })),
+    ...normalizePricingComplaintHistory(pricingComplaintHistory).map((entry) => ({ entry, kind: "complaint" }))
+  ];
+}
+
+function syncPricingHistoryFilters() {
+  if (!pricingHistoryYearFilter) return;
+  const selectedYear = pricingHistoryYearFilter.value;
+  const years = [...new Set(pricingHistoryEntriesWithKinds()
+    .map(({ entry, kind }) => String(pricingHistoryEntryDate(entry, kind)).slice(0, 4))
+    .filter((year) => /^\d{4}$/u.test(year)))]
+    .sort((left, right) => right.localeCompare(left));
+  const allYears = document.createElement("option");
+  allYears.value = "";
+  allYears.textContent = "Wszystkie";
+  pricingHistoryYearFilter.replaceChildren(allYears);
+  years.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    pricingHistoryYearFilter.append(option);
+  });
+  pricingHistoryYearFilter.value = years.includes(selectedYear) ? selectedYear : "";
+  const selectedType = pricingHistoryTypeFilter?.value || "";
+  document.querySelectorAll("[data-history-kind]").forEach((panel) => {
+    panel.hidden = Boolean(selectedType && panel.dataset.historyKind !== selectedType);
+  });
+}
+
 function renderPricingDocumentHistory() {
   if (!canViewDocumentHistory()) {
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
     return;
   }
+  syncPricingHistoryFilters();
   const searchQuery = normalize(pricingHistorySearchInput?.value || "").trim();
   const historyMatches = (entry, getSearchText) => !searchQuery || getSearchText(entry).includes(searchQuery);
   const historyEmptyText = (defaultText) => searchQuery ? "Nie znaleziono pasujących pozycji." : defaultText;
 
   renderPricingLoanHistory();
 
-  const offersAll = normalizePricingOfferHistory(pricingOfferHistory);
+  const offersAll = normalizePricingOfferHistory(pricingOfferHistory)
+    .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "offer"));
   const offers = offersAll.filter((entry) => historyMatches(entry, pricingOfferHistorySearchText));
   renderPricingHistoryList(
     offerHistoryList,
@@ -9442,7 +9507,8 @@ function renderPricingDocumentHistory() {
     { totalCount: offersAll.length, searchActive: Boolean(searchQuery) }
   );
 
-  const ordersAll = normalizePricingOrderHistory(pricingOrderHistory);
+  const ordersAll = normalizePricingOrderHistory(pricingOrderHistory)
+    .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "order"));
   const orders = ordersAll.filter((entry) => historyMatches(entry, pricingOrderHistorySearchText));
   renderPricingHistoryList(
     orderHistoryList,
@@ -9460,7 +9526,8 @@ function renderPricingDocumentHistory() {
     { totalCount: ordersAll.length, searchActive: Boolean(searchQuery) }
   );
 
-  const complaintsAll = normalizePricingComplaintHistory(pricingComplaintHistory);
+  const complaintsAll = normalizePricingComplaintHistory(pricingComplaintHistory)
+    .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "complaint"));
   const complaints = complaintsAll.filter((entry) => historyMatches(entry, pricingComplaintHistorySearchText));
   renderPricingHistoryList(
     complaintHistoryList,
@@ -20386,6 +20453,16 @@ savePricingLoanBtn?.addEventListener("click", () => {
 });
 printPricingLoanBtn?.addEventListener("click", () => void printPricingLoan());
 pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
+pricingHistoryTypeFilter?.addEventListener("change", renderPricingDocumentHistory);
+pricingHistoryYearFilter?.addEventListener("change", renderPricingDocumentHistory);
+pricingHistoryLocationFilter?.addEventListener("change", renderPricingDocumentHistory);
+resetPricingHistoryFiltersBtn?.addEventListener("click", () => {
+  if (pricingHistorySearchInput) pricingHistorySearchInput.value = "";
+  if (pricingHistoryTypeFilter) pricingHistoryTypeFilter.value = "";
+  if (pricingHistoryYearFilter) pricingHistoryYearFilter.value = "";
+  if (pricingHistoryLocationFilter) pricingHistoryLocationFilter.value = "";
+  renderPricingDocumentHistory();
+});
 orderNumberInput?.addEventListener("input", () => {
   orderNumberInput.dataset.autoNumber = "";
 }, { capture: true });
