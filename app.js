@@ -14097,12 +14097,12 @@ function createDemoRow(record) {
   const cells = [
     statusWrap,
     createDateText(record.receivedDate),
-    createDemoReturnDeadlineCell(meta),
     record.manufacturer,
     record.deviceName,
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
-    record.location,
+    createLocationPill(record.location),
     createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : ""),
+    createDemoReturnDeadlineCell(meta),
     createDemoNotesCell(record)
   ];
 
