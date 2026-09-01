@@ -3435,7 +3435,8 @@ function serialDuplicateKey(value) {
 
 function repairSerialNumbers(record) {
   const seen = new Set();
-  return [record?.serialNumber, record?.serialNumber2]
+  const sourceSerialNumbers = Array.isArray(record?.sourceSerialNumbers) ? record.sourceSerialNumbers : [];
+  return [record?.serialNumber, record?.serialNumber2, ...sourceSerialNumbers]
     .map(normalizeSerialNumber)
     .filter((serial) => {
       const key = serialDuplicateKey(serial);
@@ -4509,6 +4510,11 @@ function normalizeRepairRecordForUse(record) {
   normalizedRecord.deviceName = normalizeDeviceName(normalizedRecord.deviceName);
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
   normalizedRecord.serialNumber2 = normalizeSerialNumber(normalizedRecord.serialNumber2);
+  normalizedRecord.sourceSerialNumbers = [...new Set(
+    (Array.isArray(record.sourceSerialNumbers) ? record.sourceSerialNumbers : [])
+      .map(normalizeSerialNumber)
+      .filter(Boolean)
+  )];
   normalizedRecord.status = effectiveRepairStatus(normalizedRecord);
   return normalizedRecord;
 }
@@ -5723,6 +5729,7 @@ function rebuildRepairDerivedData() {
       documentNumberIssues: issues,
       searchBlob: [
         ...repairFields.map((field) => record[field]),
+        ...repairSerialNumbers(record),
         category,
         status,
         documentInfo.number,
@@ -8101,6 +8108,7 @@ function updateDocumentLocationAccents() {
     orderLocationInput,
     complaintLocationInput,
     locationFilter,
+    demoLocationFilter,
     repairLocationFilter,
     pricingHistoryLocationFilter,
     document.querySelector("#location"),
@@ -11374,25 +11382,25 @@ function currentPricingOrderSnapshot() {
   };
 }
 
-async function persistPricingOrderHistoryEntry(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingOrderHistorySupabaseAvailable === false) return;
+async function persistPricingOrderHistoryEntry(entry) {
+  if (!hasSupabaseConfig) return true;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem zamówienia.");
+  if (pricingOrderHistorySupabaseAvailable === false) throw new Error("Tabela historii zamówień jest niedostępna w Supabase.");
 
   try {
-    const { error } = await supabaseClient.from(SUPABASE_ORDER_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-    if (error) throw error;
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(SUPABASE_ORDER_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
+      if (error) throw error;
+    });
     pricingOrderHistorySupabaseAvailable = true;
+    return true;
   } catch (error) {
-    if (isMissingSupabaseTableError(error)) {
-      pricingOrderHistorySupabaseAvailable = false;
-      console.warn("Zamówienie zapisane lokalnie. Brakuje tabeli Supabase:", error.message);
-      return;
-    }
-    console.warn("Zamówienie zapisane lokalnie, bez synchronizacji Supabase:", error.message);
-    if (!silent) alert("Zamówienie zapisane lokalnie. Supabase nie przyjął historii zamówienia, sprawdź połączenie.");
+    if (isMissingSupabaseTableError(error)) pricingOrderHistorySupabaseAvailable = false;
+    throw new Error(`Nie udało się zapisać zamówienia w Supabase: ${errorText(error) || "nieznany błąd"}`);
   }
 }
 
-function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
+async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   const snapshot = normalizePricingOrderHistoryEntry(currentPricingOrderSnapshot());
   if (!snapshot?.items.length) {
     if (!silent) alert("Dodaj przynajmniej jedną pozycję zamówienia.");
@@ -11430,6 +11438,12 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
     workstation: currentWorkstationName() || snapshot.workstation
   });
   if (!historyEntry) return null;
+  try {
+    await persistPricingOrderHistoryEntry(historyEntry);
+  } catch (error) {
+    alert(error.message);
+    return null;
+  }
   pricingOrderHistory = [
     historyEntry,
     ...pricingOrderHistory.filter((entry) => entry.id !== historyEntry.id)
@@ -11437,7 +11451,6 @@ function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   saveLocalPricingOrderHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   rebuildCustomerNameSuggestions();
-  persistPricingOrderHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
   markAgreementDraftSaved("order");
   if (!silent) alert("Zamówienie zapisane w historii.");
@@ -11668,12 +11681,11 @@ function repairDocumentNumberIssueMap(recordsToCheck = repairRecords) {
   return issueMap;
 }
 
-function mergeDocumentRepairNotes(existingNotes, incomingNotes, sourceTag) {
-  const currentNotes = normalizeLoanHistoryText(existingNotes);
-  const nextNotes = normalizeLoanHistoryText(incomingNotes);
-  if (!currentNotes) return nextNotes;
-  if (!nextNotes || normalize(currentNotes).includes(normalize(sourceTag))) return currentNotes;
-  return joinTransferNotes(currentNotes, nextNotes);
+function repairDocumentManualNotes(record) {
+  const notes = normalizeLoanHistoryText(record?.notes);
+  const previousSummary = normalizeLoanHistoryText(record?.sourceDocumentSummary);
+  if (!notes || !previousSummary || notes === previousSummary) return "";
+  return normalizeLoanHistoryText(notes.replace(previousSummary, "")).replace(/^[|•;\s]+|[|•;\s]+$/gu, "");
 }
 
 function pricingOrderRepairItemLabel(item) {
@@ -11725,6 +11737,13 @@ function pricingOrderRepairRecord(entry) {
   if (!normalizedEntry?.items.length) return null;
   const sourceTag = repairDocumentSourceTag("ORDER", normalizedEntry.number);
   const itemLines = normalizedEntry.items.map(pricingOrderRepairItemLine).filter(Boolean);
+  const sourceDocumentSummary = joinTransferNotes(
+    sourceTag,
+    normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
+    itemLines.length ? "Pozycje:" : "",
+    ...itemLines,
+    normalizedEntry.notes ? `Uwagi: ${normalizedEntry.notes}` : ""
+  );
   return normalizeRepairRecordForUse({
     id: makeId(),
     sourceDocumentType: "ORDER",
@@ -11738,17 +11757,13 @@ function pricingOrderRepairRecord(entry) {
     deviceName: pricingOrderRepairDeviceName(normalizedEntry.items) || "Zamówienie",
     serialNumber: "",
     serialNumber2: "",
+    sourceSerialNumbers: [],
+    sourceDocumentSummary,
     status: "PRZYJĘTE",
     sentDate: "",
     returnDate: "",
     pickupDate: "",
-    notes: joinTransferNotes(
-      sourceTag,
-      normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
-      itemLines.length ? "Pozycje:" : "",
-      ...itemLines,
-      normalizedEntry.notes ? `Uwagi: ${normalizedEntry.notes}` : ""
-    )
+    notes: sourceDocumentSummary
   });
 }
 
@@ -11758,6 +11773,15 @@ function pricingComplaintRepairRecord(entry) {
   const items = normalizePricingComplaintItems(normalizedEntry);
   const sourceTag = repairDocumentSourceTag("COMPLAINT", normalizedEntry.number);
   const itemLines = items.map(pricingComplaintRepairItemLine).filter(Boolean);
+  const sourceDocumentSummary = joinTransferNotes(
+    sourceTag,
+    normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
+    `Żądanie: ${pricingComplaintRequestLabel(normalizedEntry.request)}`,
+    itemLines.length ? "Pozycje:" : "",
+    ...itemLines,
+    normalizedEntry.defect ? `Opis wady: ${normalizedEntry.defect}` : "",
+    normalizedEntry.notes ? `Uwagi: ${normalizedEntry.notes}` : ""
+  );
   return normalizeRepairRecordForUse({
     id: makeId(),
     sourceDocumentType: "COMPLAINT",
@@ -11771,40 +11795,37 @@ function pricingComplaintRepairRecord(entry) {
     deviceName: pricingComplaintRepairDeviceName(items) || "Reklamacja",
     serialNumber: items[0]?.serial || "",
     serialNumber2: items[1]?.serial || "",
+    sourceSerialNumbers: items.map((item) => item.serial).filter(Boolean),
+    sourceDocumentSummary,
     status: "PRZYJĘTE",
     sentDate: "",
     returnDate: "",
     pickupDate: "",
-    notes: joinTransferNotes(
-      sourceTag,
-      normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
-      `Żądanie: ${pricingComplaintRequestLabel(normalizedEntry.request)}`,
-      itemLines.length ? "Pozycje:" : "",
-      ...itemLines,
-      normalizedEntry.defect ? `Opis wady: ${normalizedEntry.defect}` : "",
-      normalizedEntry.notes ? `Uwagi: ${normalizedEntry.notes}` : ""
-    )
+    notes: sourceDocumentSummary
   });
 }
 
 function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
   if (!existingRecord) return incomingRecord;
-  const sourceTag = repairDocumentSourceTag(incomingRecord.sourceDocumentType, incomingRecord.sourceDocumentNumber);
+  const sourceDocumentSummary = incomingRecord.sourceDocumentSummary || incomingRecord.notes || "";
+  const manualNotes = repairDocumentManualNotes(existingRecord);
   return normalizeRepairRecordForUse({
     ...existingRecord,
     sourceDocumentType: incomingRecord.sourceDocumentType || existingRecord.sourceDocumentType,
     sourceDocumentId: incomingRecord.sourceDocumentId || existingRecord.sourceDocumentId,
     sourceDocumentNumber: incomingRecord.sourceDocumentNumber || existingRecord.sourceDocumentNumber,
-    receivedDate: incomingRecord.receivedDate || existingRecord.receivedDate,
-    category: incomingRecord.category || existingRecord.category,
-    location: incomingRecord.location || existingRecord.location,
-    customerName: incomingRecord.customerName || existingRecord.customerName,
-    phone: incomingRecord.phone || existingRecord.phone || "",
-    deviceName: incomingRecord.deviceName || existingRecord.deviceName,
-    serialNumber: incomingRecord.serialNumber || existingRecord.serialNumber,
-    serialNumber2: incomingRecord.serialNumber2 || existingRecord.serialNumber2,
+    receivedDate: incomingRecord.receivedDate,
+    category: incomingRecord.category,
+    location: incomingRecord.location,
+    customerName: incomingRecord.customerName,
+    phone: incomingRecord.phone || "",
+    deviceName: incomingRecord.deviceName,
+    serialNumber: incomingRecord.serialNumber || "",
+    serialNumber2: incomingRecord.serialNumber2 || "",
+    sourceSerialNumbers: incomingRecord.sourceSerialNumbers || [],
+    sourceDocumentSummary,
     status: existingRecord.status || incomingRecord.status,
-    notes: mergeDocumentRepairNotes(existingRecord.notes, incomingRecord.notes, sourceTag)
+    notes: joinTransferNotes(sourceDocumentSummary, manualNotes)
   });
 }
 
@@ -11829,6 +11850,7 @@ async function upsertRepairRecordFromDocument(incomingRecord) {
     savedRecord.id = `document-${incomingRecord.sourceDocumentType}-${incomingRecord.sourceDocumentId}`;
   }
   const isNewRecord = !existingRecord;
+  const previousRepairRecord = existingRecord ? auditSnapshot(existingRecord) : null;
   const previousRecords = repairRecords;
   repairRecords = existingRecord
     ? repairRecords.map((record, index) => (index === existingIndex ? savedRecord : record))
@@ -11836,15 +11858,13 @@ async function upsertRepairRecordFromDocument(incomingRecord) {
   writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
   try {
     await persistRepairRecord(savedRecord);
-      if (isNewRecord) {
-        logAuditEvent({
-          notebook: "repairs",
-          action: "add",
-          recordId: savedRecord.id,
-          beforeRecord: null,
-          afterRecord: savedRecord
-        });
-      }
+    logAuditEvent({
+      notebook: "repairs",
+      action: isNewRecord ? "add" : "edit",
+      recordId: savedRecord.id,
+      beforeRecord: previousRepairRecord,
+      afterRecord: savedRecord
+    });
   } catch (error) {
     repairRecords = previousRecords;
     writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
@@ -12205,7 +12225,7 @@ async function savePricingOrderAndRepairNotebook() {
     alert("Wybierz stronę P lub L dla każdej wkładki.");
     return null;
   }
-  const historyEntry = saveCurrentPricingOrderToHistory({ silent: true });
+  const historyEntry = await saveCurrentPricingOrderToHistory({ silent: true });
   if (!historyEntry) {
     alert("Dodaj przynajmniej jedną pozycję zamówienia.");
     return null;
@@ -12218,7 +12238,7 @@ async function savePricingOrderAndRepairNotebook() {
 async function printPricingOrder() {
   if (printPricingOrderBtn?.disabled) return;
   renderPricingOrder();
-  const historyEntry = saveCurrentPricingOrderToHistory({ silent: true });
+  const historyEntry = await saveCurrentPricingOrderToHistory({ silent: true });
   if (!historyEntry) return;
   if (!await syncPricingOrderToRepairNotebook(historyEntry)) return;
   const cleanup = () => document.body.classList.remove("pricing-order-print");
@@ -12476,21 +12496,21 @@ async function loadSupabasePricingComplaintHistory() {
   }
 }
 
-async function persistPricingComplaintHistoryEntry(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingComplaintHistorySupabaseAvailable === false) return;
+async function persistPricingComplaintHistoryEntry(entry) {
+  if (!hasSupabaseConfig) return true;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem reklamacji.");
+  if (pricingComplaintHistorySupabaseAvailable === false) throw new Error("Tabela historii reklamacji jest niedostępna w Supabase.");
 
   try {
-    const { error } = await supabaseClient.from(SUPABASE_COMPLAINT_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-    if (error) throw error;
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(SUPABASE_COMPLAINT_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
+      if (error) throw error;
+    });
     pricingComplaintHistorySupabaseAvailable = true;
+    return true;
   } catch (error) {
-    if (isMissingSupabaseTableError(error)) {
-      pricingComplaintHistorySupabaseAvailable = false;
-      console.warn("Reklamacja zapisana lokalnie. Brakuje tabeli Supabase:", error.message);
-      return;
-    }
-    console.warn("Reklamacja zapisana lokalnie, bez synchronizacji Supabase:", error.message);
-    if (!silent) alert("Reklamacja zapisana lokalnie. Supabase nie przyjął historii reklamacji, sprawdź połączenie.");
+    if (isMissingSupabaseTableError(error)) pricingComplaintHistorySupabaseAvailable = false;
+    throw new Error(`Nie udało się zapisać reklamacji w Supabase: ${errorText(error) || "nieznany błąd"}`);
   }
 }
 
@@ -12715,7 +12735,7 @@ function pricingComplaintsShareIntake(left, right) {
   return normalizePricingComplaintItems(right).some((item) => serials.has(serialDuplicateKey(item.serial)));
 }
 
-function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
+async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   const snapshot = normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot());
   if (!snapshot) {
     if (!silent) alert("Uzupełnij klienta, produkt albo opis, żeby zapisać reklamację w historii.");
@@ -12749,6 +12769,12 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
     workstation: currentWorkstationName() || snapshot.workstation
   });
   if (!historyEntry) return null;
+  try {
+    await persistPricingComplaintHistoryEntry(historyEntry);
+  } catch (error) {
+    alert(error.message);
+    return null;
+  }
   pricingComplaintHistory = [
     historyEntry,
     ...pricingComplaintHistory.filter((entry) => entry.id !== historyEntry.id)
@@ -12756,7 +12782,6 @@ function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   saveLocalPricingComplaintHistory();
   recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
   rebuildCustomerNameSuggestions();
-  persistPricingComplaintHistoryEntry(historyEntry, { silent });
   renderPricingDocumentHistory();
   markAgreementDraftSaved("complaint");
   return historyEntry;
@@ -13230,7 +13255,7 @@ function resetPricingComplaintForm() {
 
 async function savePricingComplaintAndRepairNotebook() {
   renderPricingComplaint();
-  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: false });
+  const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return null;
   if (!await syncPricingComplaintToRepairNotebook(historyEntry)) return null;
   alert("Reklamacja zapisana i przekazana do Serwisu i zamówień.");
@@ -13239,7 +13264,7 @@ async function savePricingComplaintAndRepairNotebook() {
 
 async function printPricingComplaint() {
   renderPricingComplaint();
-  const historyEntry = saveCurrentPricingComplaintToHistory({ silent: false });
+  const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return;
   if (!await syncPricingComplaintToRepairNotebook(historyEntry)) return;
   const cleanup = () => document.body.classList.remove("pricing-complaint-print");
@@ -16965,6 +16990,7 @@ function createVacationPeriodMonth(monthDate, from, to, request = null) {
     const weekday = new Date(year, month, day).getDay();
     item.classList.toggle("weekend", weekday === 0 || weekday === 6);
     item.classList.toggle("in-period", iso >= from && iso <= to);
+    item.classList.toggle("owner-period", Boolean(request?.ownerLeave && iso >= from && iso <= to));
     item.classList.toggle("period-edge", iso === from || iso === to);
     item.classList.toggle("today", iso === today);
     item.classList.toggle("public-holiday", holidays.has(iso));
@@ -20173,6 +20199,7 @@ function resetDemoFilters() {
   demoStatusFilter.value = "";
   demoManufacturerFilter.value = "";
   demoLocationFilter.value = "";
+  updateDocumentLocationAccent(demoLocationFilter);
   resetAndRenderDemoRecords();
 }
 
@@ -20783,7 +20810,10 @@ repairLocationFilter.addEventListener("change", (event) => {
 demoSearchInput.addEventListener("input", debounce(resetAndRenderDemoRecords, SEARCH_DEBOUNCE_MS));
 demoStatusFilter.addEventListener("change", resetAndRenderDemoRecords);
 demoManufacturerFilter.addEventListener("change", resetAndRenderDemoRecords);
-demoLocationFilter.addEventListener("change", resetAndRenderDemoRecords);
+demoLocationFilter.addEventListener("change", (event) => {
+  updateDocumentLocationAccent(event.target);
+  resetAndRenderDemoRecords();
+});
 importInput.addEventListener("change", importJson);
 importRepairInput.addEventListener("change", importRepairJson);
 document.querySelector("#repairReceivedDate").addEventListener("change", syncRepairStatusFromDates);
@@ -20854,6 +20884,7 @@ document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", (
   demoManufacturerFilter.value = "";
   demoStatusFilter.value = "DO ZWROTU";
   demoLocationFilter.value = "";
+  updateDocumentLocationAccent(demoLocationFilter);
   demoSearchInput.value = "";
   demoReturnReminderDialog.close();
   switchNotebook("devices");

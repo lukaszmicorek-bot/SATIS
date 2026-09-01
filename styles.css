@@ -2150,6 +2150,8 @@ h2 {
 .vacation-preview-day.weekend { background: #f5f6f7; color: #849097; }
 .vacation-preview-day.in-period { background: #dceef5; color: #235d75; }
 .vacation-preview-day.period-edge { background: #bbddea; font-weight: 700; }
+.vacation-preview-day.in-period.owner-period { background: #f1eafa; color: #694d7d; }
+.vacation-preview-day.period-edge.owner-period { background: #ddcbed; color: #593c70; }
 .vacation-preview-day.public-holiday { color: #ae3848; }
 .vacation-preview-day.today { font-weight: 900; text-decoration: underline; }
 
@@ -6268,18 +6270,21 @@ textarea:focus {
 }
 
 #locationFilter option[value="T12"],
+#demoLocationFilter option[value="T12"],
 #pricingHistoryLocationFilter option[value="T12"] {
   color: #6f604f;
   background: #faf8f5;
 }
 
 #locationFilter option[value="P50"],
+#demoLocationFilter option[value="P50"],
 #pricingHistoryLocationFilter option[value="P50"] {
   color: #616b2f;
   background: #f7faec;
 }
 
 #locationFilter option[value="P63"],
+#demoLocationFilter option[value="P63"],
 #pricingHistoryLocationFilter option[value="P63"] {
   color: #7b628b;
   background: #faf6fc;
