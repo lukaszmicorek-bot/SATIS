@@ -6267,17 +6267,20 @@ textarea:focus {
   --document-location-bg: #ffffff;
 }
 
-#locationFilter option[value="T12"] {
+#locationFilter option[value="T12"],
+#pricingHistoryLocationFilter option[value="T12"] {
   color: #6f604f;
   background: #faf8f5;
 }
 
-#locationFilter option[value="P50"] {
+#locationFilter option[value="P50"],
+#pricingHistoryLocationFilter option[value="P50"] {
   color: #616b2f;
   background: #f7faec;
 }
 
-#locationFilter option[value="P63"] {
+#locationFilter option[value="P63"],
+#pricingHistoryLocationFilter option[value="P63"] {
   color: #7b628b;
   background: #faf6fc;
 }
