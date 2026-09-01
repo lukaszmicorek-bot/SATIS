@@ -1305,6 +1305,10 @@ function canViewPrivateModules() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
 
+function canViewDocumentHistory() {
+  return Boolean(currentSupabaseUser);
+}
+
 function canViewCustomerRelations() {
   return canViewPrivateModules();
 }
@@ -1338,14 +1342,13 @@ function updatePrivateModulesVisibility() {
   if (vacationOwnerLeaveField) vacationOwnerLeaveField.hidden = !ownerVisible;
   if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible;
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
-  if (!ownerVisible) {
+  if (!sharedVisible) {
     if (pricingHistoryView) pricingHistoryView.hidden = true;
     if (pricingHistoryPreviewDialog?.open) pricingHistoryPreviewDialog.close();
     pricingHistoryPreviewContent?.replaceChildren();
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
   }
-  if ((!sharedVisible && ["capd", "vacation", "pcpr"].includes(activeNotebook))
-    || (!ownerVisible && activeNotebook === "history")) switchNotebook("devices");
+  if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
 }
 
 function updatePricingManagementVisibility() {
@@ -7731,7 +7734,7 @@ function syncNotebookPanels() {
 function switchPricingView(viewName) {
   const nextView = pricingViewNotebook(viewName) ? viewName : "list";
   const notebook = pricingViewNotebook(nextView);
-  if ((nextView === "history" && !canViewPrivateModules()) || (nextView === "pcpr" && !currentSupabaseUser)) return;
+  if ((nextView === "history" && !canViewDocumentHistory()) || (nextView === "pcpr" && !currentSupabaseUser)) return;
   if (activeNotebook !== notebook) {
     switchNotebook(notebook, { documentView: nextView });
     return;
@@ -8944,7 +8947,7 @@ function updatePricingLoanDeadlineSummary(deadlines) {
 
 function renderPricingLoanHistory() {
   if (!loanHistoryList || !loanHistoryCount) return;
-  if (!canViewPrivateModules()) {
+  if (!canViewDocumentHistory()) {
     loanHistoryList.replaceChildren();
     loanHistoryCount.textContent = "";
     if (loanDeadlineSummary) loanDeadlineSummary.hidden = true;
@@ -9169,7 +9172,7 @@ function appendPricingHistoryPreviewField(container, label, value) {
 }
 
 function showPricingHistoryPreview(kind, entry) {
-  if (!canViewPrivateModules()) return;
+  if (!canViewDocumentHistory()) return;
   if (!pricingHistoryPreviewDialog || !pricingHistoryPreviewContent) return;
   const content = document.createDocumentFragment();
   const summary = document.createElement("section");
@@ -9399,7 +9402,7 @@ function pricingComplaintHistorySearchText(entry) {
 }
 
 function renderPricingDocumentHistory() {
-  if (!canViewPrivateModules()) {
+  if (!canViewDocumentHistory()) {
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
     return;
   }
@@ -17346,7 +17349,7 @@ async function deleteVacationRequest(id) {
 function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation"].includes(notebookName)) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
-  if (notebookName === "history" && !canViewPrivateModules()) return;
+  if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
