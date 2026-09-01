@@ -17479,7 +17479,8 @@ function repairDialogProductTitle() {
     "NAPRAWA POGWARANCYJNA": "Aparat słuchowy",
     "ZAMÓWIENIE": "Produkt"
   }[category] || "Produkt";
-  const prefix = category === "ZAMÓWIENIE" ? "Zamówienie" : "Serwis";
+  const orderCategories = new Set(["WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA", "ZAMÓWIENIE"]);
+  const prefix = orderCategories.has(category) ? "Zamówienie" : "Serwis";
   return `${prefix} · ${enteredProduct || fallbackProduct}`;
 }
 
