@@ -18055,6 +18055,7 @@ function syncRepairPhoneOwner() {
   input.dataset.customerKey = customerKey;
   const suggestions = document.querySelector("#repairPhoneSuggestions");
   const phones = customerPhoneInfo(customer)?.phones || [];
+  if (!String(input.value || "").trim() && phones.length === 1) input.value = phones[0].formatted;
   suggestions.replaceChildren(...phones.map((phone) => {
     const option = document.createElement("option");
     option.value = phone.formatted;
