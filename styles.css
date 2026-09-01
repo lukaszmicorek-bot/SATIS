@@ -8953,29 +8953,32 @@ td.row-actions {
 
 .demo-table th:nth-child(3),
 .demo-table td:nth-child(3) {
-  min-width: 170px;
+  min-width: 140px;
 }
 
 .demo-table th:nth-child(4),
 .demo-table td:nth-child(4) {
-  min-width: 140px;
+  min-width: 290px;
 }
 
 .demo-table th:nth-child(5),
 .demo-table td:nth-child(5) {
-  min-width: 290px;
+  min-width: 150px;
 }
 
 .demo-table th:nth-child(6),
 .demo-table td:nth-child(6) {
-  min-width: 150px;
+  min-width: 105px;
 }
 
 .demo-table th:nth-child(7),
-.demo-table td:nth-child(7),
+.demo-table td:nth-child(7) {
+  min-width: 230px;
+}
+
 .demo-table th:nth-child(8),
 .demo-table td:nth-child(8) {
-  min-width: 230px;
+  min-width: 170px;
 }
 
 .demo-table th:nth-child(9),
@@ -9724,32 +9727,32 @@ tbody tr.demo-return-critical:hover {
 
 .demo-table th:nth-child(3),
 .demo-table td:nth-child(3) {
-  width: 10%;
+  width: 9%;
 }
 
 .demo-table th:nth-child(4),
 .demo-table td:nth-child(4) {
-  width: 9%;
+  width: 18.5%;
 }
 
 .demo-table th:nth-child(5),
 .demo-table td:nth-child(5) {
-  width: 18.5%;
+  width: 10%;
 }
 
 .demo-table th:nth-child(6),
 .demo-table td:nth-child(6) {
-  width: 10%;
+  width: 6%;
 }
 
 .demo-table th:nth-child(7),
 .demo-table td:nth-child(7) {
-  width: 6%;
+  width: 13.5%;
 }
 
 .demo-table th:nth-child(8),
 .demo-table td:nth-child(8) {
-  width: 13.5%;
+  width: 10%;
 }
 
 .demo-table th:nth-child(9),
