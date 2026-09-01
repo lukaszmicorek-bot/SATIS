@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260901-199">
+    <link rel="stylesheet" href="styles.css?v=20260901-200">
   </head>
   <body>
     <main class="app-shell">
@@ -1916,10 +1916,30 @@
                 <p><strong>Ważne:</strong> nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania. Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu.</p>
               </section>
             </section>
-            <label class="private-form-wide">
-              <span>Opis badania i wnioski</span>
-              <textarea id="capdDescriptionInput" rows="7" placeholder="Podsumowanie wyników, obserwacje i zalecenia"></textarea>
-            </label>
+            <section class="capd-rich-text-field private-form-wide" aria-label="Opis badania i wnioski">
+              <div class="capd-rich-text-head">
+                <span>Opis badania i wnioski</span>
+                <div id="capdDescriptionToolbar" class="capd-rich-text-toolbar" role="toolbar" aria-label="Formatowanie opisu">
+                  <button type="button" data-capd-format="paragraph" title="Akapit" aria-label="Akapit">A</button>
+                  <button type="button" data-capd-format="bold" title="Pogrubienie" aria-label="Pogrubienie"><strong>B</strong></button>
+                  <button type="button" data-capd-format="italic" title="Kursywa" aria-label="Kursywa"><em>I</em></button>
+                  <button type="button" data-capd-format="underline" title="Podkreślenie" aria-label="Podkreślenie"><u>U</u></button>
+                  <button type="button" data-capd-format="unordered" title="Lista punktowana" aria-label="Lista punktowana">•</button>
+                  <button type="button" data-capd-format="ordered" title="Lista numerowana" aria-label="Lista numerowana">1.</button>
+                  <span class="capd-toolbar-divider" aria-hidden="true"></span>
+                  <button type="button" data-capd-format="left" title="Wyrównaj do lewej" aria-label="Wyrównaj do lewej">≡</button>
+                  <button type="button" data-capd-format="center" title="Wyśrodkuj" aria-label="Wyśrodkuj">≡</button>
+                  <button type="button" data-capd-format="right" title="Wyrównaj do prawej" aria-label="Wyrównaj do prawej">≡</button>
+                  <label class="capd-rich-text-color" title="Kolor tekstu">
+                    <span>Kolor</span>
+                    <input id="capdDescriptionColor" type="color" value="#003f5a" aria-label="Kolor tekstu">
+                  </label>
+                  <button type="button" data-capd-format="clear" title="Wyczyść formatowanie" aria-label="Wyczyść formatowanie">Tx</button>
+                </div>
+              </div>
+              <div id="capdDescriptionInput" class="capd-rich-text-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Podsumowanie wyników, obserwacje i zalecenia"></div>
+              <small>Możesz wklejać tekst. Zachowane zostaną akapity, listy i podstawowe formatowanie.</small>
+            </section>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
               <button id="saveCapdHistoryBtn" type="button">Zapisz badanie</button>
@@ -1949,11 +1969,11 @@
             </table>
             <section class="capd-report-conclusions">
               <h3>Opis badania i wnioski</h3>
-              <p id="capdReportDescription">Miejsce na podsumowanie wyników, obserwacje i zalecenia.</p>
+              <div id="capdReportDescription">Miejsce na podsumowanie wyników, obserwacje i zalecenia.</div>
             </section>
             <p class="capd-report-disclaimer">Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu. Nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania.</p>
           </section>
-
+          
           <section class="capd-history-panel" aria-label="Historia badań APD">
             <header class="capd-history-head">
               <div>
@@ -2617,6 +2637,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260901-199"></script>
+    <script src="app.js?v=20260901-200"></script>
   </body>
 </html>

@@ -1131,15 +1131,143 @@ h2 {
   font-size: 0.86rem;
 }
 
+.capd-rich-text-field {
+  display: grid;
+  gap: 7px;
+}
+
+.capd-rich-text-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  color: #4f646c;
+  font-size: 0.78rem;
+  font-weight: 780;
+}
+
+.capd-rich-text-toolbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.capd-rich-text-toolbar button {
+  display: inline-grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid #d2dfe2;
+  border-radius: 5px;
+  padding: 0;
+  color: #3d5b66;
+  background: #fbfdfd;
+  font-family: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.capd-rich-text-toolbar button:hover,
+.capd-rich-text-toolbar button:focus-visible {
+  border-color: #8eafb8;
+  color: #003f5a;
+  background: #edf5f6;
+}
+
+.capd-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: #d9e3e5;
+}
+
+.capd-rich-text-color {
+  display: inline-flex;
+  width: 27px;
+  height: 27px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #d2dfe2;
+  border-radius: 5px;
+  background: #fbfdfd;
+  cursor: pointer;
+}
+
+.capd-rich-text-color > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.capd-rich-text-color input {
+  width: 21px;
+  height: 21px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.capd-rich-text-editor {
+  min-height: 150px;
+  overflow: auto;
+  border: 1px solid #cbd9dc;
+  border-radius: 6px;
+  padding: 10px 11px;
+  color: #263f49;
+  background: #fff;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  outline: none;
+}
+
+.capd-rich-text-editor:focus {
+  border-color: #6f9ca8;
+  box-shadow: 0 0 0 3px rgba(92, 145, 159, 0.13);
+}
+
+.capd-rich-text-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #91a0a5;
+  pointer-events: none;
+}
+
+.capd-rich-text-editor p,
 .capd-report-conclusions p {
+  margin: 0 0 0.7em;
+}
+
+.capd-rich-text-editor p:last-child,
+.capd-report-conclusions p:last-child {
+  margin-bottom: 0;
+}
+
+.capd-rich-text-editor ul,
+.capd-rich-text-editor ol,
+.capd-report-conclusions ul,
+.capd-report-conclusions ol {
+  margin: 0.35em 0 0.7em 1.35em;
+  padding: 0;
+}
+
+.capd-rich-text-field > small {
+  color: #76878d;
+  font-size: 0.66rem;
+}
+
+.capd-report-conclusions > div {
   margin: 0;
   color: #344e58;
   font-size: 0.78rem;
   line-height: 1.5;
-  white-space: pre-wrap;
 }
 
-.capd-report-conclusions p.is-placeholder {
+.capd-report-conclusions > div.is-placeholder {
   color: #91a0a5;
 }
 

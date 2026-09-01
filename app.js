@@ -682,6 +682,7 @@ let dataControlRenderToken = 0;
 let dataControlBuildScheduled = false;
 let dataControlFilter = "all";
 let repairOpenPriorityFilter = "all";
+let capdDescriptionSelection = null;
 const tableRenderLimits = {
   devices: TABLE_RENDER_BATCH_SIZE,
   demo: TABLE_RENDER_BATCH_SIZE,
@@ -1044,6 +1045,9 @@ const capdNormVersionSelect = document.querySelector("#capdNormVersionSelect");
 const capdNormAgeSelect = document.querySelector("#capdNormAgeSelect");
 const capdNormReferenceBody = document.querySelector("#capdNormReferenceBody");
 const capdNormReferenceNote = document.querySelector("#capdNormReferenceNote");
+const capdDescriptionInput = document.querySelector("#capdDescriptionInput");
+const capdDescriptionToolbar = document.querySelector("#capdDescriptionToolbar");
+const capdDescriptionColor = document.querySelector("#capdDescriptionColor");
 const resetCapdFormBtn = document.querySelector("#resetCapdFormBtn");
 const saveCapdHistoryBtn = document.querySelector("#saveCapdHistoryBtn");
 const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
@@ -16192,6 +16196,104 @@ function appendCapdReportResultCell(row, value, unit, evaluation = "") {
   row.append(cell);
 }
 
+function sanitizeCapdRichText(value) {
+  const template = document.createElement("template");
+  template.innerHTML = String(value || "");
+  const output = document.createElement("div");
+  const allowedTags = new Set(["P", "DIV", "BR", "UL", "OL", "LI", "STRONG", "B", "EM", "I", "U", "SPAN", "FONT"]);
+  const copyNode = (node, target) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      target.append(document.createTextNode(node.textContent || ""));
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (!allowedTags.has(node.tagName)) {
+      [...node.childNodes].forEach((child) => copyNode(child, target));
+      return;
+    }
+    const tagName = node.tagName === "DIV" ? "p" : node.tagName === "FONT" ? "span" : node.tagName.toLowerCase();
+    const clean = document.createElement(tagName);
+    const color = node.style.color || node.getAttribute("color") || "";
+    if (/^#[0-9a-f]{3,8}$/iu.test(color) || /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/iu.test(color)) clean.style.color = color;
+    const textAlign = node.style.textAlign;
+    if (["left", "center", "right", "justify"].includes(textAlign)) clean.style.textAlign = textAlign;
+    [...node.childNodes].forEach((child) => copyNode(child, clean));
+    target.append(clean);
+  };
+  [...template.content.childNodes].forEach((node) => copyNode(node, output));
+  return output.innerHTML.trim();
+}
+
+function capdRichTextPlainText(value) {
+  const template = document.createElement("template");
+  template.innerHTML = sanitizeCapdRichText(value);
+  return String(template.content.textContent || "").replace(/\s+\n/gu, "\n").trim();
+}
+
+function capdPlainTextToHtml(value) {
+  const output = document.createElement("div");
+  String(value || "").trim().split(/\n{2,}/u).filter(Boolean).forEach((paragraphText) => {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = paragraphText;
+    output.append(paragraph);
+  });
+  return output.innerHTML;
+}
+
+function capdDescriptionHtml() {
+  return sanitizeCapdRichText(capdDescriptionInput?.innerHTML || "");
+}
+
+function rememberCapdDescriptionSelection() {
+  if (!capdDescriptionInput) return;
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !capdDescriptionInput.contains(selection.anchorNode)) return;
+  capdDescriptionSelection = selection.getRangeAt(0).cloneRange();
+}
+
+function restoreCapdDescriptionSelection() {
+  if (!capdDescriptionInput || !capdDescriptionSelection) return;
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(capdDescriptionSelection);
+}
+
+function applyCapdDescriptionFormat(format, value = "") {
+  if (!capdDescriptionInput) return;
+  capdDescriptionInput.focus();
+  restoreCapdDescriptionSelection();
+  const commands = {
+    paragraph: ["formatBlock", "p"],
+    bold: ["bold", ""],
+    italic: ["italic", ""],
+    underline: ["underline", ""],
+    unordered: ["insertUnorderedList", ""],
+    ordered: ["insertOrderedList", ""],
+    left: ["justifyLeft", ""],
+    center: ["justifyCenter", ""],
+    right: ["justifyRight", ""],
+    clear: ["removeFormat", ""]
+  };
+  const [command, commandValue] = format === "color" ? ["foreColor", value] : commands[format] || [];
+  if (!command) return;
+  document.execCommand(command, false, commandValue);
+  rememberCapdDescriptionSelection();
+  renderCapdReport();
+}
+
+function renderCapdDescription(target, html, fallback = "") {
+  if (!target) return;
+  const cleanHtml = sanitizeCapdRichText(html);
+  target.replaceChildren();
+  if (cleanHtml) {
+    target.innerHTML = cleanHtml;
+    target.classList.remove("is-placeholder");
+    return;
+  }
+  target.textContent = fallback;
+  target.classList.add("is-placeholder");
+}
+
 function renderCapdReport() {
   if (!capdReportResults) return;
   const patient = titleCaseName(capdPatientInput?.value || "");
@@ -16209,7 +16311,7 @@ function renderCapdReport() {
   const reportTitle = age !== null && age < 6
     ? "Ocena ryzyka trudności w przetwarzaniu słuchowym"
     : "Ocena przetwarzania słuchowego APD";
-  const description = String(document.querySelector("#capdDescriptionInput")?.value || "").trim();
+  const descriptionHtml = capdDescriptionHtml();
 
   if (capdReportTitle) capdReportTitle.textContent = reportTitle;
   if (capdReportMeta) capdReportMeta.textContent = `Zakres: ${scope}`;
@@ -16219,8 +16321,7 @@ function renderCapdReport() {
   if (capdReportAge) capdReportAge.textContent = age === null ? "-" : formatCapdAge(age);
   if (capdReportDate) capdReportDate.textContent = dateIso ? formatDate(dateIso) : "-";
   if (capdReportDescription) {
-    capdReportDescription.textContent = description || "Miejsce na podsumowanie wyników, obserwacje i zalecenia.";
-    capdReportDescription.classList.toggle("is-placeholder", !description);
+    renderCapdDescription(capdReportDescription, descriptionHtml, "Miejsce na podsumowanie wyników, obserwacje i zalecenia.");
   }
 
   const rows = capdReportTestItems().map((item) => {
@@ -16275,7 +16376,8 @@ function normalizeCapdHistoryEntry(entry) {
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
     testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
     scope: normalizeLoanHistoryText(entry.scope),
-    description: String(entry.description || "").trim(),
+    description: capdRichTextPlainText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
+    descriptionHtml: sanitizeCapdRichText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
     results
   };
   return normalizedEntry.patient && normalizedEntry.pesel && normalizedEntry.testDate ? normalizedEntry : null;
@@ -16342,7 +16444,8 @@ function currentCapdSnapshot() {
     age: age ?? "",
     testDate: isoDateForSave(capdDateInput?.value || ""),
     scope: age === null ? "" : age < 6 ? "RYZYKO" : age < 8 ? "6 TESTÓW" : "PEŁNY",
-    description: String(document.querySelector("#capdDescriptionInput")?.value || "").trim(),
+    description: capdRichTextPlainText(capdDescriptionHtml()),
+    descriptionHtml: capdDescriptionHtml(),
     results: capdReportTestItems().map((item) => ({
       code: item.dataset.capdCode || "",
       name: item.dataset.capdName || "",
@@ -16416,8 +16519,7 @@ function restoreCapdHistoryEntry(entry) {
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
   setDateInputValue(capdDateInput, historyEntry.testDate);
-  const descriptionInput = document.querySelector("#capdDescriptionInput");
-  if (descriptionInput) descriptionInput.value = historyEntry.description;
+  if (capdDescriptionInput) capdDescriptionInput.innerHTML = historyEntry.descriptionHtml || capdPlainTextToHtml(historyEntry.description);
   document.querySelectorAll("#capdTestsPanel [data-capd-code] input").forEach((input) => {
     if (input.dataset.capdNormInput) return;
     const code = input.closest("[data-capd-code]")?.dataset.capdCode || "";
@@ -16535,6 +16637,7 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  if (capdDescriptionInput) capdDescriptionInput.replaceChildren();
   if (capdAgeInput) delete capdAgeInput.dataset.manual;
   if (capdForm) delete capdForm.dataset.normAge;
   activeCapdHistoryId = "";
@@ -21170,6 +21273,27 @@ capdForm?.addEventListener("input", (event) => {
   renderCapdReport();
 });
 capdForm?.addEventListener("change", renderCapdReport);
+capdDescriptionInput?.addEventListener("keyup", rememberCapdDescriptionSelection);
+capdDescriptionInput?.addEventListener("mouseup", rememberCapdDescriptionSelection);
+capdDescriptionInput?.addEventListener("focus", rememberCapdDescriptionSelection);
+capdDescriptionInput?.addEventListener("paste", (event) => {
+  event.preventDefault();
+  const text = event.clipboardData?.getData("text/plain") || "";
+  document.execCommand("insertText", false, text);
+  rememberCapdDescriptionSelection();
+  renderCapdReport();
+});
+capdDescriptionToolbar?.addEventListener("mousedown", (event) => {
+  if (event.target.closest("button[data-capd-format]")) event.preventDefault();
+});
+capdDescriptionToolbar?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-capd-format]");
+  if (!button) return;
+  applyCapdDescriptionFormat(button.dataset.capdFormat || "");
+});
+capdDescriptionColor?.addEventListener("input", () => {
+  applyCapdDescriptionFormat("color", capdDescriptionColor.value);
+});
 capdPatientInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
 });
