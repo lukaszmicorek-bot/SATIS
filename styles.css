@@ -6036,7 +6036,7 @@ textarea:focus {
 }
 
 #repairCategory:has(option[value="WKŁADKA PRZECIWWODNA"]:checked) {
-  --repair-category-border: #8dc7bd;
+  --repair-category-border: #9bbbd7;
 }
 
 #repairCategory:has(option[value="ZAMÓWIENIE"]:checked) {
@@ -6044,7 +6044,7 @@ textarea:focus {
 }
 
 #repairCategory:has(option[value="NAPRAWA GWARANCYJNA"]:checked) {
-  --repair-category-border: #9bbbd7;
+  --repair-category-border: #8dc7bd;
 }
 
 #repairCategory:has(option[value="NAPRAWA POGWARANCYJNA"]:checked) {
