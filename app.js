@@ -14162,12 +14162,13 @@ function createRow(record) {
     createDeviceIntakeCell(record),
     createDeviceCustomerPickupCell(record),
     createDeviceSalesCell(record),
-    record.notes,
+    createTableNotesCell(record.notes),
     ...(canViewPrivatePayments() ? [createPrivatePaymentCell(record)] : [])
   ];
 
-  cells.forEach((value) => {
+  cells.forEach((value, index) => {
     const cell = document.createElement("td");
+    if (index === 7) cell.classList.add("table-notes-column");
     fillTableCell(cell, value);
     row.append(cell);
   });
@@ -15038,6 +15039,7 @@ function createRepairRow(record) {
     if (index === 2 && status === "GOTOWE") {
       cell.classList.add("pickup-customer-cell");
     }
+    if (index === 8) cell.classList.add("table-notes-column");
     fillTableCell(cell, value);
     row.append(cell);
   });
@@ -15079,6 +15081,7 @@ function createRepairOpenRow(record) {
   cells.forEach((value, index) => {
     const cell = document.createElement("td");
     if (index === 2 && status === "GOTOWE") cell.classList.add("pickup-customer-cell");
+    if (index === 8) cell.classList.add("table-notes-column");
     fillTableCell(cell, value);
     row.append(cell);
   });
@@ -15262,29 +15265,36 @@ function attachRepairTimelinePreview(timeline, record) {
   timeline.addEventListener("blur", hideRepairTimelinePreview);
 }
 
+function createTableNotesCell(value) {
+  const notes = normalizeLoanHistoryText(value);
+  if (!notes) return "";
+
+  const wrap = document.createElement("div");
+  wrap.className = "repair-notes-cell table-notes-cell";
+  const preview = document.createElement("span");
+  preview.className = "repair-notes-preview";
+  preview.dataset.repairNotesTooltip = notes;
+  preview.tabIndex = 0;
+  preview.addEventListener("mouseenter", () => showRepairNotesTooltip(preview));
+  preview.addEventListener("mouseleave", hideRepairNotesTooltip);
+  preview.addEventListener("focus", () => showRepairNotesTooltip(preview));
+  preview.addEventListener("blur", hideRepairNotesTooltip);
+  const text = document.createElement("span");
+  text.className = "repair-notes-preview-text";
+  text.textContent = notes;
+  preview.append(text);
+  wrap.append(preview);
+  return wrap;
+}
+
 function createRepairNotesCell(record) {
   const meta = repairDerived.get(record.id);
   const issues = meta?.documentNumberIssues || [];
   const notes = normalizeLoanHistoryText(record?.notes);
   if (!notes && !issues.length) return "";
 
-  const wrap = document.createElement("div");
-  wrap.className = "repair-notes-cell";
-  if (notes) {
-    const preview = document.createElement("span");
-    preview.className = "repair-notes-preview";
-    preview.dataset.repairNotesTooltip = notes;
-    preview.tabIndex = 0;
-    preview.addEventListener("mouseenter", () => showRepairNotesTooltip(preview));
-    preview.addEventListener("mouseleave", hideRepairNotesTooltip);
-    preview.addEventListener("focus", () => showRepairNotesTooltip(preview));
-    preview.addEventListener("blur", hideRepairNotesTooltip);
-    const text = document.createElement("span");
-    text.className = "repair-notes-preview-text";
-    text.textContent = notes;
-    preview.append(text);
-    wrap.append(preview);
-  }
+  const wrap = notes ? createTableNotesCell(notes) : document.createElement("div");
+  wrap.classList.add("repair-notes-cell", "table-notes-cell");
 
   if (issues.length) {
     const warning = document.createElement("span");

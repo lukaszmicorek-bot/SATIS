@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260901-200">
+  <link rel="stylesheet" href="styles.css?v=20260901-201">
   </head>
   <body>
     <main class="app-shell">
@@ -169,7 +169,7 @@
                   <th data-sort="receivedDate">Przyjęcie / FIFO</th>
                   <th data-sort="customerName">Klient / odbiór</th>
                   <th data-sort="salesInvoice">Sprzedaż</th>
-                  <th data-sort="notes">Uwagi</th>
+                  <th class="notes-head" data-sort="notes">Uwagi</th>
                   <th class="private-payment-column" data-private-payment-column hidden title="Odebrałem pieniądze">$</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
@@ -529,7 +529,7 @@
                   <th data-repair-sort="receivedDate">Przebieg</th>
                   <th data-repair-sort="location">Miejsce</th>
                   <th data-repair-sort="sourceDocumentNumber">Nr zamówienia / reklamacji</th>
-                  <th data-repair-sort="notes">Uwagi</th>
+                  <th class="notes-head" data-repair-sort="notes">Uwagi</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
               </thead>
@@ -564,7 +564,7 @@
                   <th>Typ</th>
                   <th>Miejsce</th>
                   <th>Nr zamówienia / reklamacji</th>
-                  <th>Uwagi</th>
+                  <th class="notes-head">Uwagi</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
               </thead>
@@ -2637,6 +2637,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260901-200"></script>
+  <script src="app.js?v=20260901-201"></script>
   </body>
 </html>
