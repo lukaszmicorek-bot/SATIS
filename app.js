@@ -681,6 +681,7 @@ let dataControlIssuesCache = null;
 let dataControlRenderToken = 0;
 let dataControlBuildScheduled = false;
 let dataControlFilter = "all";
+let repairOpenPriorityFilter = "all";
 const tableRenderLimits = {
   devices: TABLE_RENDER_BATCH_SIZE,
   demo: TABLE_RENDER_BATCH_SIZE,
@@ -13658,13 +13659,20 @@ function createDataControlRow(issue) {
   const row = document.createElement("tr");
   row.className = `data-control-row ${issue.severity}`;
 
+  const problem = document.createElement("div");
+  problem.className = "data-control-problem";
+  const problemTitle = document.createElement("strong");
+  problemTitle.textContent = issue.title;
+  const problemDetail = document.createElement("span");
+  problemDetail.textContent = issue.detail;
+  problem.append(problemTitle, problemDetail);
+
   const cells = [
     createDataSeverityPill(issue.severity),
     dataControlIssueNotebookLabel(issue),
     dataControlRecordLabel(issue),
     issue.serialNumber ? createSerialPill(issue.serialNumber, issue.kind === "duplicate" ? issue.duplicateMatches || [] : []) : "",
-    issue.title,
-    issue.detail
+    problem
   ];
 
   cells.forEach((value) => {
@@ -13821,7 +13829,19 @@ function renderRepairRecords() {
 }
 
 function openRepairRecords() {
-  return sortOpenRepairRecords(repairRecords.filter((record) => !isRepairClosed(record)));
+  return sortOpenRepairRecords(repairRecords.filter((record) => !isRepairClosed(record) && matchesRepairOpenPriorityFilter(record)));
+}
+
+function matchesRepairOpenPriorityFilter(record) {
+  if (repairOpenPriorityFilter === "all") return true;
+  const status = repairDerived.get(record.id)?.status ?? effectiveRepairStatus(record);
+  const age = repairStatusAge(record, status) ?? -1;
+  if (repairOpenPriorityFilter === "ready") return status === "GOTOWE";
+  if (repairOpenPriorityFilter === "critical") return status !== "GOTOWE" && age > 15;
+  if (repairOpenPriorityFilter === "warning") return status !== "GOTOWE" && age > 7 && age <= 15;
+  if (repairOpenPriorityFilter === "sent") return status === "W TRAKCIE";
+  if (repairOpenPriorityFilter === "received") return status === "PRZYJĘTE";
+  return true;
 }
 
 function compareRepairRecordsBySelectedSort(left, right) {
@@ -14131,17 +14151,13 @@ function createRow(record) {
   if (level) row.classList.add(`fifo-${level}`);
 
   const cells = [
-    createDateText(record.receivedDate),
-    createAgePill(record),
+    createTypePill(displayType(record)),
     createDeviceNameCell(record),
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches, [], deviceSerialWarrantyTitle(record)),
-    createTypePill(displayType(record)),
     createLocationPill(record.location),
-    createDateText(record.pickupDate),
-    createCustomerActivityCell(record),
-    record.salesInvoice,
-    createEzwmCell(record),
-    createWaybillCell(record.waybillNumber),
+    createDeviceIntakeCell(record),
+    createDeviceCustomerPickupCell(record),
+    createDeviceSalesCell(record),
     record.notes,
     ...(canViewPrivatePayments() ? [createPrivatePaymentCell(record)] : [])
   ];
@@ -14163,6 +14179,51 @@ function createRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createDeviceIntakeCell(record) {
+  const wrap = document.createElement("div");
+  wrap.className = "compact-cell-stack device-intake-cell";
+  const date = createDateText(record.receivedDate);
+  if (date) wrap.append(date);
+  const age = createAgePill(record);
+  if (age) wrap.append(age);
+  return wrap;
+}
+
+function createDeviceCustomerPickupCell(record) {
+  const wrap = document.createElement("div");
+  wrap.className = "compact-cell-stack device-customer-pickup";
+  const customer = createCustomerActivityCell(record);
+  if (customer) wrap.append(customer);
+  if (record.pickupDate) {
+    const pickup = document.createElement("small");
+    pickup.className = "compact-cell-meta";
+    pickup.append("Odbiór: ", createDateText(record.pickupDate) || formatDate(record.pickupDate));
+    wrap.append(pickup);
+  }
+  return wrap;
+}
+
+function createDeviceSalesCell(record) {
+  const wrap = document.createElement("div");
+  wrap.className = "compact-cell-stack device-sales-cell";
+  if (record.salesInvoice) {
+    const invoice = document.createElement("strong");
+    invoice.textContent = record.salesInvoice;
+    wrap.append(invoice);
+  }
+  const meta = document.createElement("span");
+  meta.className = "compact-cell-icons";
+  const ezwm = createEzwmCell(record);
+  const waybill = createWaybillCell(record.waybillNumber);
+  if (ezwm) meta.append(ezwm);
+  if (waybill) {
+    waybill.title = `NR WZ: ${record.waybillNumber}`;
+    meta.append(waybill);
+  }
+  if (meta.childElementCount) wrap.append(meta);
+  return wrap;
 }
 
 function createDemoRow(record) {
@@ -14197,11 +14258,10 @@ function createDemoRow(record) {
 
   const cells = [
     statusWrap,
-    createDateText(record.receivedDate),
-    record.manufacturer,
-    record.deviceName,
+    createDemoModelCell(record),
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
     createLocationPill(record.location),
+    createDateText(record.receivedDate),
     createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : ""),
     createDemoReturnDeadlineCell(meta),
     createDemoNotesCell(record)
@@ -14227,6 +14287,20 @@ function createDemoRow(record) {
   actions.append(editButton);
   row.append(actions);
   return row;
+}
+
+function createDemoModelCell(record) {
+  const wrap = document.createElement("div");
+  wrap.className = "compact-cell-stack demo-model-cell";
+  if (record.manufacturer) {
+    const manufacturer = document.createElement("small");
+    manufacturer.className = "compact-cell-meta";
+    manufacturer.textContent = record.manufacturer;
+    wrap.append(manufacturer);
+  }
+  const model = createDeviceNameCell(record);
+  if (model) wrap.append(model);
+  return wrap;
 }
 
 function pricingChargerWarrantyTooltip(record) {
@@ -14944,20 +15018,20 @@ function createRepairRow(record) {
   if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
   const activeDateType = activeRepairDateType(record);
   const cells = [
-    createRepairTimeline(record, activeDateType),
     createStatusPill(status),
     createRepairCategoryCell(record),
-    createLocationPill(record.location),
     createRepairCustomerName(record, status),
     createRepairDeviceNameCell(record),
     createRepairSerialCell(record),
+    createRepairTimeline(record, activeDateType),
+    createLocationPill(record.location),
     createRepairDocumentNumberCell(record),
     createRepairNotesCell(record)
   ];
 
   cells.forEach((value, index) => {
     const cell = document.createElement("td");
-    if (index === 4 && status === "GOTOWE") {
+    if (index === 2 && status === "GOTOWE") {
       cell.classList.add("pickup-customer-cell");
     }
     fillTableCell(cell, value);
@@ -20851,6 +20925,18 @@ resetDeviceFiltersBtn?.addEventListener("click", resetDeviceFilters);
 resetDemoFiltersBtn?.addEventListener("click", resetDemoFilters);
 resetRepairFiltersBtn?.addEventListener("click", resetRepairFilters);
 resetDataControlFiltersBtn?.addEventListener("click", resetDataControlFilters);
+document.querySelector("#repairOpenPriorityFilters")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-repair-open-filter]");
+  if (!button) return;
+  repairOpenPriorityFilter = button.dataset.repairOpenFilter || "all";
+  document.querySelectorAll("[data-repair-open-filter]").forEach((item) => {
+    const active = item === button;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", String(active));
+  });
+  resetTableRenderLimit("repairOpen");
+  renderRepairRecords();
+});
 dataControlSearchInput.addEventListener("input", debounce(() => {
   resetTableRenderLimit("dataControl");
   renderDataControlView();
