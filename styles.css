@@ -9439,6 +9439,16 @@ tbody tr.demo-return-critical:hover {
   font-weight: 750;
 }
 
+.demo-return-date.client-return {
+  color: #386783;
+  background: #edf6fb;
+}
+
+.demo-return-date.manufacturer-return {
+  color: #66723b;
+  background: #f2f5e8;
+}
+
 .demo-return-date.warning {
   color: #735400;
   background: #ffe9a6;
