@@ -8098,6 +8098,7 @@ function updateDocumentLocationAccents() {
     complaintLocationInput,
     locationFilter,
     repairLocationFilter,
+    pricingHistoryLocationFilter,
     document.querySelector("#location"),
     document.querySelector("#repairLocation"),
     document.querySelector("#demoLocation")
@@ -20456,12 +20457,16 @@ printPricingLoanBtn?.addEventListener("click", () => void printPricingLoan());
 pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
 pricingHistoryTypeFilter?.addEventListener("change", renderPricingDocumentHistory);
 pricingHistoryYearFilter?.addEventListener("change", renderPricingDocumentHistory);
-pricingHistoryLocationFilter?.addEventListener("change", renderPricingDocumentHistory);
+pricingHistoryLocationFilter?.addEventListener("change", (event) => {
+  updateDocumentLocationAccent(event.target);
+  renderPricingDocumentHistory();
+});
 resetPricingHistoryFiltersBtn?.addEventListener("click", () => {
   if (pricingHistorySearchInput) pricingHistorySearchInput.value = "";
   if (pricingHistoryTypeFilter) pricingHistoryTypeFilter.value = "";
   if (pricingHistoryYearFilter) pricingHistoryYearFilter.value = "";
   if (pricingHistoryLocationFilter) pricingHistoryLocationFilter.value = "";
+  updateDocumentLocationAccent(pricingHistoryLocationFilter);
   renderPricingDocumentHistory();
 });
 orderNumberInput?.addEventListener("input", () => {
