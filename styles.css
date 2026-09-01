@@ -7568,17 +7568,26 @@ td {
 }
 
 .repair-timeline-step.past {
-  opacity: 0.5;
+  opacity: 1;
 }
 
 .repair-timeline-step.active {
+  margin: 1px -4px;
+  border-left: 3px solid currentColor;
+  border-radius: 5px;
+  padding: 2px 4px;
   color: #003f5a;
+  background: #edf5f7;
 }
 
 .repair-timeline-step.active small,
 .repair-timeline-step.active strong {
   color: inherit;
   font-weight: 900;
+}
+
+.repair-timeline-step.active strong {
+  font-size: 0.75rem;
 }
 
 .repair-timeline-step.missing {
@@ -7588,14 +7597,17 @@ td {
 
 .repair-timeline-step.sent.active {
   color: #52736e;
+  background: #eef6f4;
 }
 
 .repair-timeline-step.return.active {
   color: #416f9a;
+  background: #edf4fa;
 }
 
 .repair-timeline-step.pickup.active {
   color: #42745b;
+  background: #edf7f1;
 }
 
 .repair-timeline-step .today-date {
@@ -7690,7 +7702,7 @@ tbody tr.device-sold-row .date-text.today-date {
   font-size: 0.98rem;
 }
 
-.repairs-table td:nth-child(6) .serial-pill {
+.repairs-table td:nth-child(7) .serial-pill {
   color: #003f5a;
   background: #e9f3f6;
   font-weight: 920;
@@ -9020,44 +9032,44 @@ tbody tr.demo-return-critical:hover {
 
 .repairs-table th:nth-child(2),
 .repairs-table td:nth-child(2) {
-  min-width: 170px;
+  min-width: 120px;
 }
 
 .repairs-table th:nth-child(3),
 .repairs-table td:nth-child(3) {
-  min-width: 88px;
+  min-width: 170px;
 }
 
 .repairs-table th:nth-child(4),
 .repairs-table td:nth-child(4) {
-  min-width: 240px;
+  min-width: 88px;
 }
 
 .repairs-table th:nth-child(5),
 .repairs-table td:nth-child(5) {
-  min-width: 300px;
+  min-width: 240px;
 }
 
 .repairs-table th:nth-child(6),
 .repairs-table td:nth-child(6) {
-  min-width: 150px;
+  min-width: 300px;
 }
 
 .repairs-table th:nth-child(7),
 .repairs-table td:nth-child(7) {
-  min-width: 146px;
-  text-align: center;
+  min-width: 150px;
 }
 
 .repairs-table th:nth-child(8),
 .repairs-table td:nth-child(8) {
-  min-width: 120px;
+  min-width: 146px;
+  text-align: center;
 }
 
-.repairs-table th:nth-child(1),
-.repairs-table td:nth-child(1),
-.repairs-table th:nth-child(3),
-.repairs-table td:nth-child(3),
+.repairs-table th:nth-child(2),
+.repairs-table td:nth-child(2),
+.repairs-table th:nth-child(4),
+.repairs-table td:nth-child(4),
 .repairs-table th:nth-child(8),
 .repairs-table td:nth-child(8) {
   text-align: center;
@@ -9236,37 +9248,37 @@ tbody tr.demo-return-critical:hover {
 
 .repairs-table th:nth-child(2),
 .repairs-table td:nth-child(2) {
-  width: 11%;
+  width: 8%;
 }
 
 .repairs-table th:nth-child(3),
 .repairs-table td:nth-child(3) {
-  width: 6%;
+  width: 11%;
 }
 
 .repairs-table th:nth-child(4),
 .repairs-table td:nth-child(4) {
-  width: 14%;
+  width: 6%;
 }
 
 .repairs-table th:nth-child(5),
 .repairs-table td:nth-child(5) {
-  width: 17%;
+  width: 14%;
 }
 
 .repairs-table th:nth-child(6),
 .repairs-table td:nth-child(6) {
-  width: 10%;
+  width: 17%;
 }
 
 .repairs-table th:nth-child(7),
 .repairs-table td:nth-child(7) {
-  width: 9%;
+  width: 10%;
 }
 
 .repairs-table th:nth-child(8),
 .repairs-table td:nth-child(8) {
-  width: 8%;
+  width: 9%;
 }
 
 .repairs-table th:nth-child(9),
