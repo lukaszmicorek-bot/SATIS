@@ -5712,6 +5712,76 @@ input.pcpr-done-input,
   margin-top: 16px;
 }
 
+.repair-color-legend {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 13px;
+  margin-top: 9px;
+  border-top: 1px solid #dce5e7;
+  border-bottom: 1px solid #dce5e7;
+  padding: 7px 3px;
+  background: #fbfdfd;
+}
+
+.repair-color-legend > strong {
+  color: #4b626c;
+  font-size: 0.68rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.repair-legend-group {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.repair-legend-group + .repair-legend-group {
+  border-left: 1px solid #dce5e7;
+  padding-left: 12px;
+}
+
+.repair-legend-group small {
+  margin-right: 2px;
+  color: #78878e;
+  font-size: 0.61rem;
+  font-weight: 800;
+}
+
+.repair-color-legend .status-pill,
+.repair-color-legend .type-pill {
+  min-height: 19px;
+  padding: 1px 5px;
+  font-size: 0.58rem;
+}
+
+.repair-legend-warning,
+.repair-legend-critical {
+  display: inline-flex;
+  min-height: 19px;
+  align-items: center;
+  border-left: 3px solid currentColor;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 0.59rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.repair-legend-warning {
+  color: #98652c;
+  background: #fff8eb;
+}
+
+.repair-legend-critical {
+  color: #a8544d;
+  background: #fff0ee;
+}
+
 .demo-controls {
   grid-template-columns: minmax(250px, 1fr) 170px 170px 150px auto auto auto auto;
 }
@@ -6028,32 +6098,82 @@ textarea:focus {
 
 #repairCategory {
   --repair-category-border: #c5d1d7;
+  --repair-category-bg: #ffffff;
+  --repair-category-ink: #304d5b;
   border: 2px solid var(--repair-category-border);
+  color: var(--repair-category-ink);
+  background-color: var(--repair-category-bg);
 }
 
 #repairCategory:has(option[value="WKŁADKA USZNA"]:checked) {
   --repair-category-border: #d8c58b;
+  --repair-category-bg: #fffaf0;
+  --repair-category-ink: #756b42;
 }
 
 #repairCategory:has(option[value="WKŁADKA PRZECIWWODNA"]:checked) {
   --repair-category-border: #9bbbd7;
+  --repair-category-bg: #f2f7fc;
+  --repair-category-ink: #466783;
 }
 
 #repairCategory:has(option[value="ZAMÓWIENIE"]:checked) {
   --repair-category-border: #bcaed8;
+  --repair-category-bg: #f8f6fc;
+  --repair-category-ink: #675f78;
 }
 
 #repairCategory:has(option[value="NAPRAWA GWARANCYJNA"]:checked) {
   --repair-category-border: #8dc7bd;
+  --repair-category-bg: #f1faf8;
+  --repair-category-ink: #3f706a;
 }
 
 #repairCategory:has(option[value="NAPRAWA POGWARANCYJNA"]:checked) {
   --repair-category-border: #d99aaa;
+  --repair-category-bg: #fcf3f5;
+  --repair-category-ink: #845564;
 }
 
 #repairCategory:focus {
   border-color: var(--repair-category-border);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--repair-category-border) 24%, transparent);
+}
+
+#repairStatus,
+#repairStatusFilter {
+  border-color: #dde3e7;
+  color: #667078;
+  background-color: #f5f7f8;
+  font-weight: 750;
+}
+
+#repairStatus:has(option[value="W TRAKCIE"]:checked),
+#repairStatusFilter:has(option[value="W TRAKCIE"]:checked) {
+  border-color: #c3dbea;
+  color: #416f9a;
+  background-color: #f0f7fc;
+}
+
+#repairStatus:has(option[value="GOTOWE"]:checked),
+#repairStatusFilter:has(option[value="GOTOWE"]:checked) {
+  border-color: #c9ddd8;
+  color: #52736e;
+  background-color: #f2f8f6;
+}
+
+#repairStatus:has(option[value="ODEBRANE"]:checked),
+#repairStatusFilter:has(option[value="ODEBRANE"]:checked) {
+  border-color: #d4dfd9;
+  color: #617269;
+  background-color: #f3f7f5;
+}
+
+#repairCategory option,
+#repairStatus option,
+#repairStatusFilter option {
+  color: #304d5b;
+  background: #ffffff;
 }
 
 .location-filter-field:not([data-location-tone]) {
@@ -6974,27 +7094,27 @@ tbody tr.device-sold-row:hover {
 }
 
 .repair-status-badge[data-status-tone="PRZYJĘTE"] {
-  border-color: #b7d7d2;
-  color: #176860;
-  background: #edf8f6;
+  border-color: #dde3e7;
+  color: #667078;
+  background: #f5f7f8;
 }
 
 .repair-status-badge[data-status-tone="W-TRAKCIE"] {
-  border-color: #a8ceda;
-  color: #24677b;
-  background: #eaf6fa;
+  border-color: #c3dbea;
+  color: #416f9a;
+  background: #f0f7fc;
 }
 
 .repair-status-badge[data-status-tone="GOTOWE"] {
-  border-color: #b8ccd8;
-  color: #315f78;
-  background: #eef6fa;
+  border-color: #c9ddd8;
+  color: #52736e;
+  background: #f2f8f6;
 }
 
 .repair-status-badge[data-status-tone="ODEBRANE"] {
-  border-color: #bed4c3;
-  color: #4b6f55;
-  background: #f0f6f1;
+  border-color: #d4dfd9;
+  color: #617269;
+  background: #f3f7f5;
 }
 
 .repair-dialog-serial {
@@ -7544,6 +7664,12 @@ td {
   min-width: 142px;
   gap: 1px;
   text-align: left;
+  cursor: help;
+}
+
+.repair-timeline:focus-visible {
+  outline: 2px solid #8fb5c3;
+  outline-offset: 3px;
 }
 
 .repair-timeline-step {
@@ -7576,8 +7702,8 @@ td {
   border-left: 3px solid currentColor;
   border-radius: 5px;
   padding: 2px 4px;
-  color: #003f5a;
-  background: #edf5f7;
+  color: #667078;
+  background: #f5f7f8;
 }
 
 .repair-timeline-step.active small,
@@ -7596,24 +7722,201 @@ td {
 }
 
 .repair-timeline-step.sent.active {
-  color: #52736e;
-  background: #eef6f4;
+  color: #416f9a;
+  background: #f0f7fc;
 }
 
 .repair-timeline-step.return.active {
-  color: #416f9a;
-  background: #edf4fa;
+  color: #52736e;
+  background: #f2f8f6;
 }
 
 .repair-timeline-step.pickup.active {
-  color: #42745b;
-  background: #edf7f1;
+  color: #617269;
+  background: #f3f7f5;
 }
 
 .repair-timeline-step .today-date {
   color: #003f5a;
   font-size: 0.72rem;
   font-weight: 1000;
+}
+
+.repair-timeline-preview {
+  position: fixed;
+  z-index: 10050;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 13px;
+  border: 1px solid #cad9de;
+  border-radius: 8px;
+  color: #203f4a;
+  background: #ffffff;
+  box-shadow: 0 6px 24px #003f5a20;
+}
+
+.repair-timeline-preview[hidden] {
+  display: none;
+}
+
+.repair-timeline-preview > strong {
+  display: block;
+  margin-bottom: 9px;
+  color: #003f5a;
+  font-size: 0.85rem;
+}
+
+.repair-calendar-legend {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.repair-calendar-legend-item {
+  display: grid;
+  gap: 1px;
+  border-left: 3px solid currentColor;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
+.repair-calendar-legend-item small {
+  font-size: 0.6rem;
+  font-weight: 750;
+}
+
+.repair-calendar-legend-item b {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.repair-calendar-legend-item.received,
+.repair-calendar-day.received {
+  color: #667078;
+  background: #f5f7f8;
+}
+
+.repair-calendar-legend-item.sent,
+.repair-calendar-day.sent {
+  color: #416f9a;
+  background: #f0f7fc;
+}
+
+.repair-calendar-legend-item.return,
+.repair-calendar-day.return {
+  color: #52736e;
+  background: #f2f8f6;
+}
+
+.repair-calendar-legend-item.pickup,
+.repair-calendar-day.pickup {
+  color: #617269;
+  background: #f3f7f5;
+}
+
+.repair-calendar-months {
+  display: grid;
+  grid-template-columns: repeat(2, 220px);
+  gap: 15px;
+}
+
+.repair-calendar-months[data-single="true"] {
+  grid-template-columns: 220px;
+}
+
+.repair-calendar-month h3 {
+  margin: 0 0 7px;
+  color: #003f5a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.repair-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.repair-calendar-weekday,
+.repair-calendar-day {
+  display: grid;
+  min-height: 27px;
+  place-items: center;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.repair-calendar-weekday {
+  color: #74828c;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
+.repair-calendar-day {
+  position: relative;
+  color: #304d5b;
+}
+
+.repair-calendar-day.weekend {
+  color: #849097;
+  background: #f5f6f7;
+}
+
+.repair-calendar-day.public-holiday {
+  color: #ae3848;
+}
+
+.repair-calendar-day.has-stages {
+  box-shadow: inset 0 0 0 1px currentColor;
+  font-weight: 900;
+}
+
+.repair-calendar-day.today {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.repair-calendar-markers {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+.repair-calendar-markers i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
+.repair-calendar-markers .received { background: #667078; }
+.repair-calendar-markers .sent { background: #416f9a; }
+.repair-calendar-markers .return { background: #52736e; }
+.repair-calendar-markers .pickup { background: #617269; }
+
+@media (max-width: 520px) {
+  .repair-calendar-legend {
+    grid-template-columns: repeat(2, minmax(90px, 1fr));
+  }
+
+  .repair-calendar-months {
+    grid-template-columns: minmax(0, 220px);
+  }
+}
+
+@media print {
+  .repair-color-legend,
+  .repair-timeline-preview {
+    display: none !important;
+  }
 }
 
 .date-text.today-date {
@@ -7862,11 +8165,11 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .type-pill.REPAIR {
-  color: #466783;
-  background: #f2f7fc;
+  color: #3f706a;
+  background: #f1faf8;
   box-shadow:
-    inset 0 0 0 1px #cbddeb,
-    inset 3px 0 0 #9bbbd7;
+    inset 0 0 0 1px #c6e2dd,
+    inset 3px 0 0 #8dc7bd;
 }
 
 .type-pill.INSERT {
@@ -7878,11 +8181,11 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .type-pill.WATER-INSERT {
-  color: #3f706a;
-  background: #f1faf8;
+  color: #466783;
+  background: #f2f7fc;
   box-shadow:
-    inset 0 0 0 1px #c6e2dd,
-    inset 3px 0 0 #8dc7bd;
+    inset 0 0 0 1px #cbddeb,
+    inset 3px 0 0 #9bbbd7;
 }
 
 .type-pill.ORDER {

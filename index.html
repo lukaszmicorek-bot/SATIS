@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260901-180">
+    <link rel="stylesheet" href="styles.css?v=20260901-183">
   </head>
   <body>
     <main class="app-shell">
@@ -436,6 +436,30 @@
             <button id="complaintTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingComplaintView" data-view-group="repairs" data-view="complaint">Reklamacja</button>
           </div>
         </section>
+
+        <aside class="repair-color-legend" aria-label="Legenda kolorów Serwisu">
+          <strong>Kolory oznaczają</strong>
+          <div class="repair-legend-group">
+            <small>Status</small>
+            <span class="status-pill PRZYJĘTE">Przyjęte</span>
+            <span class="status-pill W-TRAKCIE">Wysłano</span>
+            <span class="status-pill GOTOWE">Do odbioru</span>
+            <span class="status-pill ODEBRANE">Odebrane</span>
+          </div>
+          <div class="repair-legend-group">
+            <small>Typ</small>
+            <span class="type-pill INSERT">Wkładka uszna</span>
+            <span class="type-pill WATER-INSERT">Wkładka przeciwwodna</span>
+            <span class="type-pill REPAIR">Naprawa gwarancyjna</span>
+            <span class="type-pill OUT-OF-WARRANTY">Naprawa pogwarancyjna</span>
+            <span class="type-pill ORDER">Zamówienie</span>
+          </div>
+          <div class="repair-legend-group repair-legend-deadlines">
+            <small>Termin</small>
+            <span class="repair-legend-warning">ponad 7 dni</span>
+            <span class="repair-legend-critical">ponad 15 dni</span>
+          </div>
+        </aside>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
           <section class="controls repairs-controls" aria-label="Narzędzia zeszytu serwisu i zamówień">
@@ -2581,6 +2605,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260901-179"></script>
+    <script src="app.js?v=20260901-182"></script>
   </body>
 </html>

@@ -13584,6 +13584,7 @@ function isRepairClosed(record) {
 }
 
 function renderRepairRecords() {
+  hideRepairTimelinePreview();
   renderSearchMatchSummary(repairSearchInput, repairSearchSummary);
   const visibleRecords = filteredRepairRecords();
   const openRecords = openRepairRecords();
@@ -14759,7 +14760,143 @@ function createRepairTimeline(record, activeDateType = activeRepairDateType(reco
     step.append(caption, date);
     timeline.append(step);
   });
+  attachRepairTimelinePreview(timeline, record);
   return timeline;
+}
+
+let repairTimelinePreviewTimer = 0;
+
+function repairTimelineEntries(record) {
+  return [
+    { type: "received", label: "Przyjęto", date: isoDateForSave(record?.receivedDate) },
+    { type: "sent", label: "Wysłano", date: isoDateForSave(record?.sentDate) },
+    { type: "return", label: "Powrót", date: isoDateForSave(record?.returnDate) },
+    { type: "pickup", label: "Odebrano", date: isoDateForSave(record?.pickupDate) }
+  ];
+}
+
+function hideRepairTimelinePreview() {
+  window.clearTimeout(repairTimelinePreviewTimer);
+  const preview = document.querySelector("#repairTimelinePreview");
+  if (preview) {
+    preview.hidden = true;
+    preview.replaceChildren();
+  }
+}
+
+function createRepairTimelineMonth(monthDate, entries) {
+  const section = document.createElement("section");
+  section.className = "repair-calendar-month";
+  const title = document.createElement("h3");
+  title.textContent = monthDate.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  const grid = document.createElement("div");
+  grid.className = "repair-calendar-grid";
+  ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach((name) => {
+    const label = document.createElement("span");
+    label.className = "repair-calendar-weekday";
+    label.textContent = name;
+    grid.append(label);
+  });
+  const offset = (monthDate.getDay() + 6) % 7;
+  for (let index = 0; index < offset; index += 1) grid.append(document.createElement("span"));
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const holidays = new Map(polishPublicHolidays(year).map((holiday) => [holiday.date, holiday.name]));
+  const today = todayInputValue();
+  const dayCount = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= dayCount; day += 1) {
+    const iso = isoDateFromParts(year, month + 1, day);
+    const dayEntries = entries.filter((entry) => entry.date === iso);
+    const item = document.createElement("span");
+    item.className = "repair-calendar-day";
+    const weekday = new Date(year, month, day).getDay();
+    item.classList.toggle("weekend", weekday === 0 || weekday === 6);
+    item.classList.toggle("public-holiday", holidays.has(iso));
+    item.classList.toggle("today", iso === today);
+    item.classList.toggle("has-stages", dayEntries.length > 0);
+    item.classList.toggle("multiple-stages", dayEntries.length > 1);
+    if (dayEntries.length === 1) item.classList.add(dayEntries[0].type);
+    const number = document.createElement("span");
+    number.textContent = String(day);
+    item.append(number);
+    if (dayEntries.length) {
+      const markers = document.createElement("span");
+      markers.className = "repair-calendar-markers";
+      dayEntries.forEach((entry) => {
+        const marker = document.createElement("i");
+        marker.className = entry.type;
+        marker.setAttribute("aria-hidden", "true");
+        markers.append(marker);
+      });
+      item.append(markers);
+    }
+    const titleParts = [formatDate(iso), holidays.get(iso), ...dayEntries.map((entry) => entry.label)];
+    item.title = titleParts.filter(Boolean).join(" · ");
+    item.setAttribute("aria-label", item.title);
+    grid.append(item);
+  }
+  section.append(title, grid);
+  return section;
+}
+
+function showRepairTimelinePreview(anchor, record) {
+  window.clearTimeout(repairTimelinePreviewTimer);
+  const entries = repairTimelineEntries(record);
+  const enteredDates = entries.filter((entry) => entry.date);
+  if (!enteredDates.length) return;
+  const months = [...new Map(enteredDates.map((entry) => {
+    const date = parseIsoDate(entry.date);
+    const month = new Date(date.getFullYear(), date.getMonth(), 1);
+    return [`${month.getFullYear()}-${month.getMonth()}`, month];
+  })).values()].sort((left, right) => left - right);
+  let preview = document.querySelector("#repairTimelinePreview");
+  if (!preview) {
+    preview = document.createElement("div");
+    preview.id = "repairTimelinePreview";
+    preview.className = "repair-timeline-preview";
+    preview.setAttribute("role", "tooltip");
+    preview.addEventListener("mouseenter", () => window.clearTimeout(repairTimelinePreviewTimer));
+    preview.addEventListener("mouseleave", hideRepairTimelinePreview);
+    document.body.append(preview);
+  }
+  const heading = document.createElement("strong");
+  heading.textContent = "Przebieg serwisu";
+  const legend = document.createElement("div");
+  legend.className = "repair-calendar-legend";
+  entries.forEach((entry) => {
+    const item = document.createElement("span");
+    item.className = `repair-calendar-legend-item ${entry.type}`;
+    const label = document.createElement("small");
+    label.textContent = entry.label;
+    const value = document.createElement("b");
+    value.textContent = entry.date ? formatDate(entry.date) : "—";
+    item.append(label, value);
+    legend.append(item);
+  });
+  const calendars = document.createElement("div");
+  calendars.className = "repair-calendar-months";
+  calendars.dataset.single = String(months.length === 1);
+  calendars.append(...months.map((month) => createRepairTimelineMonth(month, entries)));
+  preview.replaceChildren(heading, legend, calendars);
+  preview.hidden = false;
+  preview.style.visibility = "hidden";
+  const rect = anchor.getBoundingClientRect();
+  const box = preview.getBoundingClientRect();
+  preview.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - box.width - 8))}px`;
+  preview.style.top = `${rect.bottom + box.height + 8 <= window.innerHeight ? rect.bottom + 6 : Math.max(8, rect.top - box.height - 6)}px`;
+  preview.style.visibility = "visible";
+}
+
+function attachRepairTimelinePreview(timeline, record) {
+  timeline.tabIndex = 0;
+  timeline.setAttribute("aria-label", "Pokaż kalendarz przebiegu serwisu");
+  timeline.setAttribute("aria-describedby", "repairTimelinePreview");
+  timeline.addEventListener("mouseenter", () => showRepairTimelinePreview(timeline, record));
+  timeline.addEventListener("focus", () => showRepairTimelinePreview(timeline, record));
+  timeline.addEventListener("mouseleave", () => {
+    repairTimelinePreviewTimer = window.setTimeout(hideRepairTimelinePreview, 150);
+  });
+  timeline.addEventListener("blur", hideRepairTimelinePreview);
 }
 
 function createRepairNotesCell(record) {
