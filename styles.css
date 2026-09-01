@@ -7805,18 +7805,30 @@ td {
   display: none;
 }
 
-.repair-timeline-preview > strong {
+.repair-calendar-preview-body {
+  display: grid;
+  grid-template-columns: auto 142px;
+  align-items: start;
+  gap: 14px;
+}
+
+.repair-calendar-summary {
+  min-width: 0;
+  border-left: 1px solid #dce5e7;
+  padding-left: 12px;
+}
+
+.repair-calendar-summary > strong {
   display: block;
-  margin-bottom: 9px;
+  margin-bottom: 8px;
   color: #003f5a;
   font-size: 0.85rem;
 }
 
 .repair-calendar-legend {
   display: grid;
-  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
-  margin-bottom: 12px;
 }
 
 .repair-calendar-legend-item {
@@ -7946,7 +7958,19 @@ td {
 .repair-calendar-markers .return { background: #52736e; }
 .repair-calendar-markers .pickup { background: #617269; }
 
-@media (max-width: 520px) {
+@media (max-width: 700px) {
+  .repair-calendar-preview-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .repair-calendar-summary {
+    grid-row: 2;
+    border-top: 1px solid #dce5e7;
+    border-left: 0;
+    padding-top: 10px;
+    padding-left: 0;
+  }
+
   .repair-calendar-legend {
     grid-template-columns: repeat(2, minmax(90px, 1fr));
   }

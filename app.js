@@ -14859,6 +14859,8 @@ function showRepairTimelinePreview(anchor, record) {
     preview.addEventListener("mouseleave", hideRepairTimelinePreview);
     document.body.append(preview);
   }
+  const summary = document.createElement("aside");
+  summary.className = "repair-calendar-summary";
   const heading = document.createElement("strong");
   heading.textContent = "Przebieg serwisu";
   const legend = document.createElement("div");
@@ -14873,11 +14875,15 @@ function showRepairTimelinePreview(anchor, record) {
     item.append(label, value);
     legend.append(item);
   });
+  summary.append(heading, legend);
   const calendars = document.createElement("div");
   calendars.className = "repair-calendar-months";
   calendars.dataset.single = String(months.length === 1);
   calendars.append(...months.map((month) => createRepairTimelineMonth(month, entries)));
-  preview.replaceChildren(heading, legend, calendars);
+  const body = document.createElement("div");
+  body.className = "repair-calendar-preview-body";
+  body.append(calendars, summary);
+  preview.replaceChildren(body);
   preview.hidden = false;
   preview.style.visibility = "hidden";
   const rect = anchor.getBoundingClientRect();
