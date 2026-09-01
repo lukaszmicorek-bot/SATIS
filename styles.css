@@ -9828,6 +9828,193 @@ tbody tr.demo-return-critical:hover {
   width: 32%;
 }
 
+/* Compact operational tables: related values stay together instead of using narrow technical columns. */
+.devices-table th:nth-child(1),
+.devices-table td:nth-child(1) { width: 8%; }
+.devices-table th:nth-child(2),
+.devices-table td:nth-child(2) { width: 18%; }
+.devices-table th:nth-child(3),
+.devices-table td:nth-child(3) { width: 12%; }
+.devices-table th:nth-child(4),
+.devices-table td:nth-child(4) { width: 7%; }
+.devices-table th:nth-child(5),
+.devices-table td:nth-child(5) { width: 10%; }
+.devices-table th:nth-child(6),
+.devices-table td:nth-child(6) { width: 18%; }
+.devices-table th:nth-child(7),
+.devices-table td:nth-child(7) { width: 13%; }
+.devices-table th:nth-child(8),
+.devices-table td:nth-child(8) { width: 9%; }
+.devices-table th.actions-head,
+.devices-table td.row-actions { width: 5%; }
+
+.devices-table.private-payments-enabled th:nth-child(6),
+.devices-table.private-payments-enabled td:nth-child(6) { width: 17%; }
+.devices-table.private-payments-enabled th:nth-child(7),
+.devices-table.private-payments-enabled td:nth-child(7) { width: 12%; }
+.devices-table.private-payments-enabled th:nth-child(8),
+.devices-table.private-payments-enabled td:nth-child(8) { width: 8%; }
+.devices-table.private-payments-enabled th.private-payment-column,
+.devices-table.private-payments-enabled td:nth-child(9) { width: 3%; }
+
+.repairs-table:not(.repair-open-table) th:nth-child(1),
+.repairs-table:not(.repair-open-table) td:nth-child(1) { width: 8%; }
+.repairs-table:not(.repair-open-table) th:nth-child(2),
+.repairs-table:not(.repair-open-table) td:nth-child(2) { width: 11%; }
+.repairs-table:not(.repair-open-table) th:nth-child(3),
+.repairs-table:not(.repair-open-table) td:nth-child(3) { width: 15%; }
+.repairs-table:not(.repair-open-table) th:nth-child(4),
+.repairs-table:not(.repair-open-table) td:nth-child(4) { width: 16%; }
+.repairs-table:not(.repair-open-table) th:nth-child(5),
+.repairs-table:not(.repair-open-table) td:nth-child(5) { width: 10%; }
+.repairs-table:not(.repair-open-table) th:nth-child(6),
+.repairs-table:not(.repair-open-table) td:nth-child(6) { width: 11%; }
+.repairs-table:not(.repair-open-table) th:nth-child(7),
+.repairs-table:not(.repair-open-table) td:nth-child(7) { width: 6%; }
+.repairs-table:not(.repair-open-table) th:nth-child(8),
+.repairs-table:not(.repair-open-table) td:nth-child(8) { width: 9%; }
+.repairs-table:not(.repair-open-table) th:nth-child(9),
+.repairs-table:not(.repair-open-table) td:nth-child(9) { width: 10%; }
+.repairs-table:not(.repair-open-table) th:nth-child(10),
+.repairs-table:not(.repair-open-table) td:nth-child(10) { width: 4%; }
+
+.demo-table th:nth-child(1),
+.demo-table td:nth-child(1) { width: 10%; }
+.demo-table th:nth-child(2),
+.demo-table td:nth-child(2) { width: 20%; }
+.demo-table th:nth-child(3),
+.demo-table td:nth-child(3) { width: 12%; }
+.demo-table th:nth-child(4),
+.demo-table td:nth-child(4) { width: 7%; }
+.demo-table th:nth-child(5),
+.demo-table td:nth-child(5) { width: 9%; }
+.demo-table th:nth-child(6),
+.demo-table td:nth-child(6) { width: 17%; }
+.demo-table th:nth-child(7),
+.demo-table td:nth-child(7) { width: 12%; }
+.demo-table th:nth-child(8),
+.demo-table td:nth-child(8) { width: 8%; }
+.demo-table th:nth-child(9),
+.demo-table td:nth-child(9) { width: 5%; }
+
+.compact-cell-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.compact-cell-meta {
+  color: #718087;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.compact-cell-icons {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 7px;
+}
+
+.device-sales-cell > strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: #344d58;
+  font-size: 0.72rem;
+}
+
+.demo-model-cell .device-name-cell {
+  font-weight: 820;
+}
+
+.data-control-table {
+  min-width: 880px;
+}
+
+.data-control-table th:nth-child(5),
+.data-control-table td:nth-child(5) {
+  width: auto;
+}
+
+.data-control-table th:nth-child(6),
+.data-control-table td:nth-child(6) {
+  width: 150px;
+  min-width: 150px;
+}
+
+.data-control-problem {
+  display: grid;
+  gap: 3px;
+}
+
+.data-control-problem strong {
+  color: #274e5d;
+  font-size: 0.76rem;
+}
+
+.data-control-problem span {
+  color: #66777e;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.controls.compact-filters {
+  grid-template-columns: minmax(260px, 1fr) repeat(4, minmax(105px, 138px)) repeat(5, auto);
+  gap: 7px;
+  margin-bottom: 9px;
+  border-color: #dce4e7;
+  padding: 8px 9px;
+  background: #fbfdfd;
+  box-shadow: none;
+}
+
+.demo-controls.compact-filters {
+  grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(115px, 150px)) repeat(4, auto);
+}
+
+.repairs-controls.compact-filters {
+  grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(125px, 165px)) repeat(5, auto);
+  margin-top: 9px;
+}
+
+.compact-filters label > span,
+.compact-filters .search-box > span {
+  font-size: 0.61rem;
+}
+
+.compact-filters input,
+.compact-filters select,
+.compact-filters button {
+  min-height: 30px;
+}
+
+.compact-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 9px 0 7px;
+}
+
+.compact-filter-chips button {
+  min-height: 27px;
+  border: 1px solid #d5e0e3;
+  border-radius: 6px;
+  padding: 2px 8px;
+  color: #597079;
+  background: #fafcfc;
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.compact-filter-chips button.active {
+  border-color: #7da2ae;
+  color: #003f5a;
+  background: #eaf3f5;
+}
+
 .stock-table th:nth-child(2),
 .stock-table td:nth-child(2) {
   width: 10%;

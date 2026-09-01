@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260901-198">
+    <link rel="stylesheet" href="styles.css?v=20260901-199">
   </head>
   <body>
     <main class="app-shell">
@@ -90,7 +90,7 @@
         </section>
 
         <section id="databaseView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="databaseTab">
-          <section class="controls database-controls" aria-label="Narzędzia bazy">
+          <section class="controls database-controls compact-filters" aria-label="Narzędzia bazy">
             <div class="search-with-summary">
               <label class="search-box paste-input-field">
                 <span>Szukaj</span>
@@ -162,17 +162,13 @@
             <table class="devices-table">
               <thead>
                 <tr>
-                  <th data-sort="receivedDate">Data przyjęcia</th>
-                  <th data-sort="stockAge">FIFO</th>
+                  <th data-sort="type">Status</th>
                   <th data-sort="deviceName">Model aparatu</th>
                   <th data-sort="serialNumber">Numer seryjny</th>
-                  <th data-sort="type">Typ</th>
                   <th data-sort="location">Miejsce</th>
-                  <th data-sort="pickupDate">Data odbioru</th>
-                  <th data-sort="customerName">Imię i nazwisko</th>
-                  <th data-sort="salesInvoice">Faktura sprzedaży</th>
-                  <th data-sort="ezwm">EZWM</th>
-                  <th data-sort="waybillNumber">NR WZ</th>
+                  <th data-sort="receivedDate">Przyjęcie / FIFO</th>
+                  <th data-sort="customerName">Klient / odbiór</th>
+                  <th data-sort="salesInvoice">Sprzedaż</th>
                   <th data-sort="notes">Uwagi</th>
                   <th class="private-payment-column" data-private-payment-column hidden title="Odebrałem pieniądze">$</th>
                   <th class="actions-head">Akcje</th>
@@ -189,7 +185,7 @@
         </section>
 
         <section id="demoView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="demoTab" hidden>
-          <section class="controls demo-controls" aria-label="Narzędzia aparatów demo">
+          <section class="controls demo-controls compact-filters" aria-label="Narzędzia aparatów demo">
             <div class="search-with-summary">
               <label class="search-box">
                 <span>Szukaj</span>
@@ -240,11 +236,10 @@
               <thead>
                 <tr>
                   <th data-demo-sort="status">Status</th>
-                  <th data-demo-sort="receivedDate">Data przyjęcia</th>
-                  <th data-demo-sort="manufacturer">Producent</th>
-                  <th data-demo-sort="deviceName">Nazwa aparatu</th>
+                  <th data-demo-sort="deviceName">Producent / aparat</th>
                   <th data-demo-sort="serialNumber">Numer seryjny</th>
                   <th data-demo-sort="location">Miejsce</th>
+                  <th data-demo-sort="receivedDate">Data przyjęcia</th>
                   <th data-demo-sort="currentUser">Aktualnie używany</th>
                   <th data-demo-sort="returnDeadline">Termin zwrotu</th>
                   <th data-demo-sort="notes">Uwagi</th>
@@ -391,7 +386,7 @@
         </section>
 
         <section id="dataControlView" class="view-section" data-view-group="devices" role="tabpanel" aria-labelledby="dataControlTab" hidden>
-          <section class="data-control-toolbar" aria-label="Podsumowanie kontroli danych">
+          <section class="data-control-toolbar compact-filters" aria-label="Podsumowanie kontroli danych">
             <div class="data-control-title">
               <strong>Kontrola danych</strong>
               <span id="dataControlSummary">0 spraw do sprawdzenia</span>
@@ -411,8 +406,7 @@
                   <th>Zeszyt</th>
                   <th>Rekord</th>
                   <th>Numer seryjny</th>
-                  <th>Sprawa</th>
-                  <th>Szczegóły</th>
+                  <th>Problem</th>
                   <th class="actions-head">Akcje</th>
                 </tr>
               </thead>
@@ -464,7 +458,7 @@
         </details>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
-          <section class="controls repairs-controls" aria-label="Narzędzia zeszytu serwisu i zamówień">
+          <section class="controls repairs-controls compact-filters" aria-label="Narzędzia zeszytu serwisu i zamówień">
             <div class="search-with-summary">
               <label class="search-box paste-input-field">
                 <span>Szukaj</span>
@@ -527,13 +521,13 @@
             <table class="repairs-table">
               <thead>
                 <tr>
-                  <th data-repair-sort="receivedDate">Przebieg</th>
                   <th data-repair-sort="status">Status</th>
                   <th data-repair-sort="category">Typ</th>
-                  <th data-repair-sort="location">Miejsce</th>
                   <th data-repair-sort="customerName">Imię i nazwisko</th>
                   <th data-repair-sort="deviceName">Aparat / wkładka</th>
                   <th data-repair-sort="serialNumber">Numery seryjne</th>
+                  <th data-repair-sort="receivedDate">Przebieg</th>
+                  <th data-repair-sort="location">Miejsce</th>
                   <th data-repair-sort="sourceDocumentNumber">Nr zamówienia / reklamacji</th>
                   <th data-repair-sort="notes">Uwagi</th>
                   <th class="actions-head">Akcje</th>
@@ -550,6 +544,14 @@
         </section>
 
         <section id="repairOpenView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairOpenTab" hidden>
+          <section id="repairOpenPriorityFilters" class="compact-filter-chips" aria-label="Filtr kolejki niedokończonych">
+            <button type="button" class="active" data-repair-open-filter="all" aria-pressed="true">Wszystkie</button>
+            <button type="button" data-repair-open-filter="ready" aria-pressed="false">Do odbioru</button>
+            <button type="button" data-repair-open-filter="critical" aria-pressed="false">15+ dni</button>
+            <button type="button" data-repair-open-filter="warning" aria-pressed="false">7+ dni</button>
+            <button type="button" data-repair-open-filter="sent" aria-pressed="false">Wysłane</button>
+            <button type="button" data-repair-open-filter="received" aria-pressed="false">Przyjęte</button>
+          </section>
           <section class="table-zone" aria-label="Niedokończone sprawy serwisowe i zamówienia">
             <table class="repairs-table repair-open-table">
               <thead>
@@ -2615,6 +2617,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-    <script src="app.js?v=20260901-198"></script>
+    <script src="app.js?v=20260901-199"></script>
   </body>
 </html>
