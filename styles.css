@@ -10006,6 +10006,24 @@ tbody tr.demo-return-critical:hover {
 .repairs-table:not(.repair-open-table) th:nth-child(10),
 .repairs-table:not(.repair-open-table) td:nth-child(10) { width: 4%; }
 
+/* Keep the service action readable instead of squeezing "Edytuj" into a narrow cell. */
+.repairs-table th.actions-head,
+.repairs-table td.row-actions {
+  width: 7%;
+  min-width: 72px;
+  white-space: nowrap;
+}
+
+.repairs-table td.row-actions {
+  justify-content: center;
+}
+
+.repairs-table td.row-actions button {
+  flex: 0 0 auto;
+  min-width: 62px;
+  white-space: nowrap;
+}
+
 .demo-table th:nth-child(1),
 .demo-table td:nth-child(1) { width: 10%; }
 .demo-table th:nth-child(2),
