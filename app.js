@@ -8646,7 +8646,7 @@ function currentPricingLoanSnapshot() {
     periodTo: isoDateForSave(loanPeriodToInput?.value) || loanInputValue(loanPeriodToInput),
     customer: titleCaseName(loanInputValue(loanCustomerInput)),
     address: formatLoanAddress(loanInputValue(loanAddressInput), { final: true }),
-    document: loanInputValue(loanDocumentInput),
+    document: normalizeLoanIdentityValue(loanInputValue(loanDocumentInput)),
     phone: loanInputValue(loanPhoneInput),
     rightDevice: loanDeviceData("right"),
     leftDevice: loanDeviceData("left"),
@@ -9640,6 +9640,79 @@ function loanInputValue(input) {
   return String(input?.value ?? "").trim();
 }
 
+function normalizeLoanIdentityValue(value) {
+  return String(value ?? "")
+    .toLocaleUpperCase("pl-PL")
+    .replace(/[\s-]+/gu, "")
+    .trim();
+}
+
+function peselBirthDate(value) {
+  const pesel = normalizeLoanIdentityValue(value);
+  if (!/^\d{11}$/u.test(pesel)) return null;
+
+  const yearPart = Number(pesel.slice(0, 2));
+  const encodedMonth = Number(pesel.slice(2, 4));
+  const day = Number(pesel.slice(4, 6));
+  let century;
+  let month;
+
+  if (encodedMonth >= 1 && encodedMonth <= 12) [century, month] = [1900, encodedMonth];
+  else if (encodedMonth >= 21 && encodedMonth <= 32) [century, month] = [2000, encodedMonth - 20];
+  else if (encodedMonth >= 41 && encodedMonth <= 52) [century, month] = [2100, encodedMonth - 40];
+  else if (encodedMonth >= 61 && encodedMonth <= 72) [century, month] = [2200, encodedMonth - 60];
+  else if (encodedMonth >= 81 && encodedMonth <= 92) [century, month] = [1800, encodedMonth - 80];
+  else return null;
+
+  const year = century + yearPart;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
+}
+
+function isValidPesel(value) {
+  const pesel = normalizeLoanIdentityValue(value);
+  if (!/^\d{11}$/u.test(pesel) || !peselBirthDate(pesel)) return false;
+  const weights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
+  const digits = [...pesel].map(Number);
+  const sum = weights.reduce((total, weight, index) => total + weight * digits[index], 0);
+  return (10 - (sum % 10)) % 10 === digits[10];
+}
+
+function isValidPolishIdCardNumber(value) {
+  const number = normalizeLoanIdentityValue(value);
+  if (!/^[A-Z]{3}\d{6}$/u.test(number)) return false;
+  const weights = [7, 3, 1, 9, 7, 3, 1, 7, 3];
+  const values = [...number].map((character, index) => (
+    index < 3 ? character.charCodeAt(0) - 55 : Number(character)
+  ));
+  return values.reduce((total, digit, index) => total + digit * weights[index], 0) % 10 === 0;
+}
+
+function loanIdentityValidationMessage(value) {
+  const identity = normalizeLoanIdentityValue(value);
+  if (!identity) return "Podaj PESEL albo numer dowodu osobistego.";
+  if (/^\d+$/u.test(identity)) {
+    if (identity.length !== 11) return "PESEL musi zawierać dokładnie 11 cyfr.";
+    return isValidPesel(identity) ? "" : "PESEL jest nieprawidłowy. Sprawdź datę urodzenia i cyfry numeru.";
+  }
+  if (!/^[A-Z]{3}\d{6}$/u.test(identity)) {
+    return "Numer dowodu musi zawierać 3 litery i 6 cyfr, np. ABC123456.";
+  }
+  return isValidPolishIdCardNumber(identity) ? "" : "Numer dowodu jest nieprawidłowy. Sprawdź wszystkie litery i cyfry.";
+}
+
+function updateLoanIdentityValidity() {
+  if (!loanDocumentInput) return true;
+  const normalizedValue = normalizeLoanIdentityValue(loanDocumentInput.value);
+  if (loanDocumentInput.value !== normalizedValue) loanDocumentInput.value = normalizedValue;
+  const message = loanIdentityValidationMessage(normalizedValue);
+  loanDocumentInput.setCustomValidity(message);
+  loanDocumentInput.classList.toggle("loan-identity-invalid", Boolean(message));
+  loanDocumentInput.title = message;
+  return !message;
+}
+
 function formatLoanStreet(value) {
   let street = normalizeLoanHistoryText(value)
     .replace(/^(?:ulica|ul)\.?\s*/iu, "ul. ")
@@ -10420,6 +10493,11 @@ function validatePricingLoanForAction() {
   const missingInputs = updatePricingLoanRequiredHighlights();
   missingInputs[0]?.focus();
   if (missingInputs.length) return false;
+  if (!updateLoanIdentityValidity()) {
+    alert(loanDocumentInput?.validationMessage || "Sprawdź PESEL albo numer dowodu.");
+    loanDocumentInput?.focus();
+    return false;
+  }
   if (!updateLoanAddressValidity()) {
     alert(loanAddressInput?.validationMessage || "Sprawdź adres klienta.");
     loanAddressInput?.focus();
@@ -10476,7 +10554,7 @@ function renderPricingLoan() {
   setLoanMoneyOutput("deposit", loanInputValue(loanDepositInput) || "0 zł");
   setLoanOutput("customer", titleCaseName(loanInputValue(loanCustomerInput)));
   setLoanOutput("address", formatLoanAddress(loanInputValue(loanAddressInput), { final: true }));
-  setLoanOutput("document", loanInputValue(loanDocumentInput));
+  setLoanOutput("document", normalizeLoanIdentityValue(loanInputValue(loanDocumentInput)));
   setLoanOutput("phone", loanInputValue(loanPhoneInput));
   setLoanOutput("charger", loanInputValue(loanChargerInput));
   setLoanOutput("chargerSerial", loanInputValue(loanChargerSerialInput).toLocaleUpperCase("pl-PL"));
@@ -21005,6 +21083,15 @@ loanCustomerInput?.addEventListener("blur", (event) => {
 loanCustomerInput?.addEventListener("change", renderLoanCustomerHistorySuggestions);
 [loanPhoneInput, loanDocumentInput, loanAddressInput].forEach((input) => {
   input?.addEventListener("focus", renderLoanCustomerHistorySuggestions);
+});
+loanDocumentInput?.addEventListener("input", (event) => {
+  event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+  event.target.setCustomValidity("");
+  event.target.classList.remove("loan-identity-invalid");
+});
+loanDocumentInput?.addEventListener("blur", () => {
+  updateLoanIdentityValidity();
+  renderPricingLoan();
 });
 loanAddressInput?.addEventListener("input", (event) => {
   event.target.setCustomValidity("");
