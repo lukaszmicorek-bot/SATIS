@@ -9078,18 +9078,18 @@ td.row-actions {
 .stock-audit-preview-card {
   display: inline-flex;
   width: fit-content;
-  min-height: 27px;
+  min-height: 23px;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   border: 0;
   border-radius: 5px;
-  padding: 3px 7px;
-  font-size: 0.72rem;
+  padding: 2px 6px;
+  font-size: 0.68rem;
   font-weight: 850;
 }
 
 .stock-audit-preview-card strong {
-  font-size: 0.84rem;
+  font-size: 0.76rem;
 }
 
 .stock-audit-preview-card.present {
@@ -9252,10 +9252,11 @@ td.row-actions {
   width: fit-content;
   max-width: 100%;
   gap: 6px;
-  padding: 6px 8px;
-  border: 1px solid rgba(207, 218, 224, 0.56);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 5px 0 7px;
+  border: 0;
+  border-bottom: 1px solid rgba(207, 218, 224, 0.5);
+  border-radius: 0;
+  background: transparent;
 }
 
 .stock-audit-history-entry-head {
@@ -9308,14 +9309,15 @@ td.row-actions {
 }
 
 .stock-audit-history-model {
-  display: grid;
-  grid-template-columns: minmax(90px, auto) auto minmax(100px, 1fr);
+  display: inline-flex;
+  width: fit-content;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   max-width: 100%;
-  padding: 3px 6px;
-  border-radius: 5px;
-  background: #f2f6f7;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(242, 246, 247, 0.72);
 }
 
 .stock-audit-history-model.missing {
@@ -10608,14 +10610,14 @@ tbody tr.demo-return-critical:hover {
 
 .stock-audit-serial {
   display: inline-flex;
-  min-height: 24px;
+  min-height: 20px;
   align-items: center;
-  border: 1px solid rgba(216, 221, 227, 0.55);
-  border-radius: 5px;
-  padding: 2px 7px;
+  border: 0;
+  border-radius: 4px;
+  padding: 1px 5px;
   color: var(--ink);
   background: #edf0f2;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
