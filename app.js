@@ -4536,15 +4536,31 @@ function soldDeviceSaleDate(record) {
   return isoDateForSave(record?.pickupDate);
 }
 
+function deviceWarrantySaleRecord(record) {
+  const directSaleDate = soldDeviceSaleDate(record);
+  if (directSaleDate) return record;
+
+  const serialKey = serialDuplicateKey(record?.serialNumber);
+  if (!serialKey) return null;
+  return records
+    .filter((candidate) => (
+      candidate !== record &&
+      serialDuplicateKey(candidate?.serialNumber) === serialKey &&
+      soldDeviceSaleDate(candidate)
+    ))
+    .sort((left, right) => soldDeviceSaleDate(right).localeCompare(soldDeviceSaleDate(left)))[0] || null;
+}
+
 function deviceWarrantyTooltip(record) {
-  const saleDate = soldDeviceSaleDate(record);
-  const isSold = displayType(record) === "SPRZEDANY" || Boolean(String(record?.salesInvoice ?? "").trim());
+  const saleRecord = deviceWarrantySaleRecord(record);
+  const saleDate = saleRecord ? soldDeviceSaleDate(saleRecord) : "";
+  const isSold = Boolean(saleRecord) || displayType(record) === "SPRZEDANY" || Boolean(String(record?.salesInvoice ?? "").trim());
   if (!isSold) return "";
   if (!saleDate) return "Gwarancja: brak daty sprzedaży w Bazie";
 
   const warrantyEnd = addMonthsToIsoDate(saleDate, REPAIR_WARRANTY_MONTHS);
-  const invoice = normalizeSalesInvoice(record?.salesInvoice);
-  const location = String(record?.location || "").trim();
+  const invoice = normalizeSalesInvoice(saleRecord?.salesInvoice);
+  const location = String(saleRecord?.location || "").trim();
 
   return [
     `Sprzedaż: ${formatDate(saleDate)}`,
@@ -9059,11 +9075,14 @@ function pricingLoanHandoverIssues(entry, history, demos, ignoredId = "") {
 function pricingLoanDuplicateOf(entry, history = pricingLoanHistory) {
   if (!entry) return null;
   const semanticKey = pricingLoanSemanticKey(entry);
+  const numberKey = canonicalLoanContractNumber(entry.number) || normalize(entry.number);
   const matchingEntries = normalizePricingLoanHistory(history)
-    .filter((candidate) => pricingLoanSemanticKey(candidate) === semanticKey)
+    .filter((candidate) => candidate.id !== entry.id && (
+      pricingLoanSemanticKey(candidate) === semanticKey ||
+      (numberKey && (canonicalLoanContractNumber(candidate.number) || normalize(candidate.number)) === numberKey)
+    ))
     .sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt)));
-  if (matchingEntries.length < 2 || matchingEntries[0].id === entry.id) return null;
-  return matchingEntries[0];
+  return matchingEntries[0] || null;
 }
 
 function loanContractNumberParts(value) {
@@ -9507,10 +9526,25 @@ function pricingLoanDeadlineStatus(entry) {
 }
 
 function pricingLoanDataIssues(entry, indexes = null) {
-  if (!entry || entry.returnDate) return [];
+  if (!entry) return [];
   const customerKey = customerNameLookupKey(entry.customer);
   const loanDate = entry.periodFrom || entry.date || "";
   const issues = [];
+  const structuralIssues = [];
+
+  if (!normalizeLoanHistoryText(entry.number)) structuralIssues.push("Brak numeru umowy.");
+  if (!isoDateForSave(entry.date)) structuralIssues.push("Brak prawidłowej daty umowy.");
+  if (!customerKey) structuralIssues.push("Brak imienia i nazwiska.");
+  if (!pricingLoanHistoryDevices(entry).length) structuralIssues.push("Brak aparatu z numerem seryjnym.");
+  if (!isoDateForSave(entry.periodFrom)) structuralIssues.push("Brak daty rozpoczęcia wypożyczenia.");
+  if (!isoDateForSave(entry.periodTo)) structuralIssues.push("Brak planowanej daty zakończenia.");
+  if (isoDateForSave(entry.periodFrom) && isoDateForSave(entry.periodTo) && isoDateForSave(entry.periodTo) < isoDateForSave(entry.periodFrom)) {
+    structuralIssues.push("Planowany koniec jest wcześniejszy niż początek wypożyczenia.");
+  }
+  if (isoDateForSave(entry.returnDate) && isoDateForSave(entry.periodFrom) && isoDateForSave(entry.returnDate) < isoDateForSave(entry.periodFrom)) {
+    structuralIssues.push("Zwrot jest wcześniejszy niż początek wypożyczenia.");
+  }
+  if (entry.returnDate) return [...new Set(structuralIssues)];
 
   pricingLoanHistoryDevices(entry).forEach(({ serial, serialKey }) => {
     const demoRecord = indexes ? indexes.demoBySerial.get(serialKey) : demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
@@ -9539,7 +9573,7 @@ function pricingLoanDataIssues(entry, indexes = null) {
     if (!currentUserKey) issues.push(`${serial}: umowa jest aktywna, ale aparat w Demo nie jest wypożyczony.`);
   });
 
-  return [...new Set(issues)];
+  return [...new Set([...issues, ...structuralIssues])];
 }
 
 function updatePricingLoanDeadlineSummary(deadlines) {
@@ -9573,7 +9607,8 @@ function renderPricingLoanHistory() {
   updatePricingLoanDeadlineSummary(deadlines);
   const deadlineById = new Map(deadlines.map(({ entry, status }) => [entry.id, status]));
   const dataIssuesById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDataIssues(entry)]));
-  const duplicateById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDuplicateOf(entry, normalizedHistory)]));
+  const completeLoanHistory = normalizePricingLoanHistory(pricingLoanHistory);
+  const duplicateById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDuplicateOf(entry, completeLoanHistory)]));
   const history = normalizedHistory
     .filter((entry) => !searchQuery || pricingLoanHistorySearchText(entry).includes(searchQuery))
   .sort((left, right) => {
@@ -9702,7 +9737,72 @@ function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
   return polishCountLabel(count, singular, few, plural);
 }
 
-function createPricingDocumentHistoryItem(entry, { title, meta, details, warning = [], duplicateOf = null, onPreview, onOpen, onDelete }) {
+function pricingDocumentNumberKey(value) {
+  const compact = normalizeLoanHistoryText(value).replace(/\s+/gu, "");
+  const parts = loanContractNumberParts(compact);
+  return parts
+    ? `${parts.sequence}/${String(parts.month).padStart(2, "0")}/${parts.year || ""}`
+    : normalize(compact);
+}
+
+function pricingDocumentDuplicateOf(entry, entries, kind) {
+  if (!entry) return null;
+  const numberKey = pricingDocumentNumberKey(entry.number);
+  const semanticKey = kind === "offer"
+    ? pricingOfferSnapshotKey(entry)
+    : kind === "order"
+      ? pricingOrderSemanticKey(entry)
+      : pricingComplaintSemanticKey(entry);
+  return entries
+    .filter((candidate) => candidate.id !== entry.id)
+    .filter((candidate) => {
+      const candidateNumberKey = pricingDocumentNumberKey(candidate.number);
+      if (numberKey && candidateNumberKey === numberKey) return true;
+      if (kind === "complaint" && pricingComplaintsShareIntake(entry, candidate)) return true;
+      const candidateSemanticKey = kind === "offer"
+        ? pricingOfferSnapshotKey(candidate)
+        : kind === "order"
+          ? pricingOrderSemanticKey(candidate)
+          : pricingComplaintSemanticKey(candidate);
+      return Boolean(semanticKey && candidateSemanticKey === semanticKey);
+    })
+    .sort((left, right) => String(right.savedAt || right.date).localeCompare(String(left.savedAt || left.date)))[0] || null;
+}
+
+function pricingDocumentDataIssues(entry, kind) {
+  const issues = [];
+  const date = kind === "offer" ? entry?.offerDate : entry?.date;
+  const items = Array.isArray(entry?.items) ? entry.items : [];
+  if (!customerNameLookupKey(entry?.customer)) issues.push("Brak imienia i nazwiska.");
+  if (!isoDateForSave(date)) issues.push("Brak prawidłowej daty dokumentu.");
+  if (!pricingHistoryEntryLocation(entry, kind)) issues.push("Brak rozpoznanego miejsca.");
+  if (!items.length) issues.push("Brak pozycji w formularzu.");
+
+  if (["order", "complaint"].includes(kind)) {
+    if (!normalizeLoanHistoryText(entry?.number)) issues.push("Brak numeru dokumentu.");
+    else {
+      const numberParts = loanContractNumberParts(entry.number);
+      const dateParts = loanContractDateParts(date);
+      if (!numberParts?.year) issues.push("Nieprawidłowy format numeru dokumentu.");
+      else if (dateParts && (numberParts.month !== dateParts.month || numberParts.year !== dateParts.year)) {
+        issues.push("Numer dokumentu nie odpowiada miesiącowi i rokowi daty.");
+      }
+    }
+  }
+  if (kind === "order" && pricingOrderItemsMissingRequiredSide(items)) issues.push("Brak strony P/L przy wkładce.");
+  if (kind === "complaint") {
+    items.forEach((item, index) => {
+      if (!normalizeLoanHistoryText(item.productName)) issues.push(`Pozycja ${index + 1}: brak produktu.`);
+      if (!normalizeLoanHistoryText(item.serial) && /APARAT|ŁADOWARK/iu.test(pricingComplaintProductTypeLabel(item.productType))) {
+        issues.push(`Pozycja ${index + 1}: brak numeru seryjnego.`);
+      }
+    });
+    if (!normalizeLoanHistoryText(entry?.defect)) issues.push("Brak opisu usterki.");
+  }
+  return [...new Set(issues)];
+}
+
+function createPricingDocumentHistoryItem(entry, { title, meta, details, warning = [], duplicateOf = null, duplicateLabel = "formularza", onPreview, onOpen, onDelete }) {
   const item = document.createElement("article");
   item.className = "loan-history-item";
 
@@ -9725,7 +9825,7 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, warning
     const badge = document.createElement("span");
     badge.className = "loan-data-duplicate-badge";
     badge.textContent = "Duplikat";
-    badge.title = `Powtórzenie umowy ${duplicateOf.number || "bez numeru"}.`;
+    badge.title = `Powtórzenie ${duplicateLabel}${duplicateOf.number ? ` ${duplicateOf.number}` : ""}.`;
     headingRow.append(badge);
   }
   const information = document.createElement("small");
@@ -9744,7 +9844,7 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, warning
   if (duplicateOf) {
     const duplicateDetails = document.createElement("p");
     duplicateDetails.className = "loan-data-duplicate-details";
-    duplicateDetails.textContent = `Duplikat umowy ${duplicateOf.number || "bez numeru"}.`;
+    duplicateDetails.textContent = `Duplikat ${duplicateLabel}${duplicateOf.number ? ` ${duplicateOf.number}` : ""}.`;
     content.append(duplicateDetails);
   }
 
@@ -9951,6 +10051,34 @@ function restorePricingOfferFromHistory(entry) {
   markAgreementDraftSaved("offer");
 }
 
+async function deletePricingOfferHistoryEntry(id) {
+  if (!canManagePricing()) return;
+  const entry = pricingOfferHistory.find((item) => item.id === id);
+  if (!entry) return;
+  const label = entry.customer || formatDate(entry.offerDate) || "bez danych";
+  if (!confirm(`Trwale usunąć ofertę ${label} z historii?`)) return;
+
+  const previousHistory = pricingOfferHistory.slice();
+  pricingOfferHistory = pricingOfferHistory.filter((item) => item.id !== id);
+  saveLocalPricingOfferHistory();
+  rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
+  renderPricingDocumentHistory();
+
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingOfferHistorySupabaseAvailable === false) return;
+  try {
+    const { error } = await supabaseClient.from(SUPABASE_OFFER_HISTORY_TABLE).delete().eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    pricingOfferHistory = previousHistory;
+    saveLocalPricingOfferHistory();
+    rebuildCustomerDocumentIndex();
+    rebuildCustomerNameSuggestions();
+    renderPricingDocumentHistory();
+    alert(`Nie udało się usunąć oferty z Supabase: ${error.message}`);
+  }
+}
+
 function restorePricingOrderFromHistory(entry) {
   const saved = normalizePricingOrderHistoryEntry(entry);
   if (!saved) return;
@@ -9969,6 +10097,34 @@ function restorePricingOrderFromHistory(entry) {
   switchPricingView("order");
   renderPricingOrder();
   markAgreementDraftSaved("order");
+}
+
+async function deletePricingOrderHistoryEntry(id) {
+  if (!canManagePricing()) return;
+  const entry = pricingOrderHistory.find((item) => item.id === id);
+  if (!entry) return;
+  const label = [entry.number ? `nr ${entry.number}` : "", entry.customer].filter(Boolean).join(" - ") || "bez danych";
+  if (!confirm(`Trwale usunąć zamówienie ${label} z historii?`)) return;
+
+  const previousHistory = pricingOrderHistory.slice();
+  pricingOrderHistory = pricingOrderHistory.filter((item) => item.id !== id);
+  saveLocalPricingOrderHistory();
+  rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
+  renderPricingDocumentHistory();
+
+  if (!hasSupabaseConfig || !currentSupabaseUser || pricingOrderHistorySupabaseAvailable === false) return;
+  try {
+    const { error } = await supabaseClient.from(SUPABASE_ORDER_HISTORY_TABLE).delete().eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    pricingOrderHistory = previousHistory;
+    saveLocalPricingOrderHistory();
+    rebuildCustomerDocumentIndex();
+    rebuildCustomerNameSuggestions();
+    renderPricingDocumentHistory();
+    alert(`Nie udało się usunąć zamówienia z Supabase: ${error.message}`);
+  }
 }
 
 function restorePricingComplaintFromHistory(entry) {
@@ -10148,9 +10304,18 @@ function renderPricingDocumentHistory() {
 
   renderPricingLoanHistory();
 
-  const offersAll = normalizePricingOfferHistory(pricingOfferHistory)
+  const completeOfferHistory = normalizePricingOfferHistory(pricingOfferHistory);
+  const offersAll = completeOfferHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "offer"));
-  const offers = offersAll.filter((entry) => historyMatches(entry, pricingOfferHistorySearchText));
+  const offerIssuesById = new Map(offersAll.map((entry) => [entry.id, pricingDocumentDataIssues(entry, "offer")]));
+  const offerDuplicateById = new Map(offersAll.map((entry) => [entry.id, pricingDocumentDuplicateOf(entry, completeOfferHistory, "offer")]));
+  const offers = offersAll
+    .filter((entry) => historyMatches(entry, pricingOfferHistorySearchText))
+    .sort((left, right) => (
+      Number(Boolean(offerDuplicateById.get(right.id))) - Number(Boolean(offerDuplicateById.get(left.id))) ||
+      Number(Boolean(offerIssuesById.get(right.id)?.length)) - Number(Boolean(offerIssuesById.get(left.id)?.length)) ||
+      String(right.offerDate || right.savedAt).localeCompare(String(left.offerDate || left.savedAt))
+    ));
   renderPricingHistoryList(
     offerHistoryList,
     offerHistoryCount,
@@ -10173,15 +10338,28 @@ function renderPricingDocumentHistory() {
             : item.side === "L" ? "Aparat L" : "Aparat P";
         return `${typeLabel}: ${item.model || item.tradeName || "-"}`;
       }).join(" | ") || "Brak aparatu",
+      warning: offerIssuesById.get(entry.id),
+      duplicateOf: offerDuplicateById.get(entry.id),
+      duplicateLabel: "oferty",
       onPreview: () => showPricingHistoryPreview("offer", entry),
-      onOpen: () => restorePricingOfferFromHistory(entry)
+      onOpen: () => restorePricingOfferFromHistory(entry),
+      onDelete: canManagePricing() ? () => deletePricingOfferHistoryEntry(entry.id) : null
     }),
     { totalCount: offersAll.length, searchActive: Boolean(searchQuery) }
   );
 
-  const ordersAll = normalizePricingOrderHistory(pricingOrderHistory)
+  const completeOrderHistory = normalizePricingOrderHistory(pricingOrderHistory);
+  const ordersAll = completeOrderHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "order"));
-  const orders = ordersAll.filter((entry) => historyMatches(entry, pricingOrderHistorySearchText));
+  const orderIssuesById = new Map(ordersAll.map((entry) => [entry.id, pricingDocumentDataIssues(entry, "order")]));
+  const orderDuplicateById = new Map(ordersAll.map((entry) => [entry.id, pricingDocumentDuplicateOf(entry, completeOrderHistory, "order")]));
+  const orders = ordersAll
+    .filter((entry) => historyMatches(entry, pricingOrderHistorySearchText))
+    .sort((left, right) => (
+      Number(Boolean(orderDuplicateById.get(right.id))) - Number(Boolean(orderDuplicateById.get(left.id))) ||
+      Number(Boolean(orderIssuesById.get(right.id)?.length)) - Number(Boolean(orderIssuesById.get(left.id)?.length)) ||
+      String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt))
+    ));
   renderPricingHistoryList(
     orderHistoryList,
     orderHistoryCount,
@@ -10192,15 +10370,28 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Zamówienie bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingHistoryEntryLocationValue(entry, "order")].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
+      warning: orderIssuesById.get(entry.id),
+      duplicateOf: orderDuplicateById.get(entry.id),
+      duplicateLabel: "zamówienia",
       onPreview: () => showPricingHistoryPreview("order", entry),
-      onOpen: () => restorePricingOrderFromHistory(entry)
+      onOpen: () => restorePricingOrderFromHistory(entry),
+      onDelete: canManagePricing() ? () => deletePricingOrderHistoryEntry(entry.id) : null
     }),
     { totalCount: ordersAll.length, searchActive: Boolean(searchQuery) }
   );
 
-  const complaintsAll = normalizePricingComplaintHistory(pricingComplaintHistory)
+  const completeComplaintHistory = normalizePricingComplaintHistory(pricingComplaintHistory);
+  const complaintsAll = completeComplaintHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "complaint"));
-  const complaints = complaintsAll.filter((entry) => historyMatches(entry, pricingComplaintHistorySearchText));
+  const complaintIssuesById = new Map(complaintsAll.map((entry) => [entry.id, pricingDocumentDataIssues(entry, "complaint")]));
+  const complaintDuplicateById = new Map(complaintsAll.map((entry) => [entry.id, pricingDocumentDuplicateOf(entry, completeComplaintHistory, "complaint")]));
+  const complaints = complaintsAll
+    .filter((entry) => historyMatches(entry, pricingComplaintHistorySearchText))
+    .sort((left, right) => (
+      Number(Boolean(complaintDuplicateById.get(right.id))) - Number(Boolean(complaintDuplicateById.get(left.id))) ||
+      Number(Boolean(complaintIssuesById.get(right.id)?.length)) - Number(Boolean(complaintIssuesById.get(left.id)?.length)) ||
+      String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt))
+    ));
   renderPricingHistoryList(
     complaintHistoryList,
     complaintHistoryCount,
@@ -10211,6 +10402,9 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Reklamacja bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
+      warning: complaintIssuesById.get(entry.id),
+      duplicateOf: complaintDuplicateById.get(entry.id),
+      duplicateLabel: "reklamacji",
       onPreview: () => showPricingHistoryPreview("complaint", entry),
       onOpen: () => restorePricingComplaintFromHistory(entry),
       onDelete: canManagePricing() ? () => deletePricingComplaintHistoryEntry(entry.id) : null
@@ -13286,7 +13480,6 @@ function normalizePricingComplaintHistory(entries) {
   if (!Array.isArray(entries)) return [];
   const normalizedEntries = [];
   const seenIds = new Set();
-  const seenNumbers = new Set();
   entries
     .map(normalizePricingComplaintHistoryEntry)
     .filter(Boolean)
@@ -13294,10 +13487,8 @@ function normalizePricingComplaintHistory(entries) {
       customerRelationTimeValue(right.savedAt || right.date) - customerRelationTimeValue(left.savedAt || left.date)
     )
     .forEach((normalizedEntry) => {
-      const numberKey = customerRelationSearchValue([normalizedEntry.number]).replaceAll(" ", "");
-      if (seenIds.has(normalizedEntry.id) || (numberKey && seenNumbers.has(numberKey))) return;
+      if (seenIds.has(normalizedEntry.id)) return;
       seenIds.add(normalizedEntry.id);
-      if (numberKey) seenNumbers.add(numberKey);
       normalizedEntries.push(normalizedEntry);
     });
   return normalizedEntries
@@ -18429,6 +18620,13 @@ function vacationPeriodPreviewMonths(from, to) {
   return Array.from({ length: count }, (_, index) => new Date(start.getFullYear(), start.getMonth() + index, 1));
 }
 
+function vacationPeriodTone(request) {
+  if (request?.ownerLeave) return "owner";
+  const employee = vacationEmployees.find((item) => item.id === request?.employeeId);
+  const workstation = normalizeRepairLocation(employee?.workstation || request?.workstation || "");
+  return ["T12", "P50", "P63"].includes(workstation) ? workstation.toLocaleLowerCase("pl-PL") : "default";
+}
+
 function createVacationPeriodMonth(monthDate, from, to, request = null) {
   const section = document.createElement("section");
   section.className = "date-picker-month";
@@ -18448,6 +18646,7 @@ function createVacationPeriodMonth(monthDate, from, to, request = null) {
   const month = monthDate.getMonth();
   const holidays = new Map(polishPublicHolidays(year).map((holiday) => [holiday.date, holiday.name]));
   const today = todayInputValue();
+  const periodTone = vacationPeriodTone(request);
   const dayCount = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= dayCount; day++) {
     const iso = isoDateFromParts(year, month + 1, day);
@@ -18458,7 +18657,7 @@ function createVacationPeriodMonth(monthDate, from, to, request = null) {
     const weekday = new Date(year, month, day).getDay();
     item.classList.toggle("weekend", weekday === 0 || weekday === 6);
     item.classList.toggle("in-period", iso >= from && iso <= to);
-    item.classList.toggle("owner-period", Boolean(request?.ownerLeave && iso >= from && iso <= to));
+    if (iso >= from && iso <= to) item.classList.add(`period-${periodTone}`);
     item.classList.toggle("period-edge", iso === from || iso === to);
     item.classList.toggle("today", iso === today);
     item.classList.toggle("public-holiday", holidays.has(iso));

@@ -1858,21 +1858,21 @@ h2 {
 }
 
 .vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-item {
-  border-color: #b5dcd7;
-  border-left: 4px solid #69b5ae;
-  color: #176d69;
-  background: linear-gradient(90deg, #e8f7f5 0, #ffffff 50%);
+  border-color: #d8c9e2;
+  border-left: 4px solid #b69bc9;
+  color: #694d7d;
+  background: linear-gradient(90deg, #f1eafa 0, #ffffff 50%);
 }
 
 .vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-item > strong {
-  color: #176d69;
+  color: #694d7d;
 }
 
 .vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-item.active {
-  border-color: #69b5ae;
-  border-left-color: #2f9189;
-  background: linear-gradient(90deg, #dff3f0 0, #ffffff 60%);
-  box-shadow: inset 0 0 0 1px rgba(47, 145, 137, 0.14);
+  border-color: #b69bc9;
+  border-left-color: #8f6ca8;
+  background: linear-gradient(90deg, #e9ddf1 0, #ffffff 60%);
+  box-shadow: inset 0 0 0 1px rgba(105, 77, 125, 0.14);
 }
 
 .vacation-employee-percent {
@@ -1901,9 +1901,9 @@ h2 {
 }
 
 .vacation-employee-entry[data-employee-tone="owner"] .vacation-employee-percent {
-  border-color: #79b8b2;
-  color: #176d69;
-  background: #e1f3f1;
+  border-color: #b69bc9;
+  color: #694d7d;
+  background: #f1eafa;
 }
 
 .vacation-employee-delete {
@@ -2296,8 +2296,14 @@ h2 {
 .vacation-preview-day.weekend { background: #f5f6f7; color: #849097; }
 .vacation-preview-day.in-period { background: #dceef5; color: #235d75; }
 .vacation-preview-day.period-edge { background: #bbddea; font-weight: 700; }
-.vacation-preview-day.in-period.owner-period { background: #f1eafa; color: #694d7d; }
-.vacation-preview-day.period-edge.owner-period { background: #ddcbed; color: #593c70; }
+.vacation-preview-day.in-period.period-owner { background: #f1eafa; color: #694d7d; }
+.vacation-preview-day.period-edge.period-owner { background: #ddcbed; color: #593c70; }
+.vacation-preview-day.in-period.period-t12 { background: #f5f1ec; color: #6f604f; }
+.vacation-preview-day.period-edge.period-t12 { background: #e3d8cd; color: #5f5042; }
+.vacation-preview-day.in-period.period-p50 { background: #f1f5df; color: #616b2f; }
+.vacation-preview-day.period-edge.period-p50 { background: #dfe8c2; color: #515b26; }
+.vacation-preview-day.in-period.period-p63 { background: #f1eafa; color: #694d7d; }
+.vacation-preview-day.period-edge.period-p63 { background: #ddcbed; color: #593c70; }
 .vacation-preview-day.public-holiday { color: #ae3848; }
 .vacation-preview-day.today { font-weight: 900; text-decoration: underline; }
 
