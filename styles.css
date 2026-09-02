@@ -4874,12 +4874,14 @@ h2 {
 
 .loan-equipment-table th:nth-child(5),
 .loan-equipment-table td:nth-child(5) {
-  width: 58px;
+  width: 118px;
+  text-align: right;
 }
 
-.loan-equipment-table th:nth-child(6),
-.loan-equipment-table td:nth-child(6) {
-  width: 118px;
+.loan-address-invalid,
+.loan-identity-invalid {
+  border-color: #b85a50 !important;
+  background: #fff5f3 !important;
 }
 
 .loan-doc-grid-charger {

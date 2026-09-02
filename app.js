@@ -804,6 +804,9 @@ const savePricingLoanBtn = document.querySelector("#savePricingLoanBtn");
 const printPricingLoanBtn = document.querySelector("#printPricingLoanBtn");
 const loanPrintMeta = document.querySelector("#loanPrintMeta");
 const loanEquipmentBody = document.querySelector("#loanEquipmentBody");
+const loanFormEquipmentTitle = document.querySelector("#loanFormEquipmentTitle");
+const loanDocumentTitle = document.querySelector("#loanDocumentTitle");
+const loanEquipmentTitle = document.querySelector("#loanEquipmentTitle");
 const loanHistoryCount = document.querySelector("#loanHistoryCount");
 const loanDeadlineSummary = document.querySelector("#loanDeadlineSummary");
 const loanHistoryList = document.querySelector("#loanHistoryList");
@@ -8175,6 +8178,11 @@ function normalizePricingLoanHistoryDevice(device, fallbackSide = "") {
   };
 }
 
+function normalizeLoanChargerState(value) {
+  const state = normalizeLoanHistoryText(value);
+  return normalize(state).trim() === "wydano" ? "sprawna" : state;
+}
+
 function pricingLoanHistoryEntryHasContent(entry) {
   return Boolean(
     normalizeLoanHistoryText(entry?.number) ||
@@ -8216,7 +8224,9 @@ function normalizePricingLoanHistoryEntry(entry) {
     leftDevice,
     charger: normalizeLoanHistoryText(entry.charger),
     chargerSerial: normalizeLoanHistoryText(entry.chargerSerial).toLocaleUpperCase("pl-PL"),
-    chargerState: normalizeLoanHistoryText(entry.chargerState),
+    chargerState: (normalizeLoanHistoryText(entry.charger) || normalizeLoanHistoryText(entry.chargerSerial))
+      ? normalizeLoanChargerState(entry.chargerState)
+      : "",
     chargerMissingValue: normalizeLoanHistoryText(entry.chargerMissingValue),
     issueNotes: normalizeLoanHistoryText(entry.issueNotes),
     returnDate: isoDateForSave(entry.returnDate) || normalizeLoanHistoryText(entry.returnDate),
@@ -8642,7 +8652,9 @@ function currentPricingLoanSnapshot() {
     leftDevice: loanDeviceData("left"),
     charger: loanInputValue(loanChargerInput),
     chargerSerial: loanInputValue(loanChargerSerialInput).toLocaleUpperCase("pl-PL"),
-    chargerState: loanInputValue(loanChargerStateInput),
+    chargerState: (loanInputValue(loanChargerInput) || loanInputValue(loanChargerSerialInput))
+      ? normalizeLoanChargerState(loanInputValue(loanChargerStateInput))
+      : "",
     chargerMissingValue: loanInputValue(loanChargerMissingValueInput),
     issueNotes: loanInputValue(loanIssueNotesInput),
     returnDate: isoDateForSave(loanReturnDateInput?.value) || loanInputValue(loanReturnDateInput),
@@ -9256,7 +9268,7 @@ function showPricingHistoryPreview(kind, entry) {
     [saved.rightDevice, saved.leftDevice].filter(hasLoanDeviceData).forEach((device) => {
       const row = document.createElement("p");
       const side = normalizeLoanHistoryText(device.side).toLocaleLowerCase("pl-PL").includes("lew") ? "Aparat L" : "Aparat P";
-      row.textContent = `${side}: ${[device.model, device.serial ? `nr seryjny ${device.serial}` : "", device.manufacturer, device.year, device.value ? `wartość ${device.value}` : ""].filter(Boolean).join(" | ")}`;
+      row.textContent = `${side}: ${[device.model, device.serial ? `nr seryjny ${device.serial}` : "", device.manufacturer, device.value ? `wartość brutto ${device.value}` : ""].filter(Boolean).join(" | ")}`;
       items.append(row);
     });
     if (saved.charger || saved.chargerSerial) {
@@ -9628,15 +9640,36 @@ function loanInputValue(input) {
   return String(input?.value ?? "").trim();
 }
 
+function formatLoanStreet(value) {
+  let street = normalizeLoanHistoryText(value)
+    .replace(/^(?:ulica|ul)\.?\s*/iu, "ul. ")
+    .replace(/^(?:aleja|al)\.?\s*/iu, "al. ")
+    .replace(/^(?:osiedle|os)\.?\s*/iu, "os. ");
+  if (street && !/^(?:ul\.|al\.|os\.)\s/iu.test(street)) street = `ul. ${street}`;
+  street = titleCaseName(street);
+  return street
+    .replace(/^Ul\./u, "ul.")
+    .replace(/^Al\./u, "al.")
+    .replace(/^Os\./u, "os.");
+}
+
 function formatLoanAddress(value, { final = false } = {}) {
   let text = String(value ?? "")
     .replace(/\b(\d{2})[-\s]?(\d{3})\b/gu, "$1-$2");
   text = final ? normalizeLoanHistoryText(text) : text;
   text = final ? titleCaseName(text) : titleCaseNameInput(text);
-  return text
+  text = text
     .replace(/\bUl\./gu, "ul.")
     .replace(/\bAl\./gu, "al.")
-    .replace(/\bOs\./gu, "os.");
+    .replace(/\bOs\./gu, "os.")
+    .replace(/\s*,\s*/gu, ", ");
+  if (!final || !text) return text;
+
+  const parts = postalAddressParts(text);
+  if (!parts.city || !parts.street) return text;
+  const city = titleCaseName(parts.city);
+  const cityWithCode = [parts.postalCode, city].filter(Boolean).join(" ");
+  return `${formatLoanStreet(parts.street)}, ${cityWithCode}`;
 }
 
 function customerHistoryContactEntries(customer) {
@@ -9750,6 +9783,9 @@ function postalStreetKey(value) {
 
 function knownPostalAddresses() {
   return [
+    { postalCode: "43-300", city: "Bielsko-Biała", street: "ul. Traugutta 12" },
+    { postalCode: "43-300", city: "Bielsko-Biała", street: "ul. Partyzantów 63" },
+    { postalCode: "34-300", city: "Żywiec", street: "al. Piłsudskiego 50" },
     ...pricingPcprList.map((entry) => ({ postalCode: entry.postalCode, city: entry.city, street: entry.street })),
     ...pricingLoanHistory.map((entry) => postalAddressParts(entry.address))
   ].filter((entry) => /^\d{2}-\d{3}$/u.test(entry.postalCode || "") && entry.city);
@@ -9799,10 +9835,24 @@ function syncLoanPostalCode() {
   if (suggestion.code) {
     // Place the code next to the city, retaining the user's address order.
     loanAddressInput.value = text.replace(parts.city, `${suggestion.code} ${parts.city}`);
+    loanAddressInput.value = formatLoanAddress(loanAddressInput.value, { final: true });
     loanAddressInput.dataset.autoPostalCode = suggestion.code;
     loanAddressInput.dataset.autoPostalAddress = normalize(parts.address);
   }
   showPostalCodeHint("loanPostalHint", suggestion, Boolean(suggestion.code));
+}
+
+function updateLoanAddressValidity() {
+  if (!loanAddressInput) return true;
+  const parts = postalAddressParts(formatLoanAddress(loanAddressInput.value, { final: true }));
+  let message = "";
+  if (!parts.street) message = "Podaj ulicę i numer budynku.";
+  else if (!parts.city) message = "Podaj miejscowość.";
+  else if (!parts.postalCode) message = "Podaj kod pocztowy w formacie 00-000.";
+  loanAddressInput.setCustomValidity(message);
+  loanAddressInput.classList.toggle("loan-address-invalid", Boolean(message));
+  loanAddressInput.title = message;
+  return !message;
 }
 
 function syncPcprPostalCodeFromAddress() {
@@ -9900,11 +9950,6 @@ function loanDeviceInputs(side) {
   };
 }
 
-function loanAgreementYear() {
-  const isoDate = isoDateForSave(loanDateInput?.value) || todayInputValue();
-  return isoDate ? isoDate.slice(0, 4) : "";
-}
-
 function loanDeviceData(side) {
   const inputs = loanDeviceInputs(side);
   const record = findPricingOfferRecord(inputs.device?.value);
@@ -9913,7 +9958,6 @@ function loanDeviceData(side) {
     model: record ? pricingOfferDeviceName(record) : loanInputValue(inputs.device),
     serial: loanInputValue(inputs.serial).toLocaleUpperCase("pl-PL"),
     manufacturer: loanInputValue(inputs.manufacturer) || record?.manufacturer || "",
-    year: loanAgreementYear(),
     value: loanInputValue(inputs.value) || record?.grossPrice || "",
     purpose: normalizeLoanDemoPurpose(inputs.purpose?.value)
   };
@@ -10224,7 +10268,7 @@ function ensurePricingLoanDefaults() {
   }
   if (!loanInputValue(loanCityInput)) setLoanInputValue(loanCityInput, suggestedDocumentLocation());
   else setLoanInputValue(loanCityInput, normalizeDocumentLocationValue(loanCityInput.value));
-  setLoanInputValue(loanChargerStateInput, "wydano");
+  setLoanInputValue(loanChargerStateInput, "sprawna");
   setLoanInputValue(loanIssueNotesInput, "bez zastrzeżeń");
   if (!pricingLoanAutofilledFromOffer) {
     syncLoanFormFromOffer(false);
@@ -10273,7 +10317,7 @@ function startNewPricingLoan() {
   updateLoanDemoPurposeField("left");
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
   if (loanIssueNotesInput) loanIssueNotesInput.value = "bez zastrzeżeń";
-  if (loanChargerStateInput) loanChargerStateInput.value = "wydano";
+  if (loanChargerStateInput) loanChargerStateInput.value = "sprawna";
   const today = todayInputValue();
   setDateInputValue(loanDateInput, today);
   setDateInputValue(loanPeriodFromInput, today);
@@ -10300,7 +10344,6 @@ function renderPricingLoanEquipment(devices) {
     }
     appendOfferCell(row, device.serial, "loan-equipment-serial");
     appendOfferCell(row, device.manufacturer);
-    appendOfferCell(row, device.year);
     const valueCell = document.createElement("td");
     valueCell.append(loanMoneyElement(device.value));
     row.append(valueCell);
@@ -10377,6 +10420,11 @@ function validatePricingLoanForAction() {
   const missingInputs = updatePricingLoanRequiredHighlights();
   missingInputs[0]?.focus();
   if (missingInputs.length) return false;
+  if (!updateLoanAddressValidity()) {
+    alert(loanAddressInput?.validationMessage || "Sprawdź adres klienta.");
+    loanAddressInput?.focus();
+    return false;
+  }
   if (!updateLoanContractNumberValidity()) {
     alert(loanContractNumberInput?.validationMessage || "Sprawdź numer umowy.");
     loanContractNumberInput?.focus();
@@ -10402,14 +10450,23 @@ function renderPricingLoan() {
   const issueNotes = loanInputValue(loanIssueNotesInput) || "bez zastrzeżeń";
   const deductionReason = loanInputValue(loanDeductionReasonInput);
   const devices = [loanDeviceData("right"), loanDeviceData("left")];
-  const visibleDevices = devices.map((device) => ({
+  const activeDevices = devices.filter(hasLoanDeviceData);
+  const visibleDevices = activeDevices.map((device) => ({
     ...device,
     model: device.model || "-",
     serial: device.serial || "-",
     manufacturer: device.manufacturer || "-",
-    year: device.year || "-",
     value: device.value || "-"
   }));
+  const equipmentCount = activeDevices.length;
+  const equipmentLabel = equipmentCount > 1 ? "Aparaty słuchowe" : "Aparat słuchowy";
+  if (loanFormEquipmentTitle) loanFormEquipmentTitle.textContent = equipmentLabel;
+  if (loanEquipmentTitle) loanEquipmentTitle.textContent = equipmentLabel;
+  if (loanDocumentTitle) {
+    loanDocumentTitle.textContent = equipmentCount > 1
+      ? "Umowa bezpłatnego użyczenia aparatów słuchowych do testowania"
+      : "Umowa bezpłatnego użyczenia aparatu słuchowego do testowania";
+  }
 
   if (loanPrintMeta) loanPrintMeta.textContent = `Data umowy: ${dateText || "-"} | Okres: ${periodText || "-"}`;
   setLoanOutput("number", loanInputValue(loanContractNumberInput));
@@ -10423,10 +10480,11 @@ function renderPricingLoan() {
   setLoanOutput("phone", loanInputValue(loanPhoneInput));
   setLoanOutput("charger", loanInputValue(loanChargerInput));
   setLoanOutput("chargerSerial", loanInputValue(loanChargerSerialInput).toLocaleUpperCase("pl-PL"));
-  setLoanOutput("chargerState", loanInputValue(loanChargerStateInput));
+  const hasCharger = Boolean(loanInputValue(loanChargerInput) || loanInputValue(loanChargerSerialInput));
+  setLoanOutput("chargerState", hasCharger ? normalizeLoanChargerState(loanInputValue(loanChargerStateInput)) : "");
   setLoanMoneyOutput("chargerMissingValue", loanInputValue(loanChargerMissingValueInput));
   setLoanOutput("issueNotes", issueNotes);
-  setLoanOutput("issueProtocol", `${issueNotes}; instrukcja, ładowarka`);
+  setLoanOutput("issueProtocol", `${issueNotes}; instrukcja${hasCharger ? ", ładowarka" : ""}`);
   setLoanOutput("returnProtocol", `Data: ${returnDate || "-"}${deductionReason ? `; uwagi: ${deductionReason}` : ""}`);
   setLoanMoneyOutput("deductions", loanInputValue(loanDeductionsInput));
   setLoanOutput("deductionReason", deductionReason);
@@ -20949,6 +21007,8 @@ loanCustomerInput?.addEventListener("change", renderLoanCustomerHistorySuggestio
   input?.addEventListener("focus", renderLoanCustomerHistorySuggestions);
 });
 loanAddressInput?.addEventListener("input", (event) => {
+  event.target.setCustomValidity("");
+  event.target.classList.remove("loan-address-invalid");
   const formattedAddress = formatLoanAddress(event.target.value);
   if (formattedAddress !== event.target.value) event.target.value = formattedAddress;
   renderPricingLoan();
@@ -20956,6 +21016,8 @@ loanAddressInput?.addEventListener("input", (event) => {
 loanAddressInput?.addEventListener("blur", (event) => {
   event.target.value = formatLoanAddress(event.target.value, { final: true });
   syncLoanPostalCode();
+  event.target.value = formatLoanAddress(event.target.value, { final: true });
+  updateLoanAddressValidity();
   renderPricingLoan();
 });
 [loanRightSerialInput, loanLeftSerialInput, loanChargerSerialInput].forEach((input) => {

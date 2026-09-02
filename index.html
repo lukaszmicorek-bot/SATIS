@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260902-204">
+  <link rel="stylesheet" href="styles.css?v=20260902-206">
   </head>
   <body>
     <main class="app-shell">
@@ -875,18 +875,18 @@
                   <input id="loanPhoneInput" type="text" autocomplete="off">
                 </label>
                 <label>
-                  <span>PESEL / dokument</span>
-                  <input id="loanDocumentInput" type="text" autocomplete="off">
+                  <span>PESEL lub nr dowodu</span>
+                  <input id="loanDocumentInput" type="text" maxlength="11" placeholder="PESEL albo ABC123456" autocomplete="off" autocapitalize="characters" spellcheck="false">
                 </label>
                 <label class="loan-full">
                   <span>Adres</span>
-                  <input id="loanAddressInput" type="text" placeholder="Miejscowość, ulica i numer" autocomplete="off" aria-describedby="loanPostalHint">
+                  <input id="loanAddressInput" type="text" placeholder="ul. Nazwa 1, 00-000 Miejscowość" autocomplete="off" aria-describedby="loanPostalHint">
                   <small id="loanPostalHint" class="postal-code-hint" aria-live="polite" hidden></small>
                 </label>
 
                 <div id="loanCustomerHistorySuggestions" class="loan-full customer-history-suggestions" aria-label="Dane klienta z historii" hidden></div>
 
-                <p class="loan-form-title loan-full">Aparat słuchowy</p>
+                <p id="loanFormEquipmentTitle" class="loan-form-title loan-full">Aparat słuchowy</p>
                 <div class="loan-device-row loan-full">
                   <span class="loan-side-badge loan-side-right">P</span>
                   <label class="loan-device-model-field">
@@ -962,8 +962,8 @@
                   <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="charger" hidden>Wklej</button>
                 </label>
                 <label>
-                  <span>Ładowarka - stan</span>
-                  <input id="loanChargerStateInput" type="text" value="wydano" autocomplete="off">
+                  <span>Stan ładowarki przy wydaniu</span>
+                  <input id="loanChargerStateInput" type="text" value="sprawna" placeholder="np. sprawna" autocomplete="off">
                 </label>
                 <label>
                   <span>Wartość braku ładowarki</span>
@@ -1009,7 +1009,7 @@
               <header class="offer-document-head">
                 <div>
                   <p>SATIS Pracownia Słuchu</p>
-                  <h2>Umowa bezpłatnego użyczenia aparatu słuchowego do testowania</h2>
+                  <h2 id="loanDocumentTitle">Umowa bezpłatnego użyczenia aparatu słuchowego do testowania</h2>
                   <span id="loanPrintMeta">Data umowy: dziś</span>
                 </div>
                 <img src="satis-monogram.png" alt="SATIS">
@@ -1040,7 +1040,7 @@
               </section>
 
               <section class="loan-doc-section">
-                <h3>Aparat słuchowy</h3>
+                <h3 id="loanEquipmentTitle">Aparat słuchowy</h3>
                 <p class="loan-doc-note">Udostępniający oświadcza, że jest właścicielem albo posiada tytuł prawny do dysponowania aparatem słuchowym. Użytkownik potwierdza, że zapoznał się ze stanem aparatu słuchowego i przyjmuje aparat słuchowy kompletny oraz sprawny, chyba że poniżej wpisano zastrzeżenia.</p>
                 <table class="loan-equipment-table">
                   <thead>
@@ -1049,7 +1049,6 @@
                       <th>Model</th>
                       <th>Nr seryjny / UDI</th>
                       <th>Producent</th>
-                      <th>Rok</th>
                       <th>Wartość brutto</th>
                     </tr>
                   </thead>
@@ -1058,7 +1057,7 @@
                 <div class="loan-doc-grid loan-doc-grid-charger">
                   <p><span>Ładowarka</span><strong data-loan-out="charger">-</strong></p>
                   <p><span>Nr seryjny</span><strong data-loan-out="chargerSerial">-</strong></p>
-                  <p><span>Stan</span><strong data-loan-out="chargerState">-</strong></p>
+                  <p><span>Stan ładowarki przy wydaniu</span><strong data-loan-out="chargerState">-</strong></p>
                   <p><span>Wartość braku</span><strong data-loan-out="chargerMissingValue">-</strong></p>
                 </div>
                 <p class="loan-doc-note"><strong>Uwagi przy wydaniu:</strong> <span data-loan-out="issueNotes">bez zastrzeżeń</span></p>
@@ -2653,6 +2652,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260902-204"></script>
+  <script src="app.js?v=20260902-206"></script>
   </body>
 </html>
