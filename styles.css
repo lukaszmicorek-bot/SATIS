@@ -1156,12 +1156,12 @@ h2 {
 
 .capd-rich-text-toolbar button {
   display: inline-grid;
-  width: 27px;
+  min-width: 29px;
   height: 27px;
   place-items: center;
   border: 1px solid #d2dfe2;
   border-radius: 5px;
-  padding: 0;
+  padding: 0 7px;
   color: #3d5b66;
   background: #fbfdfd;
   font-family: inherit;
@@ -1169,11 +1169,29 @@ h2 {
   cursor: pointer;
 }
 
+.capd-rich-text-toolbar button:not(.capd-toolbar-text) {
+  width: 29px;
+  padding: 0;
+}
+
+.capd-rich-text-toolbar button.capd-toolbar-text {
+  font-size: 0.66rem;
+  font-weight: 720;
+}
+
 .capd-rich-text-toolbar button:hover,
 .capd-rich-text-toolbar button:focus-visible {
   border-color: #8eafb8;
   color: #003f5a;
   background: #edf5f6;
+}
+
+.capd-rich-text-toolbar button.is-active,
+.capd-rich-text-toolbar button[aria-pressed="true"] {
+  border-color: #4e8d90;
+  color: #003f5a;
+  background: #dcefee;
+  box-shadow: inset 0 0 0 1px rgba(0, 63, 90, 0.08);
 }
 
 .capd-toolbar-divider {
@@ -3351,18 +3369,18 @@ h2 {
 
 .offer-actions button.has-unsaved-changes,
 .dialog-actions button.has-unsaved-changes {
-  border-color: #278a7d;
-  color: #064f4b;
-  background: #dff4ef;
-  box-shadow: 0 0 0 3px rgba(43, 138, 120, 0.18);
+  border-color: #c65a7b;
+  color: #8b2349;
+  background: #fff0f4;
+  box-shadow: 0 0 0 3px rgba(183, 52, 91, 0.17);
   font-weight: 850;
 }
 
 .offer-actions button.save-reminder-active {
-  border-color: #d79a70;
-  color: #874b24;
-  background: #fff3e9;
-  box-shadow: 0 0 0 3px rgba(199, 112, 52, 0.12);
+  border-color: #b93662;
+  color: #79183c;
+  background: #ffe5ed;
+  box-shadow: 0 0 0 3px rgba(183, 52, 91, 0.22);
 }
 
 .agreement-save-reminder {
