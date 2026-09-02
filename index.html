@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260902-219">
+  <link rel="stylesheet" href="styles.css?v=20260902-220">
   </head>
   <body>
     <main class="app-shell">
@@ -2241,6 +2241,11 @@
                 <span>Numer seryjny</span>
                 <input id="serialNumber" name="serialNumber" type="text" required>
               </label>
+              <label>
+                <span>Producent</span>
+                <input id="manufacturer" name="manufacturer" type="text" list="deviceManufacturerSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <datalist id="deviceManufacturerSuggestions"></datalist>
+              </label>
               <label class="wide highlight-field">
                 <span>Model aparatu</span>
                 <input id="deviceName" name="deviceName" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
@@ -2692,6 +2697,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260902-219"></script>
+  <script src="app.js?v=20260902-220"></script>
   </body>
 </html>

@@ -547,6 +547,7 @@ const sampleRecords = [
 
 const fields = [
   "receivedDate",
+  "manufacturer",
   "deviceName",
   "serialNumber",
   "type",
@@ -992,6 +993,7 @@ const demoLocationFilter = document.querySelector("#demoLocationFilter");
 const deviceNameSuggestions = document.querySelector("#deviceNameSuggestions");
 const customerNameSuggestions = document.querySelector("#customerNameSuggestions");
 const demoManufacturerSuggestions = document.querySelector("#demoManufacturerSuggestions");
+const deviceManufacturerSuggestions = document.querySelector("#deviceManufacturerSuggestions");
 const demoDeviceNameSuggestions = document.querySelector("#demoDeviceNameSuggestions");
 const recordDialog = document.querySelector("#recordDialog");
 const recordForm = document.querySelector("#recordForm");
@@ -4885,6 +4887,7 @@ async function backfillRepairDeviceNamesFromSerials({ persist = false } = {}) {
 
 function normalizeDeviceRecordForUse(record) {
   const normalizedRecord = { ...record };
+  normalizedRecord.manufacturer = String(normalizedRecord.manufacturer ?? "").trim().toLocaleUpperCase("pl-PL");
   normalizedRecord.deviceName = normalizeDeviceName(normalizedRecord.deviceName);
   normalizedRecord.customerName = titleCaseName(normalizedRecord.customerName);
   normalizedRecord.serialNumber = normalizeSerialNumber(normalizedRecord.serialNumber);
@@ -6750,7 +6753,7 @@ function rebuildDeviceNameCorrectionCandidates() {
 }
 
 function rebuildDemoFormSuggestions() {
-  if (!demoManufacturerSuggestions || !demoDeviceNameSuggestions) return;
+  if (!demoManufacturerSuggestions || !deviceManufacturerSuggestions || !demoDeviceNameSuggestions) return;
 
   demoManufacturerModelIndex.clear();
   const addManufacturerModel = (model, manufacturer, weight = 1) => {
@@ -6762,6 +6765,7 @@ function rebuildDemoFormSuggestions() {
     manufacturersForModel.set(displayManufacturer, (manufacturersForModel.get(displayManufacturer) || 0) + weight);
   };
 
+  records.forEach((record) => addManufacturerModel(record.deviceName, record.manufacturer, 5));
   demoRecords.forEach((record) => addManufacturerModel(record.deviceName, record.manufacturer, 5));
   pricingRecords.forEach((record) => {
     addManufacturerModel(record.model, record.manufacturer);
@@ -6769,18 +6773,21 @@ function rebuildDemoFormSuggestions() {
   });
 
   const manufacturers = [...new Set([
+    ...records.map((record) => String(record.manufacturer ?? "").trim()),
     ...demoRecords.map((record) => String(record.manufacturer ?? "").trim()),
     ...pricingRecords.map((record) => String(record.manufacturer ?? "").trim())
   ].filter(Boolean))].sort((left, right) => collator.compare(left, right));
   const models = rankedModelSuggestions(modelSuggestionSourceRecords());
 
-  const manufacturerFragment = document.createDocumentFragment();
-  manufacturers.forEach((manufacturer) => {
-    const option = document.createElement("option");
-    option.value = manufacturer;
-    manufacturerFragment.append(option);
+  [demoManufacturerSuggestions, deviceManufacturerSuggestions].forEach((suggestions) => {
+    const manufacturerFragment = document.createDocumentFragment();
+    manufacturers.forEach((manufacturer) => {
+      const option = document.createElement("option");
+      option.value = manufacturer;
+      manufacturerFragment.append(option);
+    });
+    suggestions.replaceChildren(manufacturerFragment);
   });
-  demoManufacturerSuggestions.replaceChildren(manufacturerFragment);
 
   const modelFragment = document.createDocumentFragment();
   models.forEach((model) => {
@@ -6823,6 +6830,18 @@ function syncDemoManufacturerFromDeviceName({ allowPrefix = false } = {}) {
   manufacturerInput.value = suggestedManufacturer;
   manufacturerInput.dataset.autoValue = suggestedManufacturer;
   syncDemoManufacturerReturnDate();
+}
+
+function syncDeviceManufacturerFromDeviceName({ allowPrefix = false } = {}) {
+  const manufacturerInput = document.querySelector("#manufacturer");
+  const deviceNameInput = document.querySelector("#deviceName");
+  if (!manufacturerInput || !deviceNameInput) return;
+  const currentManufacturer = manufacturerInput.value.trim();
+  const previousAutoValue = manufacturerInput.dataset.autoValue || "";
+  if (currentManufacturer && currentManufacturer !== previousAutoValue) return;
+  const suggestedManufacturer = demoManufacturerForModel(deviceNameInput.value, { allowPrefix });
+  manufacturerInput.value = suggestedManufacturer;
+  manufacturerInput.dataset.autoValue = suggestedManufacturer;
 }
 
 function syncDemoPurposeChoices() {
@@ -7008,6 +7027,7 @@ function rebuildAfterDeviceChange() {
   rebuildSerialIndex();
   rebuildCustomerDocumentIndex();
   rebuildDeviceNameSuggestions();
+  rebuildDemoFormSuggestions();
   rebuildCustomerNameSuggestions();
   rebuildQualityHintCandidates();
 }
@@ -14773,7 +14793,7 @@ function createRow(record) {
 
   const cells = [
     createTypePill(displayType(record)),
-    createDeviceNameCell(record),
+    createDemoModelCell(record),
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches, [], deviceSerialWarrantyTitle(record)),
     createLocationPill(record.location),
     createDeviceIntakeCell(record),
@@ -14914,10 +14934,11 @@ function createDemoRow(record) {
 function createDemoModelCell(record) {
   const wrap = document.createElement("div");
   wrap.className = "compact-cell-stack demo-model-cell";
-  if (record.manufacturer) {
+  const displayManufacturer = String(record.manufacturer || demoManufacturerForModel(record.deviceName, { allowPrefix: true })).trim();
+  if (displayManufacturer) {
     const manufacturer = document.createElement("small");
     manufacturer.className = "compact-cell-meta";
-    manufacturer.textContent = record.manufacturer;
+    manufacturer.textContent = displayManufacturer;
     wrap.append(manufacturer);
   }
   const model = createDeviceNameCell(record);
@@ -18755,6 +18776,7 @@ function fillDeviceFormValues(record = {}) {
     const value = field === "type" && record ? displayType(record) : record?.[field] ?? "";
     input.value = DEVICE_DATE_FIELDS.includes(field) ? displayDateForInput(value) : value;
   });
+  document.querySelector("#manufacturer").dataset.autoValue = "";
 }
 
 function fillPrivatePaymentForm(record = {}) {
@@ -18852,6 +18874,7 @@ function openDialog(record = null) {
   moveToDemoBtn.hidden = !record;
 
   fillDeviceFormValues(record);
+  syncDeviceManufacturerFromDeviceName({ allowPrefix: true });
   fillPrivatePaymentForm(record);
 
   if (!record) {
@@ -19169,6 +19192,7 @@ function formRecord() {
     data[field] = String(data[field] ?? "").trim();
   });
   normalizeFormDateFields(data, DEVICE_DATE_FIELDS);
+  data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
   data.deviceName = correctDeviceNameFromHistory(data.deviceName, document.querySelector("#recordId").value);
   data.customerName = titleCaseName(data.customerName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
@@ -19969,6 +19993,11 @@ function syncDemoUppercaseInput(event) {
 function handleDemoManufacturerInput(event) {
   event.target.dataset.autoValue = "";
   syncDemoUppercaseInput(event);
+}
+
+function handleDeviceManufacturerInput(event) {
+  event.target.dataset.autoValue = "";
+  syncUppercaseTextInput(event);
 }
 
 function handleDemoDeviceNameInput() {
@@ -22030,12 +22059,15 @@ const debouncedDeviceModelSuggestions = debounce(refreshDeviceModelSuggestions, 
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
 deviceModelInput.addEventListener("input", debouncedDeviceModelSuggestions);
+deviceModelInput.addEventListener("input", () => syncDeviceManufacturerFromDeviceName());
 deviceModelInput.addEventListener("blur", () => {
   correctDeviceNameInput();
+  syncDeviceManufacturerFromDeviceName({ allowPrefix: true });
   window.setTimeout(() => {
     if (deviceModelQuickSuggestions) deviceModelQuickSuggestions.hidden = true;
   }, 140);
 });
+document.querySelector("#manufacturer").addEventListener("input", handleDeviceManufacturerInput);
 document.querySelector("#serialNumber").addEventListener("input", syncUppercaseTextInput);
 document.querySelector("#receivedDate").addEventListener("input", () => validateDeviceDateOrder());
 document.querySelector("#receivedDate").addEventListener("change", () => validateDeviceDateOrder());

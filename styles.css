@@ -3118,16 +3118,11 @@ h2 {
   background: #fbfdfd;
 }
 
-#pricingLoanView .loan-builder.loan-return-edit-active {
-  border-color: #e4ae88;
+#pricingLoanView .loan-builder.loan-return-edit-active #loanReturnDateInput {
+  border-color: #d99568;
   background: #fff1e7;
   box-shadow: inset 0 0 0 1px rgba(196, 116, 62, 0.08);
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
-}
-
-#pricingLoanView .loan-builder.loan-return-edit-active #loanReturnDateInput {
-  border-color: #d99568;
-  background: #fffaf6;
 }
 
 .offer-form-grid {
