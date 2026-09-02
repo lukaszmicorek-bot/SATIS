@@ -3436,6 +3436,30 @@ function customerNameLookupKey(value) {
   return normalize(titleCaseName(value).replace(/\s+/gu, " ")).trim();
 }
 
+function isFullPersonName(value) {
+  const parts = titleCaseName(value).split(/\s+/u).filter(Boolean);
+  return parts.length >= 2 && parts.every((part) => /\p{L}/u.test(part));
+}
+
+function setDocumentCustomerNameValidity(input, valid) {
+  if (!input) return;
+  const message = valid ? "" : "Wpisz imię i nazwisko (co najmniej dwa człony).";
+  input.setCustomValidity(message);
+  input.classList.toggle("document-customer-invalid", !valid);
+  input.closest(".person-name-field")?.classList.toggle("document-customer-invalid", !valid);
+}
+
+function requireDocumentCustomerName(input) {
+  if (!input) return false;
+  input.value = titleCaseName(input.value);
+  const valid = isFullPersonName(input.value);
+  setDocumentCustomerNameValidity(input, valid);
+  if (valid) return true;
+  alert("Wpisz imię i nazwisko. Dokument nie może zostać zapisany ani wydrukowany bez pełnych danych osoby.");
+  input.focus();
+  return false;
+}
+
 function normalizeSerialNumber(value) {
   return String(value ?? "").trim().toLocaleUpperCase("pl-PL");
 }
@@ -7606,6 +7630,7 @@ function startNewPricingOffer() {
   ].forEach((input) => {
     if (input) input.value = "";
   });
+  setDocumentCustomerNameValidity(offerCustomerInput, true);
   if (offerNoNfzInput) offerNoNfzInput.checked = false;
   setPricingOfferPatientGroup("");
   if (offerPfronEnabledInput) offerPfronEnabledInput.checked = false;
@@ -7887,7 +7912,8 @@ function setupPrimarySaveTracking(form, button, selectors) {
 
 function printPricingOffer() {
   if (printPricingOfferBtn?.disabled) return;
-  saveCurrentPricingOfferToHistory({ silent: true });
+  const savedEntry = saveCurrentPricingOfferToHistory({ silent: true });
+  if (!savedEntry) return;
   const cleanup = () => document.body.classList.remove("pricing-offer-print");
   document.body.classList.add("pricing-offer-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -8076,6 +8102,7 @@ async function persistPricingOfferHistoryEntry(entry, { silent = false } = {}) {
 }
 
 function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
+  if (!requireDocumentCustomerName(offerCustomerInput)) return null;
   const snapshot = normalizePricingOfferHistoryEntry(currentPricingOfferSnapshot());
   if (!snapshot) {
     if (!silent) alert("Uzupełnij klienta lub aparat, żeby zapisać ofertę w historii.");
@@ -9316,7 +9343,7 @@ function showPricingHistoryPreview(kind, entry) {
     if (pricingHistoryPreviewTitle) pricingHistoryPreviewTitle.textContent = `Oferta${saved.customer ? ` - ${saved.customer}` : ""}`;
     appendPricingHistoryPreviewField(summary, "Data oferty", formatDate(saved.offerDate));
     appendPricingHistoryPreviewField(summary, "Ważna do", formatDate(saved.validUntil));
-    appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
+    appendPricingHistoryPreviewField(summary, "Miejsce", pricingHistoryEntryLocationValue(saved, "offer"));
     appendPricingHistoryPreviewField(summary, "Wiek", saved.age !== "" ? formatOfferAge(Number(saved.age)) : "");
     appendPricingHistoryPreviewField(summary, "Pacjent", pricingOfferPatientGroupLabel(saved.patientGroup));
     appendPricingHistoryPreviewField(summary, "Cena", formatPricingPrice(saved.total));
@@ -9340,7 +9367,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Klient", saved.customer);
     appendPricingHistoryPreviewField(summary, "Data", formatDate(saved.date));
     appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
-    appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
+    appendPricingHistoryPreviewField(summary, "Miejsce", pricingHistoryEntryLocationValue(saved, "order"));
     appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
     saved.items.forEach((item, index) => {
       const row = document.createElement("p");
@@ -9354,7 +9381,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Klient", saved.customer);
     appendPricingHistoryPreviewField(summary, "Data", formatDate(saved.date));
     appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
-    appendPricingHistoryPreviewField(summary, "Miejsce", saved.location);
+    appendPricingHistoryPreviewField(summary, "Miejsce", pricingHistoryEntryLocationValue(saved, "complaint"));
     appendPricingHistoryPreviewField(summary, "Żądanie", pricingComplaintRequestLabel(saved.request));
     appendPricingHistoryPreviewField(summary, "Opis", saved.defect);
     appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
@@ -9441,7 +9468,7 @@ function restorePricingOrderFromHistory(entry) {
   if (orderCustomerInput) orderCustomerInput.value = saved.customer;
   if (orderPhoneInput) orderPhoneInput.value = saved.phone;
   setPricingOrderPatientGroup(saved.patientGroup);
-  if (orderLocationInput) orderLocationInput.value = normalizeDocumentLocationValue(saved.location);
+  if (orderLocationInput) orderLocationInput.value = normalizeDocumentLocationValue(pricingHistoryEntryLocationValue(saved, "order"));
   if (orderNotesInput) orderNotesInput.value = saved.notes;
   setDateInputValue(orderDateInput, saved.date);
   clearPricingOrderRows();
@@ -9460,7 +9487,7 @@ function restorePricingComplaintFromHistory(entry) {
   }
   if (complaintCustomerInput) complaintCustomerInput.value = saved.customer;
   if (complaintPhoneInput) complaintPhoneInput.value = saved.phone;
-  if (complaintLocationInput) complaintLocationInput.value = normalizeDocumentLocationValue(saved.location);
+  if (complaintLocationInput) complaintLocationInput.value = normalizeDocumentLocationValue(pricingHistoryEntryLocationValue(saved, "complaint"));
   if (complaintRequestInput) {
     complaintRequestInput.value = saved.request;
     complaintRequestInput.dataset.userChanged = "1";
@@ -9534,7 +9561,23 @@ function pricingHistoryEntryDate(entry, kind) {
   return entry?.date || entry?.savedAt || "";
 }
 
-function pricingHistoryEntryLocation(entry) {
+function pricingHistoryEntryLocation(entry, kind = "") {
+  const sourceType = kind === "order" ? "ORDER" : kind === "complaint" ? "COMPLAINT" : "";
+  if (
+    sourceType &&
+    typeof repairRecords !== "undefined" &&
+    typeof repairDocumentSourceMatches === "function"
+  ) {
+    const linkedRepair = repairRecords.find((record) => repairDocumentSourceMatches(
+      record,
+      sourceType,
+      normalizeLoanHistoryText(entry?.id),
+      normalizeLoanHistoryText(entry?.number)
+    ));
+    const linkedLocation = String(linkedRepair?.location || "").trim().toLocaleUpperCase("pl-PL");
+    if (["T12", "P50", "P63"].includes(linkedLocation)) return linkedLocation;
+  }
+
   const storedLocation = String(entry?.location || entry?.city || "").trim();
   if (storedLocation) {
     const directLocation = storedLocation
@@ -9550,6 +9593,12 @@ function pricingHistoryEntryLocation(entry) {
     .match(/(?:^|[^A-Z0-9])(T12|P50|P63)(?=$|[^A-Z0-9])/u)?.[1] || "";
 }
 
+function pricingHistoryEntryLocationValue(entry, kind = "") {
+  const key = pricingHistoryEntryLocation(entry, kind);
+  const matchedLocation = DOCUMENT_LOCATIONS.find((location) => location.key === key);
+  return matchedLocation?.value || String(entry?.location || entry?.city || "").trim();
+}
+
 function pricingHistoryEntryMatchesFilters(entry, kind) {
   const selectedType = pricingHistoryTypeFilter?.value || "";
   const selectedYear = pricingHistoryYearFilter?.value || "";
@@ -9557,7 +9606,7 @@ function pricingHistoryEntryMatchesFilters(entry, kind) {
   if (selectedType && selectedType !== kind) return false;
   const date = pricingHistoryEntryDate(entry, kind);
   if (selectedYear && String(date).slice(0, 4) !== selectedYear) return false;
-  if (selectedLocation && pricingHistoryEntryLocation(entry) !== selectedLocation) return false;
+  if (selectedLocation && pricingHistoryEntryLocation(entry, kind) !== selectedLocation) return false;
   return true;
 }
 
@@ -9620,7 +9669,7 @@ function renderPricingDocumentHistory() {
       meta: [
         entry.offerDate ? formatDate(entry.offerDate) : "",
         entry.age !== "" ? formatOfferAge(Number(entry.age)) : pricingOfferPatientGroupLabel(entry.patientGroup),
-        entry.location,
+        pricingHistoryEntryLocationValue(entry, "offer"),
         formatAuditDateTime(entry.savedAt) ? `zapis: ${formatAuditDateTime(entry.savedAt)}` : ""
       ].filter(Boolean).join(" | "),
       details: entry.items.map((item) => {
@@ -9648,7 +9697,7 @@ function renderPricingDocumentHistory() {
     ["zamówienie", "zamówienia", "zamówień"],
     (entry) => createPricingDocumentHistoryItem(entry, {
       title: entry.customer || "Zamówienie bez osoby",
-      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", entry.location].filter(Boolean).join(" | "),
+      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingHistoryEntryLocationValue(entry, "order")].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
       onPreview: () => showPricingHistoryPreview("order", entry),
       onOpen: () => restorePricingOrderFromHistory(entry)
@@ -10397,6 +10446,7 @@ function ensurePricingLoanDefaults() {
 }
 
 function startNewPricingLoan() {
+  setDocumentCustomerNameValidity(loanCustomerInput, true);
   setLoanReturnEditMode(false);
   hideLoanCustomerHistorySuggestions();
   clearPostalAutofill(loanAddressInput, "loanPostalHint");
@@ -10541,6 +10591,7 @@ function validatePricingLoanForAction() {
   const missingInputs = updatePricingLoanRequiredHighlights();
   missingInputs[0]?.focus();
   if (missingInputs.length) return false;
+  if (!requireDocumentCustomerName(loanCustomerInput)) return false;
   if (!updateLoanIdentityValidity()) {
     alert(loanDocumentInput?.validationMessage || "Sprawdź PESEL albo numer dowodu.");
     loanDocumentInput?.focus();
@@ -11692,6 +11743,7 @@ async function persistPricingOrderHistoryEntry(entry) {
 }
 
 async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
+  if (!requireDocumentCustomerName(orderCustomerInput)) return null;
   const snapshot = normalizePricingOrderHistoryEntry(currentPricingOrderSnapshot());
   if (!snapshot?.items.length) {
     if (!silent) alert("Dodaj przynajmniej jedną pozycję zamówienia.");
@@ -12495,6 +12547,7 @@ function copyPricingOfferToOrder() {
 }
 
 function resetPricingOrderForm() {
+  setDocumentCustomerNameValidity(orderCustomerInput, true);
   setPricingOrderPatientGroup("");
   [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
     if (input) input.value = "";
@@ -12511,6 +12564,7 @@ function resetPricingOrderForm() {
 
 async function savePricingOrderAndRepairNotebook() {
   renderPricingOrder();
+  if (!requireDocumentCustomerName(orderCustomerInput)) return null;
   const formItems = pricingOrderFormItems();
   if (pricingOrderItemsMissingRequiredSide(formItems)) {
     alert("Wybierz stronę P lub L dla każdej wkładki.");
@@ -12528,6 +12582,7 @@ async function savePricingOrderAndRepairNotebook() {
 
 async function printPricingOrder() {
   if (printPricingOrderBtn?.disabled) return;
+  if (!requireDocumentCustomerName(orderCustomerInput)) return;
   renderPricingOrder();
   const historyEntry = await saveCurrentPricingOrderToHistory({ silent: true });
   if (!historyEntry) return;
@@ -13036,6 +13091,7 @@ function pricingComplaintsShareIntake(left, right) {
 }
 
 async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
+  if (!requireDocumentCustomerName(complaintCustomerInput)) return null;
   const snapshot = normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot());
   if (!snapshot) {
     if (!silent) alert("Uzupełnij klienta, produkt albo opis, żeby zapisać reklamację w historii.");
@@ -13498,6 +13554,7 @@ function syncComplaintProductNameForType(slot = 1) {
 }
 
 function resetPricingComplaintForm() {
+  setDocumentCustomerNameValidity(complaintCustomerInput, true);
   [
     complaintCustomerInput,
     complaintPhoneInput,
@@ -21083,6 +21140,11 @@ setupPrimarySaveTracking(repairForm, saveRepairBtn, [
   "#repairCustomerName"
 ]);
 setupPrimarySaveTracking(demoForm, saveDemoBtn, ["#demoDeviceName", "#demoSerialNumber", "#demoCurrentUser"]);
+[offerCustomerInput, loanCustomerInput, orderCustomerInput, complaintCustomerInput].forEach((input) => {
+  input?.addEventListener("input", () => {
+    if (isFullPersonName(input.value)) setDocumentCustomerNameValidity(input, true);
+  });
+});
 pcprForm?.addEventListener("submit", addPricingPcprItem);
 pcprCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
