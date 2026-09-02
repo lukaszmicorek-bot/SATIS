@@ -3100,6 +3100,18 @@ h2 {
   background: #fbfdfd;
 }
 
+#pricingLoanView .loan-builder.loan-return-edit-active {
+  border-color: #e4ae88;
+  background: #fff1e7;
+  box-shadow: inset 0 0 0 1px rgba(196, 116, 62, 0.08);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+#pricingLoanView .loan-builder.loan-return-edit-active #loanReturnDateInput {
+  border-color: #d99568;
+  background: #fffaf6;
+}
+
 .offer-form-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3337,11 +3349,13 @@ h2 {
   gap: 8px;
 }
 
-.offer-actions button.has-unsaved-changes {
-  border-color: #69aaa0;
-  color: #075c57;
-  background: #eaf7f4;
-  box-shadow: 0 0 0 2px rgba(43, 138, 120, 0.1);
+.offer-actions button.has-unsaved-changes,
+.dialog-actions button.has-unsaved-changes {
+  border-color: #278a7d;
+  color: #064f4b;
+  background: #dff4ef;
+  box-shadow: 0 0 0 3px rgba(43, 138, 120, 0.18);
+  font-weight: 850;
 }
 
 .offer-actions button.save-reminder-active {
@@ -3479,7 +3493,7 @@ h2 {
 .document-gabinet-title {
   margin: 14px 0 6px;
   color: #003f5a;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 850;
 }
 
@@ -3500,20 +3514,21 @@ h2 {
 }
 
 .document-gabinet-locations .document-gabinet-city {
-  color: #003f5a;
-  font-size: 0.76rem;
+  color: #102b35;
+  font-size: 0.8rem;
   font-weight: 850;
 }
 
 .document-gabinet-locations .document-gabinet-line {
-  color: #314852;
-  font-size: 0.74rem;
-  line-height: 1.22;
+  color: #171c1e;
+  font-size: 0.78rem;
+  line-height: 1.25;
 }
 
 .document-gabinet-locations .location-phone {
   margin-top: 1px;
-  color: #52656d;
+  color: #171c1e;
+  font-size: 0.78rem;
   font-weight: 820;
   text-align: left;
   white-space: nowrap;
@@ -4874,8 +4889,25 @@ h2 {
 
 .loan-equipment-table th:nth-child(5),
 .loan-equipment-table td:nth-child(5) {
+  width: 58px;
+  text-align: center;
+}
+
+.loan-equipment-table th:nth-child(6),
+.loan-equipment-table td:nth-child(6) {
   width: 118px;
   text-align: right;
+}
+
+.loan-equipment-table .price-amount {
+  color: #20343d;
+  font-weight: 700;
+}
+
+.loan-equipment-table .price-thousand-group,
+.loan-equipment-table .price-rest-group {
+  color: inherit;
+  font-weight: inherit;
 }
 
 .loan-address-invalid,
@@ -4897,7 +4929,7 @@ h2 {
 .loan-terms p {
   break-inside: avoid;
   margin: 0 0 8px;
-  color: #263d47;
+  color: #111;
   font-size: 0.78rem;
   line-height: 1.34;
 }
@@ -10545,6 +10577,61 @@ dialog::backdrop {
   display: none;
 }
 
+.repair-pickup-loan-reminder {
+  display: grid;
+  gap: 4px;
+  margin: -2px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #edc2a4;
+  border-left: 4px solid #cf8050;
+  border-radius: 8px;
+  color: #623c2a;
+  background: #fff3e9;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.repair-pickup-loan-reminder[hidden] {
+  display: none;
+}
+
+.repair-pickup-loan-reminder > strong {
+  color: #713d24;
+  font-size: 0.83rem;
+}
+
+.repair-pickup-loan-reminder ul {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.repair-pickup-loan-reminder li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.repair-pickup-loan-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.67rem;
+  text-transform: uppercase;
+}
+
+.repair-pickup-loan-badge.demo {
+  color: #17665f;
+  background: #dff3ef;
+}
+
+.repair-pickup-loan-badge.replacement {
+  color: #78502d;
+  background: #f1e6d8;
+}
+
 .quality-hint {
   display: flex;
   align-items: center;
@@ -13356,7 +13443,7 @@ input.nearby-entry-match {
   body.pricing-loan-print .document-gabinet-title,
   body.pricing-order-print .document-gabinet-title,
   body.pricing-complaint-print .document-gabinet-title {
-    font-size: 7.6pt;
+    font-size: 8.4pt;
     font-weight: 700;
   }
 
@@ -13364,9 +13451,9 @@ input.nearby-entry-match {
   body.pricing-loan-print .document-gabinet-locations,
   body.pricing-order-print .document-gabinet-locations,
   body.pricing-complaint-print .document-gabinet-locations {
-    color: #111;
-    font-size: 7.5pt;
-    line-height: 1.25;
+    color: #15191b;
+    font-size: 8pt;
+    line-height: 1.28;
   }
 
   body.pricing-offer-print .document-gabinet-locations > span,
@@ -13385,8 +13472,17 @@ input.nearby-entry-match {
   body.pricing-loan-print .document-gabinet-locations .location-phone,
   body.pricing-order-print .document-gabinet-locations .location-phone,
   body.pricing-complaint-print .document-gabinet-locations .location-phone {
-    font-size: 7.5pt;
+    color: #15191b;
+    font-size: 8pt;
     font-weight: 700;
+  }
+
+  body.pricing-offer-print .document-gabinet-locations .document-gabinet-line,
+  body.pricing-loan-print .document-gabinet-locations .document-gabinet-line,
+  body.pricing-order-print .document-gabinet-locations .document-gabinet-line,
+  body.pricing-complaint-print .document-gabinet-locations .document-gabinet-line {
+    color: #15191b;
+    font-size: 8pt;
   }
 
   body.pricing-offer-print .document-description,
