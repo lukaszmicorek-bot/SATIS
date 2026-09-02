@@ -4561,6 +4561,82 @@ h2 {
   min-width: 0;
 }
 
+.loan-demo-purpose-field {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid #d8e3e5;
+  border-radius: 7px;
+  background: #f8fbfb;
+}
+
+.loan-demo-purpose-field[hidden] {
+  display: none;
+}
+
+.loan-demo-purpose-field > span {
+  color: #526b73;
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+.loan-demo-purpose-choices {
+  display: flex;
+  gap: 6px;
+}
+
+.loan-demo-purpose-choices button {
+  min-height: 30px;
+  padding: 5px 11px;
+  border: 1px solid #d4e0e3;
+  border-radius: 7px;
+  background: #fff;
+  color: #51666e;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.loan-demo-purpose-choices button[data-loan-demo-purpose="DO TESTOWANIA"][aria-pressed="true"] {
+  border-color: #8cbec8;
+  background: #e4f3f5;
+  color: #1f6674;
+}
+
+.loan-demo-purpose-choices button[data-loan-demo-purpose="APARAT ZASTĘPCZY"][aria-pressed="true"] {
+  border-color: #dfad85;
+  background: #fbeddf;
+  color: #8a4f2b;
+}
+
+.loan-demo-purpose-field.required-missing {
+  border-color: #c55f55;
+  background: #fff3f1;
+}
+
+.loan-demo-purpose-badge {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.63rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.loan-demo-purpose-badge.demo {
+  color: #1f6674;
+  background: #e4f3f5;
+}
+
+.loan-demo-purpose-badge.replacement {
+  color: #8a4f2b;
+  background: #fbeddf;
+}
+
 .loan-side-badge {
   display: inline-flex;
   align-items: center;
@@ -9179,8 +9255,13 @@ td.row-actions {
 }
 
 .demo-purpose-pill.replacement {
-  color: #5e6040;
-  background: #eef1d8;
+  color: #87512d;
+  background: #f8e8dc;
+}
+
+.demo-purpose-pill.demo {
+  color: #246173;
+  background: #e2f1f4;
 }
 
 .status-pill.NA-STANIE {
@@ -10678,7 +10759,7 @@ textarea {
 
   .loan-device-row .loan-side-badge {
     align-self: stretch;
-    grid-row: span 3;
+    grid-row: span 4;
   }
 
   .loan-device-model-field {
@@ -10994,7 +11075,7 @@ textarea {
   }
 
   .loan-device-row .loan-side-badge {
-    grid-row: span 4;
+    grid-row: span 5;
   }
 
   .loan-device-model-field {
@@ -12955,11 +13036,20 @@ input.nearby-entry-match {
 }
 
 .repair-demo-relation {
+  min-height: 0;
   padding: 1px 5px;
   border-radius: 5px;
+  box-shadow: none;
+  cursor: pointer;
   font-size: 0.62rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.repair-demo-relation:hover,
+.repair-demo-relation:focus-visible {
+  filter: saturate(1.08) brightness(0.98);
+  transform: none;
 }
 
 .repair-demo-relation.demo {
