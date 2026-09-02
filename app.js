@@ -3125,13 +3125,17 @@ async function deleteStockAuditHistoryEntry(entry) {
   if (!hasSupabaseConfig) return;
   try {
     await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from(SUPABASE_AUDIT_TABLE)
         .delete()
         .eq("id", entry.id)
         .eq("notebook", "stock")
-        .eq("record_id", "stock-audit");
+        .eq("record_id", "stock-audit")
+        .select("id");
       if (error) throw error;
+      if (!Array.isArray(data) || !data.some((row) => row.id === entry.id)) {
+        throw new Error("Supabase nie zezwolił na usunięcie. Uruchom plik supabase-stock-audit-delete.sql w SQL Editor.");
+      }
     });
   } catch (error) {
     persistStockAudit(previousAudit);
