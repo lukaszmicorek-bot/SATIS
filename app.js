@@ -2527,6 +2527,7 @@ async function activateSupabaseSession(user) {
   await refreshRecordsFromSupabase({ throwOnError: true });
   await loadStockAuditHistory();
   if (activeDeviceView === "stock") renderStockView();
+  else if (activeNotebook === "devices") renderDeviceViews();
   await loadVacationData();
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
@@ -2672,6 +2673,14 @@ function normalizeStockAuditHistory(history) {
       total: Math.max(0, Number(entry.total) || 0),
       present: Math.max(0, Number(entry.present) || 0),
       missing: Math.max(0, Number(entry.missing) || 0),
+      workstation: normalizeWorkstationName(entry.workstation),
+      items: normalizeStockAuditItems(entry.items).map((item) => {
+        const sourceItem = entry.items.find((candidate) => String(candidate?.id || "").trim() === item.id);
+        return {
+          ...item,
+          present: sourceItem?.present === true || String(sourceItem?.status || "").toLocaleUpperCase("pl-PL") === "NA STANIE"
+        };
+      }),
       models: Array.isArray(entry.models) ? entry.models.map((model) => ({
         key: String(model?.key || ""),
         deviceName: String(model?.deviceName || "Bez nazwy").trim() || "Bez nazwy",
@@ -2734,10 +2743,28 @@ function createStockAuditHistoryEntry({ checkedAt, checkedBy, checkedItems, item
     checkedAt,
     checkedBy,
     savedAt,
+    workstation: currentWorkstationName(),
     total: normalizedItems.length,
     present: normalizedItems.filter((item) => checked.has(item.id)).length,
     missing: normalizedItems.filter((item) => !checked.has(item.id)).length,
+    items: normalizedItems.map((item) => ({ ...item, present: checked.has(item.id) })),
     models: [...models.values()].map((model) => ({ ...model, locations: [...model.locations] }))
+  };
+}
+
+function stockAuditHistoryEntryFromLog(log) {
+  const historyEntry = log?.data?.historyEntry;
+  if (!historyEntry) return null;
+  const snapshot = log?.data?.snapshot;
+  const checkedItems = new Set(Array.isArray(snapshot?.checkedItems) ? snapshot.checkedItems.map(String) : []);
+  const snapshotItems = normalizeStockAuditItems(snapshot?.items).map((item) => ({
+    ...item,
+    present: checkedItems.has(item.id)
+  }));
+  return {
+    ...historyEntry,
+    workstation: historyEntry.workstation || log.workstation || "",
+    items: Array.isArray(historyEntry.items) && historyEntry.items.length ? historyEntry.items : snapshotItems
   };
 }
 
@@ -2802,7 +2829,7 @@ async function loadStockAuditHistory() {
     if (error) throw error;
 
     const logs = (data || []).map(auditLogFromSupabaseRow).filter(Boolean);
-    const history = normalizeStockAuditHistory(logs.map((entry) => entry.data?.historyEntry).filter(Boolean));
+    const history = normalizeStockAuditHistory(logs.map(stockAuditHistoryEntryFromLog).filter(Boolean));
     const latestSnapshot = logs[0]?.data?.snapshot;
     if (latestSnapshot) {
       stockAudit = {
@@ -4403,6 +4430,40 @@ function deviceSerialWarrantyTitle(record) {
   const tooltip = deviceWarrantyTooltip(record);
   if (!tooltip) return "";
   return `Gwarancja aparatu (${REPAIR_WARRANTY_MONTHS} mies.):\n${tooltip}`;
+}
+
+function stockAuditSerialHistory(record) {
+  const recordId = String(record?.id || "").trim();
+  const serialKey = serialDuplicateKey(record?.serialNumber);
+  if (!recordId && !serialKey) return [];
+
+  return normalizeStockAuditHistory(stockAudit.history).flatMap((entry) => {
+    const item = entry.items.find((candidate) => (
+      candidate.source === "stock" && (
+        (recordId && candidate.id === recordId) ||
+        (serialKey && serialDuplicateKey(candidate.serialNumber) === serialKey)
+      )
+    ));
+    return item ? [{
+      checkedAt: entry.checkedAt,
+      checkedBy: entry.checkedBy,
+      workstation: entry.workstation,
+      present: item.present
+    }] : [];
+  });
+}
+
+function stockAuditSerialHistoryTitle(record) {
+  const history = stockAuditSerialHistory(record);
+  if (!history.length) return "";
+  const visibleHistory = history.slice(0, 10).map((entry) => [
+    formatDate(entry.checkedAt) || "brak daty",
+    entry.present ? "Na stanie" : "Brak",
+    entry.checkedBy || "brak osoby",
+    entry.workstation || ""
+  ].filter(Boolean).join(" · "));
+  if (history.length > visibleHistory.length) visibleHistory.push(`+ ${history.length - visibleHistory.length} wcześniejszych`);
+  return `Historia remanentu:\n${visibleHistory.join("\n")}`;
 }
 
 function repairModelWarrantyTooltip(record) {
@@ -14794,7 +14855,14 @@ function createRow(record) {
   const cells = [
     createTypePill(displayType(record)),
     createDemoModelCell(record),
-    createSerialPill(record.serialNumber, duplicateMatches, serviceMatches, [], deviceSerialWarrantyTitle(record)),
+    createSerialPill(
+      record.serialNumber,
+      duplicateMatches,
+      serviceMatches,
+      [],
+      deviceSerialWarrantyTitle(record),
+      stockAuditSerialHistoryTitle(record)
+    ),
     createLocationPill(record.location),
     createDeviceIntakeCell(record),
     createDeviceCustomerPickupCell(record),
@@ -15272,13 +15340,18 @@ function ageLevel(record, age = stockAge(record)) {
   return "fresh";
 }
 
-function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "") {
+function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "", inventoryTitle = "") {
   const pill = document.createElement("button");
   pill.className = "serial-pill";
   pill.type = "button";
   const hasSerialNumber = Boolean(String(serialNumber ?? "").trim());
   const serialText = hasSerialNumber ? String(serialNumber).trim() : "brak numeru";
-  const relationTitle = serialRelationTitle(duplicateMatches, serviceMatches, saleMatches, extraTitle);
+  const relationTitle = serialRelationTitle(
+    duplicateMatches,
+    serviceMatches,
+    saleMatches,
+    [extraTitle, inventoryTitle].filter(Boolean).join("\n\n")
+  );
   const copyTitle = "Kliknij, aby skopiować numer seryjny";
   const defaultTitle = relationTitle ? "" : copyTitle;
   if (relationTitle) {
