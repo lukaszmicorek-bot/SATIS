@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260902-216">
+  <link rel="stylesheet" href="styles.css?v=20260902-218">
   </head>
   <body>
     <main class="app-shell">
@@ -670,8 +670,8 @@
             <section class="offer-builder" aria-label="Ustawienia oferty">
               <div class="offer-form-grid">
                 <label class="offer-customer-field person-name-field">
-                  <span>Dla</span>
-                  <input id="offerCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
+                  <span>Dla - imię i nazwisko *</span>
+                  <input id="offerCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required aria-required="true">
                 </label>
                 <fieldset class="offer-age-field offer-patient-group">
                   <legend>Pacjent</legend>
@@ -867,8 +867,8 @@
 
                 <p class="loan-form-title loan-full">Dane klienta</p>
                 <label class="loan-wide person-name-field">
-                  <span>Dla</span>
-                  <input id="loanCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
+                  <span>Dla - imię i nazwisko *</span>
+                  <input id="loanCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required aria-required="true">
                 </label>
                 <label>
                   <span>Telefon / e-mail</span>
@@ -1268,8 +1268,8 @@
                   <input id="orderDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
                 <label class="order-wide person-name-field">
-                  <span>Klient</span>
-                  <input id="orderCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
+                  <span>Klient - imię i nazwisko *</span>
+                  <input id="orderCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required aria-required="true">
                 </label>
                 <label class="order-location-field document-location-field">
                   <span>Miejsce</span>
@@ -1408,8 +1408,8 @@
                   <input id="complaintDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
                 </label>
                 <label class="complaint-wide person-name-field">
-                  <span>Klient</span>
-                  <input id="complaintCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off">
+                  <span>Klient - imię i nazwisko *</span>
+                  <input id="complaintCustomerInput" type="text" list="customerNameSuggestions" placeholder="Imię i nazwisko" autocomplete="off" required aria-required="true">
                 </label>
                 <label class="complaint-location-field document-location-field">
                   <span>Miejsce</span>
@@ -2655,6 +2655,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260902-215"></script>
+  <script src="app.js?v=20260902-218"></script>
   </body>
 </html>

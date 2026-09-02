@@ -6275,6 +6275,22 @@ label span {
   outline-color: rgba(13, 133, 133, 0.18);
 }
 
+.person-name-field.document-customer-invalid {
+  border-color: #c85d70;
+  background: #fff4f6;
+}
+
+.person-name-field.document-customer-invalid > span {
+  color: #982d4b;
+}
+
+.person-name-field input.document-customer-invalid {
+  border-color: #c34f68;
+  color: #7f1f3d;
+  background: #fffafb;
+  box-shadow: 0 0 0 2px rgba(195, 79, 104, 0.1);
+}
+
 input,
 select,
 textarea {
