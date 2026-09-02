@@ -775,10 +775,12 @@ const loanRightDeviceInput = document.querySelector("#loanRightDeviceInput");
 const loanRightSerialInput = document.querySelector("#loanRightSerialInput");
 const loanRightManufacturerInput = document.querySelector("#loanRightManufacturerInput");
 const loanRightValueInput = document.querySelector("#loanRightValueInput");
+const loanRightPurposeInput = document.querySelector("#loanRightPurposeInput");
 const loanLeftDeviceInput = document.querySelector("#loanLeftDeviceInput");
 const loanLeftSerialInput = document.querySelector("#loanLeftSerialInput");
 const loanLeftManufacturerInput = document.querySelector("#loanLeftManufacturerInput");
 const loanLeftValueInput = document.querySelector("#loanLeftValueInput");
+const loanLeftPurposeInput = document.querySelector("#loanLeftPurposeInput");
 const loanChargerInput = document.querySelector("#loanChargerInput");
 const loanChargerSerialInput = document.querySelector("#loanChargerSerialInput");
 const loanChargerStateInput = document.querySelector("#loanChargerStateInput");
@@ -796,6 +798,8 @@ const newPricingLoanBtn = document.querySelector("#newPricingLoanBtn");
 const loanClearDeviceButtons = document.querySelectorAll("[data-clear-loan-device]");
 const loanSerialFields = document.querySelectorAll("[data-loan-serial-field]");
 const loanPasteSerialButtons = document.querySelectorAll("[data-paste-loan-serial]");
+const loanDemoPurposeFields = document.querySelectorAll("[data-loan-demo-purpose-field]");
+const loanDemoPurposeButtons = document.querySelectorAll("[data-loan-demo-purpose]");
 const savePricingLoanBtn = document.querySelector("#savePricingLoanBtn");
 const printPricingLoanBtn = document.querySelector("#printPricingLoanBtn");
 const loanPrintMeta = document.querySelector("#loanPrintMeta");
@@ -5084,6 +5088,11 @@ function normalizeDemoPurpose(value) {
   return DEMO_PURPOSE_TEST;
 }
 
+function normalizeLoanDemoPurpose(value) {
+  const text = String(value ?? "").trim();
+  return text ? normalizeDemoPurpose(text) : "";
+}
+
 function normalizeBooleanFlag(value) {
   return value === true || String(value ?? "").trim() === "1" ? "1" : "";
 }
@@ -8161,7 +8170,8 @@ function normalizePricingLoanHistoryDevice(device, fallbackSide = "") {
     serial: normalizeLoanHistoryText(device?.serial).toLocaleUpperCase("pl-PL"),
     manufacturer: normalizeLoanHistoryText(device?.manufacturer),
     year: normalizeLoanHistoryText(device?.year),
-    value: normalizeLoanHistoryText(device?.value)
+    value: normalizeLoanHistoryText(device?.value),
+    purpose: normalizeLoanDemoPurpose(device?.purpose)
   };
 }
 
@@ -8275,6 +8285,7 @@ function demoRecordFromPricingLoan(record, assignment) {
   const currentCustomerKey = customerNameLookupKey(record.currentUser);
   const loanDate = entry.periodFrom || entry.date || todayInputValue();
   const location = documentLocationKey(entry.city) || record.location;
+  const purpose = normalizeLoanDemoPurpose(assignment.device?.purpose) || normalizeDemoPurpose(record.purpose);
 
   if (!customer || record.manufacturerReturnedDate) return { record, reason: "ignored" };
 
@@ -8285,6 +8296,7 @@ function demoRecordFromPricingLoan(record, assignment) {
     return {
       record: normalizeDemoRecordForUse(completeDemoLoan(record, {
         ...record,
+        purpose,
         returnDate: entry.returnDate,
         loanHistory: effectiveDemoLoanHistory(record),
         loanHistoryManaged: true
@@ -8300,6 +8312,7 @@ function demoRecordFromPricingLoan(record, assignment) {
   return {
     record: normalizeDemoRecordForUse({
       ...record,
+      purpose,
       currentUser: customer,
       loanDate,
       returnDate: "",
@@ -8312,7 +8325,7 @@ function demoRecordFromPricingLoan(record, assignment) {
 }
 
 function demoLoanSyncChanged(beforeRecord, afterRecord) {
-  return ["currentUser", "loanDate", "returnDate", "status", "location", "loanHistory"]
+  return ["currentUser", "loanDate", "returnDate", "status", "location", "purpose", "loanHistory"]
     .some((field) => auditCompareValue(beforeRecord?.[field]) !== auditCompareValue(afterRecord?.[field]));
 }
 
@@ -8813,10 +8826,12 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanRightSerialInput, historyEntry.rightDevice.serial, { upper: true });
   setLoanSnapshotInput(loanRightManufacturerInput, historyEntry.rightDevice.manufacturer);
   setLoanSnapshotInput(loanRightValueInput, historyEntry.rightDevice.value);
+  setLoanSnapshotInput(loanRightPurposeInput, historyEntry.rightDevice.purpose);
   setLoanSnapshotInput(loanLeftDeviceInput, historyEntry.leftDevice.model);
   setLoanSnapshotInput(loanLeftSerialInput, historyEntry.leftDevice.serial, { upper: true });
   setLoanSnapshotInput(loanLeftManufacturerInput, historyEntry.leftDevice.manufacturer);
   setLoanSnapshotInput(loanLeftValueInput, historyEntry.leftDevice.value);
+  setLoanSnapshotInput(loanLeftPurposeInput, historyEntry.leftDevice.purpose);
   setLoanSnapshotInput(loanChargerInput, historyEntry.charger);
   setLoanSnapshotInput(loanChargerSerialInput, historyEntry.chargerSerial, { upper: true });
   setLoanSnapshotInput(loanChargerStateInput, historyEntry.chargerState);
@@ -8826,6 +8841,8 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanDepositReturnDateInput, historyEntry.depositReturnDate, { date: true });
   setLoanSnapshotInput(loanDeductionsInput, historyEntry.deductions);
   setLoanSnapshotInput(loanDeductionReasonInput, historyEntry.deductionReason);
+  updateLoanDemoPurposeField("right", historyEntry.rightDevice.purpose);
+  updateLoanDemoPurposeField("left", historyEntry.leftDevice.purpose);
   switchPricingView("loan");
   renderPricingLoan();
   markAgreementDraftSaved("loan");
@@ -8878,7 +8895,16 @@ function pricingLoanHistoryCountLabel(count) {
 function pricingLoanHistoryDeviceLabel(entry) {
   return [entry.rightDevice, entry.leftDevice]
     .filter(hasLoanDeviceData)
-    .map((device) => [device.side, device.model, device.serial].filter(Boolean).join(" · "))
+    .map((device) => [
+      device.side,
+      device.model,
+      device.serial,
+      normalizeLoanDemoPurpose(device.purpose) === DEMO_PURPOSE_REPLACEMENT
+        ? "Zastępczy"
+        : normalizeLoanDemoPurpose(device.purpose)
+          ? "Demo"
+          : ""
+    ].filter(Boolean).join(" · "))
     .join(" | ");
 }
 
@@ -9852,7 +9878,8 @@ function loanDeviceInputs(side) {
       device: loanRightDeviceInput,
       serial: loanRightSerialInput,
       manufacturer: loanRightManufacturerInput,
-      value: loanRightValueInput
+      value: loanRightValueInput,
+      purpose: loanRightPurposeInput
     };
   }
   if (side === "charger") {
@@ -9860,14 +9887,16 @@ function loanDeviceInputs(side) {
       device: loanChargerInput,
       serial: loanChargerSerialInput,
       manufacturer: null,
-      value: loanChargerMissingValueInput
+      value: loanChargerMissingValueInput,
+      purpose: null
     };
   }
   return {
     device: loanLeftDeviceInput,
     serial: loanLeftSerialInput,
     manufacturer: loanLeftManufacturerInput,
-    value: loanLeftValueInput
+    value: loanLeftValueInput,
+    purpose: loanLeftPurposeInput
   };
 }
 
@@ -9885,7 +9914,8 @@ function loanDeviceData(side) {
     serial: loanInputValue(inputs.serial).toLocaleUpperCase("pl-PL"),
     manufacturer: loanInputValue(inputs.manufacturer) || record?.manufacturer || "",
     year: loanAgreementYear(),
-    value: loanInputValue(inputs.value) || record?.grossPrice || ""
+    value: loanInputValue(inputs.value) || record?.grossPrice || "",
+    purpose: normalizeLoanDemoPurpose(inputs.purpose?.value)
   };
 }
 
@@ -9928,7 +9958,8 @@ function loanDeviceMatchFromDeviceRecord(record) {
     model: record?.deviceName || "",
     serial: normalizeSerialNumber(record?.serialNumber),
     manufacturer: pricingRecord?.manufacturer || "",
-    value: pricingRecord?.grossPrice || ""
+    value: pricingRecord?.grossPrice || "",
+    isDemo: false
   };
 }
 
@@ -9939,7 +9970,8 @@ function loanDeviceMatchFromDemoRecord(record) {
     model: record?.deviceName || "",
     serial: normalizeSerialNumber(record?.serialNumber),
     manufacturer: record?.manufacturer || pricingRecord?.manufacturer || "",
-    value: pricingRecord?.grossPrice || ""
+    value: pricingRecord?.grossPrice || "",
+    isDemo: true
   };
 }
 
@@ -9947,13 +9979,52 @@ function findLoanDeviceBySerial(serialNumber) {
   const serialKey = serialDuplicateKey(serialNumber);
   if (!serialKey) return null;
 
-  const deviceRecord = records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
-  if (deviceRecord) return loanDeviceMatchFromDeviceRecord(deviceRecord);
-
   const demoRecord = demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
   if (demoRecord) return loanDeviceMatchFromDemoRecord(demoRecord);
 
+  const deviceRecord = records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
+  if (deviceRecord) return loanDeviceMatchFromDeviceRecord(deviceRecord);
+
   return null;
+}
+
+function loanDemoPurposeField(side) {
+  return Array.from(loanDemoPurposeFields).find((field) => field.dataset.loanDemoPurposeField === side) || null;
+}
+
+function updateLoanDemoPurposeField(side, selectedPurpose) {
+  const inputs = loanDeviceInputs(side);
+  const field = loanDemoPurposeField(side);
+  if (!field || !inputs.purpose) return { required: false, missing: false };
+
+  const serialKey = serialDuplicateKey(inputs.serial?.value);
+  const demoRecord = serialKey
+    ? demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey)
+    : null;
+  const previousSerialKey = field.dataset.serialKey || "";
+
+  if (!demoRecord) {
+    field.hidden = true;
+    field.dataset.serialKey = "";
+    inputs.purpose.value = "";
+  } else {
+    field.hidden = false;
+    if (selectedPurpose !== undefined) {
+      inputs.purpose.value = normalizeLoanDemoPurpose(selectedPurpose);
+    } else if (previousSerialKey !== serialKey) {
+      inputs.purpose.value = "";
+    }
+    field.dataset.serialKey = serialKey;
+  }
+
+  const selected = normalizeLoanDemoPurpose(inputs.purpose.value);
+  loanDemoPurposeButtons.forEach((button) => {
+    if (button.dataset.loanDemoPurposeSide !== side) return;
+    button.setAttribute("aria-pressed", String(normalizeLoanDemoPurpose(button.dataset.loanDemoPurpose) === selected));
+  });
+  const missing = Boolean(demoRecord && !selected);
+  field.classList.toggle("required-missing", pricingLoanValidationRequested && missing);
+  return { required: Boolean(demoRecord), missing, field };
 }
 
 function loanSideFromSerialInput(input) {
@@ -10015,6 +10086,7 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   const inputs = loanDeviceInputs(side);
   const serial = normalizeSerialNumber(inputs.serial?.value);
   if (!serial) {
+    updateLoanDemoPurposeField(side);
     updateLoanSerialPasteHint(side);
     return false;
   }
@@ -10022,6 +10094,7 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   if (inputs.serial && inputs.serial.value !== serial) inputs.serial.value = serial;
   const match = findLoanDeviceBySerial(serial);
   if (!match) {
+    updateLoanDemoPurposeField(side);
     updateLoanSerialPasteHint(side);
     return false;
   }
@@ -10030,6 +10103,7 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   setLoanMatchedInputValue(inputs.manufacturer, match.manufacturer, overwrite);
   setLoanMatchedInputValue(inputs.value, match.value ? formatPricingPrice(match.value) : "", overwrite);
   if (inputs.serial) inputs.serial.title = `Uzupełniono z ${match.source}`;
+  updateLoanDemoPurposeField(side);
   updateLoanSerialPasteHint(side);
   renderPricingLoan();
   return true;
@@ -10069,10 +10143,11 @@ async function pasteCopiedSerialToLoanDevice(side) {
 
 function clearLoanDevice(side) {
   const inputs = loanDeviceInputs(side);
-  [inputs.device, inputs.serial, inputs.manufacturer, inputs.value].forEach((input) => {
+  [inputs.device, inputs.serial, inputs.manufacturer, inputs.value, inputs.purpose].forEach((input) => {
     if (input) input.value = "";
   });
   updateLoanSerialPasteHint(side);
+  updateLoanDemoPurposeField(side);
   markAgreementDraftDirty("loan");
   renderPricingLoan();
 }
@@ -10091,6 +10166,8 @@ function setLoanDeviceValues(targetSide, sourceSide, { includeSerial = true } = 
     if (target[field]) target[field].value = loanInputValue(source[field]);
   });
   if (target.serial) target.serial.value = includeSerial ? loanInputValue(source.serial).toLocaleUpperCase("pl-PL") : "";
+  if (target.purpose) target.purpose.value = includeSerial ? normalizeLoanDemoPurpose(source.purpose?.value) : "";
+  updateLoanDemoPurposeField(targetSide, target.purpose?.value || "");
 }
 
 function moveLoanDevice(sourceSide, targetSide) {
@@ -10101,9 +10178,10 @@ function moveLoanDevice(sourceSide, targetSide) {
   }
   setLoanDeviceValues(targetSide, sourceSide, { includeSerial: true });
   const source = loanDeviceInputs(sourceSide);
-  [source.device, source.serial, source.manufacturer, source.value].forEach((input) => {
+  [source.device, source.serial, source.manufacturer, source.value, source.purpose].forEach((input) => {
     if (input) input.value = "";
   });
+  updateLoanDemoPurposeField(sourceSide);
   updateLoanSerialPasteHints();
   renderPricingLoan();
 }
@@ -10175,10 +10253,12 @@ function startNewPricingLoan() {
     loanRightSerialInput,
     loanRightManufacturerInput,
     loanRightValueInput,
+    loanRightPurposeInput,
     loanLeftDeviceInput,
     loanLeftSerialInput,
     loanLeftManufacturerInput,
     loanLeftValueInput,
+    loanLeftPurposeInput,
     loanChargerInput,
     loanChargerSerialInput,
     loanChargerMissingValueInput,
@@ -10189,6 +10269,8 @@ function startNewPricingLoan() {
   ].forEach((input) => {
     if (input) input.value = "";
   });
+  updateLoanDemoPurposeField("right");
+  updateLoanDemoPurposeField("left");
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
   if (loanIssueNotesInput) loanIssueNotesInput.value = "bez zastrzeżeń";
   if (loanChargerStateInput) loanChargerStateInput.value = "wydano";
@@ -10208,7 +10290,14 @@ function renderPricingLoanEquipment(devices) {
   const rows = devices.map((device) => {
     const row = document.createElement("tr");
     appendOfferCell(row, { prawe: "Prawy", lewe: "Lewy" }[device.side] || device.side);
-    appendOfferCell(row, device.model);
+    const modelCell = appendOfferCell(row, device.model);
+    const purpose = normalizeLoanDemoPurpose(device.purpose);
+    if (purpose) {
+      const badge = document.createElement("span");
+      badge.className = `loan-demo-purpose-badge${purpose === DEMO_PURPOSE_REPLACEMENT ? " replacement" : " demo"}`;
+      badge.textContent = purpose === DEMO_PURPOSE_REPLACEMENT ? "Zastępczy" : "Demo";
+      modelCell.append(badge);
+    }
     appendOfferCell(row, device.serial, "loan-equipment-serial");
     appendOfferCell(row, device.manufacturer);
     appendOfferCell(row, device.year);
@@ -10255,6 +10344,8 @@ function updatePricingLoanRequiredHighlights() {
       [inputs.device, inputs.serial, inputs.manufacturer, inputs.value]
         .forEach((input) => setMissing(input, false));
     });
+    updateLoanDemoPurposeField("right");
+    updateLoanDemoPurposeField("left");
     return missingInputs;
   }
 
@@ -10269,6 +10360,13 @@ function updatePricingLoanRequiredHighlights() {
     }
     [inputs.device, inputs.serial, inputs.manufacturer, inputs.value]
       .forEach((input) => setMissing(input, hasAnyValue && !loanInputValue(input)));
+  });
+
+  ["right", "left"].forEach((side) => {
+    const purposeState = updateLoanDemoPurposeField(side);
+    if (!purposeState.missing) return;
+    const firstButton = purposeState.field?.querySelector("[data-loan-demo-purpose]");
+    if (firstButton) missingInputs.push(firstButton);
   });
   return missingInputs;
 }
@@ -10293,6 +10391,8 @@ function renderPricingLoan() {
   scheduleNearbyEntryWarning("loan");
   updateDocumentLocationAccent(loanCityInput);
   updateLoanSerialPasteHints();
+  updateLoanDemoPurposeField("right");
+  updateLoanDemoPurposeField("left");
 
   const dateText = loanDateText(loanDateInput);
   const periodFrom = loanDateText(loanPeriodFromInput);
@@ -13942,7 +14042,16 @@ function offerHistoryItemsLabel(entry) {
 function loanHistoryItemsLabel(entry) {
   return [entry?.rightDevice, entry?.leftDevice]
     .filter(hasLoanDeviceData)
-    .map((device) => [device.side, device.model, device.serial].filter(Boolean).join(" / "))
+    .map((device) => [
+      device.side,
+      device.model,
+      device.serial,
+      normalizeLoanDemoPurpose(device.purpose) === DEMO_PURPOSE_REPLACEMENT
+        ? "Zastępczy"
+        : normalizeLoanDemoPurpose(device.purpose)
+          ? "Demo"
+          : ""
+    ].filter(Boolean).join(" / "))
     .join("; ");
 }
 
@@ -14422,10 +14531,10 @@ function createPricingRow(record, index) {
 
 function createDemoPurposePill(value) {
   const purpose = normalizeDemoPurpose(value);
-  if (purpose !== DEMO_PURPOSE_REPLACEMENT) return null;
   const pill = document.createElement("span");
-  pill.className = "demo-purpose-pill replacement";
-  pill.textContent = "Aparat zastępczy";
+  const replacement = purpose === DEMO_PURPOSE_REPLACEMENT;
+  pill.className = `demo-purpose-pill ${replacement ? "replacement" : "demo"}`;
+  pill.textContent = replacement ? "Zastępczy" : "Demo";
   return pill;
 }
 
@@ -14995,11 +15104,59 @@ function repairActiveDemoRelations(record) {
   return activeDemoLoanGroupsForCustomer(record?.customerName).map((group) => ({
     label: group.loans.length > 1 ? `${group.label} ${group.loans.length}` : group.label,
     className: group.key,
+    loans: group.loans,
     tooltip: [
       group.key === "replacement" ? "Aparat zastępczy:" : "Aparat Demo:",
-      ...group.loans.map((loan) => `• ${activeDemoLoanLine(loan)}`)
+      ...group.loans.map((loan) => `• ${activeDemoLoanLine(loan)}`),
+      "Kliknij, aby otworzyć umowę i wpisać zwrot."
     ].join("\n")
   }));
+}
+
+function repairDemoRelationLoanEntry(record, relation) {
+  const customerKey = customerNameLookupKey(record?.customerName);
+  if (!customerKey) return null;
+  const relationLoans = Array.isArray(relation?.loans) ? relation.loans : [];
+  const relationSerials = new Set(relationLoans.map((loan) => serialDuplicateKey(loan.serialNumber)).filter(Boolean));
+  const relationDates = new Set(relationLoans.map((loan) => isoDateForSave(loan.loanDate)).filter(Boolean));
+  const candidates = normalizePricingLoanHistory(pricingLoanHistory)
+    .filter((entry) => customerNameLookupKey(entry.customer) === customerKey)
+    .map((entry) => {
+      const serialMatch = loanHistorySerials(entry).some((serial) => relationSerials.has(serial));
+      const periodFrom = isoDateForSave(entry.periodFrom);
+      const dateMatch = Boolean(periodFrom && relationDates.has(periodFrom));
+      const active = !isoDateForSave(entry.returnDate);
+      return { entry, serialMatch, dateMatch, active };
+    })
+    .sort((left, right) =>
+      Number(right.serialMatch) - Number(left.serialMatch) ||
+      Number(right.dateMatch) - Number(left.dateMatch) ||
+      Number(right.active) - Number(left.active) ||
+      String(right.entry.periodFrom || right.entry.date || right.entry.savedAt).localeCompare(String(left.entry.periodFrom || left.entry.date || left.entry.savedAt))
+    );
+  const serialMatch = candidates.find((candidate) => candidate.serialMatch);
+  if (serialMatch) return serialMatch.entry;
+  const dateMatches = candidates.filter((candidate) => candidate.dateMatch);
+  if (dateMatches.length === 1) return dateMatches[0].entry;
+  const activeMatches = candidates.filter((candidate) => candidate.active);
+  return activeMatches.length === 1 ? activeMatches[0].entry : null;
+}
+
+function openRepairDemoLoanAgreement(record, relation) {
+  const entry = repairDemoRelationLoanEntry(record, relation);
+  if (!entry) {
+    switchPricingView("history");
+    if (pricingHistoryTypeFilter) pricingHistoryTypeFilter.value = "loan";
+    if (pricingHistorySearchInput) pricingHistorySearchInput.value = titleCaseName(record?.customerName || "");
+    renderPricingDocumentHistory();
+    alert("Nie udało się jednoznacznie dopasować umowy. Otworzyłem historię umów przefiltrowaną według klienta.");
+    return;
+  }
+  restorePricingLoanFromHistory(entry);
+  window.setTimeout(() => {
+    loanReturnDateInput?.scrollIntoView({ block: "center", behavior: "smooth" });
+    loanReturnDateInput?.focus({ preventScroll: true });
+  }, 120);
 }
 
 function createRepairCategoryCell(record) {
@@ -15386,13 +15543,14 @@ function createRepairCustomerName(record, status) {
   const phoneBadge = createCustomerPhoneBadge(record?.customerName);
   if (phoneBadge) nameLine.append(phoneBadge);
   repairActiveDemoRelations(record).forEach((relation) => {
-    const marker = document.createElement("span");
+    const marker = document.createElement("button");
+    marker.type = "button";
     marker.className = `repair-demo-relation ${relation.className}`;
     marker.textContent = relation.label;
     marker.dataset.demoRelationTooltip = relation.tooltip;
-    marker.tabIndex = 0;
     marker.setAttribute("aria-label", `${relation.label}. ${relation.tooltip.replace(/\n/gu, " ")}`);
     attachTableHoverTooltip(marker, "demoRelationTooltip");
+    marker.addEventListener("click", () => openRepairDemoLoanAgreement(record, relation));
     wrap.append(marker);
   });
   return wrap;
@@ -20822,6 +20980,17 @@ loanPasteSerialButtons.forEach((button) => {
     event.preventDefault();
     event.stopPropagation();
     void pasteCopiedSerialToLoanDevice(button.dataset.pasteLoanSerial);
+  });
+});
+loanDemoPurposeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const side = button.dataset.loanDemoPurposeSide;
+    const inputs = loanDeviceInputs(side);
+    if (!inputs.purpose) return;
+    inputs.purpose.value = normalizeLoanDemoPurpose(button.dataset.loanDemoPurpose);
+    updateLoanDemoPurposeField(side, inputs.purpose.value);
+    markAgreementDraftDirty("loan");
+    renderPricingLoan();
   });
 });
 loanClearDeviceButtons.forEach((button) => {
