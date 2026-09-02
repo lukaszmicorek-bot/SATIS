@@ -6836,7 +6836,8 @@ function rebuildDemoFormSuggestions() {
   const manufacturers = [...new Set([
     ...records.map((record) => String(record.manufacturer ?? "").trim()),
     ...demoRecords.map((record) => String(record.manufacturer ?? "").trim()),
-    ...pricingRecords.map((record) => String(record.manufacturer ?? "").trim())
+    ...pricingRecords.map((record) => String(record.manufacturer ?? "").trim()),
+    ...DEVICE_MODEL_MANUFACTURER_RULES.map((rule) => rule.manufacturer)
   ].filter(Boolean))].sort((left, right) => collator.compare(left, right));
   const models = rankedModelSuggestions(modelSuggestionSourceRecords());
 
@@ -6859,7 +6860,29 @@ function rebuildDemoFormSuggestions() {
   demoDeviceNameSuggestions.replaceChildren(modelFragment);
 }
 
+const DEVICE_MODEL_MANUFACTURER_RULES = [
+  { manufacturer: "PHONAK", models: ["AUDEO", "SKY", "VIRTO", "NAIDA"] },
+  { manufacturer: "PHILIPS", models: ["HEARLINK"] },
+  { manufacturer: "SONIC", models: ["RADIANT", "ENCHANT"] },
+  { manufacturer: "BELTONE", models: ["COMMENCE", "COM", "ENVISION", "ENV"] },
+  { manufacturer: "WSA", models: ["SILK", "B P"] },
+  { manufacturer: "RESOUND", models: ["VIVIA"] },
+  { manufacturer: "BERNAFON", models: ["ALPHA"] }
+];
+
+function knownManufacturerForModel(modelValue) {
+  const normalizedModel = normalizeDeviceSearchText(modelValue).toLocaleUpperCase("pl-PL");
+  if (!normalizedModel) return "";
+  const paddedModel = ` ${normalizedModel} `;
+  const matchingRule = DEVICE_MODEL_MANUFACTURER_RULES.find((rule) => rule.models.some((model) => (
+    paddedModel.includes(` ${model} `)
+  )));
+  return matchingRule?.manufacturer || "";
+}
+
 function demoManufacturerForModel(modelValue, { allowPrefix = false } = {}) {
+  const knownManufacturer = knownManufacturerForModel(modelValue);
+  if (knownManufacturer) return knownManufacturer;
   const modelKey = normalizeDeviceName(modelValue).toLocaleLowerCase("pl-PL");
   if (!modelKey) return "";
   let candidates = demoManufacturerModelIndex.get(modelKey);
