@@ -6381,6 +6381,35 @@ function customerPhoneInfo(customer) {
   };
 }
 
+function documentPhoneForCustomer(customer, directPhone = "") {
+  const directCandidates = customerPhoneCandidates(directPhone);
+  if (directCandidates.length === 1) return formatPcprPhone(directCandidates[0]);
+  const info = customerPhoneInfo(customer);
+  return info && !info.uncertain && info.phones.length === 1 ? info.phones[0].formatted : "";
+}
+
+function autofillDocumentCustomerFromSerial(customerInput, phoneInput, customer, phone = "") {
+  const normalizedCustomer = titleCaseName(customer || "");
+  if (!normalizedCustomer || !customerInput) return false;
+  const existingCustomer = titleCaseName(customerInput.value || "");
+  const sameCustomer = customerNameLookupKey(existingCustomer) === customerNameLookupKey(normalizedCustomer);
+  if (existingCustomer && !sameCustomer) return false;
+
+  let changed = false;
+  if (!existingCustomer) {
+    customerInput.value = normalizedCustomer;
+    customerInput.dataset.serialAutofilled = "1";
+    changed = true;
+  }
+  const matchedPhone = documentPhoneForCustomer(normalizedCustomer, phone);
+  if (matchedPhone && phoneInput && !String(phoneInput.value || "").trim()) {
+    phoneInput.value = matchedPhone;
+    phoneInput.dataset.serialAutofilled = "1";
+    changed = true;
+  }
+  return changed;
+}
+
 function createCustomerPhoneBadge(customer, { attachTooltip = true } = {}) {
   const info = customerPhoneInfo(customer);
   if (!info) return null;
@@ -10858,6 +10887,8 @@ function loanDeviceMatchFromDeviceRecord(record) {
     serial: normalizeSerialNumber(record?.serialNumber),
     manufacturer: pricingRecord?.manufacturer || "",
     value: pricingRecord?.grossPrice || "",
+    customer: titleCaseName(record?.customerName || ""),
+    phone: documentPhoneForCustomer(record?.customerName, record?.phone),
     isDemo: false
   };
 }
@@ -10870,6 +10901,8 @@ function loanDeviceMatchFromDemoRecord(record) {
     serial: normalizeSerialNumber(record?.serialNumber),
     manufacturer: record?.manufacturer || pricingRecord?.manufacturer || "",
     value: pricingRecord?.grossPrice || "",
+    customer: titleCaseName(record?.currentUser || ""),
+    phone: documentPhoneForCustomer(record?.currentUser, record?.phone),
     isDemo: true
   };
 }
@@ -11001,6 +11034,7 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   setLoanMatchedInputValue(inputs.device, match.model, overwrite);
   setLoanMatchedInputValue(inputs.manufacturer, match.manufacturer, overwrite);
   setLoanMatchedInputValue(inputs.value, match.value ? formatPricingPrice(match.value) : "", overwrite);
+  autofillDocumentCustomerFromSerial(loanCustomerInput, loanPhoneInput, match.customer, match.phone);
   if (inputs.serial) inputs.serial.title = `Uzupełniono z ${match.source}`;
   updateLoanDemoPurposeField(side);
   updateLoanSerialPasteHint(side);
@@ -14073,6 +14107,12 @@ function fillComplaintFromDeviceRecord(record, slot = 1, { overwrite = false } =
     complaintLocationInput.dataset.complaintAutofilled = "1";
     changed = true;
   }
+  changed = autofillDocumentCustomerFromSerial(
+    complaintCustomerInput,
+    complaintPhoneInput,
+    record.customerName,
+    record.phone
+  ) || changed;
   return changed;
 }
 
