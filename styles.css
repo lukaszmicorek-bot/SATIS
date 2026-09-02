@@ -9162,10 +9162,17 @@ td.row-actions {
 
 #saveStockAuditBtn,
 #exportStockAuditPdfBtn,
-#clearStockAuditBtn {
+#clearStockAuditBtn,
+#deleteLatestStockAuditBtn {
   min-height: 38px;
   padding: 7px 12px;
   font-size: 0.78rem;
+}
+
+#deleteLatestStockAuditBtn {
+  border-color: rgba(190, 108, 96, 0.32);
+  color: #8c433a;
+  background: #fff7f5;
 }
 
 .stock-demo-section {
@@ -10605,12 +10612,19 @@ tbody tr.demo-return-critical:hover {
 .serial-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  align-content: center;
+  gap: 4px;
 }
 
 .stock-audit-serial {
   display: inline-flex;
+  width: auto;
+  max-width: max-content;
+  flex: 0 0 auto;
+  align-self: center;
   min-height: 20px;
+  height: 20px;
   align-items: center;
   border: 0;
   border-radius: 4px;
@@ -10619,6 +10633,8 @@ tbody tr.demo-return-critical:hover {
   background: #edf0f2;
   font-size: 0.7rem;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .stock-audit-serial:hover {

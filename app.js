@@ -935,6 +935,7 @@ const stockDemoLocationSummary = document.querySelector("#stockDemoLocationSumma
 const saveStockAuditBtn = document.querySelector("#saveStockAuditBtn");
 const exportStockAuditPdfBtn = document.querySelector("#exportStockAuditPdfBtn");
 const clearStockAuditBtn = document.querySelector("#clearStockAuditBtn");
+const deleteLatestStockAuditBtn = document.querySelector("#deleteLatestStockAuditBtn");
 const stockChecklistPerson = document.querySelector("#stockChecklistPerson");
 const stockChecklistDate = document.querySelector("#stockChecklistDate");
 const printStockChecklistBtn = document.querySelector("#printStockChecklistBtn");
@@ -1204,6 +1205,7 @@ function updateConnectionUser(user) {
   updatePricingManagementVisibility();
   updateSensitiveTransferVisibility();
   updateNotebookPrintVisibility();
+  updateStockAuditManagementVisibility();
   updatePrivateModulesVisibility();
   updateCustomerRelationsPanelVisibility();
   if (["pricing", "pcpr", "history"].includes(activeNotebook)) renderPricingRecords();
@@ -2667,6 +2669,7 @@ function normalizeStockAuditHistory(history) {
     .filter((entry) => entry && typeof entry === "object")
     .map((entry) => ({
       id: String(entry.id || makeId()),
+      auditLogId: String(entry.auditLogId || entry.logId || entry.id || ""),
       checkedAt: isoDateForSave(entry.checkedAt) || "",
       checkedBy: titleCaseName(entry.checkedBy || ""),
       savedAt: String(entry.savedAt || ""),
@@ -2763,6 +2766,7 @@ function stockAuditHistoryEntryFromLog(log) {
   }));
   return {
     ...historyEntry,
+    auditLogId: log.id,
     workstation: historyEntry.workstation || log.workstation || "",
     items: Array.isArray(historyEntry.items) && historyEntry.items.length ? historyEntry.items : snapshotItems
   };
@@ -2896,9 +2900,15 @@ function renderStockAudit(stockRecords = stockAuditRecords()) {
   if (stockChecklistPerson) stockChecklistPerson.textContent = `Sprawdził(a): ${stockAudit.checkedBy || ""}`;
   setLabeledDateContent(stockChecklistDate, "Data: ", stockAudit.checkedAt, "");
   if (exportStockAuditPdfBtn) exportStockAuditPdfBtn.disabled = !isStockAuditActive();
+  updateStockAuditManagementVisibility();
   renderStockAuditPreview(stockRecords);
   renderStockAuditReport(stockRecords);
   renderStockAuditHistory();
+}
+
+function updateStockAuditManagementVisibility() {
+  if (!deleteLatestStockAuditBtn) return;
+  deleteLatestStockAuditBtn.hidden = !canManageAuditLogs() || !normalizeStockAuditHistory(stockAudit.history).length;
 }
 
 function stockAuditResultItems(stockRecords = stockAuditRecords()) {
@@ -3114,11 +3124,12 @@ async function deleteStockAuditHistoryEntry(entry) {
   const previousHistory = normalizeStockAuditHistory(stockAudit.history);
   const nextHistory = previousHistory.filter((item) => item.id !== entry.id);
   const deletingLatest = previousHistory[0]?.id === entry.id;
+  const auditLogId = String(entry.auditLogId || entry.id);
 
   persistStockAudit(deletingLatest
     ? stockAuditStateAfterHistoryDeletion(nextHistory)
     : { ...stockAudit, history: nextHistory });
-  auditLogs = auditLogs.filter((item) => item.id !== entry.id);
+  auditLogs = auditLogs.filter((item) => item.id !== auditLogId);
   saveLocalAuditLogs();
   renderStockView();
 
@@ -3128,12 +3139,12 @@ async function deleteStockAuditHistoryEntry(entry) {
       const { data, error } = await supabaseClient
         .from(SUPABASE_AUDIT_TABLE)
         .delete()
-        .eq("id", entry.id)
+        .eq("id", auditLogId)
         .eq("notebook", "stock")
         .eq("record_id", "stock-audit")
         .select("id");
       if (error) throw error;
-      if (!Array.isArray(data) || !data.some((row) => row.id === entry.id)) {
+      if (!Array.isArray(data) || !data.some((row) => row.id === auditLogId)) {
         throw new Error("Supabase nie zezwolił na usunięcie. Uruchom plik supabase-stock-audit-delete.sql w SQL Editor.");
       }
     });
@@ -3144,6 +3155,11 @@ async function deleteStockAuditHistoryEntry(entry) {
     renderStockView();
     alert(`Nie udało się usunąć remanentu: ${errorText(error) || "nieznany błąd"}`);
   }
+}
+
+function deleteLatestStockAudit() {
+  const latest = normalizeStockAuditHistory(stockAudit.history)[0];
+  if (latest) deleteStockAuditHistoryEntry(latest);
 }
 
 function sortedStockAuditReportItems(stockRecords = stockAuditRecords()) {
@@ -21669,6 +21685,7 @@ printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
+deleteLatestStockAuditBtn?.addEventListener("click", deleteLatestStockAudit);
 stockAuditHistorySearch?.addEventListener("input", debounce(renderStockAuditHistory, SEARCH_DEBOUNCE_MS));
 stockAuditHistory?.addEventListener("toggle", () => {
   if (stockAuditHistory.open) renderStockAuditHistory();
