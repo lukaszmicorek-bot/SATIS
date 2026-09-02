@@ -3039,6 +3039,7 @@ function renderStockAuditHistory() {
   const nodes = matchingEntries.map(({ entry, models }) => {
     const card = document.createElement("article");
     const head = document.createElement("div");
+    const heading = document.createElement("div");
     const title = document.createElement("strong");
     const result = document.createElement("span");
     const modelList = document.createElement("div");
@@ -3046,7 +3047,18 @@ function renderStockAuditHistory() {
     head.className = "stock-audit-history-entry-head";
     title.textContent = `${formatDate(entry.checkedAt) || "Brak daty"} · ${entry.checkedBy || "Brak osoby"}`;
     result.textContent = `Na stanie ${entry.present} · Brak ${entry.missing} · Razem ${entry.total}`;
-    head.append(title, result);
+    heading.className = "stock-audit-history-entry-title";
+    heading.append(title, result);
+    head.append(heading);
+    if (canManageAuditLogs()) {
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "stock-audit-history-delete";
+      deleteButton.textContent = "Usuń";
+      deleteButton.setAttribute("aria-label", `Usuń remanent z dnia ${formatDate(entry.checkedAt) || entry.checkedAt}`);
+      deleteButton.addEventListener("click", () => deleteStockAuditHistoryEntry(entry));
+      head.append(deleteButton);
+    }
     modelList.className = "stock-audit-history-models";
 
     models.slice(0, query ? 40 : 12).forEach((model) => {
@@ -3074,6 +3086,60 @@ function renderStockAuditHistory() {
   });
 
   stockAuditHistoryList.replaceChildren(...nodes);
+}
+
+function stockAuditStateAfterHistoryDeletion(history) {
+  const normalizedHistory = normalizeStockAuditHistory(history);
+  const latest = normalizedHistory[0];
+  if (!latest) {
+    return { checkedAt: "", checkedBy: "", savedAt: "", checkedItems: [], items: [], history: [] };
+  }
+  const items = normalizeStockAuditItems(latest.items);
+  return {
+    checkedAt: latest.checkedAt,
+    checkedBy: latest.checkedBy,
+    savedAt: latest.savedAt,
+    checkedItems: latest.items.filter((item) => item.present === true).map((item) => String(item.id)),
+    items,
+    history: normalizedHistory
+  };
+}
+
+async function deleteStockAuditHistoryEntry(entry) {
+  if (!canManageAuditLogs() || !entry?.id) return;
+  if (!confirm(`Usunąć remanent z dnia ${formatDate(entry.checkedAt) || entry.checkedAt}?`)) return;
+
+  const previousAudit = JSON.parse(JSON.stringify(stockAudit));
+  const previousLogs = auditLogs;
+  const previousHistory = normalizeStockAuditHistory(stockAudit.history);
+  const nextHistory = previousHistory.filter((item) => item.id !== entry.id);
+  const deletingLatest = previousHistory[0]?.id === entry.id;
+
+  persistStockAudit(deletingLatest
+    ? stockAuditStateAfterHistoryDeletion(nextHistory)
+    : { ...stockAudit, history: nextHistory });
+  auditLogs = auditLogs.filter((item) => item.id !== entry.id);
+  saveLocalAuditLogs();
+  renderStockView();
+
+  if (!hasSupabaseConfig) return;
+  try {
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient
+        .from(SUPABASE_AUDIT_TABLE)
+        .delete()
+        .eq("id", entry.id)
+        .eq("notebook", "stock")
+        .eq("record_id", "stock-audit");
+      if (error) throw error;
+    });
+  } catch (error) {
+    persistStockAudit(previousAudit);
+    auditLogs = previousLogs;
+    saveLocalAuditLogs();
+    renderStockView();
+    alert(`Nie udało się usunąć remanentu: ${errorText(error) || "nieznany błąd"}`);
+  }
 }
 
 function sortedStockAuditReportItems(stockRecords = stockAuditRecords()) {

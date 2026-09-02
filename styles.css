@@ -9070,25 +9070,26 @@ td.row-actions {
 }
 
 .stock-audit-preview-head {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .stock-audit-preview-card {
-  display: flex;
-  min-height: 34px;
+  display: inline-flex;
+  width: fit-content;
+  min-height: 27px;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   border: 0;
-  border-radius: 6px;
-  padding: 5px 9px;
-  font-size: 0.78rem;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 0.72rem;
   font-weight: 850;
 }
 
 .stock-audit-preview-card strong {
-  font-size: 1rem;
+  font-size: 0.84rem;
 }
 
 .stock-audit-preview-card.present {
@@ -9259,9 +9260,16 @@ td.row-actions {
 
 .stock-audit-history-entry-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.stock-audit-history-entry-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
 }
 
 .stock-audit-history-entry-head strong {
@@ -9275,6 +9283,22 @@ td.row-actions {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 700;
+}
+
+.stock-audit-history-delete {
+  min-height: 24px;
+  border-color: rgba(190, 108, 96, 0.3);
+  padding: 2px 7px;
+  color: #94483e;
+  background: #fff7f5;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.stock-audit-history-delete:hover {
+  border-color: rgba(190, 108, 96, 0.52);
+  color: #7f352d;
+  background: #ffefeb;
 }
 
 .stock-audit-history-models {
