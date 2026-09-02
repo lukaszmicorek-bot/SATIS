@@ -12363,11 +12363,20 @@ function selectedComplaintProductNameFromInput(input) {
 }
 
 function normalizePricingComplaintItem(item = {}) {
+  const rawPurchaseDocument = normalizeLoanHistoryText(item.purchaseDocument).toLocaleUpperCase("pl-PL");
+  const missingPurchaseDocument = new Set([
+    "BRAK",
+    "BRAK FAKTURY",
+    "NIE ZNALEZIONO",
+    "NIE ZNALEZIONO FAKTURY",
+    "NIE ZNALEZIONO DOKUMENTU",
+    "N/A"
+  ]).has(rawPurchaseDocument);
   const normalizedItem = {
     productType: normalizePricingComplaintProductType(item.productType),
     productName: normalizeLoanHistoryText(item.productName),
     serial: normalizeLoanHistoryText(item.serial).toLocaleUpperCase("pl-PL"),
-    purchaseDocument: normalizeLoanHistoryText(item.purchaseDocument).toLocaleUpperCase("pl-PL"),
+    purchaseDocument: missingPurchaseDocument ? "" : rawPurchaseDocument,
     purchaseDate: isoDateForSave(item.purchaseDate) || normalizeLoanHistoryText(item.purchaseDate)
   };
   return normalizedItem;
@@ -12762,11 +12771,6 @@ async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
     alert(`Taka reklamacja już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}: ${semanticDuplicate.customer}, ${formatDate(semanticDuplicate.date)}. Ten sam numer seryjny nie może zostać ponownie przyjęty dla tej osoby tego samego dnia.`);
     return null;
   }
-  const serviceDuplicate = repairDocumentDuplicate(pricingComplaintRepairRecord({ ...snapshot, id: existingEntry?.id || snapshot.id }));
-  if (serviceDuplicate) {
-    alert(repairDuplicateMessage(serviceDuplicate));
-    return null;
-  }
   const historyEntry = normalizePricingComplaintHistoryEntry({
     ...snapshot,
     id: existingEntry?.id || snapshot.id,
@@ -12957,8 +12961,6 @@ function updateComplaintWarrantyHints(items = complaintFormItems({ includeBlank:
       parts.push(`Z Bazy: sprzedaż ${formatDate(info.saleDate) || "brak daty"}`);
       if (info.match.salesInvoice) parts.push(`FV ${normalizeSalesInvoice(info.match.salesInvoice)}`);
       if (info.match.location) parts.push(normalizeRepairLocation(info.match.location));
-    } else if (item.serial) {
-      parts.push(`Nie znaleziono sprzedaży w Bazie dla nr ${item.serial}`);
     }
     if (info.saleDate && !info.match) parts.push(`Wg wpisanej daty sprzedaży ${formatDate(info.saleDate)}`);
     if (info.warrantyEnd) parts.push(`gwarancja do ${formatDate(info.warrantyEnd)}`);
@@ -13126,7 +13128,7 @@ function syncComplaintItemFromSerial(slot = 1) {
 
 function complaintWarrantyTableLabel(item) {
   const info = complaintWarrantyInfoForItem(item);
-  if (!info.saleDate) return item.serial ? "brak sprzedaży w Bazie" : "";
+  if (!info.saleDate) return "";
   if (!info.warrantyEnd) return "";
   return info.inWarranty
     ? `do ${formatDate(info.warrantyEnd)}`
@@ -13264,8 +13266,12 @@ async function savePricingComplaintAndRepairNotebook() {
   renderPricingComplaint();
   const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return null;
-  if (!await syncPricingComplaintToRepairNotebook(historyEntry)) return null;
-  alert("Reklamacja zapisana i przekazana do Serwisu i zamówień.");
+  const serviceEntry = await syncPricingComplaintToRepairNotebook(historyEntry);
+  if (serviceEntry) {
+    alert("Reklamacja zapisana i przekazana do Serwisu i zamówień.");
+  } else {
+    alert("Reklamacja została zapisana w historii. Wpis w Serwisie wymaga sprawdzenia.");
+  }
   return historyEntry;
 }
 
@@ -13273,7 +13279,7 @@ async function printPricingComplaint() {
   renderPricingComplaint();
   const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return;
-  if (!await syncPricingComplaintToRepairNotebook(historyEntry)) return;
+  await syncPricingComplaintToRepairNotebook(historyEntry);
   const cleanup = () => document.body.classList.remove("pricing-complaint-print");
   document.body.classList.add("pricing-complaint-print");
   window.addEventListener("afterprint", cleanup, { once: true });
