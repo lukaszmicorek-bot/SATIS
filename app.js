@@ -58,6 +58,7 @@ const DEMO_ATTACHMENTS_BUCKET = "demo-attachments";
 const DEMO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEMO_ATTACHMENT_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 const STOCK_LOCATIONS = ["T12", "P50", "P63"];
+const MAX_STOCK_AUDIT_HISTORY = 60;
 const PRICING_UPDATED_MONTH = 4;
 const PRICING_UPDATED_YEAR = 2026;
 const DEFAULT_PRICING_NFZ_CODE = "P.01.01.00";
@@ -399,6 +400,8 @@ let pricingLoanAutofilledFromOffer = false;
 let serialCopyToastTimeout = 0;
 let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
+let stockAuditCheckedIndex = new Set(stockAudit.checkedItems || []);
+let stockAuditItemIndex = new Set((stockAudit.items || []).map((item) => item.id));
 let deviceNameCorrectionCandidates = [];
 let modelQualityCandidates = [];
 let personQualityCandidates = [];
@@ -918,8 +921,16 @@ const stockChecklistBody = document.querySelector("#stockChecklistBody");
 const stockChecklistMeta = document.querySelector("#stockChecklistMeta");
 const stockAuditSummary = document.querySelector("#stockAuditSummary");
 const stockAuditPreview = document.querySelector("#stockAuditPreview");
+const stockAuditHistory = document.querySelector("#stockAuditHistory");
+const stockAuditHistoryCount = document.querySelector("#stockAuditHistoryCount");
+const stockAuditHistorySearch = document.querySelector("#stockAuditHistorySearch");
+const stockAuditHistoryList = document.querySelector("#stockAuditHistoryList");
 const stockAuditPersonInput = document.querySelector("#stockAuditPerson");
 const stockAuditDateInput = document.querySelector("#stockAuditDate");
+const stockDemoBody = document.querySelector("#stockDemoBody");
+const stockDemoEmptyState = document.querySelector("#stockDemoEmptyState");
+const stockDemoSummary = document.querySelector("#stockDemoSummary");
+const stockDemoLocationSummary = document.querySelector("#stockDemoLocationSummary");
 const saveStockAuditBtn = document.querySelector("#saveStockAuditBtn");
 const exportStockAuditPdfBtn = document.querySelector("#exportStockAuditPdfBtn");
 const clearStockAuditBtn = document.querySelector("#clearStockAuditBtn");
@@ -2512,6 +2523,8 @@ async function activateSupabaseSession(user) {
   setConnectionStatus("syncing", "Łączenie...");
   renderCachedRecordsBeforeSupabaseSync();
   await refreshRecordsFromSupabase({ throwOnError: true });
+  await loadStockAuditHistory();
+  if (activeDeviceView === "stock") renderStockView();
   await loadVacationData();
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
@@ -2615,10 +2628,11 @@ function loadStockAudit() {
       checkedBy: titleCaseName(parsed.checkedBy || ""),
       savedAt: String(parsed.savedAt || ""),
       checkedItems: Array.isArray(parsed.checkedItems) ? [...new Set(parsed.checkedItems.map(String).filter(Boolean))] : [],
-      items: normalizeStockAuditItems(parsed.items)
+      items: normalizeStockAuditItems(parsed.items),
+      history: normalizeStockAuditHistory(parsed.history)
     };
   } catch {
-    return { checkedAt: "", checkedBy: "", savedAt: "", checkedItems: [], items: [] };
+    return { checkedAt: "", checkedBy: "", savedAt: "", checkedItems: [], items: [], history: [] };
   }
 }
 
@@ -2631,8 +2645,10 @@ function normalizeStockAuditItems(items) {
     const id = String(item?.id || "").trim();
     if (!id || seen.has(id)) return;
     seen.add(id);
+    const source = item?.source === "demo" || id.startsWith("demo:") ? "demo" : "stock";
     normalizedItems.push({
       id,
+      source,
       deviceName: String(item?.deviceName || "Bez nazwy").trim() || "Bez nazwy",
       serialNumber: String(item?.serialNumber || "brak numeru").trim() || "brak numeru",
       location: normalizeRepairLocation(item?.location)
@@ -2642,13 +2658,85 @@ function normalizeStockAuditItems(items) {
   return normalizedItems;
 }
 
-function stockAuditSnapshotItems(stockRecords = stockAuditRecords()) {
-  return stockRecords.map((record) => ({
-    id: String(record.id),
+function normalizeStockAuditHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => ({
+      id: String(entry.id || makeId()),
+      checkedAt: isoDateForSave(entry.checkedAt) || "",
+      checkedBy: titleCaseName(entry.checkedBy || ""),
+      savedAt: String(entry.savedAt || ""),
+      total: Math.max(0, Number(entry.total) || 0),
+      present: Math.max(0, Number(entry.present) || 0),
+      missing: Math.max(0, Number(entry.missing) || 0),
+      models: Array.isArray(entry.models) ? entry.models.map((model) => ({
+        key: String(model?.key || ""),
+        deviceName: String(model?.deviceName || "Bez nazwy").trim() || "Bez nazwy",
+        source: model?.source === "demo" ? "demo" : "stock",
+        locations: [...new Set((Array.isArray(model?.locations) ? model.locations : []).map(normalizeRepairLocation))],
+        total: Math.max(0, Number(model?.total) || 0),
+        present: Math.max(0, Number(model?.present) || 0),
+        missing: Math.max(0, Number(model?.missing) || 0)
+      })) : []
+    }))
+    .sort((left, right) => String(right.savedAt || right.checkedAt).localeCompare(String(left.savedAt || left.checkedAt)))
+    .slice(0, MAX_STOCK_AUDIT_HISTORY);
+}
+
+function stockAuditSnapshotItem(record, source = "stock") {
+  const recordId = String(record?.id || "").trim();
+  return {
+    id: source === "demo" ? `demo:${recordId.replace(/^demo:/u, "")}` : recordId,
+    source,
     deviceName: String(record.deviceName || "Bez nazwy").trim() || "Bez nazwy",
     serialNumber: String(record.serialNumber || "brak numeru").trim() || "brak numeru",
     location: normalizeRepairLocation(record.location)
-  }));
+  };
+}
+
+function stockAuditSnapshotItems(stockRecords = stockAuditRecords(), demoStockRecords = demoStockAuditRecords()) {
+  return [
+    ...stockRecords.map((record) => stockAuditSnapshotItem(record, "stock")),
+    ...demoStockRecords.map((record) => stockAuditSnapshotItem(record, "demo"))
+  ].filter((item) => item.id);
+}
+
+function createStockAuditHistoryEntry({ checkedAt, checkedBy, checkedItems, items, savedAt = new Date().toISOString() }) {
+  const normalizedItems = normalizeStockAuditItems(items);
+  const checked = new Set((checkedItems || []).map(String));
+  const models = new Map();
+
+  normalizedItems.forEach((item) => {
+    const key = `${item.source}|${normalize(item.deviceName).replace(/\s+/gu, " ").trim()}`;
+    if (!models.has(key)) {
+      models.set(key, {
+        key,
+        deviceName: item.deviceName,
+        source: item.source,
+        locations: new Set(),
+        total: 0,
+        present: 0,
+        missing: 0
+      });
+    }
+    const model = models.get(key);
+    model.locations.add(item.location);
+    model.total += 1;
+    if (checked.has(item.id)) model.present += 1;
+    else model.missing += 1;
+  });
+
+  return {
+    id: makeId(),
+    checkedAt,
+    checkedBy,
+    savedAt,
+    total: normalizedItems.length,
+    present: normalizedItems.filter((item) => checked.has(item.id)).length,
+    missing: normalizedItems.filter((item) => !checked.has(item.id)).length,
+    models: [...models.values()].map((model) => ({ ...model, locations: [...model.locations] }))
+  };
 }
 
 function persistStockAudit(audit) {
@@ -2659,13 +2747,88 @@ function persistStockAudit(audit) {
     checkedItems: Array.isArray(audit.checkedItems)
       ? [...new Set(audit.checkedItems.map(String).filter(Boolean))]
       : [...new Set((stockAudit.checkedItems || []).map(String).filter(Boolean))],
-    items: normalizeStockAuditItems(Array.isArray(audit.items) ? audit.items : stockAudit.items)
+    items: normalizeStockAuditItems(Array.isArray(audit.items) ? audit.items : stockAudit.items),
+    history: normalizeStockAuditHistory(Array.isArray(audit.history) ? audit.history : stockAudit.history)
   };
+  stockAuditCheckedIndex = new Set(stockAudit.checkedItems);
+  stockAuditItemIndex = new Set(stockAudit.items.map((item) => item.id));
   writeSensitiveStorage(STOCK_AUDIT_STORAGE_KEY, JSON.stringify(stockAudit));
 }
 
 function stockAuditRecords() {
   return records.filter((record) => deviceDerived.get(record.id)?.isInStock);
+}
+
+function demoStockAuditRecords() {
+  return demoRecords.filter((record) => (demoDerived.get(record.id)?.status ?? demoStatus(record)) === "NA STANIE");
+}
+
+function stockAuditLogEntry(historyEntry, snapshot) {
+  return normalizeAuditLogEntry({
+    id: historyEntry.id,
+    recordId: "stock-audit",
+    notebook: "stock",
+    action: "audit",
+    recordLabel: `Remanent ${historyEntry.checkedAt}`,
+    workstation: currentWorkstationName(),
+    userEmail: currentSupabaseUser?.email || "",
+    createdAt: historyEntry.savedAt,
+    data: {
+      historyEntry,
+      snapshot: {
+        checkedAt: snapshot.checkedAt,
+        checkedBy: snapshot.checkedBy,
+        savedAt: snapshot.savedAt,
+        checkedItems: snapshot.checkedItems,
+        items: snapshot.items
+      }
+    }
+  });
+}
+
+async function loadStockAuditHistory() {
+  if (!hasSupabaseConfig) return stockAudit.history || [];
+  try {
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_AUDIT_TABLE)
+      .select("id,record_id,notebook,action,record_label,workstation,user_email,created_at,data")
+      .eq("notebook", "stock")
+      .eq("record_id", "stock-audit")
+      .eq("action", "audit")
+      .order("created_at", { ascending: false })
+      .limit(MAX_STOCK_AUDIT_HISTORY);
+    if (error) throw error;
+
+    const logs = (data || []).map(auditLogFromSupabaseRow).filter(Boolean);
+    const history = normalizeStockAuditHistory(logs.map((entry) => entry.data?.historyEntry).filter(Boolean));
+    const latestSnapshot = logs[0]?.data?.snapshot;
+    if (latestSnapshot) {
+      stockAudit = {
+        checkedAt: isoDateForSave(latestSnapshot.checkedAt) || "",
+        checkedBy: titleCaseName(latestSnapshot.checkedBy || ""),
+        savedAt: String(latestSnapshot.savedAt || ""),
+        checkedItems: Array.isArray(latestSnapshot.checkedItems)
+          ? [...new Set(latestSnapshot.checkedItems.map(String).filter(Boolean))]
+          : [],
+        items: normalizeStockAuditItems(latestSnapshot.items),
+        history
+      };
+    } else {
+      stockAudit = { ...stockAudit, history };
+    }
+    stockAuditCheckedIndex = new Set(stockAudit.checkedItems || []);
+    stockAuditItemIndex = new Set((stockAudit.items || []).map((item) => item.id));
+    return history;
+  } catch (error) {
+    console.warn("Nie udało się pobrać historii remanentów:", error?.message || error);
+    return stockAudit.history || [];
+  }
+}
+
+async function persistStockAuditHistoryEntry(historyEntry) {
+  const entry = stockAuditLogEntry(historyEntry, stockAudit);
+  if (!entry) return;
+  await persistAuditLog(entry);
 }
 
 function stockAuditCheckedCount(stockRecords = stockAuditRecords()) {
@@ -2706,6 +2869,7 @@ function renderStockAudit(stockRecords = stockAuditRecords()) {
   if (exportStockAuditPdfBtn) exportStockAuditPdfBtn.disabled = !isStockAuditActive();
   renderStockAuditPreview(stockRecords);
   renderStockAuditReport(stockRecords);
+  renderStockAuditHistory();
 }
 
 function stockAuditResultItems(stockRecords = stockAuditRecords()) {
@@ -2749,15 +2913,15 @@ function renderStockAuditPreview(stockRecords = stockAuditRecords()) {
   const header = document.createElement("div");
   header.className = "stock-audit-preview-head";
   header.append(
-    createStockAuditPreviewCard("Było", stats.checked, "present"),
-    createStockAuditPreviewCard("Nie było", stats.missing, "missing")
+    createStockAuditPreviewCard("Na stanie", stats.checked, "present"),
+    createStockAuditPreviewCard("Brak", stats.missing, "missing")
   );
 
   const lists = document.createElement("div");
   lists.className = "stock-audit-preview-lists";
   lists.append(
-    createStockAuditPreviewList("Było", presentItems, "present", presentPreviewLimit),
-    createStockAuditPreviewList("Nie było", missingItems, "missing", missingPreviewLimit)
+    createStockAuditPreviewList("Na stanie", presentItems, "present", presentPreviewLimit),
+    createStockAuditPreviewList("Brak", missingItems, "missing", missingPreviewLimit)
   );
 
   stockAuditPreview.hidden = false;
@@ -2787,7 +2951,7 @@ function createStockAuditPreviewList(label, items, type, limit) {
   items.slice(0, limit).forEach((item) => {
     const chip = document.createElement("span");
     chip.className = `stock-audit-preview-chip ${type}`;
-    chip.textContent = `${item.serialNumber} · ${item.deviceName} · ${item.location}`;
+    chip.textContent = `${item.source === "demo" ? "Demo · " : ""}${item.serialNumber} · ${item.deviceName} · ${item.location}`;
     list.append(chip);
   });
 
@@ -2807,6 +2971,80 @@ function createStockAuditPreviewList(label, items, type, limit) {
 
   section.append(title, list);
   return section;
+}
+
+function renderStockAuditHistory() {
+  if (!stockAuditHistoryList || !stockAuditHistoryCount) return;
+  const history = normalizeStockAuditHistory(stockAudit.history);
+  const query = normalize(stockAuditHistorySearch?.value || "").trim();
+  stockAuditHistoryCount.textContent = history.length
+    ? `${history.length} ${history.length === 1 ? "zapis" : "zapisów"}`
+    : "Brak zapisów";
+
+  if (!history.length) {
+    const empty = document.createElement("p");
+    empty.className = "stock-audit-history-empty";
+    empty.textContent = "Historia pojawi się po zapisaniu remanentu.";
+    stockAuditHistoryList.replaceChildren(empty);
+    return;
+  }
+
+  const matchingEntries = history
+    .map((entry) => ({
+      entry,
+      models: query
+        ? entry.models.filter((model) => normalize(model.deviceName).includes(query))
+        : entry.models
+    }))
+    .filter(({ models }) => !query || models.length)
+    .slice(0, query ? 30 : 8);
+
+  if (!matchingEntries.length) {
+    const empty = document.createElement("p");
+    empty.className = "stock-audit-history-empty";
+    empty.textContent = "Nie znaleziono modelu w historii remanentów.";
+    stockAuditHistoryList.replaceChildren(empty);
+    return;
+  }
+
+  const nodes = matchingEntries.map(({ entry, models }) => {
+    const card = document.createElement("article");
+    const head = document.createElement("div");
+    const title = document.createElement("strong");
+    const result = document.createElement("span");
+    const modelList = document.createElement("div");
+    card.className = "stock-audit-history-entry";
+    head.className = "stock-audit-history-entry-head";
+    title.textContent = `${formatDate(entry.checkedAt) || "Brak daty"} · ${entry.checkedBy || "Brak osoby"}`;
+    result.textContent = `Na stanie ${entry.present} · Brak ${entry.missing} · Razem ${entry.total}`;
+    head.append(title, result);
+    modelList.className = "stock-audit-history-models";
+
+    models.slice(0, query ? 40 : 12).forEach((model) => {
+      const item = document.createElement("div");
+      const name = document.createElement("strong");
+      const meta = document.createElement("span");
+      const source = document.createElement("small");
+      item.className = `stock-audit-history-model ${model.missing ? "missing" : "present"}`;
+      name.textContent = model.deviceName;
+      source.textContent = model.source === "demo" ? "Demo" : "Magazyn";
+      source.className = `stock-audit-source ${model.source}`;
+      meta.textContent = `${model.locations.join(", ") || "Brak miejsca"} · na stanie ${model.present}/${model.total}${model.missing ? ` · brak ${model.missing}` : ""}`;
+      item.append(name, source, meta);
+      modelList.append(item);
+    });
+
+    if (models.length > (query ? 40 : 12)) {
+      const more = document.createElement("span");
+      more.className = "stock-audit-history-more";
+      more.textContent = `+ ${models.length - (query ? 40 : 12)} modeli`;
+      modelList.append(more);
+    }
+    card.append(head, modelList);
+    return card;
+  });
+
+  stockAuditHistoryList.replaceChildren(...nodes);
 }
 
 function sortedStockAuditReportItems(stockRecords = stockAuditRecords()) {
@@ -2877,7 +3115,7 @@ function renderStockAuditReport(stockRecords = stockAuditRecords()) {
     [
       { value: String(index + 1), className: "audit-report-index" },
       { value: item.status, className: "audit-report-status" },
-      { value: item.deviceName, className: "audit-report-device-name" },
+      { value: `${item.source === "demo" ? "Demo · " : ""}${item.deviceName}`, className: "audit-report-device-name" },
       { value: item.serialNumber, className: "audit-report-serial" },
       { value: item.location, className: "audit-report-location" }
     ].forEach(({ value, className }) => {
@@ -2945,7 +3183,7 @@ function fillStockAuditForm() {
   renderStockAudit();
 }
 
-function saveStockAuditFromForm() {
+async function saveStockAuditFromForm() {
   const checkedBy = titleCaseName(stockAuditPersonInput?.value || "");
   const checkedAt = isoDateForSave(stockAuditDateInput?.value) || todayInputValue();
 
@@ -2955,18 +3193,41 @@ function saveStockAuditFromForm() {
     return;
   }
 
-  persistStockAudit({
-    checkedAt,
-    checkedBy,
-    checkedItems: stockAudit.checkedItems || [],
-    items: stockAuditSnapshotItems()
-  });
-  fillStockAuditForm();
-  renderStockView();
+  if (saveStockAuditBtn?.disabled) return;
+  if (saveStockAuditBtn) saveStockAuditBtn.disabled = true;
+  try {
+    const items = stockAuditSnapshotItems();
+    const savedAt = new Date().toISOString();
+    const historyEntry = createStockAuditHistoryEntry({
+      checkedAt,
+      checkedBy,
+      checkedItems: stockAudit.checkedItems || [],
+      items,
+      savedAt
+    });
+    persistStockAudit({
+      checkedAt,
+      checkedBy,
+      savedAt,
+      checkedItems: stockAudit.checkedItems || [],
+      items,
+      history: [historyEntry, ...(stockAudit.history || [])]
+    });
+    fillStockAuditForm();
+    renderStockView();
+    await persistStockAuditHistoryEntry(historyEntry);
+  } finally {
+    if (saveStockAuditBtn) saveStockAuditBtn.disabled = false;
+  }
 }
 
 function isStockAuditItemChecked(recordId) {
-  return new Set(stockAudit.checkedItems || []).has(String(recordId));
+  return stockAuditCheckedIndex.has(String(recordId));
+}
+
+function isStockAuditItemIncluded(recordId) {
+  if (!isStockAuditActive()) return false;
+  return stockAuditItemIndex.has(String(recordId));
 }
 
 function toggleStockAuditItem(recordId) {
@@ -2981,8 +3242,8 @@ function toggleStockAuditItem(recordId) {
 
   const auditItems = stockAudit.items?.length ? [...stockAudit.items] : stockAuditSnapshotItems();
   if (!auditItems.some((item) => item.id === recordIdText)) {
-    const stockRecord = records.find((record) => String(record.id) === recordIdText);
-    if (stockRecord) auditItems.push(stockAuditSnapshotItems([stockRecord])[0]);
+    const currentItem = stockAuditSnapshotItems().find((item) => item.id === recordIdText);
+    if (currentItem) auditItems.push(currentItem);
   }
 
   persistStockAudit({
@@ -15998,7 +16259,10 @@ function updateStats() {
 function renderStockView() {
   const stockRecords = records.filter((record) => deviceDerived.get(record.id)?.isInStock);
   const sections = stockLocationSections(stockRecords);
+  const demoStockRecords = demoStockAuditRecords();
+  const demoSections = demoStockLocationSections(demoStockRecords);
   const rows = [];
+  const demoRows = [];
 
   sections.forEach((section) => {
     rows.push(createStockLocationHeaderRow(section.location, section.records.length));
@@ -16009,22 +16273,40 @@ function renderStockView() {
     }
   });
 
+  demoSections.forEach((section) => {
+    demoRows.push(createStockLocationHeaderRow(section.location, section.records.length));
+    if (section.groups.length) {
+      demoRows.push(...section.groups.map(createDemoStockRow));
+    } else {
+      demoRows.push(createStockLocationEmptyRow("Brak dostępnych aparatów Demo w tym miejscu."));
+    }
+  });
+
   renderTableRows(stockBody, stockRecords.length ? rows : []);
   stockEmptyState.hidden = stockRecords.length > 0;
+  renderTableRows(stockDemoBody, demoStockRecords.length ? demoRows : []);
+  stockDemoEmptyState.hidden = demoStockRecords.length > 0;
+  stockDemoSummary.textContent = formatDeviceCount(demoStockRecords.length);
   renderStockLocationSummary(sections);
+  renderStockLocationSummary(demoSections, stockDemoLocationSummary);
   renderStockAudit(stockRecords);
-  renderStockChecklist(stockRecords, sections);
+  renderStockChecklist(stockRecords, sections, demoStockRecords, demoSections);
 }
 
-function renderStockChecklist(stockRecords, sections = stockLocationSections(stockRecords)) {
+function renderStockChecklist(
+  stockRecords,
+  sections = stockLocationSections(stockRecords),
+  demoStockRecords = demoStockAuditRecords(),
+  demoSections = demoStockLocationSections(demoStockRecords)
+) {
   const locationCounts = new Map(sections.map((section) => [section.location, section.records.length]));
   const stockBreakdown = STOCK_LOCATIONS.map((location) => `${location}: ${locationCounts.get(location) || 0}`).join(" · ");
   const auditActive = isStockAuditActive();
 
   stockSummary.textContent = formatDeviceCount(stockRecords.length);
-  stockChecklistMeta.textContent = `${dateFormatter.format(new Date())} · ${formatDeviceCount(stockRecords.length)} na stanie · ${stockBreakdown}`;
+  stockChecklistMeta.textContent = `${dateFormatter.format(new Date())} · magazyn ${stockRecords.length} · Demo ${demoStockRecords.length} · ${stockBreakdown}`;
   renderStockAudit(stockRecords);
-  printStockChecklistBtn.disabled = stockRecords.length === 0;
+  printStockChecklistBtn.disabled = stockRecords.length + demoStockRecords.length === 0;
 
   const rows = [];
   let rowNumber = 0;
@@ -16044,8 +16326,9 @@ function renderStockChecklist(stockRecords, sections = stockLocationSections(sto
       const checkbox = document.createElement("span");
       checkbox.className = "checklist-box";
       const checked = isStockAuditItemChecked(record.id);
+      const included = isStockAuditItemIncluded(record.id);
       if (checked) checkbox.classList.add("checked");
-      if (auditActive) row.classList.add(checked ? "stock-audit-row-present" : "stock-audit-row-missing");
+      if (auditActive && included) row.classList.add(checked ? "stock-audit-row-present" : "stock-audit-row-missing");
       checkbox.setAttribute("aria-hidden", "true");
 
       const values = [
@@ -16054,7 +16337,7 @@ function renderStockChecklist(stockRecords, sections = stockLocationSections(sto
         record.deviceName,
         record.serialNumber,
         normalizeRepairLocation(record.location),
-        auditActive ? (checked ? "BYŁO" : "NIE BYŁO") : ""
+        auditActive && included ? (checked ? "NA STANIE" : "BRAK") : ""
       ];
 
       values.forEach((value) => {
@@ -16064,6 +16347,44 @@ function renderStockChecklist(stockRecords, sections = stockLocationSections(sto
         } else {
           cell.textContent = value;
         }
+        row.append(cell);
+      });
+      rows.push(row);
+    });
+  });
+
+  demoSections.forEach((section) => {
+    if (!section.records.length) return;
+    rows.push(createStockChecklistLocationRow(section.location, section.records.length, "Demo"));
+    const sectionRecords = [...section.records].sort((left, right) => {
+      const byName = collator.compare(left.deviceName, right.deviceName);
+      if (byName) return byName;
+      return collator.compare(left.serialNumber, right.serialNumber);
+    });
+
+    sectionRecords.forEach((record) => {
+      rowNumber += 1;
+      const row = document.createElement("tr");
+      const checkbox = document.createElement("span");
+      const auditId = stockAuditSnapshotItem(record, "demo").id;
+      const checked = isStockAuditItemChecked(auditId);
+      const included = isStockAuditItemIncluded(auditId);
+      checkbox.className = "checklist-box";
+      if (checked) checkbox.classList.add("checked");
+      if (auditActive && included) row.classList.add(checked ? "stock-audit-row-present" : "stock-audit-row-missing");
+      checkbox.setAttribute("aria-hidden", "true");
+
+      [
+        String(rowNumber),
+        checkbox,
+        `${record.deviceName} · ${demoPurposeShortLabel(record.purpose)}`,
+        record.serialNumber,
+        normalizeDemoLocation(record.location),
+        auditActive && included ? (checked ? "NA STANIE" : "BRAK") : ""
+      ].forEach((value) => {
+        const cell = document.createElement("td");
+        if (value instanceof HTMLElement) cell.append(value);
+        else cell.textContent = value || "";
         row.append(cell);
       });
       rows.push(row);
@@ -16119,6 +16440,37 @@ function groupStockRecords(stockRecords) {
   });
 }
 
+function demoPurposeShortLabel(value) {
+  return normalizeDemoPurpose(value) === DEMO_PURPOSE_REPLACEMENT ? "Zastępczy" : "Demo";
+}
+
+function groupDemoStockRecords(stockRecords) {
+  const groups = new Map();
+  stockRecords.forEach((record) => {
+    const name = String(record.deviceName ?? "").trim() || "Bez nazwy";
+    const location = normalizeDemoLocation(record.location);
+    const purpose = demoPurposeShortLabel(record.purpose);
+    const key = `${normalize(name).replace(/[\s_-]+/g, " ").trim()}__${normalize(purpose)}__${location}`;
+    if (!groups.has(key)) {
+      groups.set(key, { deviceName: name, purpose, location, count: 0, serialItems: [] });
+    }
+    const group = groups.get(key);
+    group.count += 1;
+    group.serialItems.push({
+      id: stockAuditSnapshotItem(record, "demo").id,
+      serialNumber: record.serialNumber || "brak numeru"
+    });
+  });
+
+  return [...groups.values()].sort((left, right) => {
+    const byCount = right.count - left.count;
+    if (byCount) return byCount;
+    const byName = collator.compare(left.deviceName, right.deviceName);
+    if (byName) return byName;
+    return collator.compare(left.location, right.location);
+  });
+}
+
 function stockLocationSections(stockRecords) {
   const recordsByLocation = new Map(STOCK_LOCATIONS.map((location) => [location, []]));
 
@@ -16138,8 +16490,25 @@ function stockLocationSections(stockRecords) {
   });
 }
 
-function renderStockLocationSummary(sections) {
-  if (!stockLocationSummary) return;
+function demoStockLocationSections(stockRecords) {
+  const recordsByLocation = new Map(STOCK_LOCATIONS.map((location) => [location, []]));
+  stockRecords.forEach((record) => {
+    const location = normalizeDemoLocation(record.location);
+    if (!recordsByLocation.has(location)) recordsByLocation.set(location, []);
+    recordsByLocation.get(location).push(record);
+  });
+  return STOCK_LOCATIONS.map((location) => {
+    const locationRecords = recordsByLocation.get(location) || [];
+    return {
+      location,
+      records: locationRecords,
+      groups: groupDemoStockRecords(locationRecords)
+    };
+  });
+}
+
+function renderStockLocationSummary(sections, target = stockLocationSummary) {
+  if (!target) return;
   const fragment = document.createDocumentFragment();
 
   sections.forEach((section) => {
@@ -16154,7 +16523,7 @@ function renderStockLocationSummary(sections) {
     fragment.append(item);
   });
 
-  stockLocationSummary.replaceChildren(fragment);
+  target.replaceChildren(fragment);
 }
 
 function formatDeviceCount(count) {
@@ -16181,22 +16550,22 @@ function createStockLocationHeaderRow(location, count) {
   return row;
 }
 
-function createStockLocationEmptyRow() {
+function createStockLocationEmptyRow(message = "Brak aparatów w tym miejscu.") {
   const row = document.createElement("tr");
   row.className = "stock-location-empty";
   const cell = document.createElement("td");
   cell.colSpan = 5;
-  cell.textContent = "Brak aparatów w tym miejscu.";
+  cell.textContent = message;
   row.append(cell);
   return row;
 }
 
-function createStockChecklistLocationRow(location, count) {
+function createStockChecklistLocationRow(location, count, prefix = "Magazyn") {
   const row = document.createElement("tr");
   row.className = "stock-checklist-location-row";
   const cell = document.createElement("td");
   cell.colSpan = 6;
-  cell.textContent = `${location} · ${formatDeviceCount(count)}`;
+  cell.textContent = `${prefix} · ${location} · ${formatDeviceCount(count)}`;
   row.append(cell);
   return row;
 }
@@ -16219,6 +16588,24 @@ function createStockRow(group) {
   return row;
 }
 
+function createDemoStockRow(group) {
+  const row = document.createElement("tr");
+  const values = [
+    group.deviceName,
+    createDemoPurposePill(group.purpose === "Zastępczy" ? DEMO_PURPOSE_REPLACEMENT : DEMO_PURPOSE_TEST),
+    createLocationPill(group.location),
+    group.count,
+    createSerialList(group.serialItems)
+  ];
+  values.forEach((value) => {
+    const cell = document.createElement("td");
+    if (value instanceof HTMLElement) cell.append(value);
+    else cell.textContent = value;
+    row.append(cell);
+  });
+  return row;
+}
+
 function createSerialList(serialItems) {
   const list = document.createElement("div");
   list.className = "serial-list";
@@ -16229,17 +16616,18 @@ function createSerialList(serialItems) {
     .forEach(({ id, serialNumber }) => {
       const item = document.createElement("button");
       const checked = isStockAuditItemChecked(id);
+      const included = isStockAuditItemIncluded(id);
       item.className = "stock-audit-serial";
       item.type = "button";
       item.textContent = serialNumber;
       item.setAttribute("aria-pressed", String(checked));
       item.title = checked
-        ? "Było w remanencie"
-        : auditActive
-          ? "Nie było w remanencie"
+        ? "Na stanie w remanencie"
+        : auditActive && included
+          ? "Brak w remanencie"
           : "Kliknij, aby zaznaczyć w remanencie";
       if (checked) item.classList.add("checked");
-      if (auditActive && !checked) item.classList.add("missing");
+      if (auditActive && included && !checked) item.classList.add("missing");
       item.addEventListener("click", () => toggleStockAuditItem(id));
       list.append(item);
     });
@@ -21086,6 +21474,10 @@ printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
 clearStockAuditBtn?.addEventListener("click", clearStockAuditItems);
+stockAuditHistorySearch?.addEventListener("input", debounce(renderStockAuditHistory, SEARCH_DEBOUNCE_MS));
+stockAuditHistory?.addEventListener("toggle", () => {
+  if (stockAuditHistory.open) renderStockAuditHistory();
+});
 scrollTopBtn?.addEventListener("click", scrollToPageTop);
 workstationBtn?.addEventListener("click", () => {
   if (!canManageWorkstation()) return;
