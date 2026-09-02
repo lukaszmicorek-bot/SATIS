@@ -984,6 +984,7 @@ const demoManufacturerSuggestions = document.querySelector("#demoManufacturerSug
 const demoDeviceNameSuggestions = document.querySelector("#demoDeviceNameSuggestions");
 const recordDialog = document.querySelector("#recordDialog");
 const recordForm = document.querySelector("#recordForm");
+const saveRecordBtn = document.querySelector("#saveRecordBtn");
 const recordEyebrow = document.querySelector("#recordEyebrow");
 const dialogTitle = document.querySelector("#dialogTitle");
 const dialogSerial = document.querySelector("#dialogSerial");
@@ -998,6 +999,7 @@ const importInput = document.querySelector("#importInput");
 const importRepairInput = document.querySelector("#importRepairInput");
 const repairDialog = document.querySelector("#repairDialog");
 const repairForm = document.querySelector("#repairForm");
+const saveRepairBtn = document.querySelector("#saveRepairBtn");
 const repairRecordEyebrow = document.querySelector("#repairRecordEyebrow");
 const repairDialogTitle = document.querySelector("#repairDialogTitle");
 const repairDialogSerial = document.querySelector("#repairDialogSerial");
@@ -1008,6 +1010,7 @@ const addRepairSerial2Btn = document.querySelector("#addRepairSerial2Btn");
 const removeRepairSerial2Btn = document.querySelector("#removeRepairSerial2Btn");
 const deleteRepairBtn = document.querySelector("#deleteRepairBtn");
 const repairFormError = document.querySelector("#repairFormError");
+const repairPickupLoanReminder = document.querySelector("#repairPickupLoanReminder");
 const demoDialog = document.querySelector("#demoDialog");
 const demoForm = document.querySelector("#demoForm");
 const demoDialogTitle = document.querySelector("#demoDialogTitle");
@@ -7828,6 +7831,11 @@ function markAgreementDraftSaved(key) {
   state.reminder.hidden = true;
 }
 
+function setLoanReturnEditMode(active) {
+  const editor = agreementDraftStates.get("loan")?.editor || pricingLoanView?.querySelector(".loan-builder");
+  editor?.classList.toggle("loan-return-edit-active", Boolean(active));
+}
+
 function setupAgreementDraftTracking() {
   [
     ["offer", pricingOfferView, savePricingOfferBtn],
@@ -7851,6 +7859,29 @@ function setupAgreementDraftTracking() {
         markAgreementDraftDirty(key);
       }, { capture: true });
     });
+  });
+}
+
+function setPrimarySaveHighlight(button, active) {
+  if (!button) return;
+  button.classList.toggle("has-unsaved-changes", Boolean(active));
+  if (active) {
+    button.title = "Zapisz wprowadzone zmiany";
+    button.setAttribute("aria-label", "Zapisz wprowadzone zmiany");
+  } else {
+    button.title = "";
+    button.removeAttribute("aria-label");
+  }
+}
+
+function setupPrimarySaveTracking(form, button, selectors) {
+  if (!form || !button) return;
+  const keyFields = selectors.join(", ");
+  ["input", "change"].forEach((eventName) => {
+    form.addEventListener(eventName, (event) => {
+      if (!event.target.matches(keyFields)) return;
+      setPrimarySaveHighlight(button, true);
+    }, { capture: true });
   });
 }
 
@@ -7901,7 +7932,7 @@ function normalizePricingOfferHistoryEntry(entry) {
     customer: titleCaseName(entry.customer || ""),
     age: normalizeLoanHistoryText(entry.age),
     patientGroup: pricingOfferHistoryPatientGroup(entry),
-    location: normalizeDocumentLocationValue(entry.location),
+    location: normalizeLoanHistoryText(entry.location) ? normalizeDocumentLocationValue(entry.location) : "",
     offerDate,
     validUntil: isoDateForSave(entry.validUntil) || normalizeLoanHistoryText(entry.validUntil),
     withoutNfz: Boolean(entry.withoutNfz),
@@ -8212,7 +8243,7 @@ function normalizePricingLoanHistoryEntry(entry) {
     workstation: normalizeLoanHistoryText(entry.workstation),
     number: normalizeLoanHistoryText(entry.number),
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
-    city: normalizeLoanCityValue(entry.city),
+    city: normalizeLoanHistoryText(entry.city) ? normalizeLoanCityValue(entry.city) : "",
     deposit: normalizeLoanHistoryText(entry.deposit),
     periodFrom: isoDateForSave(entry.periodFrom) || normalizeLoanHistoryText(entry.periodFrom),
     periodTo: isoDateForSave(entry.periodTo) || normalizeLoanHistoryText(entry.periodTo),
@@ -8780,6 +8811,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     renderPricingLoanHistory();
     renderDeviceViews();
     markAgreementDraftSaved("loan");
+    setLoanReturnEditMode(false);
     if (!silent) {
       if (demoSyncError) {
         alert("Umowa zapisana w historii, ale nie udało się zaktualizować aparatu Demo. Sprawdź połączenie i odśwież aplikację.");
@@ -8817,6 +8849,7 @@ function setLoanSnapshotInput(input, value, options = {}) {
 }
 
 function restorePricingLoanFromHistory(entry) {
+  setLoanReturnEditMode(false);
   hideLoanCustomerHistorySuggestions();
   clearPostalAutofill(loanAddressInput, "loanPostalHint");
   const historyEntry = normalizePricingLoanHistoryEntry(entry);
@@ -9502,11 +9535,19 @@ function pricingHistoryEntryDate(entry, kind) {
 }
 
 function pricingHistoryEntryLocation(entry) {
-  const source = [entry?.location, entry?.workstation].filter(Boolean).join(" ");
-  const direct = source.toLocaleUpperCase("pl-PL").match(/(?:^|[^A-Z0-9])(T12|P50|P63)(?=$|[^A-Z0-9])/u)?.[1];
-  if (direct) return direct;
-  const normalizedLocation = normalizeDocumentLocationValue(entry?.location || "");
-  return DOCUMENT_LOCATIONS.find((location) => normalize(location.value) === normalize(normalizedLocation))?.key || "";
+  const storedLocation = String(entry?.location || entry?.city || "").trim();
+  if (storedLocation) {
+    const directLocation = storedLocation
+      .toLocaleUpperCase("pl-PL")
+      .match(/(?:^|[^A-Z0-9])(T12|P50|P63)(?=$|[^A-Z0-9])/u)?.[1];
+    if (directLocation) return directLocation;
+    const normalizedLocation = normalizeDocumentLocationValue(storedLocation);
+    return DOCUMENT_LOCATIONS.find((location) => normalize(location.value) === normalize(normalizedLocation))?.key || "";
+  }
+
+  return String(entry?.workstation || "")
+    .toLocaleUpperCase("pl-PL")
+    .match(/(?:^|[^A-Z0-9])(T12|P50|P63)(?=$|[^A-Z0-9])/u)?.[1] || "";
 }
 
 function pricingHistoryEntryMatchesFilters(entry, kind) {
@@ -10026,13 +10067,18 @@ function loanDeviceInputs(side) {
 function loanDeviceData(side) {
   const inputs = loanDeviceInputs(side);
   const record = findPricingOfferRecord(inputs.device?.value);
-  return {
+  const device = {
     side: side === "right" ? "prawe" : "lewe",
     model: record ? pricingOfferDeviceName(record) : loanInputValue(inputs.device),
     serial: loanInputValue(inputs.serial).toLocaleUpperCase("pl-PL"),
     manufacturer: loanInputValue(inputs.manufacturer) || record?.manufacturer || "",
     value: loanInputValue(inputs.value) || record?.grossPrice || "",
     purpose: normalizeLoanDemoPurpose(inputs.purpose?.value)
+  };
+  const agreementDate = isoDateForSave(loanDateInput?.value) || loanInputValue(loanDateInput);
+  return {
+    ...device,
+    year: hasLoanDeviceData(device) ? String(agreementDate).slice(0, 4) : ""
   };
 }
 
@@ -10351,6 +10397,7 @@ function ensurePricingLoanDefaults() {
 }
 
 function startNewPricingLoan() {
+  setLoanReturnEditMode(false);
   hideLoanCustomerHistorySuggestions();
   clearPostalAutofill(loanAddressInput, "loanPostalHint");
   activePricingLoanHistoryId = "";
@@ -10417,6 +10464,7 @@ function renderPricingLoanEquipment(devices) {
     }
     appendOfferCell(row, device.serial, "loan-equipment-serial");
     appendOfferCell(row, device.manufacturer);
+    appendOfferCell(row, device.year);
     const valueCell = document.createElement("td");
     valueCell.append(loanMoneyElement(device.value));
     row.append(valueCell);
@@ -11394,7 +11442,7 @@ function normalizePricingOrderHistoryEntry(entry) {
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
     patientGroup: ["adult", "child"].includes(entry.patientGroup) ? entry.patientGroup : "",
-    location: normalizeDocumentLocationValue(entry.location),
+    location: normalizeLoanHistoryText(entry.location) ? normalizeDocumentLocationValue(entry.location) : "",
     notes: normalizeLoanHistoryText(entry.notes),
     items
   };
@@ -12671,7 +12719,7 @@ function normalizePricingComplaintHistoryEntry(entry) {
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
     customer: titleCaseName(entry.customer || ""),
     phone: normalizeLoanHistoryText(entry.phone),
-    location: normalizeDocumentLocationValue(entry.location),
+    location: normalizeLoanHistoryText(entry.location) ? normalizeDocumentLocationValue(entry.location) : "",
     items: normalizePricingComplaintItems(entry),
     request: normalizePricingComplaintRequest(entry.request),
     defect: normalizeLoanHistoryText(entry.defect),
@@ -15249,6 +15297,35 @@ function repairActiveDemoRelations(record) {
   }));
 }
 
+function renderRepairPickupLoanReminder() {
+  if (!repairPickupLoanReminder) return [];
+  const customerName = titleCaseName(document.querySelector("#repairCustomerName")?.value || "");
+  const relations = repairActiveDemoRelations({ customerName });
+  repairPickupLoanReminder.replaceChildren();
+  repairPickupLoanReminder.hidden = relations.length === 0;
+  if (!relations.length) return relations;
+
+  const heading = document.createElement("strong");
+  heading.textContent = "Pamiętaj o zakończeniu umowy";
+  const message = document.createElement("span");
+  message.textContent = "Po zapisaniu odbioru zakończ aktywną umowę i wpisz w niej datę zwrotu.";
+  const list = document.createElement("ul");
+  relations.forEach((relation) => {
+    relation.loans.forEach((loan) => {
+      const item = document.createElement("li");
+      const badge = document.createElement("b");
+      badge.className = `repair-pickup-loan-badge ${relation.className}`;
+      badge.textContent = relation.label;
+      const detail = document.createElement("span");
+      detail.textContent = activeDemoLoanLine(loan);
+      item.append(badge, detail);
+      list.append(item);
+    });
+  });
+  repairPickupLoanReminder.append(heading, message, list);
+  return relations;
+}
+
 function repairDemoRelationLoanEntry(record, relation) {
   const customerKey = customerNameLookupKey(record?.customerName);
   if (!customerKey) return null;
@@ -15289,6 +15366,7 @@ function openRepairDemoLoanAgreement(record, relation) {
     return;
   }
   restorePricingLoanFromHistory(entry);
+  setLoanReturnEditMode(true);
   window.setTimeout(() => {
     loanReturnDateInput?.scrollIntoView({ block: "center", behavior: "smooth" });
     loanReturnDateInput?.focus({ preventScroll: true });
@@ -18249,6 +18327,7 @@ function fillDemoFormValues(record = {}) {
 }
 
 function openDialog(record = null) {
+  setPrimarySaveHighlight(saveRecordBtn, false);
   recordForm.reset();
   clearDeviceDateValidationError();
   document.querySelector("#recordId").value = record?.id ?? "";
@@ -18335,7 +18414,12 @@ function setRepairSerial2Visibility(show, options = {}) {
 }
 
 function openRepairDialog(record = null) {
+  setPrimarySaveHighlight(saveRepairBtn, false);
   repairForm.reset();
+  if (repairPickupLoanReminder) {
+    repairPickupLoanReminder.hidden = true;
+    repairPickupLoanReminder.replaceChildren();
+  }
   clearRepairDateOrderError();
   const repairDeviceNameInput = document.querySelector("#repairDeviceName");
   delete repairDeviceNameInput.dataset.autoFromSerial;
@@ -18412,6 +18496,7 @@ function repairDialogCustomerTitle(record) {
 }
 
 function openDemoDialog(record = null) {
+  setPrimarySaveHighlight(saveDemoBtn, false);
   demoForm.reset();
   document.querySelector("#demoPurposeChoices")?.classList.remove("required-missing");
   demoLoanHistoryDraft = record ? effectiveDemoLoanHistory(record) : [];
@@ -18553,16 +18638,19 @@ function renderDemoLoanHistory(record) {
 
 function closeDialog() {
   closeDatePicker();
+  setPrimarySaveHighlight(saveRecordBtn, false);
   recordDialog.close();
 }
 
 function closeRepairDialog() {
   closeDatePicker();
+  setPrimarySaveHighlight(saveRepairBtn, false);
   repairDialog.close();
 }
 
 function closeDemoDialog() {
   closeDatePicker();
+  setPrimarySaveHighlight(saveDemoBtn, false);
   demoDialog.close();
 }
 
@@ -20923,6 +21011,14 @@ pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
   });
 });
 setupAgreementDraftTracking();
+setupPrimarySaveTracking(recordForm, saveRecordBtn, ["#deviceName", "#serialNumber", "#customerName"]);
+setupPrimarySaveTracking(repairForm, saveRepairBtn, [
+  "#repairDeviceName",
+  "#repairSerialNumber",
+  "#repairSerialNumber2",
+  "#repairCustomerName"
+]);
+setupPrimarySaveTracking(demoForm, saveDemoBtn, ["#demoDeviceName", "#demoSerialNumber", "#demoCurrentUser"]);
 pcprForm?.addEventListener("submit", addPricingPcprItem);
 pcprCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
@@ -21491,10 +21587,18 @@ importRepairInput.addEventListener("change", importRepairJson);
 document.querySelector("#repairReceivedDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
-document.querySelector("#repairPickupDate").addEventListener("change", syncRepairStatusFromDates);
+document.querySelector("#repairPickupDate").addEventListener("change", () => {
+  syncRepairStatusFromDates();
+  renderRepairPickupLoanReminder();
+});
+document.querySelector("#repairPickupDate").addEventListener("focus", renderRepairPickupLoanReminder);
+document.querySelector("#repairPickupDate").addEventListener("click", renderRepairPickupLoanReminder);
 document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
 document.querySelector("#repairStatus").addEventListener("change", syncRepairDialogHeaderMeta);
 document.querySelector("#repairCustomerName").addEventListener("input", syncRepairCustomerNameInput);
+document.querySelector("#repairCustomerName").addEventListener("input", () => {
+  if (!repairPickupLoanReminder?.hidden) renderRepairPickupLoanReminder();
+});
 document.querySelector("#repairCustomerName").addEventListener("blur", finalizeRepairCustomerNameInput);
 document.querySelector("#repairPhone").addEventListener("input", (event) => {
   event.target.dataset.customerKey = customerNameLookupKey(document.querySelector("#repairCustomerName").value);

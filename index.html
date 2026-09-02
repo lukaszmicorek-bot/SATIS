@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260902-206">
+  <link rel="stylesheet" href="styles.css?v=20260902-214">
   </head>
   <body>
     <main class="app-shell">
@@ -1049,6 +1049,7 @@
                       <th>Model</th>
                       <th>Nr seryjny / UDI</th>
                       <th>Producent</th>
+                      <th>Rok</th>
                       <th>Wartość brutto</th>
                     </tr>
                   </thead>
@@ -2297,7 +2298,7 @@
           </div>
           <div class="dialog-primary-actions">
             <button class="ghost" type="button" id="cancelBtn">Anuluj</button>
-            <button type="submit">Zapisz</button>
+            <button id="saveRecordBtn" type="submit">Zapisz</button>
           </div>
         </div>
       </form>
@@ -2411,6 +2412,8 @@
           </label>
         </div>
 
+        <section id="repairPickupLoanReminder" class="repair-pickup-loan-reminder" role="alert" hidden></section>
+
         <section id="repairQualityHints" class="quality-hints" hidden aria-live="polite"></section>
 
         <section id="repairAuditTrail" class="audit-trail" hidden>
@@ -2425,7 +2428,7 @@
         <div class="dialog-actions">
           <button class="danger" id="deleteRepairBtn" type="button" hidden>Usuń</button>
           <button class="ghost" type="button" id="cancelRepairBtn">Anuluj</button>
-          <button type="submit">Zapisz</button>
+          <button id="saveRepairBtn" type="submit">Zapisz</button>
         </div>
       </form>
     </dialog>
@@ -2652,6 +2655,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260902-206"></script>
+  <script src="app.js?v=20260902-213"></script>
   </body>
 </html>
