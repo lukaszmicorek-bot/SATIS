@@ -9242,13 +9242,16 @@ td.row-actions {
 
 .stock-audit-history-list {
   display: grid;
+  justify-items: start;
   gap: 7px;
 }
 
 .stock-audit-history-entry {
   display: grid;
+  width: fit-content;
+  max-width: 100%;
   gap: 6px;
-  padding: 8px 9px;
+  padding: 6px 8px;
   border: 1px solid rgba(207, 218, 224, 0.56);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.72);
@@ -12874,8 +12877,8 @@ textarea {
 
 .manufacturer-brand-logos {
   display: grid;
-  grid-template-columns: repeat(11, minmax(44px, 1fr));
-  grid-auto-rows: 36px;
+  grid-template-columns: repeat(6, minmax(82px, 1fr));
+  grid-auto-rows: 40px;
   align-items: center;
   justify-items: center;
   gap: 6px 9px;
@@ -12887,8 +12890,8 @@ textarea {
 .manufacturer-logo-image {
   display: block;
   width: 100%;
-  max-width: 92px;
-  height: 28px;
+  max-width: 112px;
+  height: 30px;
   object-fit: contain;
   object-position: center;
 }
@@ -13028,17 +13031,17 @@ textarea {
   }
 
   body.pricing-offer-print .manufacturer-brand-logos {
-    grid-template-columns: repeat(11, minmax(0, 1fr));
-    grid-auto-rows: 6.8mm;
-    gap: 1mm 2.5mm;
-    padding: 1.4mm 2mm;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 5.8mm;
+    gap: 0.8mm 4mm;
+    padding: 1.2mm 2mm;
     border: 0.25mm solid #d5e0e3;
   }
 
   body.pricing-offer-print .manufacturer-logo-image {
     width: 100%;
-    max-width: 20mm;
-    height: 5.4mm;
+    max-width: 27mm;
+    height: 4.8mm;
     image-rendering: auto;
   }
 
