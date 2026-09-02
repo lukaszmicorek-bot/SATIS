@@ -2989,8 +2989,11 @@ function createStockAuditPreviewList(label, items, type, limit) {
 
   items.slice(0, limit).forEach((item) => {
     const chip = document.createElement("span");
+    const label = document.createElement("span");
     chip.className = `stock-audit-preview-chip ${type}`;
-    chip.textContent = `${item.source === "demo" ? "Demo · " : ""}${item.serialNumber} · ${item.deviceName} · ${item.location}`;
+    label.className = "stock-audit-preview-chip-label";
+    label.textContent = `${item.source === "demo" ? "Demo · " : ""}${item.serialNumber} · ${item.deviceName} · ${item.location}`;
+    chip.append(label);
     list.append(chip);
   });
 
@@ -3877,6 +3880,45 @@ function normalizeDeviceName(value) {
     .replace(/^\s*-\s*/u, "")
     .replace(/\s*-\s*$/u, "")
     .trim();
+}
+
+function preserveCorrectionCase(source, replacement) {
+  if (source === source.toLocaleUpperCase("pl-PL")) return replacement.toLocaleUpperCase("pl-PL");
+  if (source[0] === source[0]?.toLocaleUpperCase("pl-PL")) {
+    return replacement[0].toLocaleUpperCase("pl-PL") + replacement.slice(1);
+  }
+  return replacement;
+}
+
+function correctPolishNotes(value) {
+  const corrections = [
+    ["sluchowy", "słuchowy"], ["sluchowa", "słuchowa"], ["sluchowe", "słuchowe"],
+    ["sluchowego", "słuchowego"], ["wkladka", "wkładka"], ["wkladki", "wkładki"],
+    ["wkladke", "wkładkę"], ["ladowarka", "ładowarka"], ["ladowarki", "ładowarki"],
+    ["ladowarke", "ładowarkę"], ["wyslano", "wysłano"], ["wyslany", "wysłany"],
+    ["wyslana", "wysłana"], ["zwrocono", "zwrócono"], ["dziala", "działa"],
+    ["dzialal", "działał"], ["dzialala", "działała"], ["glosnik", "głośnik"],
+    ["glosnika", "głośnika"], ["kopulka", "kopułka"], ["kopulki", "kopułki"],
+    ["prawidlowo", "prawidłowo"], ["prosze", "proszę"]
+  ];
+  let text = String(value ?? "").replace(/\r\n?/gu, "\n");
+  corrections.forEach(([wrong, correct]) => {
+    const pattern = new RegExp(`(?<!\\p{L})${wrong}(?!\\p{L})`, "giu");
+    text = text.replace(pattern, (match) => preserveCorrectionCase(match, correct));
+  });
+  return text
+    .replace(/[ \t]+/gu, " ")
+    .replace(/ *\n */gu, "\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .replace(/\s+([,.;:!?])/gu, "$1")
+    .replace(/([,;:!?])(?=\p{L})/gu, "$1 ")
+    .replace(/(^|[.!?]\s+|\n+)(\p{Ll})/gu, (match, prefix, letter) => prefix + letter.toLocaleUpperCase("pl-PL"))
+    .trim();
+}
+
+function correctNotesInput(input) {
+  if (!input) return;
+  input.value = correctPolishNotes(input.value);
 }
 
 function damerauLevenshtein(leftValue, rightValue) {
@@ -15061,6 +15103,7 @@ function createDemoRow(record) {
 
   const statusWrap = document.createElement("div");
   const statusPill = document.createElement("span");
+  statusWrap.className = "demo-status-stack";
   statusPill.className = `status-pill ${meta?.status.replaceAll(" ", "-") || "NA-STANIE"}`;
   statusPill.textContent = meta?.status || "NA STANIE";
   statusWrap.append(statusPill);
@@ -19382,6 +19425,7 @@ function formRecord() {
   data.location = normalizeRepairLocation(data.location);
   data.type = effectiveDeviceType(data, data.type || "NA STANIE");
   data.ezwm = data.type === "ZWROT" ? "" : normalizeEzwmStatus(data.ezwm);
+  data.notes = correctPolishNotes(data.notes);
   return data;
 }
 
@@ -19587,6 +19631,7 @@ function repairFormRecord() {
   data.category = normalizeRepairCategory(data.category);
   data.location = normalizeRepairLocation(data.location);
   data.status = statusFromRepairDates(data);
+  data.notes = correctPolishNotes(data.notes);
   return data;
 }
 
@@ -22237,6 +22282,10 @@ demoForm.addEventListener("click", handleClearDateClick);
 registerQualityHintListeners("devices", ["#deviceName", "#serialNumber", "#customerName"]);
 registerQualityHintListeners("repairs", ["#repairCustomerName", "#repairDeviceName", "#repairSerialNumber", "#repairSerialNumber2"]);
 registerQualityHintListeners("demo", ["#demoDeviceName", "#demoSerialNumber", "#demoCurrentUser"]);
+[
+  document.querySelector("#notes"),
+  document.querySelector("#repairNotes")
+].forEach((input) => input?.addEventListener("blur", () => correctNotesInput(input)));
 const deviceModelInput = document.querySelector("#deviceName");
 const debouncedDeviceModelSuggestions = debounce(refreshDeviceModelSuggestions, SEARCH_DEBOUNCE_MS);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
