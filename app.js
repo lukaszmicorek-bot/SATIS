@@ -16605,6 +16605,12 @@ function sanitizeCapdRichText(value) {
     if (/^#[0-9a-f]{3,8}$/iu.test(color) || /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/iu.test(color)) clean.style.color = color;
     const textAlign = node.style.textAlign;
     if (["left", "center", "right", "justify"].includes(textAlign)) clean.style.textAlign = textAlign;
+    const fontWeight = String(node.style.fontWeight || "").toLocaleLowerCase("pl-PL");
+    if (fontWeight === "bold" || Number.parseInt(fontWeight, 10) >= 600) clean.style.fontWeight = "700";
+    if (String(node.style.fontStyle || "").toLocaleLowerCase("pl-PL") === "italic") clean.style.fontStyle = "italic";
+    if (String(node.style.textDecoration || node.style.textDecorationLine || "").includes("underline")) {
+      clean.style.textDecoration = "underline";
+    }
     [...node.childNodes].forEach((child) => copyNode(child, clean));
     target.append(clean);
   };
@@ -16620,9 +16626,12 @@ function capdRichTextPlainText(value) {
 
 function capdPlainTextToHtml(value) {
   const output = document.createElement("div");
-  String(value || "").trim().split(/\n{2,}/u).filter(Boolean).forEach((paragraphText) => {
+  String(value || "").replace(/\r\n?/gu, "\n").trim().split(/\n{2,}/u).filter(Boolean).forEach((paragraphText) => {
     const paragraph = document.createElement("p");
-    paragraph.textContent = paragraphText;
+    paragraphText.split("\n").forEach((line, index) => {
+      if (index) paragraph.append(document.createElement("br"));
+      paragraph.append(document.createTextNode(line));
+    });
     output.append(paragraph);
   });
   return output.innerHTML;
@@ -16632,24 +16641,76 @@ function capdDescriptionHtml() {
   return sanitizeCapdRichText(capdDescriptionInput?.innerHTML || "");
 }
 
+function capdSelectionIsInsideEditor(selection = window.getSelection()) {
+  return Boolean(
+    capdDescriptionInput &&
+    selection?.rangeCount &&
+    capdDescriptionInput.contains(selection.anchorNode) &&
+    capdDescriptionInput.contains(selection.focusNode)
+  );
+}
+
+function updateCapdDescriptionToolbarState() {
+  if (!capdDescriptionToolbar || !capdSelectionIsInsideEditor()) return;
+  const commands = {
+    bold: "bold",
+    italic: "italic",
+    underline: "underline",
+    unordered: "insertUnorderedList",
+    ordered: "insertOrderedList",
+    left: "justifyLeft",
+    center: "justifyCenter",
+    right: "justifyRight"
+  };
+  capdDescriptionToolbar.querySelectorAll("button[data-capd-format]").forEach((button) => {
+    const command = commands[button.dataset.capdFormat];
+    if (!command) return;
+    let active = false;
+    try {
+      active = Boolean(document.queryCommandState(command));
+    } catch {
+      active = false;
+    }
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
 function rememberCapdDescriptionSelection() {
   if (!capdDescriptionInput) return;
   const selection = window.getSelection();
-  if (!selection?.rangeCount || !capdDescriptionInput.contains(selection.anchorNode)) return;
+  if (!capdSelectionIsInsideEditor(selection)) return;
   capdDescriptionSelection = selection.getRangeAt(0).cloneRange();
+  updateCapdDescriptionToolbarState();
 }
 
 function restoreCapdDescriptionSelection() {
-  if (!capdDescriptionInput || !capdDescriptionSelection) return;
+  if (!capdDescriptionInput || !capdDescriptionSelection) return false;
+  if (!capdDescriptionInput.contains(capdDescriptionSelection.commonAncestorContainer)) return false;
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(capdDescriptionSelection);
+  return true;
+}
+
+function ensureCapdDescriptionSelection() {
+  if (!capdDescriptionInput) return false;
+  const selection = window.getSelection();
+  if (capdSelectionIsInsideEditor(selection)) return true;
+  const range = document.createRange();
+  range.selectNodeContents(capdDescriptionInput);
+  range.collapse(false);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  capdDescriptionSelection = range.cloneRange();
+  return true;
 }
 
 function applyCapdDescriptionFormat(format, value = "") {
   if (!capdDescriptionInput) return;
-  capdDescriptionInput.focus();
-  restoreCapdDescriptionSelection();
+  const restored = restoreCapdDescriptionSelection();
+  capdDescriptionInput.focus({ preventScroll: true });
+  if (!restored) ensureCapdDescriptionSelection();
   const commands = {
     paragraph: ["formatBlock", "p"],
     bold: ["bold", ""],
@@ -16664,8 +16725,11 @@ function applyCapdDescriptionFormat(format, value = "") {
   };
   const [command, commandValue] = format === "color" ? ["foreColor", value] : commands[format] || [];
   if (!command) return;
+  if (format === "color") document.execCommand("styleWithCSS", false, true);
   document.execCommand(command, false, commandValue);
+  if (format === "clear") document.execCommand("unlink", false, "");
   rememberCapdDescriptionSelection();
+  updateCapdDescriptionToolbarState();
   renderCapdReport();
 }
 
@@ -21716,12 +21780,15 @@ capdDescriptionInput?.addEventListener("mouseup", rememberCapdDescriptionSelecti
 capdDescriptionInput?.addEventListener("focus", rememberCapdDescriptionSelection);
 capdDescriptionInput?.addEventListener("paste", (event) => {
   event.preventDefault();
+  const clipboardHtml = event.clipboardData?.getData("text/html") || "";
   const text = event.clipboardData?.getData("text/plain") || "";
-  document.execCommand("insertText", false, text);
+  const safeHtml = sanitizeCapdRichText(clipboardHtml) || capdPlainTextToHtml(text);
+  document.execCommand("insertHTML", false, safeHtml);
   rememberCapdDescriptionSelection();
   renderCapdReport();
 });
 capdDescriptionToolbar?.addEventListener("mousedown", (event) => {
+  rememberCapdDescriptionSelection();
   if (event.target.closest("button[data-capd-format]")) event.preventDefault();
 });
 capdDescriptionToolbar?.addEventListener("click", (event) => {
@@ -21731,6 +21798,9 @@ capdDescriptionToolbar?.addEventListener("click", (event) => {
 });
 capdDescriptionColor?.addEventListener("input", () => {
   applyCapdDescriptionFormat("color", capdDescriptionColor.value);
+});
+document.addEventListener("selectionchange", () => {
+  if (capdSelectionIsInsideEditor()) rememberCapdDescriptionSelection();
 });
 capdPatientInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);

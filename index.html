@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260902-214">
+  <link rel="stylesheet" href="styles.css?v=20260902-216">
   </head>
   <body>
     <main class="app-shell">
@@ -1936,25 +1936,25 @@
               <div class="capd-rich-text-head">
                 <span>Opis badania i wnioski</span>
                 <div id="capdDescriptionToolbar" class="capd-rich-text-toolbar" role="toolbar" aria-label="Formatowanie opisu">
-                  <button type="button" data-capd-format="paragraph" title="Akapit" aria-label="Akapit">A</button>
-                  <button type="button" data-capd-format="bold" title="Pogrubienie" aria-label="Pogrubienie"><strong>B</strong></button>
-                  <button type="button" data-capd-format="italic" title="Kursywa" aria-label="Kursywa"><em>I</em></button>
-                  <button type="button" data-capd-format="underline" title="Podkreślenie" aria-label="Podkreślenie"><u>U</u></button>
-                  <button type="button" data-capd-format="unordered" title="Lista punktowana" aria-label="Lista punktowana">•</button>
-                  <button type="button" data-capd-format="ordered" title="Lista numerowana" aria-label="Lista numerowana">1.</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="paragraph" title="Utwórz zwykły akapit" aria-label="Zwykły akapit">Akapit</button>
+                  <button type="button" data-capd-format="bold" title="Pogrubienie" aria-label="Pogrubienie" aria-pressed="false"><strong>B</strong></button>
+                  <button type="button" data-capd-format="italic" title="Kursywa" aria-label="Kursywa" aria-pressed="false"><em>I</em></button>
+                  <button type="button" data-capd-format="underline" title="Podkreślenie" aria-label="Podkreślenie" aria-pressed="false"><u>U</u></button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="unordered" title="Lista punktowana" aria-label="Lista punktowana" aria-pressed="false">• Lista</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="ordered" title="Lista numerowana" aria-label="Lista numerowana" aria-pressed="false">1. Lista</button>
                   <span class="capd-toolbar-divider" aria-hidden="true"></span>
-                  <button type="button" data-capd-format="left" title="Wyrównaj do lewej" aria-label="Wyrównaj do lewej">≡</button>
-                  <button type="button" data-capd-format="center" title="Wyśrodkuj" aria-label="Wyśrodkuj">≡</button>
-                  <button type="button" data-capd-format="right" title="Wyrównaj do prawej" aria-label="Wyrównaj do prawej">≡</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="left" title="Wyrównaj do lewej" aria-label="Wyrównaj do lewej" aria-pressed="false">Lewo</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="center" title="Wyśrodkuj" aria-label="Wyśrodkuj" aria-pressed="false">Środek</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="right" title="Wyrównaj do prawej" aria-label="Wyrównaj do prawej" aria-pressed="false">Prawo</button>
                   <label class="capd-rich-text-color" title="Kolor tekstu">
                     <span>Kolor</span>
                     <input id="capdDescriptionColor" type="color" value="#003f5a" aria-label="Kolor tekstu">
                   </label>
-                  <button type="button" data-capd-format="clear" title="Wyczyść formatowanie" aria-label="Wyczyść formatowanie">Tx</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="clear" title="Wyczyść formatowanie zaznaczonego tekstu" aria-label="Wyczyść formatowanie">Wyczyść</button>
                 </div>
               </div>
               <div id="capdDescriptionInput" class="capd-rich-text-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Podsumowanie wyników, obserwacje i zalecenia"></div>
-              <small>Możesz wklejać tekst. Zachowane zostaną akapity, listy i podstawowe formatowanie.</small>
+              <small>Zaznacz tekst i wybierz format. Bez zaznaczenia format zostanie zastosowany do dalszego wpisywania. Wklejanie zachowuje akapity, listy i podstawowe formatowanie.</small>
             </section>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
@@ -2655,6 +2655,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260902-213"></script>
+  <script src="app.js?v=20260902-215"></script>
   </body>
 </html>
