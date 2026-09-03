@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260903-235">
+  <link rel="stylesheet" href="styles.css?v=20260903-237">
   </head>
   <body>
     <main class="app-shell">
@@ -989,6 +989,7 @@
                   </div>
                 </div>
 
+                <section id="loanHandoverWarning" class="loan-full nearby-entry-warning" role="status" aria-live="polite" hidden></section>
                 <p class="loan-form-title loan-full">Ładowarka</p>
                 <label>
                   <span>Ładowarka - model / typ</span>
@@ -1017,7 +1018,7 @@
                 </label>
                 <label>
                   <span>Data zwrotu</span>
-                  <input id="loanReturnDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
+                  <input id="loanReturnDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" aria-describedby="loanReturnDeadlineHint">
                 </label>
                 <label>
                   <span>Termin zwrotu kaucji</span>
@@ -1031,6 +1032,7 @@
                   <span>Powód potrącenia / uwagi zwrotu</span>
                   <input id="loanDeductionReasonInput" type="text" autocomplete="off">
                 </label>
+                <small id="loanReturnDeadlineHint" class="loan-full loan-return-deadline-hint" role="status" hidden></small>
               </div>
               <div class="offer-actions">
                 <button id="loanCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
@@ -2698,6 +2700,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260903-235"></script>
+  <script src="app.js?v=20260903-237"></script>
   </body>
 </html>
