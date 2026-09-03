@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260903-240">
+  <link rel="stylesheet" href="styles.css?v=20260903-241">
   </head>
   <body>
     <main class="app-shell">
@@ -691,7 +691,7 @@
                     <th>Ind.</th>
                     <th>Cena brutto</th>
                     <th>Kod SWD</th>
-                    <th class="actions-head">Oferta</th>
+                    <th class="actions-head">Akcje</th>
                   </tr>
                 </thead>
                 <tbody id="pricingRecordsBody"></tbody>
@@ -2176,6 +2176,34 @@
         </section>
       </section>
 
+      <dialog id="pricingRecordDialog" aria-labelledby="pricingRecordDialogTitle">
+        <form id="pricingRecordForm">
+          <header class="pricing-editor-head">
+            <div><span>Edycja pozycji cennika</span><h2 id="pricingRecordDialogTitle">Pozycja cennika</h2></div>
+            <button type="button" data-close-pricing-record data-pricing-write aria-label="Zamknij">×</button>
+          </header>
+          <div class="pricing-editor-fields">
+            <label class="pricing-editor-wide">Nazwa handlowa<input name="tradeName" type="text" maxlength="300"></label>
+            <label class="pricing-editor-wide">Model<input name="model" type="text" maxlength="300"></label>
+            <label>Producent<input name="manufacturer" type="text" required maxlength="150"></label>
+            <label>Kod NFZ<input name="nfzCode" type="text" maxlength="60"></label>
+            <label>ID produktu<input name="idProduct" type="text" maxlength="100"></label>
+            <label>Cena brutto (zł)<input name="grossPrice" type="text" inputmode="decimal" required></label>
+            <details class="pricing-editor-wide"><summary>Dane dodatkowe</summary>
+              <div class="pricing-editor-fields">
+                <label>Indeks<input name="orderIndex" type="text" maxlength="100"></label>
+                <label>Kod SWD<input name="swdCode" type="text" maxlength="100"></label>
+              </div>
+            </details>
+          </div>
+          <footer class="pricing-editor-actions">
+            <button id="deletePricingRecordBtn" type="button" class="danger" data-pricing-write>Usuń</button>
+            <button type="button" data-close-pricing-record data-pricing-write>Anuluj</button>
+            <button id="savePricingRecordBtn" type="submit" class="primary" data-pricing-write>Zapisz</button>
+          </footer>
+        </form>
+      </dialog>
+
       <dialog id="pricingHistoryPreviewDialog" class="pricing-history-preview-dialog">
         <section class="pricing-history-preview-shell">
           <div class="dialog-head">
@@ -2700,6 +2728,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260903-240"></script>
+  <script src="app.js?v=20260903-241"></script>
   </body>
 </html>

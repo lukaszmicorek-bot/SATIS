@@ -3044,6 +3044,62 @@ h2 {
   transform: none;
 }
 
+#pricingRecordDialog {
+  width: min(680px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: hidden;
+}
+
+#pricingRecordForm {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 26px);
+  margin: 0;
+}
+
+.pricing-editor-head,
+.pricing-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.pricing-editor-head { justify-content: space-between; border-bottom: 1px solid #e3e9ea; }
+.pricing-editor-head > div { min-width: 0; }
+.pricing-editor-head span { font-size: 0.75rem; color: #5c6e74; }
+.pricing-editor-head h2 { font-size: 1.1rem; margin: 4px 0 0; overflow-wrap: anywhere; }
+.pricing-editor-head button { flex-shrink: 0; min-width: 32px; }
+.pricing-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  padding: 18px 20px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.pricing-editor-fields label { display: grid; gap: 6px; min-width: 0; }
+.pricing-editor-fields input { width: 100%; min-width: 0; }
+.pricing-editor-wide { grid-column: 1 / -1; }
+.pricing-editor-fields details > .pricing-editor-fields { padding: 14px 0 0; }
+.pricing-editor-actions { border-top: 1px solid #e3e9ea; justify-content: flex-end; }
+.pricing-editor-actions > :first-child { margin-right: auto; }
+.pricing-editor-actions .danger { background: transparent; }
+
+.pricing-table th:nth-child(10),
+.pricing-table td:nth-child(10) { width: 122px; min-width: 122px; }
+.pricing-table .row-actions button { min-width: 24px; min-height: 26px; padding: 0 5px; margin: 2px; }
+.pricing-table .pricing-record-edit-btn { font-size: 0.7rem; }
+
+@media (max-width: 480px) {
+  .pricing-editor-fields { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+  .pricing-editor-head, .pricing-editor-actions { padding: 12px 14px; }
+}
+
 .pricing-remove-btn {
   width: 24px;
   min-width: 24px;
