@@ -10039,6 +10039,19 @@ tbody tr.demo-return-critical:hover {
   background: #f1f4f5;
 }
 
+.demo-return-deadlines {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  justify-items: start;
+  gap: 5px;
+}
+
+.demo-return-date .demo-return-source {
+  font-weight: 600;
+  font-size: 0.62rem;
+}
+
 .demo-return-date strong {
   font-size: 0.82rem;
 }

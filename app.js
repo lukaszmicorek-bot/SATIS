@@ -386,7 +386,7 @@ let supabaseRealtimeChannel = null;
 let supabaseRefreshTimeout = 0;
 let supabaseChangeTimeout = 0;
 let pendingSupabaseChanges = [];
-let demoReturnReminderShown = false;
+let demoReturnReminderLastShownAt = 0;
 let demoReturnReminderTimeout = 0;
 let activeDateInput = null;
 let datePickerMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -2589,7 +2589,7 @@ function clearSensitiveApplicationState() {
   capdHistory = [];
   activeCapdHistoryId = "";
   activePricingLoanHistoryId = "";
-  demoReturnReminderShown = false;
+  demoReturnReminderLastShownAt = 0;
   if (customerRelationsInput) customerRelationsInput.value = "";
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
@@ -5967,6 +5967,13 @@ function demoReturnDeadlineInfo(record) {
   if (String(record.currentUser ?? "").trim() && record.loanDate) {
     return { date: addCalendarDays(record.loanDate, DEMO_LOAN_DAYS), source: "loan" };
   }
+  return demoManufacturerReturnDeadlineInfo(record);
+}
+
+function demoManufacturerReturnDeadlineInfo(record) {
+  if (record.manufacturerReturnedDate || normalizeBooleanFlag(record.manufacturerReturned) === "1") {
+    return { date: "", source: "" };
+  }
   if (record.manufacturerReturnDate) {
     return { date: record.manufacturerReturnDate, source: "manufacturer" };
   }
@@ -5977,6 +5984,28 @@ function demoReturnDeadlineInfo(record) {
     return { date: addCalendarMonths(record.receivedDate, 6), source: "philips" };
   }
   return { date: "", source: "" };
+}
+
+function demoManufacturerReturnMeta(record) {
+  const deadline = demoManufacturerReturnDeadlineInfo(record);
+  if (!deadline.date) return null;
+  const days = daysUntilDate(deadline.date);
+  return {
+    returnDeadline: deadline.date,
+    returnSource: deadline.source,
+    returnDays: days,
+    returnLevel: demoReturnLevel(days, deadline.source)
+  };
+}
+
+function demoReturnAlerts(meta) {
+  if (!meta || meta.status === "BRAK") return [];
+  const alerts = meta.returnLevel && meta.status !== "ZWRÓCONO" ? [meta] : [];
+  const manufacturer = meta.manufacturerReturn;
+  if (manufacturer?.returnLevel && !alerts.some((alert) => ["manufacturer", "philips"].includes(alert.returnSource))) {
+    alerts.push(manufacturer);
+  }
+  return alerts.sort((a, b) => Number(b.returnLevel === "critical") - Number(a.returnLevel === "critical") || a.returnDays - b.returnDays);
 }
 
 function isDemoManufacturerReturnDateCleared(record) {
@@ -6346,6 +6375,7 @@ function rebuildDemoDerivedData() {
       returnDays,
       returnLevel,
       returnSource: deadline.source,
+      manufacturerReturn: demoManufacturerReturnMeta(record),
       searchBlob: [...demoFields.map((field) => record[field]), historyText, status, purpose, locationGroup, returnDeadline, ...issues].map(normalize).join("\n")
     });
   });
@@ -15455,9 +15485,10 @@ function createDemoRow(record, agreementGroup = null) {
   }
   if (meta?.issues.length) row.classList.add("demo-needs-review");
   if (meta?.status === "BRAK") row.classList.add("demo-missing");
-  if (meta?.returnLevel) {
-    row.classList.add(`demo-return-${meta.returnLevel}`);
-    applyDemoReturnGradient(row, meta);
+  const returnHighlight = demoReturnAlerts(meta)[0];
+  if (returnHighlight) {
+    row.classList.add(`demo-return-${returnHighlight.returnLevel}`);
+    applyDemoReturnGradient(row, returnHighlight);
   }
 
   const statusWrap = document.createElement("div");
@@ -15814,12 +15845,25 @@ function createDemoNotesCell(record) {
 }
 
 function createDemoReturnDeadlineCell(meta) {
+  if (meta?.manufacturerReturn?.returnLevel && !["manufacturer", "philips"].includes(meta.returnSource)) {
+    const group = document.createElement("span");
+    group.className = "demo-return-deadlines";
+    const primary = createDemoReturnDeadlineCell({ ...meta, manufacturerReturn: null });
+    if (primary) group.append(primary);
+    group.append(createDemoReturnDeadlineCell(meta.manufacturerReturn));
+    return group;
+  }
   if (!meta?.returnDeadline) return "";
 
   const wrap = document.createElement("span");
   wrap.className = ["demo-return-date", demoReturnSourceClass(meta.returnSource), meta.returnLevel || "regular"]
     .filter(Boolean)
     .join(" ");
+
+  const sourceLabel = document.createElement("small");
+  sourceLabel.className = "demo-return-source";
+  sourceLabel.textContent = ["manufacturer", "philips", "manufacturerReturned"].includes(meta.returnSource) ? "Do producenta" : "Od klienta";
+  wrap.append(sourceLabel);
 
   const date = document.createElement("strong");
   date.textContent = formatDate(meta.returnDeadline);
@@ -15850,13 +15894,12 @@ function demoReturnDeadlineLabel(meta) {
 
 function dueDemoReturnRecords() {
   return demoRecords
-    .map((record) => ({ record, meta: demoDerived.get(record.id) }))
-    .filter(({ meta }) => meta?.returnLevel && !["BRAK", "ZWRÓCONO"].includes(meta.status))
+    .flatMap((record) => demoReturnAlerts(demoDerived.get(record.id)).map((meta) => ({ record, meta })))
     .sort((left, right) => (left.meta.returnDays ?? Number.MAX_SAFE_INTEGER) - (right.meta.returnDays ?? Number.MAX_SAFE_INTEGER));
 }
 
 function scheduleDemoReturnReminder() {
-  if (demoReturnReminderShown || demoReturnReminderTimeout || !canShowDemoReturnReminder()) return;
+  if (demoReturnReminderTimeout || !canShowDemoReturnReminder()) return;
   demoReturnReminderTimeout = window.setTimeout(() => {
     demoReturnReminderTimeout = 0;
     showDemoReturnReminder();
@@ -15865,9 +15908,12 @@ function scheduleDemoReturnReminder() {
 
 function showDemoReturnReminder() {
   if (
-    demoReturnReminderShown ||
     !canShowDemoReturnReminder() ||
     !demoReturnReminderDialog ||
+    demoReturnReminderDialog.open ||
+    document.querySelector("dialog[open]") ||
+    document.visibilityState === "hidden" ||
+    (hasSupabaseConfig && !currentSupabaseUser) ||
     authDialog?.open ||
     recordDialog.open ||
     repairDialog.open ||
@@ -15879,7 +15925,8 @@ function showDemoReturnReminder() {
   const criticalCount = dueRecords.filter(({ meta }) => meta.returnLevel === "critical").length;
   const warningCount = dueRecords.length - criticalCount;
   const overdueLoans = dueRecords.filter(({ meta }) => meta.returnSource === "loan").length;
-  demoReturnReminderSummary.textContent = `${dueRecords.length} aparatów wymaga uwagi: ${overdueLoans} przekroczyło 14 dni wypożyczenia, ${criticalCount - overdueLoans} pozostałych pilnych, ${warningCount} z terminem w ciągu 30 dni.`;
+  const deviceCount = new Set(dueRecords.map(({ record }) => record.id)).size;
+  demoReturnReminderSummary.textContent = `${polishCountLabel(deviceCount, "aparat", "aparaty", "aparatów")} do sprawdzenia. Zwrot do producenta: ${criticalCount - overdueLoans} pilnych, ${warningCount} w ciągu 30 dni. Zwrot od klienta: ${overdueLoans} z osiągniętym lub przekroczonym terminem.`;
 
   const fragment = document.createDocumentFragment();
   dueRecords.forEach(({ record, meta }) => {
@@ -15888,13 +15935,16 @@ function showDemoReturnReminder() {
 
     const description = document.createElement("div");
     const model = document.createElement("strong");
-    model.textContent = record.deviceName || "Philips HearLink";
+    model.textContent = record.deviceName || "Aparat demo";
     const serial = document.createElement("span");
     serial.textContent = [record.serialNumber, record.location].filter(Boolean).join(" · ");
     description.append(model, serial);
 
     const deadline = document.createElement("div");
     deadline.className = "return-reminder-deadline";
+    const destination = document.createElement("span");
+    destination.textContent = meta.returnSource === "loan" ? "Zwrot od klienta" : "Zwrot do producenta";
+    deadline.append(destination);
     const date = document.createElement("strong");
     date.textContent = formatDate(meta.returnDeadline);
     if (isTodayDate(meta.returnDeadline)) date.classList.add("today-date");
@@ -15911,18 +15961,30 @@ function showDemoReturnReminder() {
     fragment.append(item);
   });
   demoReturnReminderList.replaceChildren(fragment);
-  demoReturnReminderShown = true;
-  markDemoReturnReminderShown();
   demoReturnReminderDialog.showModal();
+  markDemoReturnReminderShown();
 }
 
 function canShowDemoReturnReminder() {
-  const lastShownAt = Number(localStorage.getItem(DEMO_RETURN_REMINDER_STORAGE_KEY) || 0);
+  let storedAt = 0;
+  try { storedAt = Number(localStorage.getItem(DEMO_RETURN_REMINDER_STORAGE_KEY) || 0); } catch {}
+  const lastShownAt = Math.max(demoReturnReminderLastShownAt, Number.isFinite(storedAt) ? storedAt : 0);
   return !lastShownAt || Date.now() - lastShownAt >= DEMO_RETURN_REMINDER_INTERVAL_MS;
 }
 
 function markDemoReturnReminderShown() {
-  localStorage.setItem(DEMO_RETURN_REMINDER_STORAGE_KEY, String(Date.now()));
+  demoReturnReminderLastShownAt = Date.now();
+  try { localStorage.setItem(DEMO_RETURN_REMINDER_STORAGE_KEY, String(demoReturnReminderLastShownAt)); } catch {}
+}
+
+function refreshDemoReturnReminders() {
+  if (document.visibilityState === "hidden" || (hasSupabaseConfig && !currentSupabaseUser)) return;
+  rebuildDemoDerivedData();
+  if (activeNotebook === "devices" && activeDeviceView === "demo") {
+    renderDemoRecords();
+    updateStats();
+  }
+  scheduleDemoReturnReminder();
 }
 
 function createAgePill(record) {
@@ -23249,11 +23311,13 @@ window.setTimeout(checkForPublishedAppUpdate, 15000);
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
 window.setInterval(renderPricingLoanHistory, 60 * 60 * 1000);
 window.setInterval(updateLoanReturnDeadlineHighlight, 60 * 1000);
+window.setInterval(refreshDemoReturnReminders, 60 * 1000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     checkForPublishedAppUpdate();
     renderPricingLoanHistory();
     updateLoanReturnDeadlineHighlight();
+    refreshDemoReturnReminders();
   }
 });
 
