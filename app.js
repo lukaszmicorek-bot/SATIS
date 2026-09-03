@@ -15355,7 +15355,7 @@ function createDemoRow(record) {
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
     createLocationPill(record.location),
     createDateText(record.receivedDate),
-    createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : ""),
+    createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : "", record),
     createDemoReturnDeadlineCell(meta),
     createDemoNotesCell(record)
   ];
@@ -15512,12 +15512,62 @@ function createDemoPurposePill(value) {
   return pill;
 }
 
-function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "") {
+function demoCurrentLoanAgreement(record) {
+  const serialKey = serialDuplicateKey(record?.serialNumber);
+  const customerKey = customerNameLookupKey(record?.currentUser);
+  if (!serialKey || !customerKey) return null;
+  const loanDate = isoDateForSave(record?.loanDate);
+  const candidates = pricingLoanHistory.filter((entry) => (
+    customerNameLookupKey(entry.customer) === customerKey &&
+    loanHistorySerials(entry).includes(serialKey) &&
+    (loanDate
+      ? isoDateForSave(entry.periodFrom || entry.date) === loanDate
+      : !entry.returnDate)
+  ));
+  const unique = [...new Map(candidates.map((entry) => [entry.id, entry])).values()];
+  return unique.length === 1 ? unique[0] : null;
+}
+
+function openDemoCurrentLoanAgreement(record) {
+  if (!canViewDocumentHistory()) return;
+  const currentRecord = demoRecords.find((item) => item.id === record.id);
+  if (!currentRecord?.currentUser) {
+    alert("To wypożyczenie nie jest już aktualne. Odśwież listę Demo.");
+    return;
+  }
+  const entry = demoCurrentLoanAgreement(currentRecord);
+  if (entry) {
+    restorePricingLoanFromHistory(entry);
+    return;
+  }
+  if (pricingHistoryTypeFilter) pricingHistoryTypeFilter.value = "loan";
+  if (pricingHistoryYearFilter) pricingHistoryYearFilter.value = "";
+  if (pricingHistoryLocationFilter) {
+    pricingHistoryLocationFilter.value = "";
+    updateDocumentLocationAccent(pricingHistoryLocationFilter);
+  }
+  if (pricingHistorySearchInput) pricingHistorySearchInput.value = normalizeSerialNumber(currentRecord.serialNumber) || titleCaseName(currentRecord.currentUser);
+  switchPricingView("history");
+  alert("Nie znaleziono jednej zgodnej umowy dla tego wypożyczenia. Sprawdź wyniki w Historii.");
+}
+
+function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "", record = null) {
   if (!currentUser) return "";
   const wrap = document.createElement("span");
   wrap.className = "demo-current-user";
-  const label = document.createElement("small");
+  const canOpenAgreement = Boolean(record && canViewDocumentHistory());
+  const label = document.createElement(canOpenAgreement ? "button" : "small");
   label.textContent = "Używa";
+  if (canOpenAgreement) {
+    label.type = "button";
+    label.className = "demo-current-loan-link";
+    label.title = "Otwórz umowę wypożyczenia";
+    label.setAttribute("aria-label", `Otwórz umowę wypożyczenia: ${currentUser}, ${record.serialNumber || ""}`);
+    label.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openDemoCurrentLoanAgreement(record);
+    });
+  }
   const nameLine = document.createElement("span");
   nameLine.className = "customer-name-line";
   const name = document.createElement("strong");
