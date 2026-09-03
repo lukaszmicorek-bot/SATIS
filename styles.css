@@ -9621,6 +9621,36 @@ tbody tr.demo-return-critical:hover {
   text-transform: uppercase;
 }
 
+.demo-current-user .demo-current-loan-link {
+  justify-self: start;
+  width: fit-content;
+  min-width: 0;
+  min-height: 22px;
+  border: 0;
+  border-radius: 3px;
+  padding: 0 2px;
+  background: transparent;
+  box-shadow: none;
+  color: #245e78;
+  font-size: 0.66rem;
+  font-weight: 750;
+  line-height: 1.2;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.demo-current-user .demo-current-loan-link:hover {
+  color: #003f5a;
+  background: #d4e8f0;
+}
+
+.demo-current-user .demo-current-loan-link:focus-visible {
+  outline: 2px solid #245e78;
+  outline-offset: 2px;
+}
+
 .demo-current-user strong {
   font-size: 0.88rem;
   font-weight: 850;
