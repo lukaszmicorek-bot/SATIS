@@ -643,6 +643,9 @@ let records = [];
 let repairRecords = [];
 let demoRecords = [];
 let pricingRecords = [];
+let pricingMutationInProgress = false;
+let pricingMutationRevision = 0;
+let pricingEditingRecord = null;
 let pricingMeta = loadPricingMeta();
 let pricingLoanHistory = loadPricingLoanHistory();
 let pricingOfferHistory = loadPricingOfferHistory();
@@ -5181,6 +5184,7 @@ function normalizePricingRecordForUse(record) {
   normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
   normalizedRecord.manufacturer = normalizePricingManufacturerName(normalizedRecord.manufacturer);
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
+  if (record?.id) normalizedRecord.id = String(record.id);
   return normalizedRecord;
 }
 
@@ -5504,7 +5508,8 @@ function loadPricingRecords() {
 
   try {
     const storedRecords = JSON.parse(localStorage.getItem(PRICING_STORAGE_KEY) || "null");
-    if (Array.isArray(storedRecords) && storedRecords.length) {
+    if (Array.isArray(storedRecords)) {
+      if (!storedRecords.length) return [];
       const normalizedStoredRecords = normalizePricingRecordsForUse(storedRecords);
       if (normalizedStoredRecords.length) return normalizedStoredRecords;
       localStorage.removeItem(PRICING_STORAGE_KEY);
@@ -5525,6 +5530,7 @@ function savePricingRecords() {
 
 function ensurePricingRecordsLoaded() {
   if (pricingRecords.length) return;
+  if (localStorage.getItem(PRICING_STORAGE_KEY) !== null) return;
   const seedRecords = pricingSeedRecords();
   if (!seedRecords.length) return;
   pricingRecords = seedRecords;
@@ -5552,14 +5558,18 @@ function pricingSupabaseRecordId(record, index) {
 }
 
 function pricingRecordsForSupabase(recordsToSave) {
-  const seenIds = new Map();
-  return normalizePricingRecordsForUse(recordsToSave).map((record, index) => {
-    const baseId = pricingSupabaseRecordId(record, index);
-    const seen = seenIds.get(baseId) || 0;
-    seenIds.set(baseId, seen + 1);
+  const normalized = normalizePricingRecordsForUse(recordsToSave);
+  const reservedIds = new Set(normalized.map((record) => record.id).filter(Boolean));
+  const seenIds = new Set();
+  return normalized.map((record, index) => {
+    const baseId = record.id || pricingSupabaseRecordId(record, index);
+    let id = baseId;
+    let suffix = 2;
+    while (seenIds.has(id) || (id !== record.id && reservedIds.has(id))) id = `${baseId}-${suffix++}`;
+    seenIds.add(id);
     return {
       ...record,
-      id: seen ? `${baseId}-${seen + 1}` : baseId
+      id
     };
   });
 }
@@ -5572,12 +5582,14 @@ function splitSupabasePricingRows(rows) {
 
 async function loadSupabasePricingRecords() {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingSupabaseAvailable === false) return null;
+  if (pricingMutationInProgress) return null;
+  const revision = pricingMutationRevision;
 
   try {
     const rows = await loadSupabaseTable(SUPABASE_PRICING_TABLE, (loadedRows) => loadedRows);
+    if (pricingMutationInProgress || revision !== pricingMutationRevision) return null;
     pricingSupabaseAvailable = true;
     const sharedPricingRecords = splitSupabasePricingRows(rows);
-    if (!sharedPricingRecords.length) return null;
     localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(sharedPricingRecords));
     return sharedPricingRecords;
   } catch (error) {
@@ -5588,8 +5600,8 @@ async function loadSupabasePricingRecords() {
 }
 
 async function persistPricingRecords() {
-  savePricingRecords();
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingSupabaseAvailable === false) return;
+  if (!hasSupabaseConfig) { savePricingRecords(); return; }
+  if (!currentSupabaseUser || pricingSupabaseAvailable === false) throw new Error("Cennik nie jest połączony z Supabase. Zaloguj się i sprawdź połączenie.");
   if (!canManagePricing()) throw new Error("Tylko konto satis@pracowniasluchu.pl może aktualizować cennik.");
 
   try {
@@ -5598,11 +5610,10 @@ async function persistPricingRecords() {
       pricingMetaRecordForSupabase()
     ]);
     pricingSupabaseAvailable = true;
+    savePricingRecords();
   } catch (error) {
     if (isMissingSupabaseTableError(error)) {
       pricingSupabaseAvailable = false;
-      console.warn(error);
-      return;
     }
     throw error;
   }
@@ -8384,80 +8395,144 @@ function renderPricingOffer() {
   if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(patient));
 }
 
-async function updatePricingRecordPrice(record) {
-  if (!record || !canManagePricing()) return;
-  const oldLabel = pricingOfferDeviceLabel(record);
-  const previousPrice = record.grossPrice;
-  const previousPricingMeta = pricingMeta;
-  const currentPrice = normalizePricingPrice(record.grossPrice);
-  const value = prompt("Nowa cena brutto:", currentPrice === "" ? "" : formatPricingPrice(currentPrice));
-  if (value === null) return;
+function pricingRecordFingerprint(record) {
+  const normalized = normalizePricingRecordForUse(record);
+  return JSON.stringify(pricingFields.map((field) => normalized[field]));
+}
 
-  const newPrice = normalizePricingPrice(value);
-  if (newPrice === "" || newPrice < 0) {
-    alert("Podaj poprawną cenę brutto.");
-    return;
+function pricingRecordIndex(record) {
+  const direct = pricingRecords.indexOf(record);
+  if (direct >= 0) return direct;
+  if (record.id) return pricingRecords.findIndex((item) => item.id === record.id);
+  const matches = pricingRecords.map((item, index) => ({ item, index }))
+    .filter(({ item }) => pricingRecordFingerprint(item) === pricingRecordFingerprint(record));
+  return matches.length === 1 ? matches[0].index : -1;
+}
+
+async function persistSinglePricingChange(record, replacement) {
+  if (!canManagePricing()) throw new Error("Tylko SATIS może zmieniać cennik.");
+  if (!hasSupabaseConfig) return replacement;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się ponownie przed zmianą cennika.");
+  let id = record.id;
+  if (!id) {
+    const rows = await loadSupabaseTable(SUPABASE_PRICING_TABLE, normalizePricingRecordsForUse);
+    const matches = rows.filter((row) => pricingRecordFingerprint(row) === pricingRecordFingerprint(record));
+    if (matches.length !== 1) throw new Error("Nie można jednoznacznie wskazać pozycji. Odśwież cennik i spróbuj ponownie.");
+    id = matches[0].id;
   }
+  const { data: current, error: readError } = await supabaseClient.from(SUPABASE_PRICING_TABLE)
+    .select("id,data,updated_at").eq("id", id).maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!current || pricingRecordFingerprint(current.data) !== pricingRecordFingerprint(record)) {
+    throw new Error("Pozycja została zmieniona lub usunięta na innym komputerze. Odśwież cennik przed kolejną zmianą.");
+  }
+  const saved = replacement ? { ...replacement, id } : null;
+  let query = saved
+    ? supabaseClient.from(SUPABASE_PRICING_TABLE).update(supabaseRecordRow(saved))
+    : supabaseClient.from(SUPABASE_PRICING_TABLE).delete();
+  query = query.eq("id", id);
+  if (current.updated_at) query = query.eq("updated_at", current.updated_at);
+  const { data, error } = await query.select("id");
+  if (error) throw new Error(error.message);
+  if (data?.length !== 1) throw new Error("Nie potwierdzono zmiany. Sprawdź uprawnienia lub odśwież cennik, ponieważ wpis mógł zostać zmieniony.");
+  return saved;
+}
 
-  record.grossPrice = newPrice;
-  const newLabel = pricingOfferDeviceLabel(record);
-  [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
-    if (input && normalize(input.value) === normalize(oldLabel)) input.value = newLabel;
-  });
+function setPricingMutationBusy(busy) {
+  pricingMutationInProgress = busy;
+  if (busy) pricingMutationRevision += 1;
+  document.querySelectorAll("[data-pricing-write]").forEach((button) => { button.disabled = busy; });
+  const save = document.querySelector("#savePricingRecordBtn");
+  if (save) save.textContent = busy ? "Zapisywanie..." : "Zapisz";
+}
 
+async function commitPricingRecordChange(record, replacement) {
+  if (pricingMutationInProgress || !canManagePricing()) return false;
+  if (pricingRecordIndex(record) < 0) { alert("Nie znaleziono pozycji. Odśwież cennik."); return false; }
+  setPricingMutationBusy(true);
   try {
-    markPricingUpdatedNow();
-    await persistPricingRecords();
+    const saved = await persistSinglePricingChange(record, replacement);
+    const index = pricingRecordIndex(record);
+    const previousRecords = pricingRecords.slice();
+    if (index >= 0) {
+      if (saved) pricingRecords.splice(index, 1, saved);
+      else pricingRecords.splice(index, 1);
+    }
+    try { savePricingRecords(); } catch (error) {
+      if (!hasSupabaseConfig) { pricingRecords = previousRecords; throw error; }
+      console.warn("Zmiana zapisana na serwerze, ale nie w pamięci przeglądarki:", error);
+    }
+    const oldLabel = pricingOfferDeviceLabel(record);
+    const newLabel = saved ? pricingOfferDeviceLabel(saved) : "";
+    [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
+      if (input && normalize(input.value) === normalize(oldLabel)) input.value = newLabel;
+    });
+    try {
+      markPricingUpdatedNow();
+      if (hasSupabaseConfig) await upsertSupabaseRecord(SUPABASE_PRICING_TABLE, pricingMetaRecordForSupabase());
+    } catch (error) {
+      alert(`Pozycja została ${saved ? "zapisana" : "usunięta"}, ale nie udało się zaktualizować daty cennika: ${error.message}`);
+    }
+    rebuildDemoFormSuggestions();
     renderPricingRecords();
     setCurrentYearTitle();
+    return true;
   } catch (error) {
-    record.grossPrice = previousPrice;
-    pricingMeta = previousPricingMeta;
-    [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
-      if (input && normalize(input.value) === normalize(newLabel)) input.value = oldLabel;
-    });
-    savePricingMeta();
-    savePricingRecords();
-    renderPricingRecords();
-    alert(`Nie udało się zapisać ceny: ${error.message}`);
+    alert(`Nie udało się ${replacement ? "zapisać" : "usunąć"} pozycji: ${error.message}`);
+    return false;
+  } finally {
+    setPricingMutationBusy(false);
+  }
+}
+
+function openPricingRecordDialog(record, focusField = "tradeName") {
+  if (!record || !canManagePricing() || pricingMutationInProgress) return;
+  pricingEditingRecord = { ...record };
+  const form = document.querySelector("#pricingRecordForm");
+  form.reset();
+  pricingFields.forEach((field) => {
+    const input = form.elements.namedItem(field);
+    input.value = field === "grossPrice" ? String(record[field] ?? "").replace(".", ",") : record[field] || "";
+    input.setCustomValidity("");
+  });
+  document.querySelector("#pricingRecordDialogTitle").textContent = record.model || record.tradeName || "Pozycja cennika";
+  document.querySelector("#pricingRecordDialog").showModal();
+  form.elements.namedItem(focusField)?.focus();
+}
+
+function updatePricingRecordPrice(record) {
+  openPricingRecordDialog(record, "grossPrice");
+}
+
+async function savePricingRecordEditor(event) {
+  event.preventDefault();
+  if (!pricingEditingRecord || !canManagePricing() || pricingMutationInProgress) return;
+  const form = event.currentTarget;
+  const values = Object.fromEntries(pricingFields.map((field) => [field, form.elements.namedItem(field).value.trim()]));
+  values.nfzCode = values.nfzCode.toLocaleUpperCase("pl-PL");
+  const price = normalizePricingPrice(values.grossPrice);
+  form.elements.namedItem("grossPrice").setCustomValidity(price === "" || price < 0 ? "Podaj poprawną cenę brutto (zero lub więcej)." : "");
+  form.elements.namedItem("tradeName").setCustomValidity(!values.tradeName && !values.model ? "Podaj nazwę handlową lub model." : "");
+  if (!form.reportValidity()) return;
+  values.grossPrice = Math.round(price * 100) / 100;
+  const replacement = normalizePricingRecordForUse({ ...pricingEditingRecord, ...values });
+  const index = pricingRecordIndex(pricingEditingRecord);
+  if (pricingRecordKey(replacement) !== pricingRecordKey(pricingEditingRecord) &&
+      pricingRecords.some((item, i) => i !== index && pricingRecordKey(item) === pricingRecordKey(replacement))) {
+    alert("Taka pozycja z tym kodem NFZ już istnieje. Popraw dane lub edytuj istniejący wpis.");
+    return;
+  }
+  if (await commitPricingRecordChange(pricingEditingRecord, replacement)) {
+    document.querySelector("#pricingRecordDialog").close();
+    pricingEditingRecord = null;
   }
 }
 
 async function deletePricingRecord(record) {
-  if (!record || !canManagePricing()) return;
-
-  const recordLabel = pricingOfferDeviceLabel(record);
-  if (!confirm(`Usunąć pozycję z cennika: ${recordLabel}?`)) return;
-
-  const previousPricingRecords = pricingRecords.slice();
-  const previousPricingMeta = pricingMeta;
-  const offerInputs = [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput];
-  const previousOfferValues = offerInputs.map((input) => input?.value || "");
-  const recordIndex = pricingRecords.findIndex((item) => pricingRecordKey(item) === pricingRecordKey(record));
-  if (recordIndex < 0) return;
-
-  const [removedRecord] = pricingRecords.splice(recordIndex, 1);
-  const removedLabel = pricingOfferDeviceLabel(removedRecord);
-  offerInputs.forEach((input) => {
-    if (input && normalize(input.value) === normalize(removedLabel)) input.value = "";
-  });
-
-  try {
-    markPricingUpdatedNow();
-    await persistPricingRecords();
-    renderPricingRecords();
-    setCurrentYearTitle();
-  } catch (error) {
-    pricingRecords = previousPricingRecords;
-    pricingMeta = previousPricingMeta;
-    offerInputs.forEach((input, index) => {
-      if (input) input.value = previousOfferValues[index];
-    });
-    savePricingMeta();
-    savePricingRecords();
-    renderPricingRecords();
-    alert(`Nie udało się usunąć pozycji: ${error.message}`);
-  }
+  if (!record || !canManagePricing() || pricingMutationInProgress) return;
+  const details = [record.tradeName, record.model, record.manufacturer, record.nfzCode, record.idProduct].filter(Boolean).join(" · ");
+  if (!confirm(`Usunąć tę pozycję z cennika?\n\n${details}\n\nPozostałe kody NFZ i zapisane dokumenty pozostaną bez zmian.`)) return;
+  return commitPricingRecordChange(record, null);
 }
 
 function pricingViewNotebook(viewName) {
@@ -15666,6 +15741,8 @@ function createPricingRow(record, index) {
         const editButton = document.createElement("button");
         editButton.type = "button";
         editButton.className = "pricing-price-edit-btn";
+        editButton.dataset.pricingWrite = "";
+        editButton.disabled = pricingMutationInProgress;
         editButton.textContent = "Zmień";
         editButton.title = "Popraw cenę brutto";
         editButton.addEventListener("click", () => updatePricingRecordPrice(record));
@@ -15708,9 +15785,19 @@ function createPricingRow(record, index) {
   offerButton.addEventListener("click", () => addPricingRecordToOffer(record));
   offerCell.append(offerButton);
   if (canManagePricing()) {
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "pricing-record-edit-btn";
+    editButton.textContent = "Edytuj";
+    editButton.dataset.pricingWrite = "";
+    editButton.disabled = pricingMutationInProgress;
+    editButton.addEventListener("click", () => openPricingRecordDialog(record));
+    offerCell.append(editButton);
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "pricing-remove-btn danger";
+    removeButton.dataset.pricingWrite = "";
+    removeButton.disabled = pricingMutationInProgress;
     removeButton.textContent = "×";
     removeButton.title = "Usuń pozycję z cennika";
     removeButton.setAttribute("aria-label", "Usuń pozycję z cennika");
@@ -21658,7 +21745,7 @@ function replacePricingCsv(event) {
 }
 
 function pricingRecordKey(record) {
-  if (record.idProduct) return `id:${normalize(record.idProduct)}`;
+  if (record.idProduct) return `id:${normalize(record.idProduct)}|nfz:${normalize(record.nfzCode)}`;
   return `name:${normalize([record.nfzCode, record.tradeName, record.model, record.manufacturer].join("|"))}`;
 }
 
@@ -21671,7 +21758,8 @@ function mergePricingRecords(existingRecords, importedRecords) {
   importedRecords.forEach((record) => {
     const key = pricingRecordKey(record);
     if (indexByKey.has(key)) {
-      recordsToMerge[indexByKey.get(key)] = record;
+      const index = indexByKey.get(key);
+      recordsToMerge[index] = { ...record, ...(recordsToMerge[index].id ? { id: recordsToMerge[index].id } : {}) };
       updated += 1;
       return;
     }
@@ -22367,6 +22455,21 @@ document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJso
 importPricingBtn?.addEventListener("click", () => pricingImportInput.click());
 replacePricingBtn?.addEventListener("click", () => pricingReplaceInput.click());
 resetPricingBtn?.addEventListener("click", resetPricingRecords);
+document.querySelector("#pricingRecordForm")?.addEventListener("submit", savePricingRecordEditor);
+document.querySelector("#pricingRecordForm")?.addEventListener("input", (event) => {
+  event.target.setCustomValidity?.("");
+  document.querySelector('#pricingRecordForm [name="tradeName"]').setCustomValidity("");
+});
+document.querySelectorAll("[data-close-pricing-record]").forEach((button) => button.addEventListener("click", () => {
+  if (!pricingMutationInProgress) document.querySelector("#pricingRecordDialog").close();
+}));
+document.querySelector("#pricingRecordDialog")?.addEventListener("cancel", (event) => {
+  if (pricingMutationInProgress) event.preventDefault();
+});
+document.querySelector("#pricingRecordDialog")?.addEventListener("close", () => { pricingEditingRecord = null; });
+document.querySelector("#deletePricingRecordBtn")?.addEventListener("click", async () => {
+  if (await deletePricingRecord(pricingEditingRecord)) document.querySelector("#pricingRecordDialog").close();
+});
 pricingImportInput?.addEventListener("change", importPricingCsv);
 pricingReplaceInput?.addEventListener("change", replacePricingCsv);
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
