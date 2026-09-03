@@ -16630,7 +16630,7 @@ function createRepairRow(record) {
   if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
   const activeDateType = activeRepairDateType(record);
   const cells = [
-    createStatusPill(status),
+    createRepairStatusCell(record, status),
     createRepairCategoryCell(record),
     createRepairCustomerName(record, status),
     createRepairDeviceNameCell(record),
@@ -16677,7 +16677,7 @@ function createRepairOpenRow(record) {
   if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
 
   const cells = [
-    createStatusPill(status),
+    createRepairStatusCell(record, status),
     createRepairTimeline(record, activeRepairDateType(record)),
     createRepairCustomerName(record, status),
     createRepairDeviceNameCell(record),
@@ -17098,6 +17098,31 @@ function createLocationPill(location) {
   pill.className = `location-pill ${normalizedLocation}`;
   pill.textContent = normalizedLocation;
   return pill;
+}
+
+function createRepairStatusCell(record, status) {
+  const wrap = document.createElement("span");
+  wrap.className = "repair-status-cell";
+  wrap.append(createStatusPill(status));
+  const overdue = repairOverdueClass(record, status);
+  if (!overdue) return wrap;
+  const age = repairStatusAge(record, status);
+  const warning = document.createElement("span");
+  warning.className = `repair-age-warning ${overdue === "repair-overdue-critical" ? "critical" : "warning"}`;
+  const stage = status === "GOTOWE" ? "Od powrotu; oczekuje na odbiór" : status === "W TRAKCIE" ? "Od wysłania" : "Od przyjęcia";
+  warning.dataset.repairAgeTooltip = `${stage}: ${age} dni. ${age > 15 ? "Ponad 15 dni" : "Ponad 7 dni"} na tym etapie. Sprawdź sprawę.`;
+  warning.setAttribute("aria-label", warning.dataset.repairAgeTooltip);
+  warning.tabIndex = 0;
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("viewBox", "0 0 20 20");
+  icon.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M10 3 18 17H2ZM10 8v4m0 2v.2");
+  icon.append(path);
+  warning.append(icon, document.createTextNode(`${age} dni`));
+  attachTableHoverTooltip(warning, "repairAgeTooltip");
+  wrap.append(warning);
+  return wrap;
 }
 
 function createStatusPill(status) {

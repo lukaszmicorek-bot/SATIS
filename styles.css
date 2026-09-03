@@ -6571,9 +6571,9 @@ textarea:focus {
 
 #repairStatus,
 #repairStatusFilter {
-  border-color: #dde3e7;
-  color: #667078;
-  background-color: #f5f7f8;
+  border-color: #d4dfe6;
+  color: #465f70;
+  background-color: #edf2f5;
   font-weight: 750;
 }
 
@@ -6586,16 +6586,17 @@ textarea:focus {
 
 #repairStatus:has(option[value="GOTOWE"]:checked),
 #repairStatusFilter:has(option[value="GOTOWE"]:checked) {
-  border-color: #c9ddd8;
-  color: #52736e;
-  background-color: #f2f8f6;
+  border-color: #c8dfcf;
+  color: #2f6b46;
+  background-color: #eaf5ec;
+  font-weight: 850;
 }
 
 #repairStatus:has(option[value="ODEBRANE"]:checked),
 #repairStatusFilter:has(option[value="ODEBRANE"]:checked) {
-  border-color: #d4dfd9;
-  color: #617269;
-  background-color: #f3f7f5;
+  border-color: #dce0e3;
+  color: #697279;
+  background-color: #f2f3f4;
 }
 
 #repairCategory option,
@@ -7529,9 +7530,9 @@ tbody tr.device-sold-row:hover {
 }
 
 .repair-status-badge[data-status-tone="PRZYJĘTE"] {
-  border-color: #dde3e7;
-  color: #667078;
-  background: #f5f7f8;
+  border-color: #d4dfe6;
+  color: #465f70;
+  background: #edf2f5;
 }
 
 .repair-status-badge[data-status-tone="W-TRAKCIE"] {
@@ -7541,15 +7542,16 @@ tbody tr.device-sold-row:hover {
 }
 
 .repair-status-badge[data-status-tone="GOTOWE"] {
-  border-color: #c9ddd8;
-  color: #52736e;
-  background: #f2f8f6;
+  border-color: #c8dfcf;
+  color: #2f6b46;
+  background: #eaf5ec;
+  font-weight: 850;
 }
 
 .repair-status-badge[data-status-tone="ODEBRANE"] {
-  border-color: #d4dfd9;
-  color: #617269;
-  background: #f3f7f5;
+  border-color: #dce0e3;
+  color: #697279;
+  background: #f2f3f4;
 }
 
 .repair-dialog-serial {
@@ -7804,17 +7806,14 @@ tbody tr.repair-open td:first-child {
 
 .repair-status-received {
   background: #fafcfd;
-  background-image: linear-gradient(90deg, #fafcfd, #ffffff);
 }
 
 .repair-status-progress {
   background: #f4f9fc;
-  background-image: linear-gradient(90deg, #f4f9fc, #ffffff);
 }
 
 .repair-status-ready {
   background: #f6faf9;
-  background-image: linear-gradient(90deg, #f6faf9, #ffffff);
 }
 
 .repair-status-picked-up {
@@ -7822,15 +7821,15 @@ tbody tr.repair-open td:first-child {
 }
 
 tbody tr.repair-status-received:hover {
-  background: linear-gradient(90deg, #f3f8fb 45%, #ffffff);
+  background: #f3f8fb;
 }
 
 tbody tr.repair-status-progress:hover {
-  background: linear-gradient(90deg, #eaf4fa 45%, #ffffff);
+  background: #eaf4fa;
 }
 
 tbody tr.repair-status-ready:hover {
-  background: linear-gradient(90deg, #eef6f4 45%, #ffffff);
+  background: #eef6f4;
 }
 
 .repairs-table tbody tr.repair-overdue-warning {
@@ -7945,7 +7944,6 @@ tbody tr.repair-closed {
 }
 
 tbody tr.repair-closed .type-pill,
-tbody tr.repair-closed .status-pill,
 tbody tr.repair-closed .date-pill,
 tbody tr.repair-closed .repair-timeline,
 tbody tr.repair-closed .serial-pill {
@@ -8689,9 +8687,9 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .status-pill.PRZYJĘTE {
-  color: #667078;
-  background: #f5f7f8;
-  box-shadow: inset 0 0 0 1px #dde3e7;
+  color: #465f70;
+  background: #edf2f5;
+  box-shadow: inset 0 0 0 1px #d4dfe6;
 }
 
 .status-pill.W-TRAKCIE {
@@ -8701,15 +8699,48 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .status-pill.GOTOWE {
-  color: #52736e;
-  background: #f2f8f6;
-  box-shadow: inset 0 0 0 1px #c9ddd8;
+  color: #2f6b46;
+  background: #eaf5ec;
+  box-shadow: inset 0 0 0 1px #c8dfcf;
+  font-weight: 850;
 }
 
 .status-pill.ODEBRANE {
-  color: #617269;
-  background: #f3f7f5;
-  box-shadow: inset 0 0 0 1px #d4dfd9;
+  color: #697279;
+  background: #f2f3f4;
+  box-shadow: inset 0 0 0 1px #dce0e3;
+}
+
+.repair-status-cell {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.repair-age-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  color: #87571f;
+  font-size: 0.69rem;
+  line-height: 1.3;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.repair-age-warning.critical { color: #a03d3d; }
+.repair-age-warning svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .age-pill.fresh {
