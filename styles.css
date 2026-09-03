@@ -3171,8 +3171,29 @@ h2 {
   gap: 12px;
 }
 
-.pricing-history-lists-grid:has(> [data-history-kind][hidden]) {
-  grid-template-columns: minmax(0, 1fr);
+.history-selectable { cursor: pointer; }
+.history-selectable.history-selected { border-color: #007b80; outline: 1px solid #007b80; }
+.history-select-button[aria-pressed="true"] { background: #e5f3f1; color: #005f63; }
+.history-related-selection { margin: 8px 0 12px; color: #435c67; font-size: 0.8rem; overflow-wrap: anywhere; }
+.pricing-history-section .history-today-date {
+  display: inline;
+  color: #003f5a;
+  font-size: 0.84rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.history-related-panel .loan-history-list { max-height: none; overflow: visible; }
+.pricing-history-lists-grid > .loan-history-panel { min-width: 0; }
+.pricing-history-lists-grid .loan-history-item > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.pricing-history-lists-grid .loan-history-actions { flex-wrap: wrap; }
+
+@media (min-width: 981px) {
+  .history-related-panel {
+    position: sticky;
+    top: 12px;
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
 }
 
 .pricing-history-lists-grid:has(> [data-history-kind][hidden]) > [data-history-kind]:not([hidden]) .loan-history-list {

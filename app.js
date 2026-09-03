@@ -378,6 +378,8 @@ const customerPhoneIndex = new Map();
 const activeDemoLoanCustomerIndex = new Map();
 const agreementDraftStates = new Map();
 const documentSaveLocks = new Map();
+const pricingHistorySelectableEntries = new Map();
+let pricingHistorySelectedKey = "";
 const documentDraftIdentities = new Map();
 const documentNextNumberHints = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
@@ -10021,12 +10023,16 @@ function updatePricingLoanDeadlineSummary(deadlines) {
     : "";
 }
 
-function renderPricingLoanHistory() {
+function renderPricingLoanHistory(deferRelations = false) {
   if (!loanHistoryList || !loanHistoryCount) return;
+  pricingHistorySelectableEntries.forEach((value, key) => {
+    if (value.kind === "loan") pricingHistorySelectableEntries.delete(key);
+  });
   if (!canViewDocumentHistory()) {
     loanHistoryList.replaceChildren();
     loanHistoryCount.textContent = "";
     if (loanDeadlineSummary) loanDeadlineSummary.hidden = true;
+    if (!deferRelations) renderPricingHistoryRelations();
     return;
   }
   const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory)
@@ -10063,6 +10069,7 @@ function renderPricingLoanHistory() {
     empty.className = "loan-history-empty";
     empty.textContent = searchQuery ? "Nie znaleziono pasujących umów." : "Brak zapisanych umów.";
     loanHistoryList.replaceChildren(empty);
+    if (!deferRelations) renderPricingHistoryRelations();
     return;
   }
 
@@ -10112,7 +10119,7 @@ function renderPricingLoanHistory() {
         ? `okres ${[formatDate(entry.periodFrom), formatDate(entry.periodTo)].filter(Boolean).join(" – ")}`
         : ""
     ].filter(Boolean).join(" · ");
-    meta.textContent = [contractDetails, savedAt ? `zapisano: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | ");
+    setPricingHistoryMetaText(meta, [contractDetails, savedAt ? `zapisano: ${savedAt}` : "", entry.workstation, entry.savedBy].filter(Boolean).join(" | "));
     const device = document.createElement("span");
     device.textContent = pricingLoanHistoryDeviceLabel(entry) || "Brak aparatu słuchowego";
     content.append(titleRow, meta, device);
@@ -10154,6 +10161,7 @@ function renderPricingLoanHistory() {
     }
 
     item.append(content, actions);
+    bindPricingHistorySelection(item, entry, "loan");
     return item;
   });
   const itemById = new Map(history.map((entry, index) => [entry.id, items[index]]));
@@ -10162,6 +10170,7 @@ function renderPricingLoanHistory() {
     (entry) => itemById.get(entry.id),
     (entry) => entry.date || entry.periodFrom || entry.savedAt
   ));
+  if (!deferRelations) renderPricingHistoryRelations();
 }
 
 function pricingDocumentHistoryCountLabel(count, singular, few, plural) {
@@ -10233,7 +10242,23 @@ function pricingDocumentDataIssues(entry, kind) {
   return [...new Set(issues)];
 }
 
-function createPricingDocumentHistoryItem(entry, { title, meta, details, warning = [], duplicateOf = null, duplicateLabel = "formularza", onPreview, onOpen, onDelete }) {
+function setPricingHistoryMetaText(element, text) {
+  element.replaceChildren();
+  // Only calendar dates in the description, never a document number or HTML.
+  String(text || "").split(/(?<![\d./-])(\d{1,2}\.\d{1,2}\.\d{4})(?![\d./-])/u).forEach(part => {
+    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/u.test(part) && isTodayDate(part)) {
+      const date = document.createElement("strong");
+      date.className = "history-today-date";
+      date.textContent = part;
+      date.title = "Dzisiaj";
+      element.append(date);
+    } else {
+      element.append(part);
+    }
+  });
+}
+
+function createPricingDocumentHistoryItem(entry, { kind = "", title, meta, details, warning = [], duplicateOf = null, duplicateLabel = "formularza", onPreview, onOpen, onDelete }) {
   const item = document.createElement("article");
   item.className = "loan-history-item";
 
@@ -10260,7 +10285,7 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, warning
     headingRow.append(badge);
   }
   const information = document.createElement("small");
-  information.textContent = meta || "";
+  setPricingHistoryMetaText(information, meta);
   const description = document.createElement("span");
   description.textContent = details || "Brak pozycji";
   content.append(headingRow);
@@ -10306,6 +10331,7 @@ function createPricingDocumentHistoryItem(entry, { title, meta, details, warning
     actions.append(deleteButton);
   }
   item.append(content, actions);
+  if (kind) bindPricingHistorySelection(item, entry, kind);
   return item;
 }
 
@@ -10705,6 +10731,106 @@ function pricingHistoryEntriesWithKinds() {
   ];
 }
 
+function pricingHistoryRelationReason(selected, candidate) {
+  if (selected.kind === candidate.kind && selected.entry.id === candidate.entry.id) return "";
+  const serials = ({ entry, kind }) => (kind === "loan"
+    ? [...loanHistorySerials(entry), serialDuplicateKey(entry.chargerSerial)]
+    : (entry.items || []).map(item => serialDuplicateKey(item.serial)))
+    .filter(Boolean);
+  const selectedSerials = new Set(serials(selected));
+  if (serials(candidate).some(serial => selectedSerials.has(serial))) return "Ten sam numer seryjny";
+  const customer = customerNameLookupKey(selected.entry.customer);
+  if (!customer || customer !== customerNameLookupKey(candidate.entry.customer)) return "";
+  const phone = value => String(value || "").replace(/\D/gu, "").replace(/^48(?=\d{9}$)/u, "");
+  const selectedPhone = phone(selected.entry.phone);
+  const candidatePhone = phone(candidate.entry.phone);
+  if (selectedPhone && candidatePhone && selectedPhone !== candidatePhone) return "";
+  return selectedPhone && selectedPhone === candidatePhone
+    ? "To samo imię, nazwisko i telefon"
+    : "To samo imię i nazwisko — sprawdź powiązanie";
+}
+
+function bindPricingHistorySelection(item, entry, kind) {
+  const key = `${kind}:${entry.id}`;
+  pricingHistorySelectableEntries.set(key, { entry, kind, item });
+  if (pricingHistoryTypeFilter?.value !== kind) return;
+  item.classList.add("history-selectable");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "reset-filters-btn history-select-button";
+  button.textContent = "Powiązania";
+  button.setAttribute("aria-pressed", "false");
+  button.setAttribute("aria-controls", "pricingHistoryRelatedPanel");
+  const select = () => {
+    pricingHistorySelectedKey = key;
+    renderPricingHistoryRelations();
+  };
+  button.addEventListener("click", select);
+  item.querySelector(".loan-history-actions")?.prepend(button);
+  item.addEventListener("click", event => {
+    if (!event.target.closest("button, a, input, select, textarea")) select();
+  });
+}
+
+function renderPricingHistoryRelations() {
+  const panel = document.querySelector("#pricingHistoryRelatedPanel");
+  const list = document.querySelector("#pricingHistoryRelatedList");
+  const label = document.querySelector("#pricingHistoryRelatedSelection");
+  if (!panel || !list || !label) return;
+  const kind = pricingHistoryTypeFilter?.value || "";
+  panel.hidden = !kind || !canViewDocumentHistory();
+  list.replaceChildren();
+  label.textContent = "";
+  if (panel.hidden) {
+    pricingHistorySelectedKey = "";
+    return;
+  }
+  let selected = pricingHistorySelectableEntries.get(pricingHistorySelectedKey);
+  if (!selected || selected.kind !== kind) {
+    const first = [...pricingHistorySelectableEntries].find(([, value]) => value.kind === kind);
+    pricingHistorySelectedKey = first?.[0] || "";
+    selected = first?.[1];
+  }
+  pricingHistorySelectableEntries.forEach(({ item }, key) => {
+    const active = key === pricingHistorySelectedKey;
+    item.classList.toggle("history-selected", active);
+    item.querySelector(".history-select-button")?.setAttribute("aria-pressed", String(active));
+  });
+  const empty = message => {
+    const text = document.createElement("p");
+    text.className = "loan-history-empty";
+    text.textContent = message;
+    list.append(text);
+  };
+  if (!selected) {
+    empty("Brak pozycji dla wybranych filtrów.");
+    return;
+  }
+  setPricingHistoryMetaText(label, [selected.entry.customer, selected.entry.number, formatDate(pricingHistoryEntryDate(selected.entry, kind))].filter(Boolean).join(" · "));
+  const related = pricingHistoryEntriesWithKinds()
+    .map(candidate => ({ ...candidate, reason: pricingHistoryRelationReason(selected, candidate) }))
+    .filter(candidate => candidate.reason)
+    .sort((a, b) => String(pricingHistoryEntryDate(b.entry, b.kind)).localeCompare(String(pricingHistoryEntryDate(a.entry, a.kind))) || String(b.entry.savedAt || "").localeCompare(String(a.entry.savedAt || "")));
+  if (!related.length) {
+    empty("Nie znaleziono powiązanych dokumentów.");
+    return;
+  }
+  const titles = { loan: "Umowa", offer: "Oferta", order: "Zamówienie", complaint: "Reklamacja" };
+  const open = { loan: restorePricingLoanFromHistory, offer: restorePricingOfferFromHistory, order: restorePricingOrderFromHistory, complaint: restorePricingComplaintFromHistory };
+  related.forEach(({ entry, kind: relatedKind, reason }) => {
+    const details = relatedKind === "loan" ? pricingLoanHistoryDeviceLabel(entry)
+      : (entry.items || []).map(item => [item.model || item.tradeName || item.productName || item.description, item.serial].filter(Boolean).join(" · ")).filter(Boolean).join(" | ");
+    const item = createPricingDocumentHistoryItem(entry, {
+      title: `${titles[relatedKind]}${entry.number ? ` ${entry.number}` : ""} · ${entry.customer}`,
+      meta: [formatDate(pricingHistoryEntryDate(entry, relatedKind)), pricingHistoryEntryLocationValue(entry, relatedKind), reason].filter(Boolean).join(" | "),
+      details,
+      onPreview: () => showPricingHistoryPreview(relatedKind, entry),
+      onOpen: () => open[relatedKind](entry)
+    });
+    list.append(item);
+  });
+}
+
 function syncPricingHistoryFilters() {
   if (!pricingHistoryYearFilter) return;
   const selectedYear = pricingHistoryYearFilter.value;
@@ -10730,8 +10856,10 @@ function syncPricingHistoryFilters() {
 }
 
 function renderPricingDocumentHistory() {
+  pricingHistorySelectableEntries.clear();
   if (!canViewDocumentHistory()) {
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
+    renderPricingHistoryRelations();
     return;
   }
   syncPricingHistoryFilters();
@@ -10739,7 +10867,7 @@ function renderPricingDocumentHistory() {
   const historyMatches = (entry, getSearchText) => !searchQuery || getSearchText(entry).includes(searchQuery);
   const historyEmptyText = (defaultText) => searchQuery ? "Nie znaleziono pasujących pozycji." : defaultText;
 
-  renderPricingLoanHistory();
+  renderPricingLoanHistory(true);
 
   const completeOfferHistory = normalizePricingOfferHistory(pricingOfferHistory);
   const offersAll = completeOfferHistory
@@ -10760,6 +10888,7 @@ function renderPricingDocumentHistory() {
     historyEmptyText("Brak zapisanych ofert."),
     ["oferta", "oferty", "ofert"],
     (entry) => createPricingDocumentHistoryItem(entry, {
+      kind: "offer",
       title: entry.customer || "Oferta bez osoby",
       meta: [
         entry.offerDate ? formatDate(entry.offerDate) : "",
@@ -10804,6 +10933,7 @@ function renderPricingDocumentHistory() {
     historyEmptyText("Brak zapisanych zamówień."),
     ["zamówienie", "zamówienia", "zamówień"],
     (entry) => createPricingDocumentHistoryItem(entry, {
+      kind: "order",
       title: entry.customer || "Zamówienie bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingHistoryEntryLocationValue(entry, "order")].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
@@ -10836,6 +10966,7 @@ function renderPricingDocumentHistory() {
     historyEmptyText("Brak zapisanych reklamacji."),
     ["reklamacja", "reklamacje", "reklamacji"],
     (entry) => createPricingDocumentHistoryItem(entry, {
+      kind: "complaint",
       title: entry.customer || "Reklamacja bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
@@ -10848,6 +10979,7 @@ function renderPricingDocumentHistory() {
     }),
     { totalCount: complaintsAll.length, searchActive: Boolean(searchQuery) }
   );
+  renderPricingHistoryRelations();
 }
 
 function loanInputValue(input) {

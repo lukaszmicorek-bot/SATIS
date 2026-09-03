@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260903-243">
+  <link rel="stylesheet" href="styles.css?v=20260903-246">
   </head>
   <body>
     <main class="app-shell">
@@ -1733,6 +1733,11 @@
                 </div>
                 <div id="complaintHistoryList" class="loan-history-list"></div>
               </section>
+              <section id="pricingHistoryRelatedPanel" class="loan-history-panel history-related-panel" aria-label="Powiązane dokumenty" hidden>
+                <div class="loan-history-head"><h3>Powiązane dokumenty</h3></div>
+                <p id="pricingHistoryRelatedSelection" class="history-related-selection" aria-live="polite"></p>
+                <div id="pricingHistoryRelatedList" class="loan-history-list"></div>
+              </section>
             </div>
           </section>
         </section>
@@ -2728,6 +2733,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260903-244"></script>
+  <script src="app.js?v=20260903-246"></script>
   </body>
 </html>
