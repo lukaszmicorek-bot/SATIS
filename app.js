@@ -4969,6 +4969,37 @@ function fifoLevel(record) {
   return "";
 }
 
+function fifoColorsForAge(age) {
+  if (!Number.isFinite(age) || age < 90) return null;
+  // Preserve the 90/180-day thresholds; deepen the tint gently up to one year.
+  const stops = [
+    { day: 90, tint: [255, 249, 223], badge: [255, 240, 184] },
+    { day: 180, tint: [255, 237, 228], badge: [255, 220, 203] },
+    { day: 365, tint: [255, 224, 225], badge: [250, 200, 204] }
+  ];
+  const days = Math.min(age, 365);
+  const endIndex = days <= 180 ? 1 : 2;
+  const start = stops[endIndex - 1];
+  const end = stops[endIndex];
+  const progress = (days - start.day) / (end.day - start.day);
+  const mix = (from, to, ratio) => from.map((value, index) => Math.round(value + (to[index] - value) * ratio));
+  const rgb = (channels) => `rgb(${channels.join(", ")})`;
+  const tint = mix(start.tint, end.tint, progress);
+  return {
+    tint: rgb(tint),
+    fade: rgb(mix(tint, [255, 255, 255], 0.75)),
+    badge: rgb(mix(start.badge, end.badge, progress))
+  };
+}
+
+function applyFifoAgeColors(element, age) {
+  const colors = fifoColorsForAge(age);
+  if (!colors) return;
+  element.style.setProperty("--fifo-tint", colors.tint);
+  element.style.setProperty("--fifo-fade", colors.fade);
+  element.style.setProperty("--fifo-badge", colors.badge);
+}
+
 function isInStock(record) {
   return displayType(record) === "NA STANIE";
 }
@@ -15233,8 +15264,12 @@ function createRow(record) {
   if (displayType(record) === "SPRZEDANY") {
     row.classList.add("device-sold-row");
   }
-  const level = deviceDerived.get(record.id)?.fifoLevel ?? fifoLevel(record);
-  if (level) row.classList.add(`fifo-${level}`);
+  const meta = deviceDerived.get(record.id);
+  const level = isFifoExcluded(record) ? "" : meta?.fifoLevel ?? fifoLevel(record);
+  if (level) {
+    row.classList.add(`fifo-${level}`);
+    applyFifoAgeColors(row, meta?.age ?? stockAge(record));
+  }
 
   const cells = [
     createTypePill(displayType(record)),
@@ -15807,6 +15842,7 @@ function createAgePill(record) {
   const level = meta?.ageLevel ?? ageLevel(record, age);
   pill.className = `age-pill ${level}`;
   pill.textContent = formatDaysLabel(age);
+  applyFifoAgeColors(pill, age);
   return pill;
 }
 
