@@ -377,6 +377,9 @@ const customerDocumentIndex = new Map();
 const customerPhoneIndex = new Map();
 const activeDemoLoanCustomerIndex = new Map();
 const agreementDraftStates = new Map();
+const documentSaveLocks = new Map();
+const documentDraftIdentities = new Map();
+const documentNextNumberHints = new Map();
 let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
@@ -2594,6 +2597,7 @@ function clearSensitiveApplicationState() {
   activeCapdHistoryId = "";
   activePricingLoanHistoryId = "";
   demoReturnReminderLastShownAt = 0;
+  documentDraftIdentities.clear();
   if (customerRelationsInput) customerRelationsInput.value = "";
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
@@ -8313,6 +8317,8 @@ function ensurePricingOfferLocation() {
 }
 
 function startNewPricingOffer() {
+  if (documentSaveLocks.has("offer")) return;
+  documentDraftIdentities.delete("offer");
   [
     offerCustomerInput,
     offerDeviceInput1,
@@ -8667,9 +8673,9 @@ function setupPrimarySaveTracking(form, button, selectors) {
   });
 }
 
-function printPricingOffer() {
+async function printPricingOffer() {
   if (printPricingOfferBtn?.disabled) return;
-  const savedEntry = saveCurrentPricingOfferToHistory({ silent: true });
+  const savedEntry = await saveCurrentPricingOfferToHistory({ silent: true });
   if (!savedEntry) return;
   const cleanup = () => document.body.classList.remove("pricing-offer-print");
   document.body.classList.add("pricing-offer-print");
@@ -8831,66 +8837,163 @@ function currentPricingOfferSnapshot() {
 }
 
 function pricingOfferSnapshotKey(entry) {
-  return [
-    entry?.customer,
-    entry?.offerDate,
-    entry?.location,
-    pricingOfferHistoryPatientGroup(entry),
-    (entry?.items || []).map((item) => [item.model, item.nfzCode, item.grossPrice].join(":")).join("|")
-  ].map((value) => normalize(value)).join("|");
+  return JSON.stringify([
+    customerNameLookupKey(entry?.customer), entry?.offerDate, normalize(entry?.location),
+    pricingOfferHistoryPatientGroup(entry), Boolean(entry?.withoutNfz), Boolean(entry?.pfronEnabled),
+    Number(entry?.pfron || 0), Number(entry?.nfz || 0), Number(entry?.total || 0),
+    (entry?.items || []).map(item => JSON.stringify([
+      item.kind || "device", item.side || "", normalize(item.model), normalize(item.nfzCode), Number(item.grossPrice || 0)
+    ])).sort()
+  ]);
 }
 
-async function persistPricingOfferHistoryEntry(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingOfferHistorySupabaseAvailable === false) return;
+function documentDraftId(kind) {
+  if (!documentDraftIdentities.has(kind)) documentDraftIdentities.set(kind, { id: makeId(), saved: false });
+  return documentDraftIdentities.get(kind).id;
+}
 
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_OFFER_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-    if (error) throw error;
-    pricingOfferHistorySupabaseAvailable = true;
-  } catch (error) {
-    if (isMissingSupabaseTableError(error)) {
-      pricingOfferHistorySupabaseAvailable = false;
-      console.warn("Oferta zapisana lokalnie. Brakuje tabeli Supabase:", error.message);
-      return;
-    }
-    console.warn("Oferta zapisana lokalnie, bez synchronizacji Supabase:", error.message);
-    if (!silent) alert("Oferta zapisana lokalnie. Supabase nie przyjął historii oferty, sprawdź połączenie.");
+function bindDocumentDraft(kind, entry) {
+  documentDraftIdentities.set(kind, { id: entry.id, saved: true });
+}
+
+async function refreshDocumentNextNumber(kind, date) {
+  documentNextNumberHints.delete(kind);
+  if (!hasSupabaseConfig || !isoDateForSave(date)) return;
+  const { data, error } = await supabaseClient.rpc("document_next_number", { document_kind: kind, document_date: isoDateForSave(date) });
+  // Older deployments retain browser checks until the SQL migration is installed.
+  if (error?.code === "PGRST202" || error?.code === "42883") return;
+  if (error) throw new Error(`Nie udało się sprawdzić kolejnego numeru: ${error.message}`);
+  const sequence = Number(data);
+  if (!Number.isSafeInteger(sequence) || sequence < 1) throw new Error("Serwer zwrócił nieprawidłowy kolejny numer dokumentu.");
+  documentNextNumberHints.set(kind, { period: isoDateForSave(date).slice(0, 7), sequence });
+}
+
+function documentNextSequence(kind, year, month, fallback) {
+  const hint = documentNextNumberHints.get(kind);
+  return hint?.period === `${year}-${String(month).padStart(2, "0")}` ? Math.max(fallback, hint.sequence) : fallback;
+}
+
+function beginDocumentSave(kind) {
+  if (documentSaveLocks.has(kind)) return false;
+  const state = agreementDraftStates.get(kind);
+  documentSaveLocks.set(kind, { inert: state?.editor?.inert || false, text: state?.saveButton?.textContent || "Zapisz" });
+  if (state?.editor) { state.editor.inert = true; state.editor.setAttribute("aria-busy", "true"); }
+  if (state?.saveButton) state.saveButton.textContent = "Zapisywanie...";
+  return true;
+}
+
+function endDocumentSave(kind) {
+  const previous = documentSaveLocks.get(kind);
+  const state = agreementDraftStates.get(kind);
+  if (state?.editor) { state.editor.inert = previous?.inert || false; state.editor.removeAttribute("aria-busy"); }
+  if (state?.saveButton) state.saveButton.textContent = previous?.text || "Zapisz";
+  documentSaveLocks.delete(kind);
+}
+
+async function refreshDocumentHistoryForSave(kind) {
+  const tables = { offer: SUPABASE_OFFER_HISTORY_TABLE, order: SUPABASE_ORDER_HISTORY_TABLE, complaint: SUPABASE_COMPLAINT_HISTORY_TABLE };
+  const normalizers = { offer: normalizePricingOfferHistoryEntry, order: normalizePricingOrderHistoryEntry, complaint: normalizePricingComplaintHistoryEntry };
+  let history = { offer: pricingOfferHistory, order: pricingOrderHistory, complaint: pricingComplaintHistory }[kind];
+  if (hasSupabaseConfig) {
+    if (!currentSupabaseUser) throw new Error("Zaloguj się ponownie przed zapisem dokumentu.");
+    history = await loadSupabaseTable(tables[kind], entries => entries.map(normalizers[kind]).filter(Boolean));
+    if (kind === "offer") pricingOfferHistory = history;
+    if (kind === "order") pricingOrderHistory = history;
+    if (kind === "complaint") pricingComplaintHistory = history;
+    if (kind !== "offer" && !repairWriteCheckInProgress) repairRecords = await loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse);
   }
+  const identity = documentDraftIdentities.get(kind);
+  if (identity?.saved && !history.some(entry => entry.id === identity.id)) {
+    throw new Error("Ten dokument został usunięty. Odśwież historię; zapis nie odtworzy usuniętego wpisu.");
+  }
+  if (kind !== "offer") await refreshDocumentNextNumber(kind, kind === "order" ? orderDateInput?.value : complaintDateInput?.value);
+  return history;
 }
 
-function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
+function validateDocumentNumberForSave(kind, snapshot, existingEntry) {
+  const history = kind === "order" ? pricingOrderHistory : pricingComplaintHistory;
+  const input = kind === "order" ? orderNumberInput : complaintNumberInput;
+  const next = kind === "order" ? nextPricingOrderNumber(snapshot.date, existingEntry?.id) : nextPricingComplaintNumber(snapshot.date, existingEntry?.id);
+  const parts = loanContractNumberParts(snapshot.number);
+  const date = loanContractDateParts(snapshot.date);
+  const key = canonicalLoanContractNumber(snapshot.number);
+  let message = "";
+  if (!parts?.year || !date || parts.year !== date.year || parts.month !== date.month) {
+    message = `Numer musi odpowiadać dacie dokumentu i mieć format numer/miesiąc/rok. Kolejny numer: ${next}.`;
+  } else {
+    const duplicate = history.find(entry => entry.id !== existingEntry?.id && canonicalLoanContractNumber(entry.number) === key);
+    if (duplicate) message = `Numer ${snapshot.number} jest już zajęty. Otwórz dokument z historii albo użyj kolejnego numeru: ${next}.`;
+    else if (key !== canonicalLoanContractNumber(existingEntry?.number) && key !== canonicalLoanContractNumber(next)) message = `Kolejny prawidłowy numer to ${next}.`;
+  }
+  if (message) throw new Error(message);
+  if (input) input.dataset.autoNumber = "";
+}
+
+function confirmNearbyDocumentSave(kind, snapshot, existingEntry) {
+  if (existingEntry) return true;
+  const history = { offer: pricingOfferHistory, order: pricingOrderHistory, complaint: pricingComplaintHistory }[kind];
+  const serials = entry => (entry.items || []).map(item => item.serial).filter(Boolean);
+  const date = entry => kind === "offer" ? entry.offerDate : entry.date;
+  const matches = nearbyEntryMatches({ id: snapshot.id, customer: snapshot.customer, date: date(snapshot), serials: serials(snapshot) },
+    history.map(entry => ({ id: entry.id, customer: entry.customer, date: date(entry), serials: serials(entry), number: entry.number })));
+  if (!matches.length) return true;
+  return confirm(`Podobne dokumenty w ciągu 3 dni:\n\n${matches.slice(0, 3).map(entry => `${entry.customer}, ${formatDate(entry.date)}${entry.number ? `, nr ${entry.number}` : ""}`).join("\n")}\n\nCzy na pewno chcesz zapisać nowy dokument zamiast edytować istniejący?`);
+}
+
+async function persistPricingOfferHistoryEntry(entry) {
+  if (!hasSupabaseConfig) return true;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem oferty.");
+  const { error } = await supabaseClient.from(SUPABASE_OFFER_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
+  if (error) throw new Error(`Oferta nie została potwierdzona przez serwer: ${error.message}`);
+  pricingOfferHistorySupabaseAvailable = true;
+  return true;
+}
+
+async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
   if (!requireDocumentCustomerName(offerCustomerInput)) return null;
-  const snapshot = normalizePricingOfferHistoryEntry(currentPricingOfferSnapshot());
-  if (!snapshot) {
-    if (!silent) alert("Uzupełnij klienta lub aparat, żeby zapisać ofertę w historii.");
+  if (!beginDocumentSave("offer")) return null;
+  try {
+    await refreshDocumentHistoryForSave("offer");
+    const snapshot = normalizePricingOfferHistoryEntry(currentPricingOfferSnapshot());
+    if (!snapshot) {
+      if (!silent) alert("Uzupełnij klienta lub aparat, żeby zapisać ofertę w historii.");
+      return null;
+    }
+    const now = new Date().toISOString();
+    const snapshotKey = pricingOfferSnapshotKey(snapshot);
+    snapshot.id = documentDraftId("offer");
+    const existingEntry = pricingOfferHistory.find(entry => entry.id === snapshot.id);
+    const duplicate = pricingOfferHistory.find(entry => entry.id !== snapshot.id && pricingOfferSnapshotKey(entry) === snapshotKey);
+    if (duplicate) throw new Error("Taka oferta już istnieje. Otwórz ją z historii zamiast zapisywać kopię.");
+    if (!confirmNearbyDocumentSave("offer", snapshot, existingEntry)) return null;
+    const historyEntry = normalizePricingOfferHistoryEntry({
+      ...snapshot,
+      id: existingEntry?.id || snapshot.id,
+      createdAt: existingEntry?.createdAt || snapshot.createdAt,
+      savedAt: now,
+      savedBy: currentSupabaseUser?.email || snapshot.savedBy,
+      workstation: currentWorkstationName() || snapshot.workstation
+    });
+    if (!historyEntry) return null;
+    await persistPricingOfferHistoryEntry(historyEntry);
+    bindDocumentDraft("offer", historyEntry);
+    pricingOfferHistory = [
+      historyEntry,
+      ...pricingOfferHistory.filter((entry) => entry.id !== historyEntry.id)
+    ].slice(0, MAX_PRICING_OFFER_HISTORY);
+    saveLocalPricingOfferHistory();
+    recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
+    rebuildCustomerDocumentIndex();
+    rebuildCustomerNameSuggestions();
+    renderPricingDocumentHistory();
+    renderDeviceViews();
+    markAgreementDraftSaved("offer");
+    if (!silent) alert("Oferta zapisana w historii.");
+    return historyEntry;
+  } catch (error) {
+    alert(`Zapis oferty wstrzymany: ${error.message}`);
     return null;
-  }
-  const now = new Date().toISOString();
-  const snapshotKey = pricingOfferSnapshotKey(snapshot);
-  const existingEntry = pricingOfferHistory.find((entry) => pricingOfferSnapshotKey(entry) === snapshotKey);
-  const historyEntry = normalizePricingOfferHistoryEntry({
-    ...snapshot,
-    id: existingEntry?.id || snapshot.id,
-    createdAt: existingEntry?.createdAt || snapshot.createdAt,
-    savedAt: now,
-    savedBy: currentSupabaseUser?.email || snapshot.savedBy,
-    workstation: currentWorkstationName() || snapshot.workstation
-  });
-  if (!historyEntry) return null;
-  pricingOfferHistory = [
-    historyEntry,
-    ...pricingOfferHistory.filter((entry) => entry.id !== historyEntry.id)
-  ].slice(0, MAX_PRICING_OFFER_HISTORY);
-  saveLocalPricingOfferHistory();
-  recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
-  rebuildCustomerDocumentIndex();
-  rebuildCustomerNameSuggestions();
-  persistPricingOfferHistoryEntry(historyEntry, { silent });
-  renderPricingDocumentHistory();
-  renderDeviceViews();
-  markAgreementDraftSaved("offer");
-  if (!silent) alert("Oferta zapisana w historii.");
-  return historyEntry;
+  } finally { endDocumentSave("offer"); }
 }
 
 function normalizeLoanHistoryText(value) {
@@ -9425,13 +9528,13 @@ function nextLoanContractNumber(dateValue, ignoredId = "") {
     const numberParts = loanContractNumberParts(entry.number);
     if (!numberParts) return maxValue;
     const dateParts = loanContractDateParts(entry.date);
-    const entryMonth = dateParts?.month || numberParts.month;
-    const entryYear = dateParts?.year || numberParts.year || targetYear;
+    const entryMonth = numberParts.month;
+    const entryYear = numberParts.year || dateParts?.year || targetYear;
     if (entryMonth !== targetMonth || entryYear !== targetYear) return maxValue;
     return Math.max(maxValue, numberParts.sequence);
   }, 0);
 
-  return monthlyDocumentNumber(maxSequence + 1, targetMonth, targetYear);
+  return monthlyDocumentNumber(documentNextSequence("loan", targetYear, targetMonth, maxSequence + 1), targetMonth, targetYear);
 }
 
 function ensureLoanContractNumber({ force = false } = {}) {
@@ -9539,7 +9642,7 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
     pricingLoanHistorySupabaseAvailable = true;
     return true;
   } catch (error) {
-    if (error?.code === "23505" || /duplicate key|unique constraint/iu.test(error?.message || "")) {
+    if ((error?.code === "23505" || /duplicate key|unique constraint/iu.test(error?.message || "")) && /number|numer/iu.test(error?.message || "")) {
       console.warn("Numer umowy jest już zajęty:", error?.message || error);
       return false;
     }
@@ -9549,7 +9652,7 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
 }
 
 async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
-  if (pricingLoanSaveInProgress) return null;
+  if (pricingLoanSaveInProgress || !beginDocumentSave("loan")) return null;
   pricingLoanSaveInProgress = true;
   if (savePricingLoanBtn) savePricingLoanBtn.disabled = true;
 
@@ -9564,6 +9667,15 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
       demoRecords = demos;
       pricingLoanHistorySupabaseAvailable = true;
     }
+    const attemptedEntry = pricingLoanHistory.find(entry => entry.id === documentDraftIdentities.get("loan")?.id);
+    if (!activePricingLoanHistoryId && attemptedEntry) {
+      activePricingLoanHistoryId = attemptedEntry.id;
+      if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "";
+    }
+    if (activePricingLoanHistoryId && !pricingLoanHistory.some(entry => entry.id === activePricingLoanHistoryId)) {
+      throw new Error("Umowa została usunięta. Odśwież historię; nie można jej odtworzyć zapisem formularza.");
+    }
+    await refreshDocumentNextNumber("loan", loanDateInput?.value);
     ensureLoanContractNumber();
 
     const dateValue = isoDateForSave(loanDateInput?.value) || loanInputValue(loanDateInput);
@@ -9607,7 +9719,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     const existingEntry = existingIndex >= 0 ? pricingLoanHistory[existingIndex] : null;
     const historyEntry = normalizePricingLoanHistoryEntry({
       ...snapshot,
-      id: existingEntry?.id || snapshot.id,
+      id: existingEntry?.id || documentDraftId("loan"),
       createdAt: existingEntry?.createdAt || snapshot.createdAt,
       savedAt: now,
       savedBy: currentSupabaseUser?.email || snapshot.savedBy,
@@ -9615,6 +9727,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     });
 
     if (!historyEntry) return null;
+    if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "";
     const persisted = await persistPricingLoanHistoryEntry(historyEntry, { silent });
     if (!persisted) {
       await loadSupabasePricingLoanHistory();
@@ -9630,6 +9743,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
       ...pricingLoanHistory.filter((entry) => entry.id !== historyEntry.id)
     ].slice(0, MAX_PRICING_LOAN_HISTORY);
     activePricingLoanHistoryId = historyEntry.id;
+    bindDocumentDraft("loan", historyEntry);
     saveLocalPricingLoanHistory();
     recordDocumentLocationUsage(historyEntry.city, historyEntry.workstation);
     rebuildCustomerDocumentIndex();
@@ -9665,6 +9779,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   } finally {
     pricingLoanSaveInProgress = false;
     if (savePricingLoanBtn) savePricingLoanBtn.disabled = false;
+    endDocumentSave("loan");
   }
 }
 
@@ -9683,12 +9798,14 @@ function setLoanSnapshotInput(input, value, options = {}) {
 }
 
 function restorePricingLoanFromHistory(entry) {
+  if (pricingLoanSaveInProgress) return;
   setLoanReturnEditMode(false);
   hideLoanCustomerHistorySuggestions();
   clearPostalAutofill(loanAddressInput, "loanPostalHint");
   const historyEntry = normalizePricingLoanHistoryEntry(entry);
   if (!historyEntry) return;
   activePricingLoanHistoryId = historyEntry.id;
+  bindDocumentDraft("loan", historyEntry);
   pricingLoanAutofilledFromOffer = true;
   setLoanSnapshotInput(loanContractNumberInput, historyEntry.number);
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "";
@@ -10329,8 +10446,10 @@ function renderPricingHistoryList(list, countElement, entries, emptyText, countL
 }
 
 function restorePricingOfferFromHistory(entry) {
+  if (documentSaveLocks.has("offer")) return;
   const saved = normalizePricingOfferHistoryEntry(entry);
   if (!saved) return;
+  bindDocumentDraft("offer", saved);
   if (offerCustomerInput) offerCustomerInput.value = saved.customer;
   setPricingOfferPatientGroup(saved.patientGroup);
   if (offerLocationInput) offerLocationInput.value = normalizeDocumentLocationValue(saved.location);
@@ -10394,8 +10513,10 @@ async function deletePricingOfferHistoryEntry(id) {
 }
 
 function restorePricingOrderFromHistory(entry) {
+  if (documentSaveLocks.has("order")) return;
   const saved = normalizePricingOrderHistoryEntry(entry);
   if (!saved) return;
+  bindDocumentDraft("order", saved);
   if (orderNumberInput) {
     orderNumberInput.value = saved.number;
     orderNumberInput.dataset.autoNumber = "";
@@ -10442,8 +10563,10 @@ async function deletePricingOrderHistoryEntry(id) {
 }
 
 function restorePricingComplaintFromHistory(entry) {
+  if (documentSaveLocks.has("complaint")) return;
   const saved = normalizePricingComplaintHistoryEntry(entry);
   if (!saved) return;
+  bindDocumentDraft("complaint", saved);
   if (complaintNumberInput) {
     complaintNumberInput.value = saved.number;
     complaintNumberInput.dataset.autoNumber = "";
@@ -10734,7 +10857,7 @@ function loanInputValue(input) {
 function normalizeLoanIdentityValue(value) {
   return String(value ?? "")
     .toLocaleUpperCase("pl-PL")
-    .replace(/[\s-]+/gu, "")
+    .replace(/[\s\u200B-\u200D\u2060\uFEFF-]+/gu, "")
     .trim();
 }
 
@@ -10806,9 +10929,9 @@ function updateLoanIdentityValidity() {
 
 function formatLoanStreet(value) {
   let street = normalizeLoanHistoryText(value)
-    .replace(/^(?:ulica|ul)\.?\s*/iu, "ul. ")
-    .replace(/^(?:aleja|al)\.?\s*/iu, "al. ")
-    .replace(/^(?:osiedle|os)\.?\s*/iu, "os. ");
+    .replace(/^(?:ulica|ul)(?:\.\s*|\s+)/iu, "ul. ")
+    .replace(/^(?:aleja|al)(?:\.\s*|\s+)/iu, "al. ")
+    .replace(/^(?:osiedle|os)(?:\.\s*|\s+)/iu, "os. ");
   if (street && !/^(?:ul\.|al\.|os\.)\s/iu.test(street)) street = `ul. ${street}`;
   street = titleCaseName(street);
   return street
@@ -10830,7 +10953,8 @@ function formatLoanAddress(value, { final = false } = {}) {
   if (!final || !text) return text;
 
   const parts = postalAddressParts(text);
-  if (!parts.city || !parts.street) return text;
+  if (!parts.street) return parts.city ? [parts.postalCode, titleCaseName(parts.city)].filter(Boolean).join(" ") : text;
+  if (!parts.city) return [formatLoanStreet(parts.street), parts.postalCode].filter(Boolean).join(", ");
   const city = titleCaseName(parts.city);
   const cityWithCode = [parts.postalCode, city].filter(Boolean).join(" ");
   return `${formatLoanStreet(parts.street)}, ${cityWithCode}`;
@@ -10936,8 +11060,16 @@ function postalAddressParts(value) {
   else if (parts.length === 1) {
     const match = address.match(/^(.+?)\s+((?:ul\.|al\.|os\.)\s*.+)$/iu);
     if (match && isCity(match[1])) [, city, street] = match;
-    else if (isCity(address)) city = address;
+    else {
+      const streetFirst = address.match(/^(.+?\s\d+[a-z]?(?:\s*\/\s*\d+[a-z]?)?)\s+([\p{L}][\p{L}\s.'’–-]*)$/iu);
+      const localCityFirst = address.match(/^(Bielsko(?:[-\s]Bia[łl]a)?)\s+(.+\s\d+[a-z]?(?:\/\d+[a-z]?)?)$/iu);
+      if (streetFirst && isCity(streetFirst[2])) [, street, city] = streetFirst;
+      else if (localCityFirst) [, city, street] = localCityFirst;
+      else if (/^.+\s\d+[a-z]?(?:\/\d+[a-z]?)?$/iu.test(address)) street = address;
+      else if (isCity(address)) city = address;
+    }
   }
+  if (/^bielsko$/iu.test(city)) city = "Bielsko-Biała";
   return { postalCode, city, street, address };
 }
 
@@ -11452,6 +11584,8 @@ function ensurePricingLoanDefaults() {
 }
 
 function startNewPricingLoan() {
+  if (pricingLoanSaveInProgress) return;
+  documentDraftIdentities.delete("loan");
   setDocumentCustomerNameValidity(loanCustomerInput, true);
   setLoanReturnEditMode(false);
   hideLoanCustomerHistorySuggestions();
@@ -11596,7 +11730,11 @@ function validatePricingLoanForAction() {
   pricingLoanValidationRequested = true;
   const missingInputs = updatePricingLoanRequiredHighlights();
   missingInputs[0]?.focus();
-  if (missingInputs.length) return false;
+  if (missingInputs.length) {
+    const fields = [...new Set(missingInputs.map(input => input.labels?.[0]?.querySelector("span")?.textContent?.trim() || input.closest("label")?.querySelector("span")?.textContent?.trim() || "Aparat / charakter wypożyczenia"))];
+    alert(`Uzupełnij wymagane pola: ${fields.join(", ")}. Zostały podświetlone w formularzu.`);
+    return false;
+  }
   if (!requireDocumentCustomerName(loanCustomerInput)) return false;
   if (!updateLoanIdentityValidity()) {
     alert(loanDocumentInput?.validationMessage || "Sprawdź PESEL albo numer dowodu.");
@@ -12568,13 +12706,13 @@ function nextPricingOrderNumber(dateValue, ignoredId = "") {
     const numberParts = loanContractNumberParts(entry.number);
     if (!numberParts) return maxValue;
     const dateParts = loanContractDateParts(entry.date);
-    const entryMonth = dateParts?.month || numberParts.month;
-    const entryYear = dateParts?.year || numberParts.year || targetYear;
+    const entryMonth = numberParts.month;
+    const entryYear = numberParts.year || dateParts?.year || targetYear;
     if (entryMonth !== targetMonth || entryYear !== targetYear) return maxValue;
     return Math.max(maxValue, numberParts.sequence);
   }, 0);
 
-  return monthlyDocumentNumber(maxSequence + 1, targetMonth, targetYear);
+  return monthlyDocumentNumber(documentNextSequence("order", targetYear, targetMonth, maxSequence + 1), targetMonth, targetYear);
 }
 
 function ensurePricingOrderNumber({ force = false } = {}) {
@@ -12751,60 +12889,70 @@ async function persistPricingOrderHistoryEntry(entry) {
 
 async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   if (!requireDocumentCustomerName(orderCustomerInput)) return null;
-  const snapshot = normalizePricingOrderHistoryEntry(currentPricingOrderSnapshot());
-  if (!snapshot?.items.length) {
-    if (!silent) alert("Dodaj przynajmniej jedną pozycję zamówienia.");
-    return null;
-  }
-  if (pricingOrderItemsMissingRequiredSide(snapshot.items)) {
-    if (!silent) alert("Wybierz stronę P lub L dla każdej wkładki.");
-    return null;
-  }
-  const now = new Date().toISOString();
-  const snapshotKey = pricingOrderSnapshotKey(snapshot);
-  const existingEntry = pricingOrderHistory.find((entry) => pricingOrderSnapshotKey(entry) === snapshotKey || entry.number === snapshot.number);
-  if (existingEntry && customerNameLookupKey(existingEntry.customer) !== customerNameLookupKey(snapshot.customer)) {
-    alert(`Numer zamówienia ${existingEntry.number} należy już do innego klienta. Wybierz nowy numer zamiast nadpisywać dokument.`);
-    return null;
-  }
-  const semanticDuplicate = pricingOrderHistory.find((entry) => (
-    entry.id !== existingEntry?.id && pricingOrderSemanticKey(entry) === pricingOrderSemanticKey(snapshot)
-  ));
-  if (semanticDuplicate) {
-    if (!silent) alert(`Takie zamówienie już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}.`);
-    return null;
-  }
-  const serviceDuplicate = repairDocumentDuplicate(pricingOrderRepairRecord({ ...snapshot, id: existingEntry?.id || snapshot.id }));
-  if (serviceDuplicate) {
-    alert(repairDuplicateMessage(serviceDuplicate));
-    return null;
-  }
-  const historyEntry = normalizePricingOrderHistoryEntry({
-    ...snapshot,
-    id: existingEntry?.id || snapshot.id,
-    createdAt: existingEntry?.createdAt || snapshot.createdAt,
-    savedAt: now,
-    savedBy: currentSupabaseUser?.email || snapshot.savedBy,
-    workstation: currentWorkstationName() || snapshot.workstation
-  });
-  if (!historyEntry) return null;
+  if (!beginDocumentSave("order")) return null;
   try {
-    await persistPricingOrderHistoryEntry(historyEntry);
+    await refreshDocumentHistoryForSave("order");
+    const snapshot = normalizePricingOrderHistoryEntry(currentPricingOrderSnapshot());
+    if (!snapshot?.items.length) {
+      if (!silent) alert("Dodaj przynajmniej jedną pozycję zamówienia.");
+      return null;
+    }
+    if (pricingOrderItemsMissingRequiredSide(snapshot.items)) {
+      if (!silent) alert("Wybierz stronę P lub L dla każdej wkładki.");
+      return null;
+    }
+    const now = new Date().toISOString();
+    snapshot.id = documentDraftId("order");
+    const existingEntry = pricingOrderHistory.find(entry => entry.id === snapshot.id);
+    validateDocumentNumberForSave("order", snapshot, existingEntry);
+    if (existingEntry && customerNameLookupKey(existingEntry.customer) !== customerNameLookupKey(snapshot.customer)) {
+      alert(`Numer zamówienia ${existingEntry.number} należy już do innego klienta. Wybierz nowy numer zamiast nadpisywać dokument.`);
+      return null;
+    }
+    const semanticDuplicate = pricingOrderHistory.find((entry) => (
+      entry.id !== existingEntry?.id && pricingOrderSemanticKey(entry) === pricingOrderSemanticKey(snapshot)
+    ));
+    if (semanticDuplicate) {
+      if (!silent) alert(`Takie zamówienie już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}.`);
+      return null;
+    }
+    if (!confirmNearbyDocumentSave("order", snapshot, existingEntry)) return null;
+    const serviceDuplicate = repairDocumentDuplicate(pricingOrderRepairRecord({ ...snapshot, id: existingEntry?.id || snapshot.id }));
+    if (serviceDuplicate) {
+      alert(repairDuplicateMessage(serviceDuplicate));
+      return null;
+    }
+    const historyEntry = normalizePricingOrderHistoryEntry({
+      ...snapshot,
+      id: existingEntry?.id || snapshot.id,
+      createdAt: existingEntry?.createdAt || snapshot.createdAt,
+      savedAt: now,
+      savedBy: currentSupabaseUser?.email || snapshot.savedBy,
+      workstation: currentWorkstationName() || snapshot.workstation
+    });
+    if (!historyEntry) return null;
+    try {
+      await persistPricingOrderHistoryEntry(historyEntry);
+    } catch (error) {
+      alert(error.message);
+      return null;
+    }
+    bindDocumentDraft("order", historyEntry);
+    pricingOrderHistory = [
+      historyEntry,
+      ...pricingOrderHistory.filter((entry) => entry.id !== historyEntry.id)
+    ].slice(0, MAX_PRICING_ORDER_HISTORY);
+    saveLocalPricingOrderHistory();
+    recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
+    rebuildCustomerNameSuggestions();
+    renderPricingDocumentHistory();
+    markAgreementDraftSaved("order");
+    if (!silent) alert("Zamówienie zapisane w historii.");
+    return historyEntry;
   } catch (error) {
-    alert(error.message);
+    alert(`Zapis zamówienia wstrzymany: ${error.message}`);
     return null;
-  }
-  pricingOrderHistory = [
-    historyEntry,
-    ...pricingOrderHistory.filter((entry) => entry.id !== historyEntry.id)
-  ].slice(0, MAX_PRICING_ORDER_HISTORY);
-  saveLocalPricingOrderHistory();
-  recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
-  rebuildCustomerNameSuggestions();
-  renderPricingDocumentHistory();
-  markAgreementDraftSaved("order");
-  if (!silent) alert("Zamówienie zapisane w historii.");
-  return historyEntry;
+  } finally { endDocumentSave("order"); }
 }
 
 function documentLocationToRepairLocation(value) {
@@ -13526,12 +13674,14 @@ function renderPricingOrder() {
 }
 
 function copyPricingOfferToOrder() {
+  if (documentSaveLocks.has("order")) return;
   const offerItems = selectedPricingOfferItems();
   if (!offerItems.length) {
     alert("Najpierw wybierz aparat w ofercie.");
     return;
   }
 
+  documentDraftIdentities.delete("order");
   clearPricingOrderRows();
   offerItems.forEach((item) => {
     addPricingOrderItemRow({
@@ -13554,6 +13704,8 @@ function copyPricingOfferToOrder() {
 }
 
 function resetPricingOrderForm() {
+  if (documentSaveLocks.has("order")) return;
+  documentDraftIdentities.delete("order");
   setDocumentCustomerNameValidity(orderCustomerInput, true);
   setPricingOrderPatientGroup("");
   [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
@@ -13579,7 +13731,6 @@ async function savePricingOrderAndRepairNotebook() {
   }
   const historyEntry = await saveCurrentPricingOrderToHistory({ silent: true });
   if (!historyEntry) {
-    alert("Dodaj przynajmniej jedną pozycję zamówienia.");
     return null;
   }
   if (!await syncPricingOrderToRepairNotebook(historyEntry)) return null;
@@ -13882,13 +14033,13 @@ function nextPricingComplaintNumber(dateValue, ignoredId = "") {
     const numberParts = loanContractNumberParts(entry.number);
     if (!numberParts) return maxValue;
     const dateParts = loanContractDateParts(entry.date);
-    const entryMonth = dateParts?.month || numberParts.month;
-    const entryYear = dateParts?.year || numberParts.year || targetYear;
+    const entryMonth = numberParts.month;
+    const entryYear = numberParts.year || dateParts?.year || targetYear;
     if (entryMonth !== targetMonth || entryYear !== targetYear) return maxValue;
     return Math.max(maxValue, numberParts.sequence);
   }, 0);
 
-  return monthlyComplaintNumber(maxSequence + 1, targetMonth, targetYear);
+  return monthlyComplaintNumber(documentNextSequence("complaint", targetYear, targetMonth, maxSequence + 1), targetMonth, targetYear);
 }
 
 function complaintInputValue(input) {
@@ -14088,58 +14239,66 @@ function pricingComplaintSemanticKey(entry) {
 
 function pricingComplaintsShareIntake(left, right) {
   if (!isoDateForSave(left?.date) || isoDateForSave(left.date) !== isoDateForSave(right?.date)) return false;
-  const customer = customerNameLookupKey(left?.customer);
-  if (!customer || customer !== customerNameLookupKey(right?.customer)) return false;
   const serials = new Set(normalizePricingComplaintItems(left).map((item) => serialDuplicateKey(item.serial)).filter(Boolean));
   return normalizePricingComplaintItems(right).some((item) => serials.has(serialDuplicateKey(item.serial)));
 }
 
 async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   if (!requireDocumentCustomerName(complaintCustomerInput)) return null;
-  const snapshot = normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot());
-  if (!snapshot) {
-    if (!silent) alert("Uzupełnij klienta, produkt albo opis, żeby zapisać reklamację w historii.");
-    return null;
-  }
-  const now = new Date().toISOString();
-  const snapshotKey = pricingComplaintSnapshotKey(snapshot);
-  const existingEntry = pricingComplaintHistory.find((entry) => pricingComplaintSnapshotKey(entry) === snapshotKey || entry.number === snapshot.number);
-  if (existingEntry && customerNameLookupKey(existingEntry.customer) !== customerNameLookupKey(snapshot.customer)) {
-    alert(`Numer reklamacji ${existingEntry.number} należy już do innego klienta. Wybierz nowy numer zamiast nadpisywać dokument.`);
-    return null;
-  }
-  const semanticDuplicate = pricingComplaintHistory.find((entry) => (
-    entry.id !== existingEntry?.id && (pricingComplaintsShareIntake(entry, snapshot) || pricingComplaintSemanticKey(entry) === pricingComplaintSemanticKey(snapshot))
-  ));
-  if (semanticDuplicate) {
-    alert(`Taka reklamacja już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}: ${semanticDuplicate.customer}, ${formatDate(semanticDuplicate.date)}. Ten sam numer seryjny nie może zostać ponownie przyjęty dla tej osoby tego samego dnia.`);
-    return null;
-  }
-  const historyEntry = normalizePricingComplaintHistoryEntry({
-    ...snapshot,
-    id: existingEntry?.id || snapshot.id,
-    createdAt: existingEntry?.createdAt || snapshot.createdAt,
-    savedAt: now,
-    savedBy: currentSupabaseUser?.email || snapshot.savedBy,
-    workstation: currentWorkstationName() || snapshot.workstation
-  });
-  if (!historyEntry) return null;
+  if (!beginDocumentSave("complaint")) return null;
   try {
-    await persistPricingComplaintHistoryEntry(historyEntry);
+    await refreshDocumentHistoryForSave("complaint");
+    const snapshot = normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot());
+    if (!snapshot) {
+      if (!silent) alert("Uzupełnij klienta, produkt albo opis, żeby zapisać reklamację w historii.");
+      return null;
+    }
+    const now = new Date().toISOString();
+    snapshot.id = documentDraftId("complaint");
+    const existingEntry = pricingComplaintHistory.find(entry => entry.id === snapshot.id);
+    validateDocumentNumberForSave("complaint", snapshot, existingEntry);
+    if (existingEntry && customerNameLookupKey(existingEntry.customer) !== customerNameLookupKey(snapshot.customer)) {
+      alert(`Numer reklamacji ${existingEntry.number} należy już do innego klienta. Wybierz nowy numer zamiast nadpisywać dokument.`);
+      return null;
+    }
+    const semanticDuplicate = pricingComplaintHistory.find((entry) => (
+      entry.id !== existingEntry?.id && (pricingComplaintsShareIntake(entry, snapshot) || pricingComplaintSemanticKey(entry) === pricingComplaintSemanticKey(snapshot))
+    ));
+    if (semanticDuplicate) {
+      alert(`Taka reklamacja już istnieje jako ${semanticDuplicate.number || "dokument bez numeru"}: ${semanticDuplicate.customer}, ${formatDate(semanticDuplicate.date)}. Ten sam numer seryjny nie może zostać ponownie przyjęty tego samego dnia.`);
+      return null;
+    }
+    if (!confirmNearbyDocumentSave("complaint", snapshot, existingEntry)) return null;
+    const historyEntry = normalizePricingComplaintHistoryEntry({
+      ...snapshot,
+      id: existingEntry?.id || snapshot.id,
+      createdAt: existingEntry?.createdAt || snapshot.createdAt,
+      savedAt: now,
+      savedBy: currentSupabaseUser?.email || snapshot.savedBy,
+      workstation: currentWorkstationName() || snapshot.workstation
+    });
+    if (!historyEntry) return null;
+    try {
+      await persistPricingComplaintHistoryEntry(historyEntry);
+    } catch (error) {
+      alert(error.message);
+      return null;
+    }
+    bindDocumentDraft("complaint", historyEntry);
+    pricingComplaintHistory = [
+      historyEntry,
+      ...pricingComplaintHistory.filter((entry) => entry.id !== historyEntry.id)
+    ].slice(0, MAX_PRICING_COMPLAINT_HISTORY);
+    saveLocalPricingComplaintHistory();
+    recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
+    rebuildCustomerNameSuggestions();
+    renderPricingDocumentHistory();
+    markAgreementDraftSaved("complaint");
+    return historyEntry;
   } catch (error) {
-    alert(error.message);
+    alert(`Zapis reklamacji wstrzymany: ${error.message}`);
     return null;
-  }
-  pricingComplaintHistory = [
-    historyEntry,
-    ...pricingComplaintHistory.filter((entry) => entry.id !== historyEntry.id)
-  ].slice(0, MAX_PRICING_COMPLAINT_HISTORY);
-  saveLocalPricingComplaintHistory();
-  recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
-  rebuildCustomerNameSuggestions();
-  renderPricingDocumentHistory();
-  markAgreementDraftSaved("complaint");
-  return historyEntry;
+  } finally { endDocumentSave("complaint"); }
 }
 
 function setComplaintOutput(name, value) {
@@ -14564,6 +14723,8 @@ function syncComplaintProductNameForType(slot = 1) {
 }
 
 function resetPricingComplaintForm() {
+  if (documentSaveLocks.has("complaint")) return;
+  documentDraftIdentities.delete("complaint");
   setDocumentCustomerNameValidity(complaintCustomerInput, true);
   [
     complaintCustomerInput,
@@ -22764,6 +22925,8 @@ loanLeftDeviceInput?.addEventListener("blur", () => {
   renderPricingLoan();
 });
 loanCopyOfferBtn?.addEventListener("click", () => {
+  if (pricingLoanSaveInProgress) return;
+  documentDraftIdentities.delete("loan");
   activePricingLoanHistoryId = "";
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
   syncLoanFormFromOffer(true);
