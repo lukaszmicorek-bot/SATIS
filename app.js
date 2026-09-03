@@ -9806,6 +9806,7 @@ function restorePricingLoanFromHistory(entry) {
   clearPostalAutofill(loanAddressInput, "loanPostalHint");
   const historyEntry = normalizePricingLoanHistoryEntry(entry);
   if (!historyEntry) return;
+  resetLoanAutofillState();
   activePricingLoanHistoryId = historyEntry.id;
   bindDocumentDraft("loan", historyEntry);
   pricingLoanAutofilledFromOffer = true;
@@ -9818,7 +9819,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanPeriodToInput, historyEntry.periodTo, { date: true });
   setLoanSnapshotInput(loanCustomerInput, historyEntry.customer, { title: true });
   setLoanSnapshotInput(loanAddressInput, historyEntry.address);
-  setLoanSnapshotInput(loanDocumentInput, historyEntry.document);
+  setLoanSnapshotInput(loanDocumentInput, normalizeLoanIdentityValue(historyEntry.document));
   setLoanSnapshotInput(loanPhoneInput, historyEntry.phone);
   setLoanSnapshotInput(loanRightDeviceInput, historyEntry.rightDevice.model);
   setLoanSnapshotInput(loanRightSerialInput, historyEntry.rightDevice.serial, { upper: true });
@@ -9839,6 +9840,10 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanDepositReturnDateInput, historyEntry.depositReturnDate, { date: true });
   setLoanSnapshotInput(loanDeductionsInput, historyEntry.deductions);
   setLoanSnapshotInput(loanDeductionReasonInput, historyEntry.deductionReason);
+  ["right", "left"].forEach(side => {
+    const inputs = loanDeviceInputs(side);
+    if (inputs.serial) inputs.serial.dataset.loanMatchedSerial = serialDuplicateKey(inputs.serial.value);
+  });
   updateLoanDemoPurposeField("right", historyEntry.rightDevice.purpose);
   updateLoanDemoPurposeField("left", historyEntry.leftDevice.purpose);
   switchPricingView("loan");
@@ -11101,7 +11106,7 @@ function customerHistoryContactEntries(customer) {
     const contact = {
       customerKey: key,
       phone: normalizeLoanHistoryText(entry.phone),
-      document: normalizeLoanHistoryText(entry.document),
+      document: normalizeLoanIdentityValue(entry.document),
       address: formatLoanAddress(entry.address, { final: true }),
       source,
       date: isoDateForSave(entry.date) || isoDateForSave(entry.savedAt) || isoDateForSave(entry.createdAt),
@@ -11129,18 +11134,79 @@ function hideLoanCustomerHistorySuggestions() {
   }
 }
 
+function resetLoanAutofillState() {
+  [loanPhoneInput, loanDocumentInput, loanAddressInput].forEach(input => {
+    if (!input) return;
+    delete input.dataset.loanContactCustomer;
+    delete input.dataset.loanContactValue;
+    delete input.dataset.serialAutofilled;
+    input.setCustomValidity("");
+    input.classList.remove("loan-identity-invalid", "loan-address-invalid");
+    input.title = "";
+  });
+  ["right", "left"].forEach(side => {
+    const inputs = loanDeviceInputs(side);
+    if (inputs.serial) delete inputs.serial.dataset.loanMatchedSerial;
+    [inputs.device, inputs.manufacturer, inputs.value].forEach(input => {
+      if (input) delete input.dataset.loanMatchedValue;
+    });
+  });
+}
+
+function rememberLoanContactAutofill(input) {
+  if (!input || !input.value.trim()) return;
+  input.dataset.loanContactCustomer = customerNameLookupKey(loanCustomerInput?.value);
+  input.dataset.loanContactValue = input.value;
+}
+
+function clearStaleLoanContactAutofill() {
+  const customerKey = customerNameLookupKey(loanCustomerInput?.value);
+  [loanPhoneInput, loanDocumentInput, loanAddressInput].forEach(input => {
+    if (!input?.dataset.loanContactCustomer || input.dataset.loanContactCustomer === customerKey) return;
+    if (input.value === input.dataset.loanContactValue) {
+      input.value = "";
+      input.setCustomValidity("");
+      input.classList.remove("loan-identity-invalid", "loan-address-invalid");
+      input.title = "";
+      if (input === loanAddressInput) clearPostalAutofill(input, "loanPostalHint");
+    }
+    delete input.dataset.loanContactCustomer;
+    delete input.dataset.loanContactValue;
+    delete input.dataset.serialAutofilled;
+  });
+}
+
+function loanHistoryContactMatchesCurrent(entry) {
+  if (customerNameLookupKey(loanCustomerInput?.value) !== entry.customerKey) return false;
+  const currentDocument = normalizeLoanIdentityValue(loanDocumentInput?.value);
+  const candidateDocument = normalizeLoanIdentityValue(entry.document);
+  if (currentDocument && candidateDocument && currentDocument !== candidateDocument) return false;
+  const phoneKey = value => String(value || "").replace(/\D/gu, "").replace(/^48(?=\d{9}$)/u, "");
+  const currentPhone = phoneKey(loanPhoneInput?.value);
+  const candidatePhone = phoneKey(entry.phone);
+  return !currentPhone || !candidatePhone || currentPhone === candidatePhone;
+}
+
 function applyLoanCustomerHistoryContact(entry) {
-  if (customerNameLookupKey(loanCustomerInput?.value) !== entry.customerKey) return;
+  if (!loanHistoryContactMatchesCurrent(entry)) return;
   let changed = false;
+  const filledInputs = [];
   [[loanPhoneInput, entry.phone], [loanDocumentInput, entry.document], [loanAddressInput, entry.address]].forEach(([input, value]) => {
     if (input && !input.value.trim() && value) {
-      input.value = value;
+      if (input === loanDocumentInput && loanIdentityValidationMessage(value)) return;
+      input.value = input === loanDocumentInput ? normalizeLoanIdentityValue(value) : value;
+      input.setCustomValidity("");
+      rememberLoanContactAutofill(input);
+      filledInputs.push(input);
       changed = true;
       if (input === loanAddressInput) clearPostalAutofill(input, "loanPostalHint");
     }
   });
   if (changed) {
     syncLoanPostalCode();
+    filledInputs.forEach(rememberLoanContactAutofill);
+    if (loanDocumentInput?.value.trim()) updateLoanIdentityValidity();
+    if (loanAddressInput?.value.trim()) updateLoanAddressValidity();
     renderPricingLoan();
     markAgreementDraftDirty("loan");
   }
@@ -11152,9 +11218,10 @@ function renderLoanCustomerHistorySuggestions() {
   if (!panel) return;
   hideLoanCustomerHistorySuggestions();
   const entries = customerHistoryContactEntries(loanCustomerInput?.value).filter((entry) =>
-    (!loanPhoneInput?.value.trim() && entry.phone) ||
-    (!loanDocumentInput?.value.trim() && entry.document) ||
-    (!loanAddressInput?.value.trim() && entry.address));
+    loanHistoryContactMatchesCurrent(entry) && (
+      (!loanPhoneInput?.value.trim() && entry.phone) ||
+      (!loanDocumentInput?.value.trim() && entry.document && !loanIdentityValidationMessage(entry.document)) ||
+      (!loanAddressInput?.value.trim() && entry.address)));
   if (!entries.length) return;
   const heading = document.createElement("p");
   heading.textContent = entries.length > 1
@@ -11164,13 +11231,16 @@ function renderLoanCustomerHistorySuggestions() {
     const button = document.createElement("button");
     button.type = "button";
     button.title = "Uzupełnij tylko puste pola. Wpisane dane pozostaną bez zmian.";
-    const documentHint = entry.document ? `Dokument: •••• ${entry.document.slice(-4)}` : "";
+    const documentHint = entry.document
+      ? loanIdentityValidationMessage(entry.document) ? "Dokument w historii wymaga sprawdzenia — nie zostanie uzupełniony." : `Dokument: •••• ${entry.document.slice(-4)}`
+      : "";
     [entry.source + (entry.date ? ` · ${formatDate(entry.date)}` : ""), entry.phone, documentHint, entry.address]
       .filter(Boolean).forEach((text) => {
         const span = document.createElement("span");
         span.textContent = text;
         button.append(span);
       });
+    button.addEventListener("pointerdown", event => event.preventDefault());
     button.addEventListener("click", () => applyLoanCustomerHistoryContact(entry));
     return button;
   });
@@ -11261,8 +11331,7 @@ function syncLoanPostalCode() {
   if (!text || parts.postalCode || /\d{2}-\d{0,2}(?!\d)/u.test(text)) return;
   const suggestion = suggestPostalCode(parts.city, parts.street);
   if (suggestion.code) {
-    // Place the code next to the city, retaining the user's address order.
-    loanAddressInput.value = text.replace(parts.city, `${suggestion.code} ${parts.city}`);
+    loanAddressInput.value = [parts.street, `${suggestion.code} ${parts.city}`].filter(Boolean).join(", ");
     loanAddressInput.value = formatLoanAddress(loanAddressInput.value, { final: true });
     loanAddressInput.dataset.autoPostalCode = suggestion.code;
     loanAddressInput.dataset.autoPostalAddress = normalize(parts.address);
@@ -11274,7 +11343,7 @@ function updateLoanAddressValidity() {
   if (!loanAddressInput) return true;
   const parts = postalAddressParts(formatLoanAddress(loanAddressInput.value, { final: true }));
   let message = "";
-  if (!parts.street) message = "Podaj ulicę i numer budynku.";
+  if (!parts.street || !/\s\d+[a-z]?(?:\s*(?:\/|m\.?|lok\.?)\s*\d+[a-z]?)?$/iu.test(parts.street)) message = "Podaj ulicę i numer budynku.";
   else if (!parts.city) message = "Podaj miejscowość.";
   else if (!parts.postalCode) message = "Podaj kod pocztowy w formacie 00-000.";
   loanAddressInput.setCustomValidity(message);
@@ -11404,18 +11473,18 @@ function fillLoanDeviceFromRecord(side, record, overwrite = false) {
   if (!record) return;
   const inputs = loanDeviceInputs(side);
   setLoanInputValue(inputs.device, pricingOfferDeviceName(record), overwrite);
-  setLoanInputValue(inputs.manufacturer, record.manufacturer, overwrite);
-  setLoanInputValue(inputs.value, formatPricingPrice(record.grossPrice), overwrite);
+  setLoanMatchedInputValue(inputs.manufacturer, record.manufacturer, overwrite || inputs.manufacturer?.value === inputs.manufacturer?.dataset.loanMatchedValue);
+  setLoanMatchedInputValue(inputs.value, formatPricingPrice(record.grossPrice), overwrite || inputs.value?.value === inputs.value?.dataset.loanMatchedValue);
 }
 
 function setLoanMatchedInputValue(input, value, overwrite = false) {
   if (!input) return;
   const text = String(value ?? "").trim();
-  if (overwrite) {
+  if (overwrite || !input.value.trim()) {
     input.value = text;
+    input.dataset.loanMatchedValue = text;
     return;
   }
-  setLoanInputValue(input, text, false);
 }
 
 function loanDevicePricingRecord(deviceName, manufacturer = "") {
@@ -11434,7 +11503,7 @@ function loanDeviceMatchFromDeviceRecord(record) {
     source: "bazy aparatów",
     model: record?.deviceName || "",
     serial: normalizeSerialNumber(record?.serialNumber),
-    manufacturer: pricingRecord?.manufacturer || "",
+    manufacturer: record?.manufacturer || pricingRecord?.manufacturer || "",
     value: pricingRecord?.grossPrice || "",
     customer: titleCaseName(record?.customerName || ""),
     phone: documentPhoneForCustomer(record?.customerName, record?.phone),
@@ -11566,9 +11635,21 @@ function rememberCopiedSerialNumber(serialText) {
 function fillLoanDeviceFromSerial(side, overwrite = true) {
   const inputs = loanDeviceInputs(side);
   const serial = normalizeSerialNumber(inputs.serial?.value);
+  const serialKey = serialDuplicateKey(serial);
+  const previousKey = inputs.serial?.dataset.loanMatchedSerial || "";
+  if (previousKey && previousKey !== serialKey) {
+    [inputs.device, inputs.manufacturer, inputs.value].forEach(input => {
+      if (!input) return;
+      if (input.value === input.dataset.loanMatchedValue) input.value = "";
+      delete input.dataset.loanMatchedValue;
+    });
+    delete inputs.serial.dataset.loanMatchedSerial;
+    inputs.serial.title = "";
+  }
   if (!serial) {
     updateLoanDemoPurposeField(side);
     updateLoanSerialPasteHint(side);
+    if (previousKey) renderPricingLoan();
     return false;
   }
 
@@ -11577,13 +11658,18 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   if (!match) {
     updateLoanDemoPurposeField(side);
     updateLoanSerialPasteHint(side);
+    if (previousKey) renderPricingLoan();
     return false;
   }
 
-  setLoanMatchedInputValue(inputs.device, match.model, overwrite);
-  setLoanMatchedInputValue(inputs.manufacturer, match.manufacturer, overwrite);
-  setLoanMatchedInputValue(inputs.value, match.value ? formatPricingPrice(match.value) : "", overwrite);
+  const replace = overwrite && previousKey !== serialKey;
+  setLoanMatchedInputValue(inputs.device, match.model, replace);
+  setLoanMatchedInputValue(inputs.manufacturer, match.manufacturer, replace);
+  setLoanMatchedInputValue(inputs.value, match.value ? formatPricingPrice(match.value) : "", replace);
+  inputs.serial.dataset.loanMatchedSerial = serialKey;
+  const previousPhone = loanPhoneInput?.value;
   autofillDocumentCustomerFromSerial(loanCustomerInput, loanPhoneInput, match.customer, match.phone);
+  if (loanPhoneInput?.value !== previousPhone) rememberLoanContactAutofill(loanPhoneInput);
   if (inputs.serial) inputs.serial.title = `Uzupełniono z ${match.source}`;
   updateLoanDemoPurposeField(side);
   updateLoanSerialPasteHint(side);
@@ -11626,7 +11712,11 @@ async function pasteCopiedSerialToLoanDevice(side) {
 function clearLoanDevice(side) {
   const inputs = loanDeviceInputs(side);
   [inputs.device, inputs.serial, inputs.manufacturer, inputs.value, inputs.purpose].forEach((input) => {
-    if (input) input.value = "";
+    if (input) {
+      input.value = "";
+      delete input.dataset.loanMatchedValue;
+      delete input.dataset.loanMatchedSerial;
+    }
   });
   updateLoanSerialPasteHint(side);
   updateLoanDemoPurposeField(side);
@@ -11645,9 +11735,16 @@ function setLoanDeviceValues(targetSide, sourceSide, { includeSerial = true } = 
   const source = loanDeviceInputs(sourceSide);
   const target = loanDeviceInputs(targetSide);
   ["device", "manufacturer", "value"].forEach((field) => {
-    if (target[field]) target[field].value = loanInputValue(source[field]);
+    if (target[field]) {
+      target[field].value = loanInputValue(source[field]);
+      delete target[field].dataset.loanMatchedValue;
+      if (source[field]?.dataset.loanMatchedValue === source[field]?.value) target[field].dataset.loanMatchedValue = target[field].value;
+    }
   });
-  if (target.serial) target.serial.value = includeSerial ? loanInputValue(source.serial).toLocaleUpperCase("pl-PL") : "";
+  if (target.serial) {
+    target.serial.value = includeSerial ? loanInputValue(source.serial).toLocaleUpperCase("pl-PL") : "";
+    target.serial.dataset.loanMatchedSerial = includeSerial ? source.serial?.dataset.loanMatchedSerial || "" : "";
+  }
   if (target.purpose) target.purpose.value = includeSerial ? normalizeLoanDemoPurpose(source.purpose?.value) : "";
   updateLoanDemoPurposeField(targetSide, target.purpose?.value || "");
 }
@@ -11661,7 +11758,11 @@ function moveLoanDevice(sourceSide, targetSide) {
   setLoanDeviceValues(targetSide, sourceSide, { includeSerial: true });
   const source = loanDeviceInputs(sourceSide);
   [source.device, source.serial, source.manufacturer, source.value, source.purpose].forEach((input) => {
-    if (input) input.value = "";
+    if (input) {
+      input.value = "";
+      delete input.dataset.loanMatchedValue;
+      delete input.dataset.loanMatchedSerial;
+    }
   });
   updateLoanDemoPurposeField(sourceSide);
   updateLoanSerialPasteHints();
@@ -11683,7 +11784,10 @@ function duplicateLoanDevice() {
 }
 
 function syncLoanFormFromOffer(overwrite = false) {
+  const existingCustomer = customerNameLookupKey(loanCustomerInput?.value);
+  if (!overwrite && existingCustomer && existingCustomer !== customerNameLookupKey(offerCustomerInput?.value)) return;
   setLoanInputValue(loanCustomerInput, titleCaseName(offerCustomerInput?.value || ""), overwrite);
+  clearStaleLoanContactAutofill();
   setLoanInputValue(loanCityInput, normalizeDocumentLocationValue(offerLocationInput?.value), overwrite);
   const offerDate = isoDateForSave(offerDateInput?.value);
   if (offerDate && (overwrite || !loanInputValue(loanDateInput))) setDateInputValue(loanDateInput, offerDate);
@@ -11717,6 +11821,7 @@ function ensurePricingLoanDefaults() {
 
 function startNewPricingLoan() {
   if (pricingLoanSaveInProgress) return;
+  resetLoanAutofillState();
   documentDraftIdentities.delete("loan");
   setDocumentCustomerNameValidity(loanCustomerInput, true);
   setLoanReturnEditMode(false);
@@ -11944,7 +12049,7 @@ function renderPricingLoan() {
   setLoanOutput("deductionReason", deductionReason);
   setLoanOutput("depositReturnDate", loanDateText(loanDepositReturnDateInput));
   renderPricingLoanEquipment(visibleDevices);
-  renderPricingLoanHistory();
+  if (pricingHistoryView && !pricingHistoryView.hidden) renderPricingLoanHistory();
   updatePricingLoanRequiredHighlights();
 
   if (printPricingLoanBtn) printPricingLoanBtn.disabled = false;
@@ -22968,10 +23073,12 @@ loanPeriod14Btn?.addEventListener("click", () => setPricingLoanPeriod(14));
 });
 loanCustomerInput?.addEventListener("input", (event) => {
   hideLoanCustomerHistorySuggestions();
-  event.target.value = titleCaseNameInput(event.target.value);
+  clearStaleLoanContactAutofill();
+  renderPricingLoan();
 });
 loanCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
+  clearStaleLoanContactAutofill();
   renderPricingLoan();
   renderLoanCustomerHistorySuggestions();
 });
@@ -22980,7 +23087,7 @@ loanCustomerInput?.addEventListener("change", renderLoanCustomerHistorySuggestio
   input?.addEventListener("focus", renderLoanCustomerHistorySuggestions);
 });
 loanDocumentInput?.addEventListener("input", (event) => {
-  event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
+  syncUppercaseTextInput(event);
   event.target.setCustomValidity("");
   event.target.classList.remove("loan-identity-invalid");
 });
@@ -22991,8 +23098,6 @@ loanDocumentInput?.addEventListener("blur", () => {
 loanAddressInput?.addEventListener("input", (event) => {
   event.target.setCustomValidity("");
   event.target.classList.remove("loan-address-invalid");
-  const formattedAddress = formatLoanAddress(event.target.value);
-  if (formattedAddress !== event.target.value) event.target.value = formattedAddress;
   renderPricingLoan();
 });
 loanAddressInput?.addEventListener("blur", (event) => {
@@ -23058,6 +23163,7 @@ loanLeftDeviceInput?.addEventListener("blur", () => {
 });
 loanCopyOfferBtn?.addEventListener("click", () => {
   if (pricingLoanSaveInProgress) return;
+  startNewPricingLoan();
   documentDraftIdentities.delete("loan");
   activePricingLoanHistoryId = "";
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
