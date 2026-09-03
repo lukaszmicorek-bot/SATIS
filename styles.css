@@ -9592,27 +9592,27 @@ td.row-actions {
 }
 
 tbody tr.demo-needs-review {
-  background: #fffaf0;
+  background: linear-gradient(90deg, #fffaf0, #fffefa);
 }
 
 tbody tr.demo-missing {
-  background: #fff2f0;
+  background: linear-gradient(90deg, #fff2f0, #fffbfa);
 }
 
 tbody tr.demo-return-warning {
-  background: #fff8dc;
+  background: linear-gradient(90deg, var(--demo-return-tint, #fff8dc), var(--demo-return-fade, #fffdf6));
 }
 
 tbody tr.demo-return-warning:hover {
-  background: #fff1bd;
+  background: linear-gradient(90deg, var(--demo-return-tint, #fff8dc) 45%, var(--demo-return-fade, #fffdf6));
 }
 
 tbody tr.demo-return-critical {
-  background: #ffe7e3;
+  background: linear-gradient(90deg, var(--demo-return-tint, #ffe7e3), var(--demo-return-fade, #fff9f8));
 }
 
 tbody tr.demo-return-critical:hover {
-  background: #ffd9d3;
+  background: linear-gradient(90deg, var(--demo-return-tint, #ffe7e3) 45%, var(--demo-return-fade, #fff9f8));
 }
 
 .demo-current-user {
