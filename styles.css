@@ -7714,19 +7714,16 @@ tbody tr.serial-service-row:hover {
 }
 
 tbody tr.fifo-warning {
-  background: var(--fifo-yellow);
+  background: linear-gradient(90deg, var(--fifo-tint, var(--fifo-yellow)), var(--fifo-fade, #fffdf5));
 }
 
 tbody tr.fifo-critical {
-  background: var(--fifo-red);
+  background: linear-gradient(90deg, var(--fifo-tint, var(--fifo-red)), var(--fifo-fade, #fff8f7));
 }
 
-tbody tr.fifo-warning:hover {
-  background: #fff2c2;
-}
-
+tbody tr.fifo-warning:hover,
 tbody tr.fifo-critical:hover {
-  background: #ffe0dc;
+  background: linear-gradient(90deg, var(--fifo-tint) 45%, var(--fifo-fade));
 }
 
 tbody tr.repair-open td:first-child {
@@ -8666,12 +8663,12 @@ tbody tr.device-sold-row .serial-pill.service {
 
 .age-pill.warning {
   color: var(--fifo-yellow-strong);
-  background: #fff0b8;
+  background: var(--fifo-badge, #fff0b8);
 }
 
 .age-pill.critical {
   color: var(--fifo-red-strong);
-  background: #ffd9d3;
+  background: var(--fifo-badge, #ffd9d3);
 }
 
 .type-pill.type-stock {
@@ -11394,6 +11391,10 @@ textarea {
 
   #demoView .demo-current-user strong {
     font-size: 0.84rem;
+  }
+
+  #demoView .serial-pill {
+    flex-wrap: nowrap;
   }
 
   #demoView .demo-return-date,
