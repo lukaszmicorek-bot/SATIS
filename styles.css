@@ -3124,11 +3124,23 @@ h2 {
   background: #fbfdfd;
 }
 
-#pricingLoanView .loan-builder.loan-return-edit-active #loanReturnDateInput {
+#pricingLoanView .loan-builder.loan-return-edit-active #loanReturnDateInput,
+#pricingLoanView input.loan-return-due {
   border-color: #d99568;
   background: #fff1e7;
   box-shadow: inset 0 0 0 1px rgba(196, 116, 62, 0.08);
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+#pricingLoanView .loan-return-deadline-hint {
+  color: #86552f;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+#pricingLoanView input.loan-handover-conflict {
+  border-color: #be6c61;
+  background: #fff0ed;
 }
 
 .offer-form-grid {
@@ -7736,14 +7748,17 @@ tbody tr.repair-open td:first-child {
 
 .repair-status-received {
   background: #fafcfd;
+  background-image: linear-gradient(90deg, #fafcfd, #ffffff);
 }
 
 .repair-status-progress {
   background: #f4f9fc;
+  background-image: linear-gradient(90deg, #f4f9fc, #ffffff);
 }
 
 .repair-status-ready {
   background: #f6faf9;
+  background-image: linear-gradient(90deg, #f6faf9, #ffffff);
 }
 
 .repair-status-picked-up {
@@ -7751,27 +7766,27 @@ tbody tr.repair-open td:first-child {
 }
 
 tbody tr.repair-status-received:hover {
-  background: #f3f8fb;
+  background: linear-gradient(90deg, #f3f8fb 45%, #ffffff);
 }
 
 tbody tr.repair-status-progress:hover {
-  background: #eaf4fa;
+  background: linear-gradient(90deg, #eaf4fa 45%, #ffffff);
 }
 
 tbody tr.repair-status-ready:hover {
-  background: #eef6f4;
+  background: linear-gradient(90deg, #eef6f4 45%, #ffffff);
 }
 
-tbody tr.repair-overdue-warning {
-  background: #fff8eb;
+.repairs-table tbody tr.repair-overdue-warning {
+  background: linear-gradient(90deg, var(--repair-age-tint, #fff8eb), var(--repair-age-fade, #fffdf8));
 }
 
 tbody tr.repair-overdue-warning td:first-child {
   border-left-color: #d6a35c;
 }
 
-tbody tr.repair-overdue-warning:hover {
-  background: #fff3de;
+.repairs-table tbody tr.repair-overdue-warning:hover {
+  background: linear-gradient(90deg, var(--repair-age-tint, #fff8eb) 45%, var(--repair-age-fade, #fffdf8));
 }
 
 tbody tr.repair-document-number-warning {
@@ -7786,8 +7801,8 @@ tbody tr.repair-document-number-warning:hover {
   background: #f6f2fc;
 }
 
-tbody tr.repair-overdue-critical {
-  background: #fff0ee;
+.repairs-table tbody tr.repair-overdue-critical {
+  background: linear-gradient(90deg, var(--repair-age-tint, #fff0ee), var(--repair-age-fade, #fff8f7));
 }
 
 tbody tr.repair-overdue-critical td:first-child {
@@ -7865,8 +7880,8 @@ tbody tr.repair-overdue-critical td:first-child {
   line-height: 1.25;
 }
 
-tbody tr.repair-overdue-critical:hover {
-  background: #ffe8e5;
+.repairs-table tbody tr.repair-overdue-critical:hover {
+  background: linear-gradient(90deg, var(--repair-age-tint, #fff0ee) 45%, var(--repair-age-fade, #fff8f7));
 }
 
 tbody tr.repair-closed {

@@ -4910,6 +4910,7 @@ function scheduleNearbyEntryWarning(source) {
   nearbyEntryWarningTimers.set(source, setTimeout(() => {
     nearbyEntryWarningTimers.delete(source);
     renderNearbyEntryWarning(source);
+    if (source === "loan") renderLoanHandoverWarning();
   }, 200));
 }
 
@@ -9096,9 +9097,16 @@ function pricingLoanSemanticKey(entry) {
   ].map((value) => normalize(value)).join("|");
 }
 
+function loanHandoverDevices(entry) {
+  const devices = pricingLoanHistoryDevices(entry);
+  const serial = normalizeSerialNumber(entry?.chargerSerial);
+  if (serialDuplicateKey(serial)) devices.push({ serial, serialKey: serialDuplicateKey(serial) });
+  return devices;
+}
+
 function pricingLoanHandoverIssues(entry, history, demos, ignoredId = "") {
   const issues = [];
-  const devices = pricingLoanHistoryDevices(entry);
+  const devices = loanHandoverDevices(entry);
   const start = isoDateForSave(entry.periodFrom || entry.date);
   const end = isoDateForSave(entry.returnDate);
   if (!start) issues.push("Podaj prawidłową datę rozpoczęcia wypożyczenia.");
@@ -9106,11 +9114,11 @@ function pricingLoanHandoverIssues(entry, history, demos, ignoredId = "") {
   if (end && start && end < start) issues.push("Data zwrotu nie może być wcześniejsza niż rozpoczęcie wypożyczenia.");
   if (end && end > todayInputValue()) issues.push("Data faktycznego zwrotu nie może być w przyszłości.");
   if (new Set(devices.map(({ serialKey }) => serialKey)).size !== devices.length) {
-    issues.push("Ten sam numer seryjny wpisano po obu stronach umowy. Każdy aparat musi mieć własny numer.");
+    issues.push("Ten sam numer seryjny wpisano po obu stronach umowy lub przy ładowarce. Każde urządzenie musi mieć własny numer.");
   }
   devices.forEach(({ serial, serialKey }) => {
     history.filter((other) => other.id !== ignoredId).forEach((other) => {
-      if (!pricingLoanHistoryDevices(other).some((device) => device.serialKey === serialKey)) return;
+      if (!loanHandoverDevices(other).some((device) => device.serialKey === serialKey)) return;
       const otherStart = isoDateForSave(other.periodFrom || other.date);
       const otherEnd = isoDateForSave(other.returnDate);
       // Zwrot i kolejne wydanie tego samego dnia sa dozwolone, ale planowany koniec nie jest zwrotem.
@@ -9126,12 +9134,52 @@ function pricingLoanHandoverIssues(entry, history, demos, ignoredId = "") {
       const completed = completedDemoLoanEntry(record, entry.customer, start);
       if (completed) issues.push(`${serial}: w Demo zapisano zwrot ${formatDate(completed.returnDate)}. Uzupełnij datę zwrotu umowy.`);
       const currentKey = customerNameLookupKey(record.currentUser);
-      if (currentKey && (currentKey !== customerKey || (record.loanDate && start !== isoDateForSave(record.loanDate)))) {
+      if (currentKey && !isoDateForSave(record.returnDate) && (currentKey !== customerKey || (record.loanDate && start !== isoDateForSave(record.loanDate)))) {
         issues.push(`${serial}: Demo nadal wskazuje wypożyczenie dla ${titleCaseName(record.currentUser)}. Najpierw zakończ je w Demo i sprawdź poprzednią umowę.`);
       }
     });
   });
   return [...new Set(issues)];
+}
+
+function renderLoanHandoverWarning() {
+  const panel = document.querySelector("#loanHandoverWarning");
+  if (!panel) return;
+  const draft = {
+    date: isoDateForSave(loanDateInput?.value),
+    periodFrom: isoDateForSave(loanPeriodFromInput?.value),
+    returnDate: isoDateForSave(loanReturnDateInput?.value),
+    customer: loanCustomerInput?.value || "",
+    rightDevice: { serial: loanRightSerialInput?.value },
+    leftDevice: { serial: loanLeftSerialInput?.value },
+    chargerSerial: loanChargerSerialInput?.value
+  };
+  const serials = loanHandoverDevices(draft);
+  const issues = serials.length
+    ? pricingLoanHandoverIssues(draft, pricingLoanHistory, demoRecords, activePricingLoanHistoryId)
+      .filter((message) => serials.some(({ serial }) => message.startsWith(`${serial}:`)))
+    : [];
+  [loanRightSerialInput, loanLeftSerialInput, loanChargerSerialInput].forEach((input) => {
+    const serial = normalizeSerialNumber(input?.value);
+    input?.classList.toggle("loan-handover-conflict", Boolean(serial && issues.some((message) => message.startsWith(`${serial}:`))));
+  });
+  panel.hidden = !issues.length;
+  panel.replaceChildren();
+  if (!issues.length) return;
+  const title = document.createElement("strong");
+  title.textContent = "Sprawdź zwrot przed kolejnym wydaniem";
+  const list = document.createElement("ul");
+  issues.slice(0, 5).forEach((message) => {
+    const item = document.createElement("li");
+    item.textContent = message;
+    list.append(item);
+  });
+  panel.append(title, list);
+  if (issues.length > 5) {
+    const more = document.createElement("p");
+    more.textContent = `Pozostałe niezgodności: ${issues.length - 5}. Sprawdź historię umów.`;
+    panel.append(more);
+  }
 }
 
 function pricingLoanDuplicateOf(entry, history = pricingLoanHistory) {
@@ -9570,7 +9618,10 @@ function pricingLoanHistorySearchText(entry) {
 }
 
 function pricingLoanDeadlineStatus(entry) {
-  if (!entry || entry.returnDate) return null;
+  if (!entry) return null;
+  const returned = isoDateForSave(entry.returnDate);
+  const start = isoDateForSave(entry.periodFrom || entry.date);
+  if (returned && returned <= todayInputValue() && (!start || returned >= start)) return null;
   const periodTo = isoDateForSave(entry.periodTo);
   const days = daysUntilDate(periodTo);
   if (days === null || days > PRICING_LOAN_END_WARNING_DAYS) return null;
@@ -9585,6 +9636,22 @@ function pricingLoanDeadlineStatus(entry) {
   if (days === 0) return { level: "ending", days, label: "Kończy się dzisiaj" };
   if (days === 1) return { level: "ending", days, label: "Kończy się jutro" };
   return { level: "ending", days, label: `Kończy się za ${formatDaysLabel(days)}` };
+}
+
+function updateLoanReturnDeadlineHighlight() {
+  const status = pricingLoanDeadlineStatus({
+    periodFrom: isoDateForSave(loanPeriodFromInput?.value),
+    periodTo: isoDateForSave(loanPeriodToInput?.value),
+    returnDate: isoDateForSave(loanReturnDateInput?.value)
+  });
+  [loanPeriodToInput, loanReturnDateInput].forEach((input) => {
+    input?.classList.toggle("loan-return-due", Boolean(status));
+  });
+  const hint = document.querySelector("#loanReturnDeadlineHint");
+  if (hint) {
+    hint.hidden = !status;
+    hint.textContent = status ? `${status.label}. Po oddaniu aparatu wpisz datę zwrotu.` : "";
+  }
 }
 
 function pricingLoanDataIssues(entry, indexes = null) {
@@ -11367,6 +11434,7 @@ function validatePricingLoanForAction() {
 function renderPricingLoan() {
   if (!pricingLoanView) return;
   ensurePricingLoanDefaults();
+  updateLoanReturnDeadlineHighlight();
   scheduleNearbyEntryWarning("loan");
   updateDocumentLocationAccent(loanCityInput);
   updateLoanSerialPasteHints();
@@ -16323,7 +16391,10 @@ function createRepairRow(record) {
   const status = meta?.status ?? effectiveRepairStatus(record);
   row.className = `repair-row ${statusClass(status)}`;
   const overdueClass = repairOverdueClass(record, status);
-  if (overdueClass) row.classList.add(overdueClass);
+  if (overdueClass) {
+    row.classList.add(overdueClass);
+    applyRepairAgeGradient(row, record, status);
+  }
   if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
   const activeDateType = activeRepairDateType(record);
   const cells = [
@@ -16367,7 +16438,10 @@ function createRepairOpenRow(record) {
   const status = meta?.status ?? effectiveRepairStatus(record);
   row.className = `repair-row ${statusClass(status)}`;
   const overdueClass = repairOverdueClass(record, status);
-  if (overdueClass) row.classList.add(overdueClass);
+  if (overdueClass) {
+    row.classList.add(overdueClass);
+    applyRepairAgeGradient(row, record, status);
+  }
   if (meta?.documentNumberIssues?.length) row.classList.add("repair-document-number-warning");
 
   const cells = [
@@ -16738,6 +16812,19 @@ function repairOverdueClass(record, status) {
   if (age > 15) return "repair-overdue-critical";
   if (age > 7) return "repair-overdue-warning";
   return "";
+}
+
+function applyRepairAgeGradient(row, record, status) {
+  const age = repairStatusAge(record, status);
+  if (!Number.isFinite(age) || age <= 7 || status === "ODEBRANE") return;
+  // Match warning thresholds, then cap intensity after 30 days at one stage.
+  const start = age <= 16 ? [255, 248, 235] : [255, 240, 238];
+  const end = age <= 16 ? [255, 240, 238] : [255, 224, 225];
+  const progress = age <= 16 ? (age - 8) / 8 : Math.min(1, (age - 16) / 14);
+  const tint = start.map((value, i) => Math.round(value + (end[i] - value) * progress));
+  const fade = tint.map((value) => Math.round(value + (255 - value) * 0.75));
+  row.style.setProperty("--repair-age-tint", `rgb(${tint.join(", ")})`);
+  row.style.setProperty("--repair-age-fade", `rgb(${fade.join(", ")})`);
 }
 
 function effectiveRepairStatus(record) {
@@ -23138,10 +23225,12 @@ document.fonts?.ready.then(scheduleSerialLineFit);
 window.setTimeout(checkForPublishedAppUpdate, 15000);
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
 window.setInterval(renderPricingLoanHistory, 60 * 60 * 1000);
+window.setInterval(updateLoanReturnDeadlineHighlight, 60 * 1000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     checkForPublishedAppUpdate();
     renderPricingLoanHistory();
+    updateLoanReturnDeadlineHighlight();
   }
 });
 
