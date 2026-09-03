@@ -370,6 +370,7 @@ const deviceDerived = new Map();
 const repairDerived = new Map();
 const demoDerived = new Map();
 const demoManufacturerModelIndex = new Map();
+let pricingChargerManufacturerCache = null;
 const serialIndex = new Map();
 const customerNameCounts = new Map();
 const customerDocumentIndex = new Map();
@@ -5517,6 +5518,7 @@ function loadPricingRecords() {
 
 function savePricingRecords() {
   resetPricingPriceLookup();
+  pricingChargerManufacturerCache = null;
   pricingManufacturerToneMap = null;
   localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricingRecords));
 }
@@ -7069,6 +7071,7 @@ function rebuildDeviceNameCorrectionCandidates() {
 }
 
 function rebuildDemoFormSuggestions() {
+  pricingChargerManufacturerCache = null;
   if (!demoManufacturerSuggestions || !deviceManufacturerSuggestions || !demoDeviceNameSuggestions) return;
 
   demoManufacturerModelIndex.clear();
@@ -7136,6 +7139,8 @@ function knownManufacturerForModel(modelValue) {
 }
 
 function demoManufacturerForModel(modelValue, { allowPrefix = false } = {}) {
+  const chargerManufacturer = pricingChargerManufacturerForModel(modelValue, { allowPrefix });
+  if (chargerManufacturer !== null) return chargerManufacturer;
   const knownManufacturer = knownManufacturerForModel(modelValue);
   if (knownManufacturer) return knownManufacturer;
   const modelKey = normalizeDeviceName(modelValue).toLocaleLowerCase("pl-PL");
@@ -7156,6 +7161,61 @@ function demoManufacturerForModel(modelValue, { allowPrefix = false } = {}) {
   const ranked = [...candidates.entries()].sort((left, right) => right[1] - left[1] || collator.compare(left[0], right[0]));
   if (ranked.length > 1 && ranked[0][1] === ranked[1][1]) return "";
   return ranked[0][0];
+}
+
+function chargerManufacturerModelKey(value) {
+  return normalizeDeviceSearchText(value)
+    .replace(/\bladowark[a-z]*\b/gu, "charger")
+    .replace(/\bsmartcharger\b/gu, "smart charger")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function pricingChargerManufacturerForModel(modelValue, { allowPrefix = false } = {}) {
+  const key = chargerManufacturerModelKey(modelValue);
+  if (!key) return null;
+  const isCharger = pricingOfferAccessoryKind({ model: modelValue }) === "charger";
+  const specificKey = key.replace(/\bcharger\b/gu, " ").replace(/\s+/gu, " ").trim();
+  if (isCharger && !specificKey) return "";
+
+  if (!pricingChargerManufacturerCache || pricingChargerManufacturerCache.source !== pricingRecords ||
+    pricingChargerManufacturerCache.length !== pricingRecords.length) {
+    const index = new Map();
+    const add = (value, manufacturer) => {
+      const modelKey = chargerManufacturerModelKey(value);
+      if (!modelKey || !modelKey.replace(/\bcharger\b/gu, "").trim()) return;
+      if (!index.has(modelKey)) index.set(modelKey, new Set());
+      // Keep empty producers as ambiguous rather than borrowing a brand from another row.
+      index.get(modelKey).add(manufacturer);
+    };
+    pricingRecords.forEach((record) => {
+      if (pricingOfferAccessoryKind(record) !== "charger") return;
+      const manufacturer = normalizePricingManufacturerName(record.manufacturer).toLocaleUpperCase("pl-PL");
+      for (const name of [record.model, record.tradeName]) {
+        if (!String(name || "").trim()) continue;
+        add(name, manufacturer);
+        const bareName = chargerManufacturerModelKey(name).replace(/\bcharger\b/gu, "").replace(/\s+/gu, " ").trim();
+        if (!bareName) continue;
+        add(bareName, manufacturer);
+        add(`charger ${bareName}`, manufacturer);
+        if (manufacturer) {
+          add(`${manufacturer} charger ${bareName}`, manufacturer);
+          add(`charger ${manufacturer} ${bareName}`, manufacturer);
+          add(`charger ${bareName} ${manufacturer}`, manufacturer);
+        }
+      }
+    });
+    pricingChargerManufacturerCache = { source: pricingRecords, length: pricingRecords.length, index };
+  }
+  const index = pricingChargerManufacturerCache.index;
+  let candidates = index.get(key) || (isCharger ? index.get(specificKey) : null);
+  if (!candidates && isCharger && allowPrefix && specificKey.length >= 3) {
+    const matches = [...index].filter(([model]) => model.startsWith(key));
+    if (matches.length) candidates = new Set(matches.flatMap(([, manufacturers]) => [...manufacturers]));
+  }
+  if (candidates) return candidates.size === 1 ? [...candidates][0] : "";
+  // Charger history and hearing-aid family rules must not override the price list.
+  return isCharger ? "" : null;
 }
 
 function syncDemoManufacturerFromDeviceName({ allowPrefix = false } = {}) {
