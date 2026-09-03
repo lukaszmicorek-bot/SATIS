@@ -3171,6 +3171,15 @@ h2 {
   gap: 12px;
 }
 
+.pricing-history-lists-grid:has(> [data-history-kind][hidden]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pricing-history-lists-grid:has(> [data-history-kind][hidden]) > [data-history-kind]:not([hidden]) .loan-history-list {
+  max-height: none;
+  overflow: visible;
+}
+
 .offer-builder {
   display: grid;
   gap: 12px;
