@@ -6001,6 +6001,26 @@ function demoReturnTimeLabel(days) {
   return `za ${formatDaysLabel(days)}`;
 }
 
+function applyDemoReturnGradient(row, meta) {
+  if (!meta?.returnLevel || !Number.isFinite(meta.returnDays) || meta.status === "ZWRÓCONO" ||
+    ["returned", "manufacturerReturned"].includes(meta.returnSource)) return;
+  const stops = [
+    { days: DEMO_RETURN_WARNING_DAYS, color: [255, 249, 223] },
+    { days: DEMO_RETURN_CRITICAL_DAYS, color: [255, 238, 226] },
+    { days: 0, color: [255, 230, 227] },
+    { days: -30, color: [255, 216, 221] }
+  ];
+  const days = Math.max(-30, Math.min(DEMO_RETURN_WARNING_DAYS, meta.returnDays));
+  const endIndex = stops.findIndex((stop, index) => index > 0 && days >= stop.days);
+  const start = stops[endIndex - 1];
+  const end = stops[endIndex];
+  const progress = (start.days - days) / (start.days - end.days);
+  const tint = start.color.map((value, i) => Math.round(value + (end.color[i] - value) * progress));
+  const fade = tint.map((value) => Math.round(value + (255 - value) * 0.75));
+  row.style.setProperty("--demo-return-tint", `rgb(${tint.join(", ")})`);
+  row.style.setProperty("--demo-return-fade", `rgb(${fade.join(", ")})`);
+}
+
 function normalizeDemoStatus(value, record = {}) {
   const normalizedStatus = String(value ?? "").trim().toLocaleUpperCase("pl-PL");
   if (record.manufacturerReturnedDate || normalizeBooleanFlag(record.manufacturerReturned) === "1") return "ZWRÓCONO";
@@ -15435,7 +15455,10 @@ function createDemoRow(record, agreementGroup = null) {
   }
   if (meta?.issues.length) row.classList.add("demo-needs-review");
   if (meta?.status === "BRAK") row.classList.add("demo-missing");
-  if (meta?.returnLevel) row.classList.add(`demo-return-${meta.returnLevel}`);
+  if (meta?.returnLevel) {
+    row.classList.add(`demo-return-${meta.returnLevel}`);
+    applyDemoReturnGradient(row, meta);
+  }
 
   const statusWrap = document.createElement("div");
   const statusPill = document.createElement("span");
