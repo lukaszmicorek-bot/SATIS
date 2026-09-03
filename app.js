@@ -7559,7 +7559,9 @@ function renderDemoRecords() {
   renderSearchMatchSummary(demoSearchInput, demoSearchSummary);
   const visibleRecords = filteredDemoRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "demo");
-  renderTableRows(demoRecordsBody, yearGroupedTableRows(demoRecordsBody, renderedRecords, createDemoRow, (record) => record.receivedDate));
+  const agreementGroups = canViewDocumentHistory() ? demoLoanAgreementGroups() : new Map();
+  renderTableRows(demoRecordsBody, yearGroupedTableRows(demoRecordsBody, renderedRecords,
+    (record) => createDemoRow(record, agreementGroups.get(record.id)), (record) => record.receivedDate));
   demoEmptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(demoRenderNotice, demoRenderText, visibleRecords.length, renderedRecords.length, "aparatów demo");
   updateDemoChecklistState(visibleRecords);
@@ -15318,7 +15320,7 @@ function createDeviceSalesCell(record) {
   return wrap;
 }
 
-function createDemoRow(record) {
+function createDemoRow(record, agreementGroup = null) {
   const row = document.createElement("tr");
   const meta = demoDerived.get(record.id);
   const duplicateMatches = duplicateSerialMatches(record, "demo");
@@ -15355,7 +15357,7 @@ function createDemoRow(record) {
     createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
     createLocationPill(record.location),
     createDateText(record.receivedDate),
-    createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : "", record),
+    createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : "", record, agreementGroup),
     createDemoReturnDeadlineCell(meta),
     createDemoNotesCell(record)
   ];
@@ -15512,12 +15514,12 @@ function createDemoPurposePill(value) {
   return pill;
 }
 
-function demoCurrentLoanAgreement(record) {
+function demoCurrentLoanAgreement(record, history = pricingLoanHistory) {
   const serialKey = serialDuplicateKey(record?.serialNumber);
   const customerKey = customerNameLookupKey(record?.currentUser);
   if (!serialKey || !customerKey) return null;
   const loanDate = isoDateForSave(record?.loanDate);
-  const candidates = pricingLoanHistory.filter((entry) => (
+  const candidates = history.filter((entry) => (
     customerNameLookupKey(entry.customer) === customerKey &&
     loanHistorySerials(entry).includes(serialKey) &&
     (loanDate
@@ -15526,6 +15528,34 @@ function demoCurrentLoanAgreement(record) {
   ));
   const unique = [...new Map(candidates.map((entry) => [entry.id, entry])).values()];
   return unique.length === 1 ? unique[0] : null;
+}
+
+function demoLoanAgreementGroups() {
+  const historyBySerial = new Map();
+  pricingLoanHistory.forEach((entry) => {
+    for (const serial of new Set(loanHistorySerials(entry))) {
+      if (!historyBySerial.has(serial)) historyBySerial.set(serial, []);
+      historyBySerial.get(serial).push(entry);
+    }
+  });
+  const groups = new Map();
+  demoRecords.forEach((record) => {
+    if (!isActiveDemoLoan(record)) return;
+    const serial = serialDuplicateKey(record.serialNumber);
+    const entry = demoCurrentLoanAgreement(record, historyBySerial.get(serial) || []);
+    if (!entry?.id || entry.returnDate) return;
+    if (!groups.has(entry.id)) groups.set(entry.id, { entry, records: [], serials: new Map() });
+    const group = groups.get(entry.id);
+    group.records.push(record);
+    if (!group.serials.has(serial)) group.serials.set(serial, record);
+  });
+  const byRecordId = new Map();
+  groups.forEach((group) => {
+    if (group.serials.size < 2) return;
+    const info = { entry: group.entry, devices: [...group.serials.values()] };
+    group.records.forEach((record) => byRecordId.set(record.id, info));
+  });
+  return byRecordId;
 }
 
 function openDemoCurrentLoanAgreement(record) {
@@ -15551,7 +15581,7 @@ function openDemoCurrentLoanAgreement(record) {
   alert("Nie znaleziono jednej zgodnej umowy dla tego wypożyczenia. Sprawdź wyniki w Historii.");
 }
 
-function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "", record = null) {
+function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "", record = null, agreementGroup = null) {
   if (!currentUser) return "";
   const wrap = document.createElement("span");
   wrap.className = "demo-current-user";
@@ -15577,6 +15607,24 @@ function createDemoCurrentUser(currentUser, loanDate = "", dueDate = "", record 
   wrap.append(label, nameLine);
   const phoneBadge = createCustomerPhoneBadge(currentUser);
   if (phoneBadge) nameLine.append(phoneBadge);
+  if (canOpenAgreement && agreementGroup) {
+    const shared = document.createElement("button");
+    shared.type = "button";
+    shared.className = "demo-shared-agreement";
+    shared.textContent = `Umowa ${agreementGroup.entry.number || "bez numeru"} · ${polishCountLabel(agreementGroup.devices.length, "aparat", "aparaty", "aparatów")}`;
+    shared.dataset.sharedAgreementTooltip = [
+      `Wspólna umowa: ${currentUser}`,
+      ...agreementGroup.devices.map((device) => [device.deviceName, normalizeSerialNumber(device.serialNumber)].filter(Boolean).join(" · "))
+    ].join("\n");
+    shared.setAttribute("aria-label", `${shared.textContent}. ${shared.dataset.sharedAgreementTooltip}. Otwórz umowę.`);
+    attachTableHoverTooltip(shared, "sharedAgreementTooltip");
+    shared.addEventListener("click", (event) => {
+      event.stopPropagation();
+      hideTableHoverTooltip();
+      openDemoCurrentLoanAgreement(record);
+    });
+    wrap.append(shared);
+  }
   if (loanDate || dueDate) {
     const period = document.createElement("span");
     period.className = "demo-current-user-period";
@@ -15622,9 +15670,7 @@ function createDemoNotesCell(record) {
   }
 
   if (record.notes) {
-    const notes = document.createElement("span");
-    notes.textContent = record.notes;
-    wrap.append(notes);
+    wrap.append(createTableNotesCell(record.notes));
   }
   if (historyCount) {
     const history = document.createElement("span");
