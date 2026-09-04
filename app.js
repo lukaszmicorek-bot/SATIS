@@ -11054,7 +11054,7 @@ function loanIdentityValidationMessage(value) {
   if (!/^[A-Z]{3}\d{6}$/u.test(identity)) {
     return "Numer dowodu musi zawierać 3 litery i 6 cyfr, np. ABC123456.";
   }
-  return isValidPolishIdCardNumber(identity) ? "" : "Numer dowodu jest nieprawidłowy. Sprawdź wszystkie litery i cyfry.";
+  return "";
 }
 
 function updateLoanIdentityValidity() {
@@ -11064,7 +11064,8 @@ function updateLoanIdentityValidity() {
   const message = loanIdentityValidationMessage(normalizedValue);
   loanDocumentInput.setCustomValidity(message);
   loanDocumentInput.classList.toggle("loan-identity-invalid", Boolean(message));
-  loanDocumentInput.title = message;
+  loanDocumentInput.title = message || "";
+  loanDocumentInput.setAttribute("aria-invalid", String(Boolean(message)));
   return !message;
 }
 
@@ -22018,8 +22019,56 @@ function todayInputValue() {
   return `${year}-${month}-${day}`;
 }
 
+function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
+  const start = isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const end = addDaysToIsoDate(start, rangeDays);
+  const events = new Map();
+  const add = (eventDate, kind, label, uniqueKey) => {
+    const isoDate = isoDateForSave(eventDate);
+    if (!isoDate || isoDate < start || isoDate > end) return;
+    if (!events.has(isoDate)) events.set(isoDate, new Map());
+    const key = `${kind}:${uniqueKey || label}`;
+    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label });
+  };
+
+  normalizePricingLoanHistory(pricingLoanHistory).forEach(entry => {
+    if (isoDateForSave(entry.returnDate)) return;
+    add(entry.periodTo, "loan", "Koniec umowy", entry.id || entry.number);
+  });
+  demoRecords.forEach(record => {
+    const meta = demoDerived.get(record.id);
+    if (!meta) return;
+    const manufacturerSource = ["manufacturer", "philips", "manufacturerReturned"].includes(meta.returnSource);
+    add(
+      meta.returnDeadline,
+      manufacturerSource ? "demo-manufacturer" : "demo-client",
+      manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta",
+      record.id
+    );
+    if (meta.manufacturerReturn?.returnDeadline) {
+      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.id);
+    }
+  });
+  vacationRequests.forEach(request => {
+    if (request.status !== "ZATWIERDZONY") return;
+    add(request.dateFrom, "vacation", "Początek urlopu", `${request.id}:from`);
+    if (request.dateTo !== request.dateFrom) add(request.dateTo, "vacation", "Koniec urlopu", `${request.id}:to`);
+  });
+
+  return new Map([...events]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([isoDate, entries]) => [isoDate, [...entries.values()]]));
+}
+
+function currentDateEventSummary(events) {
+  const counts = new Map();
+  events.forEach(event => counts.set(event.label, (counts.get(event.label) || 0) + 1));
+  return [...counts].map(([label, count]) => count > 1 ? `${label}: ${count}` : label).join(" · ");
+}
+
 function createCurrentDateCalendar(date = new Date()) {
   const calendar = document.createDocumentFragment();
+  const upcomingEvents = currentDateUpcomingEvents(date);
   const title = document.createElement("h3");
   title.textContent = date.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
   const grid = document.createElement("div");
@@ -22045,12 +22094,26 @@ function createCurrentDateCalendar(date = new Date()) {
     const itemDate = new Date(year, month, day);
     const isoDate = isoDateFromParts(year, month + 1, day);
     const holiday = polishPublicHolidayOnDate(isoDate);
+    const dayEvents = upcomingEvents.get(isoDate) || [];
     item.textContent = String(day);
     if (itemDate.getDay() === 0 || itemDate.getDay() === 6) item.classList.add("weekend");
     if (holiday) {
       item.classList.add("holiday");
       item.title = holiday.name;
       item.setAttribute("aria-label", `${day}: ${holiday.name}`);
+    }
+    if (dayEvents.length) {
+      item.classList.add("has-events");
+      const markers = document.createElement("span");
+      markers.className = "current-date-event-markers";
+      [...new Set(dayEvents.map(event => event.kind))].slice(0, 4).forEach(kind => {
+        const marker = document.createElement("i");
+        marker.className = kind;
+        markers.append(marker);
+      });
+      item.append(markers);
+      item.title = [item.title, currentDateEventSummary(dayEvents)].filter(Boolean).join(" · ");
+      item.setAttribute("aria-label", `${day}. ${currentDateEventSummary(dayEvents)}`);
     }
     if (isoDate === today) {
       item.classList.add("today");
@@ -22059,7 +22122,38 @@ function createCurrentDateCalendar(date = new Date()) {
     }
     grid.append(item);
   }
-  calendar.append(title, grid);
+  const upcoming = document.createElement("section");
+  upcoming.className = "current-date-upcoming";
+  const upcomingTitle = document.createElement("strong");
+  upcomingTitle.textContent = "Najbliższe terminy";
+  upcoming.append(upcomingTitle);
+  const nextEvents = [...upcomingEvents]
+    .flatMap(([isoDate, events]) => {
+      const grouped = new Map();
+      events.forEach(event => {
+        const current = grouped.get(event.label) || { ...event, count: 0 };
+        current.count += 1;
+        grouped.set(event.label, current);
+      });
+      return [...grouped.values()].map(event => ({ isoDate, ...event }));
+    })
+    .slice(0, 6);
+  if (!nextEvents.length) {
+    const empty = document.createElement("span");
+    empty.className = "current-date-upcoming-empty";
+    empty.textContent = "Brak terminów w ciągu 45 dni";
+    upcoming.append(empty);
+  } else {
+    nextEvents.forEach(event => {
+      const row = document.createElement("span");
+      row.className = `current-date-upcoming-row ${event.kind}`;
+      const eventDate = document.createElement("b");
+      eventDate.textContent = formatDate(event.isoDate);
+      row.append(eventDate, event.count > 1 ? `${event.label}: ${event.count}` : event.label);
+      upcoming.append(row);
+    });
+  }
+  calendar.append(title, grid, upcoming);
   return calendar;
 }
 
@@ -22075,10 +22169,8 @@ function refreshCurrentDateWidget(now = new Date()) {
   value.textContent = now.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
   value.dateTime = isoDate;
   button.setAttribute("aria-label", `Dzisiaj: ${value.textContent}. Pokaż kalendarz.`);
-  if (calendar.dataset.month !== isoDate.slice(0, 7)) {
-    calendar.replaceChildren(createCurrentDateCalendar(now));
-    calendar.dataset.month = isoDate.slice(0, 7);
-  }
+  calendar.replaceChildren(createCurrentDateCalendar(now));
+  calendar.dataset.month = isoDate.slice(0, 7);
 }
 
 function setupCurrentDateWidget() {
@@ -22089,6 +22181,7 @@ function setupCurrentDateWidget() {
   let closeTimer = 0;
   const show = () => {
     window.clearTimeout(closeTimer);
+    refreshCurrentDateWidget();
     calendar.hidden = false;
     button.setAttribute("aria-expanded", "true");
   };
