@@ -264,6 +264,117 @@ button.danger:hover {
   min-width: 0;
 }
 
+.current-date-widget {
+  position: relative;
+  z-index: 120;
+  flex: 0 0 auto;
+}
+
+.current-date-button {
+  display: grid;
+  min-width: 158px;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid #cbdcdf;
+  border-radius: 7px;
+  color: #003f5a;
+  background: #f8fbfb;
+  text-align: left;
+}
+
+.current-date-button:hover,
+.current-date-button:focus-visible,
+.current-date-button[aria-expanded="true"] {
+  border-color: #6ca5a4;
+  background: #f0f8f7;
+}
+
+.current-date-weekday {
+  color: #527078;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.current-date-value {
+  color: #003f5a;
+  font-size: 0.83rem;
+  font-weight: 900;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.current-date-calendar {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  width: 278px;
+  padding: 11px;
+  border: 1px solid #bfd2d6;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(0, 63, 90, 0.16);
+  transform: translateX(-50%);
+}
+
+.current-date-calendar[hidden] {
+  display: none;
+}
+
+.current-date-calendar h3 {
+  margin: 0 0 9px;
+  color: #003f5a;
+  font-size: 0.82rem;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.current-date-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.current-date-calendar-grid > span {
+  display: grid;
+  min-width: 0;
+  min-height: 28px;
+  place-items: center;
+  border-radius: 6px;
+  color: #35505c;
+  font-size: 0.7rem;
+}
+
+.current-date-calendar-grid .weekday {
+  min-height: 20px;
+  color: #70838a;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.current-date-calendar-grid .empty {
+  min-height: 28px;
+}
+
+.current-date-calendar-grid .weekend {
+  color: #89979c;
+  background: #f4f6f6;
+}
+
+.current-date-calendar-grid .holiday {
+  color: #923f42;
+  background: #fbe8e9;
+  font-weight: 850;
+}
+
+.current-date-calendar-grid .today {
+  color: #fff;
+  background: #007f80;
+  font-size: 0.77rem;
+  font-weight: 950;
+}
+
 .top-switch-row {
   display: flex;
   align-items: center;
@@ -11283,6 +11394,16 @@ textarea {
 
   .header-brand {
     align-items: flex-start;
+  }
+
+  .current-date-widget {
+    align-self: flex-start;
+  }
+
+  .current-date-calendar {
+    right: auto;
+    left: 0;
+    transform: none;
   }
 
   .top-switch-row {
