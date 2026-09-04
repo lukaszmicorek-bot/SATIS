@@ -4586,14 +4586,18 @@ function deviceSerialWarrantyTitle(record) {
   return `Gwarancja aparatu (${REPAIR_WARRANTY_MONTHS} mies.):\n${tooltip}`;
 }
 
-function stockAuditSerialHistory(record) {
-  const recordId = String(record?.id || "").trim();
+function stockAuditSerialHistory(record, source = "stock") {
+  const normalizedSource = source === "demo" ? "demo" : "stock";
+  const rawRecordId = String(record?.id || "").trim();
+  const recordId = normalizedSource === "demo" && rawRecordId
+    ? `demo:${rawRecordId.replace(/^demo:/u, "")}`
+    : rawRecordId;
   const serialKey = serialDuplicateKey(record?.serialNumber);
   if (!recordId && !serialKey) return [];
 
   return normalizeStockAuditHistory(stockAudit.history).flatMap((entry) => {
     const item = entry.items.find((candidate) => (
-      candidate.source === "stock" && (
+      candidate.source === normalizedSource && (
         (recordId && candidate.id === recordId) ||
         (serialKey && serialDuplicateKey(candidate.serialNumber) === serialKey)
       )
@@ -4607,8 +4611,8 @@ function stockAuditSerialHistory(record) {
   });
 }
 
-function stockAuditSerialHistoryTitle(record) {
-  const history = stockAuditSerialHistory(record);
+function stockAuditSerialHistoryTitle(record, source = "stock") {
+  const history = stockAuditSerialHistory(record, source);
   if (!history.length) return "";
   const visibleHistory = history.slice(0, 10).map((entry) => [
     formatDate(entry.checkedAt) || "brak daty",
@@ -16044,7 +16048,14 @@ function createDemoRow(record, agreementGroup = null) {
   const cells = [
     statusWrap,
     createDemoModelCell(record),
-    createSerialPill(record.serialNumber, duplicateMatches, serviceMatches),
+    createSerialPill(
+      record.serialNumber,
+      duplicateMatches,
+      serviceMatches,
+      [],
+      "",
+      stockAuditSerialHistoryTitle(record, "demo")
+    ),
     createLocationPill(record.location),
     createDateText(record.receivedDate),
     createDemoCurrentUser(record.currentUser, record.loanDate, meta?.returnSource === "loan" ? meta.returnDeadline : "", record, agreementGroup),
