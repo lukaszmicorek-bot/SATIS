@@ -22023,12 +22023,12 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
   const start = isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const end = addDaysToIsoDate(start, rangeDays);
   const events = new Map();
-  const add = (eventDate, kind, label, detail, uniqueKey) => {
+  const add = (eventDate, kind, label, summary, detail, uniqueKey) => {
     const isoDate = isoDateForSave(eventDate);
     if (!isoDate || isoDate < start || isoDate > end) return;
     if (!events.has(isoDate)) events.set(isoDate, new Map());
-    const key = `${kind}:${uniqueKey || `${label}:${detail}`}`;
-    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label, detail });
+    const key = `${kind}:${uniqueKey || `${label}:${summary}:${detail}`}`;
+    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label, summary, detail });
   };
 
   normalizePricingLoanHistory(pricingLoanHistory).forEach(entry => {
@@ -22041,6 +22041,7 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
       entry.periodTo,
       "loan",
       "Koniec umowy",
+      entry.customer || "brak osoby",
       `${entry.customer || "brak osoby"}${devices ? ` — ${devices}` : ""}`,
       entry.id || entry.number
     );
@@ -22053,16 +22054,19 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
     add(meta.returnDeadline,
       manufacturerSource ? "demo-manufacturer" : "demo-client",
       manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta",
+      record.deviceName || "aparat Demo",
       manufacturerSource ? equipment : `${record.currentUser || "brak osoby"} — ${equipment}`,
       record.id);
     if (meta.manufacturerReturn?.returnDeadline) {
-      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", equipment, record.id);
+      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.deviceName || "aparat Demo", equipment, record.id);
     }
   });
   vacationRequests.forEach(request => {
     if (request.status !== "ZATWIERDZONY") return;
-    add(request.dateFrom, "vacation", "Początek urlopu", request.employeeName || "brak osoby", `${request.id}:from`);
-    if (request.dateTo !== request.dateFrom) add(request.dateTo, "vacation", "Koniec urlopu", request.employeeName || "brak osoby", `${request.id}:to`);
+    const employee = request.employeeName || "brak osoby";
+    const firstName = String(employee).trim().split(/\s+/u)[0] || employee;
+    add(request.dateFrom, "vacation", "Początek urlopu", firstName, employee, `${request.id}:from`);
+    if (request.dateTo !== request.dateFrom) add(request.dateTo, "vacation", "Koniec urlopu", firstName, employee, `${request.id}:to`);
   });
 
   return new Map([...events]
@@ -22144,12 +22148,17 @@ function createCurrentDateCalendar(date = new Date()) {
     .flatMap(([isoDate, events]) => {
       const grouped = new Map();
       events.forEach(event => {
-        const groupKey = `${event.label}:${event.detail}`;
-        const current = grouped.get(groupKey) || { ...event, count: 0 };
+        const groupKey = `${event.label}:${event.summary}`;
+        const current = grouped.get(groupKey) || { ...event, count: 0, details: new Set() };
         current.count += 1;
+        if (event.detail) current.details.add(event.detail);
         grouped.set(groupKey, current);
       });
-      return [...grouped.values()].map(event => ({ isoDate, ...event }));
+      return [...grouped.values()].map(event => ({
+        isoDate,
+        ...event,
+        detail: [...event.details].join(" | ")
+      }));
     });
   if (!nextEvents.length) {
     const empty = document.createElement("span");
@@ -22166,7 +22175,8 @@ function createCurrentDateCalendar(date = new Date()) {
       const eventLabel = document.createElement("strong");
       eventLabel.textContent = event.count > 1 ? `${event.label} (${event.count})` : event.label;
       description.append(eventLabel);
-      if (event.detail) description.append(`: ${event.detail}`);
+      if (event.summary) description.append(`: ${event.summary}`);
+      row.title = [event.label, event.detail].filter(Boolean).join(": ");
       row.append(eventDate, description);
       upcoming.append(row);
     });
