@@ -22023,36 +22023,46 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
   const start = isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const end = addDaysToIsoDate(start, rangeDays);
   const events = new Map();
-  const add = (eventDate, kind, label, uniqueKey) => {
+  const add = (eventDate, kind, label, detail, uniqueKey) => {
     const isoDate = isoDateForSave(eventDate);
     if (!isoDate || isoDate < start || isoDate > end) return;
     if (!events.has(isoDate)) events.set(isoDate, new Map());
-    const key = `${kind}:${uniqueKey || label}`;
-    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label });
+    const key = `${kind}:${uniqueKey || `${label}:${detail}`}`;
+    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label, detail });
   };
 
   normalizePricingLoanHistory(pricingLoanHistory).forEach(entry => {
     if (isoDateForSave(entry.returnDate)) return;
-    add(entry.periodTo, "loan", "Koniec umowy", entry.id || entry.number);
+    const devices = [entry.rightDevice, entry.leftDevice]
+      .filter(hasLoanDeviceData)
+      .map(device => `${device.side === "lewe" ? "L" : "P"}: ${device.model || "aparat"}${device.serial ? ` (nr ${device.serial})` : ""}`)
+      .join(", ");
+    add(
+      entry.periodTo,
+      "loan",
+      "Koniec umowy",
+      `${entry.customer || "brak osoby"}${devices ? ` — ${devices}` : ""}`,
+      entry.id || entry.number
+    );
   });
   demoRecords.forEach(record => {
     const meta = demoDerived.get(record.id);
     if (!meta) return;
     const manufacturerSource = ["manufacturer", "philips", "manufacturerReturned"].includes(meta.returnSource);
-    add(
-      meta.returnDeadline,
+    const equipment = `${record.deviceName || "aparat Demo"}${record.serialNumber ? ` (nr ${record.serialNumber})` : ""}`;
+    add(meta.returnDeadline,
       manufacturerSource ? "demo-manufacturer" : "demo-client",
       manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta",
-      record.id
-    );
+      manufacturerSource ? equipment : `${record.currentUser || "brak osoby"} — ${equipment}`,
+      record.id);
     if (meta.manufacturerReturn?.returnDeadline) {
-      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.id);
+      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", equipment, record.id);
     }
   });
   vacationRequests.forEach(request => {
     if (request.status !== "ZATWIERDZONY") return;
-    add(request.dateFrom, "vacation", "Początek urlopu", `${request.id}:from`);
-    if (request.dateTo !== request.dateFrom) add(request.dateTo, "vacation", "Koniec urlopu", `${request.id}:to`);
+    add(request.dateFrom, "vacation", "Początek urlopu", request.employeeName || "brak osoby", `${request.id}:from`);
+    if (request.dateTo !== request.dateFrom) add(request.dateTo, "vacation", "Koniec urlopu", request.employeeName || "brak osoby", `${request.id}:to`);
   });
 
   return new Map([...events]
@@ -22062,8 +22072,11 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
 
 function currentDateEventSummary(events) {
   const counts = new Map();
-  events.forEach(event => counts.set(event.label, (counts.get(event.label) || 0) + 1));
-  return [...counts].map(([label, count]) => count > 1 ? `${label}: ${count}` : label).join(" · ");
+  events.forEach(event => {
+    const text = [event.label, event.detail].filter(Boolean).join(": ");
+    counts.set(text, (counts.get(text) || 0) + 1);
+  });
+  return [...counts].map(([text, count]) => count > 1 ? `${text} (${count})` : text).join(" · ");
 }
 
 function createCurrentDateCalendar(date = new Date()) {
@@ -22131,13 +22144,13 @@ function createCurrentDateCalendar(date = new Date()) {
     .flatMap(([isoDate, events]) => {
       const grouped = new Map();
       events.forEach(event => {
-        const current = grouped.get(event.label) || { ...event, count: 0 };
+        const groupKey = `${event.label}:${event.detail}`;
+        const current = grouped.get(groupKey) || { ...event, count: 0 };
         current.count += 1;
-        grouped.set(event.label, current);
+        grouped.set(groupKey, current);
       });
       return [...grouped.values()].map(event => ({ isoDate, ...event }));
-    })
-    .slice(0, 6);
+    });
   if (!nextEvents.length) {
     const empty = document.createElement("span");
     empty.className = "current-date-upcoming-empty";
@@ -22149,7 +22162,12 @@ function createCurrentDateCalendar(date = new Date()) {
       row.className = `current-date-upcoming-row ${event.kind}`;
       const eventDate = document.createElement("b");
       eventDate.textContent = formatDate(event.isoDate);
-      row.append(eventDate, event.count > 1 ? `${event.label}: ${event.count}` : event.label);
+      const description = document.createElement("span");
+      const eventLabel = document.createElement("strong");
+      eventLabel.textContent = event.count > 1 ? `${event.label} (${event.count})` : event.label;
+      description.append(eventLabel);
+      if (event.detail) description.append(`: ${event.detail}`);
+      row.append(eventDate, description);
       upcoming.append(row);
     });
   }

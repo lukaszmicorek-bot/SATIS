@@ -309,7 +309,7 @@ button.danger:hover {
   position: absolute;
   top: calc(100% + 7px);
   left: 50%;
-  width: 294px;
+  width: min(430px, calc(100vw - 28px));
   padding: 11px;
   border: 1px solid #bfd2d6;
   border-radius: 8px;
@@ -404,6 +404,8 @@ button.danger:hover {
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid #e0e9eb;
+  max-height: min(230px, 38vh);
+  overflow-y: auto;
 }
 
 .current-date-upcoming > strong {
@@ -419,6 +421,16 @@ button.danger:hover {
   min-width: 0;
   color: #3e5660;
   font-size: 0.67rem;
+}
+
+.current-date-upcoming-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.current-date-upcoming-row > span strong {
+  color: #294c5b;
+  font-weight: 850;
 }
 
 .current-date-upcoming-row::before {
