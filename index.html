@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260903-246">
+  <link rel="stylesheet" href="styles.css?v=20260904-249">
   </head>
   <body>
     <main class="app-shell">
@@ -24,6 +24,13 @@
           <div class="header-title-block">
             <h1 id="appTitle">Zeszyt aparatów</h1>
           </div>
+        </div>
+        <div id="currentDateWidget" class="current-date-widget">
+          <button id="currentDateButton" class="current-date-button" type="button" aria-expanded="false" aria-controls="currentDateCalendar">
+            <span id="currentDateWeekday" class="current-date-weekday"></span>
+            <time id="currentDateValue" class="current-date-value"></time>
+          </button>
+          <div id="currentDateCalendar" class="current-date-calendar" role="tooltip" hidden></div>
         </div>
         <div class="stats" aria-label="Podsumowanie bazy">
           <div>
@@ -2733,6 +2740,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260904-248"></script>
+  <script src="app.js?v=20260904-249"></script>
   </body>
 </html>

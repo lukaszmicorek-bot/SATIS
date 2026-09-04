@@ -22018,6 +22018,104 @@ function todayInputValue() {
   return `${year}-${month}-${day}`;
 }
 
+function createCurrentDateCalendar(date = new Date()) {
+  const calendar = document.createDocumentFragment();
+  const title = document.createElement("h3");
+  title.textContent = date.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  const grid = document.createElement("div");
+  grid.className = "current-date-calendar-grid";
+  ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach(weekday => {
+    const label = document.createElement("span");
+    label.className = "weekday";
+    label.textContent = weekday;
+    grid.append(label);
+  });
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+  for (let index = 0; index < firstWeekday; index += 1) {
+    const empty = document.createElement("span");
+    empty.className = "empty";
+    grid.append(empty);
+  }
+  const today = isoDateFromParts(year, month + 1, date.getDate());
+  const days = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= days; day += 1) {
+    const item = document.createElement("span");
+    const itemDate = new Date(year, month, day);
+    const isoDate = isoDateFromParts(year, month + 1, day);
+    const holiday = polishPublicHolidayOnDate(isoDate);
+    item.textContent = String(day);
+    if (itemDate.getDay() === 0 || itemDate.getDay() === 6) item.classList.add("weekend");
+    if (holiday) {
+      item.classList.add("holiday");
+      item.title = holiday.name;
+      item.setAttribute("aria-label", `${day}: ${holiday.name}`);
+    }
+    if (isoDate === today) {
+      item.classList.add("today");
+      item.title = holiday ? `Dzisiaj · ${holiday.name}` : "Dzisiaj";
+      item.setAttribute("aria-current", "date");
+    }
+    grid.append(item);
+  }
+  calendar.append(title, grid);
+  return calendar;
+}
+
+function refreshCurrentDateWidget(now = new Date()) {
+  const widget = document.querySelector("#currentDateWidget");
+  const button = document.querySelector("#currentDateButton");
+  const weekday = document.querySelector("#currentDateWeekday");
+  const value = document.querySelector("#currentDateValue");
+  const calendar = document.querySelector("#currentDateCalendar");
+  if (!widget || !button || !weekday || !value || !calendar) return;
+  const isoDate = isoDateFromParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  weekday.textContent = now.toLocaleDateString("pl-PL", { weekday: "long" });
+  value.textContent = now.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
+  value.dateTime = isoDate;
+  button.setAttribute("aria-label", `Dzisiaj: ${value.textContent}. Pokaż kalendarz.`);
+  if (calendar.dataset.month !== isoDate.slice(0, 7)) {
+    calendar.replaceChildren(createCurrentDateCalendar(now));
+    calendar.dataset.month = isoDate.slice(0, 7);
+  }
+}
+
+function setupCurrentDateWidget() {
+  const widget = document.querySelector("#currentDateWidget");
+  const button = document.querySelector("#currentDateButton");
+  const calendar = document.querySelector("#currentDateCalendar");
+  if (!widget || !button || !calendar) return;
+  let closeTimer = 0;
+  const show = () => {
+    window.clearTimeout(closeTimer);
+    calendar.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+  };
+  const hide = () => {
+    calendar.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+  };
+  const hideSoon = () => {
+    window.clearTimeout(closeTimer);
+    closeTimer = window.setTimeout(() => {
+      if (!widget.matches(":hover") && !widget.contains(document.activeElement)) hide();
+    }, 120);
+  };
+  widget.addEventListener("mouseenter", show);
+  widget.addEventListener("mouseleave", hideSoon);
+  widget.addEventListener("focusin", show);
+  widget.addEventListener("focusout", hideSoon);
+  button.addEventListener("click", () => calendar.hidden ? show() : hide());
+  document.addEventListener("pointerdown", event => {
+    if (!widget.contains(event.target)) hide();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") hide();
+  });
+  refreshCurrentDateWidget();
+}
+
 function importJson(event) {
   if (!requireSensitiveTransferPermission()) {
     event.target.value = "";
@@ -23908,12 +24006,15 @@ window.addEventListener("afterprint", scheduleSerialLineFit);
 document.fonts?.ready.then(scheduleSerialLineFit);
 
 window.setTimeout(checkForPublishedAppUpdate, 15000);
+setupCurrentDateWidget();
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
+window.setInterval(refreshCurrentDateWidget, 60 * 1000);
 window.setInterval(renderPricingLoanHistory, 60 * 60 * 1000);
 window.setInterval(updateLoanReturnDeadlineHighlight, 60 * 1000);
 window.setInterval(refreshDemoReturnReminders, 60 * 1000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
+    refreshCurrentDateWidget();
     checkForPublishedAppUpdate();
     renderPricingLoanHistory();
     updateLoanReturnDeadlineHighlight();
