@@ -309,7 +309,7 @@ button.danger:hover {
   position: absolute;
   top: calc(100% + 7px);
   left: 50%;
-  width: 278px;
+  width: 294px;
   padding: 11px;
   border: 1px solid #bfd2d6;
   border-radius: 8px;
@@ -337,6 +337,7 @@ button.danger:hover {
 }
 
 .current-date-calendar-grid > span {
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: 28px;
@@ -374,6 +375,66 @@ button.danger:hover {
   font-size: 0.77rem;
   font-weight: 950;
 }
+
+.current-date-event-markers {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  left: 3px;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+.current-date-event-markers i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #3f7699;
+}
+
+.current-date-event-markers i.demo-client { background: #cf725d; }
+.current-date-event-markers i.demo-manufacturer { background: #808b4f; }
+.current-date-event-markers i.vacation { background: #8c71a1; }
+.current-date-calendar-grid .today .current-date-event-markers i { outline: 1px solid rgba(255, 255, 255, 0.8); }
+
+.current-date-upcoming {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e9eb;
+}
+
+.current-date-upcoming > strong {
+  color: #526b75;
+  font-size: 0.66rem;
+}
+
+.current-date-upcoming-row,
+.current-date-upcoming-empty {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #3e5660;
+  font-size: 0.67rem;
+}
+
+.current-date-upcoming-row::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #3f7699;
+  content: "";
+}
+
+.current-date-upcoming-row.demo-client::before { background: #cf725d; }
+.current-date-upcoming-row.demo-manufacturer::before { background: #808b4f; }
+.current-date-upcoming-row.vacation::before { background: #8c71a1; }
+.current-date-upcoming-row b { color: #173f52; font-size: 0.67rem; white-space: nowrap; }
+.current-date-upcoming-empty { color: #7a8c92; }
 
 .top-switch-row {
   display: flex;
