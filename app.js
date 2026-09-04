@@ -22065,8 +22065,14 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
     if (request.status !== "ZATWIERDZONY") return;
     const employee = request.employeeName || "brak osoby";
     const firstName = String(employee).trim().split(/\s+/u)[0] || employee;
-    add(request.dateFrom, "vacation", "Początek urlopu", firstName, employee, `${request.id}:from`);
-    if (request.dateTo !== request.dateFrom) add(request.dateTo, "vacation", "Koniec urlopu", firstName, employee, `${request.id}:to`);
+    const dateFrom = isoDateForSave(request.dateFrom);
+    const dateTo = isoDateForSave(request.dateTo || request.dateFrom);
+    if (dateFrom && dateFrom === dateTo) {
+      add(dateFrom, "vacation", "Urlop w dniu", firstName, employee, `${request.id}:day`);
+      return;
+    }
+    add(dateFrom, "vacation", "Początek urlopu", firstName, employee, `${request.id}:from`);
+    add(dateTo, "vacation", "Koniec urlopu", firstName, employee, `${request.id}:to`);
   });
 
   return new Map([...events]
@@ -22129,7 +22135,9 @@ function createCurrentDateCalendar(date = new Date()) {
         markers.append(marker);
       });
       item.append(markers);
-      item.title = [item.title, currentDateEventSummary(dayEvents)].filter(Boolean).join(" · ");
+      item.dataset.currentDateTooltip = [holiday?.name, currentDateEventSummary(dayEvents)].filter(Boolean).join("\n");
+      item.tabIndex = 0;
+      attachTableHoverTooltip(item, "currentDateTooltip");
       item.setAttribute("aria-label", `${day}. ${currentDateEventSummary(dayEvents)}`);
     }
     if (isoDate === today) {
@@ -22142,7 +22150,7 @@ function createCurrentDateCalendar(date = new Date()) {
   const upcoming = document.createElement("section");
   upcoming.className = "current-date-upcoming";
   const upcomingTitle = document.createElement("strong");
-  upcomingTitle.textContent = "Najbliższe terminy";
+  upcomingTitle.textContent = "Najbliższe 7 dni";
   upcoming.append(upcomingTitle);
   const nextEvents = [...upcomingEvents]
     .flatMap(([isoDate, events]) => {
@@ -22160,26 +22168,42 @@ function createCurrentDateCalendar(date = new Date()) {
         detail: [...event.details].join(" | ")
       }));
     });
-  if (!nextEvents.length) {
+  const weekEnd = addDaysToIsoDate(today, 7);
+  const nearEvents = nextEvents.filter(event => event.isoDate <= weekEnd);
+  const laterEvents = nextEvents.filter(event => event.isoDate > weekEnd);
+  const appendEventRow = (container, event) => {
+    const row = document.createElement("span");
+    row.className = `current-date-upcoming-row ${event.kind}`;
+    const eventDate = document.createElement("b");
+    eventDate.textContent = formatDate(event.isoDate);
+    const description = document.createElement("span");
+    const eventLabel = document.createElement("strong");
+    eventLabel.textContent = event.count > 1 ? `${event.label} (${event.count})` : event.label;
+    description.append(eventLabel);
+    if (event.summary) description.append(`: ${event.summary}`);
+    row.dataset.currentDateTooltip = [event.label, event.detail].filter(Boolean).join(": ");
+    row.tabIndex = 0;
+    attachTableHoverTooltip(row, "currentDateTooltip");
+    row.append(eventDate, description);
+    container.append(row);
+  };
+  if (!nearEvents.length) {
     const empty = document.createElement("span");
     empty.className = "current-date-upcoming-empty";
-    empty.textContent = "Brak terminów w ciągu 45 dni";
+    empty.textContent = "Brak terminów w najbliższym tygodniu";
     upcoming.append(empty);
-  } else {
-    nextEvents.forEach(event => {
-      const row = document.createElement("span");
-      row.className = `current-date-upcoming-row ${event.kind}`;
-      const eventDate = document.createElement("b");
-      eventDate.textContent = formatDate(event.isoDate);
-      const description = document.createElement("span");
-      const eventLabel = document.createElement("strong");
-      eventLabel.textContent = event.count > 1 ? `${event.label} (${event.count})` : event.label;
-      description.append(eventLabel);
-      if (event.summary) description.append(`: ${event.summary}`);
-      row.title = [event.label, event.detail].filter(Boolean).join(": ");
-      row.append(eventDate, description);
-      upcoming.append(row);
-    });
+  }
+  nearEvents.forEach(event => appendEventRow(upcoming, event));
+  if (laterEvents.length) {
+    const later = document.createElement("details");
+    later.className = "current-date-later";
+    const laterSummary = document.createElement("summary");
+    laterSummary.textContent = `Późniejsze terminy (${laterEvents.length})`;
+    const laterList = document.createElement("div");
+    laterList.className = "current-date-later-list";
+    laterEvents.forEach(event => appendEventRow(laterList, event));
+    later.append(laterSummary, laterList);
+    upcoming.append(later);
   }
   calendar.append(title, grid, upcoming);
   return calendar;

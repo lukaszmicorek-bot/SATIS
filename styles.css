@@ -448,6 +448,26 @@ button.danger:hover {
 .current-date-upcoming-row b { color: #173f52; font-size: 0.67rem; white-space: nowrap; }
 .current-date-upcoming-empty { color: #7a8c92; }
 
+.current-date-later {
+  margin-top: 3px;
+  border-top: 1px solid #e8eeee;
+  padding-top: 5px;
+}
+
+.current-date-later summary {
+  width: fit-content;
+  color: #466873;
+  cursor: pointer;
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.current-date-later-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
 .top-switch-row {
   display: flex;
   align-items: center;
