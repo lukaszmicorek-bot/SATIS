@@ -776,6 +776,7 @@ const loanContractNumberInput = document.querySelector("#loanContractNumberInput
 const loanDateInput = document.querySelector("#loanDateInput");
 const loanCityInput = document.querySelector("#loanCityInput");
 const loanDepositInput = document.querySelector("#loanDepositInput");
+const loanTestingFeeInputs = [...document.querySelectorAll('input[name="loanTestingFee"]')];
 const loanPeriodFromInput = document.querySelector("#loanPeriodFromInput");
 const loanPeriodToInput = document.querySelector("#loanPeriodToInput");
 const loanPeriod7Btn = document.querySelector("#loanPeriod7Btn");
@@ -9138,6 +9139,7 @@ function normalizePricingLoanHistoryEntry(entry) {
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
     city: normalizeLoanHistoryText(entry.city) ? normalizeLoanCityValue(entry.city) : "",
     deposit: normalizeLoanHistoryText(entry.deposit),
+    testingFee: normalizeLoanTestingFee(entry.testingFee),
     periodFrom: isoDateForSave(entry.periodFrom) || normalizeLoanHistoryText(entry.periodFrom),
     periodTo: isoDateForSave(entry.periodTo) || normalizeLoanHistoryText(entry.periodTo),
     customer: titleCaseName(entry.customer || ""),
@@ -9616,6 +9618,7 @@ function currentPricingLoanSnapshot() {
     date: isoDateForSave(loanDateInput?.value) || loanInputValue(loanDateInput),
     city: normalizeLoanCityValue(loanInputValue(loanCityInput)),
     deposit: loanInputValue(loanDepositInput),
+    testingFee: pricingLoanTestingFee(),
     periodFrom: isoDateForSave(loanPeriodFromInput?.value) || loanInputValue(loanPeriodFromInput),
     periodTo: isoDateForSave(loanPeriodToInput?.value) || loanInputValue(loanPeriodToInput),
     customer: titleCaseName(loanInputValue(loanCustomerInput)),
@@ -9803,6 +9806,22 @@ function setLoanSnapshotInput(input, value, options = {}) {
   input.value = text;
 }
 
+function normalizeLoanTestingFee(value) {
+  const amount = Number(String(value ?? "").replace(/[^\d,.-]/gu, "").replace(",", "."));
+  return [15, 30].includes(amount) ? `${amount} zł` : "0 zł";
+}
+
+function pricingLoanTestingFee() {
+  return normalizeLoanTestingFee(loanTestingFeeInputs.find(input => input.checked)?.value);
+}
+
+function setPricingLoanTestingFee(value) {
+  const normalizedValue = normalizeLoanTestingFee(value);
+  loanTestingFeeInputs.forEach(input => {
+    input.checked = input.value === normalizedValue;
+  });
+}
+
 function restorePricingLoanFromHistory(entry) {
   if (pricingLoanSaveInProgress) return;
   setLoanReturnEditMode(false);
@@ -9819,6 +9838,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanDateInput, historyEntry.date, { date: true });
   setLoanSnapshotInput(loanCityInput, normalizeLoanCityValue(historyEntry.city));
   setLoanSnapshotInput(loanDepositInput, historyEntry.deposit);
+  setPricingLoanTestingFee(historyEntry.testingFee);
   setLoanSnapshotInput(loanPeriodFromInput, historyEntry.periodFrom, { date: true });
   setLoanSnapshotInput(loanPeriodToInput, historyEntry.periodTo, { date: true });
   setLoanSnapshotInput(loanCustomerInput, historyEntry.customer, { title: true });
@@ -10380,6 +10400,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Adres", saved.address);
     appendPricingHistoryPreviewField(summary, "Dokument", saved.document);
     appendPricingHistoryPreviewField(summary, "Kaucja", saved.deposit);
+    appendPricingHistoryPreviewField(summary, "Pobrano", saved.testingFee);
     appendPricingHistoryPreviewField(summary, "Data zwrotu", formatDate(saved.returnDate));
     appendPricingHistoryPreviewField(summary, "Zwrot kaucji", formatDate(saved.depositReturnDate));
     appendPricingHistoryPreviewField(summary, "Potrącenia", saved.deductions);
@@ -11865,6 +11886,7 @@ function startNewPricingLoan() {
   ].forEach((input) => {
     if (input) input.value = "";
   });
+  setPricingLoanTestingFee("0 zł");
   updateLoanDemoPurposeField("right");
   updateLoanDemoPurposeField("left");
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
@@ -12038,6 +12060,7 @@ function renderPricingLoan() {
   setLoanOutput("city", loanInputValue(loanCityInput));
   setLoanOutput("period", periodText);
   setLoanMoneyOutput("deposit", loanInputValue(loanDepositInput) || "0 zł");
+  setLoanMoneyOutput("testingFee", pricingLoanTestingFee());
   setLoanOutput("customer", titleCaseName(loanInputValue(loanCustomerInput)));
   setLoanOutput("address", formatLoanAddress(loanInputValue(loanAddressInput), { final: true }));
   setLoanOutput("document", normalizeLoanIdentityValue(loanInputValue(loanDocumentInput)));
@@ -23293,6 +23316,7 @@ loanDateInput?.addEventListener("change", () => {
 });
 loanPeriod7Btn?.addEventListener("click", () => setPricingLoanPeriod(7));
 loanPeriod14Btn?.addEventListener("click", () => setPricingLoanPeriod(14));
+loanTestingFeeInputs.forEach(input => input.addEventListener("change", renderPricingLoan));
 [
   loanContractNumberInput,
   loanDateInput,

@@ -4826,7 +4826,66 @@ h2 {
 }
 
 .loan-form-grid > .loan-deposit-field {
-  grid-column: span 2;
+  grid-column: span 1;
+}
+
+.loan-testing-fee-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.loan-testing-fee-field legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.loan-testing-fee-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.loan-testing-fee-options label {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.loan-testing-fee-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.loan-testing-fee-options span {
+  display: grid;
+  min-height: 37px;
+  place-items: center;
+  padding: 5px 7px;
+  border: 1px solid #d4e0e3;
+  border-radius: 6px;
+  color: #52666e;
+  background: #f7fafb;
+  font-size: 0.73rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.loan-testing-fee-options input:checked + span {
+  border-color: #78a9a4;
+  color: #185b60;
+  background: #e5f2ef;
+}
+
+.loan-testing-fee-options input:focus-visible + span {
+  outline: 2px solid rgba(0, 127, 128, 0.25);
+  outline-offset: 1px;
 }
 
 .loan-period-fields {
@@ -11541,10 +11600,14 @@ textarea {
   }
 
   .loan-form-grid > .loan-contract-location-field {
-    grid-column: 1;
+    grid-column: span 2;
   }
 
   .loan-form-grid > .loan-deposit-field {
+    grid-column: 1;
+  }
+
+  .loan-form-grid > .loan-testing-fee-field {
     grid-column: 2;
   }
 
@@ -11929,7 +11992,8 @@ textarea {
   }
 
   .loan-form-grid > .loan-contract-location-field,
-  .loan-form-grid > .loan-deposit-field {
+  .loan-form-grid > .loan-deposit-field,
+  .loan-form-grid > .loan-testing-fee-field {
     grid-column: auto;
   }
 
