@@ -4718,7 +4718,21 @@ function showTableHoverTooltip(anchor, dataKey) {
   if (!anchor || !text) return;
   const tooltip = tableHoverTooltipElement();
   const phoneInfo = anchor.customerPhoneDetails;
-  if (phoneInfo && text.startsWith(phoneInfo.tooltip)) {
+  const calendarTooltip = dataKey === "currentDateTooltip";
+  tooltip.classList.toggle("calendar-event-tooltip", calendarTooltip);
+  if (calendarTooltip) {
+    const lines = text.split("\n").filter(Boolean);
+    const heading = document.createElement("strong");
+    heading.className = "calendar-event-tooltip-heading";
+    heading.textContent = lines.shift();
+    tooltip.replaceChildren(heading);
+    lines.forEach(line => {
+      const detail = document.createElement("div");
+      detail.className = "calendar-event-tooltip-detail";
+      detail.textContent = line;
+      tooltip.append(detail);
+    });
+  } else if (phoneInfo && text.startsWith(phoneInfo.tooltip)) {
     renderCustomerPhoneTooltip(tooltip, phoneInfo, text);
   } else {
     renderWarrantyDateText(tooltip, text);
@@ -4727,10 +4741,18 @@ function showTableHoverTooltip(anchor, dataKey) {
   tooltip.style.visibility = "hidden";
   const anchorBox = anchor.getBoundingClientRect();
   const tooltipBox = tooltip.getBoundingClientRect();
-  const left = Math.max(12, Math.min(anchorBox.left, window.innerWidth - tooltipBox.width - 12));
+  let left = Math.max(12, Math.min(anchorBox.left, window.innerWidth - tooltipBox.width - 12));
   const topBelow = anchorBox.bottom + 8;
   const topAbove = anchorBox.top - tooltipBox.height - 8;
-  const top = topBelow + tooltipBox.height <= window.innerHeight - 12 ? topBelow : Math.max(12, topAbove);
+  let top = topBelow + tooltipBox.height <= window.innerHeight - 12 ? topBelow : Math.max(12, topAbove);
+  const calendarBox = calendarTooltip ? anchor.closest(".current-date-calendar")?.getBoundingClientRect() : null;
+  if (calendarBox) {
+    if (calendarBox.right + tooltipBox.width + 22 <= window.innerWidth) left = calendarBox.right + 10;
+    else if (calendarBox.left - tooltipBox.width - 10 >= 12) left = calendarBox.left - tooltipBox.width - 10;
+    if (left > calendarBox.right || left + tooltipBox.width < calendarBox.left) {
+      top = Math.max(12, Math.min(anchorBox.top, window.innerHeight - tooltipBox.height - 12));
+    }
+  }
   tooltip.style.left = `${left}px`;
   tooltip.style.top = `${top}px`;
   tooltip.style.visibility = "visible";
