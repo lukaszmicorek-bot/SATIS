@@ -2274,6 +2274,11 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
     if (sharedPcprList) pricingPcprList = sharedPcprList;
     if (sharedCapdHistory) capdHistory = sharedCapdHistory;
+    try {
+      await migrateLegacyDemoTrialNames();
+    } catch (demoNameMigrationError) {
+      console.warn("Nie udało się zbiorczo ujednolicić nazw Demo/Trial:", demoNameMigrationError?.message || demoNameMigrationError);
+    }
     await loadPrivatePayments();
     try {
       await syncPricingLoansToDemo({ persist: true, renderChanges: false });
@@ -5200,6 +5205,41 @@ function normalizeDemoRecordForUse(record) {
   normalizedRecord.currentAttachments = normalizeDemoAttachments(normalizedRecord.currentAttachments);
   normalizedRecord.sourceRow = String(normalizedRecord.sourceRow ?? "").trim();
   return normalizedRecord;
+}
+
+function normalizeLegacyDemoTrialName(value) {
+  return String(value ?? "")
+    .replace(/\btril\b/giu, "Trial")
+    .replace(/\bispheretrial\b/giu, "ISPHERE Trial")
+    .replace(/\btrial\b/giu, "Trial")
+    .replace(/\bdemo\b/giu, "Demo");
+}
+
+async function migrateLegacyDemoTrialNames() {
+  if (!hasSupabaseConfig || !canViewPrivateModules() || !currentSupabaseUser) return 0;
+
+  const changedRecords = demoRecords
+    .map((record) => {
+      const deviceName = normalizeLegacyDemoTrialName(record.deviceName);
+      return deviceName === record.deviceName ? null : { ...record, deviceName };
+    })
+    .filter(Boolean);
+  if (!changedRecords.length) return 0;
+
+  setConnectionStatus("syncing", "Ujednolicanie Demo...");
+  for (let from = 0; from < changedRecords.length; from += SUPABASE_PAGE_SIZE) {
+    const rows = changedRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
+    await retrySupabaseWrite(async () => {
+      const { error } = await supabaseClient.from(SUPABASE_DEVICE_TABLE).upsert(rows, { onConflict: "id" });
+      if (error) throw error;
+    });
+  }
+
+  const changedById = new Map(changedRecords.map((record) => [record.id, record]));
+  demoRecords = demoRecords.map((record) => changedById.get(record.id) || record);
+  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+  console.info(`Ujednolicono nazwy Demo/Trial w ${changedRecords.length} pozycjach.`);
+  return changedRecords.length;
 }
 
 function normalizePricingRecordsForUse(recordsToNormalize) {
@@ -9568,13 +9608,22 @@ function nextLoanContractNumber(dateValue, ignoredId = "") {
   return monthlyDocumentNumber(documentNextSequence("loan", targetYear, targetMonth, maxSequence + 1), targetMonth, targetYear);
 }
 
-function ensureLoanContractNumber({ force = false } = {}) {
+function automaticDocumentNumber(savedEntry, dateValue, nextNumber) {
+  const parts = loanContractNumberParts(savedEntry?.number);
+  const date = loanContractDateParts(dateValue);
+  if (parts?.year && date && parts.year === date.year && parts.month === date.month) {
+    return savedEntry.number;
+  }
+  return nextNumber();
+}
+
+function ensureLoanContractNumber() {
   if (!loanContractNumberInput) return;
-  const currentNumber = loanInputValue(loanContractNumberInput);
-  const isAutoNumber = loanContractNumberInput.dataset.autoNumber === "1";
-  if (currentNumber && !force && !isAutoNumber) return;
   const dateValue = isoDateForSave(loanDateInput?.value) || todayInputValue();
-  loanContractNumberInput.value = nextLoanContractNumber(dateValue, activePricingLoanHistoryId);
+  const savedEntry = pricingLoanHistory.find(entry => entry.id === activePricingLoanHistoryId);
+  loanContractNumberInput.value = automaticDocumentNumber(savedEntry, dateValue,
+    () => nextLoanContractNumber(dateValue, activePricingLoanHistoryId));
+  loanContractNumberInput.readOnly = true;
   loanContractNumberInput.dataset.autoNumber = "1";
   updateLoanContractNumberValidity();
 }
@@ -13003,13 +13052,13 @@ function nextPricingOrderNumber(dateValue, ignoredId = "") {
   return monthlyDocumentNumber(documentNextSequence("order", targetYear, targetMonth, maxSequence + 1), targetMonth, targetYear);
 }
 
-function ensurePricingOrderNumber({ force = false } = {}) {
+function ensurePricingOrderNumber() {
   if (!orderNumberInput) return;
-  const currentNumber = loanInputValue(orderNumberInput);
-  const isAutoNumber = orderNumberInput.dataset.autoNumber === "1";
-  if (currentNumber && !force && !isAutoNumber) return;
   const dateValue = isoDateForSave(orderDateInput?.value) || todayInputValue();
-  orderNumberInput.value = nextPricingOrderNumber(dateValue);
+  const savedEntry = pricingOrderHistory.find(entry => entry.id === documentDraftIdentities.get("order")?.id);
+  orderNumberInput.value = automaticDocumentNumber(savedEntry, dateValue,
+    () => nextPricingOrderNumber(dateValue, savedEntry?.id));
+  orderNumberInput.readOnly = true;
   orderNumberInput.dataset.autoNumber = "1";
 }
 
@@ -14334,13 +14383,13 @@ function complaintInputValue(input) {
   return loanInputValue(input);
 }
 
-function ensurePricingComplaintNumber({ force = false } = {}) {
+function ensurePricingComplaintNumber() {
   if (!complaintNumberInput) return;
-  const currentNumber = complaintInputValue(complaintNumberInput);
-  const isAutoNumber = complaintNumberInput.dataset.autoNumber === "1";
-  if (currentNumber && !force && !isAutoNumber) return;
   const dateValue = isoDateForSave(complaintDateInput?.value) || todayInputValue();
-  complaintNumberInput.value = nextPricingComplaintNumber(dateValue);
+  const savedEntry = pricingComplaintHistory.find(entry => entry.id === documentDraftIdentities.get("complaint")?.id);
+  complaintNumberInput.value = automaticDocumentNumber(savedEntry, dateValue,
+    () => nextPricingComplaintNumber(dateValue, savedEntry?.id));
+  complaintNumberInput.readOnly = true;
   complaintNumberInput.dataset.autoNumber = "1";
 }
 
