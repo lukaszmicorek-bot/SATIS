@@ -4161,10 +4161,24 @@ h2 {
   text-align: center;
 }
 
-.order-editor-table th:nth-child(6),
-.order-editor-table td:nth-child(6) {
+.order-editor-table th:nth-child(5),
+.order-editor-table td:nth-child(5) {
+  width: 112px;
+}
+
+.order-editor-table th:nth-child(7),
+.order-editor-table td:nth-child(7) {
   width: 72px;
   text-align: center;
+}
+
+.order-cost-cell.disabled {
+  background: #f5f7f7;
+}
+
+.order-cost-cell input:disabled {
+  border-color: transparent;
+  background: transparent;
 }
 
 .order-items-table {
@@ -4190,6 +4204,13 @@ h2 {
 
 .order-items-table th:nth-child(5),
 .order-items-table td:nth-child(5) {
+  width: 105px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.order-items-table th:nth-child(6),
+.order-items-table td:nth-child(6) {
   width: 170px;
 }
 
@@ -9264,6 +9285,43 @@ td.row-actions {
   max-width: 560px;
 }
 
+.data-control-older {
+  margin-top: 14px;
+  border-top: 1px solid #dce5e8;
+  padding-top: 8px;
+}
+
+.data-control-older > summary {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  color: #52656d;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 780;
+  list-style-position: outside;
+}
+
+.data-control-older > summary:hover {
+  color: #003f5a;
+}
+
+.data-control-older > summary span:last-child {
+  color: #7a888e;
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.data-control-older[open] > summary {
+  margin-bottom: 6px;
+}
+
+.data-control-older-zone {
+  opacity: 0.94;
+}
+
 .data-control-stats {
   display: flex;
   flex-wrap: wrap;
@@ -14004,6 +14062,51 @@ textarea {
   display: inline-grid;
   justify-items: start;
   gap: 3px;
+}
+
+.repair-service-cost-field[hidden] {
+  display: none;
+}
+
+.amount-input-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.amount-input-wrap:focus-within {
+  border-color: #7799a6;
+  box-shadow: 0 0 0 2px rgba(0, 63, 90, 0.08);
+}
+
+.amount-input-wrap input {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.amount-input-wrap > span {
+  padding: 0 10px 0 4px;
+  color: #6f7f85;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.repair-service-cost-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  color: #69502b;
+  background: #f5f0df;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .nearby-entry-warning {
