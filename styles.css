@@ -4370,6 +4370,17 @@ h2 {
   grid-column: span 2;
 }
 
+.complaint-form-grid.has-repair-cost .complaint-location-field {
+  grid-column: span 1;
+}
+
+.complaint-repair-cost-field input {
+  border-color: #e3b0a8;
+  color: #8f3f34;
+  background: #fff7f5;
+  font-weight: 800;
+}
+
 .complaint-full {
   grid-column: 1 / -1;
 }

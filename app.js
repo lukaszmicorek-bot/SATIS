@@ -888,6 +888,8 @@ const complaintSerialInput2 = document.querySelector("#complaintSerialInput2");
 const complaintPurchaseDocumentInput2 = document.querySelector("#complaintPurchaseDocumentInput2");
 const complaintPurchaseDateInput2 = document.querySelector("#complaintPurchaseDateInput2");
 const complaintRequestInput = document.querySelector("#complaintRequestInput");
+const complaintRepairCostField = document.querySelector("#complaintRepairCostField");
+const complaintRepairCostInput = document.querySelector("#complaintRepairCostInput");
 const complaintDefectInput = document.querySelector("#complaintDefectInput");
 const complaintNotesInput = document.querySelector("#complaintNotesInput");
 const newPricingComplaintBtn = document.querySelector("#newPricingComplaintBtn");
@@ -10603,6 +10605,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
     appendPricingHistoryPreviewField(summary, "Miejsce", pricingHistoryEntryLocationValue(saved, "complaint"));
     appendPricingHistoryPreviewField(summary, "Żądanie", pricingComplaintRequestLabel(saved.request));
+    if (saved.repairCost !== "") appendPricingHistoryPreviewField(summary, "Koszt naprawy", formatServiceCost(saved.repairCost));
     appendPricingHistoryPreviewField(summary, "Opis", saved.defect);
     appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
     saved.items.forEach((item, index) => {
@@ -10773,6 +10776,9 @@ function restorePricingComplaintFromHistory(entry) {
   if (complaintRequestInput) {
     complaintRequestInput.value = saved.request;
     complaintRequestInput.dataset.userChanged = "1";
+  }
+  if (complaintRepairCostInput) {
+    complaintRepairCostInput.value = saved.repairCost === "" ? "" : formatPricingAmount(saved.repairCost, " ");
   }
   if (complaintDefectInput) complaintDefectInput.value = saved.defect;
   if (complaintNotesInput) complaintNotesInput.value = saved.notes;
@@ -11138,7 +11144,12 @@ function renderPricingDocumentHistory() {
     (entry) => createPricingDocumentHistoryItem(entry, {
       kind: "complaint",
       title: entry.customer || "Reklamacja bez osoby",
-      meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingComplaintRequestLabel(entry.request)].filter(Boolean).join(" | "),
+      meta: [
+        entry.number ? `nr ${entry.number}` : "",
+        entry.date ? formatDate(entry.date) : "",
+        pricingComplaintRequestLabel(entry.request),
+        entry.repairCost !== "" ? `koszt: ${formatServiceCost(entry.repairCost)}` : ""
+      ].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
       warning: complaintIssuesById.get(entry.id),
       duplicateOf: complaintDuplicateById.get(entry.id),
@@ -13001,7 +13012,34 @@ function pricingOrderItemRequiresSide(item) {
 }
 
 function pricingOrderItemAllowsCost(item) {
-  return pricingOrderItemRequiresSide(item);
+  return PRICING_ORDER_TYPES.includes(normalizePricingOrderType(item?.type));
+}
+
+function pricingOrderPriceCandidates(group = pricingOrderPatientGroup()) {
+  const suffix = group === "child" ? "01" : group === "adult" ? "00" : "";
+  const recordsWithPrice = pricingRecords.filter((record) => (
+    normalizePricingPrice(record?.grossPrice) !== "" && !pricingOfferAccessoryKind(record)
+  ));
+  if (!suffix) return recordsWithPrice;
+  const matchingGroup = recordsWithPrice.filter((record) => {
+    const code = normalizePricingNfzCode(record?.nfzCode);
+    return code.endsWith(`.${suffix}`) || (!code.includes(".") && code.endsWith(suffix));
+  });
+  return matchingGroup.length ? matchingGroup : recordsWithPrice;
+}
+
+function pricingOrderPriceRecord(value, group = pricingOrderPatientGroup()) {
+  const query = normalize(normalizeLoanHistoryText(value)).trim();
+  if (!query) return null;
+  return pricingOrderPriceCandidates(group).find((record) => [
+    record?.model,
+    record?.tradeName,
+    record?.idProduct
+  ].some((candidate) => normalize(candidate).trim() === query)) || null;
+}
+
+function pricingOrderModelPrice(value, group = pricingOrderPatientGroup()) {
+  return normalizePricingPrice(pricingOrderPriceRecord(value, group)?.grossPrice);
 }
 
 function pricingOrderItemsMissingRequiredSide(items) {
@@ -13619,7 +13657,7 @@ function pricingOrderRepairDeviceName(items) {
     .join(" + ");
 }
 
-function pricingOrderTotalEarmoldCost(items) {
+function pricingOrderTotalCost(items) {
   let hasCost = false;
   const total = (items || []).reduce((sum, item) => {
     const normalizedItem = normalizePricingOrderItem(item);
@@ -13630,6 +13668,10 @@ function pricingOrderTotalEarmoldCost(items) {
     return sum + (cost * quantity);
   }, 0);
   return hasCost ? total : "";
+}
+
+function pricingOrderTotalEarmoldCost(items) {
+  return pricingOrderTotalCost(items);
 }
 
 function pricingOrderRepairItemLine(item, index) {
@@ -13683,7 +13725,7 @@ function pricingOrderRepairRecord(entry) {
     serialNumber2: "",
     sourceSerialNumbers: [],
     sourceDocumentSummary,
-    serviceCost: pricingOrderTotalEarmoldCost(normalizedEntry.items),
+    serviceCost: pricingOrderTotalCost(normalizedEntry.items),
     status: "PRZYJĘTE",
     sentDate: "",
     returnDate: "",
@@ -13702,6 +13744,7 @@ function pricingComplaintRepairRecord(entry) {
     sourceTag,
     normalizedEntry.phone ? `Telefon: ${normalizedEntry.phone}` : "",
     `Żądanie: ${pricingComplaintRequestLabel(normalizedEntry.request)}`,
+    normalizedEntry.repairCost !== "" ? `Koszt naprawy: ${formatServiceCost(normalizedEntry.repairCost)}` : "",
     itemLines.length ? "Pozycje:" : "",
     ...itemLines,
     normalizedEntry.defect ? `Opis wady: ${normalizedEntry.defect}` : "",
@@ -13722,6 +13765,7 @@ function pricingComplaintRepairRecord(entry) {
     serialNumber2: items[1]?.serial || "",
     sourceSerialNumbers: items.map((item) => item.serial).filter(Boolean),
     sourceDocumentSummary,
+    serviceCost: normalizedEntry.repairCost,
     status: "PRZYJĘTE",
     sentDate: "",
     returnDate: "",
@@ -13749,6 +13793,7 @@ function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
     serialNumber2: incomingRecord.serialNumber2 || "",
     sourceSerialNumbers: incomingRecord.sourceSerialNumbers || [],
     sourceDocumentSummary,
+    serviceCost: incomingRecord.serviceCost,
     status: existingRecord.status || incomingRecord.status,
     notes: joinTransferNotes(sourceDocumentSummary, manualNotes)
   });
@@ -13950,7 +13995,7 @@ function addPricingOrderItemRow(item = {}) {
   const costInput = document.createElement("input");
   costInput.type = "text";
   costInput.inputMode = "decimal";
-  costInput.setAttribute("aria-label", "Koszt wkładki");
+  costInput.setAttribute("aria-label", "Koszt pozycji");
   costInput.dataset.orderField = "cost";
   costInput.autocomplete = "off";
   costInput.placeholder = "0,00";
@@ -14012,16 +14057,50 @@ function syncPricingOrderDescriptionForType(row) {
   }
 }
 
-function syncPricingOrderCostForType(row) {
+function syncPricingOrderCostForType(row, { modelChanged = false } = {}) {
   if (!row) return;
   const type = normalizePricingOrderType(row.querySelector("[data-order-field='type']")?.value);
+  const descriptionInput = row.querySelector("[data-order-field='description']");
   const costInput = row.querySelector("[data-order-field='cost']");
   const costCell = costInput?.closest("td");
   if (!costInput || !costCell) return;
   const enabled = pricingOrderItemAllowsCost({ type });
   costInput.disabled = !enabled;
   costCell.classList.toggle("disabled", !enabled);
-  if (!enabled) costInput.value = "";
+  if (!enabled) {
+    costInput.value = "";
+    delete costInput.dataset.autoPrice;
+    return;
+  }
+
+  const isDevice = type === "APARAT SŁUCHOWY";
+  const nextCostKind = isDevice ? "device" : "earmold";
+  if (costCell.dataset.costKind && costCell.dataset.costKind !== nextCostKind) {
+    costInput.value = "";
+    delete costInput.dataset.autoPrice;
+  }
+  costInput.setAttribute("aria-label", isDevice ? "Koszt aparatu" : "Koszt wkładki");
+  costInput.placeholder = isDevice ? "Cena z cennika" : "0,00";
+  costCell.dataset.costKind = nextCostKind;
+
+  if (!isDevice) {
+    if (costInput.dataset.autoPrice === "1") costInput.value = "";
+    delete costInput.dataset.autoPrice;
+    costInput.title = "";
+    return;
+  }
+
+  const price = pricingOrderModelPrice(descriptionInput?.value);
+  const canAutofill = !costInput.value.trim() || costInput.dataset.autoPrice === "1";
+  if (price !== "" && (canAutofill || modelChanged)) {
+    costInput.value = formatPricingAmount(price, " ");
+    costInput.dataset.autoPrice = "1";
+    costInput.title = "Cena pobrana z cennika";
+  } else if (price === "" && costInput.dataset.autoPrice === "1") {
+    costInput.value = "";
+    delete costInput.dataset.autoPrice;
+    costInput.title = "Nie znaleziono dokładnego modelu w cenniku";
+  }
 }
 
 function handlePricingOrderItemsInput(event) {
@@ -14037,10 +14116,14 @@ function handlePricingOrderItemsInput(event) {
     delete event.target.dataset.autoDescription;
     if (event.type === "change") rememberPricingOrderModel(event.target.value);
     refreshPricingOrderModelSuggestions(event.target.value);
+    syncPricingOrderCostForType(row, { modelChanged: true });
   }
-  if (event.target.matches?.("[data-order-field='cost']") && event.type === "change") {
-    const amount = normalizeServiceCost(event.target.value);
-    event.target.value = amount === "" ? "" : formatPricingAmount(amount, " ");
+  if (event.target.matches?.("[data-order-field='cost']")) {
+    if (event.type === "input") delete event.target.dataset.autoPrice;
+    if (event.type === "change") {
+      const amount = normalizeServiceCost(event.target.value);
+      event.target.value = amount === "" ? "" : formatPricingAmount(amount, " ");
+    }
   }
   renderPricingOrder();
 }
@@ -14147,6 +14230,7 @@ function copyPricingOfferToOrder() {
       side: item.slot === 1 ? "P" : "L",
       quantity: "1",
       description: pricingOfferDeviceName(item.record),
+      cost: normalizePricingPrice(item.record.grossPrice),
       notes: item.record.manufacturer || ""
     });
   });
@@ -14393,6 +14477,9 @@ function normalizePricingComplaintHistoryEntry(entry) {
     location: normalizeLoanHistoryText(entry.location) ? normalizeDocumentLocationValue(entry.location) : "",
     items: normalizePricingComplaintItems(entry),
     request: normalizePricingComplaintRequest(entry.request),
+    repairCost: normalizePricingComplaintRequest(entry.request) === "NAPRAWA POGWARANCYJNA"
+      ? normalizeServiceCost(entry.repairCost ?? entry.serviceCost ?? entry.cost)
+      : "",
     defect: normalizeLoanHistoryText(entry.defect),
     notes: normalizeLoanHistoryText(entry.notes)
   };
@@ -14662,6 +14749,7 @@ function currentPricingComplaintSnapshot() {
     purchaseDocument: firstItem.purchaseDocument,
     purchaseDate: firstItem.purchaseDate,
     request: normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput)),
+    repairCost: normalizeServiceCost(complaintInputValue(complaintRepairCostInput)),
     defect: complaintInputValue(complaintDefectInput),
     notes: complaintInputValue(complaintNotesInput)
   };
@@ -14763,6 +14851,16 @@ function setComplaintOutput(name, value) {
   document.querySelectorAll(`[data-complaint-out="${name}"]`).forEach((element) => {
     element.textContent = String(value ?? "").trim() || "-";
   });
+}
+
+function syncComplaintRepairCostVisibility(request = complaintInputValue(complaintRequestInput)) {
+  const visible = normalizePricingComplaintRequest(request) === "NAPRAWA POGWARANCYJNA";
+  if (complaintRepairCostField) complaintRepairCostField.hidden = !visible;
+  document.querySelector(".complaint-form-grid")?.classList.toggle("has-repair-cost", visible);
+  document.querySelectorAll("[data-complaint-cost-output]").forEach((element) => {
+    element.hidden = !visible;
+  });
+  return visible;
 }
 
 function complaintSaleDateSortValue(record) {
@@ -15145,6 +15243,7 @@ function renderPricingComplaint() {
   updateComplaintWarrantyHints(complaintFormItems({ includeBlank: true }));
   const request = normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput));
   updatePricingComplaintRequestTone(request);
+  const showsRepairCost = syncComplaintRepairCostVisibility(request);
   const firstItem = items[0] || normalizePricingComplaintItem({
     productType: complaintInputValue(complaintProductTypeInput),
     productName: selectedComplaintProductName()
@@ -15158,6 +15257,9 @@ function renderPricingComplaint() {
   setComplaintOutput("customer", customer);
   setComplaintOutput("phone", complaintInputValue(complaintPhoneInput));
   setComplaintOutput("request", pricingComplaintRequestLabel(request));
+  setComplaintOutput("repairCost", showsRepairCost
+    ? formatServiceCost(normalizeServiceCost(complaintInputValue(complaintRepairCostInput)))
+    : "");
   setComplaintOutput("productType", pricingComplaintProductTypeLabel(firstItem.productType));
   setComplaintOutput("productName", firstItem.productName);
   setComplaintOutput("serial", firstItem.serial);
@@ -15195,6 +15297,7 @@ function resetPricingComplaintForm() {
     complaintSerialInput2,
     complaintPurchaseDocumentInput2,
     complaintPurchaseDateInput2,
+    complaintRepairCostInput,
     complaintDefectInput,
     complaintNotesInput
   ].forEach((input) => {
@@ -15220,6 +15323,7 @@ function resetPricingComplaintForm() {
     complaintRequestInput.dataset.userChanged = "";
     complaintRequestInput.dataset.complaintAutofilled = "";
   }
+  if (complaintRepairCostInput) complaintRepairCostInput.value = "";
   setComplaintSecondItemVisible(false, { clear: true });
   setComplaintItemVisible(3, false, { clear: true });
   updateComplaintCustomerMatchHint(0);
@@ -20957,7 +21061,8 @@ function syncRepairDeviceNameFromCategory({ force = false } = {}) {
 function repairServiceCostLabel(category) {
   const normalizedCategory = normalizeRepairCategory(category);
   if (normalizedCategory === "NAPRAWA POGWARANCYJNA") return "Koszt naprawy";
-  if (normalizedCategory === "ZAMÓWIENIE" || normalizedCategory.startsWith("WKŁADKA")) return "Koszt wkładki";
+  if (normalizedCategory === "ZAMÓWIENIE") return "Koszt zamówienia";
+  if (normalizedCategory.startsWith("WKŁADKA")) return "Koszt wkładki";
   return "";
 }
 
@@ -23823,6 +23928,7 @@ orderItemsFormBody?.addEventListener("focusin", (event) => {
 });
 orderPatientGroupInputs.forEach((input) => input.addEventListener("change", () => {
   refreshPricingOrderModelSuggestions("", { rebuild: true });
+  orderItemsFormBody?.querySelectorAll("[data-order-row]").forEach((row) => syncPricingOrderCostForType(row));
   renderPricingOrder();
 }));
 orderItemsFormBody?.addEventListener("change", handlePricingOrderItemsInput);
@@ -23906,6 +24012,12 @@ complaintRequestInput?.addEventListener("change", () => {
   complaintRequestInput.dataset.userChanged = "1";
   renderPricingComplaint();
 });
+complaintRepairCostInput?.addEventListener("change", (event) => {
+  const amount = normalizeServiceCost(event.target.value);
+  event.target.value = amount === "" ? "" : formatPricingAmount(amount, " ");
+  renderPricingComplaint();
+});
+complaintRepairCostInput?.addEventListener("input", renderPricingComplaint);
 complaintCustomerDeviceSelect?.addEventListener("change", updateComplaintCustomerDevicePickerActions);
 complaintUseDeviceItem1Btn?.addEventListener("click", () => useComplaintCustomerDevice(1));
 complaintUseDeviceItem2Btn?.addEventListener("click", () => useComplaintCustomerDevice(2));
