@@ -1129,6 +1129,7 @@ const vacationOwnerLeaveInput = document.querySelector("#vacationOwnerLeaveInput
 const vacationDateFromInput = document.querySelector("#vacationDateFromInput");
 const vacationDateToInput = document.querySelector("#vacationDateToInput");
 const vacationHoursField = document.querySelector("#vacationHoursField");
+const vacationHoursLabel = document.querySelector("#vacationHoursLabel");
 const vacationHoursInput = document.querySelector("#vacationHoursInput");
 const vacationSaturdayField = document.querySelector("#vacationSaturdayField");
 const vacationSaturdayChoices = document.querySelector("#vacationSaturdayChoices");
@@ -1403,7 +1404,7 @@ function updatePrivateModulesVisibility() {
     button.disabled = !sharedVisible;
   });
   if (vacationEmployeeAdmin) vacationEmployeeAdmin.hidden = !ownerVisible;
-  if (vacationOwnerLeaveField) vacationOwnerLeaveField.hidden = !ownerVisible;
+  updateVacationOwnerLeaveField();
   if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible;
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
   if (!sharedVisible) {
@@ -19392,6 +19393,7 @@ function vacationOccupiedPeopleOnDate(isoDate) {
   const people = [...new Set(vacationRequests
     .filter((request) =>
       request.status === "ZATWIERDZONY" &&
+      vacationRequestBlocksDay(request) &&
       request.employeeId !== selectedEmployeeId &&
       request.dateFrom <= isoDate &&
       request.dateTo >= isoDate
@@ -19407,6 +19409,7 @@ function vacationOwnLeaveOnDate(isoDate) {
   if (!selectedEmployeeId) return null;
   return vacationRequests.find((request) =>
     request.status === "ZATWIERDZONY" &&
+    vacationRequestBlocksDay(request) &&
     request.employeeId === selectedEmployeeId &&
     request.dateFrom <= isoDate &&
     request.dateTo >= isoDate
@@ -19496,9 +19499,11 @@ function normalizeVacationRequest(entry) {
   const dateFrom = isoDateForSave(entry?.dateFrom);
   const dateTo = isoDateForSave(entry?.dateTo || entry?.dateFrom);
   if (!employeeName || !dateFrom || !dateTo) return null;
-  const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "NA ŻĄDANIE", "INNY"].includes(entry?.type) ? entry.type : "WYPOCZYNKOWY";
+  const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "NA ŻĄDANIE", "NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE", "INNY"].includes(entry?.type)
+    ? entry.type
+    : "WYPOCZYNKOWY";
   const status = ["OCZEKUJE", "ZATWIERDZONY", "ODRZUCONY"].includes(entry?.status) ? entry.status : "OCZEKUJE";
-  const calculatedDays = type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo);
+  const calculatedDays = vacationTypeUsesHours(type) ? 0 : type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo);
   return {
     id: String(entry?.id || makeId()),
     employeeId: String(entry?.employeeId || ""),
@@ -19609,8 +19614,22 @@ function vacationTypeLabel(type) {
     WYPOCZYNKOWY: "Urlop wypoczynkowy",
     "ZA SOBOTĘ": "Dzień wolny za sobotę",
     "NA ŻĄDANIE": "Urlop na żądanie",
+    NADGODZINY: "Nadgodziny",
+    "WCZEŚNIEJSZE WYJŚCIE": "Wcześniejsze wyjście",
     INNY: "Inna nieobecność"
   }[type] || type;
+}
+
+function vacationTypeUsesHours(type) {
+  return ["NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE"].includes(type);
+}
+
+function vacationRequestUsesHours(request, employee = null) {
+  return vacationTypeUsesHours(request?.type) || vacationEmployeeUsesHours(employee || { name: request?.employeeName });
+}
+
+function vacationRequestBlocksDay(request) {
+  return !vacationTypeUsesHours(request?.type);
 }
 
 function vacationWeekendDatesFromNotes(request) {
@@ -19826,7 +19845,9 @@ function renderVacationSummary() {
   );
   const requestAmount = (request) => usesHours ? request.hours : request.days;
   const used = employee ? requests.filter((request) => request.status === "ZATWIERDZONY" && vacationUsesAnnualAllowance(request)).reduce((sum, request) => sum + requestAmount(request), 0) : 0;
-  const pending = employee ? requests.filter((request) => request.status === "OCZEKUJE").reduce((sum, request) => sum + requestAmount(request), 0) : 0;
+  const pending = employee ? requests
+    .filter((request) => request.status === "OCZEKUJE" && vacationUsesAnnualAllowance(request))
+    .reduce((sum, request) => sum + requestAmount(request), 0) : 0;
   const allowance = employee?.allowance ?? null;
   if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : formatVacationAmount(allowance);
   if (vacationUsedTotal) vacationUsedTotal.textContent = employee ? formatVacationAmount(used) : "-";
@@ -19872,8 +19893,22 @@ function vacationExpectedUsage(allowance, year, usesHours) {
 function updateVacationUnitFields() {
   const employee = selectedVacationEmployee();
   const usesHours = vacationEmployeeUsesHours(employee);
-  if (vacationHoursField) vacationHoursField.hidden = !usesHours;
-  if (vacationHoursInput) vacationHoursInput.required = usesHours;
+  const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  const requiresHours = usesHours || vacationTypeUsesHours(type);
+  if (vacationHoursField) vacationHoursField.hidden = !requiresHours;
+  if (vacationHoursInput) vacationHoursInput.required = requiresHours;
+  if (vacationHoursLabel) vacationHoursLabel.textContent = type === "NADGODZINY"
+    ? "Liczba nadgodzin"
+    : type === "WCZEŚNIEJSZE WYJŚCIE"
+      ? "Liczba godzin wcześniejszego wyjścia"
+      : "Liczba godzin urlopu";
+}
+
+function updateVacationOwnerLeaveField() {
+  if (!vacationOwnerLeaveField) return;
+  const visible = canViewPrivateModules() && !vacationTypeUsesHours(vacationTypeInput?.value);
+  vacationOwnerLeaveField.hidden = !visible;
+  if (!visible && vacationOwnerLeaveInput) vacationOwnerLeaveInput.checked = false;
 }
 
 function renderVacationPendingReminder() {
@@ -19898,7 +19933,7 @@ function renderVacationPendingReminder() {
   title.textContent = `${polishCountLabel(pending.length, "wniosek", "wnioski", "wniosków")} ${pendingCategory === "few" ? "czekają" : "czeka"} na decyzję`;
   const details = document.createElement("span");
   details.textContent = pending.slice(0, 3).map((request) =>
-    `${request.employeeName}: ${formatDate(request.dateFrom)}${request.dateTo !== request.dateFrom ? ` → ${formatDate(request.dateTo)}` : ""}`
+    `${request.employeeName}: ${vacationTypeLabel(request.type)}, ${formatDate(request.dateFrom)}${request.dateTo !== request.dateFrom ? ` → ${formatDate(request.dateTo)}` : ""}`
   ).join("  •  ");
   content.append(title, details);
   const action = document.createElement("span");
@@ -20078,8 +20113,9 @@ function renderVacationHistory() {
     const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
     const compensatesWeekend = vacationCompensatesWeekend(request);
     const requestEmployee = vacationEmployees.find((employee) => employee.id === request.employeeId);
-    const usesHours = vacationEmployeeUsesHours(requestEmployee || { name: request.employeeName });
+    const usesHours = vacationRequestUsesHours(request, requestEmployee);
     const row = document.createElement("tr");
+    row.dataset.vacationType = request.type;
     const employeeCell = document.createElement("td");
     employeeCell.className = "vacation-history-employee";
     employeeCell.textContent = request.employeeName;
@@ -20113,7 +20149,7 @@ function renderVacationHistory() {
       ? `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}; nie pomniejsza urlopu rocznego`
       : `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
     daysCell.append(days);
-    daysCell.classList.toggle("vacation-days-not-deducted", compensatesWeekend);
+    daysCell.classList.toggle("vacation-days-not-deducted", compensatesWeekend || vacationTypeUsesHours(request.type));
     row.append(employeeCell, typeCell, termCell, daysCell);
     const statusCell = document.createElement("td");
     statusCell.className = "vacation-history-status";
@@ -20188,12 +20224,14 @@ function updateVacationSaturdayField() {
   if (!vacationSaturdayField) return;
   vacationSaturdayField.hidden = vacationTypeInput?.value !== "ZA SOBOTĘ";
   updateVacationTypeChoices();
+  updateVacationUnitFields();
+  updateVacationOwnerLeaveField();
 }
 
 function resetVacationForm() {
   activeVacationRequestId = "";
   vacationForm?.reset();
-  if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Wyślij wniosek urlopowy";
+  if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Wyślij wniosek";
   if (resetVacationFormBtn) resetVacationFormBtn.textContent = "Wyczyść formularz";
   renderVacationEmployees();
   renderVacationSaturdayHolidays();
@@ -20315,19 +20353,25 @@ async function submitVacationRequest(event) {
   const dateFrom = isoDateForSave(vacationDateFromInput?.value);
   const dateTo = isoDateForSave(vacationDateToInput?.value || vacationDateFromInput?.value);
   if (!employee || !dateFrom || !dateTo) {
-    alert("Wybierz pracownika oraz podaj termin urlopu.");
+    alert("Wybierz pracownika oraz podaj termin.");
     return;
   }
   if (dateTo < dateFrom) {
-    alert("Data końcowa urlopu nie może być wcześniejsza od daty początkowej.");
+    alert("Data końcowa nie może być wcześniejsza od daty początkowej.");
     return;
   }
   if (dateFrom.slice(0, 4) !== dateTo.slice(0, 4)) {
-    alert("Jeden wniosek urlopowy musi mieścić się w jednym roku.");
+    alert("Jeden wpis musi mieścić się w jednym roku.");
     return;
   }
   if (Number(dateFrom.slice(0, 4)) !== selectedVacationYear()) {
-    alert("Termin wniosku musi dotyczyć roku wybranego u góry zakładki.");
+    alert("Termin musi dotyczyć roku wybranego u góry zakładki.");
+    return;
+  }
+  const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  if (vacationTypeUsesHours(type) && dateFrom !== dateTo) {
+    alert(`${vacationTypeLabel(type)}: zgłoszenie dotyczy jednego dnia. Ustaw tę samą datę od i do.`);
+    vacationDateToInput?.focus();
     return;
   }
   const holidayIssue = vacationHolidayDateIssue(dateFrom, dateTo);
@@ -20336,11 +20380,11 @@ async function submitVacationRequest(event) {
     (holidayIssue.field === "from" ? vacationDateFromInput : vacationDateToInput)?.focus();
     return;
   }
-  const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
   const usesHours = vacationEmployeeUsesHours(employee);
-  const hours = usesHours ? Number(String(vacationHoursInput?.value || "").replace(",", ".")) : 0;
-  if (usesHours && (!Number.isFinite(hours) || hours <= 0 || hours > 200)) {
-    alert("Podaj liczbę godzin urlopu od 0,5 do 200.");
+  const requiresHours = usesHours || vacationTypeUsesHours(type);
+  const hours = requiresHours ? Number(String(vacationHoursInput?.value || "").replace(",", ".")) : 0;
+  if (requiresHours && (!Number.isFinite(hours) || hours < 0.5 || hours > 200)) {
+    alert("Podaj liczbę godzin od 0,5 do 200.");
     vacationHoursInput?.focus();
     return;
   }
@@ -20380,7 +20424,7 @@ async function submitVacationRequest(event) {
     dateTo,
     saturdayDate,
     notes: vacationNotesInput?.value,
-    days: type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo),
+    days: vacationTypeUsesHours(type) ? 0 : type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo),
     hours,
     status: editedRequest?.status || (ownerLeave ? "ZATWIERDZONY" : "OCZEKUJE"),
     requestedAt: editedRequest?.requestedAt || new Date().toISOString(),
@@ -20398,8 +20442,8 @@ async function submitVacationRequest(event) {
     await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
     resetVacationForm();
     alert(isEditing
-      ? "Wniosek urlopowy został poprawiony."
-      : request.status === "ZATWIERDZONY" ? "Mój urlop został zapisany." : "Wniosek urlopowy został wysłany do zatwierdzenia.");
+      ? "Wpis został poprawiony."
+      : request.status === "ZATWIERDZONY" ? "Wpis został zapisany." : "Wniosek został wysłany do zatwierdzenia.");
   } catch (error) {
     vacationRequests = previous;
     saveLocalVacationData();
@@ -22491,6 +22535,18 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
     const firstName = String(employee).trim().split(/\s+/u)[0] || employee;
     const dateFrom = isoDateForSave(request.dateFrom);
     const dateTo = isoDateForSave(request.dateTo || request.dateFrom);
+    if (vacationTypeUsesHours(request.type)) {
+      const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
+      add(
+        dateFrom,
+        "vacation",
+        canViewDetails ? vacationTypeLabel(request.type) : "Termin pracownika",
+        firstName,
+        canViewDetails ? `${employee}\n${formatVacationAmount(request.hours)} godz.` : employee,
+        `${request.id}:hours`
+      );
+      return;
+    }
     if (dateFrom < start && dateTo >= start) {
       add(start, "vacation", "Trwa urlop", firstName, `${employee}\n${formatDate(dateFrom)} - ${formatDate(dateTo)}`, `${request.id}:ongoing`);
     }

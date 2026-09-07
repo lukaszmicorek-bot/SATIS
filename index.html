@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260907-263">
+  <link rel="stylesheet" href="styles.css?v=20260907-264">
   </head>
   <body>
     <main class="app-shell">
@@ -2106,7 +2106,7 @@
         <section class="private-module-panel" aria-label="Urlop">
           <header class="private-module-head">
             <div>
-              <p class="eyebrow">Ewidencja nieobecności</p>
+              <p class="eyebrow">Ewidencja urlopów i czasu pracy</p>
               <h2>Urlop</h2>
             </div>
             <label class="vacation-year-field">
@@ -2144,6 +2144,8 @@
                 <button type="button" data-vacation-type="WYPOCZYNKOWY">Wypoczynkowy</button>
                 <button type="button" data-vacation-type="ZA SOBOTĘ">Za sobotę</button>
                 <button type="button" data-vacation-type="NA ŻĄDANIE">Na żądanie</button>
+                <button type="button" data-vacation-type="NADGODZINY">Nadgodziny</button>
+                <button type="button" data-vacation-type="WCZEŚNIEJSZE WYJŚCIE">Wcześniejsze wyjście</button>
                 <button type="button" data-vacation-type="INNY">Inna nieobecność</button>
               </div>
               <input id="vacationTypeInput" type="hidden" value="WYPOCZYNKOWY">
@@ -2163,7 +2165,7 @@
               </label>
             </div>
             <label id="vacationHoursField" class="vacation-hours-field private-form-wide" hidden>
-              <span>Liczba godzin urlopu</span>
+              <span id="vacationHoursLabel">Liczba godzin urlopu</span>
               <input id="vacationHoursInput" type="number" min="0.5" max="200" step="0.5" inputmode="decimal" placeholder="np. 4">
             </label>
             <label id="vacationSaturdayField" class="vacation-saturday-field" hidden>
@@ -2177,7 +2179,7 @@
             </label>
             <div class="private-form-actions private-form-wide">
               <button id="resetVacationFormBtn" class="ghost" type="button">Wyczyść formularz</button>
-              <button id="submitVacationRequestBtn" type="submit">Wyślij wniosek urlopowy</button>
+              <button id="submitVacationRequestBtn" type="submit">Wyślij wniosek</button>
             </div>
           </form>
 
@@ -2205,7 +2207,7 @@
               <div class="vacation-section-head">
                 <div>
                   <p class="eyebrow">Historia</p>
-                  <h3>Wnioski urlopowe</h3>
+                  <h3>Urlopy i zgłoszenia czasu</h3>
                 </div>
                 <span id="vacationHistoryCount"></span>
               </div>
@@ -2224,7 +2226,7 @@
                   <tbody id="vacationHistoryBody"></tbody>
                 </table>
               </div>
-              <p id="vacationHistoryEmpty" class="empty-state">Brak wniosków urlopowych w wybranym roku.</p>
+              <p id="vacationHistoryEmpty" class="empty-state">Brak wpisów w wybranym roku.</p>
             </section>
           </section>
         </section>
@@ -2789,6 +2791,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260907-265"></script>
+  <script src="app.js?v=20260907-266"></script>
   </body>
 </html>
