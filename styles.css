@@ -2222,7 +2222,7 @@ h2 {
 
 .vacation-type-choices {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -2251,6 +2251,18 @@ h2 {
   border-color: #b07845;
   color: #fff;
   background: #b07845;
+}
+
+.vacation-type-choices button[data-vacation-type="NADGODZINY"].active {
+  border-color: #367986;
+  color: #fff;
+  background: #367986;
+}
+
+.vacation-type-choices button[data-vacation-type="WCZEŚNIEJSZE WYJŚCIE"].active {
+  border-color: #a45f73;
+  color: #fff;
+  background: #a45f73;
 }
 
 .vacation-type-choices button[data-vacation-type="INNY"].active {
@@ -2429,6 +2441,22 @@ h2 {
   background: #f4f7f7;
   font-size: 0.69rem;
   text-transform: uppercase;
+}
+
+.vacation-history-table tr[data-vacation-type="NADGODZINY"] {
+  background: #f2f8fa;
+}
+
+.vacation-history-table tr[data-vacation-type="NADGODZINY"] td:first-child {
+  box-shadow: inset 3px 0 #73aab3;
+}
+
+.vacation-history-table tr[data-vacation-type="WCZEŚNIEJSZE WYJŚCIE"] {
+  background: #fff6f8;
+}
+
+.vacation-history-table tr[data-vacation-type="WCZEŚNIEJSZE WYJŚCIE"] td:first-child {
+  box-shadow: inset 3px 0 #cb91a0;
 }
 
 .vacation-history-table th:nth-child(3),
