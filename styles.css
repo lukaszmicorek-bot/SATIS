@@ -316,6 +316,8 @@ button.danger:hover {
   background: #fff;
   box-shadow: 0 12px 28px rgba(0, 63, 90, 0.16);
   transform: translateX(-50%);
+  max-height: calc(100dvh - 110px);
+  overflow-y: auto;
 }
 
 .current-date-calendar[hidden] {
@@ -340,7 +342,7 @@ button.danger:hover {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 28px;
+  min-height: 32px;
   place-items: center;
   border-radius: 6px;
   color: #35505c;
@@ -420,7 +422,28 @@ button.danger:hover {
   gap: 7px;
   min-width: 0;
   color: #3e5660;
-  font-size: 0.67rem;
+  font-size: 0.72rem;
+}
+
+.current-date-upcoming-row {
+  display: grid;
+  grid-template-columns: 6px 76px minmax(0, 1fr);
+  padding: 6px 4px;
+  border-radius: 5px;
+  line-height: 1.45;
+}
+
+.current-date-upcoming-row:hover,
+.current-date-upcoming-row:focus-visible,
+.current-date-calendar-grid > span[tabindex]:hover,
+.current-date-calendar-grid > span[tabindex]:focus-visible {
+  outline: 1px solid #bdd5d6;
+  outline-offset: -1px;
+}
+
+.current-date-upcoming-row.event-today {
+  background: #edf6f3;
+  font-weight: 800;
 }
 
 .current-date-upcoming-row > span {

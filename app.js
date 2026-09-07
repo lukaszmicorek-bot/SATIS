@@ -22168,6 +22168,12 @@ function createCurrentDateCalendar(date = new Date()) {
       item.title = holiday ? `Dzisiaj · ${holiday.name}` : "Dzisiaj";
       item.setAttribute("aria-current", "date");
     }
+    if (holiday || dayEvents.length || isoDate === today) {
+      item.dataset.currentDateTooltip = [isoDate === today ? "Dzisiaj" : formatDate(isoDate), holiday?.name, currentDateEventSummary(dayEvents)].filter(Boolean).join("\n");
+      item.removeAttribute("title");
+      item.tabIndex = 0;
+      if (!dayEvents.length) attachTableHoverTooltip(item, "currentDateTooltip");
+    }
     grid.append(item);
   }
   const upcoming = document.createElement("section");
@@ -22191,12 +22197,13 @@ function createCurrentDateCalendar(date = new Date()) {
         detail: [...event.details].join(" | ")
       }));
     });
-  const weekEnd = addDaysToIsoDate(today, 7);
+  const weekEnd = addDaysToIsoDate(today, 6);
   const nearEvents = nextEvents.filter(event => event.isoDate <= weekEnd);
   const laterEvents = nextEvents.filter(event => event.isoDate > weekEnd);
   const appendEventRow = (container, event) => {
     const row = document.createElement("span");
     row.className = `current-date-upcoming-row ${event.kind}`;
+    row.classList.toggle("event-today", event.isoDate === today);
     const eventDate = document.createElement("b");
     eventDate.textContent = formatDate(event.isoDate);
     const description = document.createElement("span");
@@ -22204,7 +22211,8 @@ function createCurrentDateCalendar(date = new Date()) {
     eventLabel.textContent = event.count > 1 ? `${event.label} (${event.count})` : event.label;
     description.append(eventLabel);
     if (event.summary) description.append(`: ${event.summary}`);
-    row.dataset.currentDateTooltip = [event.label, event.detail].filter(Boolean).join(": ");
+    row.dataset.currentDateTooltip = [formatDate(event.isoDate), event.label, event.detail].filter(Boolean).join("\n");
+    row.setAttribute("aria-label", row.dataset.currentDateTooltip);
     row.tabIndex = 0;
     attachTableHoverTooltip(row, "currentDateTooltip");
     row.append(eventDate, description);
@@ -22244,7 +22252,14 @@ function refreshCurrentDateWidget(now = new Date()) {
   value.textContent = now.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
   value.dateTime = isoDate;
   button.setAttribute("aria-label", `Dzisiaj: ${value.textContent}. Pokaż kalendarz.`);
+  if (!calendar.hidden && calendar.contains(document.activeElement)) return;
+  const laterOpen = Boolean(calendar.querySelector(".current-date-later[open]"));
+  const scrollTop = calendar.querySelector(".current-date-upcoming")?.scrollTop || 0;
   calendar.replaceChildren(createCurrentDateCalendar(now));
+  const later = calendar.querySelector(".current-date-later");
+  if (later) later.open = laterOpen;
+  const list = calendar.querySelector(".current-date-upcoming");
+  if (list) list.scrollTop = scrollTop;
   calendar.dataset.month = isoDate.slice(0, 7);
 }
 
@@ -22256,11 +22271,13 @@ function setupCurrentDateWidget() {
   let closeTimer = 0;
   const show = () => {
     window.clearTimeout(closeTimer);
+    if (!calendar.hidden) return;
     refreshCurrentDateWidget();
     calendar.hidden = false;
     button.setAttribute("aria-expanded", "true");
   };
   const hide = () => {
+    hideTableHoverTooltip();
     calendar.hidden = true;
     button.setAttribute("aria-expanded", "false");
   };
@@ -22268,7 +22285,7 @@ function setupCurrentDateWidget() {
     window.clearTimeout(closeTimer);
     closeTimer = window.setTimeout(() => {
       if (!widget.matches(":hover") && !widget.contains(document.activeElement)) hide();
-    }, 120);
+    }, 240);
   };
   widget.addEventListener("mouseenter", show);
   widget.addEventListener("mouseleave", hideSoon);
