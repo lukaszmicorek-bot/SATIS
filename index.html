@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260907-259">
+  <link rel="stylesheet" href="styles.css?v=20260907-262">
   </head>
   <body>
     <main class="app-shell">
@@ -457,12 +457,38 @@
               </thead>
               <tbody id="dataControlBody"></tbody>
             </table>
-            <p id="dataControlEmptyState" class="empty-state" hidden>Nie znaleziono spraw do sprawdzenia.</p>
+            <p id="dataControlEmptyState" class="empty-state" hidden>Nie znaleziono bieżących spraw do sprawdzenia.</p>
             <div id="dataControlRenderNotice" class="render-limit-notice" hidden>
               <span id="dataControlRenderText"></span>
               <button id="showMoreDataControlBtn" type="button">Pokaż więcej</button>
             </div>
           </section>
+          <details id="olderDataControlDetails" class="data-control-older">
+            <summary>
+              <span>Starsze sprawy</span>
+              <span id="olderDataControlSummary">0 spraw sprzed 2026</span>
+            </summary>
+            <section class="table-zone data-control-zone data-control-older-zone" aria-label="Starsze sprawy do sprawdzenia w danych">
+              <table class="data-control-table">
+                <thead>
+                  <tr>
+                    <th>Priorytet</th>
+                    <th>Zeszyt</th>
+                    <th>Rekord</th>
+                    <th>Numer seryjny</th>
+                    <th>Problem</th>
+                    <th class="actions-head">Akcje</th>
+                  </tr>
+                </thead>
+                <tbody id="olderDataControlBody"></tbody>
+              </table>
+              <p id="olderDataControlEmptyState" class="empty-state" hidden>Nie znaleziono starszych spraw dla wybranych filtrów.</p>
+              <div id="olderDataControlRenderNotice" class="render-limit-notice" hidden>
+                <span id="olderDataControlRenderText"></span>
+                <button id="showMoreOlderDataControlBtn" type="button">Pokaż więcej</button>
+              </div>
+            </section>
+          </details>
         </section>
       </section>
 
@@ -1363,6 +1389,7 @@
                       <th>Strona</th>
                       <th>Ilość</th>
                       <th>Pozycja / model</th>
+                      <th>Koszt wkładki</th>
                       <th>Uwagi</th>
                       <th></th>
                     </tr>
@@ -1418,6 +1445,7 @@
                         <th>Strona</th>
                         <th>Pozycja</th>
                         <th>Ilość</th>
+                        <th>Koszt wkładki</th>
                         <th>Uwagi</th>
                       </tr>
                     </thead>
@@ -2499,6 +2527,13 @@
               <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
             </select>
           </label>
+          <label id="repairServiceCostField" class="repair-service-cost-field" hidden>
+            <span id="repairServiceCostLabel">Koszt</span>
+            <div class="amount-input-wrap">
+              <input id="repairServiceCost" name="serviceCost" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00">
+              <span aria-hidden="true">zł</span>
+            </div>
+          </label>
           <section id="repairNearbyWarning" class="wide nearby-entry-warning" role="status" aria-live="polite" hidden></section>
           <label class="wide">
             <span>Uwagi</span>
@@ -2749,6 +2784,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260907-260"></script>
+  <script src="app.js?v=20260907-264"></script>
   </body>
 </html>
