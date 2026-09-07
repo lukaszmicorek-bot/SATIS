@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260907-262">
+  <link rel="stylesheet" href="styles.css?v=20260907-263">
   </head>
   <body>
     <main class="app-shell">
@@ -1389,7 +1389,7 @@
                       <th>Strona</th>
                       <th>Ilość</th>
                       <th>Pozycja / model</th>
-                      <th>Koszt wkładki</th>
+                      <th>Koszt</th>
                       <th>Uwagi</th>
                       <th></th>
                     </tr>
@@ -1445,7 +1445,7 @@
                         <th>Strona</th>
                         <th>Pozycja</th>
                         <th>Ilość</th>
-                        <th>Koszt wkładki</th>
+                        <th>Koszt</th>
                         <th>Uwagi</th>
                       </tr>
                     </thead>
@@ -1509,6 +1509,10 @@
                     <option value="NAPRAWA GWARANCYJNA" class="complaint-request-option-warranty">Naprawa gwarancyjna</option>
                     <option value="NAPRAWA POGWARANCYJNA" class="complaint-request-option-out-of-warranty">Naprawa pogwarancyjna</option>
                   </select>
+                </label>
+                <label id="complaintRepairCostField" class="complaint-repair-cost-field" hidden>
+                  <span>Koszt naprawy</span>
+                  <input id="complaintRepairCostInput" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off">
                 </label>
                 <label>
                   <span>Telefon</span>
@@ -1668,6 +1672,7 @@
                   <p><span>Klient</span><strong data-complaint-out="customer">-</strong></p>
                   <p><span>Telefon</span><strong data-complaint-out="phone">-</strong></p>
                   <p><span>Żądanie klienta</span><strong data-complaint-out="request">-</strong></p>
+                  <p data-complaint-cost-output hidden><span>Koszt naprawy</span><strong data-complaint-out="repairCost">-</strong></p>
                 </div>
               </section>
 
@@ -2784,6 +2789,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260907-264"></script>
+  <script src="app.js?v=20260907-265"></script>
   </body>
 </html>
