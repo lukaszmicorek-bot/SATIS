@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260904-255">
+  <link rel="stylesheet" href="styles.css?v=20260907-256">
   </head>
   <body>
     <main class="app-shell">
@@ -909,6 +909,14 @@
                   <span>Kaucja pobrana</span>
                   <input id="loanDepositInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off">
                 </label>
+                <fieldset class="loan-testing-fee-field">
+                  <legend>Pobrano</legend>
+                  <div class="loan-testing-fee-options">
+                    <label><input type="radio" name="loanTestingFee" value="0 zł" checked><span>0 zł</span></label>
+                    <label><input type="radio" name="loanTestingFee" value="15 zł"><span>15 zł</span></label>
+                    <label><input type="radio" name="loanTestingFee" value="30 zł"><span>30 zł</span></label>
+                  </div>
+                </fieldset>
 
                 <p class="loan-form-title loan-full">Dane klienta</p>
                 <label class="loan-wide person-name-field">
@@ -1070,6 +1078,7 @@
                   <p><span>Miejsce</span><strong data-loan-out="city">-</strong></p>
                   <p><span>Okres</span><strong data-loan-out="period">-</strong></p>
                   <p><span>Kaucja pobrana</span><strong data-loan-out="deposit">-</strong></p>
+                  <p><span>Pobrano</span><strong data-loan-out="testingFee">-</strong></p>
                 </div>
               </section>
 
@@ -2740,6 +2749,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260904-255"></script>
+  <script src="app.js?v=20260907-256"></script>
   </body>
 </html>
