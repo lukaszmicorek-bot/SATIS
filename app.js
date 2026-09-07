@@ -4721,7 +4721,7 @@ function showTableHoverTooltip(anchor, dataKey) {
   const calendarTooltip = dataKey === "currentDateTooltip";
   tooltip.classList.toggle("calendar-event-tooltip", calendarTooltip);
   if (calendarTooltip) {
-    const lines = text.split("\n").filter(Boolean);
+    const lines = text.split("\n");
     const heading = document.createElement("strong");
     heading.className = "calendar-event-tooltip-heading";
     heading.textContent = lines.shift();
@@ -4729,6 +4729,7 @@ function showTableHoverTooltip(anchor, dataKey) {
     lines.forEach(line => {
       const detail = document.createElement("div");
       detail.className = "calendar-event-tooltip-detail";
+      if (!line.trim()) detail.classList.add("calendar-event-tooltip-separator");
       detail.textContent = line;
       tooltip.append(detail);
     });
@@ -22081,26 +22082,29 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
     const devices = [entry.rightDevice, entry.leftDevice]
       .filter(hasLoanDeviceData)
       .map(device => `${device.side === "lewe" ? "L" : "P"}: ${device.model || "aparat"}${device.serial ? ` (nr ${device.serial})` : ""}`)
-      .join(", ");
+      .join("\n");
+    const charger = entry.charger || entry.chargerSerial
+      ? `Ładowarka: ${entry.charger || "-"}${entry.chargerSerial ? ` (nr ${entry.chargerSerial})` : ""}` : "";
     add(
       entry.periodTo,
       "loan",
       "Koniec umowy",
       entry.customer || "brak osoby",
-      `${entry.customer || "brak osoby"}${devices ? ` — ${devices}` : ""}`,
+      [entry.customer || "brak osoby", devices, charger].filter(Boolean).join("\n"),
       entry.id || entry.number
     );
   });
   demoRecords.forEach(record => {
     const meta = demoDerived.get(record.id);
     if (!meta) return;
-    const manufacturerSource = ["manufacturer", "philips", "manufacturerReturned"].includes(meta.returnSource);
+    if (["manufacturerReturned", "returned"].includes(meta.returnSource)) return;
+    const manufacturerSource = ["manufacturer", "philips"].includes(meta.returnSource);
     const equipment = `${record.deviceName || "aparat Demo"}${record.serialNumber ? ` (nr ${record.serialNumber})` : ""}`;
     add(meta.returnDeadline,
       manufacturerSource ? "demo-manufacturer" : "demo-client",
       manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta",
       record.deviceName || "aparat Demo",
-      manufacturerSource ? equipment : `${record.currentUser || "brak osoby"} — ${equipment}`,
+      manufacturerSource ? equipment : `${record.currentUser || "brak osoby"}\n${equipment}`,
       record.id);
     if (meta.manufacturerReturn?.returnDeadline) {
       add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.deviceName || "aparat Demo", equipment, record.id);
@@ -22112,6 +22116,9 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
     const firstName = String(employee).trim().split(/\s+/u)[0] || employee;
     const dateFrom = isoDateForSave(request.dateFrom);
     const dateTo = isoDateForSave(request.dateTo || request.dateFrom);
+    if (dateFrom < start && dateTo >= start) {
+      add(start, "vacation", "Trwa urlop", firstName, `${employee}\n${formatDate(dateFrom)} - ${formatDate(dateTo)}`, `${request.id}:ongoing`);
+    }
     if (dateFrom && dateFrom === dateTo) {
       add(dateFrom, "vacation", "Urlop w dniu", firstName, employee, `${request.id}:day`);
       return;
@@ -22131,7 +22138,7 @@ function currentDateEventSummary(events) {
     const text = [event.label, event.detail].filter(Boolean).join(": ");
     counts.set(text, (counts.get(text) || 0) + 1);
   });
-  return [...counts].map(([text, count]) => count > 1 ? `${text} (${count})` : text).join(" · ");
+  return [...counts].map(([text, count]) => count > 1 ? `${text} (${count})` : text).join("\n\n");
 }
 
 function createCurrentDateCalendar(date = new Date()) {
@@ -22216,7 +22223,7 @@ function createCurrentDateCalendar(date = new Date()) {
       return [...grouped.values()].map(event => ({
         isoDate,
         ...event,
-        detail: [...event.details].join(" | ")
+        detail: [...event.details].join("\n\n")
       }));
     });
   const weekEnd = addDaysToIsoDate(today, 6);
