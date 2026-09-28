@@ -1,0 +1,200 @@
+{
+  "app_version": "20260925-270",
+  "asset_policy_sha256": "b43e5bc012a98ca5206a7074b68aabf611f47b6d16fdd606b10f965b05293318",
+  "asset_policy_version": 1,
+  "external_dependencies": [
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+  ],
+  "files": {
+    "Inter-LICENSE.txt": {
+      "bytes": 4380,
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    },
+    "InterVariable-Italic.woff2": {
+      "bytes": 387976,
+      "sha256": "e564f652916db6c139570fefb9524a77c4d48f30c92928de9db19b6b5c7a262a"
+    },
+    "InterVariable.woff2": {
+      "bytes": 352240,
+      "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
+    },
+    "app.js": {
+      "bytes": 1474367,
+      "sha256": "06ed37979eaf0be6ce2a0eaf86e24d00fad1972eb0420d0902d50b4930c48e83"
+    },
+    "apple-touch-icon.png": {
+      "bytes": 8918,
+      "sha256": "d67c3c9b8fffecf3e158ca390a2dddacf211e575525bca0aff91a71bc18d27df"
+    },
+    "data-layer.js": {
+      "bytes": 4708,
+      "sha256": "ba55f95196a27099512e66d1300c0c4cf279bbcf7af16ff577b6142da7579815"
+    },
+    "favicon-32.png": {
+      "bytes": 1691,
+      "sha256": "7348cda9c59bdba3723ea1f2aa7d62c0a9d06ae5d70071c74073186c1cf56534"
+    },
+    "favicon.png": {
+      "bytes": 13329,
+      "sha256": "57d393d86e31258ddac2136bf0cebc90a33e419fe2456d51080f95f89b1792b7"
+    },
+    "favicon.svg": {
+      "bytes": 786,
+      "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
+    },
+    "index.html": {
+      "bytes": 361834,
+      "sha256": "18e2ff66b958766e1628fe0a4f163b559c0338ab7b3a0eddf563265f6dbb7bb9"
+    },
+    "manufacturer-logos/audibel.png": {
+      "bytes": 30416,
+      "sha256": "9e87a41e0138867136440588563bbb1d0e27e3378a08a3bfe21861daacffb2b4"
+    },
+    "manufacturer-logos/audio-service.png": {
+      "bytes": 47463,
+      "sha256": "f4b8c1ce7d5f9d10fe5751fc3a07d53f5a7fa2b79c4cace388befd6ab8d06c6c"
+    },
+    "manufacturer-logos/beltone.png": {
+      "bytes": 92676,
+      "sha256": "66e589f6ec091ea78b3c43427cb51f5b0f47dbe92b7ae9319bcc619625403863"
+    },
+    "manufacturer-logos/bernafon-offer.svg": {
+      "bytes": 8737,
+      "sha256": "4f26f8ef2676d688a890e8e8aa07104adbbf95c2993b0ec5180f957069ea2bf7"
+    },
+    "manufacturer-logos/bernafon.png": {
+      "bytes": 37892,
+      "sha256": "d7f18d2ebe46a2d7a4741a3394421d6041c4fc1d3242d1c094ed04bb767489cf"
+    },
+    "manufacturer-logos/oticon.png": {
+      "bytes": 24023,
+      "sha256": "e77333d115e6ef9ffa1d7dafef44deb93e3473fc8e533c8f6db57f03dfdb7d7d"
+    },
+    "manufacturer-logos/philips.svg": {
+      "bytes": 1637,
+      "sha256": "0a2dc381960ff407c7e61e77bdda1e4a61e08c47eb182df8e8000620459f47ab"
+    },
+    "manufacturer-logos/phonak.png": {
+      "bytes": 151065,
+      "sha256": "f5759d4547da51552dded8a1c9f34459b9c7ff49bb201bfbc590cd50f6f56ae0"
+    },
+    "manufacturer-logos/resound-offer.png": {
+      "bytes": 10320,
+      "sha256": "eb98c1874fae80d421ddb14e00ed75a10f4b97e82f22f89cd8a0a94caa5fa462"
+    },
+    "manufacturer-logos/resound.png": {
+      "bytes": 6131,
+      "sha256": "25d812cde36076a07d5de2369d298562c31a31d98ed8d9459e5fb9b3048f8da5"
+    },
+    "manufacturer-logos/signia.png": {
+      "bytes": 88103,
+      "sha256": "37d71c89d947ccf63843a11b218ac677dcd6499bf9106eb214affe3fba6152db"
+    },
+    "manufacturer-logos/sonic-offer.png": {
+      "bytes": 9519,
+      "sha256": "4daaac972c3deff4ae4b8abbd9a1ddacbdf09affcffa2a8722a974545a793c38"
+    },
+    "manufacturer-logos/sonic.png": {
+      "bytes": 8180,
+      "sha256": "2c832758510b895d2730272df9af8c73c15ac5177240b51c55fd53b53a8a0381"
+    },
+    "manufacturer-logos/starkey-offer.svg": {
+      "bytes": 1588,
+      "sha256": "0e82013b6b763180a64c07d34c897a210088723e65dbb223805f866dfcf9e4d0"
+    },
+    "manufacturer-logos/starkey.png": {
+      "bytes": 53952,
+      "sha256": "3241d1e3f4599e3f3ca44ee554c9833970917279a8d85f8747fcaa1fdd6c19eb"
+    },
+    "offline-forms.js": {
+      "bytes": 16263,
+      "sha256": "7134fbfdba03831a0c2bbf461672d6efc232df06eef3ece15cc98f667c5cfaa2"
+    },
+    "offline-sw.js": {
+      "bytes": 2811,
+      "sha256": "160d65fd11d9fdfe6386b3aec3f24743a9303affde0b85c0aaa92b62cb1e5ae2"
+    },
+    "offline-vault.js": {
+      "bytes": 4678,
+      "sha256": "031526efc0ddaaa74453219a1ecc3ec0f7e92ed8bf90a14795d3fe4a43fa6dce"
+    },
+    "satis-monogram.png": {
+      "bytes": 40413,
+      "sha256": "6cb2dce8d3543aebc80b2a10c7efda40e062246dfcc2965340330e50827662f3"
+    },
+    "styles.css": {
+      "bytes": 287028,
+      "sha256": "c89038d00db2b984000ac9e1fd1604d3e974e744ef867c0c55a6ced31be930e6"
+    },
+    "supabase-config.js": {
+      "bytes": 227,
+      "sha256": "bcd6ce976c86acde00d16fa7ca5120caa0be721d436b6a622b9b0bb7bf048c7f"
+    },
+    "sync-layer.js": {
+      "bytes": 1854,
+      "sha256": "75a542517c1d15d19aeb2246bd72ec2c99b0374fe3756a305d63c8ff1ea4832e"
+    }
+  },
+  "format": 1,
+  "migrations": [
+    {
+      "depends_on": [],
+      "name": "supabase-schema.sql",
+      "sha256": "16882d75ca949540bb2661698c0ab3f0b2a847da6ebe60403f85a54a1afb0f05"
+    },
+    {
+      "depends_on": [
+        "supabase-schema.sql"
+      ],
+      "name": "supabase-security-hardening.sql",
+      "sha256": "b27af3deafb7596ab1d9d654f9b68a0bf8885a2ca5e2562539ba2e1c9d39dc05"
+    },
+    {
+      "depends_on": [
+        "supabase-schema.sql"
+      ],
+      "name": "supabase-private-payments.sql",
+      "sha256": "2c2a800fa1f1fbd1001e70a842b7c0d9425da34787c58861dbf9cbe7727c1504"
+    },
+    {
+      "depends_on": [
+        "supabase-schema.sql"
+      ],
+      "name": "supabase-audit-log.sql",
+      "sha256": "12d02be7a7a199824ce385d5a0b635708086d95adf95ec25f373c3809484de3e"
+    },
+    {
+      "depends_on": [
+        "supabase-schema.sql",
+        "supabase-security-hardening.sql"
+      ],
+      "name": "supabase-document-write-guards.sql",
+      "sha256": "9823ca59585f09e2b1cf3aa715f17b36872f7b59749b9dfdc68ba8c82e59a54c"
+    },
+    {
+      "depends_on": [
+        "supabase-schema.sql",
+        "supabase-security-hardening.sql",
+        "supabase-private-payments.sql",
+        "supabase-audit-log.sql",
+        "supabase-document-write-guards.sql"
+      ],
+      "name": "supabase-audit-core.sql",
+      "sha256": "1df1acadc79355248c2c65fb76afc5442a32e64b39157214e3e44a729573b40d"
+    },
+    {
+      "depends_on": [
+        "supabase-security-hardening.sql",
+        "supabase-audit-core.sql"
+      ],
+      "name": "supabase-audit-vacation.sql",
+      "sha256": "3294627f11c6305607dff7b5a632dd87b2c575a100c90477964c5e9757f64162"
+    }
+  ],
+  "required_rpc_versions": {
+    "satis_schema_version": 20260908,
+    "vacation_privacy_schema_version": 20260908
+  },
+  "required_schema_version": "audit-security-1",
+  "supabase_url": "https://xfzfhzyzmtcxqqyjpzfw.supabase.co"
+}

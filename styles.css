@@ -11361,24 +11361,24 @@ dialog::backdrop {
 #repairForm .dialog-head,
 #demoForm .dialog-head {
   position: sticky;
-  top: 0;
+  top: -22px;
   z-index: 5;
   margin: -22px -22px 0;
   border-bottom: 1px solid rgba(216, 221, 227, 0.76);
   padding: 18px 22px 12px;
-  background: rgba(255, 255, 255, 0.98);
+  background: #fff;
 }
 
 #recordForm .dialog-actions,
 #repairForm .dialog-actions,
 #demoForm .dialog-actions {
   position: sticky;
-  bottom: 0;
+  bottom: -22px;
   z-index: 5;
   margin: 0 -22px -22px;
   border-top: 1px solid rgba(216, 221, 227, 0.76);
   padding: 12px 22px 18px;
-  background: rgba(255, 255, 255, 0.98);
+  background: #fff;
 }
 
 .return-reminder-form {
@@ -14567,4 +14567,49 @@ input.nearby-entry-match {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+}
+/* Pending document work remains visible until the server confirms completion. */
+.document-sync-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  color: #6d3340;
+  background: #fff0f2;
+  border-left: 3px solid #bd6479;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.document-sync-notice[hidden] { display: none; }
+.document-sync-notice button { flex-shrink: 0; }
+@media print { .document-sync-notice { display: none !important; } }
+/* Offline workspace uses the existing document builders without exposing the other notebooks. */
+.offline-controls, .offline-tabs, .offline-drafts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.offline-controls button, .offline-tabs button, .offline-drafts button { border-radius: 6px; padding: 8px 12px; border: 1px solid #bdcdcd; background: #f4f8f7; color: #003f5a; }
+.offline-controls strong { margin-right: auto; }
+.offline-tabs { margin: 16px 0 12px; }
+.offline-tabs [aria-pressed="true"] { background: #d8eeeb; border-color: #007f80; }
+.offline-drafts { margin-bottom: 16px; }
+.offline-draft { display: inline-flex; max-width: 100%; }
+.offline-draft button { overflow-wrap: anywhere; }
+#offlineWorkspace { padding: 20px; max-width: 1400px; margin: 0 auto; }
+#offlineWorkspace[hidden], #offlinePrint { display: none; }
+.offline-status { color: #003f5a; font-weight: 700; margin: 12px 0 4px; }
+.offline-warning { color: #695242; font-size: 13px; margin: 6px 0; }
+#offlineUnlockDialog { max-width: 480px; width: calc(100% - 32px); padding: 24px; }
+#offlineUnlockDialog form { padding: 0; }
+#offlineUnlockDialog input { width: 100%; margin: 8px 0; }
+#offlineUnlockDialog [role="status"] { color: #8e2849; }
+body.offline-form-mode > .app-shell, body.offline-form-mode > .back-to-top { display: none !important; }
+body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
+@media print {
+  body.offline-printing > :not(#offlinePrint) { display: none !important; }
+  body.offline-printing #offlinePrint { display: block !important; width: 100%; color: #000; font-family: "Inter", sans-serif; }
+  #offlinePrint .offer-document { display: block !important; width: 100%; min-width: 0; max-width: none; padding: 0; border: 0; box-shadow: none; }
+  #offlinePrint table { width: 100%; border-collapse: collapse; }
+  #offlinePrint tr { break-inside: avoid; }
+  #offlinePrint .offline-print-mark { font-size: 9pt; font-weight: 700; padding-bottom: 3mm; border-bottom: 1px solid #000; }
+  .offline-launch { display: none !important; }
 }

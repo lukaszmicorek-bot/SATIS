@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260907-264">
+  <link rel="stylesheet" href="styles.css?v=20260925-270">
   </head>
   <body>
     <main class="app-shell">
@@ -2136,6 +2136,7 @@
           <p class="vacation-employee-picker-label">Pracownik</p>
           <div id="vacationEmployeeList" class="vacation-employee-list" aria-label="Wybierz pracownika"></div>
           <input id="vacationEmployeeInput" type="hidden">
+          <p id="vacationAccessMessage" role="status" hidden></p>
 
           <form id="vacationForm" class="private-form-grid">
             <div class="vacation-type-field">
@@ -2143,6 +2144,7 @@
               <div id="vacationTypeChoices" class="vacation-type-choices" role="group" aria-label="Wybierz rodzaj urlopu">
                 <button type="button" data-vacation-type="WYPOCZYNKOWY">Wypoczynkowy</button>
                 <button type="button" data-vacation-type="ZA SOBOTĘ">Za sobotę</button>
+                <button type="button" data-vacation-type="ZA WEEKEND">Za pracę w weekend</button>
                 <button type="button" data-vacation-type="NA ŻĄDANIE">Na żądanie</button>
                 <button type="button" data-vacation-type="NADGODZINY">Nadgodziny</button>
                 <button type="button" data-vacation-type="WCZEŚNIEJSZE WYJŚCIE">Wcześniejsze wyjście</button>
@@ -2172,6 +2174,15 @@
               <span>Święto przypadające w sobotę</span>
               <div id="vacationSaturdayChoices" class="vacation-saturday-choices" role="group" aria-label="Wybierz święto przypadające w sobotę"></div>
               <input id="vacationSaturdayInput" type="hidden">
+            </label>
+            <div id="vacationCompensationField" class="private-form-wide" hidden>
+              <label><span>Data pracy w weekend</span><input id="vacationCompensationDate" type="date"></label>
+              <label><span id="vacationCompensationUnit">Liczba dni rekompensaty</span><input id="vacationCompensationAmount" type="number" min="0.5" max="1" step="1"></label>
+              <p>Rekompensata obejmuje cały ten wpis, maksymalnie 1 dzień lub 8 godzin. Pozostały urlop zgłoś osobno. Uwagi nie zmieniają salda.</p>
+            </div>
+            <label id="vacationWeekendReviewField" class="private-form-wide" hidden>
+              <input id="vacationWeekendReviewInput" type="checkbox">
+              <span>Sprawdzono starą uwagę o weekendzie. Pozostaw urlop roczny lub wybierz „Za pracę w weekend” i podaj datę oraz ilość.</span>
             </label>
             <label class="private-form-wide">
               <span>Uwagi</span>
@@ -2789,8 +2800,12 @@
       </form>
     </dialog>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260613-5"></script>
-  <script src="app.js?v=20260907-266"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
+    <script src="supabase-config.js?v=20260925-270"></script>
+    <script src="data-layer.js?v=20260925-270"></script>
+    <script src="sync-layer.js?v=20260925-270"></script>
+    <script src="offline-vault.js?v=20260925-270"></script>
+    <script src="offline-forms.js?v=20260925-270"></script>
+  <script src="app.js?v=20260925-270"></script>
   </body>
 </html>
