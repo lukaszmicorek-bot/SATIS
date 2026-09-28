@@ -319,6 +319,7 @@ const DATA_CONTROL_SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseKey = supabaseConfig.publishableKey || supabaseConfig.anonKey || "";
 const hasSupabaseSettings = Boolean(supabaseConfig.url && supabaseKey);
+let offlineForms = null;
 function clearLegacyPersistentAuthSession() {
   if (!hasSupabaseSettings) return;
   for (let index = localStorage.length - 1; index >= 0; index -= 1) {
@@ -350,7 +351,7 @@ function clearSensitiveBrowserData() {
 }
 
 clearLegacyPersistentAuthSession();
-clearSensitiveBrowserData();
+if (hasSupabaseSettings) clearSensitiveBrowserData();
 const hasSupabaseConfig = Boolean(hasSupabaseSettings && window.supabase);
 const supabaseClient = hasSupabaseConfig
   ? window.supabase.createClient(supabaseConfig.url, supabaseKey, {
@@ -362,6 +363,20 @@ const supabaseClient = hasSupabaseConfig
       }
     })
   : null;
+const satisDataStore = hasSupabaseConfig ? window.SatisData.createStore({
+  client: supabaseClient,
+  uuid: () => crypto.randomUUID(),
+  retry: (action) => retrySupabaseWrite(action),
+  workstation: () => currentWorkstationName()
+}) : null;
+let supabaseRefreshInProgress = false;
+const satisChangeQueue = hasSupabaseConfig ? window.SatisSync.createQueue({
+  ready: () => Boolean(currentSupabaseUser && !document.hidden && !supabaseRefreshInProgress &&
+    !recordDialog.open && !repairDialog.open && !demoDialog.open && !pricingMutationInProgress),
+  load: loadChangedSupabaseRecords,
+  apply: applyChangedSupabaseRecords,
+  onError: (error) => { console.warn("Synchronizacja zmian:", error.message); setConnectionStatus("error", "Ponawiam synchronizację"); }
+}) : null;
 const hasSharedServer = !hasSupabaseSettings && window.location.protocol !== "file:";
 const dateFormatter = new Intl.DateTimeFormat("pl-PL");
 const dateTimeFormatter = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "short" });
@@ -1625,17 +1640,24 @@ function saveLocalPrivatePayments() {
 }
 
 async function loadPrivatePayments() {
+  const loadingUserId = currentSupabaseUser?.id;
   privatePayments = canViewPrivatePayments() ? loadLocalPrivatePayments() : {};
   if (!canViewPrivatePayments()) return privatePayments;
 
   if (hasSupabaseConfig) {
-    const { data, error } = await supabaseClient
-      .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
-      .select("record_id, amount, received_date");
-
-    if (error) {
-      console.warn("Nie udało się pobrać prywatnych płatności:", error.message);
-      return privatePayments;
+    const data = [];
+    let afterId = "";
+    for (;;) {
+      let query = supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
+        .select("record_id, amount, received_date, revision").order("record_id").limit(SUPABASE_PAGE_SIZE);
+      if (afterId) query = query.gt("record_id", afterId);
+      const { data: page, error } = await query;
+      if (loadingUserId !== currentSupabaseUser?.id) return {};
+      if (error) throw new Error(`Nie udało się pobrać płatności: ${error.message}`);
+      if (!page?.length) break;
+      page.forEach((row) => satisDataStore.observe(SUPABASE_PRIVATE_PAYMENTS_TABLE, row));
+      data.push(...page);
+      afterId = page[page.length - 1].record_id;
     }
 
     privatePayments = Object.fromEntries(
@@ -1658,31 +1680,31 @@ async function persistPrivatePayment(recordId, entry) {
 
   if (!hasSupabaseConfig) return;
 
-  try {
-    if (normalizedEntry) {
-      const { error } = await supabaseClient.from(SUPABASE_PRIVATE_PAYMENTS_TABLE).upsert({
-        record_id: String(recordId),
-        amount: normalizedEntry.amount,
-        received_date: normalizedEntry.receivedDate,
-        updated_at: new Date().toISOString(),
-        updated_by: currentSupabaseUser?.id || null
-      }, { onConflict: "record_id" });
-      if (error) throw error;
-      return;
-    }
+  await satisDataStore.commit(privatePaymentChanges([{ recordId, entry: normalizedEntry }]));
+}
 
-    const { error } = await supabaseClient
-      .from(SUPABASE_PRIVATE_PAYMENTS_TABLE)
-      .delete()
-      .eq("record_id", String(recordId));
-    if (error) throw error;
-  } catch (error) {
-    console.warn("Płatność zapisana lokalnie, ale bez synchronizacji Supabase:", error.message);
-    if (!privatePaymentSyncWarningShown) {
-      privatePaymentSyncWarningShown = true;
-      alert("Płatność zapisana lokalnie, ale Supabase nie przyjął zapisu daty. Uruchom ponownie plik supabase-private-payments.sql w SQL Editor.");
-    }
+function privatePaymentChanges(updates) {
+  return updates.flatMap(({ recordId, entry }) => {
+    const normalized = normalizePrivatePaymentEntry(entry);
+    if (!normalized && satisDataStore.revision(SUPABASE_PRIVATE_PAYMENTS_TABLE, String(recordId)) === null) return [];
+    return [satisDataStore.prepare(SUPABASE_PRIVATE_PAYMENTS_TABLE,
+      { id: String(recordId), amount: normalized?.amount || "", receivedDate: normalized?.receivedDate || "" },
+      { delete: !normalized })];
+  });
+}
+
+async function persistDeviceAndPayments(record, updates) {
+  if (!hasSupabaseConfig) {
+    await persistDeviceRecord(record);
+    await persistPrivatePaymentUpdates(updates);
+    return;
   }
+  setConnectionStatus("syncing", "Zapisywanie...");
+  await satisDataStore.commit([
+    satisDataStore.prepare(SUPABASE_DEVICE_TABLE, record),
+    ...privatePaymentChanges(updates)
+  ]);
+  setConnectionStatus("online", "Supabase");
 }
 
 async function deletePrivatePayment(recordId) {
@@ -1882,18 +1904,18 @@ function showAuditLogSyncWarning(error) {
 async function persistAuditLog(entry) {
   const normalizedEntry = appendLocalAuditLog(entry);
   if (!normalizedEntry || !hasSupabaseConfig) return;
-
-  try {
-    await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient.from(SUPABASE_AUDIT_TABLE).insert(supabaseAuditLogRow(normalizedEntry));
-      if (error) throw error;
+  if (normalizedEntry.notebook !== "stock") return;
+  await retrySupabaseWrite(async () => {
+    const { error } = await supabaseClient.rpc("satis_save_stock_audit", {
+      p_id: normalizedEntry.id, p_data: normalizedEntry.data,
+      p_workstation: currentWorkstationName()
     });
-  } catch (error) {
-    showAuditLogSyncWarning(error);
-  }
+    if (error) throw error;
+  });
 }
 
 function logAuditEvent(options) {
+  if (hasSupabaseConfig) return; // Recorded by the database in the write transaction.
   const entry = createAuditLogEntry(options);
   if (!entry) return;
   persistAuditLog(entry).catch(showAuditLogSyncWarning);
@@ -2091,24 +2113,28 @@ async function retrySupabaseWrite(action) {
 
 async function loadSupabaseTable(tableName, normalizer, options = {}) {
   const loadedRecords = [];
-  let totalCount = null;
+  let afterId = "";
+  const loadingUserId = typeof currentSupabaseUser !== "undefined" ? currentSupabaseUser?.id : undefined;
 
-  for (let from = 0; ;) {
+  for (;;) {
     let query = supabaseClient
       .from(tableName)
-      .select("id,data,updated_at", from === 0 ? { count: "exact" } : undefined);
+      .select("id,data,updated_at,revision");
     if (options.idPrefix) query = query.like("id", `${options.idPrefix}%`);
     if (options.excludeIdPrefix) query = query.not("id", "like", `${options.excludeIdPrefix}%`);
+    if (afterId) query = query.gt("id", afterId);
 
-    const { data, error, count } = await query
-      .order("updated_at", { ascending: false })
+    const { data, error } = await query
       .order("id", { ascending: true })
-      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+      .limit(SUPABASE_PAGE_SIZE);
 
     if (error) throw new Error(`Nie udało się pobrać danych z Supabase: ${error.message}`);
-    if (Number.isFinite(count)) totalCount = count;
+    if (typeof currentSupabaseUser !== "undefined" && loadingUserId !== currentSupabaseUser?.id) {
+      throw new Error("Sesja zmieniła się podczas odczytu danych.");
+    }
 
     const page = data || [];
+    page.forEach((row) => satisDataStore?.observe(tableName, row));
     loadedRecords.push(
       ...page.map((row) => ({
         ...(row.data && typeof row.data === "object" ? row.data : {}),
@@ -2117,9 +2143,8 @@ async function loadSupabaseTable(tableName, normalizer, options = {}) {
     );
 
     if (page.length === 0) break;
-    // The server may cap a page below the requested size; never skip the remainder.
-    from += page.length;
-    if (totalCount !== null && from >= totalCount) break;
+    // Stable keys avoid skipped rows when updated_at changes during pagination.
+    afterId = page[page.length - 1].id;
   }
 
   return normalizer(loadedRecords);
@@ -2127,22 +2152,26 @@ async function loadSupabaseTable(tableName, normalizer, options = {}) {
 
 async function loadSupabaseIds(tableName, options = {}) {
   const ids = [];
+  let afterId = "";
 
-  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+  for (;;) {
     let query = supabaseClient
       .from(tableName)
-      .select("id");
+      .select("id,revision");
     if (options.idPrefix) query = query.like("id", `${options.idPrefix}%`);
     if (options.excludeIdPrefix) query = query.not("id", "like", `${options.excludeIdPrefix}%`);
+    if (afterId) query = query.gt("id", afterId);
 
     const { data, error } = await query
       .order("id", { ascending: true })
-      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+      .limit(SUPABASE_PAGE_SIZE);
     if (error) throw new Error(`Nie udało się sprawdzić danych w Supabase: ${error.message}`);
 
     const page = data || [];
+    page.forEach((row) => satisDataStore?.observe(tableName, row));
     ids.push(...page.map((row) => row.id));
-    if (page.length < SUPABASE_PAGE_SIZE) break;
+    if (!page.length) break;
+    afterId = page[page.length - 1].id;
   }
 
   return ids;
@@ -2151,10 +2180,7 @@ async function loadSupabaseIds(tableName, options = {}) {
 async function upsertSupabaseRecord(tableName, record) {
   setConnectionStatus("syncing", "Zapisywanie...");
   try {
-    await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient.from(tableName).upsert(supabaseRecordRow(record), { onConflict: "id" });
-      if (error) throw error;
-    });
+    await satisDataStore.write(tableName, record);
     setConnectionStatus("online", "Supabase");
   } catch (error) {
     setConnectionStatus("error", isTransientSupabaseError(error) ? "Brak połączenia" : "Błąd zapisu");
@@ -2165,10 +2191,7 @@ async function upsertSupabaseRecord(tableName, record) {
 async function deleteSupabaseRecord(tableName, id) {
   setConnectionStatus("syncing", "Usuwanie...");
   try {
-    await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient.from(tableName).delete().eq("id", id);
-      if (error) throw error;
-    });
+    await satisDataStore.remove(tableName, id);
     setConnectionStatus("online", "Supabase");
   } catch (error) {
     setConnectionStatus("error", isTransientSupabaseError(error) ? "Brak połączenia" : "Błąd zapisu");
@@ -2184,25 +2207,17 @@ async function replaceSupabaseTable(tableName, sourceRecords, options = {}) {
   setConnectionStatus("syncing", "Importowanie...");
   const existingIds = await loadSupabaseIds(tableName, options);
 
-  for (let from = 0; from < sourceRecords.length; from += SUPABASE_PAGE_SIZE) {
-    const chunk = sourceRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
-    const { error } = await supabaseClient.from(tableName).upsert(chunk, { onConflict: "id" });
-    if (error) {
-      setConnectionStatus("error", "Błąd importu");
-      throw new Error(`Nie udało się zaimportować danych do Supabase: ${error.message}`);
-    }
-  }
-
   const importedIds = new Set(sourceRecords.map((record) => record.id));
   const protectedIds = new Set(options.excludeIds || []);
   const staleIds = existingIds.filter((id) => !importedIds.has(id) && !protectedIds.has(id));
-  for (let from = 0; from < staleIds.length; from += SUPABASE_DELETE_BATCH_SIZE) {
-    const chunk = staleIds.slice(from, from + SUPABASE_DELETE_BATCH_SIZE);
-    const { error } = await supabaseClient.from(tableName).delete().in("id", chunk);
-    if (error) {
-      setConnectionStatus("error", "Błąd importu");
-      throw new Error(`Nie udało się usunąć starych danych z Supabase: ${error.message}`);
-    }
+  try {
+    await satisDataStore.commit([
+      ...sourceRecords.map((record) => satisDataStore.prepare(tableName, record)),
+      ...staleIds.map((id) => satisDataStore.prepare(tableName, { id }, { delete: true }))
+    ]);
+  } catch (error) {
+    setConnectionStatus("error", "Import niezapisany");
+    throw new Error(`Import nie został zatwierdzony. Baza nie została częściowo zastąpiona: ${error.message}`);
   }
 
   setConnectionStatus("online", "Supabase");
@@ -2220,19 +2235,9 @@ async function seedDemoRecordsIfEmpty() {
   if (seedStateError) throw new Error(`Nie udało się sprawdzić importu Demo: ${seedStateError.message}`);
   if (seedState) return;
 
-  for (let from = 0; from < seedRecords.length; from += SUPABASE_PAGE_SIZE) {
-    const chunk = seedRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
-    const { error } = await supabaseClient.from(SUPABASE_DEVICE_TABLE).upsert(chunk, { onConflict: "id" });
-    if (error) throw new Error(`Nie udało się zaimportować danych Demo: ${error.message}`);
-  }
-
-  const { error: markError } = await supabaseClient.from(SUPABASE_DEVICE_TABLE).upsert({
-    id: DEMO_SEED_MARKER_ID,
-    data: { kind: "demo-seed-marker", source: "demo.xlsx", records: seedRecords.length },
-    updated_at: new Date().toISOString(),
-    updated_by: currentSupabaseUser?.id || null
-  });
-  if (markError) throw new Error(`Dane Demo zapisano, ale nie udało się oznaczyć importu: ${markError.message}`);
+  await satisDataStore.commit([...seedRecords,
+    { id: DEMO_SEED_MARKER_ID, kind: "demo-seed-marker", source: "demo.xlsx", records: seedRecords.length }
+  ].map((record) => satisDataStore.prepare(SUPABASE_DEVICE_TABLE, record)));
 
   demoRecords = seedRecords;
   writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
@@ -2247,11 +2252,14 @@ async function seedDemoRecordsIfEmpty() {
 
 async function refreshRecordsFromSupabase(options = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || document.hidden) return;
+  const userId = currentSupabaseUser.id;
+  if (supabaseRefreshInProgress) return;
   if (recordDialog.open || repairDialog.open || demoDialog.open) {
     scheduleSupabaseRefresh(1000);
     return;
   }
 
+  supabaseRefreshInProgress = true;
   try {
     setConnectionStatus("syncing", "Synchronizacja...");
     const [
@@ -2281,6 +2289,12 @@ async function refreshRecordsFromSupabase(options = {}) {
       loadSupabasePricingPcprList(),
       loadSupabaseCapdHistory()
     ]);
+    if (currentSupabaseUser?.id !== userId) return;
+    if (![sharedRecords, sharedRepairRecords, sharedDemoRecords, sharedPricingRecords,
+      sharedLoanHistory, sharedOfferHistory, sharedOrderHistory, sharedComplaintHistory,
+      sharedPcprList, sharedCapdHistory].every(Array.isArray)) {
+      throw new Error("Nie pobrano kompletu danych. Sprawdź połączenie i ponów logowanie; nie uznano pustej historii za poprawny odczyt.");
+    }
     records = sharedRecords;
     repairRecords = sharedRepairRecords;
     demoRecords = sharedDemoRecords;
@@ -2291,22 +2305,7 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
     if (sharedPcprList) pricingPcprList = sharedPcprList;
     if (sharedCapdHistory) capdHistory = sharedCapdHistory;
-    try {
-      await migrateLegacyDemoTrialNames();
-    } catch (demoNameMigrationError) {
-      console.warn("Nie udało się zbiorczo ujednolicić nazw Demo/Trial:", demoNameMigrationError?.message || demoNameMigrationError);
-    }
     await loadPrivatePayments();
-    try {
-      await syncPricingLoansToDemo({ persist: true, renderChanges: false });
-    } catch (demoSyncError) {
-      console.warn("Nie udało się uzgodnić wypożyczeń Demo z historią umów:", demoSyncError?.message || demoSyncError);
-    }
-    try {
-      await backfillRepairDeviceNamesFromSerials({ persist: true });
-    } catch (backfillError) {
-      console.warn(backfillError);
-    }
     writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
     writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
@@ -2317,6 +2316,149 @@ async function refreshRecordsFromSupabase(options = {}) {
     console.warn(error);
     setConnectionStatus("error", "Błąd synchronizacji");
     if (options.throwOnError) throw error;
+  } finally {
+    supabaseRefreshInProgress = false;
+    satisChangeQueue?.flush();
+  }
+}
+
+async function loadChangedSupabaseRecords(table, ids) {
+  if ([SUPABASE_VACATION_EMPLOYEE_TABLE, SUPABASE_VACATION_REQUEST_TABLE].includes(table)) {
+    await loadVacationData();
+    return null;
+  }
+  const payment = table === SUPABASE_PRIVATE_PAYMENTS_TABLE;
+  const rows = [];
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const { data, error } = await supabaseClient.from(table)
+      .select(payment ? "record_id,amount,received_date,revision" : "id,data,updated_at,revision")
+      .in(payment ? "record_id" : "id", ids.slice(offset, offset + 200));
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows;
+}
+
+function applyChangedSupabaseRecords(table, ids, rows) {
+  if (!rows) return;
+  rows.forEach((row) => satisDataStore.observe(table, row));
+  if (table === SUPABASE_PRIVATE_PAYMENTS_TABLE) {
+    ids.forEach((id) => delete privatePayments[id]);
+    rows.forEach((row) => setPrivatePaymentEntry(row.record_id, { amount: row.amount, receivedDate: row.received_date }));
+    if (activeNotebook === "devices" && activeDeviceView === "database") renderDeviceViews();
+    return;
+  }
+  const found = new Set(rows.map((row) => row.id));
+  const changes = [...rows, ...ids.filter((id) => !found.has(id)).map((id) => ({ id, deleted: true }))];
+  const apply = (current, normalize, subset = changes) => window.SatisData.applyChanges(current, subset, normalize);
+  let rebuild = rebuildDerivedData;
+  if (table === SUPABASE_DEVICE_TABLE) {
+    const deviceChanges = changes.filter((row) => !row.id.startsWith(DEMO_ID_PREFIX));
+    const demoChanges = changes.filter((row) => row.id.startsWith(DEMO_ID_PREFIX) && row.id !== DEMO_SEED_MARKER_ID);
+    records = apply(records, normalizeDeviceRecordsForUse, deviceChanges);
+    demoRecords = apply(demoRecords, normalizeDemoRecordsForUse, demoChanges);
+    if (!demoChanges.length) rebuild = rebuildAfterDeviceChange;
+    else if (!deviceChanges.length) rebuild = rebuildAfterDemoChange;
+  } else if (table === SUPABASE_REPAIR_TABLE) {
+    repairRecords = apply(repairRecords, normalizeRepairRecordsForUse);
+    rebuild = rebuildAfterRepairChange;
+  }
+  else if (table === SUPABASE_PRICING_TABLE) {
+    const meta = rows.find((row) => row.id === PRICING_META_ROW_ID);
+    if (meta) savePricingMeta(meta.data);
+    pricingRecords = apply(pricingRecords, normalizePricingRecordsForUse, changes.filter((row) => row.id !== PRICING_META_ROW_ID));
+  } else if (table === SUPABASE_LOAN_CONTRACT_TABLE) pricingLoanHistory = apply(pricingLoanHistory, normalizePricingLoanHistory);
+  else if (table === SUPABASE_OFFER_HISTORY_TABLE) pricingOfferHistory = apply(pricingOfferHistory, normalizePricingOfferHistory);
+  else if (table === SUPABASE_ORDER_HISTORY_TABLE) pricingOrderHistory = apply(pricingOrderHistory, normalizePricingOrderHistory);
+  else if (table === SUPABASE_COMPLAINT_HISTORY_TABLE) pricingComplaintHistory = apply(pricingComplaintHistory, normalizePricingComplaintHistory);
+  else if (table === SUPABASE_PCPR_LIST_TABLE) pricingPcprList = apply(pricingPcprList, normalizePricingPcprList);
+  else if (table === SUPABASE_CAPD_HISTORY_TABLE) capdHistory = apply(capdHistory, normalizeCapdHistory);
+  rebuild();
+  render();
+  setConnectionStatus("online", "Supabase");
+}
+
+let documentSyncRunning = false;
+let documentSyncFailures = [];
+
+function renderDocumentSyncState(count = 0) {
+  let notice = document.querySelector("#documentSyncNotice");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.id = "documentSyncNotice";
+    notice.className = "document-sync-notice";
+    notice.setAttribute("role", "status");
+    document.querySelector(".top-panel")?.after(notice);
+  }
+  notice.hidden = !currentSupabaseUser || (!count && !documentSyncFailures.length);
+  notice.replaceChildren();
+  const text = document.createElement("span");
+  text.textContent = documentSyncFailures.length
+    ? `Do sprawdzenia: ${documentSyncFailures.join("; ")}`
+    : `Dokumenty oczekujące na powiązanie z Serwisem lub Demo: ${count}.`;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "reset-filters-btn";
+  retry.textContent = "Ponów";
+  retry.addEventListener("click", () => processPendingDocumentSync());
+  notice.append(text, retry);
+}
+
+async function processPendingDocumentSync() {
+  if (!hasSupabaseConfig || !currentSupabaseUser || document.hidden || documentSyncRunning ||
+    supabaseRefreshInProgress || recordDialog.open || repairDialog.open || demoDialog.open) return;
+  documentSyncRunning = true;
+  const userId = currentSupabaseUser.id;
+  try {
+    const { data: pending, error } = await supabaseClient.rpc("satis_pending_document_sync");
+    if (error) throw error;
+    if (currentSupabaseUser?.id !== userId) return;
+    documentSyncFailures = [];
+    renderDocumentSyncState(pending?.length || 0);
+    let remaining = pending?.length || 0;
+    for (const task of (pending || []).slice(0, 20)) {
+      if (currentSupabaseUser?.id !== userId || recordDialog.open || repairDialog.open || demoDialog.open) break;
+      try {
+        const [row] = await loadChangedSupabaseRecords(task.table, [task.id]);
+        if (!row || Number(row.revision) !== Number(task.revision)) continue;
+        satisDataStore.observe(task.table, row);
+        const { data: targets, error: targetError } = await supabaseClient.rpc("satis_document_sync_targets", {
+          table_name: task.table, record_id: task.id
+        });
+        if (targetError) throw targetError;
+        if (currentSupabaseUser?.id !== userId) return;
+        const targetGroups = new Map();
+        for (const target of targets || []) {
+          if (!targetGroups.has(target.table)) targetGroups.set(target.table, []);
+          targetGroups.get(target.table).push(target);
+        }
+        for (const [table, values] of targetGroups) applyChangedSupabaseRecords(table, values.map((value) => value.id), values);
+        const raw = { ...row.data, id: row.id };
+        if (task.table === SUPABASE_LOAN_CONTRACT_TABLE) {
+          const result = await syncPricingLoansToDemo({ entries: [normalizePricingLoanHistoryEntry(raw)], renderChanges: false });
+          if (result.conflicts.length) throw new Error("Konflikt bieżącego wypożyczenia w Demo");
+        } else {
+          const record = task.table === SUPABASE_ORDER_HISTORY_TABLE
+            ? pricingOrderRepairRecord(raw) : pricingComplaintRepairRecord(raw);
+          if (!await upsertRepairRecordFromDocument(record, { quiet: true })) throw new Error("Sprawdź duplikat lub dane wpisu serwisowego");
+        }
+        const { data: completed, error: completeError } = await supabaseClient.rpc("satis_complete_document_sync", {
+          table_name: task.table, record_id: task.id, expected_revision: task.revision
+        });
+        if (completeError) throw completeError;
+        if (completed) remaining -= 1;
+      } catch (error) {
+        const entry = [...pricingLoanHistory, ...pricingOrderHistory, ...pricingComplaintHistory].find((item) => item.id === task.id);
+        documentSyncFailures.push(`${entry?.number || "Dokument"}: ${error.message}`);
+      }
+    }
+    renderDocumentSyncState(remaining);
+  } catch (error) {
+    if (currentSupabaseUser?.id !== userId) return;
+    documentSyncFailures = [`Synchronizacja dokumentów: ${error.message}`];
+    renderDocumentSyncState();
+  } finally {
+    documentSyncRunning = false;
   }
 }
 
@@ -2337,11 +2479,6 @@ async function refreshPricingFromSupabase() {
   if (sharedOrderHistory) pricingOrderHistory = sharedOrderHistory;
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
   if (sharedPcprList) pricingPcprList = sharedPcprList;
-  try {
-    await syncPricingLoansToDemo({ persist: true, renderChanges: false });
-  } catch (demoSyncError) {
-    console.warn("Nie udało się zaktualizować Demo po odświeżeniu umów:", demoSyncError?.message || demoSyncError);
-  }
   renderPricingRecords();
   if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
   setCurrentYearTitle();
@@ -2364,9 +2501,7 @@ function recordFromSupabaseRow(row, normalizer) {
 }
 
 function queueSupabaseChange(tableName, payload) {
-  pendingSupabaseChanges.push({ tableName, payload });
-  window.clearTimeout(supabaseChangeTimeout);
-  supabaseChangeTimeout = window.setTimeout(flushSupabaseChanges, 220);
+  satisChangeQueue.push(tableName === "demo" ? SUPABASE_DEVICE_TABLE : tableName, payload.new?.id || payload.old?.id);
 }
 
 function applySupabaseChange(currentRecords, payload, normalizer) {
@@ -2383,145 +2518,35 @@ function applySupabaseChange(currentRecords, payload, normalizer) {
 }
 
 function flushSupabaseChanges() {
-  const changes = pendingSupabaseChanges;
-  pendingSupabaseChanges = [];
-  if (!changes.length || !currentSupabaseUser) return;
-
-  if (recordDialog.open || repairDialog.open || demoDialog.open || changes.length > 100) {
-    scheduleSupabaseRefresh();
-    return;
-  }
-
-  changes.forEach(({ tableName, payload }) => {
-    if (tableName === SUPABASE_DEVICE_TABLE) {
-      records = applySupabaseChange(records, payload, normalizeDeviceRecordsForUse);
-    } else if (tableName === SUPABASE_REPAIR_TABLE) {
-      repairRecords = applySupabaseChange(repairRecords, payload, normalizeRepairRecordsForUse);
-    } else {
-      demoRecords = applySupabaseChange(demoRecords, payload, normalizeDemoRecordsForUse);
-    }
-  });
-
-  writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
-  writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-  writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
-  rebuildDerivedData();
-  render();
-  if (canViewPrivatePayments()) {
-    loadPrivatePayments()
-      .then(() => renderDeviceViews())
-      .catch((error) => console.warn("Nie udało się odświeżyć prywatnych płatności:", error.message));
-  }
-  setConnectionStatus("online", "Supabase");
+  return satisChangeQueue.flush();
 }
 
 function subscribeToSupabaseChanges() {
   if (!hasSupabaseConfig || supabaseRealtimeChannel) return;
-
-  let channel = supabaseClient
-    .channel("zeszyt-live")
-    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_DEVICE_TABLE }, (payload) => {
-      const id = payload.new?.id || payload.old?.id || "";
-      if (id === DEMO_SEED_MARKER_ID) return;
-      queueSupabaseChange(id.startsWith(DEMO_ID_PREFIX) ? "demo" : SUPABASE_DEVICE_TABLE, payload);
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_REPAIR_TABLE }, (payload) =>
-      queueSupabaseChange(SUPABASE_REPAIR_TABLE, payload)
-    );
-
-  if (canViewPrivatePayments()) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PRIVATE_PAYMENTS_TABLE }, () => {
-      if (!canViewPrivatePayments()) return;
-      loadPrivatePayments()
-        .then(() => renderDeviceViews())
-        .catch((error) => console.warn("Nie udało się odświeżyć prywatnych płatności:", error.message));
+  let channel = supabaseClient.channel("satis-record-changes");
+  const tables = [SUPABASE_DEVICE_TABLE, SUPABASE_REPAIR_TABLE, SUPABASE_PRICING_TABLE,
+    SUPABASE_LOAN_CONTRACT_TABLE, SUPABASE_OFFER_HISTORY_TABLE, SUPABASE_ORDER_HISTORY_TABLE,
+    SUPABASE_COMPLAINT_HISTORY_TABLE, SUPABASE_PCPR_LIST_TABLE, SUPABASE_CAPD_HISTORY_TABLE];
+  if (canViewPrivatePayments()) tables.push(SUPABASE_PRIVATE_PAYMENTS_TABLE);
+  tables.forEach((table) => {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, (payload) => {
+      satisChangeQueue.push(table, payload.new?.id || payload.old?.id || payload.new?.record_id || payload.old?.record_id);
     });
-  }
-
-  if (pricingSupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PRICING_TABLE }, () => {
-      refreshPricingFromSupabase().catch((error) => console.warn("Nie udało się odświeżyć cennika:", error.message));
-    });
-  }
-
-  if (pricingLoanHistorySupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_LOAN_CONTRACT_TABLE }, () => {
-      loadSupabasePricingLoanHistory()
-        .then(() => {
-          if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
-        })
-        .catch((error) => console.warn("Nie udało się odświeżyć historii umów:", error.message));
-    });
-  }
-
-  if (pricingOfferHistorySupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_OFFER_HISTORY_TABLE }, () => {
-      loadSupabasePricingOfferHistory()
-        .then(() => {
-          if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
-        })
-        .catch((error) => console.warn("Nie udało się odświeżyć historii ofert:", error.message));
-    });
-  }
-
-  if (pricingOrderHistorySupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_ORDER_HISTORY_TABLE }, () => {
-      loadSupabasePricingOrderHistory()
-        .then(() => {
-          if (activePricingView === "order") renderPricingOrder();
-        })
-        .catch((error) => console.warn("Nie udało się odświeżyć historii zamówień:", error.message));
-    });
-  }
-
-  if (pricingComplaintHistorySupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_COMPLAINT_HISTORY_TABLE }, () => {
-      loadSupabasePricingComplaintHistory()
-        .then(() => {
-          if (activePricingView === "complaint") renderPricingComplaint();
-        })
-        .catch((error) => console.warn("Nie udało się odświeżyć historii reklamacji:", error.message));
-    });
-  }
-
-  if (pricingPcprListSupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_PCPR_LIST_TABLE }, () => {
-      loadSupabasePricingPcprList()
-        .then(() => {
-          if (activePricingView === "pcpr") renderPricingPcprList();
-        })
-        .catch((error) => console.warn("Nie udało się odświeżyć listy PCPR:", error.message));
-    });
-  }
-
-  if (vacationEmployeesSupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_VACATION_EMPLOYEE_TABLE }, () => {
-      loadVacationData().catch((error) => console.warn("Nie udało się odświeżyć pracowników urlopowych:", error.message));
-    });
-  }
-
-  if (vacationRequestsSupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_VACATION_REQUEST_TABLE }, () => {
-      loadVacationData().catch((error) => console.warn("Nie udało się odświeżyć próśb urlopowych:", error.message));
-    });
-  }
-
-  if (capdHistorySupabaseAvailable !== false) {
-    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: SUPABASE_CAPD_HISTORY_TABLE }, () => {
-      loadSupabaseCapdHistory().catch((error) => console.warn("Nie udało się odświeżyć historii APD:", error.message));
-    });
-  }
-
+  });
+  let subscribedOnce = false;
   supabaseRealtimeChannel = channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") setConnectionStatus("online", "Supabase");
-    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-      setConnectionStatus("error", "Brak synchronizacji");
+    if (status === "SUBSCRIBED") {
+      setConnectionStatus("online", "Supabase");
+      if (subscribedOnce) scheduleSupabaseRefresh();
+      subscribedOnce = true;
     }
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setConnectionStatus("error", "Brak synchronizacji");
   });
 }
 
 async function verifySupabaseAppAccess(user) {
-  if (!hasSupabaseConfig || !user || appAccessHardeningAvailable === false) return true;
+  if (!hasSupabaseConfig) return true;
+  if (!user) throw new Error("Zaloguj się, aby sprawdzić uprawnienia.");
   const { data, error } = await supabaseClient
     .from(SUPABASE_APP_ACCESS_TABLE)
     .select("active, role")
@@ -2529,9 +2554,7 @@ async function verifySupabaseAppAccess(user) {
     .maybeSingle();
   if (error) {
     if (isMissingSupabaseTableError(error)) {
-      appAccessHardeningAvailable = false;
-      console.warn("Ochrona listą kont nie jest jeszcze aktywna. Uruchom supabase-security-hardening.sql.");
-      return true;
+      throw new Error("Brakuje wymaganych zabezpieczeń. Administrator musi wykonać migracje opisane w docs/deployment.md.");
     }
     throw new Error(`Nie udało się sprawdzić uprawnień konta: ${error.message}`);
   }
@@ -2539,6 +2562,14 @@ async function verifySupabaseAppAccess(user) {
   if (!data?.active) {
     await supabaseClient.auth.signOut({ scope: "local" });
     throw new Error("To konto nie ma dostępu do aplikacji SATIS. Właściciel musi je najpierw zatwierdzić.");
+  }
+  const { data: version, error: versionError } = await supabaseClient.rpc("satis_schema_version");
+  if (versionError || Number(version) < 20260908) {
+    throw new Error("Wymagana aktualizacja bazy: supabase-audit-core.sql. Dane nie zostały wczytane.");
+  }
+  const { data: privacyVersion, error: privacyError } = await supabaseClient.rpc("vacation_privacy_schema_version");
+  if (privacyError || Number(privacyVersion) < 20260908) {
+    throw new Error("Wymagana aktualizacja uprawnień urlopowych: supabase-audit-vacation.sql. Dane nie zostały wczytane.");
   }
   return true;
 }
@@ -2565,11 +2596,13 @@ async function activateSupabaseSession(user) {
   await loadVacationData();
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
+  window.setTimeout(processPendingDocumentSync, 1000);
   window.setTimeout(() => {
     promptForWorkstationName();
     syncAgreementDocumentLocations("", { useWorkstation: true });
     if (!canViewPrivateModules() && vacationEmployeeInput) vacationEmployeeInput.value = "";
     renderVacationModule();
+    offlineForms?.connected();
   }, 250);
 }
 
@@ -2604,6 +2637,12 @@ function resetInactivityLogoutTimer() {
 }
 
 function clearSensitiveApplicationState() {
+  offlineForms?.lock();
+  satisDataStore?.clear();
+  satisChangeQueue?.clear();
+  documentSyncFailures = [];
+  const syncNotice = document.querySelector("#documentSyncNotice");
+  if (syncNotice) { syncNotice.replaceChildren(); syncNotice.hidden = true; }
   clearLoanPrintCopies();
   hideVacationPeriodPreview();
   records = [];
@@ -4980,7 +5019,7 @@ async function withFreshRepairRecords(action) {
   try {
     if (hasSupabaseConfig) {
       if (!currentSupabaseUser) throw new Error("Zaloguj się przed sprawdzaniem duplikatów.");
-      repairRecords = await loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse);
+      await satisChangeQueue.flush();
     } else if (hasSharedServer) {
       const response = await fetch(REPAIR_API_URL, { cache: "no-store" });
       if (!response.ok) throw new Error("Nie udało się sprawdzić aktualnych wpisów serwisowych.");
@@ -5175,11 +5214,7 @@ async function backfillRepairDeviceNamesFromSerials({ persist = false } = {}) {
   if (!persist) return changedRecords.length;
 
   if (hasSupabaseConfig && currentSupabaseUser) {
-    for (let from = 0; from < changedRecords.length; from += SUPABASE_PAGE_SIZE) {
-      const rows = changedRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
-      const { error } = await supabaseClient.from(SUPABASE_REPAIR_TABLE).upsert(rows, { onConflict: "id" });
-      if (error) throw new Error(`Nie udało się uzupełnić modeli w serwisie: ${error.message}`);
-    }
+    await satisDataStore.commit(changedRecords.map((record) => satisDataStore.prepare(SUPABASE_REPAIR_TABLE, record)));
   } else if (hasSharedServer) {
     await saveRepairRecords();
   }
@@ -5254,13 +5289,7 @@ async function migrateLegacyDemoTrialNames() {
   if (!changedRecords.length) return 0;
 
   setConnectionStatus("syncing", "Ujednolicanie Demo...");
-  for (let from = 0; from < changedRecords.length; from += SUPABASE_PAGE_SIZE) {
-    const rows = changedRecords.slice(from, from + SUPABASE_PAGE_SIZE).map(supabaseRecordRow);
-    await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient.from(SUPABASE_DEVICE_TABLE).upsert(rows, { onConflict: "id" });
-      if (error) throw error;
-    });
-  }
+  await satisDataStore.commit(changedRecords.map((record) => satisDataStore.prepare(SUPABASE_DEVICE_TABLE, record)));
 
   const changedById = new Map(changedRecords.map((record) => [record.id, record]));
   demoRecords = demoRecords.map((record) => changedById.get(record.id) || record);
@@ -8535,20 +8564,14 @@ async function persistSinglePricingChange(record, replacement) {
     id = matches[0].id;
   }
   const { data: current, error: readError } = await supabaseClient.from(SUPABASE_PRICING_TABLE)
-    .select("id,data,updated_at").eq("id", id).maybeSingle();
+    .select("id,data,updated_at,revision").eq("id", id).maybeSingle();
   if (readError) throw new Error(readError.message);
   if (!current || pricingRecordFingerprint(current.data) !== pricingRecordFingerprint(record)) {
     throw new Error("Pozycja została zmieniona lub usunięta na innym komputerze. Odśwież cennik przed kolejną zmianą.");
   }
   const saved = replacement ? { ...replacement, id } : null;
-  let query = saved
-    ? supabaseClient.from(SUPABASE_PRICING_TABLE).update(supabaseRecordRow(saved))
-    : supabaseClient.from(SUPABASE_PRICING_TABLE).delete();
-  query = query.eq("id", id);
-  if (current.updated_at) query = query.eq("updated_at", current.updated_at);
-  const { data, error } = await query.select("id");
-  if (error) throw new Error(error.message);
-  if (data?.length !== 1) throw new Error("Nie potwierdzono zmiany. Sprawdź uprawnienia lub odśwież cennik, ponieważ wpis mógł zostać zmieniony.");
+  await satisDataStore.commit([satisDataStore.prepare(SUPABASE_PRICING_TABLE, saved || { id },
+    { expectedRevision: current.revision, delete: !saved })]);
   return saved;
 }
 
@@ -8782,6 +8805,7 @@ function setupPrimarySaveTracking(form, button, selectors) {
 }
 
 async function printPricingOffer() {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("offer");
   if (printPricingOfferBtn?.disabled) return;
   const savedEntry = await saveCurrentPricingOfferToHistory({ silent: true });
   if (!savedEntry) return;
@@ -8854,8 +8878,7 @@ function normalizePricingOfferHistory(entries) {
     normalizedEntries.push(normalizedEntry);
   });
   return normalizedEntries
-    .sort((left, right) => String(right.offerDate || right.savedAt).localeCompare(String(left.offerDate || left.savedAt)))
-    .slice(0, MAX_PRICING_OFFER_HISTORY);
+    .sort((left, right) => String(right.offerDate || right.savedAt).localeCompare(String(left.offerDate || left.savedAt)));
 }
 
 function loadPricingOfferHistory() {
@@ -8879,17 +8902,20 @@ function mergePricingOfferHistory(...historySets) {
 
 async function loadSupabasePricingOfferHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingOfferHistorySupabaseAvailable === false) return null;
+  const userId = currentSupabaseUser.id;
 
   try {
     const sharedHistory = await loadSupabaseTable(SUPABASE_OFFER_HISTORY_TABLE, normalizePricingOfferHistory);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     pricingOfferHistorySupabaseAvailable = true;
-    pricingOfferHistory = mergePricingOfferHistory(sharedHistory, pricingOfferHistory);
+    pricingOfferHistory = normalizePricingOfferHistory(sharedHistory);
     saveLocalPricingOfferHistory();
     rebuildCustomerDocumentIndex();
     rebuildCustomerNameSuggestions();
     return pricingOfferHistory;
   } catch (error) {
-    console.warn("Historia ofert działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    console.warn("Nie udało się pobrać historii ofert z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) pricingOfferHistorySupabaseAvailable = false;
     return null;
   }
@@ -8962,6 +8988,9 @@ function documentDraftId(kind) {
 
 function bindDocumentDraft(kind, entry) {
   documentDraftIdentities.set(kind, { id: entry.id, saved: true });
+  const table = { loan: SUPABASE_LOAN_CONTRACT_TABLE, offer: SUPABASE_OFFER_HISTORY_TABLE,
+    order: SUPABASE_ORDER_HISTORY_TABLE, complaint: SUPABASE_COMPLAINT_HISTORY_TABLE }[kind];
+  if (typeof satisDataStore !== "undefined" && table) satisDataStore?.beginEdit(table, entry.id);
 }
 
 async function refreshDocumentNextNumber(kind, date) {
@@ -9004,11 +9033,18 @@ async function refreshDocumentHistoryForSave(kind) {
   let history = { offer: pricingOfferHistory, order: pricingOrderHistory, complaint: pricingComplaintHistory }[kind];
   if (hasSupabaseConfig) {
     if (!currentSupabaseUser) throw new Error("Zaloguj się ponownie przed zapisem dokumentu.");
-    history = await loadSupabaseTable(tables[kind], entries => entries.map(normalizers[kind]).filter(Boolean));
+    await satisChangeQueue.flush();
+    history = { offer: pricingOfferHistory, order: pricingOrderHistory, complaint: pricingComplaintHistory }[kind];
+    const identity = documentDraftIdentities.get(kind);
+    if (identity?.id) {
+      const rows = await loadChangedSupabaseRecords(tables[kind], [identity.id]);
+      rows.forEach((row) => satisDataStore.observe(tables[kind], row));
+      history = history.filter((entry) => entry.id !== identity.id);
+      history.push(...rows.map((row) => normalizers[kind]({ ...row.data, id: row.id })).filter(Boolean));
+    }
     if (kind === "offer") pricingOfferHistory = history;
     if (kind === "order") pricingOrderHistory = history;
     if (kind === "complaint") pricingComplaintHistory = history;
-    if (kind !== "offer" && !repairWriteCheckInProgress) repairRecords = await loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse);
   }
   const identity = documentDraftIdentities.get(kind);
   if (identity?.saved && !history.some(entry => entry.id === identity.id)) {
@@ -9051,13 +9087,13 @@ function confirmNearbyDocumentSave(kind, snapshot, existingEntry) {
 async function persistPricingOfferHistoryEntry(entry) {
   if (!hasSupabaseConfig) return true;
   if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem oferty.");
-  const { error } = await supabaseClient.from(SUPABASE_OFFER_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-  if (error) throw new Error(`Oferta nie została potwierdzona przez serwer: ${error.message}`);
+  await upsertSupabaseRecord(SUPABASE_OFFER_HISTORY_TABLE, entry);
   pricingOfferHistorySupabaseAvailable = true;
   return true;
 }
 
 async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("offer");
   if (!requireDocumentCustomerName(offerCustomerInput)) return null;
   if (!beginDocumentSave("offer")) return null;
   try {
@@ -9088,7 +9124,7 @@ async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
     pricingOfferHistory = [
       historyEntry,
       ...pricingOfferHistory.filter((entry) => entry.id !== historyEntry.id)
-    ].slice(0, MAX_PRICING_OFFER_HISTORY);
+    ];
     saveLocalPricingOfferHistory();
     recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
     rebuildCustomerDocumentIndex();
@@ -9279,8 +9315,7 @@ function normalizePricingLoanHistory(entries) {
   });
 
   return normalizedEntries
-    .sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt)))
-    .slice(0, MAX_PRICING_LOAN_HISTORY);
+    .sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt)));
 }
 
 function pricingLoanHistoryDevices(entry) {
@@ -9421,7 +9456,9 @@ async function syncPricingLoansToDemo({ entries = pricingLoanHistory, persist = 
 
   try {
     if (persist) {
-      for (const change of changes) await persistDemoRecord(change.afterRecord);
+      if (hasSupabaseConfig) await satisDataStore.commit(changes.map((change) =>
+        satisDataStore.prepare(SUPABASE_DEVICE_TABLE, change.afterRecord)));
+      else for (const change of changes) await persistDemoRecord(change.afterRecord);
     }
     rebuildAfterDemoChange();
     if (renderChanges) {
@@ -9469,11 +9506,13 @@ function mergePricingLoanHistory(...historySets) {
 
 async function loadSupabasePricingLoanHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingLoanHistorySupabaseAvailable === false) return null;
+  const userId = currentSupabaseUser.id;
 
   try {
     const sharedHistory = await loadSupabaseTable(SUPABASE_LOAN_CONTRACT_TABLE, normalizePricingLoanHistory);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     pricingLoanHistorySupabaseAvailable = true;
-    pricingLoanHistory = mergePricingLoanHistory(sharedHistory, pricingLoanHistory);
+    pricingLoanHistory = normalizePricingLoanHistory(sharedHistory);
     saveLocalPricingLoanHistory();
     rebuildCustomerDocumentIndex();
     rebuildCustomerNameSuggestions();
@@ -9481,7 +9520,8 @@ async function loadSupabasePricingLoanHistory() {
     renderPricingLoanHistory();
     return pricingLoanHistory;
   } catch (error) {
-    console.warn("Historia umów działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    console.warn("Nie udało się pobrać historii umów z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) pricingLoanHistorySupabaseAvailable = false;
     renderPricingLoanHistory();
     return null;
@@ -9782,8 +9822,7 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
   if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem umowy.");
 
   try {
-    const { error } = await supabaseClient.from(SUPABASE_LOAN_CONTRACT_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-    if (error) throw error;
+    await upsertSupabaseRecord(SUPABASE_LOAN_CONTRACT_TABLE, entry);
     pricingLoanHistorySupabaseAvailable = true;
     return true;
   } catch (error) {
@@ -9797,6 +9836,7 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
 }
 
 async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("loan");
   if (pricingLoanSaveInProgress || !beginDocumentSave("loan")) return null;
   pricingLoanSaveInProgress = true;
   if (savePricingLoanBtn) savePricingLoanBtn.disabled = true;
@@ -9804,12 +9844,15 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   try {
     if (hasSupabaseConfig) {
       if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem umowy.");
-      // Kontrola obejmuje cala historie, nie tylko 300 ostatnich pozycji widocznych na liscie.
-      const history = await loadSupabaseTable(SUPABASE_LOAN_CONTRACT_TABLE,
-        (entries) => entries.map(normalizePricingLoanHistoryEntry).filter(Boolean));
-      const demos = await loadDemoRecords();
-      pricingLoanHistory = history;
-      demoRecords = demos;
+      await satisChangeQueue.flush();
+      const id = activePricingLoanHistoryId || documentDraftIdentities.get("loan")?.id;
+      if (id) {
+        const rows = await loadChangedSupabaseRecords(SUPABASE_LOAN_CONTRACT_TABLE, [id]);
+        rows.forEach((row) => satisDataStore.observe(SUPABASE_LOAN_CONTRACT_TABLE, row));
+        pricingLoanHistory = pricingLoanHistory.filter((entry) => entry.id !== id);
+        pricingLoanHistory.push(...rows.map((row) => normalizePricingLoanHistoryEntry({ ...row.data, id: row.id })).filter(Boolean));
+      }
+      // Global numbering and handover checks run transactionally in Supabase.
       pricingLoanHistorySupabaseAvailable = true;
     }
     const attemptedEntry = pricingLoanHistory.find(entry => entry.id === documentDraftIdentities.get("loan")?.id);
@@ -9886,7 +9929,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
     pricingLoanHistory = [
       historyEntry,
       ...pricingLoanHistory.filter((entry) => entry.id !== historyEntry.id)
-    ].slice(0, MAX_PRICING_LOAN_HISTORY);
+    ];
     activePricingLoanHistoryId = historyEntry.id;
     bindDocumentDraft("loan", historyEntry);
     saveLocalPricingLoanHistory();
@@ -9965,6 +10008,7 @@ function restorePricingLoanFromHistory(entry) {
   clearPostalAutofill(loanAddressInput, "loanPostalHint");
   const historyEntry = normalizePricingLoanHistoryEntry(entry);
   if (!historyEntry) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_LOAN_CONTRACT_TABLE, historyEntry.id);
   resetLoanAutofillState();
   activePricingLoanHistoryId = historyEntry.id;
   bindDocumentDraft("loan", historyEntry);
@@ -10014,26 +10058,25 @@ function restorePricingLoanFromHistory(entry) {
 
 async function deletePricingLoanHistoryEntry(id) {
   if (!canManagePricingLoanHistory()) return;
+  if (!pricingLoanHistory.some((entry) => entry.id === id)) return;
   if (!confirm("Usunąć tę umowę z historii?")) return;
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed usunięciem umowy.");
+      await deleteSupabaseRecord(SUPABASE_LOAN_CONTRACT_TABLE, id);
+    }
+  } catch (error) {
+    alert(`Nie udało się usunąć umowy z Supabase: ${error.message}`);
+    return;
+  }
   pricingLoanHistory = pricingLoanHistory.filter((entry) => entry.id !== id);
   if (activePricingLoanHistoryId === id) activePricingLoanHistoryId = "";
   saveLocalPricingLoanHistory();
   rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
   if (loanContractNumberInput?.dataset.autoNumber === "1") ensureLoanContractNumber({ force: true });
   renderPricingLoanHistory();
   renderDeviceViews();
-
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingLoanHistorySupabaseAvailable === false) return;
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_LOAN_CONTRACT_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    if (isMissingSupabaseTableError(error)) {
-      pricingLoanHistorySupabaseAvailable = false;
-      return;
-    }
-    alert(`Nie udało się usunąć umowy z Supabase: ${error.message}`);
-  }
 }
 
 function polishCountCategory(count) {
@@ -10195,6 +10238,77 @@ function updatePricingLoanDeadlineSummary(deadlines) {
     : "";
 }
 
+function historyRenderBatch(list, entries, filterKey) {
+  if (!list) return [];
+  if (list.historyRenderState?.filterKey !== filterKey) {
+    list.historyRenderState = { filterKey, limit: 500 };
+  }
+  return entries.slice(0, list.historyRenderState.limit);
+}
+
+function appendHistoryLoadMore(list, total, visible, render) {
+  if (!list || total <= visible) return;
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "reset-filters-btn history-load-more";
+  more.textContent = `Pokaż kolejne ${Math.min(500, total - visible)} (${visible} z ${total})`;
+  more.addEventListener("click", () => {
+    list.historyRenderState.limit += 500;
+    render();
+  });
+  list.append(more);
+}
+
+function pricingHistoryRenderFilterKey() {
+  return JSON.stringify([
+    normalize(pricingHistorySearchInput?.value || "").trim(),
+    pricingHistoryTypeFilter?.value || "",
+    pricingHistoryYearFilter?.value || "",
+    pricingHistoryLocationFilter?.value || ""
+  ]);
+}
+
+function pricingHistoryDuplicateLookup(entries, kind) {
+  const keysById = new Map();
+  const newestByKey = new Map();
+  const time = (entry) => String(kind === "loan" ? entry.savedAt : entry.savedAt || entry.date);
+  const sorted = [...entries].sort((left, right) => time(right).localeCompare(time(left)));
+  const rankById = new Map(sorted.map((entry, index) => [entry.id, index]));
+  sorted.forEach((entry) => {
+    const number = kind === "loan"
+      ? canonicalLoanContractNumber(entry.number) || normalize(entry.number)
+      : pricingDocumentNumberKey(entry.number);
+    const semantic = kind === "loan" ? pricingLoanSemanticKey(entry)
+      : kind === "offer" ? pricingOfferSnapshotKey(entry)
+        : kind === "order" ? pricingOrderSemanticKey(entry) : pricingComplaintSemanticKey(entry);
+    const keys = [];
+    if (number) keys.push(JSON.stringify(["number", number]));
+    if (semantic || kind === "loan") keys.push(JSON.stringify(["semantic", semantic]));
+    const date = kind === "complaint" ? isoDateForSave(entry.date) : "";
+    if (date) {
+      normalizePricingComplaintItems(entry).forEach((item) => {
+        const serial = serialDuplicateKey(item.serial);
+        if (serial) keys.push(JSON.stringify(["intake", date, serial]));
+      });
+    }
+    keysById.set(entry.id, keys);
+    new Set(keys).forEach((key) => {
+      if (!newestByKey.has(key)) newestByKey.set(key, []);
+      const matches = newestByKey.get(key);
+      // Two distinct IDs suffice to find the newest match excluding oneself.
+      if (matches.length < 2 && !matches.some((match) => match.id === entry.id)) matches.push(entry);
+    });
+  });
+  return (entry) => {
+    let newest = null;
+    (keysById.get(entry.id) || []).forEach((key) => {
+      const match = newestByKey.get(key).find((candidate) => candidate.id !== entry.id);
+      if (match && (!newest || rankById.get(match.id) < rankById.get(newest.id))) newest = match;
+    });
+    return newest;
+  };
+}
+
 function renderPricingLoanHistory(deferRelations = false) {
   if (!loanHistoryList || !loanHistoryCount) return;
   pricingHistorySelectableEntries.forEach((value, key) => {
@@ -10207,7 +10321,8 @@ function renderPricingLoanHistory(deferRelations = false) {
     if (!deferRelations) renderPricingHistoryRelations();
     return;
   }
-  const normalizedHistory = normalizePricingLoanHistory(pricingLoanHistory)
+  const completeLoanHistory = normalizePricingLoanHistory(pricingLoanHistory);
+  const normalizedHistory = completeLoanHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "loan"));
   const searchQuery = normalize(pricingHistorySearchInput?.value || "").trim();
   const deadlines = normalizedHistory
@@ -10215,16 +10330,13 @@ function renderPricingLoanHistory(deferRelations = false) {
     .filter(({ status }) => status);
   updatePricingLoanDeadlineSummary(deadlines);
   const deadlineById = new Map(deadlines.map(({ entry, status }) => [entry.id, status]));
-  const dataIssuesById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDataIssues(entry)]));
-  const completeLoanHistory = normalizePricingLoanHistory(pricingLoanHistory);
-  const duplicateById = new Map(normalizedHistory.map((entry) => [entry.id, pricingLoanDuplicateOf(entry, completeLoanHistory)]));
-  const history = normalizedHistory
+  const duplicateOf = pricingHistoryDuplicateLookup(completeLoanHistory, "loan");
+  const duplicateById = new Map(normalizedHistory.map((entry) => [entry.id, duplicateOf(entry)]));
+  const matchingHistory = normalizedHistory
     .filter((entry) => !searchQuery || pricingLoanHistorySearchText(entry).includes(searchQuery))
   .sort((left, right) => {
     const duplicateRankDifference = Number(Boolean(duplicateById.get(right.id))) - Number(Boolean(duplicateById.get(left.id)));
     if (duplicateRankDifference) return duplicateRankDifference;
-    const issueRankDifference = Number(dataIssuesById.get(right.id)?.length > 0) - Number(dataIssuesById.get(left.id)?.length > 0);
-    if (issueRankDifference) return issueRankDifference;
     const leftStatus = deadlineById.get(left.id);
     const rightStatus = deadlineById.get(right.id);
     const rank = (status) => status?.level === "overdue" ? 0 : status?.level === "ending" ? 1 : 2;
@@ -10233,9 +10345,11 @@ function renderPricingLoanHistory(deferRelations = false) {
     if (leftStatus && rightStatus && leftStatus.days !== rightStatus.days) return leftStatus.days - rightStatus.days;
     return String(right.savedAt).localeCompare(String(left.savedAt));
   });
+  const history = historyRenderBatch(loanHistoryList, matchingHistory, pricingHistoryRenderFilterKey());
+  const dataIssuesById = new Map(history.map((entry) => [entry.id, pricingLoanDataIssues(entry)]));
   loanHistoryCount.textContent = searchQuery
-    ? `${history.length} z ${normalizedHistory.length}`
-    : pricingLoanHistoryCountLabel(history.length);
+    ? `${matchingHistory.length} z ${normalizedHistory.length}`
+    : pricingLoanHistoryCountLabel(matchingHistory.length);
   if (!history.length) {
     const empty = document.createElement("p");
     empty.className = "loan-history-empty";
@@ -10342,6 +10456,7 @@ function renderPricingLoanHistory(deferRelations = false) {
     (entry) => itemById.get(entry.id),
     (entry) => entry.date || entry.periodFrom || entry.savedAt
   ));
+  appendHistoryLoadMore(loanHistoryList, matchingHistory.length, history.length, () => renderPricingLoanHistory());
   if (!deferRelations) renderPricingHistoryRelations();
 }
 
@@ -10629,12 +10744,15 @@ function showPricingHistoryPreview(kind, entry) {
 function renderPricingHistoryList(list, countElement, entries, emptyText, countLabels, createItem, {
   totalCount = entries.length,
   searchActive = false,
+  filterKey = pricingHistoryRenderFilterKey(),
+  render = renderPricingDocumentHistory,
   getDate = (entry) => entry.date || entry.offerDate || entry.savedAt || entry.createdAt
 } = {}) {
   if (!list || !countElement) return;
   countElement.textContent = searchActive
     ? `${entries.length} z ${totalCount}`
     : pricingDocumentHistoryCountLabel(entries.length, ...countLabels);
+  const visible = historyRenderBatch(list, entries, filterKey);
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "loan-history-empty";
@@ -10642,13 +10760,15 @@ function renderPricingHistoryList(list, countElement, entries, emptyText, countL
     list.replaceChildren(empty);
     return;
   }
-  list.replaceChildren(...yearGroupedListNodes(entries, createItem, getDate));
+  list.replaceChildren(...yearGroupedListNodes(visible, createItem, getDate));
+  appendHistoryLoadMore(list, entries.length, visible.length, render);
 }
 
 function restorePricingOfferFromHistory(entry) {
   if (documentSaveLocks.has("offer")) return;
   const saved = normalizePricingOfferHistoryEntry(entry);
   if (!saved) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_OFFER_HISTORY_TABLE, saved.id);
   bindDocumentDraft("offer", saved);
   if (offerCustomerInput) offerCustomerInput.value = saved.customer;
   setPricingOfferPatientGroup(saved.patientGroup);
@@ -10691,31 +10811,27 @@ async function deletePricingOfferHistoryEntry(id) {
   const label = entry.customer || formatDate(entry.offerDate) || "bez danych";
   if (!confirm(`Trwale usunąć ofertę ${label} z historii?`)) return;
 
-  const previousHistory = pricingOfferHistory.slice();
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed usunięciem oferty.");
+      await deleteSupabaseRecord(SUPABASE_OFFER_HISTORY_TABLE, id);
+    }
+  } catch (error) {
+    alert(`Nie udało się usunąć oferty z Supabase: ${error.message}`);
+    return;
+  }
   pricingOfferHistory = pricingOfferHistory.filter((item) => item.id !== id);
   saveLocalPricingOfferHistory();
   rebuildCustomerDocumentIndex();
   rebuildCustomerNameSuggestions();
   renderPricingDocumentHistory();
-
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingOfferHistorySupabaseAvailable === false) return;
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_OFFER_HISTORY_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    pricingOfferHistory = previousHistory;
-    saveLocalPricingOfferHistory();
-    rebuildCustomerDocumentIndex();
-    rebuildCustomerNameSuggestions();
-    renderPricingDocumentHistory();
-    alert(`Nie udało się usunąć oferty z Supabase: ${error.message}`);
-  }
 }
 
 function restorePricingOrderFromHistory(entry) {
   if (documentSaveLocks.has("order")) return;
   const saved = normalizePricingOrderHistoryEntry(entry);
   if (!saved) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_ORDER_HISTORY_TABLE, saved.id);
   bindDocumentDraft("order", saved);
   if (orderNumberInput) {
     orderNumberInput.value = saved.number;
@@ -10741,31 +10857,27 @@ async function deletePricingOrderHistoryEntry(id) {
   const label = [entry.number ? `nr ${entry.number}` : "", entry.customer].filter(Boolean).join(" - ") || "bez danych";
   if (!confirm(`Trwale usunąć zamówienie ${label} z historii?`)) return;
 
-  const previousHistory = pricingOrderHistory.slice();
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed usunięciem zamówienia.");
+      await deleteSupabaseRecord(SUPABASE_ORDER_HISTORY_TABLE, id);
+    }
+  } catch (error) {
+    alert(`Nie udało się usunąć zamówienia z Supabase: ${error.message}`);
+    return;
+  }
   pricingOrderHistory = pricingOrderHistory.filter((item) => item.id !== id);
   saveLocalPricingOrderHistory();
   rebuildCustomerDocumentIndex();
   rebuildCustomerNameSuggestions();
   renderPricingDocumentHistory();
-
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingOrderHistorySupabaseAvailable === false) return;
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_ORDER_HISTORY_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    pricingOrderHistory = previousHistory;
-    saveLocalPricingOrderHistory();
-    rebuildCustomerDocumentIndex();
-    rebuildCustomerNameSuggestions();
-    renderPricingDocumentHistory();
-    alert(`Nie udało się usunąć zamówienia z Supabase: ${error.message}`);
-  }
 }
 
 function restorePricingComplaintFromHistory(entry) {
   if (documentSaveLocks.has("complaint")) return;
   const saved = normalizePricingComplaintHistoryEntry(entry);
   if (!saved) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_COMPLAINT_HISTORY_TABLE, saved.id);
   bindDocumentDraft("complaint", saved);
   if (complaintNumberInput) {
     complaintNumberInput.value = saved.number;
@@ -10801,25 +10913,20 @@ async function deletePricingComplaintHistoryEntry(id) {
   const label = [entry.number ? `nr ${entry.number}` : "", entry.customer].filter(Boolean).join(" - ") || "bez danych";
   if (!confirm(`Trwale usunąć reklamację ${label} z historii?`)) return;
 
-  const previousHistory = pricingComplaintHistory.slice();
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed usunięciem reklamacji.");
+      await deleteSupabaseRecord(SUPABASE_COMPLAINT_HISTORY_TABLE, id);
+    }
+  } catch (error) {
+    alert(`Nie udało się usunąć reklamacji z Supabase: ${error.message}`);
+    return;
+  }
   pricingComplaintHistory = pricingComplaintHistory.filter((item) => item.id !== id);
   saveLocalPricingComplaintHistory();
   rebuildCustomerNameSuggestions();
   rebuildCustomerDocumentIndex();
   renderPricingDocumentHistory();
-
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingComplaintHistorySupabaseAvailable === false) return;
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_COMPLAINT_HISTORY_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    pricingComplaintHistory = previousHistory;
-    saveLocalPricingComplaintHistory();
-    rebuildCustomerNameSuggestions();
-    rebuildCustomerDocumentIndex();
-    renderPricingDocumentHistory();
-    alert(`Nie udało się usunąć reklamacji z Supabase: ${error.message}`);
-  }
 }
 
 function pricingOfferHistorySearchText(entry) {
@@ -10988,13 +11095,14 @@ function renderPricingHistoryRelations() {
     .map(candidate => ({ ...candidate, reason: pricingHistoryRelationReason(selected, candidate) }))
     .filter(candidate => candidate.reason)
     .sort((a, b) => String(pricingHistoryEntryDate(b.entry, b.kind)).localeCompare(String(pricingHistoryEntryDate(a.entry, a.kind))) || String(b.entry.savedAt || "").localeCompare(String(a.entry.savedAt || "")));
+  const visibleRelated = historyRenderBatch(list, related, pricingHistorySelectedKey);
   if (!related.length) {
     empty("Nie znaleziono powiązanych dokumentów.");
     return;
   }
   const titles = { loan: "Umowa", offer: "Oferta", order: "Zamówienie", complaint: "Reklamacja" };
   const open = { loan: restorePricingLoanFromHistory, offer: restorePricingOfferFromHistory, order: restorePricingOrderFromHistory, complaint: restorePricingComplaintFromHistory };
-  related.forEach(({ entry, kind: relatedKind, reason }) => {
+  visibleRelated.forEach(({ entry, kind: relatedKind, reason }) => {
     const details = relatedKind === "loan" ? pricingLoanHistoryDeviceLabel(entry)
       : (entry.items || []).map(item => [item.model || item.tradeName || item.productName || item.description, item.serial].filter(Boolean).join(" · ")).filter(Boolean).join(" | ");
     const item = createPricingDocumentHistoryItem(entry, {
@@ -11006,6 +11114,7 @@ function renderPricingHistoryRelations() {
     });
     list.append(item);
   });
+  appendHistoryLoadMore(list, related.length, visibleRelated.length, renderPricingHistoryRelations);
 }
 
 function syncPricingHistoryFilters() {
@@ -11049,13 +11158,11 @@ function renderPricingDocumentHistory() {
   const completeOfferHistory = normalizePricingOfferHistory(pricingOfferHistory);
   const offersAll = completeOfferHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "offer"));
-  const offerIssuesById = new Map(offersAll.map((entry) => [entry.id, pricingDocumentDataIssues(entry, "offer")]));
-  const offerDuplicateById = new Map(offersAll.map((entry) => [entry.id, pricingDocumentDuplicateOf(entry, completeOfferHistory, "offer")]));
+  const offerDuplicateOf = pricingHistoryDuplicateLookup(completeOfferHistory, "offer");
   const offers = offersAll
     .filter((entry) => historyMatches(entry, pricingOfferHistorySearchText))
     .sort((left, right) => (
-      Number(Boolean(offerDuplicateById.get(right.id))) - Number(Boolean(offerDuplicateById.get(left.id))) ||
-      Number(Boolean(offerIssuesById.get(right.id)?.length)) - Number(Boolean(offerIssuesById.get(left.id)?.length)) ||
+      Number(Boolean(offerDuplicateOf(right))) - Number(Boolean(offerDuplicateOf(left))) ||
       String(right.offerDate || right.savedAt).localeCompare(String(left.offerDate || left.savedAt))
     ));
   renderPricingHistoryList(
@@ -11081,8 +11188,8 @@ function renderPricingDocumentHistory() {
             : item.side === "L" ? "Aparat L" : "Aparat P";
         return `${typeLabel}: ${item.model || item.tradeName || "-"}`;
       }).join(" | ") || "Brak aparatu",
-      warning: offerIssuesById.get(entry.id),
-      duplicateOf: offerDuplicateById.get(entry.id),
+      warning: pricingDocumentDataIssues(entry, "offer"),
+      duplicateOf: offerDuplicateOf(entry),
       duplicateLabel: "oferty",
       onPreview: () => showPricingHistoryPreview("offer", entry),
       onOpen: () => restorePricingOfferFromHistory(entry),
@@ -11094,13 +11201,11 @@ function renderPricingDocumentHistory() {
   const completeOrderHistory = normalizePricingOrderHistory(pricingOrderHistory);
   const ordersAll = completeOrderHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "order"));
-  const orderIssuesById = new Map(ordersAll.map((entry) => [entry.id, pricingDocumentDataIssues(entry, "order")]));
-  const orderDuplicateById = new Map(ordersAll.map((entry) => [entry.id, pricingDocumentDuplicateOf(entry, completeOrderHistory, "order")]));
+  const orderDuplicateOf = pricingHistoryDuplicateLookup(completeOrderHistory, "order");
   const orders = ordersAll
     .filter((entry) => historyMatches(entry, pricingOrderHistorySearchText))
     .sort((left, right) => (
-      Number(Boolean(orderDuplicateById.get(right.id))) - Number(Boolean(orderDuplicateById.get(left.id))) ||
-      Number(Boolean(orderIssuesById.get(right.id)?.length)) - Number(Boolean(orderIssuesById.get(left.id)?.length)) ||
+      Number(Boolean(orderDuplicateOf(right))) - Number(Boolean(orderDuplicateOf(left))) ||
       String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt))
     ));
   renderPricingHistoryList(
@@ -11114,8 +11219,8 @@ function renderPricingDocumentHistory() {
       title: entry.customer || "Zamówienie bez osoby",
       meta: [entry.number ? `nr ${entry.number}` : "", entry.date ? formatDate(entry.date) : "", pricingHistoryEntryLocationValue(entry, "order")].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [pricingOrderSideLabel(item.side), pricingOrderTypeLabel(item.type), item.description, item.quantity ? `x${item.quantity}` : "", item.cost !== "" ? formatServiceCost(item.cost) : ""].filter(Boolean).join(" ")).join(" | ") || "Brak pozycji",
-      warning: orderIssuesById.get(entry.id),
-      duplicateOf: orderDuplicateById.get(entry.id),
+      warning: pricingDocumentDataIssues(entry, "order"),
+      duplicateOf: orderDuplicateOf(entry),
       duplicateLabel: "zamówienia",
       onPreview: () => showPricingHistoryPreview("order", entry),
       onOpen: () => restorePricingOrderFromHistory(entry),
@@ -11127,13 +11232,11 @@ function renderPricingDocumentHistory() {
   const completeComplaintHistory = normalizePricingComplaintHistory(pricingComplaintHistory);
   const complaintsAll = completeComplaintHistory
     .filter((entry) => pricingHistoryEntryMatchesFilters(entry, "complaint"));
-  const complaintIssuesById = new Map(complaintsAll.map((entry) => [entry.id, pricingDocumentDataIssues(entry, "complaint")]));
-  const complaintDuplicateById = new Map(complaintsAll.map((entry) => [entry.id, pricingDocumentDuplicateOf(entry, completeComplaintHistory, "complaint")]));
+  const complaintDuplicateOf = pricingHistoryDuplicateLookup(completeComplaintHistory, "complaint");
   const complaints = complaintsAll
     .filter((entry) => historyMatches(entry, pricingComplaintHistorySearchText))
     .sort((left, right) => (
-      Number(Boolean(complaintDuplicateById.get(right.id))) - Number(Boolean(complaintDuplicateById.get(left.id))) ||
-      Number(Boolean(complaintIssuesById.get(right.id)?.length)) - Number(Boolean(complaintIssuesById.get(left.id)?.length)) ||
+      Number(Boolean(complaintDuplicateOf(right))) - Number(Boolean(complaintDuplicateOf(left))) ||
       String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt))
     ));
   renderPricingHistoryList(
@@ -11152,8 +11255,8 @@ function renderPricingDocumentHistory() {
         entry.repairCost !== "" ? `koszt: ${formatServiceCost(entry.repairCost)}` : ""
       ].filter(Boolean).join(" | "),
       details: entry.items.map((item) => [item.productName || pricingComplaintProductTypeLabel(item.productType), item.serial].filter(Boolean).join(" · ")).join(" | ") || "Brak produktu",
-      warning: complaintIssuesById.get(entry.id),
-      duplicateOf: complaintDuplicateById.get(entry.id),
+      warning: pricingDocumentDataIssues(entry, "complaint"),
+      duplicateOf: complaintDuplicateOf(entry),
       duplicateLabel: "reklamacji",
       onPreview: () => showPricingHistoryPreview("complaint", entry),
       onOpen: () => restorePricingComplaintFromHistory(entry),
@@ -12276,6 +12379,7 @@ function prepareLoanPrintCopies() {
 }
 
 async function printPricingLoan() {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("loan");
   if (!validatePricingLoanForAction()) return;
   renderPricingLoan();
   const savedEntry = await saveCurrentPricingLoanToHistory({ silent: true });
@@ -12536,8 +12640,7 @@ function normalizePricingPcprList(entries) {
   });
 
   return normalizedEntries
-    .sort((left, right) => String(right.createdAt || right.savedAt).localeCompare(String(left.createdAt || left.savedAt)))
-    .slice(0, MAX_PRICING_PCPR_LIST);
+    .sort((left, right) => String(right.createdAt || right.savedAt).localeCompare(String(left.createdAt || left.savedAt)));
 }
 
 function loadPricingPcprList() {
@@ -12561,9 +12664,11 @@ function mergePricingPcprList(...listSets) {
 
 async function loadSupabasePricingPcprList() {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return null;
+  const userId = currentSupabaseUser.id;
 
   try {
     const sharedList = await loadSupabaseTable(SUPABASE_PCPR_LIST_TABLE, normalizePricingPcprList);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     pricingPcprListSupabaseAvailable = true;
     // A successful cloud load replaces the browser cache so remotely deleted
     // entries do not return on another computer.
@@ -12573,7 +12678,8 @@ async function loadSupabasePricingPcprList() {
     renderPricingPcprList();
     return pricingPcprList;
   } catch (error) {
-    console.warn("Lista PCPR działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    console.warn("Nie udało się pobrać listy PCPR z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) pricingPcprListSupabaseAvailable = false;
     renderPricingPcprList();
     return null;
@@ -12581,22 +12687,10 @@ async function loadSupabasePricingPcprList() {
 }
 
 async function persistPricingPcprItem(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return;
-
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_PCPR_LIST_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-    if (error) throw error;
-    pricingPcprListSupabaseAvailable = true;
-  } catch (error) {
-    if (isMissingSupabaseTableError(error)) {
-      pricingPcprListSupabaseAvailable = false;
-      console.warn("PCPR zapisany lokalnie. Brakuje tabeli Supabase:", error.message);
-      if (!silent) alert("PCPR zapisany lokalnie. Żeby lista była wspólna dla użytkowników, uruchom w Supabase aktualny plik supabase-schema.sql.");
-      return;
-    }
-    console.warn("PCPR zapisany lokalnie, bez synchronizacji Supabase:", error.message);
-    if (!silent) alert("PCPR zapisany lokalnie. Supabase nie przyjął wpisu, sprawdź połączenie.");
-  }
+  if (!hasSupabaseConfig) return;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem PCPR.");
+  await upsertSupabaseRecord(SUPABASE_PCPR_LIST_TABLE, entry);
+  pricingPcprListSupabaseAvailable = true;
 }
 
 function selectedPcprEar() {
@@ -12716,6 +12810,7 @@ function editPricingPcprItem(id) {
   clearPostalAutofill(pcprPostalCodeInput, "pcprPostalHint");
   const entry = normalizePricingPcprItem(pricingPcprList.find((item) => item.id === id));
   if (!entry) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_PCPR_LIST_TABLE, entry.id);
   activePricingPcprEditId = entry.id;
   setPcprOffice(entry.office);
   if (pcprPlaceInput) {
@@ -12753,7 +12848,7 @@ function addPricingPcprItem(event) {
   pricingPcprList = [
     entry,
     ...pricingPcprList.filter((item) => item.id !== entry.id)
-  ].slice(0, MAX_PRICING_PCPR_LIST);
+  ];
   saveLocalPricingPcprList();
   renderPricingPcprList();
   persistPricingPcprItem(entry);
@@ -12784,26 +12879,20 @@ async function deletePricingPcprItem(id) {
   if (!entry) return;
   if (!confirm(`Usunąć PCPR: ${entry.customer || "bez nazwiska"}?`)) return;
 
-  const previousList = pricingPcprList;
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed usunięciem PCPR.");
+      await deleteSupabaseRecord(SUPABASE_PCPR_LIST_TABLE, id);
+    }
+  } catch (error) {
+    alert(`Nie udało się usunąć PCPR z Supabase: ${error.message}`);
+    return;
+  }
   pricingPcprList = pricingPcprList.filter((item) => item.id !== id);
   saveLocalPricingPcprList();
+  rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
   renderPricingPcprList();
-
-  if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return;
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_PCPR_LIST_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    pricingPcprList = previousList;
-    saveLocalPricingPcprList();
-    renderPricingPcprList();
-    if (isMissingSupabaseTableError(error)) {
-      pricingPcprListSupabaseAvailable = false;
-      alert("Nie udało się usunąć PCPR, bo brakuje tabeli w Supabase.");
-      return;
-    }
-    alert(`Nie udało się usunąć PCPR z Supabase: ${error.message}`);
-  }
 }
 
 function pricingPcprListCountLabel(count) {
@@ -12963,6 +13052,7 @@ function renderPricingPcprList() {
   if (!pcprList || !pcprListCount) return;
   const allItems = normalizePricingPcprList(pricingPcprList);
   const list = filteredPricingPcprList(allItems);
+  const visible = historyRenderBatch(pcprList, list, JSON.stringify([pricingPcprPlaceFilter, pricingPcprOfficeFilter]));
   pcprListCount.textContent = list.length === allItems.length
     ? pricingPcprListCountLabel(list.length)
     : `${pricingPcprListCountLabel(list.length)} z ${allItems.length}`;
@@ -12975,10 +13065,11 @@ function renderPricingPcprList() {
   }
 
   pcprList.replaceChildren(...yearGroupedListNodes(
-    list,
+    visible,
     createPricingPcprItem,
     (entry) => entry.createdAt || entry.savedAt
   ));
+  appendHistoryLoadMore(pcprList, list.length, visible.length, renderPricingPcprList);
 }
 
 function pricingOrderTypeLabel(value) {
@@ -13106,8 +13197,7 @@ function normalizePricingOrderHistory(entries) {
     normalizedEntries.push(normalizedEntry);
   });
   return normalizedEntries
-    .sort((left, right) => String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt)))
-    .slice(0, MAX_PRICING_ORDER_HISTORY);
+    .sort((left, right) => String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt)));
 }
 
 function loadPricingOrderHistory() {
@@ -13131,17 +13221,20 @@ function mergePricingOrderHistory(...historySets) {
 
 async function loadSupabasePricingOrderHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingOrderHistorySupabaseAvailable === false) return null;
+  const userId = currentSupabaseUser.id;
 
   try {
     const sharedHistory = await loadSupabaseTable(SUPABASE_ORDER_HISTORY_TABLE, normalizePricingOrderHistory);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     pricingOrderHistorySupabaseAvailable = true;
-    pricingOrderHistory = mergePricingOrderHistory(sharedHistory, pricingOrderHistory);
+    pricingOrderHistory = normalizePricingOrderHistory(sharedHistory);
     saveLocalPricingOrderHistory();
     rebuildCustomerNameSuggestions();
     if (orderNumberInput?.dataset.autoNumber === "1") ensurePricingOrderNumber({ force: true });
     return pricingOrderHistory;
   } catch (error) {
-    console.warn("Historia zamówień działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    console.warn("Nie udało się pobrać historii zamówień z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) pricingOrderHistorySupabaseAvailable = false;
     return null;
   }
@@ -13327,8 +13420,7 @@ async function persistPricingOrderHistoryEntry(entry) {
 
   try {
     await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient.from(SUPABASE_ORDER_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-      if (error) throw error;
+      await upsertSupabaseRecord(SUPABASE_ORDER_HISTORY_TABLE, entry);
     });
     pricingOrderHistorySupabaseAvailable = true;
     return true;
@@ -13339,6 +13431,7 @@ async function persistPricingOrderHistoryEntry(entry) {
 }
 
 async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("order");
   if (!requireDocumentCustomerName(orderCustomerInput)) return null;
   if (!beginDocumentSave("order")) return null;
   try {
@@ -13392,7 +13485,7 @@ async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
     pricingOrderHistory = [
       historyEntry,
       ...pricingOrderHistory.filter((entry) => entry.id !== historyEntry.id)
-    ].slice(0, MAX_PRICING_ORDER_HISTORY);
+    ];
     saveLocalPricingOrderHistory();
     recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
     rebuildCustomerNameSuggestions();
@@ -13776,9 +13869,12 @@ function pricingComplaintRepairRecord(entry) {
 }
 
 function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
-  if (!existingRecord) return incomingRecord;
+  if (!existingRecord) return { ...incomingRecord, sourceServiceCost: incomingRecord.serviceCost };
   const sourceDocumentSummary = incomingRecord.sourceDocumentSummary || incomingRecord.notes || "";
   const manualNotes = repairDocumentManualNotes(existingRecord);
+  const sourceCostUnchanged = existingRecord.sourceServiceCost === undefined
+    ? !normalizeServiceCost(existingRecord.serviceCost)
+    : normalizeServiceCost(existingRecord.serviceCost) === normalizeServiceCost(existingRecord.sourceServiceCost);
   return normalizeRepairRecordForUse({
     ...existingRecord,
     sourceDocumentType: incomingRecord.sourceDocumentType || existingRecord.sourceDocumentType,
@@ -13794,17 +13890,18 @@ function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
     serialNumber2: incomingRecord.serialNumber2 || "",
     sourceSerialNumbers: incomingRecord.sourceSerialNumbers || [],
     sourceDocumentSummary,
-    serviceCost: incomingRecord.serviceCost,
+    serviceCost: sourceCostUnchanged ? incomingRecord.serviceCost : existingRecord.serviceCost,
+    sourceServiceCost: incomingRecord.serviceCost,
     status: existingRecord.status || incomingRecord.status,
     notes: joinTransferNotes(sourceDocumentSummary, manualNotes)
   });
 }
 
-async function upsertRepairRecordFromDocument(incomingRecord) {
+async function upsertRepairRecordFromDocument(incomingRecord, { quiet = false } = {}) {
   if (!incomingRecord) return null;
   const duplicate = repairDocumentDuplicate(incomingRecord);
   if (duplicate) {
-    alert(repairDuplicateMessage(duplicate));
+    if (!quiet) alert(repairDuplicateMessage(duplicate));
     return null;
   }
   const existingIndex = repairRecords.findIndex((record) =>
@@ -13820,6 +13917,7 @@ async function upsertRepairRecordFromDocument(incomingRecord) {
   if (!existingRecord && incomingRecord.sourceDocumentId) {
     savedRecord.id = `document-${incomingRecord.sourceDocumentType}-${incomingRecord.sourceDocumentId}`;
   }
+  if (existingRecord && JSON.stringify(existingRecord) === JSON.stringify(savedRecord)) return existingRecord;
   const isNewRecord = !existingRecord;
   const previousRepairRecord = existingRecord ? auditSnapshot(existingRecord) : null;
   const previousRecords = repairRecords;
@@ -13841,7 +13939,7 @@ async function upsertRepairRecordFromDocument(incomingRecord) {
     writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     rebuildAfterRepairChange();
     render();
-    alert(`Dokument jest w historii, ale nie udało się zapisać wpisu w serwisie: ${error.message || "błąd połączenia"}. Ponów zapis tego samego dokumentu.`);
+    if (!quiet) alert(`Dokument jest w historii, ale nie udało się zapisać wpisu w serwisie: ${error.message || "błąd połączenia"}. Synchronizacja zostanie ponowiona.`);
     return null;
   }
   rebuildAfterRepairChange();
@@ -14265,6 +14363,7 @@ function resetPricingOrderForm() {
 }
 
 async function savePricingOrderAndRepairNotebook() {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("order");
   renderPricingOrder();
   if (!requireDocumentCustomerName(orderCustomerInput)) return null;
   const formItems = pricingOrderFormItems();
@@ -14282,6 +14381,7 @@ async function savePricingOrderAndRepairNotebook() {
 }
 
 async function printPricingOrder() {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("order");
   if (printPricingOrderBtn?.disabled) return;
   if (!requireDocumentCustomerName(orderCustomerInput)) return;
   renderPricingOrder();
@@ -14509,8 +14609,7 @@ function normalizePricingComplaintHistory(entries) {
       normalizedEntries.push(normalizedEntry);
     });
   return normalizedEntries
-    .sort((left, right) => String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt)))
-    .slice(0, MAX_PRICING_COMPLAINT_HISTORY);
+    .sort((left, right) => String(right.date || right.savedAt).localeCompare(String(left.date || left.savedAt)));
 }
 
 function loadPricingComplaintHistory() {
@@ -14534,9 +14633,11 @@ function mergePricingComplaintHistory(...historySets) {
 
 async function loadSupabasePricingComplaintHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingComplaintHistorySupabaseAvailable === false) return null;
+  const userId = currentSupabaseUser.id;
 
   try {
     const sharedHistory = await loadSupabaseTable(SUPABASE_COMPLAINT_HISTORY_TABLE, normalizePricingComplaintHistory);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     pricingComplaintHistorySupabaseAvailable = true;
     // Supabase is authoritative after a successful load. Keeping local extras
     // here resurrected complaints deleted from another computer.
@@ -14546,7 +14647,8 @@ async function loadSupabasePricingComplaintHistory() {
     if (complaintNumberInput?.dataset.autoNumber === "1") ensurePricingComplaintNumber({ force: true });
     return pricingComplaintHistory;
   } catch (error) {
-    console.warn("Historia reklamacji działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    console.warn("Nie udało się pobrać historii reklamacji z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) pricingComplaintHistorySupabaseAvailable = false;
     return null;
   }
@@ -14559,8 +14661,7 @@ async function persistPricingComplaintHistoryEntry(entry) {
 
   try {
     await retrySupabaseWrite(async () => {
-      const { error } = await supabaseClient.from(SUPABASE_COMPLAINT_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-      if (error) throw error;
+      await upsertSupabaseRecord(SUPABASE_COMPLAINT_HISTORY_TABLE, entry);
     });
     pricingComplaintHistorySupabaseAvailable = true;
     return true;
@@ -14791,6 +14892,7 @@ function pricingComplaintsShareIntake(left, right) {
 }
 
 async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("complaint");
   if (!requireDocumentCustomerName(complaintCustomerInput)) return null;
   if (!beginDocumentSave("complaint")) return null;
   try {
@@ -14835,7 +14937,7 @@ async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
     pricingComplaintHistory = [
       historyEntry,
       ...pricingComplaintHistory.filter((entry) => entry.id !== historyEntry.id)
-    ].slice(0, MAX_PRICING_COMPLAINT_HISTORY);
+    ];
     saveLocalPricingComplaintHistory();
     recordDocumentLocationUsage(historyEntry.location, historyEntry.workstation);
     rebuildCustomerNameSuggestions();
@@ -15338,6 +15440,7 @@ function resetPricingComplaintForm() {
 }
 
 async function savePricingComplaintAndRepairNotebook() {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("complaint");
   renderPricingComplaint();
   const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return null;
@@ -15351,6 +15454,7 @@ async function savePricingComplaintAndRepairNotebook() {
 }
 
 async function printPricingComplaint() {
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("complaint");
   renderPricingComplaint();
   const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
   if (!historyEntry) return;
@@ -19043,8 +19147,7 @@ function normalizeCapdHistory(entries) {
     if (!current || String(normalizedEntry.savedAt).localeCompare(String(current.savedAt)) > 0) byId.set(normalizedEntry.id, normalizedEntry);
   });
   return [...byId.values()]
-    .sort((left, right) => String(right.testDate || right.savedAt).localeCompare(String(left.testDate || left.savedAt)))
-    .slice(0, MAX_CAPD_HISTORY);
+    .sort((left, right) => String(right.testDate || right.savedAt).localeCompare(String(left.testDate || left.savedAt)));
 }
 
 function loadCapdHistory() {
@@ -19064,15 +19167,18 @@ function saveLocalCapdHistory() {
 
 async function loadSupabaseCapdHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || capdHistorySupabaseAvailable === false) return null;
+  const userId = currentSupabaseUser.id;
   try {
     const sharedHistory = await loadSupabaseTable(SUPABASE_CAPD_HISTORY_TABLE, normalizeCapdHistory);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     capdHistorySupabaseAvailable = true;
     capdHistory = normalizeCapdHistory(sharedHistory);
     saveLocalCapdHistory();
     renderCapdHistory();
     return capdHistory;
   } catch (error) {
-    console.warn("Historia APD działa lokalnie, bez tabeli Supabase:", error?.message || error);
+    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    console.warn("Nie udało się pobrać historii APD z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) capdHistorySupabaseAvailable = false;
     renderCapdHistory();
     return null;
@@ -19111,8 +19217,7 @@ async function persistCapdHistoryEntry(entry) {
   if (capdHistorySupabaseAvailable === false) {
     throw new Error("Brakuje tabeli capd_history w Supabase. Uruchom plik supabase-capd-history.sql w SQL Editorze.");
   }
-  const { error } = await supabaseClient.from(SUPABASE_CAPD_HISTORY_TABLE).upsert(supabaseRecordRow(entry), { onConflict: "id" });
-  if (error) throw error;
+  await upsertSupabaseRecord(SUPABASE_CAPD_HISTORY_TABLE, entry);
   capdHistorySupabaseAvailable = true;
 }
 
@@ -19165,6 +19270,7 @@ async function saveCurrentCapdToHistory() {
 function restoreCapdHistoryEntry(entry) {
   const historyEntry = normalizeCapdHistoryEntry(entry);
   if (!historyEntry) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_CAPD_HISTORY_TABLE, historyEntry.id);
   activeCapdHistoryId = historyEntry.id;
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
@@ -19197,21 +19303,19 @@ async function deleteCapdHistoryEntry(id) {
   if (!canViewPrivateModules()) return;
   const entry = capdHistory.find((item) => item.id === id);
   if (!entry || !confirm(`Usunąć badanie APD: ${entry.patient}, ${formatDate(entry.testDate)}?`)) return;
-  const previousHistory = capdHistory.slice();
+  try {
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser) throw new Error("Zaloguj się przed usunięciem badania APD.");
+      await deleteSupabaseRecord(SUPABASE_CAPD_HISTORY_TABLE, id);
+    }
+  } catch (error) {
+    alert(`Nie udało się usunąć badania APD: ${error.message}`);
+    return;
+  }
   capdHistory = capdHistory.filter((item) => item.id !== id);
   if (activeCapdHistoryId === id) activeCapdHistoryId = "";
   saveLocalCapdHistory();
   renderCapdHistory();
-  if (!hasSupabaseConfig || !currentSupabaseUser) return;
-  try {
-    const { error } = await supabaseClient.from(SUPABASE_CAPD_HISTORY_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    capdHistory = previousHistory;
-    saveLocalCapdHistory();
-    renderCapdHistory();
-    alert(`Nie udało się usunąć badania APD: ${error.message}`);
-  }
 }
 
 function capdHistoryCountLabel(count) {
@@ -19229,7 +19333,7 @@ function maskSensitiveIdentifier(value, visibleDigits = 4) {
 function renderCapdHistory() {
   if (!capdHistoryList) return;
   const query = normalize(capdHistorySearchInput?.value || "");
-  const visibleHistory = capdHistory.filter((entry) => !query || normalize([
+  const matchingHistory = capdHistory.filter((entry) => !query || normalize([
     entry.patient,
     entry.pesel,
     entry.birthDate,
@@ -19237,8 +19341,9 @@ function renderCapdHistory() {
     entry.description,
     ...entry.results.map((result) => `${result.code} ${result.value}`)
   ].join(" ")).includes(query));
-  if (capdHistoryCount) capdHistoryCount.textContent = capdHistoryCountLabel(visibleHistory.length);
-  if (capdHistoryEmpty) capdHistoryEmpty.hidden = visibleHistory.length > 0;
+  const visibleHistory = historyRenderBatch(capdHistoryList, matchingHistory, query);
+  if (capdHistoryCount) capdHistoryCount.textContent = capdHistoryCountLabel(matchingHistory.length);
+  if (capdHistoryEmpty) capdHistoryEmpty.hidden = matchingHistory.length > 0;
 
   const cards = visibleHistory.map((entry) => {
     const card = document.createElement("article");
@@ -19283,6 +19388,7 @@ function renderCapdHistory() {
     (entry) => cardById.get(entry.id),
     (entry) => entry.testDate || entry.savedAt
   ));
+  appendHistoryLoadMore(capdHistoryList, matchingHistory.length, visibleHistory.length, renderCapdHistory);
 }
 
 function resetCapdForm() {
@@ -19441,6 +19547,14 @@ function vacationSaturdayLinksOnDate(isoDate, previewRequest = null) {
 }
 
 function normalizeVacationEmployee(entry) {
+  if (entry?.redacted === true) {
+    return {
+      id: String(entry.id), name: titleCaseName(entry.name || ""), year: Number(entry.year),
+      unit: entry.unit === "HOURS" ? "HOURS" : "DAYS", workstation: entry.workstation || "",
+      remaining: entry.remaining != null && Number.isFinite(Number(entry.remaining)) ? Number(entry.remaining) : null,
+      redacted: true
+    };
+  }
   const name = titleCaseName(entry?.name || entry?.employeeName || "");
   const year = Number(entry?.year) || new Date().getFullYear();
   const unit = normalizeVacationEmployeeUnit(entry?.unit, name);
@@ -19499,7 +19613,7 @@ function normalizeVacationRequest(entry) {
   const dateFrom = isoDateForSave(entry?.dateFrom);
   const dateTo = isoDateForSave(entry?.dateTo || entry?.dateFrom);
   if (!employeeName || !dateFrom || !dateTo) return null;
-  const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "NA ŻĄDANIE", "NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE", "INNY"].includes(entry?.type)
+  const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "ZA WEEKEND", "NA ŻĄDANIE", "NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE", "INNY", "ZAJĘTOŚĆ", "TERMIN GODZINOWY"].includes(entry?.type)
     ? entry.type
     : "WYPOCZYNKOWY";
   const status = ["OCZEKUJE", "ZATWIERDZONY", "ODRZUCONY"].includes(entry?.status) ? entry.status : "OCZEKUJE";
@@ -19513,6 +19627,11 @@ function normalizeVacationRequest(entry) {
     dateFrom,
     dateTo,
     saturdayDate: isoDateForSave(entry?.saturdayDate),
+    compensationDate: isoDateForSave(entry?.compensationDate),
+    compensationAmount: Math.max(0, Number(entry?.compensationAmount) || 0),
+    weekendAccountingVersion: Number(entry?.weekendAccountingVersion) || 0,
+    weekendReviewAcknowledged: entry?.weekendReviewAcknowledged === true,
+    redacted: entry?.redacted === true,
     notes: normalizeLoanHistoryText(entry?.notes),
     days: calculatedDays,
     hours: Math.max(0, Number(entry?.hours) || 0),
@@ -19536,6 +19655,11 @@ function saveLocalVacationData() {
 }
 
 function loadLocalVacationData() {
+  if (hasSupabaseConfig || !canViewPrivateModules()) {
+    vacationEmployees = [];
+    vacationRequests = [];
+    return;
+  }
   try {
     vacationEmployees = normalizeVacationEmployees(JSON.parse(readSensitiveStorage(VACATION_EMPLOYEES_STORAGE_KEY) || "[]"));
     vacationRequests = normalizeVacationRequests(JSON.parse(readSensitiveStorage(VACATION_REQUESTS_STORAGE_KEY) || "[]"));
@@ -19547,37 +19671,89 @@ function loadLocalVacationData() {
 }
 
 async function loadVacationData() {
+  const authUser = currentSupabaseUser;
+  const userId = currentSupabaseUser?.id || "";
+  const sequence = (loadVacationData.sequence || 0) + 1;
+  loadVacationData.sequence = sequence;
+  loadVacationData.access = null;
   loadLocalVacationData();
   if (hasSupabaseConfig && currentSupabaseUser) {
     try {
-      const [employees, requests] = await Promise.all([
-        loadSupabaseTable(SUPABASE_VACATION_EMPLOYEE_TABLE, normalizeVacationEmployees),
-        loadSupabaseTable(SUPABASE_VACATION_REQUEST_TABLE, normalizeVacationRequests)
-      ]);
-      vacationEmployees = employees;
-      vacationRequests = requests;
+      const { data, error } = await supabaseClient.rpc("vacation_read_authorized");
+      if (error) throw error;
+      if (sequence !== loadVacationData.sequence || authUser !== currentSupabaseUser || userId !== currentSupabaseUser?.id) return;
+      if (data?.userId !== userId || !Array.isArray(data.employees) || !Array.isArray(data.requests)
+        || !Array.isArray(data.employeeIds)) throw new Error("Nieprawidłowa odpowiedź uprawnień urlopowych.");
+      for (const [table, rows] of [[SUPABASE_VACATION_EMPLOYEE_TABLE, data.employees], [SUPABASE_VACATION_REQUEST_TABLE, data.requests]]) {
+        const store = typeof satisDataStore !== "undefined" ? satisDataStore : null;
+        rows.filter((row) => !row.data?.redacted).forEach((row) => store?.observe?.(table, row));
+      }
+      vacationEmployees = normalizeVacationEmployees(data.employees.map((row) => ({ ...row.data, id: row.id })));
+      vacationRequests = normalizeVacationRequests(data.requests.map((row) => ({ ...row.data, id: row.id })));
+      loadVacationData.access = { userId, employeeIds: data.employeeIds };
+      loadVacationData.watermark = data.watermark || "";
       vacationEmployeesSupabaseAvailable = true;
       vacationRequestsSupabaseAvailable = true;
       saveLocalVacationData();
     } catch (error) {
-      console.warn("Urlopy działają lokalnie do czasu uruchomienia tabel Supabase:", error?.message || error);
-      if (isMissingSupabaseTableError(error)) {
-        vacationEmployeesSupabaseAvailable = false;
-        vacationRequestsSupabaseAvailable = false;
-      }
+      if (sequence !== loadVacationData.sequence || authUser !== currentSupabaseUser || userId !== currentSupabaseUser?.id) return;
+      vacationEmployees = [];
+      vacationRequests = [];
+      vacationEmployeesSupabaseAvailable = false;
+      vacationRequestsSupabaseAvailable = false;
+      loadVacationData.error = "Nie można wczytać urlopów. Sprawdź połączenie i migrację supabase-audit-vacation.sql.";
+      console.warn(loadVacationData.error, error?.message || error);
     }
   }
+  if (loadVacationData.access) loadVacationData.error = "";
   renderVacationModule();
+  if (typeof refreshCurrentDateWidget === "function") refreshCurrentDateWidget();
+  scheduleVacationPolling();
+}
+
+function scheduleVacationPolling() {
+  if (typeof window === "undefined") return;
+  window.clearTimeout(scheduleVacationPolling.timer);
+  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  scheduleVacationPolling.timer = window.setTimeout(pollVacationChanges, 60000);
+}
+
+async function pollVacationChanges() {
+  const authUser = currentSupabaseUser;
+  const userId = currentSupabaseUser?.id;
+  if (!hasSupabaseConfig || !userId) return;
+  // Raw vacation realtime is disabled. Poll only a scalar watermark while visible.
+  if (document.visibilityState === "hidden" || submitVacationRequest.pending) {
+    scheduleVacationPolling();
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient.rpc("vacation_change_version");
+    if (authUser !== currentSupabaseUser || userId !== currentSupabaseUser?.id) return;
+    if (error) throw error;
+    if (data !== loadVacationData.watermark) await loadVacationData();
+  } catch (error) {
+    if (authUser !== currentSupabaseUser || userId !== currentSupabaseUser?.id) return;
+    vacationEmployees = [];
+    vacationRequests = [];
+    loadVacationData.access = null;
+    loadVacationData.watermark = "";
+    loadVacationData.error = "Nie można odświeżyć uprawnień urlopowych. Sprawdź połączenie i zaloguj się ponownie.";
+    vacationEmployeesSupabaseAvailable = false;
+    vacationRequestsSupabaseAvailable = false;
+    renderVacationModule();
+    if (typeof refreshCurrentDateWidget === "function") refreshCurrentDateWidget();
+  } finally {
+    scheduleVacationPolling();
+  }
 }
 
 async function persistVacationRecord(tableName, record) {
-  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  if (!hasSupabaseConfig && canViewPrivateModules()) return;
+  if (!currentSupabaseUser) throw new Error("Zaloguj się ponownie przed zapisaniem urlopu.");
   const available = tableName === SUPABASE_VACATION_EMPLOYEE_TABLE ? vacationEmployeesSupabaseAvailable : vacationRequestsSupabaseAvailable;
-  if (available === false) throw new Error("Brakuje tabel urlopowych w Supabase. Uruchom zaktualizowany plik supabase-schema.sql.");
-  await retrySupabaseWrite(async () => {
-    const { error } = await supabaseClient.from(tableName).upsert(supabaseRecordRow(record), { onConflict: "id" });
-    if (error) throw error;
-  });
+  if (available !== true) throw new Error("Wczytaj urlopy ponownie. Wymagana migracja supabase-audit-vacation.sql.");
+  await upsertSupabaseRecord(tableName, record);
   if (tableName === SUPABASE_VACATION_EMPLOYEE_TABLE) vacationEmployeesSupabaseAvailable = true;
   else vacationRequestsSupabaseAvailable = true;
 }
@@ -19596,23 +19772,23 @@ function selectedVacationEmployee() {
 
 function vacationMyEmployeeId() {
   if (canViewPrivateModules()) return "";
-  const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
-  const workstationKey = ["T12", "P50", "P63"].find((key) => workstation.includes(key)) || "";
-  const assignedEmployee = workstationKey
-    ? vacationEmployeesForYear().find((employee) => employee.workstation === workstationKey)
-    : null;
-  return assignedEmployee?.id || localStorage.getItem(VACATION_MY_EMPLOYEE_STORAGE_KEY) || "";
+  const access = loadVacationData.access;
+  if (!access || access.userId !== currentSupabaseUser?.id) return "";
+  return vacationEmployeesForYear().find((employee) => access.employeeIds.includes(employee.id))?.id || "";
 }
 
 function setVacationMyEmployeeId(employeeId) {
-  if (canViewPrivateModules()) return;
-  localStorage.setItem(VACATION_MY_EMPLOYEE_STORAGE_KEY, employeeId);
+  // Selection is not identity. Only the authenticated RPC can supply a mapping.
+  return employeeId === vacationMyEmployeeId();
 }
 
 function vacationTypeLabel(type) {
   return {
     WYPOCZYNKOWY: "Urlop wypoczynkowy",
     "ZA SOBOTĘ": "Dzień wolny za sobotę",
+    "ZA WEEKEND": "Wolne za pracę w weekend",
+    "ZAJĘTOŚĆ": "Nieobecność",
+    "TERMIN GODZINOWY": "Termin pracownika",
     "NA ŻĄDANIE": "Urlop na żądanie",
     NADGODZINY: "Nadgodziny",
     "WCZEŚNIEJSZE WYJŚCIE": "Wcześniejsze wyjście",
@@ -19621,7 +19797,7 @@ function vacationTypeLabel(type) {
 }
 
 function vacationTypeUsesHours(type) {
-  return ["NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE"].includes(type);
+  return ["NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE", "TERMIN GODZINOWY"].includes(type);
 }
 
 function vacationRequestUsesHours(request, employee = null) {
@@ -19651,11 +19827,16 @@ function vacationWeekendDatesFromNotes(request) {
 }
 
 function vacationCompensatesWeekend(request) {
-  return vacationWeekendDatesFromNotes(request).length > 0;
+  return request?.type === "ZA WEEKEND" && Boolean(request.compensationDate) && request.compensationAmount > 0;
 }
 
 function vacationUsesAnnualAllowance(request) {
-  return ["WYPOCZYNKOWY", "NA ŻĄDANIE"].includes(request.type) && !vacationCompensatesWeekend(request);
+  return ["WYPOCZYNKOWY", "NA ŻĄDANIE"].includes(request.type);
+}
+
+function vacationLegacyWeekendNeedsReview(request) {
+  return vacationUsesAnnualAllowance(request) && !request.weekendAccountingVersion
+    && !request.weekendReviewAcknowledged && vacationWeekendDatesFromNotes(request).length > 0;
 }
 
 function renderVacationYearOptions() {
@@ -19672,6 +19853,26 @@ function renderVacationYearOptions() {
 
 function renderVacationEmployees() {
   if (!vacationEmployeeInput) return;
+  if (canViewPrivateModules() && !renderVacationEmployees.editHooksInstalled) {
+    const pinEmployee = (id, restart = false) => {
+      if (canViewPrivateModules() && id && (restart || renderVacationEmployees.pinnedEmployeeId !== id)) {
+        if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_VACATION_EMPLOYEE_TABLE, id);
+        renderVacationEmployees.pinnedEmployeeId = id;
+      }
+    };
+    vacationEmployeeList?.addEventListener("click", (event) => {
+      pinEmployee(event.target.closest("[data-employee-id]")?.dataset.employeeId, true);
+    }, true);
+    vacationNewEmployeeInput?.addEventListener("change", () => {
+      const employee = vacationEmployeesForYear().find((item) => normalize(item.name) === normalize(vacationNewEmployeeInput.value));
+      pinEmployee(employee?.id);
+    });
+    vacationAllowanceInput?.addEventListener("focus", () => {
+      const employee = vacationEmployeesForYear().find((item) => normalize(item.name) === normalize(vacationNewEmployeeInput?.value));
+      pinEmployee(employee?.id);
+    });
+    renderVacationEmployees.editHooksInstalled = true;
+  }
   const previousValue = vacationEmployeeInput.value;
   const employees = vacationEmployeesForYear();
   const myEmployeeId = vacationMyEmployeeId();
@@ -19696,9 +19897,8 @@ function renderVacationEmployees() {
     name.title = employee.name;
     const allowance = document.createElement("span");
     allowance.className = "vacation-employee-allowance";
-    allowance.textContent = vacationEmployeeUsesHours(employee)
-      ? `${formatVacationAmount(employee.allowance)} godz.`
-      : `${formatVacationAmount(employee.allowance)} dni`;
+    const amount = employee.redacted ? employee.remaining : employee.allowance;
+    allowance.textContent = `${employee.redacted ? "Pozostało: " : ""}${amount == null ? "-" : formatVacationAmount(amount)} ${vacationEmployeeUsesHours(employee) ? "godz." : "dni"}`;
     item.append(name, allowance);
     if (canViewPrivateModules()) {
       const usagePercent = vacationEmployeeUsagePercent(employee);
@@ -19850,13 +20050,13 @@ function renderVacationSummary() {
     .reduce((sum, request) => sum + requestAmount(request), 0) : 0;
   const allowance = employee?.allowance ?? null;
   if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : formatVacationAmount(allowance);
-  if (vacationUsedTotal) vacationUsedTotal.textContent = employee ? formatVacationAmount(used) : "-";
-  const remaining = employee ? Math.max(0, allowance - used) : null;
+  if (vacationUsedTotal) vacationUsedTotal.textContent = employee && !employee.redacted ? formatVacationAmount(used) : "-";
+  const remaining = employee?.redacted ? employee.remaining : employee ? Math.max(0, allowance - used) : null;
   if (vacationRemainingTotal) vacationRemainingTotal.textContent = remaining === null ? "-" : formatVacationAmount(remaining);
   if (vacationRemainingCard) {
     vacationRemainingCard.dataset.tone = remaining === null ? "none" : remaining <= 3 ? "critical" : remaining <= 7 ? "warning" : "good";
   }
-  if (vacationPendingTotal) vacationPendingTotal.textContent = employee ? formatVacationAmount(pending) : "-";
+  if (vacationPendingTotal) vacationPendingTotal.textContent = employee && !employee.redacted ? formatVacationAmount(pending) : "-";
   if (vacationAllowanceUnitLabel) vacationAllowanceUnitLabel.textContent = usesHours ? "godzin w roku" : "dni w roku";
   const expected = employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
   const planBalance = expected === null ? null : expected - used;
@@ -19896,7 +20096,19 @@ function updateVacationUnitFields() {
   const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
   const requiresHours = usesHours || vacationTypeUsesHours(type);
   if (vacationHoursField) vacationHoursField.hidden = !requiresHours;
-  if (vacationHoursInput) vacationHoursInput.required = requiresHours;
+  if (vacationHoursInput) {
+    vacationHoursInput.required = requiresHours;
+    vacationHoursInput.max = String(type === "NADGODZINY" ? 16 : type === "WCZEŚNIEJSZE WYJŚCIE" ? 8 : 200);
+  }
+  const compensationField = document.querySelector?.("#vacationCompensationField");
+  if (compensationField) compensationField.hidden = type !== "ZA WEEKEND";
+  const compensationAmount = document.querySelector?.("#vacationCompensationAmount");
+  if (compensationAmount) {
+    compensationAmount.max = usesHours ? "8" : "1";
+    compensationAmount.step = usesHours ? "0.5" : "1";
+  }
+  const compensationUnit = document.querySelector?.("#vacationCompensationUnit");
+  if (compensationUnit) compensationUnit.textContent = usesHours ? "Liczba godzin rekompensaty" : "Liczba dni rekompensaty";
   if (vacationHoursLabel) vacationHoursLabel.textContent = type === "NADGODZINY"
     ? "Liczba nadgodzin"
     : type === "WCZEŚNIEJSZE WYJŚCIE"
@@ -20110,7 +20322,7 @@ function renderVacationHistory() {
   vacationHistoryCount.textContent = polishCountLabel(entries.length, "wniosek", "wnioski", "wniosków");
   vacationHistoryEmpty.hidden = entries.length > 0;
   const rows = entries.map((request) => {
-    const canViewDetails = canViewPrivateModules() || request.employeeId === vacationMyEmployeeId();
+    const canViewDetails = !request.redacted && (canViewPrivateModules() || request.employeeId === vacationMyEmployeeId());
     const compensatesWeekend = vacationCompensatesWeekend(request);
     const requestEmployee = vacationEmployees.find((employee) => employee.id === request.employeeId);
     const usesHours = vacationRequestUsesHours(request, requestEmployee);
@@ -20144,7 +20356,7 @@ function renderVacationHistory() {
     daysCell.className = "vacation-history-days";
     const days = document.createElement("strong");
     const amount = usesHours ? request.hours : request.days;
-    days.textContent = usesHours ? `${formatVacationAmount(amount)} godz.` : String(amount);
+    days.textContent = !canViewDetails ? "-" : usesHours ? `${formatVacationAmount(amount)} godz.` : String(amount);
     days.title = compensatesWeekend
       ? `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}; nie pomniejsza urlopu rocznego`
       : `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
@@ -20196,6 +20408,12 @@ function renderVacationHistory() {
         ? [`Za ${formatDate(request.saturdayDate)}`, request.notes].filter(Boolean).join(". ")
         : request.notes || "-";
     notesCell.classList.toggle("vacation-private-detail", !canViewDetails);
+    if (canViewDetails && compensatesWeekend) {
+      notesCell.textContent = `Za pracę ${formatDate(request.compensationDate)}: ${formatVacationAmount(request.compensationAmount)} ${usesHours ? "godz." : "dni"}. ${request.notes || ""}`;
+    }
+    if (canViewPrivateModules() && vacationLegacyWeekendNeedsReview(request)) {
+      notesCell.textContent += " [Do sprawdzenia: stara uwaga o weekendzie. Obecnie wpis pomniejsza urlop. Sprawdź rozliczenie w edycji.]";
+    }
     row.append(notesCell);
     return row;
   });
@@ -20218,6 +20436,19 @@ function renderVacationModule() {
   renderVacationSummary();
   renderVacationPendingReminder();
   renderVacationHistory();
+  updateVacationAccessMessage();
+}
+
+function updateVacationAccessMessage() {
+  const message = document.querySelector?.("#vacationAccessMessage");
+  const unmapped = !canViewPrivateModules() && !vacationMyEmployeeId();
+  if (message) {
+    message.textContent = loadVacationData.error || (unmapped
+      ? "Kalendarz i pozostały urlop są dostępne. Aby wysłać wniosek i zobaczyć własne szczegóły, zaloguj się na osobiste konto przypisane przez SATIS do pracownika. Wspólne konto gabinet i wybór stanowiska nie potwierdzają tożsamości."
+      : "");
+    message.hidden = !message.textContent;
+  }
+  if (submitVacationRequestBtn) submitVacationRequestBtn.disabled = Boolean(submitVacationRequest.pending || unmapped || loadVacationData.error);
 }
 
 function updateVacationSaturdayField() {
@@ -20228,7 +20459,9 @@ function updateVacationSaturdayField() {
   updateVacationOwnerLeaveField();
 }
 
-function resetVacationForm() {
+function resetVacationForm({ afterSave = false } = {}) {
+  if (submitVacationRequest.pending && !afterSave) return;
+  submitVacationRequest.draft = null;
   activeVacationRequestId = "";
   vacationForm?.reset();
   if (submitVacationRequestBtn) submitVacationRequestBtn.textContent = "Wyślij wniosek";
@@ -20238,12 +20471,16 @@ function resetVacationForm() {
   updateVacationSaturdayField();
   renderVacationSummary();
   renderVacationHistory();
+  const reviewField = document.querySelector?.("#vacationWeekendReviewField");
+  if (reviewField) reviewField.hidden = true;
 }
 
 function editVacationRequest(id) {
+  if (submitVacationRequest.pending) return;
   if (!canViewPrivateModules()) return;
   const request = vacationRequests.find((item) => item.id === id);
   if (!request) return;
+  if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_VACATION_REQUEST_TABLE, id);
   activeVacationRequestId = request.id;
   if (vacationYearInput) vacationYearInput.value = String(request.year);
   renderVacationModule();
@@ -20253,6 +20490,14 @@ function editVacationRequest(id) {
   if (vacationNotesInput) vacationNotesInput.value = request.notes || "";
   if (vacationHoursInput) vacationHoursInput.value = request.hours ? formatVacationAmount(request.hours).replace(",", ".") : "";
   if (vacationOwnerLeaveInput) vacationOwnerLeaveInput.checked = request.ownerLeave;
+  const compensationDate = document.querySelector?.("#vacationCompensationDate");
+  const compensationAmount = document.querySelector?.("#vacationCompensationAmount");
+  const reviewField = document.querySelector?.("#vacationWeekendReviewField");
+  const reviewInput = document.querySelector?.("#vacationWeekendReviewInput");
+  if (compensationDate) compensationDate.value = request.compensationDate || "";
+  if (compensationAmount) compensationAmount.value = request.compensationAmount || "";
+  if (reviewField) reviewField.hidden = !vacationLegacyWeekendNeedsReview(request);
+  if (reviewInput) reviewInput.checked = request.weekendReviewAcknowledged;
   setDateInputValue(vacationDateFromInput, request.dateFrom);
   setDateInputValue(vacationDateToInput, request.dateTo);
   renderVacationEmployees();
@@ -20268,6 +20513,7 @@ function editVacationRequest(id) {
 
 async function saveVacationEmployee() {
   if (!canViewPrivateModules()) return;
+  const authUser = currentSupabaseUser;
   const name = titleCaseName(vacationNewEmployeeInput?.value || "");
   const allowance = Number(vacationAllowanceInput?.value);
   const unit = normalizeVacationEmployeeUnit("", name);
@@ -20290,23 +20536,23 @@ async function saveVacationEmployee() {
     savedAt: new Date().toISOString(),
     savedBy: currentSupabaseUser?.email || ""
   });
-  const previous = vacationEmployees;
-  vacationEmployees = normalizeVacationEmployees([employee, ...vacationEmployees.filter((item) => item.id !== employee.id)]);
-  saveLocalVacationData();
-  renderVacationModule();
   try {
     await persistVacationRecord(SUPABASE_VACATION_EMPLOYEE_TABLE, employee);
-    if (vacationNewEmployeeInput) vacationNewEmployeeInput.value = "";
-  } catch (error) {
-    vacationEmployees = previous;
+    if (authUser !== currentSupabaseUser) return;
+    vacationEmployees = normalizeVacationEmployees([employee, ...vacationEmployees.filter((item) => item.id !== employee.id)]);
     saveLocalVacationData();
     renderVacationModule();
+    renderVacationEmployees.pinnedEmployeeId = "";
+    if (vacationNewEmployeeInput) vacationNewEmployeeInput.value = "";
+  } catch (error) {
+    if (authUser !== currentSupabaseUser) return;
     alert(error.message);
   }
 }
 
 async function deleteVacationEmployee(id) {
   if (!canViewPrivateModules()) return;
+  const authUser = currentSupabaseUser;
   const employee = vacationEmployees.find((item) => item.id === id);
   if (!employee) return;
   const relatedRequests = vacationRequests.filter((request) => request.employeeId === id);
@@ -20315,41 +20561,38 @@ async function deleteVacationEmployee(id) {
     : "";
   if (!confirm(`Usunąć pracownika ${employee.name}?${historyInfo}`)) return;
 
-  const previousEmployees = vacationEmployees;
-  const previousRequests = vacationRequests;
-  vacationEmployees = vacationEmployees.filter((item) => item.id !== id);
-  vacationRequests = vacationRequests.filter((request) => request.employeeId !== id);
-  saveLocalVacationData();
-  renderVacationModule();
-
-  if (!hasSupabaseConfig || !currentSupabaseUser) return;
   try {
-    if (relatedRequests.length && vacationRequestsSupabaseAvailable !== false) {
-      const { error: requestsError } = await supabaseClient
-        .from(SUPABASE_VACATION_REQUEST_TABLE)
-        .delete()
-        .in("id", relatedRequests.map((request) => request.id));
-      if (requestsError) throw requestsError;
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser || vacationEmployeesSupabaseAvailable !== true || vacationRequestsSupabaseAvailable !== true) {
+        throw new Error("Wczytaj urlopy ponownie przed usunięciem pracownika.");
+      }
+      const store = typeof satisDataStore !== "undefined" ? satisDataStore : null;
+      if (!store) throw new Error("Brakuje bezpiecznego modułu zapisu. Odśwież aplikację.");
+      await store.commit([
+        ...relatedRequests.map((request) => store.prepare(SUPABASE_VACATION_REQUEST_TABLE, { id: request.id }, { delete: true })),
+        store.prepare(SUPABASE_VACATION_EMPLOYEE_TABLE, { id }, { delete: true })
+      ]);
     }
-    if (vacationEmployeesSupabaseAvailable !== false) {
-      const { error: employeeError } = await supabaseClient
-        .from(SUPABASE_VACATION_EMPLOYEE_TABLE)
-        .delete()
-        .eq("id", id);
-      if (employeeError) throw employeeError;
-    }
-  } catch (error) {
-    vacationEmployees = previousEmployees;
-    vacationRequests = previousRequests;
+    if (authUser !== currentSupabaseUser) return;
+    vacationEmployees = vacationEmployees.filter((item) => item.id !== id);
+    vacationRequests = vacationRequests.filter((request) => request.employeeId !== id);
     saveLocalVacationData();
     renderVacationModule();
+  } catch (error) {
+    if (authUser !== currentSupabaseUser) return;
     alert(`Nie udało się usunąć pracownika: ${error.message}`);
   }
 }
 
 async function submitVacationRequest(event) {
   event?.preventDefault();
+  if (submitVacationRequest.pending) return;
+  const authUser = currentSupabaseUser;
   const employee = selectedVacationEmployee();
+  if (!canViewPrivateModules() && (!vacationMyEmployeeId() || employee?.id !== vacationMyEmployeeId())) {
+    alert("Wniosek można wysłać tylko dla pracownika przypisanego przez SATIS do Twojego osobistego konta. Wspólne konto gabinet i wybór stanowiska nie potwierdzają tożsamości.");
+    return;
+  }
   const dateFrom = isoDateForSave(vacationDateFromInput?.value);
   const dateTo = isoDateForSave(vacationDateToInput?.value || vacationDateFromInput?.value);
   if (!employee || !dateFrom || !dateTo) {
@@ -20369,6 +20612,7 @@ async function submitVacationRequest(event) {
     return;
   }
   const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  if (["ZAJĘTOŚĆ", "TERMIN GODZINOWY"].includes(type)) return;
   if (vacationTypeUsesHours(type) && dateFrom !== dateTo) {
     alert(`${vacationTypeLabel(type)}: zgłoszenie dotyczy jednego dnia. Ustaw tę samą datę od i do.`);
     vacationDateToInput?.focus();
@@ -20383,8 +20627,10 @@ async function submitVacationRequest(event) {
   const usesHours = vacationEmployeeUsesHours(employee);
   const requiresHours = usesHours || vacationTypeUsesHours(type);
   const hours = requiresHours ? Number(String(vacationHoursInput?.value || "").replace(",", ".")) : 0;
-  if (requiresHours && (!Number.isFinite(hours) || hours < 0.5 || hours > 200)) {
-    alert("Podaj liczbę godzin od 0,5 do 200.");
+  const maximumHours = type === "NADGODZINY" ? 16 : type === "WCZEŚNIEJSZE WYJŚCIE" ? 8
+    : Math.min(200, vacationWorkingDays(dateFrom, dateTo) * 8);
+  if (requiresHours && (!Number.isFinite(hours) || hours < 0.5 || hours > maximumHours || !Number.isInteger(hours * 2))) {
+    alert(`Podaj liczbę godzin od 0,5 do ${maximumHours}, co 0,5 godziny.`);
     vacationHoursInput?.focus();
     return;
   }
@@ -20396,6 +20642,21 @@ async function submitVacationRequest(event) {
   const editedRequest = canViewPrivateModules()
     ? vacationRequests.find((request) => request.id === activeVacationRequestId) || null
     : null;
+  const compensationDate = type === "ZA WEEKEND" ? isoDateForSave(document.querySelector?.("#vacationCompensationDate")?.value) : "";
+  const compensationAmount = type === "ZA WEEKEND" ? Number(document.querySelector?.("#vacationCompensationAmount")?.value) : 0;
+  if (type === "ZA WEEKEND") {
+    const weekend = parseIsoDate(compensationDate);
+    const amount = usesHours ? hours : vacationWorkingDays(dateFrom, dateTo);
+    if (!weekend || ![0, 6].includes(weekend.getDay()) || compensationDate >= dateFrom
+      || !compensationAmount || compensationAmount !== amount || compensationAmount > (usesHours ? 8 : 1)) {
+      alert("Podaj wcześniejszą datę pracy w weekend oraz liczbę dni/godzin równą temu wpisowi (maksymalnie 1 dzień lub 8 godzin). Pozostały urlop zgłoś osobno.");
+      return;
+    }
+  }
+  if (type === "ZA SOBOTĘ" && dateFrom !== dateTo) {
+    alert("Dzień wolny za sobotę musi dotyczyć jednego dnia.");
+    return;
+  }
   const existingSaturdayRequest = type === "ZA SOBOTĘ"
     ? vacationRequests.find((request) =>
       request.id !== editedRequest?.id &&
@@ -20413,9 +20674,12 @@ async function submitVacationRequest(event) {
   const ownerLeave = isEditing
     ? Boolean(vacationOwnerLeaveInput?.checked)
     : Boolean(canViewPrivateModules() && vacationOwnerLeaveInput?.checked);
+  if (!submitVacationRequest.draft || submitVacationRequest.draft.userId !== currentSupabaseUser?.id) {
+    submitVacationRequest.draft = { id: makeId(), requestedAt: new Date().toISOString(), userId: currentSupabaseUser?.id };
+  }
   const request = normalizeVacationRequest({
     ...editedRequest,
-    id: editedRequest?.id || makeId(),
+    id: editedRequest?.id || submitVacationRequest.draft.id,
     employeeId: employee.id,
     employeeName: employee.name,
     year: Number(dateFrom.slice(0, 4)),
@@ -20423,37 +20687,55 @@ async function submitVacationRequest(event) {
     dateFrom,
     dateTo,
     saturdayDate,
+    compensationDate,
+    compensationAmount,
+    weekendAccountingVersion: editedRequest?.weekendAccountingVersion || (isEditing ? 0 : 1),
+    weekendReviewAcknowledged: Boolean(canViewPrivateModules() && document.querySelector?.("#vacationWeekendReviewInput")?.checked),
     notes: vacationNotesInput?.value,
     days: vacationTypeUsesHours(type) ? 0 : type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo),
     hours,
     status: editedRequest?.status || (ownerLeave ? "ZATWIERDZONY" : "OCZEKUJE"),
-    requestedAt: editedRequest?.requestedAt || new Date().toISOString(),
+    requestedAt: editedRequest?.requestedAt || submitVacationRequest.draft.requestedAt,
     requestedBy: editedRequest?.requestedBy || currentSupabaseUser?.email || "",
     ownerLeave,
-    decidedAt: editedRequest?.decidedAt || (ownerLeave ? new Date().toISOString() : ""),
+    decidedAt: editedRequest?.decidedAt || (ownerLeave ? submitVacationRequest.draft.requestedAt : ""),
     decidedBy: editedRequest?.decidedBy || (ownerLeave ? currentSupabaseUser?.email || "" : "")
   });
-  if (!canViewPrivateModules()) setVacationMyEmployeeId(employee.id);
-  const previous = vacationRequests;
-  vacationRequests = normalizeVacationRequests([request, ...vacationRequests.filter((item) => item.id !== request.id)]);
-  saveLocalVacationData();
-  renderVacationModule();
+  const duplicate = vacationRequests.find((item) => item.id !== request.id && !item.redacted
+    && item.status !== "ODRZUCONY" && item.employeeId === request.employeeId
+    && item.type === request.type && item.dateFrom === request.dateFrom && item.dateTo === request.dateTo);
+  if (duplicate) {
+    alert("Taki wpis już istnieje lub oczekuje na zatwierdzenie. Popraw istniejący wpis zamiast wysyłać duplikat.");
+    return;
+  }
+  submitVacationRequest.pending = true;
+  if (typeof submitVacationRequestBtn !== "undefined" && submitVacationRequestBtn) submitVacationRequestBtn.disabled = true;
+  if (typeof resetVacationFormBtn !== "undefined" && resetVacationFormBtn) resetVacationFormBtn.disabled = true;
   try {
     await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
-    resetVacationForm();
+    if (authUser !== currentSupabaseUser || submitVacationRequest.draft?.userId !== currentSupabaseUser?.id) return;
+    vacationRequests = normalizeVacationRequests([request, ...vacationRequests.filter((item) => item.id !== request.id)]);
+    saveLocalVacationData();
+    renderVacationModule();
+    resetVacationForm({ afterSave: true });
+    if (typeof hasSupabaseConfig !== "undefined" && hasSupabaseConfig) await loadVacationData();
+    if (authUser !== currentSupabaseUser) return;
     alert(isEditing
       ? "Wpis został poprawiony."
       : request.status === "ZATWIERDZONY" ? "Wpis został zapisany." : "Wniosek został wysłany do zatwierdzenia.");
   } catch (error) {
-    vacationRequests = previous;
-    saveLocalVacationData();
-    renderVacationModule();
+    if (authUser !== currentSupabaseUser) return;
     alert(error.message);
+  } finally {
+    submitVacationRequest.pending = false;
+    if (typeof submitVacationRequestBtn !== "undefined" && submitVacationRequestBtn) submitVacationRequestBtn.disabled = false;
+    if (typeof resetVacationFormBtn !== "undefined" && resetVacationFormBtn) resetVacationFormBtn.disabled = false;
   }
 }
 
 async function decideVacationRequest(id, status) {
   if (!canViewPrivateModules()) return;
+  const authUser = currentSupabaseUser;
   const current = vacationRequests.find((request) => request.id === id);
   if (!current) return;
   const holidayIssue = status === "ZATWIERDZONY" ? vacationHolidayDateIssue(current.dateFrom, current.dateTo) : null;
@@ -20467,36 +20749,34 @@ async function decideVacationRequest(id, status) {
     decidedAt: new Date().toISOString(),
     decidedBy: currentSupabaseUser?.email || ""
   });
-  const previous = vacationRequests;
-  vacationRequests = vacationRequests.map((request) => request.id === id ? updated : request);
-  saveLocalVacationData();
-  renderVacationModule();
   try {
     await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, updated);
-  } catch (error) {
-    vacationRequests = previous;
+    if (authUser !== currentSupabaseUser) return;
+    vacationRequests = vacationRequests.map((request) => request.id === id ? updated : request);
     saveLocalVacationData();
     renderVacationModule();
+  } catch (error) {
+    if (authUser !== currentSupabaseUser) return;
     alert(error.message);
   }
 }
 
 async function deleteVacationRequest(id) {
   if (!canViewPrivateModules()) return;
+  const authUser = currentSupabaseUser;
   const current = vacationRequests.find((request) => request.id === id);
   if (!current || !confirm(`Usunąć wpis urlopowy: ${current.employeeName}, ${formatDate(current.dateFrom)}?`)) return;
-  const previous = vacationRequests;
-  vacationRequests = vacationRequests.filter((request) => request.id !== id);
-  saveLocalVacationData();
-  renderVacationModule();
-  if (!hasSupabaseConfig || !currentSupabaseUser || vacationRequestsSupabaseAvailable === false) return;
   try {
-    const { error } = await supabaseClient.from(SUPABASE_VACATION_REQUEST_TABLE).delete().eq("id", id);
-    if (error) throw error;
-  } catch (error) {
-    vacationRequests = previous;
+    if (hasSupabaseConfig) {
+      if (!currentSupabaseUser || vacationRequestsSupabaseAvailable !== true) throw new Error("Wczytaj urlopy ponownie przed usunięciem wpisu.");
+      await deleteSupabaseRecord(SUPABASE_VACATION_REQUEST_TABLE, id);
+    }
+    if (authUser !== currentSupabaseUser) return;
+    vacationRequests = vacationRequests.filter((request) => request.id !== id);
     saveLocalVacationData();
     renderVacationModule();
+  } catch (error) {
+    if (authUser !== currentSupabaseUser) return;
     alert(`Nie udało się usunąć wpisu urlopowego: ${error.message}`);
   }
 }
@@ -20641,6 +20921,10 @@ function fillDemoFormValues(record = {}) {
 }
 
 function openDialog(record = null) {
+  satisDataStore?.beginEdit(SUPABASE_DEVICE_TABLE, record?.id);
+  privatePaymentInvoiceGroup(record).forEach((item) =>
+    satisDataStore?.beginEdit(SUPABASE_PRIVATE_PAYMENTS_TABLE, String(item.id)));
+  recordForm.dataset.draftId = crypto.randomUUID();
   setPrimarySaveHighlight(saveRecordBtn, false);
   recordForm.reset();
   clearDeviceDateValidationError();
@@ -20729,6 +21013,8 @@ function setRepairSerial2Visibility(show, options = {}) {
 }
 
 function openRepairDialog(record = null) {
+  satisDataStore?.beginEdit(SUPABASE_REPAIR_TABLE, record?.id);
+  repairForm.dataset.draftId = crypto.randomUUID();
   setPrimarySaveHighlight(saveRepairBtn, false);
   repairForm.reset();
   if (repairPickupLoanReminder) {
@@ -20775,6 +21061,9 @@ function openRepairDialog(record = null) {
         ? formatPricingAmount(value, " ")
         : value;
   });
+  delete repairServiceCostInput.dataset.autoValue;
+  delete repairServiceCostInput.dataset.manualCost;
+  if (repairServiceCostInput.value.trim()) repairServiceCostInput.dataset.manualCost = "1";
   document.querySelector("#repairPhone").dataset.customerKey = customerNameLookupKey(normalizedRecord?.customerName);
   syncRepairPhoneOwner();
 
@@ -20817,6 +21106,8 @@ function repairDialogCustomerTitle(record) {
 }
 
 function openDemoDialog(record = null) {
+  satisDataStore?.beginEdit(SUPABASE_DEVICE_TABLE, record?.id);
+  demoForm.dataset.draftId = `${DEMO_ID_PREFIX}${crypto.randomUUID()}`;
   setPrimarySaveHighlight(saveDemoBtn, false);
   demoForm.reset();
   document.querySelector("#demoPurposeChoices")?.classList.remove("required-missing");
@@ -20958,18 +21249,22 @@ function renderDemoLoanHistory(record) {
 }
 
 function closeDialog() {
+  satisDataStore?.endEdit(SUPABASE_DEVICE_TABLE, document.querySelector("#recordId").value);
+  satisDataStore?.endTableEdits(SUPABASE_PRIVATE_PAYMENTS_TABLE);
   closeDatePicker();
   setPrimarySaveHighlight(saveRecordBtn, false);
   recordDialog.close();
 }
 
 function closeRepairDialog() {
+  satisDataStore?.endEdit(SUPABASE_REPAIR_TABLE, document.querySelector("#repairId").value);
   closeDatePicker();
   setPrimarySaveHighlight(saveRepairBtn, false);
   repairDialog.close();
 }
 
 function closeDemoDialog() {
+  satisDataStore?.endEdit(SUPABASE_DEVICE_TABLE, document.querySelector("#demoId").value);
   closeDatePicker();
   setPrimarySaveHighlight(saveDemoBtn, false);
   demoDialog.close();
@@ -21110,13 +21405,51 @@ function repairServiceCostLabel(category) {
   return "";
 }
 
+function suggestedPhonakRepairCost(deviceName) {
+  const model = String(deviceName || "")
+    .normalize("NFD").replace(/\p{M}/gu, "")
+    .toUpperCase().replace(/[\u2010-\u2015\u2212]/g, "-").trim();
+  const match = model.match(/^(?:PHONAK[\s-]*)?(?:(?:AUDEO|NAIDA)[\s-]*)?[MPLI][\s-]*(30|50|70|90)(?=$|[\s-]|(?:UP|SP|PR|RL|RT|R|P|T|LIFE|SPHERE|DEMO|TRIAL)(?:$|[\s-]))/);
+  if (!match) return "";
+  const suffix = model.slice(match[0].length);
+  // A combined model description needs an individual quote, not one model's price.
+  if (/(?:AUDEO|NAIDA|CHARGER|LADOWARKA)|[MPLI][\s-]*(?:30|50|70|90)/.test(suffix)) return "";
+  return { 30: 450, 50: 500, 70: 600, 90: 750 }[match[1]];
+}
+
+function syncRepairServiceCostSuggestion() {
+  if (!repairServiceCostInput) return;
+  const category = normalizeRepairCategory(document.querySelector("#repairCategory")?.value);
+  const suggested = category === "NAPRAWA POGWARANCYJNA"
+    ? suggestedPhonakRepairCost(document.querySelector("#repairDeviceName")?.value)
+    : "";
+  const input = repairServiceCostInput;
+  const hasAutoValue = input.dataset.autoValue !== undefined;
+  const current = normalizeServiceCost(input.value);
+  if (input.dataset.manualCost === "1") return;
+  if (input.value.trim() && (!hasAutoValue || current !== Number(input.dataset.autoValue))) return;
+  input.value = suggested === "" ? "" : formatPricingAmount(suggested, " ");
+  if (suggested === "") delete input.dataset.autoValue;
+  else input.dataset.autoValue = String(suggested);
+}
+
+function markRepairServiceCostManualChange() {
+  repairServiceCostInput.dataset.manualCost = "1";
+  delete repairServiceCostInput.dataset.autoValue;
+}
+
 function syncRepairServiceCostField() {
   if (!repairServiceCostField || !repairServiceCostInput || !repairServiceCostLabelElement) return;
   const label = repairServiceCostLabel(document.querySelector("#repairCategory")?.value);
   repairServiceCostField.hidden = !label;
   repairServiceCostInput.disabled = !label;
   repairServiceCostLabelElement.textContent = label || "Koszt";
-  if (!label) repairServiceCostInput.value = "";
+  if (!label) {
+    repairServiceCostInput.value = "";
+    delete repairServiceCostInput.dataset.autoValue;
+    delete repairServiceCostInput.dataset.manualCost;
+  }
+  syncRepairServiceCostSuggestion();
 }
 
 function syncRepairCategoryInput() {
@@ -21178,6 +21511,7 @@ function syncRepairDeviceNameFromSerials() {
   deviceNameInput.value = inferredName;
   deviceNameInput.dataset.autoFromSerial = "1";
   deviceNameInput.title = "Uzupełniono na podstawie numeru seryjnego";
+  syncRepairServiceCostSuggestion();
 }
 
 function syncRepairModelRequirement() {
@@ -21196,6 +21530,7 @@ function syncRepairModelRequirement() {
 function markRepairDeviceNameManualChange(event) {
   delete event.target.dataset.autoFromSerial;
   event.target.removeAttribute("title");
+  syncRepairServiceCostSuggestion();
   syncRepairDialogHeaderMeta();
 }
 
@@ -21881,6 +22216,8 @@ function handleClearDateClick(event) {
 
 async function saveFormRecord(event) {
   event.preventDefault();
+  const savingUserId = currentSupabaseUser?.id;
+  if (recordForm.dataset.saving === "1") return;
   const id = document.querySelector("#recordId").value;
   const data = formRecord();
   const privatePaymentValue = privatePaymentFormValue();
@@ -21899,7 +22236,7 @@ async function saveFormRecord(event) {
       return savedRecord;
     });
   } else {
-    savedRecord = { id: makeId(), ...data };
+    savedRecord = { id: recordForm.dataset.draftId || makeId(), ...data };
     records = [savedRecord, ...records];
   }
   if (canViewPrivatePayments()) {
@@ -21907,18 +22244,17 @@ async function saveFormRecord(event) {
     applyPrivatePaymentUpdates(privatePaymentUpdates);
   }
 
+  recordForm.dataset.saving = "1";
+  saveRecordBtn.disabled = true;
   try {
-    closeDialog();
     await nextFrame();
-    const persistPromise = persistDeviceRecord(savedRecord);
-    const privatePaymentPromise = canViewPrivatePayments()
-      ? persistPrivatePaymentUpdates(privatePaymentUpdates)
-      : Promise.resolve();
+    const persistPromise = persistDeviceAndPayments(savedRecord, privatePaymentUpdates);
     persistPromise.catch(() => {});
-    privatePaymentPromise.catch(() => {});
     rebuildAfterDeviceChange();
     render();
-    await Promise.all([persistPromise, privatePaymentPromise]);
+    await persistPromise;
+    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    closeDialog();
     logAuditEvent({
       notebook: "devices",
       action: id ? "edit" : "add",
@@ -21927,13 +22263,18 @@ async function saveFormRecord(event) {
       afterRecord: savedRecord
     });
   } catch (error) {
-    records = previousRecords;
+    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    records = id ? records.map((item) => item.id === id ? previousRecords.find((old) => old.id === id) : item)
+      : records.filter((item) => item.id !== savedRecord.id);
     privatePayments = previousPrivatePayments;
     writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
     saveLocalPrivatePayments();
     rebuildAfterDeviceChange();
     render();
     alert(error.message);
+  } finally {
+    recordForm.dataset.saving = "";
+    saveRecordBtn.disabled = false;
   }
 }
 
@@ -21952,10 +22293,8 @@ async function deleteCurrentRecord() {
       saveLocalPrivatePayments();
     }
     try {
-      await Promise.all([
-        persistDeletedDeviceRecord(id),
-        canViewPrivatePayments() ? deletePrivatePayment(id) : Promise.resolve()
-      ]);
+      await persistDeletedDeviceRecord(id); // The payment is deleted by the same FK transaction.
+      if (!hasSupabaseConfig && canViewPrivatePayments()) await deletePrivatePayment(id);
       rebuildDerivedData();
       render();
       closeDialog();
@@ -21973,6 +22312,8 @@ async function deleteCurrentRecord() {
 
 async function saveRepairFormRecord(event) {
   event.preventDefault();
+  const savingUserId = currentSupabaseUser?.id;
+  if (repairForm.dataset.saving === "1") return;
   const id = document.querySelector("#repairId").value;
   const data = repairFormRecord();
   let savedRecord;
@@ -21995,18 +22336,21 @@ async function saveRepairFormRecord(event) {
       return savedRecord;
     });
   } else {
-    savedRecord = { id: makeId(), ...data };
+    savedRecord = { id: repairForm.dataset.draftId || makeId(), ...data };
     repairRecords = [savedRecord, ...repairRecords];
   }
 
+  repairForm.dataset.saving = "1";
+  saveRepairBtn.disabled = true;
   try {
-    closeRepairDialog();
     await nextFrame();
     const persistPromise = persistRepairRecord(savedRecord);
     persistPromise.catch(() => {});
     rebuildAfterRepairChange();
     render();
     await persistPromise;
+    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    closeRepairDialog();
     logAuditEvent({
       notebook: "repairs",
       action: id ? "edit" : "add",
@@ -22015,11 +22359,15 @@ async function saveRepairFormRecord(event) {
       afterRecord: savedRecord
     });
   } catch (error) {
+    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     repairRecords = previousRepairRecords;
     writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     rebuildAfterRepairChange();
     render();
     alert(error.message);
+  } finally {
+    repairForm.dataset.saving = "";
+    saveRepairBtn.disabled = false;
   }
 }
 
@@ -22049,6 +22397,8 @@ async function deleteCurrentRepairRecord() {
 
 async function saveDemoFormRecord(event) {
   event.preventDefault();
+  const savingUserId = currentSupabaseUser?.id;
+  if (saveDemoBtn.disabled) return;
   demoFormError.textContent = "";
   delete demoFormError.dataset.errorType;
   const purposeInput = document.querySelector("#demoPurpose");
@@ -22060,7 +22410,7 @@ async function saveDemoFormRecord(event) {
   }
   if (!validateDemoDateOrder(undefined, { focus: true })) return;
   const id = document.querySelector("#demoId").value;
-  const recordId = id || `${DEMO_ID_PREFIX}${makeId()}`;
+  const recordId = id || demoForm.dataset.draftId || `${DEMO_ID_PREFIX}${makeId()}`;
   let data = demoFormRecord();
   if (!validateDemoDateOrder(data, { focus: true })) return;
   let savedRecord;
@@ -22089,13 +22439,14 @@ async function saveDemoFormRecord(event) {
       demoRecords = [savedRecord, ...demoRecords];
     }
     saveDemoBtn.textContent = "Zapisywanie...";
-    closeDemoDialog();
     await nextFrame();
     const persistPromise = persistDemoRecord(savedRecord);
     persistPromise.catch(() => {});
     rebuildAfterDemoChange();
     render();
     await persistPromise;
+    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    closeDemoDialog();
     logAuditEvent({
       notebook: "demo",
       action: id ? "edit" : "add",
@@ -22110,6 +22461,7 @@ async function saveDemoFormRecord(event) {
       console.warn(cleanupError);
     }
   } catch (error) {
+    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     demoRecords = previousDemoRecords;
     writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildAfterDemoChange();
@@ -24274,6 +24626,8 @@ document.querySelector("#repairPickupDate").addEventListener("change", () => {
 document.querySelector("#repairPickupDate").addEventListener("focus", renderRepairPickupLoanReminder);
 document.querySelector("#repairPickupDate").addEventListener("click", renderRepairPickupLoanReminder);
 document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
+repairServiceCostInput?.addEventListener("input", markRepairServiceCostManualChange);
+repairServiceCostInput?.addEventListener("change", markRepairServiceCostManualChange);
 repairServiceCostInput?.addEventListener("blur", () => {
   const amount = normalizeServiceCost(repairServiceCostInput.value);
   repairServiceCostInput.value = amount === "" ? "" : formatPricingAmount(amount, " ");
@@ -24292,6 +24646,7 @@ document.querySelector("#repairLocation").addEventListener("change", (event) => 
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairDeviceName").addEventListener("input", markRepairDeviceNameManualChange);
+document.querySelector("#repairDeviceName").addEventListener("change", syncRepairServiceCostSuggestion);
 addRepairSerial2Btn.addEventListener("click", () => setRepairSerial2Visibility(true, { focus: true }));
 removeRepairSerial2Btn.addEventListener("click", () => {
   const input = document.querySelector("#repairSerialNumber2");
@@ -24556,6 +24911,7 @@ document.querySelectorAll("th[data-demo-sort]").forEach((header) => {
 });
 
 async function init() {
+  if (await offlineForms?.boot()) return;
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.setAttribute("autocomplete", "off"));
   updateSensitiveTransferVisibility();
   updateNotebookPrintVisibility();
@@ -24635,6 +24991,7 @@ async function init() {
 }
 
 async function checkForPublishedAppUpdate() {
+  if (offlineForms?.editing()) return;
   if (!CURRENT_APP_VERSION || !/^https?:$/u.test(window.location.protocol)) return;
   try {
     const indexUrl = new URL("index.html", window.location.href);
@@ -24644,6 +25001,15 @@ async function checkForPublishedAppUpdate() {
     const html = await response.text();
     const publishedVersion = html.match(/app\.js\?v=([^"'&<\s]+)/u)?.[1] || "";
     if (!publishedVersion || publishedVersion === CURRENT_APP_VERSION) return;
+    if (navigator.serviceWorker?.controller) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update();
+      const button = document.querySelector(".offline-launch");
+      if (button) button.title = "Nowa wersja: zapisz szkice i zamknij wszystkie karty SATIS, aby zastosować aktualizację.";
+      return;
+    }
+    if (document.querySelector("dialog[open], form[data-saving='1'], .has-unsaved-changes") ||
+      [...agreementDraftStates.values()].some((state) => state.dirty)) return;
     const reloadUrl = new URL(window.location.href);
     reloadUrl.searchParams.set("appVersion", publishedVersion);
     window.location.replace(reloadUrl);
@@ -24670,6 +25036,7 @@ window.setTimeout(checkForPublishedAppUpdate, 15000);
 setupCurrentDateWidget();
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
 window.setInterval(refreshCurrentDateWidget, 60 * 1000);
+window.setInterval(processPendingDocumentSync, 30 * 1000);
 window.setInterval(renderPricingLoanHistory, 60 * 60 * 1000);
 window.setInterval(updateLoanReturnDeadlineHighlight, 60 * 1000);
 window.setInterval(refreshDemoReturnReminders, 60 * 1000);
@@ -24683,4 +25050,67 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+if (window.SatisOfflineForms && hasSupabaseSettings) {
+  const tables = { offer: SUPABASE_OFFER_HISTORY_TABLE, loan: SUPABASE_LOAN_CONTRACT_TABLE,
+    order: SUPABASE_ORDER_HISTORY_TABLE, complaint: SUPABASE_COMPLAINT_HISTORY_TABLE };
+  const snapshots = { offer: currentPricingOfferSnapshot, loan: currentPricingLoanSnapshot,
+    order: currentPricingOrderSnapshot, complaint: currentPricingComplaintSnapshot };
+  const restorers = { offer: restorePricingOfferFromHistory, loan: restorePricingLoanFromHistory,
+    order: restorePricingOrderFromHistory, complaint: restorePricingComplaintFromHistory };
+  const renderers = { offer: renderPricingOffer, loan: renderPricingLoan, order: renderPricingOrder, complaint: renderPricingComplaint };
+  const resets = { offer: startNewPricingOffer, loan: startNewPricingLoan, order: resetPricingOrderForm, complaint: resetPricingComplaintForm };
+  const saves = { offer: saveCurrentPricingOfferToHistory, loan: saveCurrentPricingLoanToHistory,
+    order: saveCurrentPricingOrderToHistory, complaint: saveCurrentPricingComplaintToHistory };
+  offlineForms = window.SatisOfflineForms.mount({
+    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView },
+    user: () => currentSupabaseUser,
+    pricing: () => pricingRecords,
+    setPricing(value) { pricingRecords = normalizePricingRecordsForUse(value); resetPricingPriceLookup(); renderPricingOfferDeviceList(); },
+    snapshot: kind => snapshots[kind](),
+    identity(kind) {
+      const id = documentDraftId(kind);
+      return { id, saved: Boolean(documentDraftIdentities.get(kind)?.saved), revision: satisDataStore?.prepare(tables[kind], { id }).expectedRevision ?? null };
+    },
+    revision: (kind, id) => satisDataStore?.revision(tables[kind], id) ?? null,
+    restore: (kind, entry) => restorers[kind](entry),
+    pin(entry) {
+      documentDraftIdentities.set(entry.kind, { id: entry.id, saved: entry.saved });
+      satisDataStore?.beginEdit(tables[entry.kind], entry.id, entry.revision);
+      if (entry.kind === "loan") activePricingLoanHistoryId = entry.saved ? entry.id : "";
+    },
+    prepareSync(entry) {
+      if (entry.saved && entry.revision === null) throw new Error("Brak wersji dokumentu. Otwórz aktualny dokument z historii i porównaj szkic.");
+      documentDraftIdentities.set(entry.kind, { id: entry.id, saved: entry.saved });
+      satisDataStore?.beginEdit(tables[entry.kind], entry.id, entry.revision);
+      if (entry.kind === "loan") activePricingLoanHistoryId = entry.saved ? entry.id : "";
+      if (!entry.saved) {
+        const input = { loan: loanContractNumberInput, order: orderNumberInput, complaint: complaintNumberInput }[entry.kind];
+        if (input) { input.value = ""; input.dataset.autoNumber = "1"; }
+      }
+    },
+    async save(kind) {
+      if (kind === "loan") {
+        ensureLoanContractNumber();
+        if (!validatePricingLoanForAction()) return null;
+      }
+      if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Uzupełnij grupę pacjenta i wybierz aparat z cennika przed synchronizacją oferty.");
+      return saves[kind]({ silent: false });
+    },
+    render: kind => renderers[kind](),
+    reset: kind => resets[kind](),
+    renderApp: () => render(),
+    clearForms() {
+      Object.values({ offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView }).forEach(view => {
+        view.querySelectorAll("input,textarea").forEach(input => { if (!["button", "submit", "radio", "checkbox"].includes(input.type)) input.value = ""; });
+      });
+      clearPricingOrderRows(); addPricingOrderItemRow();
+      documentDraftIdentities.clear(); activePricingLoanHistoryId = "";
+      for (const kind of Object.keys(renderers)) renderers[kind]();
+    },
+    localSaved: kind => markAgreementDraftSaved(kind),
+    printSource: kind => document.querySelector({ offer: "#pricingOfferPrint", loan: "#pricingLoanPrint", order: "#pricingOrderPrint", complaint: "#pricingComplaintPrint" }[kind]),
+    print: cleanup => printWithReadyFonts(cleanup),
+    hideAuth: () => hideAuthDialog(), showAuth: message => showAuthDialog(message)
+  });
+}
 init();
