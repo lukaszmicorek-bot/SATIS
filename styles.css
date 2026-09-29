@@ -14744,6 +14744,9 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   body.offline-printing #offlinePrint .complaint-document .complaint-decision-box { min-height: 9mm; }
   body.offline-printing #offlinePrint .complaint-document .complaint-signatures p { min-height: 16mm; }
   body.offline-printing #offlinePrint .complaint-document .document-gabinet-title { margin-top: 2mm; break-after: avoid; }
+  body.offline-printing #offlinePrint .loan-print-packet > :not(.loan-print-copy) { display: none !important; }
+  body.offline-printing #offlinePrint .loan-print-copy { display: block !important; }
+  body.offline-printing #offlinePrint .loan-print-copy + .loan-print-copy { break-before: page; page-break-before: always; }
   #offlinePrint table { width: 100%; border-collapse: collapse; }
   #offlinePrint tr { break-inside: avoid; }
   #offlinePrint .offline-print-mark {

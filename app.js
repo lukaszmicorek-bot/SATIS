@@ -25136,7 +25136,16 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       for (const kind of Object.keys(renderers)) renderers[kind]();
     },
     localSaved: kind => markAgreementDraftSaved(kind),
-    printSource: kind => document.querySelector({ offer: "#pricingOfferPrint", loan: "#pricingLoanPrint", order: "#pricingOrderPrint", complaint: "#pricingComplaintPrint" }[kind]),
+    printSource(kind) {
+      const selector = { offer: "#pricingOfferPrint", loan: "#pricingLoanPrint", order: "#pricingOrderPrint", complaint: "#pricingComplaintPrint" }[kind];
+      if (kind !== "loan") return document.querySelector(selector);
+      try {
+        prepareLoanPrintCopies();
+        return document.querySelector(selector).cloneNode(true);
+      } finally {
+        clearLoanPrintCopies();
+      }
+    },
     print: cleanup => printWithReadyFonts(cleanup),
     hideAuth: () => hideAuthDialog(), showAuth: message => showAuthDialog(message)
   });
