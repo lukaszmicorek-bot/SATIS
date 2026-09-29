@@ -1,5 +1,5 @@
 {
-  "app_version": "20260929-273",
+  "app_version": "20260929-274",
   "asset_policy_sha256": "b43e5bc012a98ca5206a7074b68aabf611f47b6d16fdd606b10f965b05293318",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -44,7 +44,7 @@
     },
     "index.html": {
       "bytes": 362391,
-      "sha256": "519e029c5588c904d669c52daa3f75312c31eaff765d6caae2c727e491eef30a"
+      "sha256": "6e98b9d732c3695055631eb358871ef5c955c89437a8b5d68916ac525b3c5b74"
     },
     "manufacturer-logos/audibel.png": {
       "bytes": 30416,
@@ -112,7 +112,7 @@
     },
     "offline-sw.js": {
       "bytes": 3115,
-      "sha256": "0c6d46f3e583a085ef82aa5d958d6eb01b25be0ea8a11fbc79be538aa2da8d23"
+      "sha256": "a18f328998433a45eee4781df3515a0c56b62595c3b5486f2fcac1358f076a1f"
     },
     "offline-vault.js": {
       "bytes": 5614,
@@ -124,7 +124,7 @@
     },
     "styles.css": {
       "bytes": 288553,
-      "sha256": "4fd7130ccaea05c5fa7c85bbf1a476bcd1c87bc8ef2bacb7d17dd16542dc8123"
+      "sha256": "52cc0b25c71879c344af1a065e7a96e07d1d7a06e7d79167e8376ad339bdce3d"
     },
     "supabase-config.js": {
       "bytes": 227,
