@@ -1570,12 +1570,24 @@ h2 {
   font-weight: 850;
 }
 
-.capd-history-search {
+.capd-history-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.capd-history-search,
+.capd-history-filter {
   display: grid;
   grid-template-columns: auto minmax(220px, 420px);
   align-items: center;
   justify-content: start;
   gap: 9px;
+}
+
+.capd-history-filter {
+  grid-template-columns: auto minmax(130px, 150px);
 }
 
 .capd-history-list {
@@ -1627,6 +1639,10 @@ h2 {
   background: #f1f9f8;
 }
 
+.capd-history-item[data-status="OPIS"] { border-left-color: #879ba1; }
+.capd-history-item[data-status="DO_ODBIORU"] { border-left-color: #568cb2; }
+.capd-history-item[data-status="ODEBRANO"] { border-left-color: #5c9b77; }
+
 .capd-history-main {
   display: grid;
   gap: 3px;
@@ -1655,7 +1671,41 @@ h2 {
 
 .capd-history-actions {
   display: flex;
+  align-items: end;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.capd-history-stage {
+  display: grid;
+  gap: 3px;
+  color: #687c82;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.capd-history-stage select {
+  min-width: 125px;
+  min-height: 30px;
+  padding: 3px 6px;
+  border: 1px solid #d5e0e2;
+  border-radius: 6px;
+  background: #f5f8f8;
+  color: #48606a;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.capd-history-stage select[data-status="DO_ODBIORU"] {
+  border-color: #c5ddec;
+  background: #ecf5fa;
+  color: #245b7e;
+}
+
+.capd-history-stage select[data-status="ODEBRANO"] {
+  border-color: #c6e1d0;
+  background: #edf7f0;
+  color: #2f6b49;
 }
 
 .capd-history-delete {
@@ -1688,7 +1738,8 @@ h2 {
   }
 
   .capd-history-item,
-  .capd-history-search {
+  .capd-history-search,
+  .capd-history-filter {
     grid-template-columns: minmax(0, 1fr);
   }
 
