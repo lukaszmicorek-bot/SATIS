@@ -1,4 +1,4 @@
-/* Local drafts are encrypted; this workspace never grants a Supabase session. */
+/* Local drafts are encrypted for this browser profile; this workspace never grants a Supabase session. */
 window.SatisOfflineForms = {
   mount(api) {
     const kinds = { offer: "Oferta", loan: "Umowa", order: "Zamówienie", complaint: "Reklamacja" };
@@ -9,14 +9,14 @@ window.SatisOfflineForms = {
     const panel = document.createElement("section");
     panel.id = "offlineWorkspace";
     panel.hidden = true;
-    panel.innerHTML = `<header class="offline-controls"><img src="satis-monogram.png" alt="SATIS" width="44" height="44"><strong>Formularze offline</strong><button type="button" data-offline="save">Zapisz szkic</button><button type="button" data-offline="print">Drukuj / PDF</button><button type="button" data-offline="sync">Synchronizuj</button><button type="button" data-offline="exit">Wróć do aplikacji</button><button type="button" data-offline="lock">Zablokuj</button></header><p class="offline-status" role="status"></p><p class="offline-warning">Wersja robocza. Numeracja i dostępność aparatu wymagają sprawdzenia online. Plik PDF i wydruk zawierają dane klienta — przechowuj je bezpiecznie.</p><nav class="offline-tabs" aria-label="Formularze offline"></nav><div class="offline-drafts"></div><div class="offline-forms-host"></div>`;
+    panel.innerHTML = `<header class="offline-controls"><img src="satis-monogram.png" alt="SATIS" width="44" height="44"><strong>Formularze offline</strong><button type="button" data-offline="save">Zapisz szkic</button><button type="button" data-offline="print">Drukuj / PDF</button><button type="button" data-offline="sync">Synchronizuj</button><button type="button" data-offline="exit">Wróć do aplikacji</button><button type="button" data-offline="lock">Zamknij formularze</button></header><p class="offline-status" role="status"></p><p class="offline-warning">Wersja robocza. Numeracja i dostępność aparatu wymagają sprawdzenia online. Dostęp do szkiców ma każdy, kto używa tego profilu przeglądarki. Blokuj komputer; pliki PDF przechowuj bezpiecznie.</p><nav class="offline-tabs" aria-label="Formularze offline"></nav><div class="offline-drafts"></div><div class="offline-forms-host"></div>`;
     document.body.append(panel);
     const status = panel.querySelector(".offline-status");
     const drafts = panel.querySelector(".offline-drafts");
     const host = panel.querySelector(".offline-forms-host");
     const dialog = document.createElement("dialog");
     dialog.id = "offlineUnlockDialog";
-    dialog.innerHTML = `<form><h2>Formularze offline</h2><p>Osobne hasło chroni szkice na tym komputerze. Minimum 12 znaków. Hasła nie można odzyskać; nie używaj hasła do konta SATIS.</p><label>Hasło do szkiców<input type="password" autocomplete="off" minlength="12" required></label><p role="status"></p><div class="offline-controls"><button type="submit">Odblokuj / włącz</button><button type="button">Anuluj</button></div></form>`;
+    dialog.innerHTML = `<form><h2>Przenieś dotychczasowe szkice</h2><p>Wpisz stare hasło do szkiców tylko raz. Po przeniesieniu formularze offline będą otwierać się bez hasła na tym urządzeniu.</p><label>Dotychczasowe hasło<input type="password" autocomplete="off" required></label><p role="status"></p><div class="offline-controls"><button type="submit">Przenieś szkice</button><button type="button">Anuluj</button></div></form>`;
     document.body.append(dialog);
     const launcher = document.createElement("button");
     launcher.type = "button"; launcher.className = "ghost offline-launch"; launcher.textContent = "Formularze offline";
@@ -98,10 +98,10 @@ window.SatisOfflineForms = {
         document.body.classList.add("offline-form-mode"); panel.hidden = false;
       }
       show(current);
-      message("Szkice są szyfrowane na tym komputerze. Nie są jeszcze zapisane w historii serwera.");
+      message("Szkice są zapisane na tym komputerze. Nie są jeszcze zapisane w historii serwera.");
     }
     async function save(kind = current) {
-      if (!vault.unlocked()) throw new Error("Najpierw odblokuj szkice offline.");
+      if (!vault.unlocked()) throw new Error("Najpierw otwórz formularze offline.");
       if (!dirty && selected.get(kind)?.id === api.identity(kind).id) return selected.get(kind);
       clearTimeout(timer);
       const entry = take(kind);
@@ -167,20 +167,12 @@ window.SatisOfflineForms = {
       clearTimeout(timer); clearTimeout(idle); vault.lock(); selected.clear(); dirty = false;
       if (workspace) leave();
       api.clearForms(); release?.(); release = null;
-      if (!api.user()) api.showAuth("Odblokuj lokalne szkice albo zaloguj się online.");
+      if (!api.user()) api.showAuth("Otwórz lokalne formularze albo zaloguj się online.");
     }
     async function run(action) {
       try { return await action(); } catch (error) { message(`Nie zapisano: ${error.message}`); alert(error.message); return null; }
     }
-    async function unlock() {
-      dialog.querySelector("[role=status]").textContent = await vault.exists()
-        ? "Podaj hasło ustawione na tym komputerze." : "Pierwsze włączenie wymaga internetu i zalogowania. Usunięcie danych przeglądarki usuwa też szkice.";
-      dialog.showModal(); dialog.querySelector("input").focus();
-    }
-    dialog.querySelector("button[type=button]").onclick = () => dialog.close();
-    dialog.querySelector("form").onsubmit = async event => {
-      event.preventDefault();
-      const button = dialog.querySelector("button[type=submit]"); button.disabled = true;
+    async function open(password) {
       try {
         if (!navigator.locks) throw new Error("Ta przeglądarka nie obsługuje bezpiecznej blokady szkiców. Użyj aktualnej przeglądarki Chrome lub Edge.");
         if (!release) await new Promise((resolve, reject) => navigator.locks.request("satis-offline-workspace", { ifAvailable: true }, async acquired => {
@@ -190,17 +182,33 @@ window.SatisOfflineForms = {
         const existing = await vault.exists();
         if (!existing && (!navigator.onLine || !api.user())) throw new Error("Najpierw zaloguj się online, aby włączyć formularze offline.");
         if (!existing) await install();
-        const password = dialog.querySelector("input").value;
         const data = await vault.unlock(password, { owner: api.user()?.id, pricing: api.pricing() });
-        dialog.querySelector("input").value = "";
-      if (api.user() && api.user().id !== data.owner) { vault.lock(); throw new Error("Szkice należą do innego konta. Wyloguj się przed pracą lokalną."); }
+        if (api.user() && api.user().id !== data.owner) { vault.lock(); throw new Error("Szkice należą do innego konta. Wyloguj się przed pracą lokalną."); }
         if (!api.pricing().length) api.setPricing(data.pricing);
-        dialog.close(); await enter();
+        await enter();
         if (data.drafts.length) load(data.drafts[0]);
         if (navigator.onLine && api.user()?.id === data.owner && data.drafts.some(entry => entry.pending)) {
           message("Szkice oczekują na synchronizację. Sprawdź je i wybierz Synchronizuj.");
         }
-      } catch (error) { dialog.querySelector("[role=status]").textContent = error.message; release?.(); release = null; }
+      } catch (error) { release?.(); release = null; throw error; }
+    }
+    async function unlock() {
+      if (await vault.needsMigration()) {
+        dialog.querySelector("[role=status]").textContent = "";
+        dialog.showModal(); dialog.querySelector("input").focus();
+        return;
+      }
+      await open();
+    }
+    dialog.querySelector("button[type=button]").onclick = () => dialog.close();
+    dialog.querySelector("form").onsubmit = async event => {
+      event.preventDefault();
+      const button = dialog.querySelector("button[type=submit]"); button.disabled = true;
+      try {
+        await open(dialog.querySelector("input").value);
+        dialog.querySelector("input").value = "";
+        dialog.close();
+      } catch (error) { dialog.querySelector("[role=status]").textContent = error.message; }
       finally { button.disabled = false; }
     };
     async function install() {
@@ -246,7 +254,12 @@ window.SatisOfflineForms = {
     return {
       active: () => workspace && !syncing,
       unlocked: () => vault.unlocked(), save: kind => run(() => save(kind)), print: kind => run(() => print(kind)), lock,
-      async boot() { if (navigator.onLine) return false; api.showAuth("Brak internetu. Możesz odblokować przygotowane wcześniej formularze offline."); await unlock(); return true; },
+      async boot() {
+        if (navigator.onLine) return false;
+        if (!await vault.exists()) { api.showAuth("Brak internetu. Włącz formularze offline po zalogowaniu online na tym urządzeniu."); return true; }
+        api.showAuth("Brak internetu. Otwieram przygotowane formularze offline.");
+        await run(() => unlock()); return true;
+      },
       connected() { if (workspace) run(() => sync()); },
       editing: () => dirty || workspace
     };

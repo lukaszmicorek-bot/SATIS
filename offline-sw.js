@@ -1,5 +1,5 @@
 /* Static shell only. Never cache API responses, uploaded files or user data. */
-const VERSION = "20260925-270";
+const VERSION = "20260929-271";
 const CACHE = `satis-shell-${VERSION}`;
 const SDK = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
 const SDK_INTEGRITY = "sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP";
@@ -31,10 +31,23 @@ self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   const clean = `${url.origin}${url.pathname}`;
+  const index = new URL("index.html", self.registration.scope).href;
   let key = urls.has(clean) || clean === SDK ? clean : null;
-  if (event.request.mode === "navigate" && (clean === self.registration.scope || clean === new URL("index.html", self.registration.scope).href)) {
-    key = new URL("index.html", self.registration.scope).href;
+  if (event.request.mode === "navigate" && (clean === self.registration.scope || clean === index)) {
+    key = index;
   }
   if (!key) return;
-  event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(key)) || fetch(event.request)));
+  if (key !== index && url.searchParams.has("v") && url.searchParams.get("v") !== VERSION) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  event.respondWith(caches.open(CACHE).then(async cache => {
+    if (key === index) {
+      try {
+        const response = await fetch(event.request);
+        if (response.ok) return response;
+      } catch {}
+    }
+    return (await cache.match(key)) || fetch(event.request);
+  }));
 });
