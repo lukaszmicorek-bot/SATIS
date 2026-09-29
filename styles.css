@@ -14731,10 +14731,24 @@ body.offline-form-mode > .app-shell, body.offline-form-mode > .back-to-top { dis
 body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 @media print {
   body.offline-printing > :not(#offlinePrint) { display: none !important; }
-  body.offline-printing #offlinePrint { display: block !important; width: 100%; color: #000; font-family: "Inter", sans-serif; }
-  #offlinePrint .offer-document { display: block !important; width: 100%; min-width: 0; max-width: none; padding: 0; border: 0; box-shadow: none; }
+  body.offline-printing #offlinePrint {
+    display: block !important; position: relative; width: 100%; padding-top: 5mm;
+    color: #000; font-family: "Inter", sans-serif;
+  }
+  body.offline-printing #offlinePrint :is(.offer-document, .loan-document, .order-document, .complaint-document) {
+    width: 100%; min-width: 0; max-width: none; min-height: 0; padding: 0; border: 0; box-shadow: none;
+  }
+  body.offline-printing #offlinePrint .complaint-document .offer-document-head { margin-bottom: 3mm; padding-bottom: 2mm; }
+  body.offline-printing #offlinePrint .complaint-document .loan-doc-section { margin-top: 2mm; }
+  body.offline-printing #offlinePrint .complaint-document .complaint-text-box { min-height: 12mm; }
+  body.offline-printing #offlinePrint .complaint-document .complaint-decision-box { min-height: 9mm; }
+  body.offline-printing #offlinePrint .complaint-document .complaint-signatures p { min-height: 16mm; }
+  body.offline-printing #offlinePrint .complaint-document .document-gabinet-title { margin-top: 2mm; break-after: avoid; }
   #offlinePrint table { width: 100%; border-collapse: collapse; }
   #offlinePrint tr { break-inside: avoid; }
-  #offlinePrint .offline-print-mark { font-size: 9pt; font-weight: 700; padding-bottom: 3mm; border-bottom: 1px solid #000; }
+  #offlinePrint .offline-print-mark {
+    position: absolute; top: 0; left: 0; right: 0; margin: 0;
+    font-size: 7pt; font-weight: 700; line-height: 1.2;
+  }
   .offline-launch { display: none !important; }
 }
