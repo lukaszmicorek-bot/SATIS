@@ -1,7 +1,20 @@
 # Zeszyt aparatów
 
 Lokalna aplikacja do prowadzenia ewidencji aparatów i dokumentów podobnej do tabeli z PDF.
-W jednej aplikacji są dwa zeszyty: aparaty oraz naprawy i wkładki uszne.
+W jednej aplikacji są dwa zeszyty: aparaty oraz serwis i zamówienia.
+
+## Szybkie poprawki i publikacja
+
+Ten katalog jest katalogiem roboczym Git dla SATIS. Edytuj pliki aplikacji tutaj; katalog `deploy-satis` nie jest już potrzebny do kopiowania zmian.
+
+```sh
+python3 scripts/release_satis.py check
+python3 scripts/release_satis.py publish
+```
+
+`check` uruchamia testy i weryfikuje paczkę bez publikacji. `publish` dodatkowo nadaje wersję, buduje paczkę według ścisłej listy zasobów, tworzy commit i wysyła go na GitHub. GitHub Pages może pokazać zmianę z opóźnieniem. Skrypt wymaga lokalnych testów, narzędzi budowania i plików migracji; nie należy zastępować ich danymi produkcyjnymi. Kopie bazy, arkusze, eksporty i pozostałe pliki prywatne nie są dodawane do repozytorium.
+
+Formularze offline (oferta, umowa, zamówienie, reklamacja): instrukcja pierwszego włączenia, hasła, wydruków roboczych i synchronizacji jest w `OFFLINE.md`.
 
 ## Supabase: wspólna baza przez internet
 
@@ -9,9 +22,13 @@ Supabase jest zalecanym trybem dla kilku użytkowników pracujących z różnych
 
 ### Konfiguracja
 
+Aktualizacja `20260908-267`: obowiązuje instrukcja `WDROZENIE-AUDYTU.md`.
+Najpierw kopia i test odtworzenia, następnie komplet migracji oraz skoordynowana publikacja aplikacji.
+Samo wykonanie podstawowego schematu nie wystarcza.
+
 1. Utwórz projekt na [supabase.com](https://supabase.com/).
-2. Otwórz `SQL Editor`, wklej całą zawartość pliku `supabase-schema.sql` i uruchom zapytanie.
-3. W `Authentication` / `Users` dodaj użytkowników, którzy mają mieć dostęp do zeszytu.
+2. W `SQL Editor` wykonaj wymagane migracje w kolejności z `WDROZENIE-AUDYTU.md`, najpierw w projekcie testowym.
+3. Dodaj konta logowania oraz uprawnienia w `app_authorized_users`. Prywatne urlopy wymagają przypisania imiennych kont do pracowników.
 4. W `Project Settings` / `API` skopiuj:
    - `Project URL`,
    - klucz `Publishable key` albo starszy klucz `anon public`.
@@ -19,19 +36,21 @@ Supabase jest zalecanym trybem dla kilku użytkowników pracujących z różnych
 
 ```js
 window.SUPABASE_CONFIG = {
-  url: "https://twoj-projekt.supabase.co",
-  publishableKey: "sb_publishable_..."
+  "url": "https://twoj-projekt.supabase.co",
+  "publishableKey": "sb_publishable_..."
 };
 ```
 
-6. Umieść pliki aplikacji na hostingu statycznym, np. Cloudflare Pages, Netlify lub GitHub Pages.
+6. Zbuduj i zweryfikuj wydanie narzędziem `scripts/build_dist.py`. Publikuj wyłącznie zawartość wydania, nie cały katalog projektu.
 7. Otwórz stronę i zaloguj się kontem utworzonym w kroku 3.
 
-Nie wpisuj do `supabase-config.js` klucza `service_role`. Klucz publishable/anon może znajdować się w przeglądarce, ponieważ dostęp do danych jest zabezpieczony regułami RLS z pliku `supabase-schema.sql`.
+Rekordy Demo są logicznie oddzielone od Bazy, ale korzystają z tej samej zabezpieczonej tabeli Supabase. Zwykłe odświeżanie nie wykonuje zbiorczych korekt istniejących danych.
+
+Nie wpisuj do `supabase-config.js` klucza `service_role`. Klucz publiczny nie zastępuje uprawnień: dostęp chronią wymagane polityki RLS oraz zabezpieczone funkcje zapisu. Brak wymaganej wersji zabezpieczeń blokuje uruchomienie nowej aplikacji.
 
 ### Pierwszy import danych
 
-Po zalogowaniu użyj przycisku importu w każdym zeszycie i wybierz dotychczasowy eksport JSON lub CSV. Import zastępuje zawartość danego zeszytu w Supabase, dlatego przed importem warto wykonać eksport JSON jako kopię bezpieczeństwa.
+Po zalogowaniu użyj przycisku importu w odpowiednim zeszycie. Import zastępujący zmienia jego zawartość w transakcji. Najpierw wykonaj prywatną kopię zgodnie z `docs/deployment-backups.md`; eksport jednego widoku JSON/CSV nie jest pełną kopią wszystkich modułów i załączników.
 
 Gdy pola w `supabase-config.js` pozostaną puste, aplikacja nadal działa w dotychczasowym trybie lokalnym albo przez `server.py`.
 
@@ -115,7 +134,7 @@ Możesz też otworzyć `index.html` bez serwera, ale wtedy dane będą zapisane 
 ## Funkcje
 
 - dodawanie, edycja i usuwanie rekordów,
-- osobny zeszyt napraw i wkładek usznych,
+- osobny zeszyt serwisu i zamówień,
 - wspólna baza dla kilku użytkowników w tej samej sieci,
 - osobna zakładka z aktualną ilością aparatów na stanie,
 - podpowiadanie nazwy aparatu na podstawie wcześniejszych rekordów,
