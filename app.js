@@ -37,6 +37,7 @@ const SUPABASE_PCPR_LIST_TABLE = "pcpr_list";
 const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
 const SUPABASE_CAPD_HISTORY_TABLE = "capd_history";
+const CAPD_HISTORY_STATUS_LABELS = { OPIS: "Opis", DO_ODBIORU: "Do odbioru", ODEBRANO: "Odebrano" };
 const SUPABASE_APP_ACCESS_TABLE = "app_authorized_users";
 const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
@@ -1125,6 +1126,7 @@ const capdReportDate = document.querySelector("#capdReportDate");
 const capdReportResults = document.querySelector("#capdReportResults");
 const capdReportDescription = document.querySelector("#capdReportDescription");
 const capdHistorySearchInput = document.querySelector("#capdHistorySearchInput");
+const capdHistoryStatusFilter = document.querySelector("#capdHistoryStatusFilter");
 const capdHistoryCount = document.querySelector("#capdHistoryCount");
 const capdHistoryList = document.querySelector("#capdHistoryList");
 const capdHistoryEmpty = document.querySelector("#capdHistoryEmpty");
@@ -19130,6 +19132,8 @@ function normalizeCapdHistoryEntry(entry) {
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
     testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
     scope: normalizeLoanHistoryText(entry.scope),
+    status: Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, entry.status) ? entry.status : "",
+    statusUpdatedAt: normalizeLoanHistoryText(entry.statusUpdatedAt),
     description: capdRichTextPlainText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
     descriptionHtml: sanitizeCapdRichText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
     results
@@ -19238,6 +19242,8 @@ async function saveCurrentCapdToHistory() {
   const historyEntry = normalizeCapdHistoryEntry({
     ...snapshot,
     createdAt: existing?.createdAt || snapshot.createdAt,
+    status: existing?.status ?? "OPIS",
+    statusUpdatedAt: existing?.statusUpdatedAt || (existing ? "" : snapshot.savedAt),
     savedAt: new Date().toISOString()
   });
   capdHistory = normalizeCapdHistory([historyEntry, ...capdHistory.filter((entry) => entry.id !== historyEntry.id)]);
@@ -19324,6 +19330,31 @@ function capdHistoryCountLabel(count) {
   return `${count} badań`;
 }
 
+async function changeCapdHistoryStatus(id, status, control) {
+  if (!Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, status)) return;
+  const entry = capdHistory.find((item) => item.id === id);
+  if (!entry || entry.status === status) return;
+  const updated = normalizeCapdHistoryEntry({
+    ...entry,
+    status,
+    statusUpdatedAt: new Date().toISOString(),
+    savedAt: new Date().toISOString(),
+    savedBy: currentSupabaseUser?.email || entry.savedBy,
+    workstation: currentWorkstationName() || entry.workstation
+  });
+  control.disabled = true;
+  try {
+    await persistCapdHistoryEntry(updated);
+    capdHistory = normalizeCapdHistory([updated, ...capdHistory.filter((item) => item.id !== id)]);
+    saveLocalCapdHistory();
+    renderCapdHistory();
+  } catch (error) {
+    control.value = entry.status;
+    control.disabled = false;
+    alert(`Nie udało się zmienić etapu APD: ${error.message}`);
+  }
+}
+
 function maskSensitiveIdentifier(value, visibleDigits = 4) {
   const normalized = String(value || "");
   if (normalized.length <= visibleDigits) return normalized;
@@ -19333,14 +19364,17 @@ function maskSensitiveIdentifier(value, visibleDigits = 4) {
 function renderCapdHistory() {
   if (!capdHistoryList) return;
   const query = normalize(capdHistorySearchInput?.value || "");
-  const matchingHistory = capdHistory.filter((entry) => !query || normalize([
+  const statusFilter = capdHistoryStatusFilter?.value || "";
+  const matchingHistory = capdHistory.filter((entry) =>
+    (!statusFilter || (statusFilter === "BEZ_ETAPU" ? !entry.status : entry.status === statusFilter)) &&
+    (!query || normalize([
     entry.patient,
     entry.pesel,
     entry.birthDate,
     entry.testDate,
     entry.description,
     ...entry.results.map((result) => `${result.code} ${result.value}`)
-  ].join(" ")).includes(query));
+  ].join(" ")).includes(query)));
   const visibleHistory = historyRenderBatch(capdHistoryList, matchingHistory, query);
   if (capdHistoryCount) capdHistoryCount.textContent = capdHistoryCountLabel(matchingHistory.length);
   if (capdHistoryEmpty) capdHistoryEmpty.hidden = matchingHistory.length > 0;
@@ -19348,6 +19382,7 @@ function renderCapdHistory() {
   const cards = visibleHistory.map((entry) => {
     const card = document.createElement("article");
     card.className = "capd-history-item";
+    card.dataset.status = entry.status || "BEZ_ETAPU";
     if (entry.id === activeCapdHistoryId) card.classList.add("active");
     const main = document.createElement("div");
     main.className = "capd-history-main";
@@ -19365,6 +19400,19 @@ function renderCapdHistory() {
 
     const actions = document.createElement("div");
     actions.className = "capd-history-actions";
+    const stage = document.createElement("label");
+    stage.className = "capd-history-stage";
+    const stageLabel = document.createElement("span");
+    stageLabel.textContent = "Etap";
+    const stageSelect = document.createElement("select");
+    stageSelect.setAttribute("aria-label", `Etap badania APD: ${entry.patient}`);
+    stageSelect.dataset.status = entry.status || "BEZ_ETAPU";
+    if (!entry.status) stageSelect.add(new Option("Nie ustawiono", ""));
+    Object.entries(CAPD_HISTORY_STATUS_LABELS).forEach(([value, label]) => stageSelect.add(new Option(label, value)));
+    stageSelect.value = entry.status;
+    stageSelect.addEventListener("change", () => changeCapdHistoryStatus(entry.id, stageSelect.value, stageSelect));
+    stage.append(stageLabel, stageSelect);
+    actions.append(stage);
     const openButton = document.createElement("button");
     openButton.type = "button";
     openButton.className = "reset-filters-btn";
@@ -24787,6 +24835,7 @@ resetCapdFormBtn?.addEventListener("click", resetCapdForm);
 saveCapdHistoryBtn?.addEventListener("click", saveCurrentCapdToHistory);
 printCapdReportBtn?.addEventListener("click", printCapdReport);
 capdHistorySearchInput?.addEventListener("input", debounce(renderCapdHistory, SEARCH_DEBOUNCE_MS));
+capdHistoryStatusFilter?.addEventListener("change", renderCapdHistory);
 vacationTypeInput?.addEventListener("change", updateVacationSaturdayField);
 vacationTypeChoices?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-type]");

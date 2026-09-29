@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260929-271">
+  <link rel="stylesheet" href="styles.css?v=20260929-272">
   </head>
   <body>
     <main class="app-shell">
@@ -2092,10 +2092,22 @@
               </div>
               <span id="capdHistoryCount">0 badań</span>
             </header>
-            <label class="capd-history-search">
-              <span>Szukaj</span>
-              <input id="capdHistorySearchInput" type="search" placeholder="Imię i nazwisko, PESEL lub data" autocomplete="off">
-            </label>
+            <div class="capd-history-filters">
+              <label class="capd-history-search">
+                <span>Szukaj</span>
+                <input id="capdHistorySearchInput" type="search" placeholder="Imię i nazwisko, PESEL lub data" autocomplete="off">
+              </label>
+              <label class="capd-history-filter">
+                <span>Etap</span>
+                <select id="capdHistoryStatusFilter">
+                  <option value="">Wszystkie</option>
+                  <option value="OPIS">Opis</option>
+                  <option value="DO_ODBIORU">Do odbioru</option>
+                  <option value="ODEBRANO">Odebrano</option>
+                  <option value="BEZ_ETAPU">Bez etapu</option>
+                </select>
+              </label>
+            </div>
             <div id="capdHistoryList" class="capd-history-list"></div>
             <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych badań APD.</p>
           </section>
@@ -2801,11 +2813,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20260929-271"></script>
-    <script src="data-layer.js?v=20260929-271"></script>
-    <script src="sync-layer.js?v=20260929-271"></script>
-    <script src="offline-vault.js?v=20260929-271"></script>
-    <script src="offline-forms.js?v=20260929-271"></script>
-  <script src="app.js?v=20260929-271"></script>
+    <script src="supabase-config.js?v=20260929-272"></script>
+    <script src="data-layer.js?v=20260929-272"></script>
+    <script src="sync-layer.js?v=20260929-272"></script>
+    <script src="offline-vault.js?v=20260929-272"></script>
+    <script src="offline-forms.js?v=20260929-272"></script>
+  <script src="app.js?v=20260929-272"></script>
   </body>
 </html>
