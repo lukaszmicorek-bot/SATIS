@@ -127,8 +127,9 @@ window.SatisOfflineForms = {
         while (walker.nextNode()) walker.currentNode.textContent = walker.currentNode.textContent.split(entry.snapshot.number).join(`OFF-${entry.id.slice(0, 8)}`);
       }
       copy.querySelectorAll("[id]").forEach(node => node.removeAttribute("id")); copy.removeAttribute("id");
-      output.append(mark, copy); document.body.append(output); document.body.classList.add("offline-printing");
-      const cleanup = () => { output.remove(); document.body.classList.remove("offline-printing"); };
+      const printClass = `pricing-${kind}-print`;
+      output.append(mark, copy); document.body.append(output); document.body.classList.add("offline-printing", printClass);
+      const cleanup = () => { output.remove(); document.body.classList.remove("offline-printing", printClass); };
       window.addEventListener("afterprint", cleanup, { once: true });
       try { await api.print(cleanup); } catch (error) { cleanup(); throw error; }
     }
