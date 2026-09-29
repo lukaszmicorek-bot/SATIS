@@ -1639,13 +1639,13 @@ h2 {
 }
 
 .capd-history-item[data-status="OPIS"] {
-  --capd-stage-color: #003f5a;
-  --capd-stage-wash: #eaf1f4;
+  --capd-stage-color: #de6600;
+  --capd-stage-wash: #fff0e3;
 }
 
 .capd-history-item[data-status="DO_ODBIORU"] {
-  --capd-stage-color: #de6600;
-  --capd-stage-wash: #fff0e3;
+  --capd-stage-color: #003f5a;
+  --capd-stage-wash: #eaf1f4;
 }
 
 .capd-history-item[data-status="ODEBRANO"] {
@@ -1714,15 +1714,15 @@ h2 {
 }
 
 .capd-history-stage select[data-status="OPIS"] {
-  border-color: #c0d0d7;
-  background: #edf3f5;
-  color: #003f5a;
-}
-
-.capd-history-stage select[data-status="DO_ODBIORU"] {
   border-color: #e9c9ab;
   background: #fff3e9;
   color: #9d4a00;
+}
+
+.capd-history-stage select[data-status="DO_ODBIORU"] {
+  border-color: #c0d0d7;
+  background: #edf3f5;
+  color: #003f5a;
 }
 
 .capd-history-stage select[data-status="ODEBRANO"] {
