@@ -4770,10 +4770,29 @@ function renderCustomerPhoneTooltip(element, info, text) {
   if (remainder) {
     const details = document.createElement("div");
     details.className = "phone-tooltip-details";
-    renderWarrantyDateText(details, remainder);
+    appendCustomerTooltipSections(details, remainder);
     fragment.append(details);
   }
   element.replaceChildren(fragment);
+}
+
+function appendCustomerTooltipSections(container, text) {
+  String(text || "").split(/\n\s*\n/gu).filter(Boolean).forEach((section) => {
+    const lines = section.split("\n").filter(Boolean);
+    const block = document.createElement("section");
+    block.className = "customer-tooltip-section";
+    const heading = document.createElement("strong");
+    heading.className = "customer-tooltip-section-heading";
+    heading.textContent = lines.shift();
+    block.append(heading);
+    lines.forEach((line) => {
+      const detail = document.createElement("div");
+      detail.className = "customer-tooltip-section-detail";
+      renderWarrantyDateText(detail, line);
+      block.append(detail);
+    });
+    container.append(block);
+  });
 }
 
 function showTableHoverTooltip(anchor, dataKey) {
@@ -4782,7 +4801,9 @@ function showTableHoverTooltip(anchor, dataKey) {
   const tooltip = tableHoverTooltipElement();
   const phoneInfo = anchor.customerPhoneDetails;
   const calendarTooltip = dataKey === "currentDateTooltip";
+  const customerTooltip = dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip";
   tooltip.classList.toggle("calendar-event-tooltip", calendarTooltip);
+  tooltip.classList.toggle("customer-detail-tooltip", customerTooltip);
   if (calendarTooltip) {
     const lines = text.split("\n");
     const heading = document.createElement("strong");
@@ -4798,6 +4819,9 @@ function showTableHoverTooltip(anchor, dataKey) {
     });
   } else if (phoneInfo && text.startsWith(phoneInfo.tooltip)) {
     renderCustomerPhoneTooltip(tooltip, phoneInfo, text);
+  } else if (customerTooltip) {
+    tooltip.replaceChildren();
+    appendCustomerTooltipSections(tooltip, text);
   } else {
     renderWarrantyDateText(tooltip, text);
   }
@@ -22884,16 +22908,30 @@ function todayInputValue() {
   return `${year}-${month}-${day}`;
 }
 
+function currentDateLocationKey(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const explicit = text.toLocaleUpperCase("pl-PL").match(/(?:^|[^A-Z0-9])(T12|P50|P63)(?=$|[^A-Z0-9])/u);
+  return explicit?.[1] || documentLocationKey(text);
+}
+
+function currentDateEventDetail(event) {
+  const lines = String(event.detail || "").split("\n");
+  if (event.location) lines.splice(1, 0, `Miejsce: ${event.location}`);
+  return lines.filter(Boolean).join("\n");
+}
+
 function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
   const start = isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const end = addDaysToIsoDate(start, rangeDays);
   const events = new Map();
-  const add = (eventDate, kind, label, summary, detail, uniqueKey) => {
+  const employeeWorkstations = new Map(vacationEmployees.map((employee) => [employee.id, employee.workstation]));
+  const add = (eventDate, kind, label, summary, detail, uniqueKey, location = "") => {
     const isoDate = isoDateForSave(eventDate);
     if (!isoDate || isoDate < start || isoDate > end) return;
     if (!events.has(isoDate)) events.set(isoDate, new Map());
     const key = `${kind}:${uniqueKey || `${label}:${summary}:${detail}`}`;
-    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label, summary, detail });
+    if (!events.get(isoDate).has(key)) events.get(isoDate).set(key, { kind, label, summary, detail, location: currentDateLocationKey(location) });
   };
 
   normalizePricingLoanHistory(pricingLoanHistory).forEach(entry => {
@@ -22910,7 +22948,8 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
       "Koniec umowy",
       entry.customer || "brak osoby",
       [entry.customer || "brak osoby", devices, charger].filter(Boolean).join("\n"),
-      entry.id || entry.number
+      entry.id || entry.number,
+      currentDateLocationKey(entry.city) || currentDateLocationKey(entry.workstation)
     );
   });
   demoRecords.forEach(record => {
@@ -22924,15 +22963,17 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
       manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta",
       record.deviceName || "aparat Demo",
       manufacturerSource ? equipment : `${record.currentUser || "brak osoby"}\n${equipment}`,
-      record.id);
+      record.id,
+      record.location);
     if (meta.manufacturerReturn?.returnDeadline) {
-      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.deviceName || "aparat Demo", equipment, record.id);
+      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.deviceName || "aparat Demo", equipment, record.id, record.location);
     }
   });
   vacationRequests.forEach(request => {
     if (request.status !== "ZATWIERDZONY") return;
     const employee = request.employeeName || "brak osoby";
     const firstName = String(employee).trim().split(/\s+/u)[0] || employee;
+    const workstation = employeeWorkstations.get(request.employeeId) || "";
     const dateFrom = isoDateForSave(request.dateFrom);
     const dateTo = isoDateForSave(request.dateTo || request.dateFrom);
     if (vacationTypeUsesHours(request.type)) {
@@ -22943,19 +22984,20 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
         canViewDetails ? vacationTypeLabel(request.type) : "Termin pracownika",
         firstName,
         canViewDetails ? `${employee}\n${formatVacationAmount(request.hours)} godz.` : employee,
-        `${request.id}:hours`
+        `${request.id}:hours`,
+        workstation
       );
       return;
     }
     if (dateFrom < start && dateTo >= start) {
-      add(start, "vacation", "Trwa urlop", firstName, `${employee}\n${formatDate(dateFrom)} - ${formatDate(dateTo)}`, `${request.id}:ongoing`);
+      add(start, "vacation", "Trwa urlop", firstName, `${employee}\n${formatDate(dateFrom)} - ${formatDate(dateTo)}`, `${request.id}:ongoing`, workstation);
     }
     if (dateFrom && dateFrom === dateTo) {
-      add(dateFrom, "vacation", "Urlop w dniu", firstName, employee, `${request.id}:day`);
+      add(dateFrom, "vacation", "Urlop w dniu", firstName, employee, `${request.id}:day`, workstation);
       return;
     }
-    add(dateFrom, "vacation", "Początek urlopu", firstName, employee, `${request.id}:from`);
-    add(dateTo, "vacation", "Koniec urlopu", firstName, employee, `${request.id}:to`);
+    add(dateFrom, "vacation", "Początek urlopu", firstName, employee, `${request.id}:from`, workstation);
+    add(dateTo, "vacation", "Koniec urlopu", firstName, employee, `${request.id}:to`, workstation);
   });
 
   return new Map([...events]
@@ -22966,7 +23008,7 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
 function currentDateEventSummary(events) {
   const counts = new Map();
   events.forEach(event => {
-    const text = [event.label, event.detail].filter(Boolean).join(": ");
+    const text = [event.label, currentDateEventDetail(event)].filter(Boolean).join(": ");
     counts.set(text, (counts.get(text) || 0) + 1);
   });
   return [...counts].map(([text, count]) => count > 1 ? `${text} (${count})` : text).join("\n\n");
@@ -23045,10 +23087,10 @@ function createCurrentDateCalendar(date = new Date()) {
     .flatMap(([isoDate, events]) => {
       const grouped = new Map();
       events.forEach(event => {
-        const groupKey = `${event.label}:${event.summary}`;
+        const groupKey = `${event.label}:${event.summary}:${event.location}`;
         const current = grouped.get(groupKey) || { ...event, count: 0, details: new Set() };
         current.count += 1;
-        if (event.detail) current.details.add(event.detail);
+        if (event.detail) current.details.add(currentDateEventDetail(event));
         grouped.set(groupKey, current);
       });
       return [...grouped.values()].map(event => ({
@@ -23071,6 +23113,13 @@ function createCurrentDateCalendar(date = new Date()) {
     eventLabel.textContent = event.count > 1 ? `${event.label} (${event.count})` : event.label;
     description.append(eventLabel);
     if (event.summary) description.append(`: ${event.summary}`);
+    if (event.location) {
+      const location = document.createElement("small");
+      location.className = "current-date-event-location";
+      location.dataset.locationTone = event.location;
+      location.textContent = event.location;
+      description.append(" ", location);
+    }
     row.dataset.currentDateTooltip = [formatDate(event.isoDate), event.label, event.detail].filter(Boolean).join("\n");
     row.setAttribute("aria-label", row.dataset.currentDateTooltip);
     row.tabIndex = 0;
