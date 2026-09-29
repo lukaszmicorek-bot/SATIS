@@ -550,29 +550,36 @@ h2 {
 }
 
 .stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(100px, 1fr));
-  gap: 8px;
-  min-width: min(460px, 100%);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  min-width: 0;
 }
 
 .stats div {
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--soft);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  padding: 3px 12px;
+  border-right: 1px solid #dce5e7;
 }
 
+.stats div:last-child { border-right: 0; padding-right: 0; }
+
 .stats span {
-  display: block;
-  font-size: 1.28rem;
-  font-weight: 850;
+  color: #003f5a;
+  font-size: 1.06rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .stats small {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 700;
+  color: #60757b;
+  font-size: 0.69rem;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .notebook-switch {
@@ -12208,8 +12215,7 @@ textarea {
     padding: 14px;
   }
 
-  .stats,
-    .controls,
+  .controls,
     .repairs-controls,
     .stock-audit-panel,
     .private-form-grid,

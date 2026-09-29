@@ -398,7 +398,7 @@ const pricingHistorySelectableEntries = new Map();
 let pricingHistorySelectedKey = "";
 const documentDraftIdentities = new Map();
 const documentNextNumberHints = new Map();
-let deviceStats = { all: 0, sold: 0, reserved: 0, stock: 0 };
+let deviceStats = { soldByYear: new Map(), reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
 let currentSupabaseUser = null;
@@ -1007,10 +1007,7 @@ const showMoreDataControlBtn = document.querySelector("#showMoreDataControlBtn")
 const olderDataControlRenderNotice = document.querySelector("#olderDataControlRenderNotice");
 const olderDataControlRenderText = document.querySelector("#olderDataControlRenderText");
 const showMoreOlderDataControlBtn = document.querySelector("#showMoreOlderDataControlBtn");
-const countAllLabel = document.querySelector("#countAllLabel");
 const countSoldLabel = document.querySelector("#countSoldLabel");
-const countInvoiceLabel = document.querySelector("#countInvoiceLabel");
-const countStockLabel = document.querySelector("#countStockLabel");
 const searchInput = document.querySelector("#searchInput");
 const deviceSearchSummary = document.querySelector("#deviceSearchSummary");
 const typeFilter = document.querySelector("#typeFilter");
@@ -6448,7 +6445,7 @@ function renderLimitNotice(notice, textNode, totalCount, visibleCount, itemLabel
 
 function rebuildDeviceDerivedData() {
   deviceDerived.clear();
-  deviceStats = { all: records.length, sold: 0, reserved: 0, stock: 0 };
+  deviceStats = { soldByYear: new Map(), reserved: 0, stock: 0 };
 
   records.forEach((record) => {
     const display = displayType(record);
@@ -6458,7 +6455,8 @@ function rebuildDeviceDerivedData() {
     const age = fifoExcluded ? null : stockAge(record);
     const location = normalizeRepairLocation(record.location);
 
-    if (sold) deviceStats.sold += 1;
+    const saleYear = sold ? soldDeviceSaleDate(record).slice(0, 4) : "";
+    if (saleYear) deviceStats.soldByYear.set(saleYear, (deviceStats.soldByYear.get(saleYear) || 0) + 1);
     if (display === "REZERWACJA") deviceStats.reserved += 1;
     if (inStock) deviceStats.stock += 1;
 
@@ -8710,7 +8708,7 @@ function syncNotebookPanels() {
       ? !documentVisible
       : section.id !== `${activeNotebook}Notebook`;
   });
-  if (statsPanel) statsPanel.hidden = (documentVisible && activeNotebook !== "pricing") || ["capd", "vacation", "pcpr", "history"].includes(activeNotebook);
+  if (statsPanel) statsPanel.hidden = activeNotebook !== "devices" || !["database", "stock"].includes(activeDeviceView) || documentVisible;
 }
 
 function switchPricingView(viewName) {
@@ -15579,7 +15577,6 @@ function renderDataControlLoading() {
   olderDataControlEmptyState.hidden = true;
   renderLimitNotice(dataControlRenderNotice, dataControlRenderText, 0, 0, "spraw");
   renderLimitNotice(olderDataControlRenderNotice, olderDataControlRenderText, 0, 0, "spraw");
-  updateDataControlTopStats([]);
 }
 
 function renderDataControlResults(allIssues) {
@@ -15590,7 +15587,6 @@ function renderDataControlResults(allIssues) {
   const olderIssues = filteredDataControlIssues(olderYearIssues);
   const renderedIssues = visibleTableItems(issues, "dataControl");
 
-  updateDataControlTopStats(issues);
   dataControlSummary.textContent = `${formatDataIssueCount(issues.length)} (${currentYear})`;
   olderDataControlSummary.textContent = `${formatDataIssueShortCount(olderIssues.length)} sprzed ${currentYear}`;
   renderDataControlStats(currentYearIssues, currentYearIssues.length);
@@ -15845,20 +15841,6 @@ function addDataControlIssue(issues, record, source, severity, kind, title, deta
     serialNumber: normalizeSerialNumber(record.serialNumber),
     ...extra
   });
-}
-
-function updateDataControlTopStats(issues) {
-  const duplicateCount = issues.filter((issue) => issue.kind === "duplicate" || issue.kind === "repair-duplicate").length;
-  const criticalCount = issues.filter((issue) => issue.severity === "critical").length;
-  const warningCount = issues.filter((issue) => issue.severity === "warning").length;
-  document.querySelector("#countAll").textContent = issues.length;
-  document.querySelector("#countSold").textContent = duplicateCount;
-  document.querySelector("#countInvoice").textContent = criticalCount;
-  document.querySelector("#countStock").textContent = warningCount;
-  countAllLabel.textContent = "spraw";
-  countSoldLabel.textContent = "duplikaty";
-  countInvoiceLabel.textContent = "pilne";
-  countStockLabel.textContent = "do sprawdzenia";
 }
 
 function compareDataControlIssues(left, right) {
@@ -18075,68 +18057,11 @@ function createDatePill(value, type, activeType = "") {
 }
 
 function updateStats() {
-  if (activeNotebook === "pricing") {
-    const visibleCount = filteredPricingRecords().length;
-    const meta = currentPricingMeta();
-    document.querySelector("#countAll").textContent = String(meta.updatedMonth).padStart(2, "0");
-    document.querySelector("#countSold").textContent = meta.updatedYear;
-    document.querySelector("#countInvoice").textContent = pricingRecords.length;
-    document.querySelector("#countStock").textContent = visibleCount;
-    countAllLabel.textContent = "miesiąc";
-    countSoldLabel.textContent = "rok";
-    countInvoiceLabel.textContent = "pozycji";
-    countStockLabel.textContent = "widoczne";
-    return;
-  }
-
-  if (activeNotebook === "repairs") {
-    document.querySelector("#countAll").textContent = repairStats.all;
-    document.querySelector("#countSold").textContent = repairStats.repairs;
-    document.querySelector("#countInvoice").textContent = repairStats.inserts;
-    document.querySelector("#countStock").textContent = repairStats.open;
-    countAllLabel.textContent = "pozycji";
-    countSoldLabel.textContent = "naprawy";
-    countInvoiceLabel.textContent = "wkładki";
-    countStockLabel.textContent = "otwarte";
-    return;
-  }
-
-  if (activeDeviceView === "demo") {
-    document.querySelector("#countAll").textContent = demoStats.all;
-    document.querySelector("#countSold").textContent = demoStats.stock;
-    document.querySelector("#countInvoice").textContent = demoStats.loaned;
-    document.querySelector("#countStock").textContent = demoStats.returnDue;
-    countAllLabel.textContent = "aparatów demo";
-    countSoldLabel.textContent = "na stanie";
-    countInvoiceLabel.textContent = "wypożyczone";
-    countStockLabel.textContent = "do zwrotu";
-    return;
-  }
-
-  if (activeDeviceView === "dataControl") {
-    const issues = filteredDataControlIssues(buildDataControlIssues());
-    const duplicateCount = issues.filter((issue) => issue.kind === "duplicate").length;
-    const criticalCount = issues.filter((issue) => issue.severity === "critical").length;
-    const warningCount = issues.filter((issue) => issue.severity === "warning").length;
-    document.querySelector("#countAll").textContent = issues.length;
-    document.querySelector("#countSold").textContent = duplicateCount;
-    document.querySelector("#countInvoice").textContent = criticalCount;
-    document.querySelector("#countStock").textContent = warningCount;
-    countAllLabel.textContent = "spraw";
-    countSoldLabel.textContent = "duplikaty";
-    countInvoiceLabel.textContent = "pilne";
-    countStockLabel.textContent = "do sprawdzenia";
-    return;
-  }
-
-  document.querySelector("#countAll").textContent = deviceStats.all;
-  document.querySelector("#countSold").textContent = deviceStats.sold;
+  const year = String(new Date().getFullYear());
+  document.querySelector("#countSold").textContent = deviceStats.soldByYear.get(year) || 0;
   document.querySelector("#countInvoice").textContent = deviceStats.reserved;
   document.querySelector("#countStock").textContent = deviceStats.stock;
-  countAllLabel.textContent = "aparatów";
-  countSoldLabel.textContent = "sprzedane";
-  countInvoiceLabel.textContent = "rezerwacje";
-  countStockLabel.textContent = "na stanie";
+  countSoldLabel.textContent = `sprzedane w ${year}`;
 }
 
 function renderStockView() {
@@ -18524,6 +18449,7 @@ function switchView(viewName, groupName) {
     return;
   }
   activePricingView = "";
+  if (groupName === "devices") activeDeviceView = viewName;
   tabButtons.forEach((button) => {
     if (button.dataset.viewGroup !== groupName) return;
     const isActive = button.dataset.view === viewName;
@@ -18543,7 +18469,6 @@ function switchView(viewName, groupName) {
     return;
   }
 
-  activeDeviceView = viewName;
   if (viewName === "dataControl") {
     renderDataControlView();
     return;
@@ -23157,9 +23082,14 @@ function refreshCurrentDateWidget(now = new Date()) {
   const calendar = document.querySelector("#currentDateCalendar");
   if (!widget || !button || !weekday || !value || !calendar) return;
   const isoDate = isoDateFromParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const yearChanged = Boolean(value.dateTime && value.dateTime.slice(0, 4) !== isoDate.slice(0, 4));
   weekday.textContent = now.toLocaleDateString("pl-PL", { weekday: "long" });
   value.textContent = now.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
   value.dateTime = isoDate;
+  if (yearChanged) {
+    setCurrentYearTitle();
+    updateStats();
+  }
   button.setAttribute("aria-label", `Dzisiaj: ${value.textContent}. Pokaż kalendarz.`);
   if (!calendar.hidden && calendar.contains(document.activeElement)) return;
   const laterOpen = Boolean(calendar.querySelector(".current-date-later[open]"));
