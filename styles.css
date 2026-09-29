@@ -1635,13 +1635,30 @@ h2 {
 }
 
 .capd-history-item.active {
-  border-left-color: #167f83;
-  background: #f1f9f8;
+  border-color: #b8d2d5;
 }
 
-.capd-history-item[data-status="OPIS"] { border-left-color: #879ba1; }
-.capd-history-item[data-status="DO_ODBIORU"] { border-left-color: #568cb2; }
-.capd-history-item[data-status="ODEBRANO"] { border-left-color: #5c9b77; }
+.capd-history-item[data-status="OPIS"] {
+  --capd-stage-color: #003f5a;
+  --capd-stage-wash: #eaf1f4;
+}
+
+.capd-history-item[data-status="DO_ODBIORU"] {
+  --capd-stage-color: #de6600;
+  --capd-stage-wash: #fff0e3;
+}
+
+.capd-history-item[data-status="ODEBRANO"] {
+  --capd-stage-color: #007a7a;
+  --capd-stage-wash: #e6f4f2;
+}
+
+.capd-history-item[data-status="OPIS"],
+.capd-history-item[data-status="DO_ODBIORU"],
+.capd-history-item[data-status="ODEBRANO"] {
+  border-left-color: var(--capd-stage-color);
+  background: linear-gradient(90deg, var(--capd-stage-wash) 0, #fbfcfc 38%);
+}
 
 .capd-history-main {
   display: grid;
@@ -1696,16 +1713,22 @@ h2 {
   font-weight: 750;
 }
 
+.capd-history-stage select[data-status="OPIS"] {
+  border-color: #c0d0d7;
+  background: #edf3f5;
+  color: #003f5a;
+}
+
 .capd-history-stage select[data-status="DO_ODBIORU"] {
-  border-color: #c5ddec;
-  background: #ecf5fa;
-  color: #245b7e;
+  border-color: #e9c9ab;
+  background: #fff3e9;
+  color: #9d4a00;
 }
 
 .capd-history-stage select[data-status="ODEBRANO"] {
-  border-color: #c6e1d0;
-  background: #edf7f0;
-  color: #2f6b49;
+  border-color: #b9d9d5;
+  background: #eaf6f4;
+  color: #006767;
 }
 
 .capd-history-delete {
