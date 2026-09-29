@@ -456,6 +456,24 @@ button.danger:hover {
   font-weight: 850;
 }
 
+.current-date-event-location {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 1px 5px;
+  border: 1px solid #d5e0e2;
+  border-radius: 5px;
+  color: #52676e;
+  background: #f5f8f8;
+  font-size: 0.63rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.current-date-event-location[data-location-tone="T12"] { border-color: #c9bfb3; color: #6f604f; background: #f8f4ef; }
+.current-date-event-location[data-location-tone="P50"] { border-color: #c7cf9d; color: #616b2f; background: #f5f8e9; }
+.current-date-event-location[data-location-tone="P63"] { border-color: #d3c1de; color: #7b628b; background: #f8f2fb; }
+
 .current-date-upcoming-row::before {
   width: 6px;
   height: 6px;
@@ -8174,7 +8192,8 @@ tbody tr.device-sold-row:hover {
   display: none;
 }
 
-.table-hover-tooltip.calendar-event-tooltip {
+.table-hover-tooltip.calendar-event-tooltip,
+.table-hover-tooltip.customer-detail-tooltip {
   width: min(350px, calc(100vw - 24px));
   padding: 14px 16px;
   border: 1px solid #608e91;
@@ -8208,8 +8227,12 @@ tbody tr.device-sold-row:hover {
 }
 
 .phone-tooltip-heading {
-  margin-bottom: 4px;
-  font-weight: 600;
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #d6e3e3;
+  color: #003f5a;
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 
 .phone-tooltip-line + .phone-tooltip-line {
@@ -8232,6 +8255,28 @@ tbody tr.device-sold-row:hover {
 
 .phone-tooltip-details {
   margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #d6e3e3;
+}
+
+.customer-tooltip-section + .customer-tooltip-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #d6e3e3;
+}
+
+.customer-tooltip-section-heading {
+  display: block;
+  color: #003f5a;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.customer-tooltip-section-detail {
+  margin-top: 5px;
+  color: #314950;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .warranty-date {
