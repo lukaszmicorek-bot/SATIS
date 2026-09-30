@@ -1,7 +1,7 @@
 /* Local drafts are encrypted for this browser profile; this workspace never grants a Supabase session. */
 window.SatisOfflineForms = {
   mount(api) {
-    const kinds = { offer: "Oferta", loan: "Umowa", order: "Zamówienie", complaint: "Reklamacja" };
+    const kinds = { offer: "Oferta", loan: "Umowa", order: "Zamówienie", complaint: "Reklamacja", rodo: "RODO" };
     const vault = window.SatisOfflineVault.create();
     let workspace = false, syncing = false, current = "offer", timer = 0, idle = 0, release = null;
     let writing = Promise.resolve(), selected = new Map(), dirty = false;
@@ -47,9 +47,10 @@ window.SatisOfflineForms = {
       drafts.replaceChildren();
       if (!vault.unlocked()) return;
       const add = document.createElement("button");
-      add.type = "button"; add.textContent = `Nowa: ${kinds[current]}`;
-      add.onclick = () => run(async () => { await save(current); selected.delete(current); api.reset(current); show(current); });
+      add.type = "button"; add.textContent = current === "rodo" ? "Nowy formularz RODO" : `Nowa: ${kinds[current]}`;
+      add.onclick = () => run(async () => { if (current !== "rodo") await save(current); selected.delete(current); api.reset(current); show(current); });
       drafts.append(add);
+      if (current === "rodo") return;
       for (const entry of vault.read().drafts.filter(item => item.kind === current).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {
         const item = document.createElement("span"); item.className = "offline-draft";
         const open = document.createElement("button"); open.type = "button";
@@ -71,6 +72,11 @@ window.SatisOfflineForms = {
       api.render(kind);
       for (const [key, view] of Object.entries(api.views)) view.hidden = key !== kind;
       panel.querySelectorAll("[data-kind]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.kind === kind)));
+      panel.querySelector('[data-offline="save"]').hidden = kind === "rodo";
+      panel.querySelector('[data-offline="sync"]').hidden = kind === "rodo";
+      panel.querySelector(".offline-warning").textContent = kind === "rodo"
+        ? "RODO nie zapisuje danych ani zgód na tym komputerze i nie synchronizuje ich z serwerem. Po wydrukowaniu przechowuj dokument bezpiecznie."
+        : "Wersja robocza. Numeracja i dostępność aparatu wymagają sprawdzenia online. Dostęp do szkiców ma każdy, kto używa tego profilu przeglądarki. Blokuj komputer; pliki PDF przechowuj bezpiecznie.";
       list(); touch();
     }
     function load(entry) {
@@ -101,6 +107,7 @@ window.SatisOfflineForms = {
       message("Szkice są zapisane na tym komputerze. Nie są jeszcze zapisane w historii serwera.");
     }
     async function save(kind = current) {
+      if (kind === "rodo") return null;
       if (!vault.unlocked()) throw new Error("Najpierw otwórz formularze offline.");
       if (!dirty && selected.get(kind)?.id === api.identity(kind).id) return selected.get(kind);
       clearTimeout(timer);
@@ -114,6 +121,17 @@ window.SatisOfflineForms = {
       list(); return entry;
     }
     async function print(kind = current) {
+      if (kind === "rodo") {
+        api.render(kind);
+        const output = document.createElement("section"); output.id = "offlinePrint";
+        const copy = api.printSource(kind).cloneNode(true);
+        copy.querySelectorAll("[id]").forEach(node => node.removeAttribute("id")); copy.removeAttribute("id");
+        output.append(copy); document.body.append(output); document.body.classList.add("offline-printing", "offline-rodo-print");
+        const cleanup = () => { output.remove(); document.body.classList.remove("offline-printing", "offline-rodo-print"); };
+        window.addEventListener("afterprint", cleanup, { once: true });
+        try { await api.print(cleanup); } catch (error) { cleanup(); throw error; }
+        return;
+      }
       const entry = await save(kind);
       if (!entry?.snapshot.customer?.trim()) throw new Error("Uzupełnij imię i nazwisko przed wydrukiem.");
       show(kind);
@@ -160,6 +178,7 @@ window.SatisOfflineForms = {
       } finally { syncing = false; panel.inert = false; list(); }
     }
     function leave() {
+      api.reset("rodo");
       workspace = false; panel.hidden = true; document.body.classList.remove("offline-form-mode");
       for (const [kind, placeholder] of places) { placeholder.replaceWith(api.views[kind]); }
       places.clear(); api.renderApp();
@@ -229,6 +248,7 @@ window.SatisOfflineForms = {
       button.onclick = () => run(async () => { if (dirty) await save(current); show(kind); });
       panel.querySelector("nav").append(button);
       const changed = () => {
+        if (kind === "rodo") return;
         if (!vault.unlocked() || syncing) return;
         dirty = true; touch(); clearTimeout(timer);
         message("Niezapisane zmiany lokalne…");
