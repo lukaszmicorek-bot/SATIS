@@ -8754,11 +8754,12 @@ function renderPricingRodo() {
   const print = document.querySelector("#pricingRodoPrint");
   if (!print) return;
   const name = document.querySelector("#rodoNameInput")?.value.trim() || "";
+  const birthDate = document.querySelector("#rodoBirthDateInput")?.value || "";
   const phone = document.querySelector("#rodoPhoneInput")?.value.trim() || "";
   const address = document.querySelector("#rodoAddressInput")?.value.trim() || "";
   const city = document.querySelector("#rodoCityInput")?.value.trim() || "";
   const date = document.querySelector("#rodoDateInput")?.value || "";
-  const outputs = { name, phone, address, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
+  const outputs = { name, birthDate: birthDate ? formatDate(birthDate) : "", phone, address, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
   print.querySelectorAll("[data-rodo-out]").forEach((element) => {
     element.textContent = outputs[element.dataset.rodoOut] || "";
   });
@@ -25146,7 +25147,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
   const saves = { offer: saveCurrentPricingOfferToHistory, loan: saveCurrentPricingLoanToHistory,
     order: saveCurrentPricingOrderToHistory, complaint: saveCurrentPricingComplaintToHistory };
   offlineForms = window.SatisOfflineForms.mount({
-    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView },
+    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView },
     user: () => currentSupabaseUser,
     pricing: () => pricingRecords,
     setPricing(value) { pricingRecords = normalizePricingRecordsForUse(value); resetPricingPriceLookup(); renderPricingOfferDeviceList(); },
@@ -25180,19 +25181,21 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Uzupełnij grupę pacjenta i wybierz aparat z cennika przed synchronizacją oferty.");
       return saves[kind]({ silent: false });
     },
-    render: kind => renderers[kind](),
-    reset: kind => resets[kind](),
+    render: kind => kind === "rodo" ? renderPricingRodo() : renderers[kind](),
+    reset: kind => kind === "rodo" ? resetPricingRodo() : resets[kind](),
     renderApp: () => render(),
     clearForms() {
       Object.values({ offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView }).forEach(view => {
         view.querySelectorAll("input,textarea").forEach(input => { if (!["button", "submit", "radio", "checkbox"].includes(input.type)) input.value = ""; });
       });
       clearPricingOrderRows(); addPricingOrderItemRow();
+      resetPricingRodo();
       documentDraftIdentities.clear(); activePricingLoanHistoryId = "";
       for (const kind of Object.keys(renderers)) renderers[kind]();
     },
     localSaved: kind => markAgreementDraftSaved(kind),
     printSource(kind) {
+      if (kind === "rodo") return document.querySelector("#pricingRodoPrint");
       const selector = { offer: "#pricingOfferPrint", loan: "#pricingLoanPrint", order: "#pricingOrderPrint", complaint: "#pricingComplaintPrint" }[kind];
       if (kind !== "loan") return document.querySelector(selector);
       try {

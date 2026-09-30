@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260930-1">
+  <link rel="stylesheet" href="styles.css?v=20260930-3">
   </head>
   <body>
     <main class="app-shell">
@@ -1222,6 +1222,7 @@
             <section class="offer-builder rodo-builder" aria-label="Dane do formularza RODO">
               <div class="rodo-form-grid">
                 <label class="person-name-field"><span>Imię i nazwisko</span><input id="rodoNameInput" type="text" list="customerNameSuggestions" autocomplete="off" placeholder="Imię i nazwisko"></label>
+                <label><span>Data urodzenia</span><input id="rodoBirthDateInput" type="date"></label>
                 <label><span>Telefon</span><input id="rodoPhoneInput" type="tel" autocomplete="off" placeholder="Numer telefonu"></label>
                 <label class="rodo-address-field"><span>Adres</span><input id="rodoAddressInput" type="text" autocomplete="off" placeholder="Ulica, numer, kod pocztowy, miejscowość"></label>
                 <label><span>Miejscowość</span><input id="rodoCityInput" type="text" autocomplete="off" placeholder="Miejscowość"></label>
@@ -1252,7 +1253,7 @@
 
             <section id="pricingRodoPrint" class="rodo-print-document" aria-label="Informacja dotycząca przetwarzania danych osobowych">
               <article class="rodo-page">
-                <header class="rodo-print-head"><h2>Informacja dotycząca przetwarzania danych osobowych</h2><img src="satis-monogram.png" alt="SATIS"></header>
+                <header class="rodo-print-head"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Informacja o przetwarzaniu danych osobowych</h2><p>Informacja dla pacjenta</p></div><img src="satis-monogram.png" alt="SATIS"></header>
                 <h3>Administrator danych</h3>
                 <p>Administratorem Pani/Pana danych osobowych jest:</p>
                 <p><strong>Aparaty Słuchowe SATIS Dorota Mikosz-Micorek</strong><br>ul. Partyzantów 63, 43-300 Bielsko-Biała<br>NIP: 9372510340<br>e-mail: satis@pracowniasluchu.pl</p>
@@ -1269,6 +1270,7 @@
                 <p>Dane mogą być przekazywane wyłącznie podmiotom niezbędnym do realizacji usług lub uprawnionym na podstawie przepisów prawa, w szczególności dostawcom systemów IT, m.in. w celu prowadzenia kalendarza i umawiania wizyt, APD Medical sp. z o.o. / systemowi Neuroflow ATS® – w przypadku oceny przetwarzania słuchowego, producentom i serwisom aparatów słuchowych, NFZ oraz instytucjom realizującym dofinansowania – jeżeli dotyczy.</p>
               </article>
               <article class="rodo-page">
+                <header class="rodo-print-head rodo-print-head-continued"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Prawa i zgody pacjenta</h2></div><img src="satis-monogram.png" alt="SATIS"></header>
                 <h3>Jak długo przechowujemy dane?</h3>
                 <p>Dane przechowujemy przez okres niezbędny do realizacji usług, spełnienia obowiązków prawnych oraz ewentualnego dochodzenia lub obrony roszczeń. Dane przetwarzane na podstawie zgody – do czasu jej wycofania lub ustania celu. Wycofanie zgody nie wpływa na wcześniejsze przetwarzanie.</p>
                 <h3>Prawa pacjenta</h3>
@@ -1285,6 +1287,7 @@
                   <p>Zgoda jest dobrowolna i może zostać w każdej chwili wycofana.</p></div>
                 <div class="rodo-signatures">
                   <p><strong data-rodo-out="name"></strong><span>Imię i nazwisko pacjenta</span></p>
+                  <p><strong data-rodo-out="birthDate"></strong><span>Data urodzenia</span></p>
                   <p><strong data-rodo-out="phone"></strong><span>Numer telefonu</span></p>
                   <p><strong data-rodo-out="address"></strong><span>Adres</span></p>
                   <p><strong data-rodo-out="placeDate"></strong><span>Miejscowość i data</span></p>
@@ -2886,11 +2889,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20260930-1"></script>
-    <script src="data-layer.js?v=20260930-1"></script>
-    <script src="sync-layer.js?v=20260930-1"></script>
-    <script src="offline-vault.js?v=20260930-1"></script>
-    <script src="offline-forms.js?v=20260930-1"></script>
-  <script src="app.js?v=20260930-1"></script>
+    <script src="supabase-config.js?v=20260930-3"></script>
+    <script src="data-layer.js?v=20260930-3"></script>
+    <script src="sync-layer.js?v=20260930-3"></script>
+    <script src="offline-vault.js?v=20260930-3"></script>
+    <script src="offline-forms.js?v=20260930-3"></script>
+  <script src="app.js?v=20260930-3"></script>
   </body>
 </html>
