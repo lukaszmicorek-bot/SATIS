@@ -32,7 +32,14 @@ MIGRATIONS = [
     "supabase-audit-core.sql",
     "supabase-audit-vacation.sql",
 ]
-EXTRA_PUBLIC_FILES = {".gitignore", "CNAME", "README.md", "scripts/release_satis.py"}
+EXTRA_PUBLIC_FILES = {
+    ".gitignore", "CNAME", "README.md", "scripts/release_satis.py",
+    ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
+    "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
+    "tests/data-layer.test.cjs", "tests/document-navigation.test.cjs",
+    "tests/offline-vault.test.cjs", "tests/print-font-readiness.test.cjs",
+    "tests/sync-layer.test.cjs",
+}
 VERSION_PATTERN = re.compile(r'(?m)^const VERSION = "(\d{8}-\d+)";')
 
 

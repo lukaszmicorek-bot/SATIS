@@ -1,5 +1,5 @@
 {
-  "app_version": "20260930-4",
+  "app_version": "20260930-5",
   "asset_policy_sha256": "b43e5bc012a98ca5206a7074b68aabf611f47b6d16fdd606b10f965b05293318",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -44,7 +44,7 @@
     },
     "index.html": {
       "bytes": 371204,
-      "sha256": "2d4c44f128ef33eb752259e19b40f6f8c0b18d11292c76eb0b4142c55a4f5117"
+      "sha256": "86b4fd36ee8084f81b8c1b7dd52c12f949393153bf243b5fcaadf4c4c29f1734"
     },
     "manufacturer-logos/audibel.png": {
       "bytes": 30416,
@@ -112,7 +112,7 @@
     },
     "offline-sw.js": {
       "bytes": 3113,
-      "sha256": "f34f4e355463a2340d0cfcc023e59a8bda9d677d20b23406699f319a498a34ac"
+      "sha256": "fd47161581600bad957450a07919d7f87fc9e524949d2d13f2bebed413b73ed7"
     },
     "offline-vault.js": {
       "bytes": 5614,
