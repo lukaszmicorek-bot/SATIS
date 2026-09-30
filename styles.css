@@ -14755,3 +14755,69 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   }
   .offline-launch { display: none !important; }
 }
+
+.pricing-rodo-section { display: grid; gap: 14px; }
+.rodo-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rodo-form-grid label { display: grid; gap: 5px; min-width: 0; }
+.rodo-address-field { grid-column: 1 / -1; }
+.rodo-consent-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rodo-consent-controls fieldset { min-width: 0; margin: 0; padding: 10px; border: 1px solid #cadadd; border-radius: 6px; }
+.rodo-consent-controls legend { padding: 0 4px; font-weight: 700; color: #003f5a; }
+.rodo-consent-controls label { display: inline-flex; align-items: center; gap: 5px; margin: 3px 9px 3px 0; white-space: nowrap; }
+.rodo-consent-controls input { width: auto !important; min-height: 0 !important; margin: 0; }
+.rodo-storage-note { margin: 0; color: #52656b; font-size: 0.8rem; }
+.rodo-print-document { display: grid; gap: 18px; width: min(100%, 860px); margin: 0 auto; }
+.rodo-page { padding: 24px; border: 1px solid #cbdadd; border-radius: 6px; background: #fff; color: #172b32; }
+.rodo-print-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+.rodo-print-head h2 { margin: 0; color: #003f5a; font-size: 1.18rem; text-transform: uppercase; }
+.rodo-print-head img { width: 44px; height: 44px; object-fit: contain; }
+.rodo-page h3 { margin: 15px 0 6px; color: #003f5a; font-size: 0.9rem; text-transform: uppercase; }
+.rodo-page p { margin: 5px 0 9px; line-height: 1.43; }
+.rodo-page ul { margin: 5px 0 10px; padding-left: 25px; }
+.rodo-page li { margin: 3px 0; }
+.rodo-consent-print { margin: 10px 0 15px; }
+.rodo-consent-print > strong { display: block; }
+.rodo-consent-print p { margin: 4px 0; }
+.rodo-choice-line { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 4px 0; }
+.rodo-choice-line span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.rodo-choice-line b { display: inline-grid; place-items: center; width: 15px; height: 15px; border: 1px solid #42555c; font-size: 11px; line-height: 1; }
+.rodo-signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin-top: 16px; }
+.rodo-signatures p { display: grid; gap: 4px; margin: 0; min-width: 0; }
+.rodo-signatures strong { display: block; min-height: 27px; padding-bottom: 3px; border-bottom: 1px solid #52656b; overflow-wrap: anywhere; }
+.rodo-signatures span { font-size: 0.76rem; font-weight: 700; }
+.rodo-signatures p:last-child { grid-column: 1 / -1; }
+
+@media (max-width: 760px) {
+  .rodo-form-grid, .rodo-consent-controls, .rodo-signatures { grid-template-columns: 1fr; }
+  .rodo-address-field, .rodo-signatures p:last-child { grid-column: auto; }
+  .rodo-page { padding: 16px; }
+}
+
+@page rodoPage { size: A4 portrait; margin: 11mm; }
+@media print {
+  body.rodo-print { color: #111; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  body.rodo-print .app-shell > :not(#pricingNotebook),
+  body.rodo-print #pricingNotebook .pricing-panel > :not(#pricingRodoView),
+  body.rodo-print #pricingRodoView > :not(#pricingRodoPrint) { display: none !important; }
+  body.rodo-print .app-shell > #pricingNotebook,
+  body.rodo-print #pricingNotebook > .pricing-panel,
+  body.rodo-print #pricingNotebook .pricing-panel > #pricingRodoView,
+  body.rodo-print #pricingRodoView > #pricingRodoPrint { display: block !important; }
+  body.rodo-print :is(.app-shell, #pricingNotebook, .pricing-panel, #pricingRodoView, #pricingRodoPrint) {
+    width: 100%; max-width: none; margin: 0; padding: 0; border: 0; background: #fff; box-shadow: none;
+  }
+  body.rodo-print .rodo-page { page: rodoPage; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; font-size: 9pt; line-height: 1.24; }
+  body.rodo-print .rodo-page:first-child { break-after: page; page-break-after: always; }
+  body.rodo-print .rodo-print-head { margin-bottom: 4mm; }
+  body.rodo-print .rodo-print-head h2 { font-size: 12pt; }
+  body.rodo-print .rodo-print-head img { width: 12mm; height: 12mm; }
+  body.rodo-print .rodo-page h3 { margin: 3.5mm 0 1.5mm; font-size: 9pt; break-after: avoid; }
+  body.rodo-print .rodo-page p { margin: 1mm 0 2.2mm; line-height: 1.28; }
+  body.rodo-print .rodo-page ul { margin: 1mm 0 2mm; }
+  body.rodo-print .rodo-page li { margin: 0.5mm 0; }
+  body.rodo-print .rodo-consent-print { margin: 3mm 0; break-inside: avoid; }
+  body.rodo-print .rodo-choice-line { margin: 1mm 0; }
+  body.rodo-print .rodo-signatures { margin-top: 4mm; gap: 3mm 5mm; break-inside: avoid; }
+  body.rodo-print .rodo-signatures strong { min-height: 6mm; }
+  body.rodo-print .rodo-signatures span { font-size: 7.5pt; }
+}
