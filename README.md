@@ -14,6 +14,8 @@ python3 scripts/release_satis.py publish
 
 `check` uruchamia testy i weryfikuje paczkę bez publikacji. `publish` dodatkowo nadaje wersję, buduje paczkę według ścisłej listy zasobów, tworzy commit i wysyła go na GitHub. GitHub Pages może pokazać zmianę z opóźnieniem. Skrypt wymaga lokalnych testów, narzędzi budowania i plików migracji; nie należy zastępować ich danymi produkcyjnymi. Kopie bazy, arkusze, eksporty i pozostałe pliki prywatne nie są dodawane do repozytorium.
 
+Workflow `.github/workflows/quality.yml` uruchamia na GitHubie testy syntetyczne po każdej zmianie i dla pull requestów. Po zmianie na `main` sprawdza też sumy plików wydania i publikuje wyłącznie zasoby z manifestu, ale tylko gdy wszystkie kontrole przejdą. Aby publikacja była naprawdę blokowana przez testy, ustaw w GitHub `Settings` → `Pages` → `Build and deployment` → `Source` na **GitHub Actions**. Dopóki źródłem Pages pozostaje gałąź `main`, stary mechanizm może opublikować pliki mimo czerwonego wyniku testów. Do repozytorium trafia tylko wybrany zestaw testów na danych syntetycznych.
+
 Formularze offline (oferta, umowa, zamówienie, reklamacja): instrukcja pierwszego włączenia, hasła, wydruków roboczych i synchronizacji jest w `OFFLINE.md`.
 
 ## Supabase: wspólna baza przez internet
