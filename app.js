@@ -761,6 +761,7 @@ const pricingReplaceInput = document.querySelector("#pricingReplaceInput");
 const pricingListView = document.querySelector("#pricingListView");
 const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingLoanView = document.querySelector("#pricingLoanView");
+const pricingRodoView = document.querySelector("#pricingRodoView");
 const pricingPcprView = document.querySelector("#pricingPcprView");
 const pricingOrderView = document.querySelector("#pricingOrderView");
 const pricingComplaintView = document.querySelector("#pricingComplaintView");
@@ -2479,7 +2480,7 @@ async function refreshPricingFromSupabase() {
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
   if (sharedPcprList) pricingPcprList = sharedPcprList;
   renderPricingRecords();
-  if (activeNotebook === "devices" && !["offer", "loan"].includes(activeDeviceView)) renderDeviceViews();
+  if (activeNotebook === "devices" && !["offer", "loan", "rodo"].includes(activeDeviceView)) renderDeviceViews();
   setCurrentYearTitle();
 }
 
@@ -8697,7 +8698,7 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", rodo: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
@@ -8733,6 +8734,7 @@ function switchPricingView(viewName) {
   if (pricingListView) pricingListView.hidden = activePricingView !== "list";
   if (pricingOfferView) pricingOfferView.hidden = activePricingView !== "offer";
   if (pricingLoanView) pricingLoanView.hidden = activePricingView !== "loan";
+  if (pricingRodoView) pricingRodoView.hidden = activePricingView !== "rodo";
   if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
@@ -8741,10 +8743,47 @@ function switchPricingView(viewName) {
   renderPricingOfferDeviceList();
   if (activePricingView === "offer") renderPricingOffer();
   if (activePricingView === "loan") renderPricingLoan();
+  if (activePricingView === "rodo") renderPricingRodo();
   if (activePricingView === "pcpr") renderPricingPcprList();
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
   if (activePricingView === "history") renderPricingDocumentHistory();
+}
+
+function renderPricingRodo() {
+  const print = document.querySelector("#pricingRodoPrint");
+  if (!print) return;
+  const name = document.querySelector("#rodoNameInput")?.value.trim() || "";
+  const phone = document.querySelector("#rodoPhoneInput")?.value.trim() || "";
+  const address = document.querySelector("#rodoAddressInput")?.value.trim() || "";
+  const city = document.querySelector("#rodoCityInput")?.value.trim() || "";
+  const date = document.querySelector("#rodoDateInput")?.value || "";
+  const outputs = { name, phone, address, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
+  print.querySelectorAll("[data-rodo-out]").forEach((element) => {
+    element.textContent = outputs[element.dataset.rodoOut] || "";
+  });
+  const selected = new Set([...pricingRodoView.querySelectorAll('input[name^="rodo"]:checked')]
+    .map((input) => `${input.name.replace("rodo", "").toLowerCase()}-${input.value}`));
+  print.querySelectorAll("[data-rodo-choice]").forEach((box) => {
+    box.textContent = selected.has(box.dataset.rodoChoice) ? "X" : "";
+  });
+}
+
+function resetPricingRodo() {
+  pricingRodoView.querySelectorAll(".rodo-builder input").forEach((input) => {
+    if (input.type === "radio" || input.type === "checkbox") input.checked = false;
+    else input.value = "";
+  });
+  document.querySelector("#rodoDateInput").value = todayInputValue();
+  renderPricingRodo();
+}
+
+async function printPricingRodo() {
+  renderPricingRodo();
+  const cleanup = () => document.body.classList.remove("rodo-print");
+  document.body.classList.add("rodo-print");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  return printWithReadyFonts(cleanup);
 }
 
 function markAgreementDraftDirty(key) {
@@ -24900,6 +24939,23 @@ resetVacationForm();
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchView(button.dataset.view, button.dataset.viewGroup));
 });
+pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("input", renderPricingRodo);
+document.querySelector("#rodoNameInput")?.addEventListener("blur", (event) => {
+  event.target.value = titleCaseName(event.target.value);
+  renderPricingRodo();
+});
+pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("change", (event) => {
+  const input = event.target;
+  if (input.name === "rodoMarketing" && input.checked) {
+    pricingRodoView.querySelectorAll('input[name="rodoMarketing"]').forEach((other) => {
+      if (other !== input && (input.value === "none" || other.value === "none")) other.checked = false;
+    });
+  }
+  renderPricingRodo();
+});
+document.querySelector("#resetRodoBtn")?.addEventListener("click", resetPricingRodo);
+document.querySelector("#printRodoBtn")?.addEventListener("click", printPricingRodo);
+resetPricingRodo();
 
 document.querySelectorAll("th[data-sort]").forEach((header) => {
   header.addEventListener("click", () => {

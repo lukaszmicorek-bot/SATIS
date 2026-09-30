@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260929-279">
+  <link rel="stylesheet" href="styles.css?v=20260930-1">
   </head>
   <body>
     <main class="app-shell">
@@ -89,6 +89,7 @@
           <div class="document-tab-group" role="presentation">
             <button id="offerTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOfferView" data-view-group="devices" data-view="offer">Oferta</button>
             <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
+            <button id="rodoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingRodoView" data-view-group="devices" data-view="rodo">RODO</button>
           </div>
         </section>
 
@@ -1214,6 +1215,82 @@
                   <span class="location-phone">tel. 502 605 669</span>
                 </span>
               </address>
+            </section>
+          </section>
+
+          <section id="pricingRodoView" class="pricing-view-section pricing-rodo-section" role="tabpanel" aria-labelledby="rodoTab" hidden>
+            <section class="offer-builder rodo-builder" aria-label="Dane do formularza RODO">
+              <div class="rodo-form-grid">
+                <label class="person-name-field"><span>Imię i nazwisko</span><input id="rodoNameInput" type="text" list="customerNameSuggestions" autocomplete="off" placeholder="Imię i nazwisko"></label>
+                <label><span>Telefon</span><input id="rodoPhoneInput" type="tel" autocomplete="off" placeholder="Numer telefonu"></label>
+                <label class="rodo-address-field"><span>Adres</span><input id="rodoAddressInput" type="text" autocomplete="off" placeholder="Ulica, numer, kod pocztowy, miejscowość"></label>
+                <label><span>Miejscowość</span><input id="rodoCityInput" type="text" autocomplete="off" placeholder="Miejscowość"></label>
+                <label><span>Data</span><input id="rodoDateInput" type="date"></label>
+              </div>
+              <div class="rodo-consent-controls">
+                <fieldset><legend>Dane dotyczące zdrowia i usługi</legend>
+                  <label><input type="radio" name="rodoHealth" value="yes"> Tak</label>
+                  <label><input type="radio" name="rodoHealth" value="no"> Nie</label>
+                </fieldset>
+                <fieldset><legend>Powiadomienia dotyczące wizyt</legend>
+                  <label><input type="radio" name="rodoVisits" value="yes"> Tak</label>
+                  <label><input type="radio" name="rodoVisits" value="no"> Nie</label>
+                </fieldset>
+                <fieldset><legend>Kontakt marketingowy</legend>
+                  <label><input type="checkbox" name="rodoMarketing" value="phone"> Telefon</label>
+                  <label><input type="checkbox" name="rodoMarketing" value="sms"> SMS</label>
+                  <label><input type="checkbox" name="rodoMarketing" value="email"> E-mail</label>
+                  <label><input type="checkbox" name="rodoMarketing" value="none"> Nie wyrażam zgody</label>
+                </fieldset>
+              </div>
+              <div class="pricing-document-actions">
+                <button id="resetRodoBtn" class="reset-filters-btn" type="button">Wyczyść</button>
+                <button id="printRodoBtn" type="button">Drukuj / PDF</button>
+              </div>
+              <p class="rodo-storage-note">Formularz nie zapisuje danych ani wyborów zgód w aplikacji. Podpis składany jest na wydruku.</p>
+            </section>
+
+            <section id="pricingRodoPrint" class="rodo-print-document" aria-label="Informacja dotycząca przetwarzania danych osobowych">
+              <article class="rodo-page">
+                <header class="rodo-print-head"><h2>Informacja dotycząca przetwarzania danych osobowych</h2><img src="satis-monogram.png" alt="SATIS"></header>
+                <h3>Administrator danych</h3>
+                <p>Administratorem Pani/Pana danych osobowych jest:</p>
+                <p><strong>Aparaty Słuchowe SATIS Dorota Mikosz-Micorek</strong><br>ul. Partyzantów 63, 43-300 Bielsko-Biała<br>NIP: 9372510340<br>e-mail: satis@pracowniasluchu.pl</p>
+                <p>Usługi świadczone są w następujących gabinetach SATIS:</p>
+                <ul><li>43-300 Bielsko-Biała, ul. Partyzantów 63</li><li>43-300 Bielsko-Biała, ul. Traugutta 12</li><li>34-300 Żywiec, al. Piłsudskiego 50</li></ul>
+                <p>W sprawach dotyczących przetwarzania danych osobowych oraz korzystania z praw związanych z ich przetwarzaniem można kontaktować się z Administratorem drogą mailową lub pisemnie na wskazany powyżej adres.</p>
+                <p>Administrator nie wyznaczył Inspektora Ochrony Danych.</p>
+                <h3>W jakim celu przetwarzamy dane?</h3>
+                <p>Pani/Pana dane osobowe przetwarzamy w celu organizacji i realizacji wizyt, wykonywania badań i konsultacji dotyczących słuchu, prowadzenia dokumentacji, doboru i obsługi aparatów słuchowych, realizacji zamówień, refundacji i rozliczeń oraz wypełnienia obowiązków wynikających z przepisów prawa i ochrony przed ewentualnymi roszczeniami.</p>
+                <h3>Dane dotyczące zdrowia</h3>
+                <p>W związku z realizacją usług możemy przetwarzać dane dotyczące Pani/Pana słuchu i zdrowia w zakresie niezbędnym do wykonania badań, konsultacji oraz doboru i dopasowania aparatów słuchowych. Dane te podlegają szczególnej ochronie i są przetwarzane zgodnie z obowiązującymi przepisami.</p>
+                <p>Badania słuchu oraz dobór i dopasowanie aparatów słuchowych wykonuje protetyk słuchu, zgodnie z posiadanymi kwalifikacjami.</p>
+                <h3>Komu mogą być przekazywane dane?</h3>
+                <p>Dane mogą być przekazywane wyłącznie podmiotom niezbędnym do realizacji usług lub uprawnionym na podstawie przepisów prawa, w szczególności dostawcom systemów IT, m.in. w celu prowadzenia kalendarza i umawiania wizyt, APD Medical sp. z o.o. / systemowi Neuroflow ATS® – w przypadku oceny przetwarzania słuchowego, producentom i serwisom aparatów słuchowych, NFZ oraz instytucjom realizującym dofinansowania – jeżeli dotyczy.</p>
+              </article>
+              <article class="rodo-page">
+                <h3>Jak długo przechowujemy dane?</h3>
+                <p>Dane przechowujemy przez okres niezbędny do realizacji usług, spełnienia obowiązków prawnych oraz ewentualnego dochodzenia lub obrony roszczeń. Dane przetwarzane na podstawie zgody – do czasu jej wycofania lub ustania celu. Wycofanie zgody nie wpływa na wcześniejsze przetwarzanie.</p>
+                <h3>Prawa pacjenta</h3>
+                <p>Ma Pani/Pan prawo do dostępu, kopii, sprostowania, usunięcia lub ograniczenia przetwarzania danych, ich przenoszenia, sprzeciwu oraz wycofania zgody – w zakresie przewidzianym przepisami. Przysługuje również prawo wniesienia skargi do Prezesa UODO.</p>
+                <h3>Zgody pacjenta</h3>
+                <div class="rodo-consent-print"><strong>1. Dane dotyczące zdrowia i usługi</strong><div class="rodo-choice-line"><span><b data-rodo-choice="health-yes"></b> TAK</span><span><b data-rodo-choice="health-no"></b> NIE</span></div>
+                  <p>Wyrażam zgodę na przetwarzanie danych dotyczących mojego zdrowia w zakresie niezbędnym do wykonania badań słuchu, konsultacji, oceny przetwarzania słuchowego oraz doboru i dopasowania aparatów słuchowych i innych wybranych usług.</p>
+                  <p>Przyjmuję do wiadomości, że badania słuchu oraz dobór i dopasowanie aparatów słuchowych w SATIS wykonuje protetyk słuchu, zgodnie z posiadanymi kwalifikacjami.</p></div>
+                <div class="rodo-consent-print"><strong>2. Powiadomienia dotyczące wizyt</strong><div class="rodo-choice-line"><span><b data-rodo-choice="visits-yes"></b> TAK</span><span><b data-rodo-choice="visits-no"></b> NIE</span></div>
+                  <p>Wyrażam zgodę na otrzymywanie na podany numer telefonu SMS i automatycznych powiadomień dotyczących wizyt, w szczególności potwierdzeń, przypomnień, zmian lub odwołania wizyty, również za pośrednictwem systemu Booksy.</p>
+                  <p><em>Zgoda nie obejmuje informacji marketingowych.</em></p></div>
+                <div class="rodo-consent-print"><strong>3. Kontakt marketingowy</strong><p>Chcę otrzymywać informacje o ofercie, usługach i promocjach SATIS:</p>
+                  <div class="rodo-choice-line rodo-marketing-line"><span><b data-rodo-choice="marketing-phone"></b> telefon</span><span><b data-rodo-choice="marketing-sms"></b> SMS</span><span><b data-rodo-choice="marketing-email"></b> e-mail</span><span><b data-rodo-choice="marketing-none"></b> nie wyrażam zgody</span></div>
+                  <p>Zgoda jest dobrowolna i może zostać w każdej chwili wycofana.</p></div>
+                <div class="rodo-signatures">
+                  <p><strong data-rodo-out="name"></strong><span>Imię i nazwisko pacjenta</span></p>
+                  <p><strong data-rodo-out="phone"></strong><span>Numer telefonu</span></p>
+                  <p><strong data-rodo-out="address"></strong><span>Adres</span></p>
+                  <p><strong data-rodo-out="placeDate"></strong><span>Miejscowość i data</span></p>
+                  <p><strong></strong><span>Podpis pacjenta / opiekuna prawnego</span></p>
+                </div>
+              </article>
             </section>
           </section>
 
@@ -2809,11 +2886,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20260929-279"></script>
-    <script src="data-layer.js?v=20260929-279"></script>
-    <script src="sync-layer.js?v=20260929-279"></script>
-    <script src="offline-vault.js?v=20260929-279"></script>
-    <script src="offline-forms.js?v=20260929-279"></script>
-  <script src="app.js?v=20260929-279"></script>
+    <script src="supabase-config.js?v=20260930-1"></script>
+    <script src="data-layer.js?v=20260930-1"></script>
+    <script src="sync-layer.js?v=20260930-1"></script>
+    <script src="offline-vault.js?v=20260930-1"></script>
+    <script src="offline-forms.js?v=20260930-1"></script>
+  <script src="app.js?v=20260930-1"></script>
   </body>
 </html>
