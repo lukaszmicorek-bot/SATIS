@@ -1937,39 +1937,6 @@
               </label>
             </div>
 
-            <fieldset class="capd-performed-exams private-form-wide">
-              <legend>Przeprowadzone badania</legend>
-              <div class="capd-performed-exams-options">
-                <div class="capd-performed-exam-item">
-                  <label><input type="checkbox" data-capd-performed-exam="OTOSKOPIA"> Otoskopia</label>
-                  <div class="capd-performed-exam-detail" data-capd-exam-detail="OTOSKOPIA" hidden>
-                    <textarea data-capd-performed-exam-note="OTOSKOPIA" rows="2" maxlength="500" aria-label="Opis otoskopii" placeholder="Opis badania"></textarea>
-                    <button type="button" data-capd-exam-template="OTOSKOPIA">Wstaw proponowany opis</button>
-                  </div>
-                </div>
-                <div class="capd-performed-exam-item">
-                  <label><input type="checkbox" data-capd-performed-exam="AUDIOMETRIA_TONALNA"> Audiometria tonalna</label>
-                  <div class="capd-performed-exam-detail" data-capd-exam-detail="AUDIOMETRIA_TONALNA" hidden>
-                    <textarea data-capd-performed-exam-note="AUDIOMETRIA_TONALNA" rows="2" maxlength="500" aria-label="Opis audiometrii tonalnej" placeholder="Opis wyniku"></textarea>
-                    <button type="button" data-capd-exam-template="AUDIOMETRIA_TONALNA">Wstaw opis wyniku w normie</button>
-                  </div>
-                </div>
-                <div class="capd-performed-exam-item">
-                  <label><input type="checkbox" data-capd-performed-exam="TYMPANOMETRIA"> Tympanometria</label>
-                  <div class="capd-performed-exam-detail" data-capd-exam-detail="TYMPANOMETRIA" hidden>
-                    <textarea data-capd-performed-exam-note="TYMPANOMETRIA" rows="2" maxlength="500" aria-label="Opis tympanometrii" placeholder="Opis wyniku"></textarea>
-                    <button type="button" data-capd-exam-template="TYMPANOMETRIA">Wstaw opis typu A</button>
-                  </div>
-                </div>
-                <div class="capd-performed-exam-item">
-                  <label><input type="checkbox" data-capd-performed-exam="UCL"> UCL</label>
-                  <div class="capd-performed-exam-detail" data-capd-exam-detail="UCL" hidden>
-                    <textarea data-capd-performed-exam-note="UCL" rows="2" maxlength="500" aria-label="Opis UCL" placeholder="Opis wyniku"></textarea>
-                  </div>
-                </div>
-              </div>
-            </fieldset>
-
             <section id="capdScopePanel" class="capd-scope-panel private-form-wide" data-scope="pending" aria-live="polite">
               <span>Zakres badania</span>
               <strong id="capdScopeTitle">Podaj wiek dziecka</strong>
@@ -2189,6 +2156,38 @@
                 <div id="capdAbnormalPreview"></div>
               </details>
             </section>
+            <fieldset class="capd-performed-exams private-form-wide">
+              <legend>Przeprowadzone badania</legend>
+              <div class="capd-performed-exams-options">
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="OTOSKOPIA"> Otoskopia</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="OTOSKOPIA" hidden>
+                    <textarea data-capd-performed-exam-note="OTOSKOPIA" rows="2" maxlength="500" aria-label="Opis otoskopii" placeholder="Opis badania"></textarea>
+                    <button type="button" data-capd-exam-template="OTOSKOPIA">Wstaw proponowany opis</button>
+                  </div>
+                </div>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="AUDIOMETRIA_TONALNA"> Audiometria tonalna</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="AUDIOMETRIA_TONALNA" hidden>
+                    <textarea data-capd-performed-exam-note="AUDIOMETRIA_TONALNA" rows="2" maxlength="500" aria-label="Opis audiometrii tonalnej" placeholder="Opis wyniku"></textarea>
+                    <button type="button" data-capd-exam-template="AUDIOMETRIA_TONALNA">Wstaw opis wyniku w normie</button>
+                  </div>
+                </div>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="TYMPANOMETRIA"> Tympanometria</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="TYMPANOMETRIA" hidden>
+                    <textarea data-capd-performed-exam-note="TYMPANOMETRIA" rows="2" maxlength="500" aria-label="Opis tympanometrii" placeholder="Opis wyniku"></textarea>
+                    <button type="button" data-capd-exam-template="TYMPANOMETRIA">Wstaw opis typu A</button>
+                  </div>
+                </div>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="UCL"> UCL</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="UCL" hidden>
+                    <textarea data-capd-performed-exam-note="UCL" rows="2" maxlength="500" aria-label="Opis UCL" placeholder="Opis wyniku"></textarea>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
             <section class="capd-rich-text-field private-form-wide" aria-label="Opis badania i wnioski">
               <div class="capd-rich-text-head">
                 <span>Opis badania i wnioski</span>
