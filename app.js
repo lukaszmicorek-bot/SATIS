@@ -19514,8 +19514,8 @@ async function saveCurrentCapdToHistory() {
     return;
   }
   if (!snapshot.location) {
-    capdLocationInput?.focus();
-    alert("Wybierz miejsce badania.");
+    capdPractitionerShortcutButtons[0]?.focus();
+    alert("Wybierz protetyka i placówkę pod formularzem.");
     return;
   }
   if (!snapshot.results.some((result) => result.value)) {
@@ -19569,7 +19569,7 @@ function restoreCapdHistoryEntry(entry) {
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
   setDateInputValue(capdDateInput, historyEntry.testDate);
-  if (capdLocationInput) capdLocationInput.value = historyEntry.location || "";
+  if (capdLocationInput) capdLocationInput.value = historyEntry.location || "P63";
   updateDocumentLocationAccent(capdLocationInput);
   if (capdExaminerInput) capdExaminerInput.value = historyEntry.examiner;
   if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = historyEntry.practitioner.licenseCode;
@@ -25138,14 +25138,6 @@ capdPeselInput?.addEventListener("input", () => {
 capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
 capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
-capdLocationInput?.addEventListener("change", () => {
-  updateDocumentLocationAccent(capdLocationInput);
-  if (capdPractitionerAddressInput && (!capdPractitionerAddressInput.value.trim()
-    || Object.values(CAPD_CLINIC_ADDRESSES).some((clinic) =>
-      normalize(capdPractitionerAddressInput.value).includes(clinic.marker)))) {
-    capdPractitionerAddressInput.value = capdAddressForLocation(documentLocationKey(capdLocationInput.value));
-  }
-});
 capdPractitionerShortcutButtons.forEach((button) => button.addEventListener("click", () => {
   const profile = capdProfileForShortcut(button.dataset.capdPractitionerShortcut);
   applyCapdPractitionerProfile(profile, button.dataset.capdPractitionerLocation);

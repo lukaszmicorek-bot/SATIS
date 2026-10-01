@@ -56,10 +56,8 @@ test('DDT names only the ear with an abnormal entered result', () => {
 });
 
 test('APD keeps examination location and examiner in the form, history, and report', () => {
-  assert.match(html, /<select id="capdLocationInput" required>/);
-  for (const code of ['T12', 'P50', 'P63']) {
-    assert.match(html, new RegExp(`<option value="${code}"`));
-  }
+  assert.match(html, /<input id="capdLocationInput" type="hidden" value="P63">/);
+  assert.doesNotMatch(html, /class="capd-location-field|<span>Miejsce<\/span>\s*<select id="capdLocationInput"/);
   assert.match(html, /<input id="capdExaminerInput" type="hidden">/);
   assert.doesNotMatch(html, /id="capdExaminerSelect"|Osoba wykonująca badanie \*/);
   assert.doesNotMatch(html, /id="capdPractitionerProfileSelect"|Wybierz z zapisanych profili/);
@@ -74,7 +72,7 @@ test('APD keeps examination location and examiner in the form, history, and repo
   assert.match(app, /examiner: titleCaseName\(capdExaminerInput\?\.value \|\| ""\)/);
   assert.match(app, /location: documentLocationKey\(entry\.location\)/);
   assert.match(app, /examiner: titleCaseName\(entry\.examiner \|\| ""\)/);
-  assert.match(app, /capdLocationInput\.value = historyEntry\.location \|\| ""/);
+  assert.match(app, /capdLocationInput\.value = historyEntry\.location \|\| "P63"/);
   assert.match(app, /if \(!snapshot\.location\)/);
   assert.match(app, /if \(!snapshot\.examiner\)/);
 });

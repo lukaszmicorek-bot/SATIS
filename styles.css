@@ -792,17 +792,6 @@ h2 {
   grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) minmax(130px, 0.9fr) minmax(76px, 0.45fr) minmax(150px, 0.9fr);
 }
 
-.capd-location-field {
-  grid-column: span 2;
-}
-
-.capd-examiner-field {
-  grid-column: span 3;
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
 .capd-performed-exams {
   min-width: 0;
   margin: 0;
@@ -2097,11 +2086,6 @@ h2 {
   .capd-practitioner-grid,
   .capd-report-practitioner {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .capd-location-field,
-  .capd-examiner-field {
-    grid-column: 1 / -1;
   }
 
   .capd-practitioner-shortcuts {
