@@ -134,6 +134,12 @@ test('APD keeps practitioner details in history and at the end of the report', (
   assert.equal(saved.licenseCode, 'AB12');
   assert.equal(saved.facility, 'SATIS');
   assert.equal(saved.address, 'ul. Testowa 1');
+  assert.deepEqual(Array.from(saved.addresses), ['ul. Testowa 1']);
+  const several = normalized.normalizePractitioner({
+    name: 'Anna Testowa', addresses: ['ul. Pierwsza 1', 'ul. Druga 2', 'ul. Pierwsza 1'], address: 'ul. Druga 2'
+  });
+  assert.deepEqual(Array.from(several.addresses), ['ul. Pierwsza 1', 'ul. Druga 2']);
+  assert.equal(several.address, 'ul. Druga 2');
   normalized.normalize = value => String(value || '').toLowerCase();
   normalized.capdHistory = [
     { savedAt: '2026-09-01', examiner: 'Anna Testowa', practitioner: { name: 'Anna Testowa', licenseCode: 'AB12', facility: 'Stara placówka' } },
@@ -151,6 +157,9 @@ test('APD keeps practitioner details in history and at the end of the report', (
 test('APD saves practitioner profiles separately from examination history', () => {
   assert.match(html, /id="saveCapdPractitionerProfileBtn"[^>]*>Zapisz profil/);
   assert.match(html, /id="capdPractitionerProfileStatus"[^>]*role="status"/);
+  for (const id of ['capdPractitionerAddressSelect', 'addCapdPractitionerAddressBtn', 'removeCapdPractitionerAddressBtn']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
   assert.match(app, /await upsertSupabaseRecord\(SUPABASE_CAPD_HISTORY_TABLE, entry\)/);
   assert.match(app, /entries\.filter\(\(entry\) => !entry\.id\.startsWith\(CAPD_PROFILE_ID_PREFIX\)\)/);
 
@@ -176,7 +185,9 @@ test('APD profile save creates one shared record and updates that record on edit
   const button = { disabled: false };
   const selection = { value: '' };
   const scope = vm.createContext({
-    currentCapdPractitioner: () => ({ name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS', address: 'ul. Testowa 1' }),
+    currentCapdPractitioner: () => ({ name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS', addresses: ['ul. Testowa 1', 'ul. Druga 2'], address: 'ul. Druga 2' }),
+    capdPractitionerAddressDraft: ['ul. Testowa 1', 'ul. Druga 2'],
+    capdPractitionerAddressIndex: 1,
     capdPractitionerProfileKey: profile => `${profile.name}|${profile.licenseCode}`,
     capdSavedPractitionerProfiles: [],
     activeCapdPractitionerProfileId: '',
@@ -200,6 +211,7 @@ test('APD profile save creates one shared record and updates that record on edit
   assert.equal(saved.length, 2);
   assert.equal(saved[0].table, 'capd_history');
   assert.equal(saved[0].entry.id, 'apd-profile-new-id');
+  assert.equal(saved[0].entry.profile.address, 'ul. Druga 2');
   assert.equal(saved[1].entry.id, saved[0].entry.id);
   assert.equal(scope.capdSavedPractitionerProfiles.length, 1);
   assert.equal(status.textContent, 'Profil zapisany dla wszystkich stanowisk.');
