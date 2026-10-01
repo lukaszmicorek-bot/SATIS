@@ -60,9 +60,8 @@ test('APD keeps examination location and examiner in the form, history, and repo
   for (const code of ['T12', 'P50', 'P63']) {
     assert.match(html, new RegExp(`<option value="${code}"`));
   }
-  assert.match(html, /<select id="capdExaminerSelect" required>/);
-  assert.match(html, /id="capdExaminerInput"[^>]*hidden/);
-  assert.match(html, /<option value="__other">Inna osoba<\/option>/);
+  assert.match(html, /<input id="capdExaminerInput" type="hidden">/);
+  assert.doesNotMatch(html, /id="capdExaminerSelect"|Osoba wykonująca badanie \*/);
   assert.doesNotMatch(html, /id="capdPractitionerProfileSelect"|Wybierz z zapisanych profili/);
   assert.ok(html.indexOf('class="capd-practitioner-shortcuts"') > html.indexOf('aria-label="Opis badania i wnioski"'));
   assert.match(html, /<fieldset class="capd-performed-exams private-form-wide">[\s\S]*?<\/fieldset>\s*<section class="capd-rich-text-field private-form-wide"/);
@@ -160,7 +159,7 @@ test('APD keeps practitioner details in history and at the end of the report', (
     { savedAt: '2026-10-01', examiner: 'Iwona Testowa' }
   ];
   normalized.capdSavedPractitionerProfiles = [];
-  const profiles = app.slice(app.indexOf('function capdPractitionerProfileKey('), app.indexOf('let capdPractitionerOptionsSignature ='));
+  const profiles = app.slice(app.indexOf('function capdPractitionerProfileKey('), app.indexOf('function renderCapdPractitionerProfiles('));
   vm.runInContext(`${profiles}\nglobalThis.profiles = capdPractitionerProfiles;`, normalized);
   const available = normalized.profiles();
   assert.equal(available.length, 3);
@@ -168,13 +167,12 @@ test('APD keeps practitioner details in history and at the end of the report', (
   assert.ok(available.some(([, profile]) => profile.name === 'Iwona Testowa'));
 });
 
-test('APD saves practitioner profiles separately from examination history', () => {
-  assert.match(html, /id="saveCapdPractitionerProfileBtn"[^>]*>Zapisz profil/);
-  assert.match(html, /id="capdPractitionerProfileStatus"[^>]*role="status"/);
+test('APD selects a named practitioner without a separate profile-save control', () => {
+  assert.doesNotMatch(html, /id="saveCapdPractitionerProfileBtn"|Zapisz profil|id="capdPractitionerProfileStatus"/);
   assert.match(html, /id="capdPractitionerAddressInput"/);
-  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P63"/);
-  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P50"/);
-  assert.match(html, /data-capd-practitioner-shortcut="justyna" data-capd-practitioner-location="P63"/);
+  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P63"[^>]*><strong>Dorota Mikosz-Micorek<\/strong>/);
+  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P50"[^>]*><strong>Dorota Mikosz-Micorek<\/strong>/);
+  assert.match(html, /data-capd-practitioner-shortcut="justyna" data-capd-practitioner-location="P63"[^>]*><strong>Justyna Waliczek<\/strong>/);
   assert.doesNotMatch(html, /id="addCapdPractitionerAddressBtn"|id="removeCapdPractitionerAddressBtn"/);
   assert.match(app, /await upsertSupabaseRecord\(SUPABASE_CAPD_HISTORY_TABLE, entry\)/);
   assert.match(app, /entries\.filter\(\(entry\) => !entry\.id\.startsWith\(CAPD_PROFILE_ID_PREFIX\)\)/);
@@ -195,40 +193,8 @@ test('APD saves practitioner profiles separately from examination history', () =
   assert.equal(result[0].profile.licenseCode, 'AB12');
 });
 
-test('APD profile save creates one shared record and updates that record on edit', async () => {
-  const saved = [];
-  const status = { textContent: '' };
-  const button = { disabled: false };
-  const scope = vm.createContext({
-    currentCapdPractitioner: () => ({ name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS', addresses: ['ul. Testowa 1', 'ul. Druga 2'], address: 'ul. Druga 2' }),
-    normalizeCapdPractitioner: value => value,
-    capdPractitionerProfileKey: profile => `${profile.name}|${profile.licenseCode}`,
-    capdSavedPractitionerProfiles: [],
-    activeCapdPractitionerProfileId: '',
-    hasSupabaseConfig: true,
-    currentSupabaseUser: { id: 'user-1' },
-    capdPractitionerProfileStatus: status,
-    saveCapdPractitionerProfileBtn: button,
-    capdPractitionerOptionsSignature: '',
-    CAPD_PROFILE_ID_PREFIX: 'apd-profile-',
-    makeId: () => 'new-id',
-    upsertSupabaseRecord: async (table, entry) => saved.push({ table, entry }),
-    SUPABASE_CAPD_HISTORY_TABLE: 'capd_history',
-    normalizeCapdSavedPractitionerProfiles: entries => entries,
-    renderCapdPractitionerProfiles() {}
-  });
-  const save = app.slice(app.indexOf('async function saveCapdPractitionerProfile('), app.indexOf('function linkCapdExaminerToProfile('));
-  vm.runInContext(`${save}\nglobalThis.saveProfile = saveCapdPractitionerProfile;`, scope);
-  await scope.saveProfile();
-  await scope.saveProfile();
-  assert.equal(saved.length, 2);
-  assert.equal(saved[0].table, 'capd_history');
-  assert.equal(saved[0].entry.id, 'apd-profile-new-id');
-  assert.equal(saved[0].entry.profile.address, 'ul. Druga 2');
-  assert.equal(saved[1].entry.id, saved[0].entry.id);
-  assert.equal(scope.capdSavedPractitionerProfiles.length, 1);
-  assert.equal(status.textContent, 'Profil zapisany dla wszystkich stanowisk.');
-  assert.equal(button.disabled, false);
+test('APD no longer runs a separate profile save', () => {
+  assert.doesNotMatch(app, /async function saveCapdPractitionerProfile\(|saveCapdPractitionerProfileBtn|capdPractitionerProfileStatus/);
 });
 
 test('APD clinic shortcut preserves a matching saved full address', () => {
@@ -243,26 +209,8 @@ test('APD clinic shortcut preserves a matching saved full address', () => {
   assert.equal(scope.address('T12'), 'ul. Traugutta 12, 43-300 Bielsko-Biała');
 });
 
-test('APD examiner list shows a manual field only for a name outside the list', () => {
-  const source = app.slice(app.indexOf('function syncCapdExaminerSelect('), app.indexOf('function renderCapdPractitionerProfiles('));
-  const input = { value: 'Dorota Mikosz-Micorek', hidden: false };
-  const select = {
-    options: [{ value: '' }, { value: 'Dorota Mikosz-Micorek' }, { value: '__other' }],
-    value: ''
-  };
-  const scope = vm.createContext({ capdExaminerInput: input, capdExaminerSelect: select });
-  vm.runInContext(`${source}\nglobalThis.sync = syncCapdExaminerSelect;`, scope);
-  scope.sync();
-  assert.equal(select.value, 'Dorota Mikosz-Micorek');
-  assert.equal(input.hidden, true);
-  input.value = 'Nowa Osoba';
-  scope.sync();
-  assert.equal(select.value, '__other');
-  assert.equal(input.hidden, false);
-});
-
 test('APD practitioner shortcut fills the saved person and selected clinic address', () => {
-  const source = app.slice(app.indexOf('function capdProfileForShortcut('), app.indexOf('async function saveCapdPractitionerProfile('));
+  const source = app.slice(app.indexOf('function capdProfileForShortcut('), app.indexOf('function linkCapdExaminerToProfile('));
   const examiner = { value: '' };
   const license = { value: '' };
   const facility = { value: '' };
@@ -286,7 +234,7 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
     },
     capdAddressForLocation: () => 'al. Piłsudskiego 50, 34-300 Żywiec',
     documentLocationKey: value => value,
-    syncCapdExaminerSelect: () => {},
+    updateCapdPractitionerShortcuts: () => {},
     updateDocumentLocationAccent: () => {},
     renderCapdReport: () => {}
   });
@@ -301,4 +249,7 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
   location.value = 'P63';
   scope.applyShortcut(profile);
   assert.equal(location.value, 'P63');
+  scope.capdSavedPractitionerProfiles = [];
+  assert.equal(scope.findShortcut('dorota').name, 'Dorota Mikosz-Micorek');
+  assert.equal(scope.findShortcut('justyna').name, 'Justyna Waliczek');
 });

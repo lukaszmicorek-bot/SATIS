@@ -1058,11 +1058,8 @@ const capdAgeInput = document.querySelector("#capdAgeInput");
 const capdDateInput = document.querySelector("#capdDateInput");
 const capdLocationInput = document.querySelector("#capdLocationInput");
 const capdExaminerInput = document.querySelector("#capdExaminerInput");
-const capdExaminerSelect = document.querySelector("#capdExaminerSelect");
 const capdExaminerBadgeName = document.querySelector("#capdExaminerBadgeName");
 const capdPractitionerShortcutButtons = [...document.querySelectorAll("[data-capd-practitioner-shortcut]")];
-const saveCapdPractitionerProfileBtn = document.querySelector("#saveCapdPractitionerProfileBtn");
-const capdPractitionerProfileStatus = document.querySelector("#capdPractitionerProfileStatus");
 const capdPractitionerLicenseInput = document.querySelector("#capdPractitionerLicenseInput");
 const capdPractitionerFacilityInput = document.querySelector("#capdPractitionerFacilityInput");
 const capdPractitionerAddressInput = document.querySelector("#capdPractitionerAddressInput");
@@ -2657,7 +2654,6 @@ function clearSensitiveApplicationState() {
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
   if (capdExaminerInput) capdExaminerInput.hidden = true;
-  capdPractitionerOptionsSignature = "";
   renderCapdPractitionerProfiles();
   clearSensitiveBrowserData();
   rebuildDerivedData();
@@ -19206,29 +19202,8 @@ function capdPractitionerProfiles() {
   return [...profiles].sort((left, right) => left[1].name.localeCompare(right[1].name, "pl"));
 }
 
-let capdPractitionerOptionsSignature = "";
-function syncCapdExaminerSelect() {
-  if (!capdExaminerSelect || !capdExaminerInput) return;
-  const name = capdExaminerInput.value.trim();
-  capdExaminerSelect.value = name
-    ? [...capdExaminerSelect.options].some((option) => option.value === name) ? name : "__other"
-    : "";
-  capdExaminerInput.hidden = capdExaminerSelect.value !== "__other";
-}
-
 function renderCapdPractitionerProfiles() {
-  const profiles = capdPractitionerProfiles();
-  const signature = JSON.stringify(profiles);
-  if (signature !== capdPractitionerOptionsSignature && capdExaminerSelect) {
-    const names = [...new Set(["Dorota Mikosz-Micorek", "Justyna Waliczek", ...profiles.map(([, profile]) => profile.name)])];
-    capdExaminerSelect.replaceChildren(
-      new Option("Wybierz osobę", ""),
-      ...names.map((name) => new Option(name, name)),
-      new Option("Inna osoba", "__other")
-    );
-    capdPractitionerOptionsSignature = signature;
-  }
-  syncCapdExaminerSelect();
+  updateCapdPractitionerShortcuts();
 }
 
 function updateCapdPractitionerShortcuts() {
@@ -19262,7 +19237,6 @@ function applyCapdPractitionerProfile(profile, locationOverride = "") {
   activeCapdPractitionerProfileId = capdSavedPractitionerProfiles.find((entry) =>
     capdPractitionerProfileKey(entry.profile) === capdPractitionerProfileKey(profile))?.id || "";
   if (capdExaminerInput) capdExaminerInput.value = profile.name || "";
-  syncCapdExaminerSelect();
   if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = profile.licenseCode || "";
   if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = profile.facility || "SATIS Pracownia Słuchu";
   const savedLocation = Object.keys(CAPD_CLINIC_ADDRESSES).find((key) =>
@@ -19275,55 +19249,9 @@ function applyCapdPractitionerProfile(profile, locationOverride = "") {
   renderCapdReport();
 }
 
-async function saveCapdPractitionerProfile() {
-  const current = currentCapdPractitioner();
-  const previous = capdSavedPractitionerProfiles.find((entry) => entry.id === activeCapdPractitionerProfileId)?.profile
-    || capdSavedPractitionerProfiles.find((entry) =>
-      capdPractitionerProfileKey(entry.profile) === capdPractitionerProfileKey(current))?.profile;
-  const profile = normalizeCapdPractitioner({
-    ...current,
-    addresses: [...(previous?.addresses || []), current.address],
-    address: current.address
-  });
-  if (!profile.name || !(profile.licenseCode || profile.facility || profile.address)) {
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Wpisz imię i nazwisko oraz dane profilu.";
-    if (!profile.name) capdExaminerInput?.focus();
-    return;
-  }
-  if (!hasSupabaseConfig || !currentSupabaseUser) {
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Zaloguj się, aby zapisać profil dla wszystkich stanowisk.";
-    return;
-  }
-  const matching = capdSavedPractitionerProfiles.find((entry) =>
-    capdPractitionerProfileKey(entry.profile) === capdPractitionerProfileKey(profile));
-  if (activeCapdPractitionerProfileId && matching && matching.id !== activeCapdPractitionerProfileId) {
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Profil o tym imieniu i kodzie licencji już istnieje.";
-    return;
-  }
-  const id = activeCapdPractitionerProfileId || matching?.id || `${CAPD_PROFILE_ID_PREFIX}${makeId()}`;
-  const entry = { id, recordType: "practitioner_profile", profile, savedAt: new Date().toISOString() };
-  if (saveCapdPractitionerProfileBtn) saveCapdPractitionerProfileBtn.disabled = true;
-  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Zapisywanie...";
-  try {
-    await upsertSupabaseRecord(SUPABASE_CAPD_HISTORY_TABLE, entry);
-    capdSavedPractitionerProfiles = normalizeCapdSavedPractitionerProfiles([
-      ...capdSavedPractitionerProfiles.filter((item) => item.id !== id), entry
-    ]);
-    activeCapdPractitionerProfileId = id;
-    capdPractitionerOptionsSignature = "";
-    renderCapdPractitionerProfiles();
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Profil zapisany dla wszystkich stanowisk.";
-  } catch (error) {
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = `Nie udało się zapisać profilu: ${error.message}`;
-  } finally {
-    if (saveCapdPractitionerProfileBtn) saveCapdPractitionerProfileBtn.disabled = false;
-  }
-}
-
 function linkCapdExaminerToProfile() {
   if (!capdExaminerInput) return;
   capdExaminerInput.value = titleCaseName(capdExaminerInput.value);
-  syncCapdExaminerSelect();
   if (activeCapdPractitionerProfileId) {
     const selected = capdSavedPractitionerProfiles.find((entry) => entry.id === activeCapdPractitionerProfileId);
     if (selected && normalize(selected.profile.name) === normalize(capdExaminerInput.value)) {
@@ -19336,7 +19264,7 @@ function linkCapdExaminerToProfile() {
     if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = "";
   }
   const matches = capdPractitionerProfiles().filter(([, profile]) => normalize(profile.name) === normalize(capdExaminerInput.value));
-  const hasManualDetails = [capdPractitionerLicenseInput, capdPractitionerFacilityInput]
+  const hasManualDetails = [capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput]
     .some((input) => input?.value.trim());
   if (matches.length === 1 && !hasManualDetails) {
     applyCapdPractitionerProfile(matches[0][1]);
@@ -19581,8 +19509,8 @@ async function saveCurrentCapdToHistory() {
     return;
   }
   if (!snapshot.examiner) {
-    capdExaminerInput?.focus();
-    alert("Wpisz osobę wykonującą badanie.");
+    capdPractitionerShortcutButtons[0]?.focus();
+    alert("Wybierz osobę wykonującą badanie przyciskiem pod formularzem.");
     return;
   }
   if (!snapshot.location) {
@@ -19836,8 +19764,6 @@ function resetCapdForm() {
   capdForm?.reset();
   if (capdExaminerBadgeName) capdExaminerBadgeName.textContent = "Nie wybrano";
   activeCapdPractitionerProfileId = "";
-  if (capdExaminerInput) capdExaminerInput.hidden = true;
-  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
   updateCapdPerformedExamPanels();
   if (capdConclusionType) capdConclusionType.value = "";
   if (capdDescriptionInput) capdDescriptionInput.replaceChildren();
@@ -25220,43 +25146,10 @@ capdLocationInput?.addEventListener("change", () => {
     capdPractitionerAddressInput.value = capdAddressForLocation(documentLocationKey(capdLocationInput.value));
   }
 });
-capdExaminerSelect?.addEventListener("change", () => {
-  const name = capdExaminerSelect.value;
-  if (capdExaminerInput) {
-    capdExaminerInput.value = name === "__other" ? "" : name;
-    capdExaminerInput.hidden = name !== "__other";
-  }
-  activeCapdPractitionerProfileId = "";
-  if (name && name !== "__other") {
-    const saved = [...capdSavedPractitionerProfiles]
-      .sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt)))
-      .find((entry) => entry.profile.name === name)?.profile;
-    const profile = saved || capdPractitionerProfiles().find(([, item]) => item.name === name)?.[1];
-    applyCapdPractitionerProfile(profile || { name, facility: "SATIS Pracownia Słuchu" });
-  } else {
-    if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = "";
-    if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = "";
-    if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = "";
-    renderCapdReport();
-    if (name === "__other") capdExaminerInput?.focus();
-  }
-  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
-});
-capdExaminerInput?.addEventListener("blur", linkCapdExaminerToProfile);
-capdExaminerInput?.addEventListener("input", () => {
-  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
-});
 capdPractitionerShortcutButtons.forEach((button) => button.addEventListener("click", () => {
   const profile = capdProfileForShortcut(button.dataset.capdPractitionerShortcut);
   applyCapdPractitionerProfile(profile, button.dataset.capdPractitionerLocation);
-  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
 }));
-[capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput].forEach((input) => {
-  input?.addEventListener("input", () => {
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
-  });
-});
-saveCapdPractitionerProfileBtn?.addEventListener("click", saveCapdPractitionerProfile);
 capdNormToggle?.addEventListener("click", () => {
   const expanded = capdNormToggle.getAttribute("aria-expanded") === "true";
   capdNormToggle.setAttribute("aria-expanded", String(!expanded));
