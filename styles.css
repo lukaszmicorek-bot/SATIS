@@ -801,9 +801,13 @@ h2 {
 }
 
 .capd-performed-exams-options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 22px;
+}
+
+.capd-performed-exam-item {
+  min-width: 0;
 }
 
 .capd-performed-exams-options label {
@@ -822,6 +826,33 @@ h2 {
   margin: 0;
   padding: 0;
   accent-color: #007a7a;
+}
+
+.capd-performed-exam-detail {
+  display: grid;
+  gap: 7px;
+  margin: 8px 0 2px 25px;
+}
+
+.capd-performed-exam-detail[hidden] {
+  display: none;
+}
+
+.capd-performed-exam-detail textarea {
+  min-height: 52px;
+  resize: vertical;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.capd-performed-exam-detail button {
+  justify-self: start;
+  min-height: 27px;
+  padding: 3px 8px;
+  border-color: #d5e1df;
+  color: #42636a;
+  background: transparent;
+  font-size: 0.68rem;
 }
 
 .capd-patient-field,
@@ -1359,8 +1390,92 @@ h2 {
   line-height: 1.4;
 }
 
-.capd-report-performed-exams strong {
-  margin-right: 4px;
+.capd-report-performed-exams > strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.capd-report-performed-exams ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.capd-report-performed-exams li {
+  display: flex;
+  gap: 7px;
+  break-inside: avoid;
+}
+
+.capd-report-performed-exams li strong {
+  flex: 0 0 148px;
+}
+
+.capd-report-performed-exams li span {
+  min-width: 0;
+}
+
+.capd-report-practitioner {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 18px;
+  border-top: 1px solid #d9e2e4;
+  padding-top: 9px;
+  break-inside: avoid;
+}
+
+.capd-report-practitioner[hidden],
+.capd-report-practitioner p[hidden] {
+  display: none;
+}
+
+.capd-report-practitioner p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 6px;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.capd-report-practitioner p span {
+  color: #62757a;
+}
+
+.capd-report-practitioner p strong {
+  color: #173f4e;
+}
+
+.capd-practitioner-fields {
+  border-top: 1px solid #d9e4e3;
+  padding-top: 14px;
+}
+
+.capd-practitioner-fields > strong {
+  color: #003f5a;
+  font-size: 0.86rem;
+}
+
+.capd-practitioner-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px 16px;
+  margin-top: 10px;
+}
+
+.capd-practitioner-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #526a71;
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.capd-practitioner-wide {
+  grid-column: 1 / -1;
 }
 
 .capd-report-table {
@@ -1917,6 +2032,15 @@ h2 {
 
 @media (max-width: 720px) {
   .capd-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-performed-exams-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-practitioner-grid,
+  .capd-report-practitioner {
     grid-template-columns: minmax(0, 1fr);
   }
 
