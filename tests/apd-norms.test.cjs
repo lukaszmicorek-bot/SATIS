@@ -60,9 +60,9 @@ test('APD keeps examination location and examiner in the form, history, and repo
   for (const code of ['T12', 'P50', 'P63']) {
     assert.match(html, new RegExp(`<option value="${code}"`));
   }
-  assert.match(html, /id="capdExaminerInput"[^>]*required/);
-  assert.match(html, /id="capdExaminerInput"[^>]*list="capdExaminerSuggestions"/);
-  assert.match(html, /id="capdExaminerSuggestions"/);
+  assert.match(html, /<select id="capdExaminerSelect" required>/);
+  assert.match(html, /id="capdExaminerInput"[^>]*hidden/);
+  assert.match(html, /<option value="__other">Inna osoba<\/option>/);
   assert.doesNotMatch(html, /id="capdPractitionerProfileSelect"|Wybierz z zapisanych profili/);
   assert.ok(html.indexOf('class="capd-practitioner-shortcuts"') > html.indexOf('aria-label="Opis badania i wnioski"'));
   assert.match(html, /<fieldset class="capd-performed-exams private-form-wide">[\s\S]*?<\/fieldset>\s*<section class="capd-rich-text-field private-form-wide"/);
@@ -121,11 +121,15 @@ test('APD records only confirmed preliminary examinations', () => {
 
 test('APD keeps practitioner details in history and at the end of the report', () => {
   for (const id of ['capdPractitionerLicenseInput',
-    'capdPractitionerFacilityInput', 'capdPractitionerCitySelect', 'capdReportPractitioner']) {
+    'capdPractitionerFacilityInput', 'capdPractitionerAddressInput', 'capdReportPractitioner']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   const report = html.slice(html.indexOf('id="capdReport"'), html.indexOf('id="capdHistoryList"'));
   assert.ok(report.indexOf('id="capdReportPractitioner"') > report.indexOf('id="capdReportDescription"'));
+  for (const id of ['capdReportPractitionerName', 'capdReportPractitionerLicense',
+    'capdReportPractitionerFacility', 'capdReportPractitionerAddress']) {
+    assert.match(report, new RegExp(`id="${id}"`));
+  }
   assert.match(app, /practitioner: currentCapdPractitioner\(\)/);
   assert.match(app, /practitioner: normalizeCapdPractitioner\(entry\.practitioner, entry\.examiner\)/);
   assert.match(app, /async function saveCurrentCapdToHistory\(\) \{\s*linkCapdExaminerToProfile\(\)/);
@@ -167,7 +171,7 @@ test('APD keeps practitioner details in history and at the end of the report', (
 test('APD saves practitioner profiles separately from examination history', () => {
   assert.match(html, /id="saveCapdPractitionerProfileBtn"[^>]*>Zapisz profil/);
   assert.match(html, /id="capdPractitionerProfileStatus"[^>]*role="status"/);
-  assert.match(html, /id="capdPractitionerCitySelect"/);
+  assert.match(html, /id="capdPractitionerAddressInput"/);
   assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P63"/);
   assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P50"/);
   assert.match(html, /data-capd-practitioner-shortcut="justyna" data-capd-practitioner-location="P63"/);
@@ -197,6 +201,7 @@ test('APD profile save creates one shared record and updates that record on edit
   const button = { disabled: false };
   const scope = vm.createContext({
     currentCapdPractitioner: () => ({ name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS', addresses: ['ul. Testowa 1', 'ul. Druga 2'], address: 'ul. Druga 2' }),
+    normalizeCapdPractitioner: value => value,
     capdPractitionerProfileKey: profile => `${profile.name}|${profile.licenseCode}`,
     capdSavedPractitionerProfiles: [],
     activeCapdPractitionerProfileId: '',
@@ -226,22 +231,34 @@ test('APD profile save creates one shared record and updates that record on edit
   assert.equal(button.disabled, false);
 });
 
-test('APD city choice uses the existing clinic location and recognizes older addresses', () => {
-  const source = app.slice(app.indexOf('function capdCityForLocation('), app.indexOf('function setCapdPractitionerCity('));
+test('APD clinic shortcut preserves a matching saved full address', () => {
+  const source = app.slice(app.indexOf('const CAPD_CLINIC_ADDRESSES ='), app.indexOf('function currentCapdPractitioner('));
   const scope = vm.createContext({
-    normalize: value => String(value || '').toLocaleLowerCase('pl-PL'),
-    DOCUMENT_LOCATIONS: [
-      { key: 'T12', value: 'Bielsko-Biała, ul. Traugutta 12' },
-      { key: 'P63', value: 'Bielsko-Biała, ul. Partyzantów 63' },
-      { key: 'P50', value: 'Żywiec, al. Piłsudskiego 50' }
-    ]
+    normalize: value => String(value || '').toLocaleLowerCase('pl-PL')
   });
-  vm.runInContext(`${source}\nglobalThis.city = capdCityForAddress; globalThis.address = capdAddressForCity;`, scope);
-  assert.equal(scope.city('Żywiec, al. Piłsudskiego 50'), 'Żywiec');
-  assert.equal(scope.city('Bielsko-Biała, ul. Partyzantów 63'), 'Bielsko-Biała');
-  assert.equal(scope.address('Żywiec', 'P63'), 'Żywiec, al. Piłsudskiego 50');
-  assert.equal(scope.address('Bielsko-Biała', 'T12'), 'Bielsko-Biała, ul. Traugutta 12');
-  assert.equal(scope.address('Bielsko-Biała', 'P50'), 'Bielsko-Biała, ul. Partyzantów 63');
+  vm.runInContext(`${source}\nglobalThis.address = capdAddressForLocation;`, scope);
+  assert.equal(scope.address('P50', { addresses: ['ul. Partyzantów 63, Bielsko-Biała', 'al. Piłsudskiego 50, 34-300 Żywiec'] }),
+    'al. Piłsudskiego 50, 34-300 Żywiec');
+  assert.equal(scope.address('P63'), 'ul. Partyzantów 63, 43-300 Bielsko-Biała');
+  assert.equal(scope.address('T12'), 'ul. Traugutta 12, 43-300 Bielsko-Biała');
+});
+
+test('APD examiner list shows a manual field only for a name outside the list', () => {
+  const source = app.slice(app.indexOf('function syncCapdExaminerSelect('), app.indexOf('function renderCapdPractitionerProfiles('));
+  const input = { value: 'Dorota Mikosz-Micorek', hidden: false };
+  const select = {
+    options: [{ value: '' }, { value: 'Dorota Mikosz-Micorek' }, { value: '__other' }],
+    value: ''
+  };
+  const scope = vm.createContext({ capdExaminerInput: input, capdExaminerSelect: select });
+  vm.runInContext(`${source}\nglobalThis.sync = syncCapdExaminerSelect;`, scope);
+  scope.sync();
+  assert.equal(select.value, 'Dorota Mikosz-Micorek');
+  assert.equal(input.hidden, true);
+  input.value = 'Nowa Osoba';
+  scope.sync();
+  assert.equal(select.value, '__other');
+  assert.equal(input.hidden, false);
 });
 
 test('APD practitioner shortcut fills the saved person and selected clinic address', () => {
@@ -249,9 +266,9 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
   const examiner = { value: '' };
   const license = { value: '' };
   const facility = { value: '' };
+  const address = { value: '' };
   const location = { value: 'P63' };
-  const city = { value: 'Bielsko-Biała' };
-  const profile = { name: 'Dorota Testowa', licenseCode: 'AB12', facility: 'SATIS', address: 'Bielsko-Biała, ul. Partyzantów 63' };
+  const profile = { name: 'Dorota Testowa', licenseCode: 'AB12', facility: 'SATIS', address: 'ul. Partyzantów 63, 43-300 Bielsko-Biała', addresses: ['ul. Partyzantów 63, 43-300 Bielsko-Biała', 'al. Piłsudskiego 50, 34-300 Żywiec'] };
   const scope = vm.createContext({
     normalize: value => String(value || '').toLocaleLowerCase('pl-PL'),
     capdSavedPractitionerProfiles: [{ id: 'apd-profile-dorota', savedAt: '2026-10-01', profile }],
@@ -261,16 +278,15 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
     capdExaminerInput: examiner,
     capdPractitionerLicenseInput: license,
     capdPractitionerFacilityInput: facility,
-    capdPractitionerCitySelect: city,
+    capdPractitionerAddressInput: address,
     capdLocationInput: location,
-    capdPractitionerAddressOverride: '',
-    DOCUMENT_LOCATIONS: [
-      { key: 'P63', value: 'Bielsko-Biała, ul. Partyzantów 63' },
-      { key: 'P50', value: 'Żywiec, al. Piłsudskiego 50' }
-    ],
-    setCapdPractitionerCity: () => {},
-    capdCityForLocation: value => value === 'P50' ? 'Żywiec' : 'Bielsko-Biała',
-    syncCapdLocationToCity: () => {},
+    CAPD_CLINIC_ADDRESSES: {
+      P63: { marker: 'partyzantów 63' },
+      P50: { marker: 'piłsudskiego 50' }
+    },
+    capdAddressForLocation: () => 'al. Piłsudskiego 50, 34-300 Żywiec',
+    documentLocationKey: value => value,
+    syncCapdExaminerSelect: () => {},
     updateDocumentLocationAccent: () => {},
     renderCapdReport: () => {}
   });
@@ -280,7 +296,9 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
   assert.equal(license.value, 'AB12');
   assert.equal(facility.value, 'SATIS');
   assert.equal(location.value, 'P50');
-  assert.equal(city.value, 'Żywiec');
-  assert.equal(scope.capdPractitionerAddressOverride, 'Żywiec, al. Piłsudskiego 50');
+  assert.equal(address.value, 'al. Piłsudskiego 50, 34-300 Żywiec');
   assert.equal(scope.activeCapdPractitionerProfileId, 'apd-profile-dorota');
+  location.value = 'P63';
+  scope.applyShortcut(profile);
+  assert.equal(location.value, 'P63');
 });
