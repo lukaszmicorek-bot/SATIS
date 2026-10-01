@@ -792,6 +792,10 @@
                   <input id="offerPfronInput" type="text" inputmode="decimal" placeholder="0 zł" autocomplete="off" aria-label="Kwota dofinansowania PFRON">
                 </div>
               </div>
+              <label class="offer-notes-field">
+                <span>Uwagi</span>
+                <textarea id="offerNotesInput" rows="2" maxlength="300" placeholder="Dodatkowe ustalenia dotyczące oferty"></textarea>
+              </label>
               <div class="offer-actions">
                 <button id="offerMoveRightToLeftBtn" class="reset-filters-btn" type="button">P → L</button>
                 <button id="offerMoveLeftToRightBtn" class="reset-filters-btn" type="button">L → P</button>
@@ -845,6 +849,7 @@
                   <span>Do zapłaty przez pacjenta</span>
                   <strong id="offerPatientTotal">0 zł</strong>
                 </div>
+                <p id="offerNotesPrint" class="offer-print-notes" hidden><strong>Uwagi:</strong> <span id="offerNotesText"></span></p>
 
                 <section class="document-description offer-description" aria-label="Informacje o współpracy">
                   <h3>Jak wygląda współpraca z nami?</h3>
@@ -1253,7 +1258,7 @@
 
             <section id="pricingRodoPrint" class="rodo-print-document" aria-label="Informacja dotycząca przetwarzania danych osobowych">
               <article class="rodo-page">
-                <header class="rodo-print-head"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Informacja o przetwarzaniu danych osobowych</h2><p>Informacja dla pacjenta</p></div><img src="satis-monogram.png" alt="SATIS"></header>
+                <header class="rodo-print-head"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Informacja o przetwarzaniu danych osobowych</h2><p>Informacja dla klienta</p></div><img src="satis-monogram.png" alt="SATIS"></header>
                 <h3>Administrator danych</h3>
                 <p>Administratorem Pani/Pana danych osobowych jest:</p>
                 <p><strong>Aparaty Słuchowe SATIS Dorota Mikosz-Micorek</strong><br>ul. Partyzantów 63, 43-300 Bielsko-Biała<br>NIP: 9372510340<br>e-mail: satis@pracowniasluchu.pl</p>
@@ -1263,6 +1268,13 @@
                 <p>Administrator nie wyznaczył Inspektora Ochrony Danych.</p>
                 <h3>W jakim celu przetwarzamy dane?</h3>
                 <p>Pani/Pana dane osobowe przetwarzamy w celu organizacji i realizacji wizyt, wykonywania badań i konsultacji dotyczących słuchu, prowadzenia dokumentacji, doboru i obsługi aparatów słuchowych, realizacji zamówień, refundacji i rozliczeń oraz wypełnienia obowiązków wynikających z przepisów prawa i ochrony przed ewentualnymi roszczeniami.</p>
+                <h3>Podstawy prawne przetwarzania</h3>
+                <ul class="rodo-legal-bases">
+                  <li><strong>Umowy i usługi:</strong> art. 6 ust. 1 lit. b RODO – działania przed zawarciem umowy, organizacja wizyt, badania, dobór i obsługa aparatów, zamówienia oraz reklamacje. Gdy usługa wymaga danych dotyczących zdrowia, dodatkowo art. 9 ust. 2 lit. a RODO – wyraźna zgoda poniżej.</li>
+                  <li><strong>Rozliczenia i obowiązki prawne:</strong> art. 6 ust. 1 lit. c RODO – w szczególności wystawianie i przechowywanie dokumentów wymaganych przez przepisy podatkowe (art. 112 i 112a ustawy o VAT).</li>
+                  <li><strong>Roszczenia:</strong> art. 6 ust. 1 lit. f RODO – ustalenie, dochodzenie lub obrona roszczeń związanych z usługą lub sprzedażą; jeśli jest to niezbędne w odniesieniu do danych dotyczących zdrowia, także art. 9 ust. 2 lit. f RODO.</li>
+                  <li><strong>Odrębne zgody:</strong> art. 6 ust. 1 lit. a RODO – dobrowolne powiadomienia o wizytach i kontakt marketingowy. Kontakt marketingowy przez telefon, SMS lub e-mail wymaga również uprzedniej zgody z art. 398 ust. 1 Prawa komunikacji elektronicznej.</li>
+                </ul>
                 <h3>Dane dotyczące zdrowia</h3>
                 <p>W związku z realizacją usług możemy przetwarzać dane dotyczące Pani/Pana słuchu i zdrowia w zakresie niezbędnym do wykonania badań, konsultacji oraz doboru i dopasowania aparatów słuchowych. Dane te podlegają szczególnej ochronie i są przetwarzane zgodnie z obowiązującymi przepisami.</p>
                 <p>Badania słuchu oraz dobór i dopasowanie aparatów słuchowych wykonuje protetyk słuchu, zgodnie z posiadanymi kwalifikacjami.</p>
@@ -1270,14 +1282,15 @@
                 <p>Dane mogą być przekazywane wyłącznie podmiotom niezbędnym do realizacji usług lub uprawnionym na podstawie przepisów prawa, w szczególności dostawcom systemów IT, m.in. w celu prowadzenia kalendarza i umawiania wizyt, APD Medical sp. z o.o. / systemowi Neuroflow ATS® – w przypadku oceny przetwarzania słuchowego, producentom i serwisom aparatów słuchowych, NFZ oraz instytucjom realizującym dofinansowania – jeżeli dotyczy.</p>
               </article>
               <article class="rodo-page">
-                <header class="rodo-print-head rodo-print-head-continued"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Prawa i zgody pacjenta</h2></div><img src="satis-monogram.png" alt="SATIS"></header>
+                <header class="rodo-print-head rodo-print-head-continued"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Prawa i zgody klienta</h2></div><img src="satis-monogram.png" alt="SATIS"></header>
                 <h3>Jak długo przechowujemy dane?</h3>
-                <p>Dane przechowujemy przez okres niezbędny do realizacji usług, spełnienia obowiązków prawnych oraz ewentualnego dochodzenia lub obrony roszczeń. Dane przetwarzane na podstawie zgody – do czasu jej wycofania lub ustania celu. Wycofanie zgody nie wpływa na wcześniejsze przetwarzanie.</p>
-                <h3>Prawa pacjenta</h3>
+                <p>Dane przechowujemy przez okres niezbędny do realizacji usług i obrony ewentualnych roszczeń. Faktury i związane z nimi dokumenty podatkowe – do upływu terminu przedawnienia zobowiązania podatkowego. Dane przetwarzane wyłącznie na podstawie zgody – do jej wycofania lub ustania celu, chyba że ich dalsze przechowywanie wynika z innej podstawy prawnej. Wycofanie zgody nie wpływa na zgodność z prawem wcześniejszego przetwarzania.</p>
+                <p>Podanie danych potrzebnych do realizacji usługi lub wynikających z przepisów jest niezbędne do jej wykonania albo rozliczenia. Bez zgody na przetwarzanie danych dotyczących zdrowia nie możemy wykonać tych usług, które wymagają takich danych. Zgody na powiadomienia i marketing są dobrowolne i nie są warunkiem skorzystania z usługi.</p>
+                <h3>Prawa klienta</h3>
                 <p>Ma Pani/Pan prawo do dostępu, kopii, sprostowania, usunięcia lub ograniczenia przetwarzania danych, ich przenoszenia, sprzeciwu oraz wycofania zgody – w zakresie przewidzianym przepisami. Przysługuje również prawo wniesienia skargi do Prezesa UODO.</p>
-                <h3>Zgody pacjenta</h3>
+                <h3>Zgody klienta</h3>
                 <div class="rodo-consent-print"><strong>1. Dane dotyczące zdrowia i usługi</strong><div class="rodo-choice-line"><span><b data-rodo-choice="health-yes"></b> TAK</span><span><b data-rodo-choice="health-no"></b> NIE</span></div>
-                  <p>Wyrażam zgodę na przetwarzanie danych dotyczących mojego zdrowia w zakresie niezbędnym do wykonania badań słuchu, konsultacji, oceny przetwarzania słuchowego oraz doboru i dopasowania aparatów słuchowych i innych wybranych usług.</p>
+                  <p>Wyrażam wyraźną zgodę na przetwarzanie danych dotyczących mojego zdrowia w zakresie niezbędnym do wykonania badań słuchu, konsultacji, oceny przetwarzania słuchowego oraz doboru i dopasowania aparatów słuchowych i innych wybranych usług.</p>
                   <p>Przyjmuję do wiadomości, że badania słuchu oraz dobór i dopasowanie aparatów słuchowych w SATIS wykonuje protetyk słuchu, zgodnie z posiadanymi kwalifikacjami.</p></div>
                 <div class="rodo-consent-print"><strong>2. Powiadomienia dotyczące wizyt</strong><div class="rodo-choice-line"><span><b data-rodo-choice="visits-yes"></b> TAK</span><span><b data-rodo-choice="visits-no"></b> NIE</span></div>
                   <p>Wyrażam zgodę na otrzymywanie na podany numer telefonu SMS i automatycznych powiadomień dotyczących wizyt, w szczególności potwierdzeń, przypomnień, zmian lub odwołania wizyty, również za pośrednictwem systemu Booksy.</p>
@@ -1286,12 +1299,12 @@
                   <div class="rodo-choice-line rodo-marketing-line"><span><b data-rodo-choice="marketing-phone"></b> telefon</span><span><b data-rodo-choice="marketing-sms"></b> SMS</span><span><b data-rodo-choice="marketing-email"></b> e-mail</span><span><b data-rodo-choice="marketing-none"></b> nie wyrażam zgody</span></div>
                   <p>Zgoda jest dobrowolna i może zostać w każdej chwili wycofana.</p></div>
                 <div class="rodo-signatures">
-                  <p><strong data-rodo-out="name"></strong><span>Imię i nazwisko pacjenta</span></p>
+                  <p><strong data-rodo-out="name"></strong><span>Imię i nazwisko klienta</span></p>
                   <p><strong data-rodo-out="birthDate"></strong><span>Data urodzenia</span></p>
                   <p><strong data-rodo-out="phone"></strong><span>Numer telefonu</span></p>
                   <p><strong data-rodo-out="address"></strong><span>Adres</span></p>
                   <p><strong data-rodo-out="placeDate"></strong><span>Miejscowość i data</span></p>
-                  <p><strong></strong><span>Podpis pacjenta / opiekuna prawnego</span></p>
+                  <p><strong></strong><span>Podpis klienta / opiekuna prawnego</span></p>
                 </div>
               </article>
             </section>
@@ -1900,6 +1913,28 @@
               <span>Data badania</span>
               <input id="capdDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
             </label>
+            <label class="capd-location-field document-location-field" data-location-tone="P63">
+              <span>Miejsce</span>
+              <select id="capdLocationInput" required>
+                <option value="">Wybierz miejsce</option>
+                <option value="T12">T12 - Bielsko-Biała, ul. Traugutta 12</option>
+                <option value="P50">P50 - Żywiec, al. Piłsudskiego 50</option>
+                <option value="P63" selected>P63 - Bielsko-Biała, ul. Partyzantów 63</option>
+              </select>
+            </label>
+            <label class="capd-examiner-field">
+              <span>Osoba wykonująca badanie *</span>
+              <input id="capdExaminerInput" type="text" maxlength="80" autocomplete="off" placeholder="Imię i nazwisko" required>
+            </label>
+
+            <fieldset class="capd-performed-exams private-form-wide">
+              <legend>Przeprowadzone badania</legend>
+              <div class="capd-performed-exams-options">
+                <label><input type="checkbox" data-capd-performed-exam="AUDIOMETRIA_TONALNA"> Audiometria tonalna</label>
+                <label><input type="checkbox" data-capd-performed-exam="TYMPANOMETRIA"> Tympanometria</label>
+                <label><input type="checkbox" data-capd-performed-exam="UCL"> UCL</label>
+              </div>
+            </fieldset>
 
             <section id="capdScopePanel" class="capd-scope-panel private-form-wide" data-scope="pending" aria-live="polite">
               <span>Zakres badania</span>
@@ -2095,6 +2130,31 @@
                 <p><strong>Ważne:</strong> nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania. Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu.</p>
               </section>
             </section>
+            <section id="capdAbnormalPanel" class="capd-abnormal-panel private-form-wide" hidden aria-label="Propozycja wniosków przy wynikach poza normą">
+              <div class="capd-abnormal-head">
+                <div>
+                  <strong>Wyniki poza normą</strong>
+                  <span id="capdAbnormalSummary"></span>
+                </div>
+                <label>
+                  <span>Sformułowanie wniosku</span>
+                  <select id="capdConclusionType">
+                    <option value="">Bez rozpoznania</option>
+                    <option value="risk">Ryzyko centralnych zaburzeń przetwarzania słuchowego (poniżej 6 lat)</option>
+                    <option value="features">Cechy centralnych zaburzeń przetwarzania słuchowego APD/CAPD</option>
+                    <option value="perception">Zaburzenia percepcji słuchowej (po potwierdzeniu obniżonego IQ)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="capd-abnormal-actions">
+                <small>To propozycja do oceny i edycji. Sam wynik poza normą nie stanowi rozpoznania.</small>
+                <button id="capdInsertConclusionBtn" type="button">Dodaj do opisu</button>
+              </div>
+              <details class="capd-abnormal-details" open>
+                <summary>Podgląd proponowanego tekstu</summary>
+                <div id="capdAbnormalPreview"></div>
+              </details>
+            </section>
             <section class="capd-rich-text-field private-form-wide" aria-label="Opis badania i wnioski">
               <div class="capd-rich-text-head">
                 <span>Opis badania i wnioski</span>
@@ -2142,6 +2202,11 @@
               <span>Wiek<strong id="capdReportAge">-</strong></span>
               <span>Data badania<strong id="capdReportDate">-</strong></span>
             </div>
+            <div class="capd-report-context">
+              <span>Miejsce <strong id="capdReportLocation" class="pcpr-place-badge">-</strong></span>
+              <span>Osoba wykonująca badanie <strong id="capdReportExaminer">-</strong></span>
+            </div>
+            <p id="capdReportPerformedExams" class="capd-report-performed-exams" hidden><strong>Przeprowadzone badania:</strong> <span id="capdReportPerformedExamsList"></span></p>
             <table class="capd-report-table">
               <thead><tr><th>Badanie</th><th>Co sprawdza</th><th>Norma</th><th>Wynik</th></tr></thead>
               <tbody id="capdReportResults"></tbody>

@@ -718,6 +718,7 @@ const offerPatientGroupInputs = [...document.querySelectorAll('input[name="offer
 const offerDateInput = document.querySelector("#offerDateInput");
 const offerLocationInput = document.querySelector("#offerLocationInput");
 const offerPfronInput = document.querySelector("#offerPfronInput");
+const offerNotesInput = document.querySelector("#offerNotesInput");
 const offerPfronEnabledInput = document.querySelector("#offerPfronEnabledInput");
 const offerNoNfzInput = document.querySelector("#offerNoNfzInput");
 const offerDeviceInput1 = document.querySelector("#offerDeviceInput1");
@@ -737,6 +738,8 @@ const offerContent = document.querySelector("#offerContent");
 const offerItemsBody = document.querySelector("#offerItemsBody");
 const offerPaymentsBody = document.querySelector("#offerPaymentsBody");
 const offerPatientTotal = document.querySelector("#offerPatientTotal");
+const offerNotesPrint = document.querySelector("#offerNotesPrint");
+const offerNotesText = document.querySelector("#offerNotesText");
 const loanContractNumberInput = document.querySelector("#loanContractNumberInput");
 const loanDateInput = document.querySelector("#loanDateInput");
 const loanCityInput = document.querySelector("#loanCityInput");
@@ -1044,6 +1047,9 @@ const capdPeselStatus = document.querySelector("#capdPeselStatus");
 const capdBirthDateInput = document.querySelector("#capdBirthDateInput");
 const capdAgeInput = document.querySelector("#capdAgeInput");
 const capdDateInput = document.querySelector("#capdDateInput");
+const capdLocationInput = document.querySelector("#capdLocationInput");
+const capdExaminerInput = document.querySelector("#capdExaminerInput");
+const capdPerformedExamInputs = [...document.querySelectorAll("[data-capd-performed-exam]")];
 const capdScopePanel = document.querySelector("#capdScopePanel");
 const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
@@ -1052,6 +1058,11 @@ const capdNormReferenceContent = document.querySelector("#capdNormReferenceConte
 const capdNormAgeSelect = document.querySelector("#capdNormAgeSelect");
 const capdNormReferenceBody = document.querySelector("#capdNormReferenceBody");
 const capdNormReferenceNote = document.querySelector("#capdNormReferenceNote");
+const capdAbnormalPanel = document.querySelector("#capdAbnormalPanel");
+const capdAbnormalSummary = document.querySelector("#capdAbnormalSummary");
+const capdAbnormalPreview = document.querySelector("#capdAbnormalPreview");
+const capdConclusionType = document.querySelector("#capdConclusionType");
+const capdInsertConclusionBtn = document.querySelector("#capdInsertConclusionBtn");
 const capdDescriptionInput = document.querySelector("#capdDescriptionInput");
 const capdDescriptionToolbar = document.querySelector("#capdDescriptionToolbar");
 const capdDescriptionColor = document.querySelector("#capdDescriptionColor");
@@ -1061,6 +1072,10 @@ const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
 const capdReportTitle = document.querySelector("#capdReportTitle");
 const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
+const capdReportLocation = document.querySelector("#capdReportLocation");
+const capdReportExaminer = document.querySelector("#capdReportExaminer");
+const capdReportPerformedExams = document.querySelector("#capdReportPerformedExams");
+const capdReportPerformedExamsList = document.querySelector("#capdReportPerformedExamsList");
 const capdReportPesel = document.querySelector("#capdReportPesel");
 const capdReportBirthDate = document.querySelector("#capdReportBirthDate");
 const capdReportAge = document.querySelector("#capdReportAge");
@@ -8431,7 +8446,8 @@ function startNewPricingOffer() {
     offerDeviceInput2,
     offerChargerInput,
     offerEarmoldInput,
-    offerPfronInput
+    offerPfronInput,
+    offerNotesInput
   ].forEach((input) => {
     if (input) input.value = "";
   });
@@ -8488,6 +8504,9 @@ function renderPricingOffer() {
   if (offerMeta) {
     offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
   }
+  const notes = offerNotesInput?.value.trim() || "";
+  if (offerNotesText) offerNotesText.textContent = notes;
+  if (offerNotesPrint) offerNotesPrint.hidden = !notes;
 
   const hasItems = offerItems.length > 0;
   if (offerEmptyState) offerEmptyState.hidden = hasItems;
@@ -8870,6 +8889,7 @@ function normalizePricingOfferHistoryEntry(entry) {
     nfz: normalizeLoanHistoryText(entry.nfz),
     pfron: normalizeLoanHistoryText(entry.pfron),
     patient: normalizeLoanHistoryText(entry.patient),
+    notes: String(entry.notes || "").trim().slice(0, 300),
     items
   };
   return pricingOfferHistoryEntryHasContent(normalizedEntry) ? normalizedEntry : null;
@@ -8974,6 +8994,7 @@ function currentPricingOfferSnapshot() {
     nfz,
     pfron,
     patient,
+    notes: offerNotesInput?.value.trim() || "",
     items
   };
 }
@@ -9200,6 +9221,7 @@ function updateDocumentLocationAccents() {
     demoLocationFilter,
     repairLocationFilter,
     pricingHistoryLocationFilter,
+    capdLocationInput,
     document.querySelector("#location"),
     document.querySelector("#repairLocation"),
     document.querySelector("#demoLocation")
@@ -10696,6 +10718,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "NFZ", formatPricingPrice(saved.nfz));
     appendPricingHistoryPreviewField(summary, "PFRON", formatPricingPrice(saved.pfron));
     appendPricingHistoryPreviewField(summary, "Do zapłaty", formatPricingPrice(saved.patient));
+    appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
     saved.items.forEach((item, index) => {
       const row = document.createElement("p");
       const typeLabel = item.kind === "charger"
@@ -10785,6 +10808,7 @@ function restorePricingOfferFromHistory(entry) {
   if (offerNoNfzInput) offerNoNfzInput.checked = saved.withoutNfz;
   if (offerPfronEnabledInput) offerPfronEnabledInput.checked = saved.pfronEnabled;
   if (offerPfronInput) offerPfronInput.value = saved.pfronEnabled ? String(saved.pfron || "") : "";
+  if (offerNotesInput) offerNotesInput.value = saved.notes;
   [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
     if (input) input.value = "";
   });
@@ -10940,6 +10964,7 @@ async function deletePricingComplaintHistoryEntry(id) {
 function pricingOfferHistorySearchText(entry) {
   return normalize([
     entry?.customer,
+    entry?.notes,
     pricingOfferPatientGroupLabel(pricingOfferHistoryPatientGroup(entry)),
     ...normalizePricingOfferHistoryEntry(entry)?.items?.flatMap((item) => [item.model, item.tradeName, item.manufacturer]) || []
   ].filter(Boolean).join(" "));
@@ -18547,13 +18572,16 @@ function capdNumberValues(value) {
 function capdSideValues(value) {
   const text = String(value || "").toLocaleUpperCase("pl-PL");
   const sideValue = (side) => {
-    const match = text.match(new RegExp(`${side}[^\\d+\\-]*([-+]?\\d+(?:[.,]\\d+)?)`, "u"));
+    const match = text.match(new RegExp(`(?:^|[^A-Z])${side}[^\\d+\\-]*([-+]?\\d+(?:[.,]\\d+)?)`, "u"));
     return match ? Number(match[1].replace(",", ".")) : null;
   };
+  const right = sideValue("P");
+  const left = sideValue("L");
+  if (right !== null || left !== null) return { right, left };
   const values = capdNumberValues(text);
   return {
-    right: sideValue("P") ?? values[0] ?? null,
-    left: sideValue("L") ?? values[1] ?? null
+    right: values[0] ?? null,
+    left: values[1] ?? null
   };
 }
 
@@ -18579,6 +18607,51 @@ function capdEvaluationLabel(evaluation) {
   if (evaluation === "good") return "W normie";
   if (evaluation === "bad") return "Poza normą";
   return "Brak oceny";
+}
+
+const CAPD_ABNORMAL_DESCRIPTIONS = {
+  TRW: "Nieprawidłowy wynik może wiązać się z wolniejszą reakcją na bodźce wzrokowe, tempem pracy lub koncentracją. Warto uwzględnić go przy interpretacji pozostałych testów.",
+  TRS: "Nieprawidłowy wynik może oznaczać wolniejszą reakcję na prosty dźwięk. W codziennych sytuacjach dziecko może później odpowiadać na polecenia lub częściej prosić o powtórzenie.",
+  "ASPN-S": "W teście rozumienia słów w szumie dziecko powtarza słowa prezentowane na tle mowy innych osób. Wynik poniżej normy może wiązać się z trudnościami w rozumieniu słów i poleceń w klasie, grupie lub innym hałaśliwym otoczeniu.",
+  "ASPN-Z": "W teście rozumienia zdań w szumie dziecko powtarza zdania prezentowane na tle mowy innych osób. Wynik poniżej normy może wiązać się z gubieniem fragmentów dłuższych poleceń i trudnością w śledzeniu wypowiedzi w hałasie.",
+  FPT: "Nieprawidłowy wynik może wskazywać na trudności z rozróżnianiem i zapamiętywaniem kolejności dźwięków o różnej wysokości. Może to mieć znaczenie dla analizy słuchowej, melodii i intonacji mowy.",
+  GDT: "Nieprawidłowy wynik może wskazywać na obniżoną zdolność wykrywania krótkich przerw w dźwięku. Może to utrudniać zauważanie szybkich zmian w mowie.",
+  DLF: "Podwyższony próg różnicowania wysokości dźwięku może świadczyć o trudności z wychwytywaniem niewielkich różnic w brzmieniu i intonacji mowy."
+};
+
+function capdDdtAbnormalDescription(value, normValue) {
+  const result = capdSideValues(value);
+  const norm = capdSideValues(normValue);
+  const rightBad = result.right !== null && norm.right !== null && result.right < norm.right;
+  const leftBad = result.left !== null && norm.left !== null && result.left < norm.left;
+  if (rightBad && leftBad) return "Wyniki poniżej normy dla obu uszu mogą wiązać się z trudnością w słuchaniu kilku osób jednocześnie, zapamiętywaniu informacji podawanych ustnie i wykonywaniu wieloetapowych poleceń.";
+  if (rightBad) return "Wynik poniżej normy dla ucha prawego może wiązać się z trudnościami w przetwarzaniu informacji słownych, na przykład podczas dyktanda i wykonywania poleceń ustnych.";
+  if (leftBad) return "Wynik poniżej normy dla ucha lewego może wiązać się z trudnościami w rozdzielaniu jednoczesnych bodźców słuchowych i odbiorze pozawerbalnych cech mowy.";
+  return "Wynik poniżej normy wymaga interpretacji w odniesieniu do wyników dla każdego ucha i pozostałych badań.";
+}
+
+function capdAbnormalResults(results) {
+  return results.filter((result) => capdResultEvaluation(result.code, result.value, result.norm) === "bad");
+}
+
+function capdAbnormalConclusionText(age, conclusionType, results) {
+  const abnormal = capdAbnormalResults(results);
+  if (!abnormal.length) return "";
+  const introductions = {
+    risk: "Wyniki mogą wskazywać na ryzyko centralnych zaburzeń przetwarzania słuchowego (APD/CAPD).",
+    features: "Wyniki wykazują cechy centralnych zaburzeń przetwarzania słuchowego (APD/CAPD).",
+    perception: "Wyniki mogą wskazywać na zaburzenia percepcji słuchowej; interpretacja wymaga uwzględnienia potwierdzonej oceny funkcji poznawczych."
+  };
+  const allowedType = Number.isFinite(age) && (
+    conclusionType === "risk" && age < 6 || conclusionType === "features" && age >= 6 || conclusionType === "perception"
+  );
+  const introduction = allowedType ? introductions[conclusionType] : "W przeprowadzonych testach odnotowano wyniki poniżej normy dla wieku.";
+  const summary = `Wyniki poza normą: ${abnormal.map((result) => `${result.code} (wynik ${result.value} ${result.unit || ""}; norma ${result.norm} ${result.unit || ""})`).join(", ")}.`;
+  const descriptions = abnormal.map((result) => `${result.code}\n${result.code === "DDT" ? capdDdtAbnormalDescription(result.value, result.norm) : CAPD_ABNORMAL_DESCRIPTIONS[result.code] || "Wynik wymaga indywidualnej interpretacji."}`);
+  if (abnormal.some((result) => result.code === "TRW") && abnormal.some((result) => result.code === "TRS")) {
+    descriptions.splice(2, 0, "TRW i TRS\nWyniki poniżej normy w obu testach reakcji mogą wskazywać na trudności z uwagą lub koncentracją. Przy interpretacji warto uwzględnić współpracę dziecka podczas badania.");
+  }
+  return [introduction, summary, "Opis wyników badania", ...descriptions].join("\n\n");
 }
 
 function ensureCapdNormEditors() {
@@ -18969,6 +19042,50 @@ function renderCapdDescription(target, html, fallback = "") {
   target.classList.add("is-placeholder");
 }
 
+function capdCurrentResults() {
+  return capdReportTestItems().map((item) => ({
+    code: item.dataset.capdCode || "",
+    unit: item.dataset.capdUnit || "",
+    value: String(item.querySelector(".capd-result-control input")?.value || "").trim(),
+    norm: String(item.querySelector("[data-capd-norm-input]")?.value || "").trim()
+  }));
+}
+
+function renderCapdAbnormalPanel(results) {
+  if (!capdAbnormalPanel) return;
+  const age = capdAgeValue();
+  const abnormal = age === null ? [] : capdAbnormalResults(results);
+  capdAbnormalPanel.hidden = abnormal.length === 0;
+  if (!abnormal.length) return;
+  const riskOption = capdConclusionType?.querySelector('[value="risk"]');
+  const featuresOption = capdConclusionType?.querySelector('[value="features"]');
+  if (riskOption) riskOption.disabled = age >= 6;
+  if (featuresOption) featuresOption.disabled = age < 6;
+  if (capdConclusionType?.selectedOptions[0]?.disabled) capdConclusionType.value = "";
+  if (capdAbnormalSummary) capdAbnormalSummary.textContent = abnormal.map((result) => result.code).join(" · ");
+  if (capdAbnormalPreview) capdAbnormalPreview.textContent = capdAbnormalConclusionText(age, capdConclusionType?.value || "", results);
+}
+
+function insertCapdAbnormalConclusion() {
+  if (!capdDescriptionInput) return;
+  const text = capdAbnormalConclusionText(capdAgeValue(), capdConclusionType?.value || "", capdCurrentResults());
+  if (!text) return;
+  if (capdDescriptionInput.textContent?.includes("Wyniki poza normą:") && !confirm("W opisie jest już propozycja wniosków. Dodać kolejną?")) return;
+  capdDescriptionInput.insertAdjacentHTML("beforeend", capdPlainTextToHtml(text));
+  renderCapdReport();
+  capdDescriptionInput.focus({ preventScroll: true });
+}
+
+const CAPD_PERFORMED_EXAM_LABELS = Object.freeze({
+  AUDIOMETRIA_TONALNA: "Audiometria tonalna",
+  TYMPANOMETRIA: "Tympanometria",
+  UCL: "UCL"
+});
+
+function capdSelectedPerformedExams() {
+  return capdPerformedExamInputs.filter((input) => input.checked).map((input) => input.dataset.capdPerformedExam);
+}
+
 function renderCapdReport() {
   if (!capdReportResults) return;
   const patient = titleCaseName(capdPatientInput?.value || "");
@@ -18995,6 +19112,18 @@ function renderCapdReport() {
   if (capdReportBirthDate) capdReportBirthDate.textContent = birthDate || "-";
   if (capdReportAge) capdReportAge.textContent = age === null ? "-" : formatCapdAge(age);
   if (capdReportDate) capdReportDate.textContent = dateIso ? formatDate(dateIso) : "-";
+  const location = documentLocationKey(capdLocationInput?.value);
+  if (capdReportLocation) {
+    capdReportLocation.textContent = location || "-";
+    if (location) capdReportLocation.dataset.locationTone = location;
+    else delete capdReportLocation.dataset.locationTone;
+  }
+  if (capdReportExaminer) capdReportExaminer.textContent = titleCaseName(capdExaminerInput?.value || "") || "-";
+  const performedExams = capdSelectedPerformedExams();
+  if (capdReportPerformedExams) capdReportPerformedExams.hidden = performedExams.length === 0;
+  if (capdReportPerformedExamsList) {
+    capdReportPerformedExamsList.textContent = performedExams.map((code) => CAPD_PERFORMED_EXAM_LABELS[code]).join(", ");
+  }
   if (capdReportDescription) {
     renderCapdDescription(capdReportDescription, descriptionHtml, "Miejsce na podsumowanie wyników, obserwacje i zalecenia.");
   }
@@ -19019,6 +19148,7 @@ function renderCapdReport() {
     return row;
   });
   capdReportResults.replaceChildren(...rows);
+  renderCapdAbnormalPanel(capdCurrentResults());
 }
 
 function printCapdReport() {
@@ -19050,6 +19180,11 @@ function normalizeCapdHistoryEntry(entry) {
     birthDate: isoDateForSave(entry.birthDate) || normalizeLoanHistoryText(entry.birthDate),
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
     testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
+    location: documentLocationKey(entry.location),
+    examiner: titleCaseName(entry.examiner || "").slice(0, 80),
+    performedExams: Array.isArray(entry.performedExams)
+      ? [...new Set(entry.performedExams.filter((code) => Object.hasOwn(CAPD_PERFORMED_EXAM_LABELS, code)))]
+      : [],
     scope: normalizeLoanHistoryText(entry.scope),
     status: Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, entry.status) ? entry.status : "",
     statusUpdatedAt: normalizeLoanHistoryText(entry.statusUpdatedAt),
@@ -19122,6 +19257,9 @@ function currentCapdSnapshot() {
     birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
     age: age ?? "",
     testDate: isoDateForSave(capdDateInput?.value || ""),
+    location: documentLocationKey(capdLocationInput?.value),
+    examiner: titleCaseName(capdExaminerInput?.value || ""),
+    performedExams: capdSelectedPerformedExams(),
     scope: age === null ? "" : age < 6 ? "RYZYKO" : age < 8 ? "6 TESTÓW" : "PEŁNY",
     description: capdRichTextPlainText(capdDescriptionHtml()),
     descriptionHtml: capdDescriptionHtml(),
@@ -19149,6 +19287,16 @@ async function saveCurrentCapdToHistory() {
   const snapshot = normalizeCapdHistoryEntry(currentCapdSnapshot());
   if (!snapshot || !parsedPesel) {
     alert("Uzupełnij imię i nazwisko, poprawny PESEL oraz datę badania.");
+    return;
+  }
+  if (!snapshot.examiner) {
+    capdExaminerInput?.focus();
+    alert("Wpisz osobę wykonującą badanie.");
+    return;
+  }
+  if (!snapshot.location) {
+    capdLocationInput?.focus();
+    alert("Wybierz miejsce badania.");
     return;
   }
   if (!snapshot.results.some((result) => result.value)) {
@@ -19200,6 +19348,12 @@ function restoreCapdHistoryEntry(entry) {
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
   setDateInputValue(capdDateInput, historyEntry.testDate);
+  if (capdLocationInput) capdLocationInput.value = historyEntry.location || "";
+  updateDocumentLocationAccent(capdLocationInput);
+  if (capdExaminerInput) capdExaminerInput.value = historyEntry.examiner;
+  capdPerformedExamInputs.forEach((input) => {
+    input.checked = historyEntry.performedExams.includes(input.dataset.capdPerformedExam);
+  });
   if (capdDescriptionInput) capdDescriptionInput.innerHTML = historyEntry.descriptionHtml || capdPlainTextToHtml(historyEntry.description);
   document.querySelectorAll("#capdTestsPanel [data-capd-code] input").forEach((input) => {
     if (input.dataset.capdNormInput) return;
@@ -19291,6 +19445,8 @@ function renderCapdHistory() {
     entry.pesel,
     entry.birthDate,
     entry.testDate,
+    entry.location,
+    entry.examiner,
     entry.description,
     ...entry.results.map((result) => `${result.code} ${result.value}`)
   ].join(" ")).includes(query)));
@@ -19310,12 +19466,26 @@ function renderCapdHistory() {
     const meta = document.createElement("span");
     const ageLabel = entry.age === "" ? "wiek -" : formatCapdAge(Number(entry.age));
     meta.textContent = `${formatDate(entry.testDate)} · PESEL ${maskSensitiveIdentifier(entry.pesel)} · ${ageLabel}`;
+    const context = document.createElement("div");
+    context.className = "capd-history-context";
+    if (entry.location) {
+      const location = document.createElement("span");
+      location.className = "pcpr-place-badge";
+      location.dataset.locationTone = entry.location;
+      location.textContent = entry.location;
+      context.append(location);
+    }
+    if (entry.examiner) {
+      const examiner = document.createElement("small");
+      examiner.textContent = `Badanie: ${entry.examiner}`;
+      context.append(examiner);
+    }
     const results = document.createElement("small");
     results.textContent = entry.results.map((result) => `${result.code}: ${result.value || "-"} ${result.unit}`).join(" | ");
     const audit = document.createElement("small");
     audit.className = "capd-history-audit";
     audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
-    main.append(title, meta, results, audit);
+    main.append(title, meta, context, results, audit);
 
     const actions = document.createElement("div");
     actions.className = "capd-history-actions";
@@ -19360,6 +19530,7 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  if (capdConclusionType) capdConclusionType.value = "";
   if (capdDescriptionInput) capdDescriptionInput.replaceChildren();
   if (capdAgeInput) delete capdAgeInput.dataset.manual;
   if (capdForm) delete capdForm.dataset.normAge;
@@ -19367,6 +19538,8 @@ function resetCapdForm() {
   capdPeselInput?.classList.remove("invalid");
   setCapdPeselStatus();
   setDateInputValue(capdDateInput, todayInputValue());
+  if (capdLocationInput) capdLocationInput.value = documentLocationKey(suggestedDocumentLocation()) || "P63";
+  updateDocumentLocationAccent(capdLocationInput);
   updateCapdScope();
   renderCapdHistory();
 }
@@ -24108,7 +24281,7 @@ resetPcprFiltersBtn?.addEventListener("click", resetPricingPcprFilters);
 updatePcprOfficeHint();
 updatePcprFilterTabs();
 updatePcprFormMode();
-[offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
+[offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput, offerNotesInput].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
@@ -24728,6 +24901,11 @@ capdPeselInput?.addEventListener("input", () => {
 capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
 capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
+capdLocationInput?.addEventListener("change", () => updateDocumentLocationAccent(capdLocationInput));
+capdExaminerInput?.addEventListener("blur", () => {
+  capdExaminerInput.value = titleCaseName(capdExaminerInput.value);
+  renderCapdReport();
+});
 capdNormToggle?.addEventListener("click", () => {
   const expanded = capdNormToggle.getAttribute("aria-expanded") === "true";
   capdNormToggle.setAttribute("aria-expanded", String(!expanded));
@@ -24735,6 +24913,8 @@ capdNormToggle?.addEventListener("click", () => {
   if (capdNormReferenceContent) capdNormReferenceContent.hidden = expanded;
 });
 capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
+capdConclusionType?.addEventListener("change", () => renderCapdAbnormalPanel(capdCurrentResults()));
+capdInsertConclusionBtn?.addEventListener("click", insertCapdAbnormalConclusion);
 capdForm?.addEventListener("input", (event) => {
   const testItem = event.target.closest?.("[data-capd-code]");
   if (testItem && event.target.matches(".capd-result-control input")) updateCapdTestEvaluation(testItem);
