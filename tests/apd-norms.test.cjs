@@ -140,9 +140,68 @@ test('APD keeps practitioner details in history and at the end of the report', (
     { savedAt: '2026-10-01', examiner: 'Anna Testowa', practitioner: { name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS' } },
     { savedAt: '2026-10-01', examiner: 'Ewa Testowa', practitioner: { name: 'Ewa Testowa', licenseCode: 'CD34', facility: 'Gabinet' } }
   ];
+  normalized.capdSavedPractitionerProfiles = [];
   const profiles = app.slice(app.indexOf('function capdPractitionerProfileKey('), app.indexOf('let capdPractitionerOptionsSignature ='));
   vm.runInContext(`${profiles}\nglobalThis.profiles = capdPractitionerProfiles;`, normalized);
   const available = normalized.profiles();
   assert.equal(available.length, 2);
   assert.equal(available.find(([, profile]) => profile.name === 'Anna Testowa')[1].facility, 'SATIS');
+});
+
+test('APD saves practitioner profiles separately from examination history', () => {
+  assert.match(html, /id="saveCapdPractitionerProfileBtn"[^>]*>Zapisz profil/);
+  assert.match(html, /id="capdPractitionerProfileStatus"[^>]*role="status"/);
+  assert.match(app, /await upsertSupabaseRecord\(SUPABASE_CAPD_HISTORY_TABLE, entry\)/);
+  assert.match(app, /entries\.filter\(\(entry\) => !entry\.id\.startsWith\(CAPD_PROFILE_ID_PREFIX\)\)/);
+
+  const normalizeProfile = app.slice(app.indexOf('function normalizeCapdPractitioner('), app.indexOf('function currentCapdPractitioner('));
+  const savedProfiles = app.slice(app.indexOf('function normalizeCapdSavedPractitionerProfiles('), app.indexOf('function capdPractitionerProfiles('));
+  const scope = vm.createContext({
+    titleCaseName: value => String(value || '').trim(),
+    normalizeLoanHistoryText: value => String(value || '').trim(),
+    CAPD_PROFILE_ID_PREFIX: 'apd-profile-'
+  });
+  vm.runInContext(`${normalizeProfile}\n${savedProfiles}\nglobalThis.normalizeProfiles = normalizeCapdSavedPractitionerProfiles;`, scope);
+  const result = scope.normalizeProfiles([
+    { id: 'apd-profile-1', recordType: 'practitioner_profile', profile: { name: 'Anna Testowa', licenseCode: ' ab12 ', facility: 'SATIS' } },
+    { id: 'study-1', patient: 'Pacjent', pesel: '12345678901' }
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].profile.licenseCode, 'AB12');
+});
+
+test('APD profile save creates one shared record and updates that record on edit', async () => {
+  const saved = [];
+  const status = { textContent: '' };
+  const button = { disabled: false };
+  const selection = { value: '' };
+  const scope = vm.createContext({
+    currentCapdPractitioner: () => ({ name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS', address: 'ul. Testowa 1' }),
+    capdPractitionerProfileKey: profile => `${profile.name}|${profile.licenseCode}`,
+    capdSavedPractitionerProfiles: [],
+    activeCapdPractitionerProfileId: '',
+    hasSupabaseConfig: true,
+    currentSupabaseUser: { id: 'user-1' },
+    capdPractitionerProfileStatus: status,
+    saveCapdPractitionerProfileBtn: button,
+    capdPractitionerProfileSelect: selection,
+    capdPractitionerOptionsSignature: '',
+    CAPD_PROFILE_ID_PREFIX: 'apd-profile-',
+    makeId: () => 'new-id',
+    upsertSupabaseRecord: async (table, entry) => saved.push({ table, entry }),
+    SUPABASE_CAPD_HISTORY_TABLE: 'capd_history',
+    normalizeCapdSavedPractitionerProfiles: entries => entries,
+    renderCapdPractitionerProfiles() {}
+  });
+  const save = app.slice(app.indexOf('async function saveCapdPractitionerProfile('), app.indexOf('function linkCapdExaminerToProfile('));
+  vm.runInContext(`${save}\nglobalThis.saveProfile = saveCapdPractitionerProfile;`, scope);
+  await scope.saveProfile();
+  await scope.saveProfile();
+  assert.equal(saved.length, 2);
+  assert.equal(saved[0].table, 'capd_history');
+  assert.equal(saved[0].entry.id, 'apd-profile-new-id');
+  assert.equal(saved[1].entry.id, saved[0].entry.id);
+  assert.equal(scope.capdSavedPractitionerProfiles.length, 1);
+  assert.equal(status.textContent, 'Profil zapisany dla wszystkich stanowisk.');
+  assert.equal(button.disabled, false);
 });
