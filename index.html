@@ -1925,17 +1925,11 @@
                 <option value="P63" selected>P63 - Bielsko-Biała, ul. Partyzantów 63</option>
               </select>
             </label>
-            <div class="capd-examiner-field">
-              <label>
-                <span>Osoba wykonująca badanie *</span>
-                <input id="capdExaminerInput" type="text" list="capdExaminerSuggestions" maxlength="80" autocomplete="off" placeholder="Wpisz imię i nazwisko" required>
-                <datalist id="capdExaminerSuggestions"></datalist>
-              </label>
-              <label>
-                <span>Wybierz z zapisanych profili</span>
-                <select id="capdPractitionerProfileSelect"><option value="">Wybierz profil</option></select>
-              </label>
-            </div>
+            <label class="capd-examiner-field">
+              <span>Osoba wykonująca badanie *</span>
+              <input id="capdExaminerInput" type="text" list="capdExaminerSuggestions" maxlength="80" autocomplete="off" placeholder="Wpisz imię i nazwisko" required>
+              <datalist id="capdExaminerSuggestions"></datalist>
+            </label>
 
             <section id="capdScopePanel" class="capd-scope-panel private-form-wide" data-scope="pending" aria-live="polite">
               <span>Zakres badania</span>
@@ -2214,6 +2208,11 @@
             </section>
             <section class="capd-practitioner-fields private-form-wide" aria-label="Dane protetyka słuchu">
               <strong>Protetyk słuchu</strong>
+              <div class="capd-practitioner-shortcuts" role="group" aria-label="Wybierz protetyka i adres placówki">
+                <button type="button" data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P63" aria-pressed="false"><strong>Dorota</strong><span>Bielsko-Biała · Partyzantów 63</span></button>
+                <button type="button" data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P50" aria-pressed="false"><strong>Dorota</strong><span>Żywiec · Piłsudskiego 50</span></button>
+                <button type="button" data-capd-practitioner-shortcut="justyna" data-capd-practitioner-location="P63" aria-pressed="false"><strong>Justyna</strong><span>Bielsko-Biała · Partyzantów 63</span></button>
+              </div>
               <div class="capd-practitioner-grid">
                 <label>
                   <span>Kod licencji</span>
