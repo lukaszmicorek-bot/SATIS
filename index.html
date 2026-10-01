@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261001-4">
+  <link rel="stylesheet" href="styles.css?v=20261001-5">
   </head>
   <body>
     <main class="app-shell">
@@ -1927,8 +1927,13 @@
             </label>
             <label class="capd-examiner-field">
               <span>Osoba wykonująca badanie *</span>
-              <input id="capdExaminerInput" type="text" list="capdExaminerSuggestions" maxlength="80" autocomplete="off" placeholder="Wpisz imię i nazwisko" required>
-              <datalist id="capdExaminerSuggestions"></datalist>
+              <select id="capdExaminerSelect" required>
+                <option value="">Wybierz osobę</option>
+                <option value="Dorota Mikosz-Micorek">Dorota Mikosz-Micorek</option>
+                <option value="Justyna Waliczek">Justyna Waliczek</option>
+                <option value="__other">Inna osoba</option>
+              </select>
+              <input id="capdExaminerInput" type="text" maxlength="80" autocomplete="off" placeholder="Imię i nazwisko" hidden>
             </label>
 
             <section id="capdScopePanel" class="capd-scope-panel private-form-wide" data-scope="pending" aria-live="polite">
@@ -2223,11 +2228,8 @@
                   <input id="capdPractitionerFacilityInput" type="text" maxlength="120" autocomplete="off" placeholder="Nazwa placówki">
                 </label>
                 <label class="capd-practitioner-wide">
-                  <span>Miasto placówki</span>
-                  <select id="capdPractitionerCitySelect">
-                    <option value="Bielsko-Biała" selected>Bielsko-Biała</option>
-                    <option value="Żywiec">Żywiec</option>
-                  </select>
+                  <span>Adres placówki</span>
+                  <input id="capdPractitionerAddressInput" type="text" maxlength="180" autocomplete="off" placeholder="Ulica, kod pocztowy, miejscowość">
                 </label>
               </div>
               <div class="capd-practitioner-save">
@@ -3008,11 +3010,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261001-4"></script>
-    <script src="data-layer.js?v=20261001-4"></script>
-    <script src="sync-layer.js?v=20261001-4"></script>
-    <script src="offline-vault.js?v=20261001-4"></script>
-    <script src="offline-forms.js?v=20261001-4"></script>
-  <script src="app.js?v=20261001-4"></script>
+    <script src="supabase-config.js?v=20261001-5"></script>
+    <script src="data-layer.js?v=20261001-5"></script>
+    <script src="sync-layer.js?v=20261001-5"></script>
+    <script src="offline-vault.js?v=20261001-5"></script>
+    <script src="offline-forms.js?v=20261001-5"></script>
+  <script src="app.js?v=20261001-5"></script>
   </body>
 </html>
