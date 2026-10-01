@@ -1888,7 +1888,10 @@
               <p class="eyebrow">Badanie przetwarzania słuchowego</p>
               <h2>APD</h2>
             </div>
-            <span class="private-module-badge">Gabinet</span>
+            <div class="private-module-badge capd-examiner-badge">
+              <span>Osoba wykonująca</span>
+              <strong id="capdExaminerBadgeName">Nie wybrano</strong>
+            </div>
           </header>
 
           <form id="capdForm" class="private-form-grid capd-form-grid">
@@ -1922,10 +1925,17 @@
                 <option value="P63" selected>P63 - Bielsko-Biała, ul. Partyzantów 63</option>
               </select>
             </label>
-            <label class="capd-examiner-field">
-              <span>Osoba wykonująca badanie *</span>
-              <input id="capdExaminerInput" type="text" maxlength="80" autocomplete="off" placeholder="Imię i nazwisko" required>
-            </label>
+            <div class="capd-examiner-field">
+              <label>
+                <span>Osoba wykonująca badanie *</span>
+                <input id="capdExaminerInput" type="text" list="capdExaminerSuggestions" maxlength="80" autocomplete="off" placeholder="Wpisz imię i nazwisko" required>
+                <datalist id="capdExaminerSuggestions"></datalist>
+              </label>
+              <label>
+                <span>Wybierz z zapisanych profili</span>
+                <select id="capdPractitionerProfileSelect"><option value="">Wybierz profil</option></select>
+              </label>
+            </div>
 
             <fieldset class="capd-performed-exams private-form-wide">
               <legend>Przeprowadzone badania</legend>
@@ -2206,10 +2216,6 @@
             <section class="capd-practitioner-fields private-form-wide" aria-label="Dane protetyka słuchu">
               <strong>Protetyk słuchu</strong>
               <div class="capd-practitioner-grid">
-                <label class="capd-practitioner-wide">
-                  <span>Wybierz zapisany profil</span>
-                  <select id="capdPractitionerProfileSelect"><option value="">Nowy profil</option></select>
-                </label>
                 <label>
                   <span>Kod licencji</span>
                   <input id="capdPractitionerLicenseInput" type="text" maxlength="60" autocomplete="off" placeholder="Kod licencji">
@@ -2219,16 +2225,12 @@
                   <input id="capdPractitionerFacilityInput" type="text" maxlength="120" autocomplete="off" placeholder="Nazwa placówki">
                 </label>
                 <label class="capd-practitioner-wide">
-                  <span>Adres placówki</span>
-                  <input id="capdPractitionerAddressInput" type="text" maxlength="180" autocomplete="off" placeholder="Ulica, kod pocztowy, miejscowość">
+                  <span>Miasto placówki</span>
+                  <select id="capdPractitionerCitySelect">
+                    <option value="Bielsko-Biała" selected>Bielsko-Biała</option>
+                    <option value="Żywiec">Żywiec</option>
+                  </select>
                 </label>
-                <div class="capd-practitioner-address-controls capd-practitioner-wide">
-                  <label for="capdPractitionerAddressSelect">Adres na wydruku
-                    <select id="capdPractitionerAddressSelect"><option value="0">Adres 1</option></select>
-                  </label>
-                  <button id="addCapdPractitionerAddressBtn" class="ghost" type="button">Dodaj adres</button>
-                  <button id="removeCapdPractitionerAddressBtn" class="ghost" type="button">Usuń adres</button>
-                </div>
               </div>
               <div class="capd-practitioner-save">
                 <button id="saveCapdPractitionerProfileBtn" class="ghost" type="button">Zapisz profil</button>
@@ -2257,10 +2259,6 @@
               <span>Data urodzenia<strong id="capdReportBirthDate">-</strong></span>
               <span>Wiek<strong id="capdReportAge">-</strong></span>
               <span>Data badania<strong id="capdReportDate">-</strong></span>
-            </div>
-            <div class="capd-report-context">
-              <span>Miejsce <strong id="capdReportLocation" class="pcpr-place-badge">-</strong></span>
-              <span>Osoba wykonująca badanie <strong id="capdReportExaminer">-</strong></span>
             </div>
             <section id="capdReportPerformedExams" class="capd-report-performed-exams" hidden>
               <strong>Przeprowadzone badania</strong>
