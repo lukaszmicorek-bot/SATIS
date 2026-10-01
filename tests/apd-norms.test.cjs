@@ -73,11 +73,13 @@ test('APD keeps examination location and examiner in the form, history, and repo
 });
 
 test('APD records only confirmed preliminary examinations', () => {
-  for (const code of ['AUDIOMETRIA_TONALNA', 'TYMPANOMETRIA', 'UCL']) {
+  for (const code of ['OTOSKOPIA', 'AUDIOMETRIA_TONALNA', 'TYMPANOMETRIA', 'UCL']) {
     assert.match(html, new RegExp(`data-capd-performed-exam="${code}"`));
+    assert.match(html, new RegExp(`data-capd-performed-exam-note="${code}"`));
   }
   assert.match(html, /id="capdReportPerformedExams"[^>]*hidden/);
-  const labels = app.slice(app.indexOf('const CAPD_PERFORMED_EXAM_LABELS ='), app.indexOf('function capdSelectedPerformedExams('));
+  const labels = app.slice(app.indexOf('const CAPD_PERFORMED_EXAM_LABELS ='), app.indexOf('const SUPABASE_APP_ACCESS_TABLE'));
+  const practitioner = app.slice(app.indexOf('function normalizeCapdPractitioner('), app.indexOf('function currentCapdPractitioner('));
   const normalizer = app.slice(app.indexOf('function normalizeCapdHistoryEntry('), app.indexOf('function normalizeCapdHistory('));
   const history = vm.createContext({
     normalizeLoanHistoryText: value => String(value || ''),
@@ -90,11 +92,57 @@ test('APD records only confirmed preliminary examinations', () => {
     CAPD_HISTORY_STATUS_LABELS: {},
     makeId: () => 'test-id'
   });
-  vm.runInContext(`${labels}\n${normalizer}\nglobalThis.normalizeEntry = normalizeCapdHistoryEntry;`, history);
+  vm.runInContext(`${labels}\n${practitioner}\n${normalizer}\nglobalThis.normalizeEntry = normalizeCapdHistoryEntry;`, history);
   const base = { patient: 'Test', pesel: '12345678901', testDate: '2026-10-01' };
   assert.deepEqual(Array.from(history.normalizeEntry(base).performedExams), []);
+  assert.deepEqual(Object.keys(history.normalizeEntry(base).performedExamNotes), []);
   assert.deepEqual(
-    Array.from(history.normalizeEntry({ ...base, performedExams: ['UCL', 'UCL', 'NIEZNANE', 'TYMPANOMETRIA'] }).performedExams),
-    ['UCL', 'TYMPANOMETRIA']
+    Array.from(history.normalizeEntry({ ...base, performedExams: ['OTOSKOPIA', 'UCL', 'UCL', 'NIEZNANE', 'TYMPANOMETRIA'] }).performedExams),
+    ['OTOSKOPIA', 'UCL', 'TYMPANOMETRIA']
   );
+  const saved = history.normalizeEntry({
+    ...base,
+    performedExams: ['AUDIOMETRIA_TONALNA'],
+    performedExamNotes: { AUDIOMETRIA_TONALNA: '  Wynik po weryfikacji  ', TYMPANOMETRIA: 'Niepotwierdzone' }
+  });
+  assert.equal(saved.performedExamNotes.AUDIOMETRIA_TONALNA, 'Wynik po weryfikacji');
+  assert.equal(saved.performedExamNotes.TYMPANOMETRIA, undefined);
+  assert.deepEqual(Object.keys(history.normalizeEntry({ ...base, performedExams: ['AUDIOMETRIA_TONALNA'] }).performedExamNotes), []);
+  assert.match(app, /Wstaw opis wyniku w normie|Próg słyszenia w normie/);
+});
+
+test('APD keeps practitioner details in history and at the end of the report', () => {
+  for (const id of ['capdPractitionerProfileSelect', 'capdPractitionerLicenseInput',
+    'capdPractitionerFacilityInput', 'capdPractitionerAddressInput', 'capdReportPractitioner']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  const report = html.slice(html.indexOf('id="capdReport"'), html.indexOf('id="capdHistoryList"'));
+  assert.ok(report.indexOf('id="capdReportPractitioner"') > report.indexOf('id="capdReportDescription"'));
+  assert.match(app, /practitioner: currentCapdPractitioner\(\)/);
+  assert.match(app, /practitioner: normalizeCapdPractitioner\(entry\.practitioner, entry\.examiner\)/);
+  assert.match(app, /async function saveCurrentCapdToHistory\(\) \{\s*linkCapdExaminerToProfile\(\)/);
+  const practitioner = app.slice(app.indexOf('function normalizeCapdPractitioner('), app.indexOf('function currentCapdPractitioner('));
+  const normalized = vm.createContext({
+    titleCaseName: value => String(value || ''),
+    normalizeLoanHistoryText: value => String(value || '').trim()
+  });
+  vm.runInContext(`${practitioner}\nglobalThis.normalizePractitioner = normalizeCapdPractitioner;`, normalized);
+  const legacy = normalized.normalizePractitioner(undefined, 'Anna Testowa');
+  assert.equal(legacy.name, 'Anna Testowa');
+  assert.equal(legacy.licenseCode, '');
+  const saved = normalized.normalizePractitioner({ name: 'Anna Testowa', licenseCode: ' ab12 ', facility: ' SATIS ', address: ' ul. Testowa 1 ' });
+  assert.equal(saved.licenseCode, 'AB12');
+  assert.equal(saved.facility, 'SATIS');
+  assert.equal(saved.address, 'ul. Testowa 1');
+  normalized.normalize = value => String(value || '').toLowerCase();
+  normalized.capdHistory = [
+    { savedAt: '2026-09-01', examiner: 'Anna Testowa', practitioner: { name: 'Anna Testowa', licenseCode: 'AB12', facility: 'Stara placówka' } },
+    { savedAt: '2026-10-01', examiner: 'Anna Testowa', practitioner: { name: 'Anna Testowa', licenseCode: 'AB12', facility: 'SATIS' } },
+    { savedAt: '2026-10-01', examiner: 'Ewa Testowa', practitioner: { name: 'Ewa Testowa', licenseCode: 'CD34', facility: 'Gabinet' } }
+  ];
+  const profiles = app.slice(app.indexOf('function capdPractitionerProfileKey('), app.indexOf('let capdPractitionerOptionsSignature ='));
+  vm.runInContext(`${profiles}\nglobalThis.profiles = capdPractitionerProfiles;`, normalized);
+  const available = normalized.profiles();
+  assert.equal(available.length, 2);
+  assert.equal(available.find(([, profile]) => profile.name === 'Anna Testowa')[1].facility, 'SATIS');
 });

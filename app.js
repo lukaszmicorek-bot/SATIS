@@ -38,6 +38,12 @@ const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
 const SUPABASE_CAPD_HISTORY_TABLE = "capd_history";
 const CAPD_HISTORY_STATUS_LABELS = { OPIS: "Opis", DO_ODBIORU: "Do odbioru", ODEBRANO: "Odebrano" };
+const CAPD_PERFORMED_EXAM_LABELS = Object.freeze({
+  OTOSKOPIA: "Otoskopia",
+  AUDIOMETRIA_TONALNA: "Audiometria tonalna",
+  TYMPANOMETRIA: "Tympanometria",
+  UCL: "UCL"
+});
 const SUPABASE_APP_ACCESS_TABLE = "app_authorized_users";
 const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
@@ -1049,7 +1055,13 @@ const capdAgeInput = document.querySelector("#capdAgeInput");
 const capdDateInput = document.querySelector("#capdDateInput");
 const capdLocationInput = document.querySelector("#capdLocationInput");
 const capdExaminerInput = document.querySelector("#capdExaminerInput");
+const capdPractitionerProfileSelect = document.querySelector("#capdPractitionerProfileSelect");
+const capdPractitionerLicenseInput = document.querySelector("#capdPractitionerLicenseInput");
+const capdPractitionerFacilityInput = document.querySelector("#capdPractitionerFacilityInput");
+const capdPractitionerAddressInput = document.querySelector("#capdPractitionerAddressInput");
 const capdPerformedExamInputs = [...document.querySelectorAll("[data-capd-performed-exam]")];
+const capdPerformedExamNoteInputs = [...document.querySelectorAll("[data-capd-performed-exam-note]")];
+const capdPerformedExamsPanel = document.querySelector(".capd-performed-exams");
 const capdScopePanel = document.querySelector("#capdScopePanel");
 const capdScopeTitle = document.querySelector("#capdScopeTitle");
 const capdScopeDescription = document.querySelector("#capdScopeDescription");
@@ -1074,6 +1086,11 @@ const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
 const capdReportLocation = document.querySelector("#capdReportLocation");
 const capdReportExaminer = document.querySelector("#capdReportExaminer");
+const capdReportPractitioner = document.querySelector("#capdReportPractitioner");
+const capdReportPractitionerName = document.querySelector("#capdReportPractitionerName");
+const capdReportPractitionerLicense = document.querySelector("#capdReportPractitionerLicense");
+const capdReportPractitionerFacility = document.querySelector("#capdReportPractitionerFacility");
+const capdReportPractitionerAddress = document.querySelector("#capdReportPractitionerAddress");
 const capdReportPerformedExams = document.querySelector("#capdReportPerformedExams");
 const capdReportPerformedExamsList = document.querySelector("#capdReportPerformedExamsList");
 const capdReportPesel = document.querySelector("#capdReportPesel");
@@ -2331,7 +2348,10 @@ function applyChangedSupabaseRecords(table, ids, rows) {
   else if (table === SUPABASE_ORDER_HISTORY_TABLE) pricingOrderHistory = apply(pricingOrderHistory, normalizePricingOrderHistory);
   else if (table === SUPABASE_COMPLAINT_HISTORY_TABLE) pricingComplaintHistory = apply(pricingComplaintHistory, normalizePricingComplaintHistory);
   else if (table === SUPABASE_PCPR_LIST_TABLE) pricingPcprList = apply(pricingPcprList, normalizePricingPcprList);
-  else if (table === SUPABASE_CAPD_HISTORY_TABLE) capdHistory = apply(capdHistory, normalizeCapdHistory);
+  else if (table === SUPABASE_CAPD_HISTORY_TABLE) {
+    capdHistory = apply(capdHistory, normalizeCapdHistory);
+    renderCapdPractitionerProfiles();
+  }
   rebuild();
   render();
   setConnectionStatus("online", "Supabase");
@@ -19076,14 +19096,105 @@ function insertCapdAbnormalConclusion() {
   capdDescriptionInput.focus({ preventScroll: true });
 }
 
-const CAPD_PERFORMED_EXAM_LABELS = Object.freeze({
-  AUDIOMETRIA_TONALNA: "Audiometria tonalna",
-  TYMPANOMETRIA: "Tympanometria",
-  UCL: "UCL"
+const CAPD_PERFORMED_EXAM_TEMPLATES = Object.freeze({
+  OTOSKOPIA: "Ocena przewodu słuchowego zewnętrznego i błony bębenkowej.",
+  AUDIOMETRIA_TONALNA: "Próg słyszenia w normie. Wynik badania załączono; potwierdza progi słyszenia w zakresie normy.",
+  TYMPANOMETRIA: "Tympanogram typu A. Wynik badania załączono. Uzyskany wynik wskazuje na prawidłowe funkcjonowanie ucha środkowego."
 });
 
 function capdSelectedPerformedExams() {
   return capdPerformedExamInputs.filter((input) => input.checked).map((input) => input.dataset.capdPerformedExam);
+}
+
+function capdPerformedExamNotes() {
+  const selected = new Set(capdSelectedPerformedExams());
+  return Object.fromEntries(capdPerformedExamNoteInputs
+    .filter((input) => selected.has(input.dataset.capdPerformedExamNote) && input.value.trim())
+    .map((input) => [input.dataset.capdPerformedExamNote, input.value.trim()]));
+}
+
+function updateCapdPerformedExamPanels() {
+  capdPerformedExamInputs.forEach((input) => {
+    const detail = input.closest(".capd-performed-exam-item")?.querySelector(".capd-performed-exam-detail");
+    if (detail) detail.hidden = !input.checked;
+  });
+}
+
+function normalizeCapdPractitioner(value, fallbackName = "") {
+  const profile = value && typeof value === "object" ? value : {};
+  return {
+    name: titleCaseName(profile.name || fallbackName).slice(0, 80),
+    licenseCode: normalizeLoanHistoryText(profile.licenseCode).toLocaleUpperCase("pl-PL").slice(0, 60),
+    facility: normalizeLoanHistoryText(profile.facility).slice(0, 120),
+    address: normalizeLoanHistoryText(profile.address).slice(0, 180)
+  };
+}
+
+function currentCapdPractitioner() {
+  return normalizeCapdPractitioner({
+    name: capdExaminerInput?.value,
+    licenseCode: capdPractitionerLicenseInput?.value,
+    facility: capdPractitionerFacilityInput?.value,
+    address: capdPractitionerAddressInput?.value
+  });
+}
+
+function capdPractitionerProfileKey(profile) {
+  return `${normalize(profile.name).trim()}|${normalize(profile.licenseCode).trim()}`;
+}
+
+function capdPractitionerProfiles() {
+  const profiles = new Map();
+  [...capdHistory].sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt))).forEach((entry) => {
+    const profile = normalizeCapdPractitioner(entry.practitioner, entry.examiner);
+    if (!profile.name || !(profile.licenseCode || profile.facility || profile.address)) return;
+    const key = capdPractitionerProfileKey(profile);
+    if (!profiles.has(key)) profiles.set(key, profile);
+  });
+  return [...profiles].sort((left, right) => left[1].name.localeCompare(right[1].name, "pl"));
+}
+
+let capdPractitionerOptionsSignature = "";
+function renderCapdPractitionerProfiles() {
+  if (!capdPractitionerProfileSelect) return;
+  const profiles = capdPractitionerProfiles();
+  const signature = JSON.stringify(profiles);
+  if (signature === capdPractitionerOptionsSignature) return;
+  const selected = capdPractitionerProfileSelect.value;
+  capdPractitionerProfileSelect.replaceChildren(
+    new Option("Nowy profil", ""),
+    ...profiles.map(([key, profile]) => new Option(
+      [profile.name, profile.licenseCode, profile.facility].filter(Boolean).join(" · "), key
+    ))
+  );
+  if (profiles.some(([key]) => key === selected)) capdPractitionerProfileSelect.value = selected;
+  capdPractitionerOptionsSignature = signature;
+}
+
+function applyCapdPractitionerProfile(profile) {
+  if (capdExaminerInput) capdExaminerInput.value = profile.name;
+  if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = profile.licenseCode;
+  if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = profile.facility;
+  if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = profile.address;
+  if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = capdPractitionerProfileKey(profile);
+  renderCapdReport();
+}
+
+function linkCapdExaminerToProfile() {
+  if (!capdExaminerInput) return;
+  capdExaminerInput.value = titleCaseName(capdExaminerInput.value);
+  const matches = capdPractitionerProfiles().filter(([, profile]) => normalize(profile.name) === normalize(capdExaminerInput.value));
+  const hasManualDetails = [capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput]
+    .some((input) => input?.value.trim());
+  if (matches.length === 1 && (!hasManualDetails || capdPractitionerProfileSelect?.value)) {
+    applyCapdPractitionerProfile(matches[0][1]);
+  } else if (capdPractitionerProfileSelect?.value) {
+    capdPractitionerProfileSelect.value = "";
+    if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = "";
+    if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = "";
+    if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = "";
+  }
+  renderCapdReport();
 }
 
 function renderCapdReport() {
@@ -19119,10 +19230,34 @@ function renderCapdReport() {
     else delete capdReportLocation.dataset.locationTone;
   }
   if (capdReportExaminer) capdReportExaminer.textContent = titleCaseName(capdExaminerInput?.value || "") || "-";
+  const practitioner = currentCapdPractitioner();
+  if (capdReportPractitioner) capdReportPractitioner.hidden = !practitioner.name;
+  if (capdReportPractitionerName) capdReportPractitionerName.textContent = practitioner.name;
+  [
+    [capdReportPractitionerLicense, practitioner.licenseCode],
+    [capdReportPractitionerFacility, practitioner.facility],
+    [capdReportPractitionerAddress, practitioner.address]
+  ].forEach(([element, value]) => {
+    if (!element) return;
+    element.textContent = value;
+    element.closest("p").hidden = !value;
+  });
   const performedExams = capdSelectedPerformedExams();
   if (capdReportPerformedExams) capdReportPerformedExams.hidden = performedExams.length === 0;
   if (capdReportPerformedExamsList) {
-    capdReportPerformedExamsList.textContent = performedExams.map((code) => CAPD_PERFORMED_EXAM_LABELS[code]).join(", ");
+    const notes = capdPerformedExamNotes();
+    capdReportPerformedExamsList.replaceChildren(...performedExams.map((code) => {
+      const item = document.createElement("li");
+      const label = document.createElement("strong");
+      label.textContent = CAPD_PERFORMED_EXAM_LABELS[code];
+      item.append(label);
+      if (notes[code]) {
+        const description = document.createElement("span");
+        description.textContent = notes[code];
+        item.append(description);
+      }
+      return item;
+    }));
   }
   if (capdReportDescription) {
     renderCapdDescription(capdReportDescription, descriptionHtml, "Miejsce na podsumowanie wyników, obserwacje i zalecenia.");
@@ -19169,6 +19304,14 @@ function normalizeCapdHistoryEntry(entry) {
     value: normalizeLoanHistoryText(result?.value),
     norm: normalizeLoanHistoryText(result?.norm)
   })).filter((result) => result.code) : [];
+  const performedExams = Array.isArray(entry.performedExams)
+    ? [...new Set(entry.performedExams.filter((code) => Object.hasOwn(CAPD_PERFORMED_EXAM_LABELS, code)))]
+    : [];
+  const performedExamNotes = {};
+  performedExams.forEach((code) => {
+    const note = String(entry.performedExamNotes?.[code] || "").trim().slice(0, 500);
+    if (note) performedExamNotes[code] = note;
+  });
   const normalizedEntry = {
     id: normalizeLoanHistoryText(entry.id || makeId()),
     createdAt: normalizeLoanHistoryText(entry.createdAt || entry.savedAt || new Date().toISOString()),
@@ -19182,9 +19325,9 @@ function normalizeCapdHistoryEntry(entry) {
     testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
     location: documentLocationKey(entry.location),
     examiner: titleCaseName(entry.examiner || "").slice(0, 80),
-    performedExams: Array.isArray(entry.performedExams)
-      ? [...new Set(entry.performedExams.filter((code) => Object.hasOwn(CAPD_PERFORMED_EXAM_LABELS, code)))]
-      : [],
+    practitioner: normalizeCapdPractitioner(entry.practitioner, entry.examiner),
+    performedExams,
+    performedExamNotes,
     scope: normalizeLoanHistoryText(entry.scope),
     status: Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, entry.status) ? entry.status : "",
     statusUpdatedAt: normalizeLoanHistoryText(entry.statusUpdatedAt),
@@ -19233,6 +19376,7 @@ async function loadSupabaseCapdHistory() {
     capdHistory = normalizeCapdHistory(sharedHistory);
     saveLocalCapdHistory();
     renderCapdHistory();
+    renderCapdPractitionerProfiles();
     return capdHistory;
   } catch (error) {
     if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
@@ -19259,7 +19403,9 @@ function currentCapdSnapshot() {
     testDate: isoDateForSave(capdDateInput?.value || ""),
     location: documentLocationKey(capdLocationInput?.value),
     examiner: titleCaseName(capdExaminerInput?.value || ""),
+    practitioner: currentCapdPractitioner(),
     performedExams: capdSelectedPerformedExams(),
+    performedExamNotes: capdPerformedExamNotes(),
     scope: age === null ? "" : age < 6 ? "RYZYKO" : age < 8 ? "6 TESTÓW" : "PEŁNY",
     description: capdRichTextPlainText(capdDescriptionHtml()),
     descriptionHtml: capdDescriptionHtml(),
@@ -19283,6 +19429,7 @@ async function persistCapdHistoryEntry(entry) {
 }
 
 async function saveCurrentCapdToHistory() {
+  linkCapdExaminerToProfile();
   const parsedPesel = parseCapdPesel(capdPeselInput?.value);
   const snapshot = normalizeCapdHistoryEntry(currentCapdSnapshot());
   if (!snapshot || !parsedPesel) {
@@ -19317,6 +19464,7 @@ async function saveCurrentCapdToHistory() {
   activeCapdHistoryId = historyEntry.id;
   saveLocalCapdHistory();
   renderCapdHistory();
+  renderCapdPractitionerProfiles();
 
   const originalText = saveCapdHistoryBtn?.textContent;
   if (saveCapdHistoryBtn) {
@@ -19331,6 +19479,7 @@ async function saveCurrentCapdToHistory() {
     activeCapdHistoryId = existing?.id || "";
     saveLocalCapdHistory();
     renderCapdHistory();
+    renderCapdPractitionerProfiles();
     alert(`Nie udało się zapisać historii APD: ${error.message}`);
   } finally {
     if (saveCapdHistoryBtn) {
@@ -19351,9 +19500,21 @@ function restoreCapdHistoryEntry(entry) {
   if (capdLocationInput) capdLocationInput.value = historyEntry.location || "";
   updateDocumentLocationAccent(capdLocationInput);
   if (capdExaminerInput) capdExaminerInput.value = historyEntry.examiner;
+  if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = historyEntry.practitioner.licenseCode;
+  if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = historyEntry.practitioner.facility;
+  if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = historyEntry.practitioner.address;
+  renderCapdPractitionerProfiles();
+  if (capdPractitionerProfileSelect) {
+    const key = capdPractitionerProfileKey(historyEntry.practitioner);
+    capdPractitionerProfileSelect.value = [...capdPractitionerProfileSelect.options].some((option) => option.value === key) ? key : "";
+  }
   capdPerformedExamInputs.forEach((input) => {
     input.checked = historyEntry.performedExams.includes(input.dataset.capdPerformedExam);
   });
+  capdPerformedExamNoteInputs.forEach((input) => {
+    input.value = historyEntry.performedExamNotes[input.dataset.capdPerformedExamNote] || "";
+  });
+  updateCapdPerformedExamPanels();
   if (capdDescriptionInput) capdDescriptionInput.innerHTML = historyEntry.descriptionHtml || capdPlainTextToHtml(historyEntry.description);
   document.querySelectorAll("#capdTestsPanel [data-capd-code] input").forEach((input) => {
     if (input.dataset.capdNormInput) return;
@@ -19395,6 +19556,7 @@ async function deleteCapdHistoryEntry(id) {
   if (activeCapdHistoryId === id) activeCapdHistoryId = "";
   saveLocalCapdHistory();
   renderCapdHistory();
+  renderCapdPractitionerProfiles();
 }
 
 function capdHistoryCountLabel(count) {
@@ -19530,6 +19692,7 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  updateCapdPerformedExamPanels();
   if (capdConclusionType) capdConclusionType.value = "";
   if (capdDescriptionInput) capdDescriptionInput.replaceChildren();
   if (capdAgeInput) delete capdAgeInput.dataset.manual;
@@ -19542,6 +19705,7 @@ function resetCapdForm() {
   updateDocumentLocationAccent(capdLocationInput);
   updateCapdScope();
   renderCapdHistory();
+  renderCapdPractitionerProfiles();
 }
 
 function selectedVacationYear() {
@@ -20964,6 +21128,7 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (activeNotebook === "capd") {
     updateCapdScope();
     renderCapdHistory();
+    renderCapdPractitionerProfiles();
     return;
   }
 
@@ -24902,9 +25067,21 @@ capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
 capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
 capdLocationInput?.addEventListener("change", () => updateDocumentLocationAccent(capdLocationInput));
-capdExaminerInput?.addEventListener("blur", () => {
-  capdExaminerInput.value = titleCaseName(capdExaminerInput.value);
-  renderCapdReport();
+capdExaminerInput?.addEventListener("blur", linkCapdExaminerToProfile);
+capdPractitionerProfileSelect?.addEventListener("change", () => {
+  const selected = capdPractitionerProfiles().find(([key]) => key === capdPractitionerProfileSelect.value);
+  if (selected) applyCapdPractitionerProfile(selected[1]);
+  else {
+    if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = "";
+    if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = "";
+    if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = "";
+    renderCapdReport();
+  }
+});
+[capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput].forEach((input) => {
+  input?.addEventListener("input", () => {
+    if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = "";
+  });
 });
 capdNormToggle?.addEventListener("click", () => {
   const expanded = capdNormToggle.getAttribute("aria-expanded") === "true";
@@ -24915,12 +25092,26 @@ capdNormToggle?.addEventListener("click", () => {
 capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
 capdConclusionType?.addEventListener("change", () => renderCapdAbnormalPanel(capdCurrentResults()));
 capdInsertConclusionBtn?.addEventListener("click", insertCapdAbnormalConclusion);
+capdPerformedExamsPanel?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-capd-exam-template]");
+  if (!button) return;
+  const code = button.dataset.capdExamTemplate;
+  const note = capdPerformedExamNoteInputs.find((input) => input.dataset.capdPerformedExamNote === code);
+  if (!note || !Object.hasOwn(CAPD_PERFORMED_EXAM_TEMPLATES, code)) return;
+  if (note.value.trim() && !confirm("Zastąpić wpisany opis proponowanym tekstem?")) return;
+  note.value = CAPD_PERFORMED_EXAM_TEMPLATES[code];
+  renderCapdReport();
+  note.focus();
+});
 capdForm?.addEventListener("input", (event) => {
   const testItem = event.target.closest?.("[data-capd-code]");
   if (testItem && event.target.matches(".capd-result-control input")) updateCapdTestEvaluation(testItem);
   renderCapdReport();
 });
-capdForm?.addEventListener("change", renderCapdReport);
+capdForm?.addEventListener("change", () => {
+  updateCapdPerformedExamPanels();
+  renderCapdReport();
+});
 capdDescriptionInput?.addEventListener("keyup", rememberCapdDescriptionSelection);
 capdDescriptionInput?.addEventListener("mouseup", rememberCapdDescriptionSelection);
 capdDescriptionInput?.addEventListener("focus", rememberCapdDescriptionSelection);

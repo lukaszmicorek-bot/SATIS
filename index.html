@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261001-1">
+  <link rel="stylesheet" href="styles.css?v=20261001-2">
   </head>
   <body>
     <main class="app-shell">
@@ -1930,9 +1930,33 @@
             <fieldset class="capd-performed-exams private-form-wide">
               <legend>Przeprowadzone badania</legend>
               <div class="capd-performed-exams-options">
-                <label><input type="checkbox" data-capd-performed-exam="AUDIOMETRIA_TONALNA"> Audiometria tonalna</label>
-                <label><input type="checkbox" data-capd-performed-exam="TYMPANOMETRIA"> Tympanometria</label>
-                <label><input type="checkbox" data-capd-performed-exam="UCL"> UCL</label>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="OTOSKOPIA"> Otoskopia</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="OTOSKOPIA" hidden>
+                    <textarea data-capd-performed-exam-note="OTOSKOPIA" rows="2" maxlength="500" aria-label="Opis otoskopii" placeholder="Opis badania"></textarea>
+                    <button type="button" data-capd-exam-template="OTOSKOPIA">Wstaw proponowany opis</button>
+                  </div>
+                </div>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="AUDIOMETRIA_TONALNA"> Audiometria tonalna</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="AUDIOMETRIA_TONALNA" hidden>
+                    <textarea data-capd-performed-exam-note="AUDIOMETRIA_TONALNA" rows="2" maxlength="500" aria-label="Opis audiometrii tonalnej" placeholder="Opis wyniku"></textarea>
+                    <button type="button" data-capd-exam-template="AUDIOMETRIA_TONALNA">Wstaw opis wyniku w normie</button>
+                  </div>
+                </div>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="TYMPANOMETRIA"> Tympanometria</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="TYMPANOMETRIA" hidden>
+                    <textarea data-capd-performed-exam-note="TYMPANOMETRIA" rows="2" maxlength="500" aria-label="Opis tympanometrii" placeholder="Opis wyniku"></textarea>
+                    <button type="button" data-capd-exam-template="TYMPANOMETRIA">Wstaw opis typu A</button>
+                  </div>
+                </div>
+                <div class="capd-performed-exam-item">
+                  <label><input type="checkbox" data-capd-performed-exam="UCL"> UCL</label>
+                  <div class="capd-performed-exam-detail" data-capd-exam-detail="UCL" hidden>
+                    <textarea data-capd-performed-exam-note="UCL" rows="2" maxlength="500" aria-label="Opis UCL" placeholder="Opis wyniku"></textarea>
+                  </div>
+                </div>
               </div>
             </fieldset>
 
@@ -2179,6 +2203,27 @@
               <div id="capdDescriptionInput" class="capd-rich-text-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Podsumowanie wyników, obserwacje i zalecenia"></div>
               <small>Zaznacz tekst i wybierz format. Bez zaznaczenia format zostanie zastosowany do dalszego wpisywania. Wklejanie zachowuje akapity, listy i podstawowe formatowanie.</small>
             </section>
+            <section class="capd-practitioner-fields private-form-wide" aria-label="Dane protetyka słuchu">
+              <strong>Protetyk słuchu</strong>
+              <div class="capd-practitioner-grid">
+                <label class="capd-practitioner-wide">
+                  <span>Wybierz zapisany profil</span>
+                  <select id="capdPractitionerProfileSelect"><option value="">Nowy profil</option></select>
+                </label>
+                <label>
+                  <span>Kod licencji</span>
+                  <input id="capdPractitionerLicenseInput" type="text" maxlength="60" autocomplete="off" placeholder="Kod licencji">
+                </label>
+                <label>
+                  <span>Placówka</span>
+                  <input id="capdPractitionerFacilityInput" type="text" maxlength="120" autocomplete="off" placeholder="Nazwa placówki">
+                </label>
+                <label class="capd-practitioner-wide">
+                  <span>Adres placówki</span>
+                  <input id="capdPractitionerAddressInput" type="text" maxlength="180" autocomplete="off" placeholder="Ulica, kod pocztowy, miejscowość">
+                </label>
+              </div>
+            </section>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
               <button id="saveCapdHistoryBtn" type="button">Zapisz badanie</button>
@@ -2206,7 +2251,10 @@
               <span>Miejsce <strong id="capdReportLocation" class="pcpr-place-badge">-</strong></span>
               <span>Osoba wykonująca badanie <strong id="capdReportExaminer">-</strong></span>
             </div>
-            <p id="capdReportPerformedExams" class="capd-report-performed-exams" hidden><strong>Przeprowadzone badania:</strong> <span id="capdReportPerformedExamsList"></span></p>
+            <section id="capdReportPerformedExams" class="capd-report-performed-exams" hidden>
+              <strong>Przeprowadzone badania</strong>
+              <ul id="capdReportPerformedExamsList"></ul>
+            </section>
             <table class="capd-report-table">
               <thead><tr><th>Badanie</th><th>Co sprawdza</th><th>Norma</th><th>Wynik</th></tr></thead>
               <tbody id="capdReportResults"></tbody>
@@ -2215,6 +2263,12 @@
               <h3>Opis badania i wnioski</h3>
               <div id="capdReportDescription">Miejsce na podsumowanie wyników, obserwacje i zalecenia.</div>
             </section>
+            <div id="capdReportPractitioner" class="capd-report-practitioner" hidden>
+              <p><span>Protetyk słuchu:</span> <strong id="capdReportPractitionerName"></strong></p>
+              <p id="capdReportPractitionerLicenseRow" hidden><span>Kod licencji:</span> <strong id="capdReportPractitionerLicense"></strong></p>
+              <p id="capdReportPractitionerFacilityRow" hidden><span>Placówka:</span> <strong id="capdReportPractitionerFacility"></strong></p>
+              <p id="capdReportPractitionerAddressRow" hidden><span>Adres placówki:</span> <strong id="capdReportPractitionerAddress"></strong></p>
+            </div>
             <p class="capd-report-disclaimer">Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu. Nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania.</p>
           </section>
           
@@ -2947,11 +3001,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261001-1"></script>
-    <script src="data-layer.js?v=20261001-1"></script>
-    <script src="sync-layer.js?v=20261001-1"></script>
-    <script src="offline-vault.js?v=20261001-1"></script>
-    <script src="offline-forms.js?v=20261001-1"></script>
-  <script src="app.js?v=20261001-1"></script>
+    <script src="supabase-config.js?v=20261001-2"></script>
+    <script src="data-layer.js?v=20261001-2"></script>
+    <script src="sync-layer.js?v=20261001-2"></script>
+    <script src="offline-vault.js?v=20261001-2"></script>
+    <script src="offline-forms.js?v=20261001-2"></script>
+  <script src="app.js?v=20261001-2"></script>
   </body>
 </html>
