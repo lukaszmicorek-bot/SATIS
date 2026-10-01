@@ -1,5 +1,5 @@
 /* Static shell only. Never cache API responses, uploaded files or user data. */
-const VERSION = "20260930-5";
+const VERSION = "20261001-1";
 const CACHE = `satis-shell-${VERSION}`;
 const SDK = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
 const SDK_INTEGRITY = "sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP";
