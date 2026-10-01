@@ -64,6 +64,7 @@ test('APD keeps examination location and examiner in the form, history, and repo
   assert.match(html, /id="capdExaminerInput"[^>]*list="capdExaminerSuggestions"/);
   assert.match(html, /id="capdExaminerSuggestions"/);
   assert.ok(html.indexOf('id="capdPractitionerProfileSelect"') < html.indexOf('class="capd-performed-exams private-form-wide"'));
+  assert.match(html, /<fieldset class="capd-performed-exams private-form-wide">[\s\S]*?<\/fieldset>\s*<section class="capd-rich-text-field private-form-wide"/);
   assert.match(html, /id="capdExaminerBadgeName">Nie wybrano/);
   assert.match(app, /capdExaminerBadgeName\.textContent = titleCaseName\(capdExaminerInput\?\.value \|\| ""\)/);
   assert.doesNotMatch(html, /id="capdReportLocation"|id="capdReportExaminer"/);
