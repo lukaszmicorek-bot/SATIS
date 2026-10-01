@@ -1,0 +1,54 @@
+name: SATIS quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check JavaScript syntax
+        run: |
+          for file in app.js data-layer.js sync-layer.js offline-vault.js offline-forms.js offline-sw.js; do
+            node --check "$file"
+          done
+      - name: Run synthetic regression tests
+        run: node --test tests/*.test.cjs
+      - name: Verify published assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node ci/verify-release.cjs
+      - name: Stage verified site
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node ci/stage-pages.cjs
+      - name: Upload verified site
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy tested site
+        id: deployment
+        uses: actions/deploy-pages@v4
