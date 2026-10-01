@@ -776,6 +776,54 @@ h2 {
   grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) minmax(130px, 0.9fr) minmax(76px, 0.45fr) minmax(150px, 0.9fr);
 }
 
+.capd-location-field {
+  grid-column: span 2;
+}
+
+.capd-examiner-field {
+  grid-column: span 3;
+}
+
+.capd-performed-exams {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #dce6e3;
+  border-radius: 6px;
+  padding: 8px 12px 12px;
+  background: #f9fbfa;
+}
+
+.capd-performed-exams legend {
+  padding: 0 5px;
+  color: #365962;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.capd-performed-exams-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+
+.capd-performed-exams-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #31525d;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.capd-performed-exams-options input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  padding: 0;
+  accent-color: #007a7a;
+}
+
 .capd-patient-field,
 .capd-pesel-field,
 .capd-birth-date-field,
@@ -1282,6 +1330,39 @@ h2 {
   font-size: 0.84rem;
 }
 
+.capd-report-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  border-bottom: 1px solid #d9e2e4;
+  padding: 3px 0 10px;
+  color: #6b7c82;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.capd-report-context > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.capd-report-context strong:not(.pcpr-place-badge) {
+  color: #173f4e;
+  font-size: 0.82rem;
+}
+
+.capd-report-performed-exams {
+  margin: 0;
+  color: #173f4e;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.capd-report-performed-exams strong {
+  margin-right: 4px;
+}
+
 .capd-report-table {
   width: 100%;
   min-width: 0;
@@ -1375,6 +1456,76 @@ h2 {
   margin: 0 0 8px;
   color: #003f5a;
   font-size: 0.86rem;
+}
+
+.capd-abnormal-panel {
+  display: grid;
+  gap: 10px;
+  border-top: 2px solid #bf7260;
+  padding: 12px 0;
+  color: #344e58;
+}
+
+.capd-abnormal-head,
+.capd-abnormal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.capd-abnormal-head > div,
+.capd-abnormal-head label {
+  display: grid;
+  gap: 4px;
+}
+
+.capd-abnormal-head strong {
+  color: #9a453c;
+  font-size: 0.83rem;
+}
+
+.capd-abnormal-head span,
+.capd-abnormal-actions small {
+  color: #63767d;
+  font-size: 0.72rem;
+}
+
+.capd-abnormal-head select {
+  width: min(100%, 390px);
+  min-height: 34px;
+  border: 1px solid #cbd9dc;
+  border-radius: 5px;
+  background: #fff;
+  color: #263f49;
+  font: inherit;
+}
+
+.capd-abnormal-actions button {
+  padding: 6px 11px;
+  border: 1px solid #77a9aa;
+  border-radius: 5px;
+  background: #e6f2f0;
+  color: #003f5a;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capd-abnormal-details summary {
+  color: #315a67;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.capd-abnormal-details > div {
+  margin-top: 8px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  line-height: 1.5;
 }
 
 .capd-rich-text-field {
@@ -1690,6 +1841,15 @@ h2 {
   font-size: 0.86rem;
 }
 
+.capd-history-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+  color: #5f7076;
+  font-size: 0.72rem;
+}
+
 .capd-history-main > span,
 .capd-history-main > small {
   overflow: hidden;
@@ -1758,6 +1918,11 @@ h2 {
 @media (max-width: 720px) {
   .capd-form-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .capd-location-field,
+  .capd-examiner-field {
+    grid-column: 1 / -1;
   }
 
   .capd-test-item {
@@ -3583,6 +3748,12 @@ h2 {
   align-items: end;
 }
 
+.offer-notes-field textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+}
+
 .offer-option-field,
 .offer-pfron-field,
 .offer-device-field {
@@ -4099,6 +4270,19 @@ h2 {
 .offer-total-line strong {
   color: #003f5a;
   font-size: 1.16rem;
+}
+
+.offer-print-notes {
+  margin: 12px 0 0;
+  color: #334b56;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.offer-print-notes strong {
+  color: #003f5a;
 }
 
 .order-form-grid {
@@ -12545,7 +12729,8 @@ textarea {
   }
 
   body.capd-report-print .capd-report-table tr,
-  body.capd-report-print .capd-report-conclusions {
+  body.capd-report-print .capd-report-conclusions p,
+  body.capd-report-print .capd-report-conclusions li {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -12694,6 +12879,14 @@ textarea {
 
   body.pricing-offer-print .offer-total-line strong {
     font-size: 14pt;
+  }
+
+  body.pricing-offer-print .offer-print-notes {
+    margin-top: 3mm;
+    font-size: 8pt;
+    line-height: 1.35;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   body.pricing-order-print .app-shell > * {

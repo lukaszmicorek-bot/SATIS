@@ -138,6 +138,50 @@ test('document tabs form two separate styled groups without changing their roles
   assert.match(css, /@media \(max-width: 640px\) \{\s*\.document-tab-group \{[^}]*border-left: 0;[^}]*border-top:/);
 });
 
+test('RODO print names distinct legal bases and keeps optional consents separate', () => {
+  const print = html.slice(html.indexOf('id="pricingRodoPrint"'), html.indexOf('id="pricingPcprView"'));
+  assert.match(print, /Podstawy prawne przetwarzania/);
+  for (const basis of ['art. 6 ust. 1 lit. b RODO', 'art. 6 ust. 1 lit. c RODO',
+    'art. 6 ust. 1 lit. f RODO', 'art. 9 ust. 2 lit. a RODO', 'art. 9 ust. 2 lit. f RODO', 'art. 398 ust. 1']) {
+    assert.ok(print.includes(basis), `${basis} missing from RODO print`);
+  }
+  for (const choice of ['health-yes', 'health-no', 'visits-yes', 'visits-no', 'marketing-none']) {
+    assert.ok(print.includes(`data-rodo-choice="${choice}"`), `${choice} missing from RODO print`);
+  }
+  assert.doesNotMatch(print, /art\. 9 ust\. 2 lit\. h RODO|20 lat|dokumentacji medycznej/);
+  assert.match(print, /Bez zgody na przetwarzanie danych dotyczących zdrowia nie możemy wykonać tych usług/);
+  assert.match(print, /Informacja dla klienta/);
+});
+
+test('offer notes appear on the printout and survive a history round trip', () => {
+  const offerView = html.slice(html.indexOf('id="pricingOfferView"'), html.indexOf('id="pricingLoanView"'));
+  assert.match(offerView, /id="offerNotesInput"[^>]*maxlength="300"/);
+  assert.match(offerView, /id="offerNotesPrint"[^>]*hidden/);
+  assert.match(offerView, /id="offerNotesText"/);
+
+  const context = {
+    isoDateForSave: value => value || '',
+    normalizeLoanHistoryText: value => String(value || '').trim(),
+    normalizePricingOfferHistoryItem: item => item,
+    pricingOfferHistoryPatientGroup: () => 'adult',
+    titleCaseName: value => value,
+    normalizeDocumentLocationValue: value => value,
+    makeId: () => 'new-id'
+  };
+  vm.runInNewContext(extract('pricingOfferHistoryEntryHasContent') + extract('normalizePricingOfferHistoryEntry'), context);
+  const saved = context.normalizePricingOfferHistoryEntry({
+    id: 'offer-1', customer: 'Jan Testowy', notes: '  Dopasować kolor\nOdbiór po telefonie  ', items: []
+  });
+  assert.equal(saved.notes, 'Dopasować kolor\nOdbiór po telefonie');
+  assert.equal(context.normalizePricingOfferHistoryEntry({ id: 'offer-2', customer: 'Jan Testowy' }).notes, '');
+
+  assert.match(extract('currentPricingOfferSnapshot'), /notes: offerNotesInput\?\.value\.trim\(\)/);
+  assert.match(extract('restorePricingOfferFromHistory'), /offerNotesInput\.value = saved\.notes/);
+  assert.match(source, /appendPricingHistoryPreviewField\(summary, "Uwagi", saved\.notes\)/);
+  assert.match(extract('renderPricingOffer'), /offerNotesPrint\.hidden = !notes/);
+  assert.match(extract('renderPricingOffer'), /offerNotesText\.textContent = notes/);
+});
+
 test('vacation follows pricing as a separate shortcut with the correct pressed state', () => {
   assert.match(html, /<\/div>\s*<button[^>]*data-notebook="pricing">\s*Cennik\s*<\/button>\s*<button[^>]*aria-pressed="false"[^>]*data-notebook="vacation" data-private-shared hidden>Urlop<\/button>/);
   const ctx = setup();
