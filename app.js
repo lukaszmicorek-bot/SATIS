@@ -37,6 +37,7 @@ const SUPABASE_PCPR_LIST_TABLE = "pcpr_list";
 const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
 const SUPABASE_CAPD_HISTORY_TABLE = "capd_history";
+const CAPD_PROFILE_ID_PREFIX = "apd-profile-";
 const CAPD_HISTORY_STATUS_LABELS = { OPIS: "Opis", DO_ODBIORU: "Do odbioru", ODEBRANO: "Odebrano" };
 const CAPD_PERFORMED_EXAM_LABELS = Object.freeze({
   OTOSKOPIA: "Otoskopia",
@@ -643,6 +644,8 @@ let appAccessHardeningAvailable = null;
 let vacationEmployees = [];
 let vacationRequests = [];
 let capdHistory = loadCapdHistory();
+let capdSavedPractitionerProfiles = [];
+let activeCapdPractitionerProfileId = "";
 let activeCapdHistoryId = "";
 let activeVacationRequestId = "";
 let pricingPcprPlaceFilter = "";
@@ -1056,6 +1059,8 @@ const capdDateInput = document.querySelector("#capdDateInput");
 const capdLocationInput = document.querySelector("#capdLocationInput");
 const capdExaminerInput = document.querySelector("#capdExaminerInput");
 const capdPractitionerProfileSelect = document.querySelector("#capdPractitionerProfileSelect");
+const saveCapdPractitionerProfileBtn = document.querySelector("#saveCapdPractitionerProfileBtn");
+const capdPractitionerProfileStatus = document.querySelector("#capdPractitionerProfileStatus");
 const capdPractitionerLicenseInput = document.querySelector("#capdPractitionerLicenseInput");
 const capdPractitionerFacilityInput = document.querySelector("#capdPractitionerFacilityInput");
 const capdPractitionerAddressInput = document.querySelector("#capdPractitionerAddressInput");
@@ -2349,7 +2354,12 @@ function applyChangedSupabaseRecords(table, ids, rows) {
   else if (table === SUPABASE_COMPLAINT_HISTORY_TABLE) pricingComplaintHistory = apply(pricingComplaintHistory, normalizePricingComplaintHistory);
   else if (table === SUPABASE_PCPR_LIST_TABLE) pricingPcprList = apply(pricingPcprList, normalizePricingPcprList);
   else if (table === SUPABASE_CAPD_HISTORY_TABLE) {
-    capdHistory = apply(capdHistory, normalizeCapdHistory);
+    const profileChanges = changes.filter((row) => row.id.startsWith(CAPD_PROFILE_ID_PREFIX));
+    const historyChanges = changes.filter((row) => !row.id.startsWith(CAPD_PROFILE_ID_PREFIX));
+    if (profileChanges.length) {
+      capdSavedPractitionerProfiles = apply(capdSavedPractitionerProfiles, normalizeCapdSavedPractitionerProfiles, profileChanges);
+    }
+    if (historyChanges.length) capdHistory = apply(capdHistory, normalizeCapdHistory, historyChanges);
     renderCapdPractitionerProfiles();
   }
   rebuild();
@@ -2637,6 +2647,8 @@ function clearSensitiveApplicationState() {
   vacationEmployees = [];
   vacationRequests = [];
   capdHistory = [];
+  capdSavedPractitionerProfiles = [];
+  activeCapdPractitionerProfileId = "";
   activeCapdHistoryId = "";
   activePricingLoanHistoryId = "";
   demoReturnReminderLastShownAt = 0;
@@ -19143,6 +19155,23 @@ function capdPractitionerProfileKey(profile) {
   return `${normalize(profile.name).trim()}|${normalize(profile.licenseCode).trim()}`;
 }
 
+function normalizeCapdSavedPractitionerProfiles(entries) {
+  if (!Array.isArray(entries)) return [];
+  const profiles = new Map();
+  entries.forEach((entry) => {
+    if (!String(entry?.id || "").startsWith(CAPD_PROFILE_ID_PREFIX)) return;
+    const profile = normalizeCapdPractitioner(entry.profile);
+    if (!profile.name || !(profile.licenseCode || profile.facility || profile.address)) return;
+    profiles.set(entry.id, {
+      id: entry.id,
+      recordType: "practitioner_profile",
+      profile,
+      savedAt: String(entry.savedAt || "")
+    });
+  });
+  return [...profiles.values()];
+}
+
 function capdPractitionerProfiles() {
   const profiles = new Map();
   [...capdHistory].sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt))).forEach((entry) => {
@@ -19151,6 +19180,9 @@ function capdPractitionerProfiles() {
     const key = capdPractitionerProfileKey(profile);
     if (!profiles.has(key)) profiles.set(key, profile);
   });
+  [...capdSavedPractitionerProfiles]
+    .sort((left, right) => String(left.savedAt).localeCompare(String(right.savedAt)))
+    .forEach((entry) => profiles.set(capdPractitionerProfileKey(entry.profile), entry.profile));
   return [...profiles].sort((left, right) => left[1].name.localeCompare(right[1].name, "pl"));
 }
 
@@ -19172,6 +19204,8 @@ function renderCapdPractitionerProfiles() {
 }
 
 function applyCapdPractitionerProfile(profile) {
+  activeCapdPractitionerProfileId = capdSavedPractitionerProfiles.find((entry) =>
+    capdPractitionerProfileKey(entry.profile) === capdPractitionerProfileKey(profile))?.id || "";
   if (capdExaminerInput) capdExaminerInput.value = profile.name;
   if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = profile.licenseCode;
   if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = profile.facility;
@@ -19180,9 +19214,55 @@ function applyCapdPractitionerProfile(profile) {
   renderCapdReport();
 }
 
+async function saveCapdPractitionerProfile() {
+  const profile = currentCapdPractitioner();
+  if (!profile.name || !(profile.licenseCode || profile.facility || profile.address)) {
+    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Wpisz imię i nazwisko oraz dane profilu.";
+    if (!profile.name) capdExaminerInput?.focus();
+    return;
+  }
+  if (!hasSupabaseConfig || !currentSupabaseUser) {
+    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Zaloguj się, aby zapisać profil dla wszystkich stanowisk.";
+    return;
+  }
+  const matching = capdSavedPractitionerProfiles.find((entry) =>
+    capdPractitionerProfileKey(entry.profile) === capdPractitionerProfileKey(profile));
+  if (activeCapdPractitionerProfileId && matching && matching.id !== activeCapdPractitionerProfileId) {
+    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Profil o tym imieniu i kodzie licencji już istnieje. Wybierz go z listy.";
+    return;
+  }
+  const id = activeCapdPractitionerProfileId || matching?.id || `${CAPD_PROFILE_ID_PREFIX}${makeId()}`;
+  const entry = { id, recordType: "practitioner_profile", profile, savedAt: new Date().toISOString() };
+  if (saveCapdPractitionerProfileBtn) saveCapdPractitionerProfileBtn.disabled = true;
+  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Zapisywanie...";
+  try {
+    await upsertSupabaseRecord(SUPABASE_CAPD_HISTORY_TABLE, entry);
+    capdSavedPractitionerProfiles = normalizeCapdSavedPractitionerProfiles([
+      ...capdSavedPractitionerProfiles.filter((item) => item.id !== id), entry
+    ]);
+    activeCapdPractitionerProfileId = id;
+    capdPractitionerOptionsSignature = "";
+    renderCapdPractitionerProfiles();
+    if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = capdPractitionerProfileKey(profile);
+    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Profil zapisany dla wszystkich stanowisk.";
+  } catch (error) {
+    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = `Nie udało się zapisać profilu: ${error.message}`;
+  } finally {
+    if (saveCapdPractitionerProfileBtn) saveCapdPractitionerProfileBtn.disabled = false;
+  }
+}
+
 function linkCapdExaminerToProfile() {
   if (!capdExaminerInput) return;
   capdExaminerInput.value = titleCaseName(capdExaminerInput.value);
+  if (activeCapdPractitionerProfileId) {
+    const selected = capdSavedPractitionerProfiles.find((entry) => entry.id === activeCapdPractitionerProfileId);
+    if (selected && normalize(selected.profile.name) !== normalize(capdExaminerInput.value)) {
+      if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = "";
+      renderCapdReport();
+      return;
+    }
+  }
   const matches = capdPractitionerProfiles().filter(([, profile]) => normalize(profile.name) === normalize(capdExaminerInput.value));
   const hasManualDetails = [capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput]
     .some((input) => input?.value.trim());
@@ -19370,10 +19450,12 @@ async function loadSupabaseCapdHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || capdHistorySupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
   try {
-    const sharedHistory = await loadSupabaseTable(SUPABASE_CAPD_HISTORY_TABLE, normalizeCapdHistory);
+    const entries = await loadSupabaseTable(SUPABASE_CAPD_HISTORY_TABLE, (loaded) => loaded);
     if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
     capdHistorySupabaseAvailable = true;
-    capdHistory = normalizeCapdHistory(sharedHistory);
+    capdSavedPractitionerProfiles = normalizeCapdSavedPractitionerProfiles(entries.filter((entry) =>
+      entry.id.startsWith(CAPD_PROFILE_ID_PREFIX)));
+    capdHistory = normalizeCapdHistory(entries.filter((entry) => !entry.id.startsWith(CAPD_PROFILE_ID_PREFIX)));
     saveLocalCapdHistory();
     renderCapdHistory();
     renderCapdPractitionerProfiles();
@@ -19508,6 +19590,8 @@ function restoreCapdHistoryEntry(entry) {
     const key = capdPractitionerProfileKey(historyEntry.practitioner);
     capdPractitionerProfileSelect.value = [...capdPractitionerProfileSelect.options].some((option) => option.value === key) ? key : "";
   }
+  activeCapdPractitionerProfileId = capdSavedPractitionerProfiles.find((entry) =>
+    capdPractitionerProfileKey(entry.profile) === capdPractitionerProfileKey(historyEntry.practitioner))?.id || "";
   capdPerformedExamInputs.forEach((input) => {
     input.checked = historyEntry.performedExams.includes(input.dataset.capdPerformedExam);
   });
@@ -19692,6 +19776,8 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  activeCapdPractitionerProfileId = "";
+  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
   updateCapdPerformedExamPanels();
   if (capdConclusionType) capdConclusionType.value = "";
   if (capdDescriptionInput) capdDescriptionInput.replaceChildren();
@@ -25068,21 +25154,28 @@ capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
 capdLocationInput?.addEventListener("change", () => updateDocumentLocationAccent(capdLocationInput));
 capdExaminerInput?.addEventListener("blur", linkCapdExaminerToProfile);
+capdExaminerInput?.addEventListener("input", () => {
+  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
+});
 capdPractitionerProfileSelect?.addEventListener("change", () => {
   const selected = capdPractitionerProfiles().find(([key]) => key === capdPractitionerProfileSelect.value);
   if (selected) applyCapdPractitionerProfile(selected[1]);
   else {
+    activeCapdPractitionerProfileId = "";
     if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = "";
     if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = "";
     if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = "";
     renderCapdReport();
   }
+  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
 });
 [capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput].forEach((input) => {
   input?.addEventListener("input", () => {
     if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = "";
+    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
   });
 });
+saveCapdPractitionerProfileBtn?.addEventListener("click", saveCapdPractitionerProfile);
 capdNormToggle?.addEventListener("click", () => {
   const expanded = capdNormToggle.getAttribute("aria-expanded") === "true";
   capdNormToggle.setAttribute("aria-expanded", String(!expanded));

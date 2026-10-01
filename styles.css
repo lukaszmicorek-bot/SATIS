@@ -1478,6 +1478,24 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.capd-practitioner-save {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+.capd-practitioner-save button {
+  min-height: 34px;
+  padding: 6px 11px;
+}
+
+.capd-practitioner-save span {
+  color: #426168;
+  font-size: 0.74rem;
+}
+
 .capd-report-table {
   width: 100%;
   min-width: 0;
