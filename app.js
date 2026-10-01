@@ -513,8 +513,7 @@ let vacationRequests = [];
 let capdHistory = loadCapdHistory();
 let capdSavedPractitionerProfiles = [];
 let activeCapdPractitionerProfileId = "";
-let capdPractitionerAddressDraft = [""];
-let capdPractitionerAddressIndex = 0;
+let capdPractitionerAddressOverride = "";
 let activeCapdHistoryId = "";
 let activeVacationRequestId = "";
 let pricingPcprPlaceFilter = "";
@@ -927,15 +926,14 @@ const capdAgeInput = document.querySelector("#capdAgeInput");
 const capdDateInput = document.querySelector("#capdDateInput");
 const capdLocationInput = document.querySelector("#capdLocationInput");
 const capdExaminerInput = document.querySelector("#capdExaminerInput");
+const capdExaminerSuggestions = document.querySelector("#capdExaminerSuggestions");
+const capdExaminerBadgeName = document.querySelector("#capdExaminerBadgeName");
 const capdPractitionerProfileSelect = document.querySelector("#capdPractitionerProfileSelect");
 const saveCapdPractitionerProfileBtn = document.querySelector("#saveCapdPractitionerProfileBtn");
 const capdPractitionerProfileStatus = document.querySelector("#capdPractitionerProfileStatus");
 const capdPractitionerLicenseInput = document.querySelector("#capdPractitionerLicenseInput");
 const capdPractitionerFacilityInput = document.querySelector("#capdPractitionerFacilityInput");
-const capdPractitionerAddressInput = document.querySelector("#capdPractitionerAddressInput");
-const capdPractitionerAddressSelect = document.querySelector("#capdPractitionerAddressSelect");
-const addCapdPractitionerAddressBtn = document.querySelector("#addCapdPractitionerAddressBtn");
-const removeCapdPractitionerAddressBtn = document.querySelector("#removeCapdPractitionerAddressBtn");
+const capdPractitionerCitySelect = document.querySelector("#capdPractitionerCitySelect");
 const capdPerformedExamInputs = [...document.querySelectorAll("[data-capd-performed-exam]")];
 const capdPerformedExamNoteInputs = [...document.querySelectorAll("[data-capd-performed-exam-note]")];
 const capdPerformedExamsPanel = document.querySelector(".capd-performed-exams");
@@ -961,8 +959,6 @@ const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
 const capdReportTitle = document.querySelector("#capdReportTitle");
 const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
-const capdReportLocation = document.querySelector("#capdReportLocation");
-const capdReportExaminer = document.querySelector("#capdReportExaminer");
 const capdReportPractitioner = document.querySelector("#capdReportPractitioner");
 const capdReportPractitionerName = document.querySelector("#capdReportPractitionerName");
 const capdReportPractitionerLicense = document.querySelector("#capdReportPractitionerLicense");
@@ -2521,8 +2517,7 @@ function clearSensitiveApplicationState() {
   capdHistory = [];
   capdSavedPractitionerProfiles = [];
   activeCapdPractitionerProfileId = "";
-  capdPractitionerAddressDraft = [""];
-  capdPractitionerAddressIndex = 0;
+  capdPractitionerAddressOverride = "";
   activeCapdHistoryId = "";
   activePricingLoanHistoryId = "";
   demoReturnReminderLastShownAt = 0;
@@ -2530,7 +2525,7 @@ function clearSensitiveApplicationState() {
   if (customerRelationsInput) customerRelationsInput.value = "";
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
-  setCapdPractitionerAddresses();
+  if (capdPractitionerCitySelect) capdPractitionerCitySelect.value = "Bielsko-Biała";
   capdPractitionerOptionsSignature = "";
   renderCapdPractitionerProfiles();
   clearSensitiveBrowserData();
@@ -19023,36 +19018,44 @@ function normalizeCapdPractitioner(value, fallbackName = "") {
   };
 }
 
-function renderCapdPractitionerAddressSelect() {
-  if (!capdPractitionerAddressSelect) return;
-  capdPractitionerAddressSelect.replaceChildren(...capdPractitionerAddressDraft.map((address, index) =>
-    new Option(address || `Adres ${index + 1}`, String(index))));
-  capdPractitionerAddressSelect.value = String(capdPractitionerAddressIndex);
-  if (removeCapdPractitionerAddressBtn) removeCapdPractitionerAddressBtn.disabled = capdPractitionerAddressDraft.length === 1 && !capdPractitionerAddressDraft[0];
-  if (addCapdPractitionerAddressBtn) addCapdPractitionerAddressBtn.disabled = capdPractitionerAddressDraft.length >= 10;
+function capdCityForLocation(location) {
+  return location === "P50" ? "Żywiec" : "Bielsko-Biała";
 }
 
-function setCapdPractitionerAddresses(profile = {}) {
-  const normalized = normalizeCapdPractitioner(profile);
-  capdPractitionerAddressDraft = normalized.addresses.length ? [...normalized.addresses] : [""];
-  capdPractitionerAddressIndex = Math.max(0, capdPractitionerAddressDraft.indexOf(normalized.address));
-  if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = capdPractitionerAddressDraft[capdPractitionerAddressIndex];
-  renderCapdPractitionerAddressSelect();
+function capdCityForAddress(address) {
+  const value = normalize(address);
+  if (value.includes("żywiec") || value.includes("piłsudskiego")) return "Żywiec";
+  if (value.includes("bielsko") || value.includes("partyzantów") || value.includes("traugutta")) return "Bielsko-Biała";
+  return "";
 }
 
-function syncCapdPractitionerAddressDraft() {
-  capdPractitionerAddressDraft[capdPractitionerAddressIndex] = capdPractitionerAddressInput?.value || "";
-  renderCapdPractitionerAddressSelect();
+function capdAddressForCity(city, location) {
+  const key = city === "Żywiec" ? "P50" : location === "T12" ? "T12" : "P63";
+  return DOCUMENT_LOCATIONS.find((item) => item.key === key)?.value || "";
+}
+
+function setCapdPractitionerCity(profile = {}) {
+  if (!capdPractitionerCitySelect) return;
+  capdPractitionerCitySelect.value = capdCityForAddress(profile.address || profile.addresses?.[0])
+    || capdCityForLocation(documentLocationKey(capdLocationInput?.value));
+}
+
+function syncCapdLocationToCity() {
+  if (!capdLocationInput || !capdPractitionerCitySelect) return;
+  const location = documentLocationKey(capdLocationInput.value);
+  if (capdPractitionerCitySelect.value === "Żywiec") capdLocationInput.value = "P50";
+  else if (location === "P50" || !location) capdLocationInput.value = "P63";
+  updateDocumentLocationAccent(capdLocationInput);
 }
 
 function currentCapdPractitioner() {
-  syncCapdPractitionerAddressDraft();
+  const address = capdPractitionerAddressOverride
+    || capdAddressForCity(capdPractitionerCitySelect?.value, documentLocationKey(capdLocationInput?.value));
   return normalizeCapdPractitioner({
     name: capdExaminerInput?.value,
     licenseCode: capdPractitionerLicenseInput?.value,
     facility: capdPractitionerFacilityInput?.value,
-    addresses: capdPractitionerAddressDraft,
-    address: capdPractitionerAddressDraft[capdPractitionerAddressIndex]
+    address
   });
 }
 
@@ -19081,7 +19084,7 @@ function capdPractitionerProfiles() {
   const profiles = new Map();
   [...capdHistory].sort((left, right) => String(right.savedAt).localeCompare(String(left.savedAt))).forEach((entry) => {
     const profile = normalizeCapdPractitioner(entry.practitioner, entry.examiner);
-    if (!profile.name || !(profile.licenseCode || profile.facility || profile.address)) return;
+    if (!profile.name) return;
     const key = capdPractitionerProfileKey(profile);
     if (!profiles.has(key)) profiles.set(key, profile);
   });
@@ -19099,11 +19102,15 @@ function renderCapdPractitionerProfiles() {
   if (signature === capdPractitionerOptionsSignature) return;
   const selected = capdPractitionerProfileSelect.value;
   capdPractitionerProfileSelect.replaceChildren(
-    new Option("Nowy profil", ""),
+    new Option("Wybierz profil", ""),
     ...profiles.map(([key, profile]) => new Option(
       [profile.name, profile.licenseCode, profile.facility].filter(Boolean).join(" · "), key
     ))
   );
+  if (capdExaminerSuggestions) {
+    const names = [...new Set(profiles.map(([, profile]) => profile.name))];
+    capdExaminerSuggestions.replaceChildren(...names.map((name) => new Option(name, name)));
+  }
   if (profiles.some(([key]) => key === selected)) capdPractitionerProfileSelect.value = selected;
   capdPractitionerOptionsSignature = signature;
 }
@@ -19114,18 +19121,17 @@ function applyCapdPractitionerProfile(profile) {
   if (capdExaminerInput) capdExaminerInput.value = profile.name;
   if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = profile.licenseCode;
   if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = profile.facility;
-  setCapdPractitionerAddresses(profile);
+  setCapdPractitionerCity(profile);
+  const savedLocation = DOCUMENT_LOCATIONS.find((item) => normalize(item.value) === normalize(profile.address));
+  if (savedLocation && capdLocationInput) capdLocationInput.value = savedLocation.key;
+  syncCapdLocationToCity();
+  capdPractitionerAddressOverride = profile.address || "";
   if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = capdPractitionerProfileKey(profile);
   renderCapdReport();
 }
 
 async function saveCapdPractitionerProfile() {
   const profile = currentCapdPractitioner();
-  if (!String(capdPractitionerAddressDraft[capdPractitionerAddressIndex] || "").trim() && profile.addresses.length) {
-    if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Uzupełnij wybrany adres albo wybierz adres na wydruku.";
-    capdPractitionerAddressInput?.focus();
-    return;
-  }
   if (!profile.name || !(profile.licenseCode || profile.facility || profile.address)) {
     if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "Wpisz imię i nazwisko oraz dane profilu.";
     if (!profile.name) capdExaminerInput?.focus();
@@ -19174,7 +19180,7 @@ function linkCapdExaminerToProfile() {
     }
   }
   const matches = capdPractitionerProfiles().filter(([, profile]) => normalize(profile.name) === normalize(capdExaminerInput.value));
-  const hasManualDetails = [capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput]
+  const hasManualDetails = [capdPractitionerLicenseInput, capdPractitionerFacilityInput]
     .some((input) => input?.value.trim());
   if (matches.length === 1 && (!hasManualDetails || capdPractitionerProfileSelect?.value)) {
     applyCapdPractitionerProfile(matches[0][1]);
@@ -19182,13 +19188,14 @@ function linkCapdExaminerToProfile() {
     capdPractitionerProfileSelect.value = "";
     if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = "";
     if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = "";
-    setCapdPractitionerAddresses();
+    setCapdPractitionerCity();
   }
   renderCapdReport();
 }
 
 function renderCapdReport() {
   if (!capdReportResults) return;
+  if (capdExaminerBadgeName) capdExaminerBadgeName.textContent = titleCaseName(capdExaminerInput?.value || "") || "Nie wybrano";
   const patient = titleCaseName(capdPatientInput?.value || "");
   const pesel = String(capdPeselInput?.value || "").trim();
   const birthDate = String(capdBirthDateInput?.value || "").trim();
@@ -19213,13 +19220,6 @@ function renderCapdReport() {
   if (capdReportBirthDate) capdReportBirthDate.textContent = birthDate || "-";
   if (capdReportAge) capdReportAge.textContent = age === null ? "-" : formatCapdAge(age);
   if (capdReportDate) capdReportDate.textContent = dateIso ? formatDate(dateIso) : "-";
-  const location = documentLocationKey(capdLocationInput?.value);
-  if (capdReportLocation) {
-    capdReportLocation.textContent = location || "-";
-    if (location) capdReportLocation.dataset.locationTone = location;
-    else delete capdReportLocation.dataset.locationTone;
-  }
-  if (capdReportExaminer) capdReportExaminer.textContent = titleCaseName(capdExaminerInput?.value || "") || "-";
   const practitioner = currentCapdPractitioner();
   if (capdReportPractitioner) capdReportPractitioner.hidden = !practitioner.name;
   if (capdReportPractitionerName) capdReportPractitionerName.textContent = practitioner.name;
@@ -19494,7 +19494,8 @@ function restoreCapdHistoryEntry(entry) {
   if (capdExaminerInput) capdExaminerInput.value = historyEntry.examiner;
   if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = historyEntry.practitioner.licenseCode;
   if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = historyEntry.practitioner.facility;
-  setCapdPractitionerAddresses(historyEntry.practitioner);
+  setCapdPractitionerCity(historyEntry.practitioner);
+  capdPractitionerAddressOverride = historyEntry.practitioner.address || "";
   renderCapdPractitionerProfiles();
   if (capdPractitionerProfileSelect) {
     const key = capdPractitionerProfileKey(historyEntry.practitioner);
@@ -19686,8 +19687,9 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  if (capdExaminerBadgeName) capdExaminerBadgeName.textContent = "Nie wybrano";
   activeCapdPractitionerProfileId = "";
-  setCapdPractitionerAddresses();
+  capdPractitionerAddressOverride = "";
   if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
   updateCapdPerformedExamPanels();
   if (capdConclusionType) capdConclusionType.value = "";
@@ -19699,6 +19701,7 @@ function resetCapdForm() {
   setCapdPeselStatus();
   setDateInputValue(capdDateInput, todayInputValue());
   if (capdLocationInput) capdLocationInput.value = documentLocationKey(suggestedDocumentLocation()) || "P63";
+  setCapdPractitionerCity();
   updateDocumentLocationAccent(capdLocationInput);
   updateCapdScope();
   renderCapdHistory();
@@ -25063,8 +25066,17 @@ capdPeselInput?.addEventListener("input", () => {
 capdPeselInput?.addEventListener("blur", updateCapdFromPesel);
 capdDateInput?.addEventListener("input", updateCapdFromPesel);
 capdDateInput?.addEventListener("change", updateCapdFromPesel);
-capdLocationInput?.addEventListener("change", () => updateDocumentLocationAccent(capdLocationInput));
+capdLocationInput?.addEventListener("change", () => {
+  updateDocumentLocationAccent(capdLocationInput);
+  if (capdPractitionerCitySelect) capdPractitionerCitySelect.value = capdCityForLocation(documentLocationKey(capdLocationInput.value));
+  capdPractitionerAddressOverride = "";
+});
 capdExaminerInput?.addEventListener("blur", linkCapdExaminerToProfile);
+capdExaminerInput?.addEventListener("change", () => {
+  const matches = capdPractitionerProfiles().filter(([, profile]) =>
+    normalize(profile.name) === normalize(capdExaminerInput.value));
+  if (matches.length === 1) applyCapdPractitionerProfile(matches[0][1]);
+});
 capdExaminerInput?.addEventListener("input", () => {
   if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
 });
@@ -25073,45 +25085,24 @@ capdPractitionerProfileSelect?.addEventListener("change", () => {
   if (selected) applyCapdPractitionerProfile(selected[1]);
   else {
     activeCapdPractitionerProfileId = "";
+    capdPractitionerAddressOverride = "";
     if (capdPractitionerLicenseInput) capdPractitionerLicenseInput.value = "";
     if (capdPractitionerFacilityInput) capdPractitionerFacilityInput.value = "";
-    setCapdPractitionerAddresses();
+    setCapdPractitionerCity();
     renderCapdReport();
   }
   if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
 });
-[capdPractitionerLicenseInput, capdPractitionerFacilityInput, capdPractitionerAddressInput].forEach((input) => {
+[capdPractitionerLicenseInput, capdPractitionerFacilityInput].forEach((input) => {
   input?.addEventListener("input", () => {
     if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = "";
     if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
-    if (input === capdPractitionerAddressInput) syncCapdPractitionerAddressDraft();
   });
 });
-capdPractitionerAddressSelect?.addEventListener("change", () => {
-  capdPractitionerAddressIndex = Number(capdPractitionerAddressSelect.value) || 0;
-  if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = capdPractitionerAddressDraft[capdPractitionerAddressIndex] || "";
-  renderCapdReport();
-});
-addCapdPractitionerAddressBtn?.addEventListener("click", () => {
-  if (capdPractitionerAddressDraft.length >= 10) return;
-  syncCapdPractitionerAddressDraft();
-  capdPractitionerAddressDraft.push("");
-  capdPractitionerAddressIndex = capdPractitionerAddressDraft.length - 1;
-  if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = "";
-  if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = "";
+capdPractitionerCitySelect?.addEventListener("change", () => {
+  capdPractitionerAddressOverride = "";
+  syncCapdLocationToCity();
   if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
-  renderCapdPractitionerAddressSelect();
-  capdPractitionerAddressInput?.focus();
-});
-removeCapdPractitionerAddressBtn?.addEventListener("click", () => {
-  if (capdPractitionerAddressDraft.length > 1) {
-    capdPractitionerAddressDraft.splice(capdPractitionerAddressIndex, 1);
-    capdPractitionerAddressIndex = Math.min(capdPractitionerAddressIndex, capdPractitionerAddressDraft.length - 1);
-  } else capdPractitionerAddressDraft[0] = "";
-  if (capdPractitionerAddressInput) capdPractitionerAddressInput.value = capdPractitionerAddressDraft[capdPractitionerAddressIndex];
-  if (capdPractitionerProfileSelect) capdPractitionerProfileSelect.value = "";
-  if (capdPractitionerProfileStatus) capdPractitionerProfileStatus.textContent = "";
-  renderCapdPractitionerAddressSelect();
   renderCapdReport();
 });
 saveCapdPractitionerProfileBtn?.addEventListener("click", saveCapdPractitionerProfile);
