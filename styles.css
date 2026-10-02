@@ -3119,6 +3119,11 @@ h2 {
   background: #f1f4df;
 }
 
+.vacation-history-table tr[data-vacation-status="OCZEKUJE"] .vacation-history-days strong {
+  color: #886124;
+  background: #fff0d5;
+}
+
 .vacation-history-table tr[data-vacation-status="ODRZUCONY"] .vacation-history-days strong {
   color: #914d58;
   background: #faeaf0;

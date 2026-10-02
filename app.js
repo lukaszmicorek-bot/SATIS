@@ -20771,6 +20771,7 @@ function renderVacationHistory() {
   const rows = entries.map((request) => {
     const canViewDetails = !request.redacted && (canViewPrivateModules() || request.employeeId === vacationMyEmployeeId());
     const compensatesWeekend = vacationCompensatesWeekend(request);
+    const isCompensatoryTime = request.type === "ZA SOBOTĘ" || request.type === "ZA WEEKEND";
     const requestEmployee = vacationEmployees.find((employee) => employee.id === request.employeeId);
     const usesHours = vacationRequestUsesHours(request, requestEmployee);
     const row = document.createElement("tr");
@@ -20805,11 +20806,14 @@ function renderVacationHistory() {
     const days = document.createElement("strong");
     const amount = usesHours ? request.hours : request.days;
     days.textContent = !canViewDetails ? "-" : usesHours ? `${formatVacationAmount(amount)} godz.` : String(amount);
-    days.title = compensatesWeekend
-      ? `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}; nie pomniejsza urlopu rocznego`
-      : `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
+    const amountLabel = `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
+    days.title = request.status === "ODRZUCONY"
+      ? "Wniosek odrzucony; nie wpływa na saldo urlopu."
+      : isCompensatoryTime
+        ? `${amountLabel}; nie pomniejsza urlopu rocznego`
+        : amountLabel;
     daysCell.append(days);
-    daysCell.classList.toggle("vacation-days-not-deducted", compensatesWeekend || vacationTypeUsesHours(request.type));
+    daysCell.classList.toggle("vacation-days-not-deducted", isCompensatoryTime || vacationTypeUsesHours(request.type));
     row.append(employeeCell, typeCell, termCell, daysCell);
     const statusCell = document.createElement("td");
     statusCell.className = "vacation-history-status";
