@@ -4701,9 +4701,13 @@ function tableHoverTooltipElement() {
   tooltip.className = "table-hover-tooltip";
   tooltip.setAttribute("role", "tooltip");
   tooltip.hidden = true;
+  tooltip.addEventListener("mouseenter", () => clearTimeout(tableHoverHideTimer));
+  tooltip.addEventListener("mouseleave", hideTableHoverTooltip);
   document.body.append(tooltip);
   return tooltip;
 }
+
+let tableHoverHideTimer = 0;
 
 function warrantyDateTone(formattedDate) {
   const match = String(formattedDate || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/u);
@@ -4774,6 +4778,22 @@ function appendCustomerTooltipSections(container, text) {
     heading.textContent = lines.shift();
     block.append(heading);
     lines.forEach((line) => {
+      if (line.startsWith("• ")) {
+        const entry = document.createElement("div");
+        entry.className = "customer-tooltip-entry";
+        const [title, ...parts] = line.slice(2).split(/\s+\|\s+/u);
+        const entryTitle = document.createElement("strong");
+        entryTitle.textContent = title;
+        entry.append(entryTitle);
+        parts.forEach((part) => {
+          const detail = document.createElement("div");
+          detail.className = "customer-tooltip-entry-detail";
+          renderWarrantyDateText(detail, part);
+          entry.append(detail);
+        });
+        block.append(entry);
+        return;
+      }
       const detail = document.createElement("div");
       detail.className = "customer-tooltip-section-detail";
       renderWarrantyDateText(detail, line);
@@ -4784,6 +4804,7 @@ function appendCustomerTooltipSections(container, text) {
 }
 
 function showTableHoverTooltip(anchor, dataKey) {
+  clearTimeout(tableHoverHideTimer);
   const text = String(anchor?.dataset?.[dataKey] || "").trim();
   if (!anchor || !text) return;
   const tooltip = tableHoverTooltipElement();
@@ -4835,13 +4856,20 @@ function showTableHoverTooltip(anchor, dataKey) {
 }
 
 function hideTableHoverTooltip() {
+  clearTimeout(tableHoverHideTimer);
   const tooltip = document.querySelector("#tableHoverTooltip");
   if (tooltip) tooltip.hidden = true;
 }
 
 function attachTableHoverTooltip(element, dataKey) {
   element.addEventListener("mouseenter", () => showTableHoverTooltip(element, dataKey));
-  element.addEventListener("mouseleave", hideTableHoverTooltip);
+  element.addEventListener("mouseleave", () => {
+    if (dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip") {
+      tableHoverHideTimer = setTimeout(hideTableHoverTooltip, 180);
+    } else {
+      hideTableHoverTooltip();
+    }
+  });
   element.addEventListener("focus", () => showTableHoverTooltip(element, dataKey));
   element.addEventListener("blur", hideTableHoverTooltip);
 }
@@ -16312,8 +16340,7 @@ function customerDocumentInfoForRecord(record) {
       if (!key || seenLines.has(key)) return false;
       seenLines.add(key);
       return true;
-    })
-    .slice(0, 4);
+    });
 
   if (!matches.length) return null;
   const hasUncertainMatch = matches.some((match) => match.uncertain);
