@@ -4864,6 +4864,63 @@ h2 {
   margin-top: 16px;
 }
 
+.order-payment-summary,
+.order-payment-print {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 18px;
+  padding-top: 12px;
+  border-top: 1px solid #cbdadd;
+}
+
+.order-payment-summary {
+  margin-top: 14px;
+}
+
+.order-payment-summary p,
+.order-payment-print p,
+.order-payment-summary label {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+}
+
+.order-payment-summary span,
+.order-payment-print span {
+  color: #52656b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.order-payment-summary strong,
+.order-payment-print strong {
+  color: #003f5a;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.order-payment-summary input {
+  width: 100%;
+  max-width: 170px;
+  min-height: 36px;
+}
+
+.order-payment-print {
+  margin-top: 12px;
+  break-inside: avoid;
+}
+
+.order-payment-warning {
+  margin: 7px 0 0;
+  color: #a0353f;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.order-payment-warning[hidden] { display: none; }
+
 .order-doc-grid p:nth-child(3) {
   grid-column: span 2;
 }
@@ -12330,6 +12387,7 @@ textarea {
   .loan-form-grid,
   .pcpr-form-grid,
   .order-form-grid,
+  .order-payment-summary,
   .complaint-form-grid,
   .complaint-product-grid,
   .complaint-device-picker,
@@ -12690,6 +12748,7 @@ textarea {
     .loan-form-grid,
     .pcpr-form-grid,
     .order-form-grid,
+    .order-payment-summary,
     .complaint-form-grid,
   .complaint-product-grid,
   .complaint-device-picker,
@@ -13222,6 +13281,19 @@ textarea {
     border-radius: 0;
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+
+  body.pricing-order-print .order-payment-print,
+  body.offline-printing #offlinePrint .order-payment-print {
+    margin-top: 3mm;
+    padding-top: 2mm;
+    gap: 2mm;
+    break-inside: avoid;
+  }
+
+  body.pricing-order-print .order-payment-print :is(span, strong),
+  body.offline-printing #offlinePrint .order-payment-print :is(span, strong) {
+    font-size: 8pt;
   }
 
   body.pricing-order-print .offer-document-head {
