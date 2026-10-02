@@ -834,6 +834,10 @@ const orderModelUsage = new Map();
 let orderModelSuggestionCandidates = [];
 const orderLocationInput = document.querySelector("#orderLocationInput");
 const orderNotesInput = document.querySelector("#orderNotesInput");
+const orderDepositInput = document.querySelector("#orderDepositInput");
+const orderTotalAmount = document.querySelector("#orderTotalAmount");
+const orderRemainingAmount = document.querySelector("#orderRemainingAmount");
+const orderPaymentWarning = document.querySelector("#orderPaymentWarning");
 const orderItemsFormBody = document.querySelector("#orderItemsFormBody");
 const addOrderItemBtn = document.querySelector("#addOrderItemBtn");
 const orderCopyOfferBtn = document.querySelector("#orderCopyOfferBtn");
@@ -10797,6 +10801,10 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Data", formatDate(saved.date));
     appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
     appendPricingHistoryPreviewField(summary, "Miejsce", pricingHistoryEntryLocationValue(saved, "order"));
+    const payment = pricingOrderPaymentSummary(saved.items, saved.deposit);
+    appendPricingHistoryPreviewField(summary, "Wartość zamówienia", payment.total === "" ? "Do wyceny" : formatServiceCost(payment.total));
+    appendPricingHistoryPreviewField(summary, "Zadatek", formatServiceCost(payment.deposit === "" ? 0 : payment.deposit));
+    appendPricingHistoryPreviewField(summary, "Pozostało do zapłaty", payment.remaining === "" ? "Do wyceny" : formatServiceCost(payment.remaining));
     appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
     saved.items.forEach((item, index) => {
       const row = document.createElement("p");
@@ -10934,6 +10942,7 @@ function restorePricingOrderFromHistory(entry) {
   setPricingOrderPatientGroup(saved.patientGroup);
   if (orderLocationInput) orderLocationInput.value = normalizeDocumentLocationValue(pricingHistoryEntryLocationValue(saved, "order"));
   if (orderNotesInput) orderNotesInput.value = saved.notes;
+  if (orderDepositInput) orderDepositInput.value = saved.deposit === "" ? "" : formatPricingAmount(saved.deposit, " ");
   setDateInputValue(orderDateInput, saved.date);
   clearPricingOrderRows();
   (saved.items.length ? saved.items : [{}]).forEach((savedItem) => addPricingOrderItemRow(savedItem));
@@ -13274,6 +13283,7 @@ function normalizePricingOrderHistoryEntry(entry) {
     patientGroup: ["adult", "child"].includes(entry.patientGroup) ? entry.patientGroup : "",
     location: normalizeLoanHistoryText(entry.location) ? normalizeDocumentLocationValue(entry.location) : "",
     notes: normalizeLoanHistoryText(entry.notes),
+    deposit: normalizeServiceCost(entry.deposit),
     items
   };
   return normalizedEntry.number || normalizedEntry.customer || normalizedEntry.items.length ? normalizedEntry : null;
@@ -13486,6 +13496,19 @@ function pricingOrderFormItems({ includeBlank = false } = {}) {
     .filter((item) => item && (includeBlank || pricingOrderItemHasContent(item)));
 }
 
+function pricingOrderPaymentSummary(items, depositValue) {
+  const normalizedItems = (items || []).map(normalizePricingOrderItem).filter(Boolean);
+  const total = normalizedItems.length && normalizedItems.every((item) => item.cost !== "")
+    ? pricingOrderTotalCost(normalizedItems) : "";
+  const depositText = String(depositValue ?? "").trim();
+  const deposit = normalizeServiceCost(depositText);
+  const invalid = depositText !== "" && deposit === "";
+  const tooHigh = total !== "" && deposit !== "" && deposit > total;
+  const remaining = total === "" || invalid || tooHigh ? ""
+    : Math.round((total - (deposit === "" ? 0 : deposit)) * 100) / 100;
+  return { total, deposit, remaining, invalid, tooHigh };
+}
+
 function currentPricingOrderSnapshot() {
   ensurePricingOrderDefaults();
   const now = new Date().toISOString();
@@ -13502,6 +13525,7 @@ function currentPricingOrderSnapshot() {
     patientGroup: pricingOrderPatientGroup(),
     location: normalizeDocumentLocationValue(orderInputValue(orderLocationInput)),
     notes: orderInputValue(orderNotesInput),
+    deposit: orderInputValue(orderDepositInput),
     items: pricingOrderFormItems()
   };
 }
@@ -13536,6 +13560,12 @@ async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
     }
     if (pricingOrderItemsMissingRequiredSide(snapshot.items)) {
       if (!silent) alert("Wybierz stronę P lub L dla każdej wkładki.");
+      return null;
+    }
+    const payment = pricingOrderPaymentSummary(snapshot.items, orderDepositInput?.value);
+    if (payment.invalid || payment.tooHigh) {
+      alert(payment.invalid ? "Wpisz poprawną kwotę zadatku." : "Zadatek nie może być wyższy niż wartość zamówienia.");
+      orderDepositInput?.focus();
       return null;
     }
     const now = new Date().toISOString();
@@ -14386,6 +14416,15 @@ function renderPricingOrder() {
   const customer = titleCaseName(orderInputValue(orderCustomerInput));
   const items = pricingOrderFormItems();
   const missingRequiredSide = pricingOrderItemsMissingRequiredSide(items);
+  const payment = pricingOrderPaymentSummary(items, orderDepositInput?.value);
+  const paymentError = payment.invalid ? "Wpisz poprawną kwotę zadatku."
+    : payment.tooHigh ? "Zadatek nie może być wyższy niż wartość zamówienia." : "";
+  if (orderTotalAmount) orderTotalAmount.textContent = payment.total === "" ? "Do wyceny" : formatServiceCost(payment.total);
+  if (orderRemainingAmount) orderRemainingAmount.textContent = payment.remaining === "" ? "Do wyceny" : formatServiceCost(payment.remaining);
+  if (orderPaymentWarning) {
+    orderPaymentWarning.textContent = paymentError;
+    orderPaymentWarning.hidden = !paymentError;
+  }
 
   if (orderTitle) orderTitle.textContent = customer ? `Zamówienie dla ${customer}` : "Zamówienie";
   if (orderMeta) orderMeta.textContent = `Nr: ${orderInputValue(orderNumberInput) || "-"} | Data: ${dateText || "-"}`;
@@ -14395,11 +14434,14 @@ function renderPricingOrder() {
   setOrderOutput("phone", orderInputValue(orderPhoneInput));
   setOrderOutput("location", normalizeDocumentLocationValue(orderInputValue(orderLocationInput)));
   setOrderOutput("notes", orderInputValue(orderNotesInput));
+  setOrderOutput("total", payment.total === "" ? "Do wyceny" : formatServiceCost(payment.total));
+  setOrderOutput("deposit", formatServiceCost(payment.deposit === "" ? 0 : payment.deposit));
+  setOrderOutput("remaining", payment.remaining === "" ? "Do wyceny" : formatServiceCost(payment.remaining));
 
   const hasItems = items.length > 0;
   if (orderEmptyState) orderEmptyState.hidden = hasItems;
   if (orderContent) orderContent.hidden = !hasItems;
-  if (printPricingOrderBtn) printPricingOrderBtn.disabled = !hasItems || missingRequiredSide;
+  if (printPricingOrderBtn) printPricingOrderBtn.disabled = !hasItems || missingRequiredSide || Boolean(paymentError);
   if (orderSideWarning) orderSideWarning.hidden = !missingRequiredSide;
   if (savePricingOrderBtn) savePricingOrderBtn.classList.toggle("order-side-required", missingRequiredSide);
   renderPricingOrderItems(items);
@@ -14442,7 +14484,7 @@ function resetPricingOrderForm() {
   documentDraftIdentities.delete("order");
   setDocumentCustomerNameValidity(orderCustomerInput, true);
   setPricingOrderPatientGroup("");
-  [orderCustomerInput, orderPhoneInput, orderNotesInput].forEach((input) => {
+  [orderCustomerInput, orderPhoneInput, orderNotesInput, orderDepositInput].forEach((input) => {
     if (input) input.value = "";
   });
   if (orderLocationInput) orderLocationInput.value = suggestedDocumentLocation();
@@ -24854,10 +24896,15 @@ orderDateInput?.addEventListener("change", () => {
   orderDateInput,
   orderPhoneInput,
   orderLocationInput,
-  orderNotesInput
+  orderNotesInput,
+  orderDepositInput
 ].forEach((input) => {
   input?.addEventListener("input", renderPricingOrder);
   input?.addEventListener("change", renderPricingOrder);
+});
+orderDepositInput?.addEventListener("change", () => {
+  const amount = normalizeServiceCost(orderDepositInput.value);
+  if (amount !== "") orderDepositInput.value = formatPricingAmount(amount, " ");
 });
 orderCustomerInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);

@@ -157,6 +157,26 @@ test('RODO print names distinct legal bases and keeps optional consents separate
   assert.match(css, /\.rodo-signatures \{\s*display: flex; flex-wrap: wrap;/);
 });
 
+test('order deposit and remaining balance stay consistent in form, print, and calculation', () => {
+  for (const id of ['orderDepositInput', 'orderTotalAmount', 'orderRemainingAmount']) {
+    assert.ok(html.includes(`id="${id}"`), id);
+  }
+  for (const field of ['total', 'deposit', 'remaining']) {
+    assert.ok(html.includes(`data-order-out="${field}"`), field);
+  }
+  const context = vm.createContext({ normalizePricingOrderItem: item => item });
+  for (const name of ['normalizePricingPrice', 'normalizeServiceCost', 'pricingOrderTotalCost', 'pricingOrderPaymentSummary']) {
+    vm.runInContext(extract(name), context);
+  }
+  const payment = context.pricingOrderPaymentSummary([
+    { cost: 4000, quantity: '1' }, { cost: 250.25, quantity: '2' }
+  ], '500,50');
+  assert.equal(payment.total, 4500.5);
+  assert.equal(payment.remaining, 4000);
+  assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }, { cost: '', quantity: '1' }], '200').remaining, '');
+  assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }], '1000,01').tooHigh, true);
+});
+
 test('offer notes appear on the printout and survive a history round trip', () => {
   const offerView = html.slice(html.indexOf('id="pricingOfferView"'), html.indexOf('id="pricingLoanView"'));
   assert.match(offerView, /id="offerNotesInput"[^>]*maxlength="300"/);

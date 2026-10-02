@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261002-6">
+  <link rel="stylesheet" href="styles.css?v=20261002-7">
   </head>
   <body>
     <main class="app-shell">
@@ -1488,6 +1488,13 @@
                 <p id="orderSideWarning" class="order-side-warning" hidden>Wybierz stronę P lub L dla każdej wkładki.</p>
               </div>
 
+              <div class="order-payment-summary" aria-label="Rozliczenie zamówienia">
+                <p><span>Wartość zamówienia</span><strong id="orderTotalAmount">Do wyceny</strong></p>
+                <label><span>Zadatek</span><input id="orderDepositInput" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00 zł"></label>
+                <p><span>Pozostało do zapłaty</span><strong id="orderRemainingAmount">Do wyceny</strong></p>
+              </div>
+              <p id="orderPaymentWarning" class="order-payment-warning" role="alert" hidden></p>
+
               <datalist id="pricingOrderModelList"></datalist>
               <label class="order-notes-field">
                 <span>Uwagi</span>
@@ -1541,6 +1548,11 @@
                     <tbody id="orderItemsBody"></tbody>
                   </table>
                 </section>
+                <div class="order-payment-print" aria-label="Rozliczenie zamówienia">
+                  <p><span>Wartość zamówienia</span><strong data-order-out="total">Do wyceny</strong></p>
+                  <p><span>Zadatek</span><strong data-order-out="deposit">0 zł</strong></p>
+                  <p><span>Pozostało do zapłaty</span><strong data-order-out="remaining">Do wyceny</strong></p>
+                </div>
                 <p class="order-print-notes"><strong>Uwagi:</strong> <span data-order-out="notes">-</span></p>
                 <section class="order-signatures" aria-label="Podpisy zamówienia">
                   <p><span>Przyjmujący zamówienie</span><strong>data i podpis</strong></p>
@@ -2989,11 +3001,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261002-6"></script>
-    <script src="data-layer.js?v=20261002-6"></script>
-    <script src="sync-layer.js?v=20261002-6"></script>
-    <script src="offline-vault.js?v=20261002-6"></script>
-    <script src="offline-forms.js?v=20261002-6"></script>
-  <script src="app.js?v=20261002-6"></script>
+    <script src="supabase-config.js?v=20261002-7"></script>
+    <script src="data-layer.js?v=20261002-7"></script>
+    <script src="sync-layer.js?v=20261002-7"></script>
+    <script src="offline-vault.js?v=20261002-7"></script>
+    <script src="offline-forms.js?v=20261002-7"></script>
+  <script src="app.js?v=20261002-7"></script>
   </body>
 </html>
