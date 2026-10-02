@@ -1,5 +1,5 @@
 {
-  "app_version": "20261002-10",
+  "app_version": "20261002-11",
   "asset_policy_sha256": "b43e5bc012a98ca5206a7074b68aabf611f47b6d16fdd606b10f965b05293318",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1508083,
-      "sha256": "90e64c21bc95ed27fb5b8434adfb51e3a00b4a13dfe65b03de17868d40b85a49"
+      "bytes": 1510009,
+      "sha256": "5d6b1b8ec023c7622bc6aebc9f88d8252edcca6e6a944919617c031d9f40e3b4"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -43,8 +43,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 381390,
-      "sha256": "458b4c025e6d72dd70a15b1fdab2f9b116b02b281b6a4f6094d370513beed1b0"
+      "bytes": 381492,
+      "sha256": "1e17220354f01fb6b872abbf9835e9550a422ead07a9fe8d63e790e3cec6f396"
     },
     "manufacturer-logos/audibel.png": {
       "bytes": 30416,
@@ -112,7 +112,7 @@
     },
     "offline-sw.js": {
       "bytes": 3114,
-      "sha256": "2906c3a33f2df85bd6103ecc34b509206249ff40ef49feacca3bcb67de069e9e"
+      "sha256": "291ae7aac62184a8603e4e92ac6b085889714abcefaea0226cf51488b99f0003"
     },
     "offline-vault.js": {
       "bytes": 5614,
@@ -124,7 +124,7 @@
     },
     "styles.css": {
       "bytes": 307994,
-      "sha256": "4744b34bdacab8c909fafadf799e6393301cf6bf3c328f74ad9b5fa4308b8480"
+      "sha256": "78f5d35bd13326db86523e06b9e0d014a87f326fc9cc711b43a7e2388ae9e758"
     },
     "supabase-config.js": {
       "bytes": 227,

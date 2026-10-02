@@ -10942,7 +10942,10 @@ function restorePricingOrderFromHistory(entry) {
   setPricingOrderPatientGroup(saved.patientGroup);
   if (orderLocationInput) orderLocationInput.value = normalizeDocumentLocationValue(pricingHistoryEntryLocationValue(saved, "order"));
   if (orderNotesInput) orderNotesInput.value = saved.notes;
-  if (orderDepositInput) orderDepositInput.value = saved.deposit === "" ? "" : formatPricingAmount(saved.deposit, " ");
+  if (orderDepositInput) {
+    orderDepositInput.value = saved.deposit === "" ? "" : formatPricingAmount(saved.deposit, " ");
+    orderDepositInput.dataset.manualDeposit = "1";
+  }
   setDateInputValue(orderDateInput, saved.date);
   clearPricingOrderRows();
   (saved.items.length ? saved.items : [{}]).forEach((savedItem) => addPricingOrderItemRow(savedItem));
@@ -13509,6 +13512,17 @@ function pricingOrderPaymentSummary(items, depositValue) {
   return { total, deposit, remaining, invalid, tooHigh };
 }
 
+function pricingOrderWaterproofCost(itemNotes, orderNotes) {
+  return /\bbrokat\w*/i.test(`${itemNotes || ""} ${orderNotes || ""}`) ? 210 : 200;
+}
+
+function pricingOrderSuggestedDeposit(items) {
+  const normalizedItems = (items || []).map(normalizePricingOrderItem).filter(Boolean);
+  if (!normalizedItems.some((item) => item.type === "WKŁADKA PRZECIWWODNA")) return "";
+  const payment = pricingOrderPaymentSummary(normalizedItems, "");
+  return payment.total === "" ? "" : Math.round(payment.total * 50) / 100;
+}
+
 function currentPricingOrderSnapshot() {
   ensurePricingOrderDefaults();
   const now = new Date().toISOString();
@@ -14296,7 +14310,8 @@ function syncPricingOrderCostForType(row, { modelChanged = false } = {}) {
   }
 
   const isDevice = type === "APARAT SŁUCHOWY";
-  const nextCostKind = isDevice ? "device" : "earmold";
+  const isWaterproof = type === "WKŁADKA PRZECIWWODNA";
+  const nextCostKind = isDevice ? "device" : isWaterproof ? "waterproof" : "earmold";
   if (costCell.dataset.costKind && costCell.dataset.costKind !== nextCostKind) {
     costInput.value = "";
     delete costInput.dataset.autoPrice;
@@ -14304,6 +14319,19 @@ function syncPricingOrderCostForType(row, { modelChanged = false } = {}) {
   costInput.setAttribute("aria-label", isDevice ? "Koszt aparatu" : "Koszt wkładki");
   costInput.placeholder = isDevice ? "Cena z cennika" : "0,00";
   costCell.dataset.costKind = nextCostKind;
+
+  if (isWaterproof) {
+    const price = pricingOrderWaterproofCost(row.querySelector("[data-order-field='notes']")?.value, orderNotesInput?.value);
+    const currentCost = normalizeServiceCost(costInput.value);
+    if (!costInput.value.trim() || costInput.dataset.autoPrice === "1" || currentCost === price) {
+      costInput.value = formatPricingAmount(price, " ");
+      costInput.dataset.autoPrice = "1";
+      costInput.title = "Wkładka przeciwwodna: 200 zł, brokat: +10 zł";
+    } else {
+      costInput.title = "Koszt wpisany ręcznie";
+    }
+    return;
+  }
 
   if (!isDevice) {
     if (costInput.dataset.autoPrice === "1") costInput.value = "";
@@ -14347,6 +14375,7 @@ function handlePricingOrderItemsInput(event) {
       event.target.value = amount === "" ? "" : formatPricingAmount(amount, " ");
     }
   }
+  if (event.target.matches?.("[data-order-field='notes']")) syncPricingOrderCostForType(row);
   renderPricingOrder();
 }
 
@@ -14416,6 +14445,10 @@ function renderPricingOrder() {
   const customer = titleCaseName(orderInputValue(orderCustomerInput));
   const items = pricingOrderFormItems();
   const missingRequiredSide = pricingOrderItemsMissingRequiredSide(items);
+  if (orderDepositInput && orderDepositInput.dataset.manualDeposit !== "1") {
+    const suggestedDeposit = pricingOrderSuggestedDeposit(items);
+    orderDepositInput.value = suggestedDeposit === "" ? "" : formatPricingAmount(suggestedDeposit, " ");
+  }
   const payment = pricingOrderPaymentSummary(items, orderDepositInput?.value);
   const paymentError = payment.invalid ? "Wpisz poprawną kwotę zadatku."
     : payment.tooHigh ? "Zadatek nie może być wyższy niż wartość zamówienia." : "";
@@ -14487,6 +14520,7 @@ function resetPricingOrderForm() {
   [orderCustomerInput, orderPhoneInput, orderNotesInput, orderDepositInput].forEach((input) => {
     if (input) input.value = "";
   });
+  if (orderDepositInput) delete orderDepositInput.dataset.manualDeposit;
   if (orderLocationInput) orderLocationInput.value = suggestedDocumentLocation();
   if (orderDateInput) setDateInputValue(orderDateInput, todayInputValue());
   clearPricingOrderRows();
@@ -24903,6 +24937,12 @@ orderNumberInput?.addEventListener("input", () => {
 orderDateInput?.addEventListener("change", () => {
   if (orderNumberInput?.dataset.autoNumber === "1") ensurePricingOrderNumber({ force: true });
   renderPricingOrder();
+});
+orderDepositInput?.addEventListener("input", () => {
+  orderDepositInput.dataset.manualDeposit = "1";
+});
+orderNotesInput?.addEventListener("input", () => {
+  orderItemsFormBody?.querySelectorAll("[data-order-row]").forEach((row) => syncPricingOrderCostForType(row));
 });
 [
   orderNumberInput,
