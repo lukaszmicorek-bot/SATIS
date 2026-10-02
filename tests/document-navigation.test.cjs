@@ -140,6 +140,7 @@ test('document tabs form two separate styled groups without changing their roles
 
 test('RODO print names distinct legal bases and keeps optional consents separate', () => {
   const print = html.slice(html.indexOf('id="pricingRodoPrint"'), html.indexOf('id="pricingPcprView"'));
+  assert.equal((print.match(/<article class="rodo-page">/g) || []).length, 2);
   assert.match(print, /Podstawy prawne przetwarzania/);
   for (const basis of ['art. 6 ust. 1 lit. b RODO', 'art. 6 ust. 1 lit. c RODO',
     'art. 6 ust. 1 lit. f RODO', 'art. 9 ust. 2 lit. a RODO', 'art. 9 ust. 2 lit. f RODO', 'art. 398 ust. 1']) {
@@ -151,6 +152,9 @@ test('RODO print names distinct legal bases and keeps optional consents separate
   assert.doesNotMatch(print, /art\. 9 ust\. 2 lit\. h RODO|20 lat|dokumentacji medycznej/);
   assert.match(print, /Bez zgody na przetwarzanie danych dotyczących zdrowia nie możemy wykonać tych usług/);
   assert.match(print, /Informacja dla klienta/);
+  const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+  assert.match(css, /@page rodoPage \{ size: A4 portrait;/);
+  assert.match(css, /\.rodo-signatures \{\s*display: flex; flex-wrap: wrap;/);
 });
 
 test('offer notes appear on the printout and survive a history round trip', () => {
