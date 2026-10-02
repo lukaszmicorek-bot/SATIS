@@ -20929,9 +20929,7 @@ function updateVacationAccessMessage() {
   const message = document.querySelector?.("#vacationAccessMessage");
   const unmapped = !canViewPrivateModules() && !vacationMyEmployeeId();
   if (message) {
-    message.textContent = loadVacationData.error || (unmapped
-      ? "Kalendarz i pozostały urlop są dostępne. Aby wysłać wniosek i zobaczyć własne szczegóły, zaloguj się na osobiste konto przypisane przez SATIS do pracownika. Wspólne konto gabinet i wybór stanowiska nie potwierdzają tożsamości."
-      : "");
+    message.textContent = loadVacationData.error || "";
     message.hidden = !message.textContent;
   }
   if (submitVacationRequestBtn) submitVacationRequestBtn.disabled = Boolean(submitVacationRequest.pending || unmapped || loadVacationData.error);
