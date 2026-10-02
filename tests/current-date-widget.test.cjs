@@ -91,6 +91,29 @@ test('Header calendar limits clinic workstations and gives ML all events with a 
   assert.equal(context.filterCurrentDateEvents(events, 'P63').get('2026-10-02')[0].label, 'Umowa');
   assert.equal(context.filterCurrentDateEvents(events, 'UNASSIGNED').get('2026-10-02')[0].label, 'Bez miejsca');
   assert.equal(context.filterCurrentDateEvents(events, 'NONE').size, 0);
-  assert.match(extract('createCurrentDateCalendar'), /filterCurrentDateEvents\(currentDateUpcomingEvents\(date\), scope\.location\)/);
+  assert.match(extract('createCurrentDateCalendar'), /filterCurrentDateEvents\(currentDateUpcomingEvents\(range\.firstDay, range\.rangeDays\), scope\.location\)/);
   assert.match(extract('createCurrentDateCalendar'), /\["UNASSIGNED", "Bez miejsca"\]/);
+});
+
+test('Header calendar can browse complete months across year boundaries', () => {
+  const context = vm.createContext({
+    isoDateFromParts: (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  });
+  for (const name of ['offsetCurrentDateMonth', 'currentDateCalendarRange']) vm.runInContext(extract(name), context);
+  assert.equal(context.offsetCurrentDateMonth('2026-12', 1), '2027-01');
+  assert.equal(context.offsetCurrentDateMonth('2026-01', -1), '2025-12');
+  const otherMonth = context.currentDateCalendarRange(new Date(2026, 9, 2), '2026-02');
+  assert.equal(otherMonth.days, 28);
+  assert.equal(otherMonth.rangeDays, 27);
+  assert.equal(otherMonth.isCurrentMonth, false);
+  const currentMonth = context.currentDateCalendarRange(new Date(2026, 9, 2), '2026-10');
+  assert.equal(currentMonth.days, 31);
+  assert.equal(currentMonth.rangeDays, 46);
+  assert.equal(currentMonth.isCurrentMonth, true);
+  assert.match(extract('createCurrentDateCalendar'), /currentDateUpcomingEvents\(range\.firstDay, range\.rangeDays\)/);
+  assert.match(extract('createCurrentDateCalendar'), /Poprzedni miesiąc/);
+  assert.match(extract('createCurrentDateCalendar'), /Następny miesiąc/);
+  assert.match(extract('createCurrentDateCalendar'), /Wydarzenia w miesiącu/);
+  assert.match(extract('setupCurrentDateWidget'), /currentDateViewedMonth = ""/);
+  assert.match(css, /\.current-date-calendar-navigation\s*\{/);
 });
