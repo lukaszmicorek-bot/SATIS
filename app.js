@@ -23348,6 +23348,29 @@ function currentDateEventSummary(events) {
 }
 
 let currentDateLocationFilter = "ALL";
+let currentDateViewedMonth = "";
+
+function offsetCurrentDateMonth(isoMonth, offset) {
+  const [year, month] = String(isoMonth || "").split("-").map(Number);
+  if (!year || !month) return "";
+  const target = new Date(year, month - 1 + offset, 1);
+  return isoDateFromParts(target.getFullYear(), target.getMonth() + 1, 1).slice(0, 7);
+}
+
+function currentDateCalendarRange(today, viewedMonth) {
+  const [year, month] = viewedMonth.split("-").map(Number);
+  const days = new Date(year, month, 0).getDate();
+  const currentMonth = isoDateFromParts(today.getFullYear(), today.getMonth() + 1, 1).slice(0, 7);
+  const isCurrentMonth = viewedMonth === currentMonth;
+  return {
+    year,
+    monthIndex: month - 1,
+    days,
+    isCurrentMonth,
+    firstDay: new Date(year, month - 1, 1),
+    rangeDays: isCurrentMonth ? Math.max(days - 1, today.getDate() - 1 + 45) : days - 1
+  };
+}
 
 function currentDateEventScope() {
   const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
@@ -23368,10 +23391,43 @@ function filterCurrentDateEvents(events, location) {
 
 function createCurrentDateCalendar(date = new Date()) {
   const calendar = document.createDocumentFragment();
+  const today = isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const viewedMonth = currentDateViewedMonth || today.slice(0, 7);
+  const range = currentDateCalendarRange(date, viewedMonth);
   const scope = currentDateEventScope();
-  const upcomingEvents = filterCurrentDateEvents(currentDateUpcomingEvents(date), scope.location);
+  const upcomingEvents = filterCurrentDateEvents(currentDateUpcomingEvents(range.firstDay, range.rangeDays), scope.location);
+  const navigation = document.createElement("div");
+  navigation.className = "current-date-calendar-navigation";
   const title = document.createElement("h3");
-  title.textContent = date.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  title.textContent = range.firstDay.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  const monthButton = (offset, label, symbol) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "current-date-month-button";
+    button.dataset.calendarMonthMove = String(offset);
+    button.setAttribute("aria-label", label);
+    button.textContent = symbol;
+    button.addEventListener("click", () => {
+      currentDateViewedMonth = offsetCurrentDateMonth(viewedMonth, offset);
+      hideTableHoverTooltip();
+      refreshCurrentDateWidget(new Date(), true);
+      document.querySelector(`#currentDateCalendar [data-calendar-month-move="${offset}"]`)?.focus();
+    });
+    return button;
+  };
+  const todayButton = document.createElement("button");
+  todayButton.type = "button";
+  todayButton.className = "current-date-today-button";
+  todayButton.textContent = "Dziś";
+  todayButton.hidden = range.isCurrentMonth;
+  todayButton.addEventListener("click", () => {
+    currentDateViewedMonth = "";
+    hideTableHoverTooltip();
+    refreshCurrentDateWidget(new Date(), true);
+    document.querySelector("#currentDateCalendar [data-calendar-month-move=\"-1\"]")?.focus();
+  });
+  navigation.append(monthButton(-1, "Poprzedni miesiąc", "‹"), title, todayButton,
+    monthButton(1, "Następny miesiąc", "›"));
   const scopeControls = document.createElement("div");
   scopeControls.className = "current-date-location-controls";
   if (scope.isMl) {
@@ -23385,6 +23441,7 @@ function createCurrentDateCalendar(date = new Date()) {
       button.textContent = label;
       button.addEventListener("click", () => {
         currentDateLocationFilter = key;
+        hideTableHoverTooltip();
         refreshCurrentDateWidget(new Date(), true);
         document.querySelector(`#currentDateCalendar [data-calendar-location="${key}"]`)?.focus();
       });
@@ -23405,16 +23462,15 @@ function createCurrentDateCalendar(date = new Date()) {
     label.textContent = weekday;
     grid.append(label);
   });
-  const year = date.getFullYear();
-  const month = date.getMonth();
+  const year = range.year;
+  const month = range.monthIndex;
   const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
   for (let index = 0; index < firstWeekday; index += 1) {
     const empty = document.createElement("span");
     empty.className = "empty";
     grid.append(empty);
   }
-  const today = isoDateFromParts(year, month + 1, date.getDate());
-  const days = new Date(year, month + 1, 0).getDate();
+  const days = range.days;
   for (let day = 1; day <= days; day += 1) {
     const item = document.createElement("span");
     const itemDate = new Date(year, month, day);
@@ -23459,7 +23515,7 @@ function createCurrentDateCalendar(date = new Date()) {
   const upcoming = document.createElement("section");
   upcoming.className = "current-date-upcoming";
   const upcomingTitle = document.createElement("strong");
-  upcomingTitle.textContent = "Najbliższe 7 dni";
+  upcomingTitle.textContent = range.isCurrentMonth ? "Najbliższe 7 dni" : "Wydarzenia w miesiącu";
   upcoming.append(upcomingTitle);
   const nextEvents = [...upcomingEvents]
     .flatMap(([isoDate, events]) => {
@@ -23478,8 +23534,10 @@ function createCurrentDateCalendar(date = new Date()) {
       }));
     });
   const weekEnd = addDaysToIsoDate(today, 6);
-  const nearEvents = nextEvents.filter(event => event.isoDate <= weekEnd);
-  const laterEvents = nextEvents.filter(event => event.isoDate > weekEnd);
+  const nearEvents = range.isCurrentMonth
+    ? nextEvents.filter(event => event.isoDate >= today && event.isoDate <= weekEnd)
+    : nextEvents;
+  const laterEvents = range.isCurrentMonth ? nextEvents.filter(event => event.isoDate > weekEnd) : [];
   const appendEventRow = (container, event) => {
     const row = document.createElement("span");
     row.className = `current-date-upcoming-row ${event.kind}`;
@@ -23508,7 +23566,7 @@ function createCurrentDateCalendar(date = new Date()) {
   if (!nearEvents.length) {
     const empty = document.createElement("span");
     empty.className = "current-date-upcoming-empty";
-    empty.textContent = "Brak terminów w najbliższym tygodniu";
+    empty.textContent = range.isCurrentMonth ? "Brak terminów w najbliższym tygodniu" : "Brak wydarzeń w tym miesiącu";
     upcoming.append(empty);
   }
   nearEvents.forEach(event => appendEventRow(upcoming, event));
@@ -23523,7 +23581,7 @@ function createCurrentDateCalendar(date = new Date()) {
     later.append(laterSummary, laterList);
     upcoming.append(later);
   }
-  calendar.append(title, scopeControls, grid, upcoming);
+  calendar.append(navigation, scopeControls, grid, upcoming);
   return calendar;
 }
 
@@ -23552,7 +23610,7 @@ function refreshCurrentDateWidget(now = new Date(), force = false) {
   if (later) later.open = laterOpen;
   const list = calendar.querySelector(".current-date-upcoming");
   if (list) list.scrollTop = scrollTop;
-  calendar.dataset.month = isoDate.slice(0, 7);
+  calendar.dataset.month = currentDateViewedMonth || isoDate.slice(0, 7);
 }
 
 function setupCurrentDateWidget() {
@@ -23564,6 +23622,7 @@ function setupCurrentDateWidget() {
   const show = () => {
     window.clearTimeout(closeTimer);
     if (!calendar.hidden) return;
+    currentDateViewedMonth = "";
     refreshCurrentDateWidget();
     calendar.hidden = false;
     button.setAttribute("aria-expanded", "true");

@@ -325,11 +325,53 @@ button.danger:hover {
 }
 
 .current-date-calendar h3 {
-  margin: 0 0 9px;
+  margin: 0;
   color: #003f5a;
   font-size: 0.82rem;
   text-align: center;
   text-transform: capitalize;
+}
+
+.current-date-calendar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.current-date-calendar-navigation h3 {
+  flex: 1;
+}
+
+.current-date-month-button,
+.current-date-today-button {
+  flex: 0 0 auto;
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid #d5e0e2;
+  border-radius: 6px;
+  color: #003f5a;
+  background: #f5f8f8;
+  cursor: pointer;
+}
+
+.current-date-month-button {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.current-date-today-button {
+  padding: 0 7px;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.current-date-month-button:hover,
+.current-date-month-button:focus-visible,
+.current-date-today-button:hover,
+.current-date-today-button:focus-visible {
+  border-color: #6ca5a4;
+  background: #e7f3f1;
 }
 
 .current-date-location-controls {
