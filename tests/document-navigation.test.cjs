@@ -177,6 +177,13 @@ test('order deposit and remaining balance stay consistent in form, print, and ca
   assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }], '1000,01').tooHigh, true);
 });
 
+test('weekend compensation accepts one full day and half-hour steps only for hourly staff', () => {
+  assert.match(html, /id="vacationCompensationAmount"[^>]*min="1" max="1" step="1"/);
+  const update = extract('updateVacationUnitFields');
+  assert.match(update, /compensationAmount\.min = usesHours \? "0\.5" : "1"/);
+  assert.match(update, /compensationAmount\.step = usesHours \? "0\.5" : "1"/);
+});
+
 test('offer notes appear on the printout and survive a history round trip', () => {
   const offerView = html.slice(html.indexOf('id="pricingOfferView"'), html.indexOf('id="pricingLoanView"'));
   assert.match(offerView, /id="offerNotesInput"[^>]*maxlength="300"/);

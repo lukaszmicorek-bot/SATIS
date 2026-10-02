@@ -20550,6 +20550,7 @@ function updateVacationUnitFields() {
   if (compensationField) compensationField.hidden = type !== "ZA WEEKEND";
   const compensationAmount = document.querySelector?.("#vacationCompensationAmount");
   if (compensationAmount) {
+    compensationAmount.min = usesHours ? "0.5" : "1";
     compensationAmount.max = usesHours ? "8" : "1";
     compensationAmount.step = usesHours ? "0.5" : "1";
   }
