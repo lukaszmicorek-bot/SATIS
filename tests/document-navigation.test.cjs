@@ -177,6 +177,23 @@ test('order deposit and remaining balance stay consistent in form, print, and ca
   assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }], '1000,01').tooHigh, true);
 });
 
+test('waterproof inserts include glitter and suggest a 50% deposit without changing other orders', () => {
+  const context = vm.createContext({ normalizePricingOrderItem: item => item });
+  for (const name of ['normalizePricingPrice', 'normalizeServiceCost', 'pricingOrderTotalCost',
+    'pricingOrderPaymentSummary', 'pricingOrderWaterproofCost', 'pricingOrderSuggestedDeposit']) {
+    vm.runInContext(extract(name), context);
+  }
+  assert.equal(context.pricingOrderWaterproofCost('', ''), 200);
+  assert.equal(context.pricingOrderWaterproofCost('Brokat złoty', ''), 210);
+  assert.equal(context.pricingOrderWaterproofCost('', 'kolor: brokat'), 210);
+  const inserts = [{ type: 'WKŁADKA PRZECIWWODNA', cost: 210, quantity: '2' }];
+  assert.equal(context.pricingOrderSuggestedDeposit(inserts), 210);
+  assert.equal(context.pricingOrderPaymentSummary(inserts, '210').remaining, 210);
+  assert.equal(context.pricingOrderSuggestedDeposit([{ type: 'APARAT SŁUCHOWY', cost: 2000, quantity: '1' }]), '');
+  assert.equal(context.pricingOrderSuggestedDeposit([...inserts, { type: 'WKŁADKA USZNA', cost: '', quantity: '1' }]), '');
+  assert.match(html, /Odbiór zamówienia przez klienta<\/span><strong>data i podpis/);
+});
+
 test('weekend compensation accepts one full day and half-hour steps only for hourly staff', () => {
   assert.match(html, /id="vacationCompensationAmount"[^>]*min="1" max="1" step="1"/);
   const update = extract('updateVacationUnitFields');
