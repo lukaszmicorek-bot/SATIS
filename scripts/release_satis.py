@@ -37,6 +37,7 @@ EXTRA_PUBLIC_FILES = {
     ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
     "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
     "tests/customer-phone-tooltip.test.cjs",
+    "tests/current-date-widget.test.cjs",
     "tests/data-layer.test.cjs", "tests/document-navigation.test.cjs",
     "tests/offline-vault.test.cjs", "tests/print-font-readiness.test.cjs",
     "tests/sync-layer.test.cjs",

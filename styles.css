@@ -332,6 +332,51 @@ button.danger:hover {
   text-transform: capitalize;
 }
 
+.current-date-location-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 10px;
+}
+
+.current-date-location-controls button,
+.current-date-location-note {
+  border: 1px solid #d5e0e2;
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: #52676e;
+  background: #f5f8f8;
+  font: inherit;
+  font-size: 0.67rem;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.current-date-location-controls button {
+  cursor: pointer;
+}
+
+.current-date-location-controls button:hover,
+.current-date-location-controls button:focus-visible {
+  border-color: #648f94;
+  color: #003f5a;
+}
+
+.current-date-location-controls button[aria-pressed="true"] {
+  border-color: #2c7f84;
+  color: #003f5a;
+  background: #e7f3f1;
+}
+
+.current-date-location-controls [data-location-tone="T12"],
+.current-date-location-controls [data-calendar-location="T12"][aria-pressed="true"] { border-color: #c9bfb3; color: #6f604f; background: #f8f4ef; }
+.current-date-location-controls [data-location-tone="P50"],
+.current-date-location-controls [data-calendar-location="P50"][aria-pressed="true"] { border-color: #c7cf9d; color: #616b2f; background: #f5f8e9; }
+.current-date-location-controls [data-location-tone="P63"],
+.current-date-location-controls [data-calendar-location="P63"][aria-pressed="true"] { border-color: #d3c1de; color: #7b628b; background: #f8f2fb; }
+
 .current-date-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
