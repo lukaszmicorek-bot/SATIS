@@ -15300,7 +15300,14 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-page li { margin: 0.5mm 0; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-consent-print { margin: 3mm 0; break-inside: avoid; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-choice-line { margin: 1mm 0; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-signatures { margin-top: 4mm; gap: 3mm 5mm; break-inside: avoid; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-signatures {
+    display: flex; flex-wrap: wrap; column-gap: 6mm; row-gap: 3mm;
+    margin-top: 4mm; break-inside: avoid;
+  }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-signatures p {
+    display: block; flex: 0 0 calc(50% - 3mm); min-width: 0; margin: 0;
+  }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-signatures p:last-child { grid-column: auto; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-signatures strong { min-height: 6mm; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-signatures span { font-size: 7.5pt; }
 }
