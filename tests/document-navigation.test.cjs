@@ -184,6 +184,18 @@ test('weekend compensation accepts one full day and half-hour steps only for hou
   assert.match(update, /compensationAmount\.step = usesHours \? "0\.5" : "1"/);
 });
 
+test('weekend work uses the shared calendar and rejected leave days have a separate tone', () => {
+  assert.match(html, /id="vacationCompensationDate" type="text" data-date-picker/);
+  assert.match(extract('editVacationRequest'), /setDateInputValue\(compensationDate, request\.compensationDate\)/);
+  const picker = extract('createDatePickerMonth');
+  assert.match(extract('renderDatePicker'), /weekendWorkCalendar = activeDateInput\?\.id === "vacationCompensationDate"/);
+  assert.match(picker, /weekendWorkCalendar && weekday !== 0 && weekday !== 6/);
+  assert.match(picker, /vacationHolidayBlocked \|\| invalidWeekendWorkDay/);
+  assert.match(extract('renderVacationHistory'), /row\.dataset\.vacationStatus = request\.status/);
+  const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+  assert.match(css, /tr\[data-vacation-status="ODRZUCONY"\] \.vacation-history-days strong/);
+});
+
 test('offer notes appear on the printout and survive a history round trip', () => {
   const offerView = html.slice(html.indexOf('id="pricingOfferView"'), html.indexOf('id="pricingLoanView"'));
   assert.match(offerView, /id="offerNotesInput"[^>]*maxlength="300"/);
