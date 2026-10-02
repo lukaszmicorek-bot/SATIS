@@ -1227,6 +1227,7 @@ function updateConnectionUser(user) {
   updateStockAuditManagementVisibility();
   updatePrivateModulesVisibility();
   updateCustomerRelationsPanelVisibility();
+  if (document.querySelector("#currentDateCalendar")?.hidden === false) refreshCurrentDateWidget(new Date(), true);
   if (["pricing", "pcpr", "history"].includes(activeNotebook)) renderPricingRecords();
 }
 
@@ -23346,11 +23347,56 @@ function currentDateEventSummary(events) {
   return [...counts].map(([text, count]) => count > 1 ? `${text} (${count})` : text).join("\n\n");
 }
 
+let currentDateLocationFilter = "ALL";
+
+function currentDateEventScope() {
+  const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
+  const isMl = canViewPrivateModules() && /(?:^|[^A-Z0-9])ML(?:$|[^A-Z0-9])/u.test(workstation);
+  return {
+    isMl,
+    location: isMl ? currentDateLocationFilter : currentDateLocationKey(workstation) || "NONE"
+  };
+}
+
+function filterCurrentDateEvents(events, location) {
+  if (location === "ALL") return events;
+  return new Map([...events]
+    .map(([date, entries]) => [date, entries.filter((entry) =>
+      location === "UNASSIGNED" ? !entry.location : entry.location === location)])
+    .filter(([, entries]) => entries.length));
+}
+
 function createCurrentDateCalendar(date = new Date()) {
   const calendar = document.createDocumentFragment();
-  const upcomingEvents = currentDateUpcomingEvents(date);
+  const scope = currentDateEventScope();
+  const upcomingEvents = filterCurrentDateEvents(currentDateUpcomingEvents(date), scope.location);
   const title = document.createElement("h3");
   title.textContent = date.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+  const scopeControls = document.createElement("div");
+  scopeControls.className = "current-date-location-controls";
+  if (scope.isMl) {
+    scopeControls.setAttribute("role", "group");
+    scopeControls.setAttribute("aria-label", "Filtruj wydarzenia według miejsca");
+    [["ALL", "Wszystkie"], ["T12", "T12"], ["P50", "P50"], ["P63", "P63"], ["UNASSIGNED", "Bez miejsca"]].forEach(([key, label]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.calendarLocation = key;
+      button.setAttribute("aria-pressed", String(scope.location === key));
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        currentDateLocationFilter = key;
+        refreshCurrentDateWidget(new Date(), true);
+        document.querySelector(`#currentDateCalendar [data-calendar-location="${key}"]`)?.focus();
+      });
+      scopeControls.append(button);
+    });
+  } else {
+    const note = document.createElement("span");
+    note.className = "current-date-location-note";
+    if (scope.location !== "NONE") note.dataset.locationTone = scope.location;
+    note.textContent = scope.location === "NONE" ? "Brak przypisanego stanowiska" : `Miejsce: ${scope.location}`;
+    scopeControls.append(note);
+  }
   const grid = document.createElement("div");
   grid.className = "current-date-calendar-grid";
   ["Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd"].forEach(weekday => {
@@ -23477,11 +23523,11 @@ function createCurrentDateCalendar(date = new Date()) {
     later.append(laterSummary, laterList);
     upcoming.append(later);
   }
-  calendar.append(title, grid, upcoming);
+  calendar.append(title, scopeControls, grid, upcoming);
   return calendar;
 }
 
-function refreshCurrentDateWidget(now = new Date()) {
+function refreshCurrentDateWidget(now = new Date(), force = false) {
   const widget = document.querySelector("#currentDateWidget");
   const button = document.querySelector("#currentDateButton");
   const weekday = document.querySelector("#currentDateWeekday");
@@ -23498,7 +23544,7 @@ function refreshCurrentDateWidget(now = new Date()) {
     updateStats();
   }
   button.setAttribute("aria-label", `Dzisiaj: ${value.textContent}. Pokaż kalendarz.`);
-  if (!calendar.hidden && calendar.contains(document.activeElement)) return;
+  if (!force && !calendar.hidden && calendar.contains(document.activeElement)) return;
   const laterOpen = Boolean(calendar.querySelector(".current-date-later[open]"));
   const scrollTop = calendar.querySelector(".current-date-upcoming")?.scrollTop || 0;
   calendar.replaceChildren(createCurrentDateCalendar(now));
