@@ -3119,6 +3119,11 @@ h2 {
   background: #f1f4df;
 }
 
+.vacation-history-table tr[data-vacation-status="ODRZUCONY"] .vacation-history-days strong {
+  color: #914d58;
+  background: #faeaf0;
+}
+
 .vacation-history-status {
   white-space: normal;
 }
@@ -7996,6 +8001,14 @@ input[aria-invalid="true"] {
   border-color: #c84b3f;
   color: #8f2f24;
   background: #ffe3df;
+}
+
+.date-picker-day.invalid-weekend-work,
+.date-picker-day.invalid-weekend-work:hover {
+  border-color: #e4e7e9;
+  color: #9ca8ad;
+  background: #f4f6f6;
+  cursor: not-allowed;
 }
 
 .date-picker-day.selected {

@@ -20775,6 +20775,7 @@ function renderVacationHistory() {
     const usesHours = vacationRequestUsesHours(request, requestEmployee);
     const row = document.createElement("tr");
     row.dataset.vacationType = request.type;
+    row.dataset.vacationStatus = request.status;
     const employeeCell = document.createElement("td");
     employeeCell.className = "vacation-history-employee";
     employeeCell.textContent = request.employeeName;
@@ -20941,7 +20942,7 @@ function editVacationRequest(id) {
   const compensationAmount = document.querySelector?.("#vacationCompensationAmount");
   const reviewField = document.querySelector?.("#vacationWeekendReviewField");
   const reviewInput = document.querySelector?.("#vacationWeekendReviewInput");
-  if (compensationDate) compensationDate.value = request.compensationDate || "";
+  if (compensationDate) setDateInputValue(compensationDate, request.compensationDate);
   if (compensationAmount) compensationAmount.value = request.compensationAmount || "";
   if (reviewField) reviewField.hidden = !vacationLegacyWeekendNeedsReview(request);
   if (reviewInput) reviewInput.checked = request.weekendReviewAcknowledged;
@@ -24294,16 +24295,17 @@ function renderDatePicker() {
 
   const months = document.createElement("div");
   months.className = "date-picker-months";
+  const weekendWorkCalendar = activeDateInput?.id === "vacationCompensationDate";
   months.append(
-    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum, loanPeriodRange),
-    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum, loanPeriodRange)
+    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar),
+    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar)
   );
 
   picker.replaceChildren(head, hint, months);
   positionDatePicker();
 }
 
-function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null, loanPeriodRange = null) {
+function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null, loanPeriodRange = null, weekendWorkCalendar = false) {
   const month = document.createElement("section");
   month.className = "date-picker-month";
   const selectedIsoDate = selectedDate
@@ -24343,6 +24345,12 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     button.dataset.value = isoDate;
     const weekday = new Date(monthDate.getFullYear(), monthDate.getMonth(), day).getDay();
     if (weekday === 0 || weekday === 6) button.classList.add("weekend");
+    const invalidWeekendWorkDay = weekendWorkCalendar && weekday !== 0 && weekday !== 6;
+    if (invalidWeekendWorkDay) {
+      button.classList.add("invalid-weekend-work");
+      button.setAttribute("aria-disabled", "true");
+      appendDatePickerTitle(button, "Wybierz sobotę lub niedzielę.");
+    }
 
     if (loanPeriodRange && isoDate >= loanPeriodRange.start && isoDate <= loanPeriodRange.end) {
       button.classList.add("loan-period-range");
@@ -24408,7 +24416,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     }
 
     button.addEventListener("click", () => {
-      if (!activeDateInput || vacationHolidayBlocked) return;
+      if (!activeDateInput || vacationHolidayBlocked || invalidWeekendWorkDay) return;
       if (dateMinimum && isoDate < dateMinimum.date) return;
       activeDateInput.value = displayDateForInput(isoDate);
       activeDateInput.dispatchEvent(new Event("input", { bubbles: true }));
