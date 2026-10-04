@@ -8029,6 +8029,23 @@ input[aria-invalid="true"] {
   cursor: not-allowed;
 }
 
+.two-month-picker.weekend-work-picker .date-picker-day.weekend:not(.public-holiday):not(.selected):not(.today) {
+  border-color: #bad5cc;
+  color: #155f53;
+  background: #edf7f2;
+}
+
+.two-month-picker.weekend-work-picker .date-picker-day.weekend:not(.public-holiday):not(.selected):not(.today):hover {
+  border-color: #7fb4a4;
+  background: #e1f2e9;
+}
+
+.two-month-picker.weekend-work-picker .date-picker-day.public-holiday.invalid-weekend-work {
+  border-color: #dfa39b;
+  color: #8f3730;
+  background: #fdece9;
+}
+
 .date-picker-day.selected {
   border-color: var(--accent);
   color: #fff;

@@ -206,10 +206,13 @@ test('weekend work uses the shared calendar and rejected leave days have a separ
   assert.match(extract('editVacationRequest'), /setDateInputValue\(compensationDate, request\.compensationDate\)/);
   const picker = extract('createDatePickerMonth');
   assert.match(extract('renderDatePicker'), /weekendWorkCalendar = activeDateInput\?\.id === "vacationCompensationDate"/);
+  assert.match(extract('renderDatePicker'), /picker\.classList\.toggle\("weekend-work-picker", weekendWorkCalendar\)/);
   assert.match(picker, /weekendWorkCalendar && weekday !== 0 && weekday !== 6/);
   assert.match(picker, /vacationHolidayBlocked \|\| invalidWeekendWorkDay/);
   assert.match(extract('renderVacationHistory'), /row\.dataset\.vacationStatus = request\.status/);
   const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+  assert.match(css, /\.weekend-work-picker \.date-picker-day\.weekend:not\(\.public-holiday\)/);
+  assert.match(css, /\.weekend-work-picker \.date-picker-day\.public-holiday\.invalid-weekend-work/);
   assert.match(css, /tr\[data-vacation-status="ODRZUCONY"\] \.vacation-history-days strong/);
 });
 

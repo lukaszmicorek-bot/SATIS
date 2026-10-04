@@ -24139,6 +24139,8 @@ function activeLoanPeriodRange() {
 
 function renderDatePicker() {
   const picker = ensureDatePicker();
+  const weekendWorkCalendar = activeDateInput?.id === "vacationCompensationDate";
+  picker.classList.toggle("weekend-work-picker", weekendWorkCalendar);
   const selectedDate = parseIsoDate(activeDateInput?.value);
   const today = new Date();
   const currentMonth = new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth(), 1);
@@ -24160,7 +24162,7 @@ function renderDatePicker() {
   });
 
   const title = document.createElement("strong");
-  title.textContent = "Wybierz datę";
+  title.textContent = weekendWorkCalendar ? "Wybierz sobotę lub niedzielę" : "Wybierz datę";
 
   const nextButton = document.createElement("button");
   nextButton.className = "date-picker-nav";
@@ -24194,7 +24196,6 @@ function renderDatePicker() {
 
   const months = document.createElement("div");
   months.className = "date-picker-months";
-  const weekendWorkCalendar = activeDateInput?.id === "vacationCompensationDate";
   months.append(
     createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar),
     createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar)
