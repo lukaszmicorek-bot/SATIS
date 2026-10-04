@@ -208,6 +208,13 @@ test('APD and PCPR primary row actions use the larger button style only in their
   assert.match(css, /\.pcpr-edit-btn \{\s*min-height: 38px;\s*padding: 0 15px;/);
 });
 
+test('loan history opens with a slightly larger button and a visible hover tone', () => {
+  assert.match(extract('renderPricingLoanHistory'), /openButton\.className = "reset-filters-btn loan-history-open";\s*openButton\.textContent = "Otwórz"/);
+  const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+  assert.match(css, /\.loan-history-actions \.loan-history-open \{\s*min-height: 35px;/);
+  assert.match(css, /\.loan-history-actions \.loan-history-open:hover,/);
+});
+
 test('weekend work uses the shared calendar and rejected leave days have a separate tone', () => {
   assert.match(html, /id="vacationCompensationDate" type="text" data-date-picker/);
   assert.match(extract('editVacationRequest'), /setDateInputValue\(compensationDate, request\.compensationDate\)/);
