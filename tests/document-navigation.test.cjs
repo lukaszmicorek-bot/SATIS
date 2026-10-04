@@ -201,6 +201,13 @@ test('weekend compensation accepts one full day and half-hour steps only for hou
   assert.match(update, /compensationAmount\.step = usesHours \? "0\.5" : "1"/);
 });
 
+test('APD and PCPR primary row actions use the larger button style only in their own lists', () => {
+  assert.match(extract('renderCapdHistory'), /openButton\.className = "reset-filters-btn capd-history-open"/);
+  assert.doesNotMatch(source, /openButton\.className = "reset-filters-btn capd-history-open";\s*openButton\.textContent = "Otwórz"/);
+  const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+  assert.match(css, /\.pcpr-edit-btn \{\s*min-height: 38px;\s*padding: 0 15px;/);
+});
+
 test('weekend work uses the shared calendar and rejected leave days have a separate tone', () => {
   assert.match(html, /id="vacationCompensationDate" type="text" data-date-picker/);
   assert.match(extract('editVacationRequest'), /setDateInputValue\(compensationDate, request\.compensationDate\)/);

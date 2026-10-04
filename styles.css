@@ -6991,13 +6991,13 @@ input.pcpr-done-input,
 }
 
 .pcpr-edit-btn {
-  min-height: 28px;
-  padding: 0 8px;
-  border: 1px solid #cbd8de;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid #b8ccd2;
   border-radius: 8px;
-  color: #48616d;
-  background: #f6fafb;
-  font-size: 0.68rem;
+  color: #003f5a;
+  background: #edf4f5;
+  font-size: 0.8rem;
   font-weight: 820;
 }
 
