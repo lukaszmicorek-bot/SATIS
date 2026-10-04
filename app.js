@@ -10526,7 +10526,7 @@ function renderPricingLoanHistory(deferRelations = false) {
     actions.append(previewButton);
     const openButton = document.createElement("button");
     openButton.type = "button";
-    openButton.className = "reset-filters-btn capd-history-open";
+    openButton.className = "reset-filters-btn";
     openButton.textContent = "Otwórz";
     openButton.addEventListener("click", () => restorePricingLoanFromHistory(entry));
     actions.append(openButton);
@@ -19840,7 +19840,7 @@ function renderCapdHistory() {
     actions.append(stage);
     const openButton = document.createElement("button");
     openButton.type = "button";
-    openButton.className = "reset-filters-btn";
+    openButton.className = "reset-filters-btn capd-history-open";
     openButton.textContent = "Wczytaj";
     openButton.addEventListener("click", () => restoreCapdHistoryEntry(entry));
     actions.append(openButton);
