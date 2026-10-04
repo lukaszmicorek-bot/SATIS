@@ -6275,6 +6275,23 @@ h2 {
   font-size: 0.68rem;
 }
 
+.loan-history-actions .loan-history-open {
+  min-height: 35px;
+  padding: 0 13px;
+  border-color: #b8ccd2;
+  color: #003f5a;
+  background: #edf4f5;
+  font-size: 0.77rem;
+}
+
+.loan-history-actions .loan-history-open:hover,
+.loan-history-actions .loan-history-open:focus-visible {
+  border-color: #8fb6c1;
+  color: #003f5a;
+  background: #dcecf1;
+  transform: none;
+}
+
 .pricing-history-preview-dialog {
   width: min(760px, calc(100% - 24px));
   max-height: min(82vh, 760px);
