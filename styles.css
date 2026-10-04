@@ -2156,9 +2156,22 @@ h2 {
   color: #006767;
 }
 
-.capd-history-delete {
+.capd-history-actions .capd-history-open {
+  min-height: 38px;
+  padding: 0 15px;
+  color: #003f5a;
+  border-color: #b8ccd2;
+  background: #edf4f5;
+  font-size: 0.8rem;
+}
+
+.capd-history-actions button.ghost.capd-history-delete {
+  min-height: 26px;
+  padding: 0 7px;
   color: #98473e;
   border-color: #e5c7c3;
+  background: #fbf6f5;
+  font-size: 0.62rem;
 }
 
 @media (max-width: 720px) {
