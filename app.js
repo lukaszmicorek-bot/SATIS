@@ -19933,8 +19933,9 @@ function renderCapdHistory() {
       actions.append(deleteButton);
     }
     if (entry.status === "DO_ODBIORU") {
+      const notifiedControl = document.createElement("div");
+      notifiedControl.className = "capd-history-phone-notified";
       const notifiedLabel = document.createElement("label");
-      notifiedLabel.className = "capd-history-phone-notified";
       const notifiedInput = document.createElement("input");
       notifiedInput.type = "checkbox";
       notifiedInput.checked = capdPhoneNotifiedForPickup(entry);
@@ -19944,7 +19945,14 @@ function renderCapdHistory() {
       notifiedText.textContent = "Poinformowano tel.";
       notifiedLabel.append(notifiedInput, notifiedText);
       if (notifiedInput.checked && entry.phoneNotifiedBy) notifiedLabel.title = `Zaznaczono przez ${entry.phoneNotifiedBy}`;
-      actions.append(notifiedLabel);
+      notifiedControl.append(notifiedLabel);
+      if (notifiedInput.checked) {
+        const notifiedDate = document.createElement("time");
+        notifiedDate.dateTime = entry.phoneNotifiedAt;
+        notifiedDate.textContent = formatAuditDateTime(entry.phoneNotifiedAt);
+        notifiedControl.append(notifiedDate);
+      }
+      actions.append(notifiedControl);
     }
     card.append(main, actions);
     return card;
