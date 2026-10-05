@@ -13060,6 +13060,7 @@ function normalizePricingOrderType(value) {
 
 function normalizePricingOrderSide(value) {
   const side = normalizeLoanHistoryText(value).toLocaleUpperCase("pl-PL");
+  if (["PL", "LP", "P+L", "L+P", "P/L", "L/P", "OBA", "OBIE"].includes(side)) return "PL";
   if (["P", "PRAWE", "PRAWA"].includes(side)) return "P";
   if (["L", "LEWE", "LEWA"].includes(side)) return "L";
   return "";
@@ -13067,6 +13068,7 @@ function normalizePricingOrderSide(value) {
 
 function pricingOrderSideLabel(value) {
   const side = normalizePricingOrderSide(value);
+  if (side === "PL") return "Strony P i L";
   return side ? `Strona ${side}` : "";
 }
 
@@ -13114,7 +13116,7 @@ function normalizePricingOrderItem(item) {
   if (!item || typeof item !== "object") return null;
   const type = normalizePricingOrderType(item.type);
   const side = normalizePricingOrderSide(item.side);
-  const quantity = normalizeLoanHistoryText(item.quantity || "1") || "1";
+  const quantity = side === "PL" ? "2" : normalizeLoanHistoryText(item.quantity || "1") || "1";
   const description = normalizeLoanHistoryText(item.description);
   const cost = pricingOrderItemAllowsCost({ type }) ? normalizeServiceCost(item.cost ?? item.earmoldCost) : "";
   const notes = normalizeLoanHistoryText(item.notes);
@@ -13739,7 +13741,7 @@ function pricingOrderRepairItemLabel(item) {
   if (!normalizedItem) return "";
   const typeLabel = pricingOrderTypeLabel(normalizedItem.type);
   const side = normalizePricingOrderSide(normalizedItem.side);
-  const sideText = side ? `${side} · ` : "";
+  const sideText = side ? `${side === "PL" ? "P + L" : side} · ` : "";
   const quantity = normalizedItem.quantity && normalizedItem.quantity !== "1" ? `${normalizedItem.quantity}x ` : "";
   const description = normalizedItem.description || typeLabel;
   const modelText = description && description !== typeLabel ? ` - ${description}` : "";
@@ -13976,10 +13978,32 @@ function updatePricingOrderSideButtons(row) {
   if (!row) return;
   const selectedSide = normalizePricingOrderSide(row.querySelector("[data-order-field='side']")?.value);
   row.querySelectorAll("[data-order-side]").forEach((button) => {
-    const selected = button.dataset.orderSide === selectedSide;
+    const selected = selectedSide === "PL" || button.dataset.orderSide === selectedSide;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+  const quantityInput = row.querySelector("[data-order-field='quantity']");
+  if (!quantityInput) return;
+  if (selectedSide === "PL") {
+    if (quantityInput.dataset.pairLocked !== "1") quantityInput.dataset.singleQuantity = quantityInput.value || "1";
+    quantityInput.value = "2";
+    quantityInput.readOnly = true;
+    quantityInput.dataset.pairLocked = "1";
+    quantityInput.title = "P i L: 2 sztuki";
+  } else if (quantityInput.dataset.pairLocked === "1") {
+    quantityInput.value = quantityInput.dataset.singleQuantity || "1";
+    quantityInput.readOnly = false;
+    quantityInput.title = "";
+    delete quantityInput.dataset.pairLocked;
+    delete quantityInput.dataset.singleQuantity;
+  }
+}
+
+function togglePricingOrderSide(current, selected) {
+  const side = normalizePricingOrderSide(current);
+  if (side === "PL") return selected === "P" ? "L" : "P";
+  if (side === selected) return "";
+  return side ? "PL" : selected;
 }
 
 function oppositePricingOrderSide(value) {
@@ -14080,6 +14104,10 @@ function addPricingOrderItemRow(item = {}) {
   quantityInput.step = "1";
   quantityInput.dataset.orderField = "quantity";
   quantityInput.value = normalizedItem.quantity || "1";
+  if (normalizedItem.side === "PL") {
+    quantityInput.dataset.pairLocked = "1";
+    quantityInput.dataset.singleQuantity = "1";
+  }
   quantityCell.append(quantityInput);
 
   const descriptionCell = document.createElement("td");
@@ -14252,7 +14280,7 @@ function handlePricingOrderItemsClick(event) {
     const row = sideButton.closest("[data-order-row]");
     const sideInput = row?.querySelector("[data-order-field='side']");
     if (sideInput) {
-      sideInput.value = sideButton.dataset.orderSide || "";
+      sideInput.value = togglePricingOrderSide(sideInput.value, sideButton.dataset.orderSide);
       sideInput.dataset.userChanged = "1";
       delete sideInput.dataset.suggested;
     }
@@ -14285,10 +14313,13 @@ function renderPricingOrderItems(items) {
     const sideCell = document.createElement("td");
     const side = normalizePricingOrderSide(item.side);
     if (side) {
-      const sideBadge = document.createElement("span");
-      sideBadge.className = `order-side-badge order-side-${side.toLowerCase()}`;
-      sideBadge.textContent = side;
-      sideCell.append(sideBadge);
+      if (side === "PL") sideCell.classList.add("order-side-pair");
+      (side === "PL" ? ["P", "L"] : [side]).forEach((ear) => {
+        const sideBadge = document.createElement("span");
+        sideBadge.className = `order-side-badge order-side-${ear.toLowerCase()}`;
+        sideBadge.textContent = ear;
+        sideCell.append(sideBadge);
+      });
     } else {
       sideCell.textContent = "-";
     }
@@ -14404,7 +14435,7 @@ async function savePricingOrderAndRepairNotebook() {
   if (!requireDocumentCustomerName(orderCustomerInput)) return null;
   const formItems = pricingOrderFormItems();
   if (pricingOrderItemsMissingRequiredSide(formItems)) {
-    alert("Wybierz stronę P lub L dla każdej wkładki.");
+    alert("Wybierz stronę P, L lub obie strony dla każdej wkładki.");
     return null;
   }
   const historyEntry = await saveCurrentPricingOrderToHistory({ silent: true });
