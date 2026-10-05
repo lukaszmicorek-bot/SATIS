@@ -8209,8 +8209,17 @@ function findPricingOfferRecordInCandidates(value, candidates) {
   const text = String(value ?? "").trim();
   if (!text) return null;
   const query = normalize(text);
+  const labelParts = text.split("|").map((part) => part.trim());
+  const selectedId = labelParts.length >= 3 ? normalize(labelParts.at(-1)) : "";
+  const matchingId = selectedId && candidates.find((record) => record.idProduct && normalize(record.idProduct) === selectedId);
+  const matchingLabel = labelParts.length >= 2 ? candidates.filter((record) => (
+    normalize(record.model || record.tradeName) === normalize(labelParts[0]) &&
+    (labelParts.length < 3 || normalize(record.manufacturer) === normalize(labelParts[1]))
+  )) : [];
   return (
     candidates.find((record) => normalize(pricingOfferDeviceLabel(record)) === query) ||
+    matchingId ||
+    (matchingLabel.length === 1 ? matchingLabel[0] : null) ||
     candidates.find((record) => normalize(record.idProduct) === query) ||
     candidates.find((record) => normalize(record.model) === query || normalize(record.tradeName) === query) ||
     candidates.find((record) => pricingOfferRecordSearchText(record).startsWith(query)) ||
@@ -8545,6 +8554,9 @@ function renderPricingOffer() {
   });
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
+  offerItems.forEach((item) => {
+    if (item.input?.value.split("|").length >= 3) item.input.value = pricingOfferDeviceLabel(item.record);
+  });
   const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
   const deviceTotal = deviceItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
   const hasValidDevice = deviceItems.length > 0;
@@ -8664,6 +8676,8 @@ async function commitPricingRecordChange(record, replacement) {
     }
     rebuildDemoFormSuggestions();
     renderPricingRecords();
+    renderPricingOfferDeviceList();
+    renderPricingOffer();
     setCurrentYearTitle();
     return true;
   } catch (error) {

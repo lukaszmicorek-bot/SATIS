@@ -177,6 +177,22 @@ test('order deposit and remaining balance stay consistent in form, print, and ca
   assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }], '1000,01').tooHigh, true);
 });
 
+test('an offer keeps a selected charger when its catalog price changes', () => {
+  const charger = { idProduct: 'CH-123', model: 'Ładowarka Alpha', tradeName: 'Ładowarka Alpha',
+    manufacturer: 'Philips', grossPrice: 500 };
+  const updatedCharger = { ...charger, grossPrice: 650 };
+  const context = vm.createContext({ formatPricingPrice: value => `${value} zł`,
+    pricingOfferAccessoryRecords: kind => kind === 'charger' ? [updatedCharger] : [] });
+  for (const name of ['normalize', 'pricingOfferDeviceLabel', 'pricingOfferRecordSearchText',
+    'findPricingOfferRecordInCandidates', 'findPricingOfferAccessoryRecord']) {
+    vm.runInContext(extract(name), context);
+  }
+  const oldLabel = context.pricingOfferDeviceLabel(charger);
+  assert.equal(context.findPricingOfferAccessoryRecord(oldLabel, 'charger'), updatedCharger);
+  assert.equal(context.findPricingOfferAccessoryRecord('Ładowarka Alpha | Philips | 500 zł', 'charger'), updatedCharger);
+  assert.equal(context.pricingOfferDeviceLabel(updatedCharger).includes('650 zł'), true);
+});
+
 test('selecting both order sides locks quantity to two and charges for two pieces', () => {
   const context = vm.createContext({
     PRICING_ORDER_TYPES: ['APARAT SŁUCHOWY', 'WKŁADKA USZNA', 'WKŁADKA PRZECIWWODNA'],
