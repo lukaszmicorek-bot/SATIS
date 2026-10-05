@@ -2111,6 +2111,24 @@ h2 {
   font-size: 0.65rem;
 }
 
+.capd-history-phone-notified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: #003f5a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capd-history-phone-notified input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #007a7a;
+}
+
 .capd-history-actions {
   display: flex;
   align-items: end;

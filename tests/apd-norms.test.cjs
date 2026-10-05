@@ -116,6 +116,30 @@ test('APD records only confirmed preliminary examinations', () => {
   assert.match(app, /Wstaw opis wyniku w normie|Próg słyszenia w normie/);
 });
 
+test('APD phone notification applies only to the current ready-for-pickup stage', async () => {
+  const source = app.slice(app.indexOf('function capdPhoneNotifiedForPickup('), app.indexOf('function maskSensitiveIdentifier('));
+  const saved = [];
+  const scope = vm.createContext({
+    capdHistory: [{ id: 'study-1', status: 'DO_ODBIORU', statusUpdatedAt: '2026-10-01T10:00:00.000Z' }],
+    currentSupabaseUser: { email: 'satis@pracowniasluchu.pl' },
+    currentWorkstationName: () => 'P63',
+    normalizeCapdHistoryEntry: entry => entry,
+    persistCapdHistoryEntry: async entry => { saved.push(entry); },
+    normalizeCapdHistory: entries => entries,
+    saveLocalCapdHistory() {}, renderCapdHistory() {}, alert() {}
+  });
+  vm.runInContext(`${source}\nglobalThis.notified = capdPhoneNotifiedForPickup; globalThis.changeNotification = changeCapdPhoneNotified;`, scope);
+  assert.equal(scope.notified(scope.capdHistory[0]), false);
+  await scope.changeNotification('study-1', true, { disabled: false, checked: true });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].phoneNotifiedBy, 'satis@pracowniasluchu.pl');
+  assert.equal(scope.notified(saved[0]), true);
+  assert.equal(scope.notified({ ...saved[0], status: 'ODEBRANO' }), false);
+  assert.equal(scope.notified({ ...saved[0], statusUpdatedAt: '2099-01-01T00:00:00.000Z' }), false);
+  assert.match(app, /phoneNotifiedAt: existing\?\.phoneNotifiedAt \|\| ""/);
+  assert.match(app, /if \(entry\.status === "DO_ODBIORU"\) \{\s*const notifiedLabel/);
+});
+
 test('APD keeps practitioner details in history and at the end of the report', () => {
   for (const id of ['capdPractitionerLicenseInput',
     'capdPractitionerFacilityInput', 'capdPractitionerAddressInput', 'capdReportPractitioner']) {
