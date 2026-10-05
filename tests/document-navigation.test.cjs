@@ -177,6 +177,41 @@ test('order deposit and remaining balance stay consistent in form, print, and ca
   assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }], '1000,01').tooHigh, true);
 });
 
+test('selecting both order sides locks quantity to two and charges for two pieces', () => {
+  const context = vm.createContext({
+    PRICING_ORDER_TYPES: ['APARAT SŁUCHOWY', 'WKŁADKA USZNA', 'WKŁADKA PRZECIWWODNA'],
+    normalizeLoanHistoryText: value => String(value ?? '').trim()
+  });
+  for (const name of ['normalizePricingPrice', 'normalizeServiceCost', 'normalizePricingOrderType',
+    'normalizePricingOrderSide', 'pricingOrderItemAllowsCost', 'normalizePricingOrderItem',
+    'togglePricingOrderSide', 'updatePricingOrderSideButtons', 'pricingOrderTotalCost']) {
+    vm.runInContext(extract(name), context);
+  }
+  const sideInput = { value: 'P' };
+  const quantityInput = { value: '1', dataset: {}, readOnly: false, title: '' };
+  const buttons = ['P', 'L'].map(side => ({ dataset: { orderSide: side }, attributes: {},
+    classList: { toggle(name, selected) { this[name] = selected; } },
+    setAttribute(name, value) { this.attributes[name] = value; } }));
+  const row = {
+    querySelector: selector => selector.includes('quantity') ? quantityInput : sideInput,
+    querySelectorAll: () => buttons
+  };
+  sideInput.value = context.togglePricingOrderSide(sideInput.value, 'L');
+  context.updatePricingOrderSideButtons(row);
+  assert.equal(sideInput.value, 'PL');
+  assert.equal(quantityInput.value, '2');
+  assert.equal(quantityInput.readOnly, true);
+  assert.deepEqual(buttons.map(button => button.attributes['aria-pressed']), ['true', 'true']);
+  const item = context.normalizePricingOrderItem({ type: 'WKŁADKA PRZECIWWODNA', side: sideInput.value, quantity: '1', cost: 200 });
+  assert.equal(item.quantity, '2');
+  assert.equal(context.pricingOrderTotalCost([item]), 400);
+  sideInput.value = context.togglePricingOrderSide(sideInput.value, 'P');
+  context.updatePricingOrderSideButtons(row);
+  assert.equal(sideInput.value, 'L');
+  assert.equal(quantityInput.value, '1');
+  assert.equal(quantityInput.readOnly, false);
+});
+
 test('waterproof inserts include glitter and suggest a 50% deposit without changing other orders', () => {
   const context = vm.createContext({ normalizePricingOrderItem: item => item });
   for (const name of ['normalizePricingPrice', 'normalizeServiceCost', 'pricingOrderTotalCost',

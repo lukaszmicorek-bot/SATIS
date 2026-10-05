@@ -4866,6 +4866,11 @@ h2 {
   background: #e5f3fa;
 }
 
+.order-side-pair .order-side-badge {
+  min-width: 18px;
+  margin: 0 1px;
+}
+
 .order-side-warning {
   margin: 8px 0 0;
   padding: 7px 9px;
