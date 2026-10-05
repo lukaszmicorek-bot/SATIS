@@ -19550,6 +19550,8 @@ function normalizeCapdHistoryEntry(entry) {
     scope: normalizeLoanHistoryText(entry.scope),
     status: Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, entry.status) ? entry.status : "",
     statusUpdatedAt: normalizeLoanHistoryText(entry.statusUpdatedAt),
+    phoneNotifiedAt: normalizeLoanHistoryText(entry.phoneNotifiedAt),
+    phoneNotifiedBy: normalizeLoanHistoryText(entry.phoneNotifiedBy),
     description: capdRichTextPlainText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
     descriptionHtml: sanitizeCapdRichText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
     results
@@ -19679,6 +19681,8 @@ async function saveCurrentCapdToHistory() {
     createdAt: existing?.createdAt || snapshot.createdAt,
     status: existing?.status ?? "OPIS",
     statusUpdatedAt: existing?.statusUpdatedAt || (existing ? "" : snapshot.savedAt),
+    phoneNotifiedAt: existing?.phoneNotifiedAt || "",
+    phoneNotifiedBy: existing?.phoneNotifiedBy || "",
     savedAt: new Date().toISOString()
   });
   capdHistory = normalizeCapdHistory([historyEntry, ...capdHistory.filter((entry) => entry.id !== historyEntry.id)]);
@@ -19809,6 +19813,37 @@ async function changeCapdHistoryStatus(id, status, control) {
   }
 }
 
+function capdPhoneNotifiedForPickup(entry) {
+  return entry?.status === "DO_ODBIORU" && Boolean(entry.phoneNotifiedAt) &&
+    (!entry.statusUpdatedAt || entry.phoneNotifiedAt >= entry.statusUpdatedAt);
+}
+
+async function changeCapdPhoneNotified(id, notified, control) {
+  const entry = capdHistory.find((item) => item.id === id);
+  if (!entry || entry.status !== "DO_ODBIORU") return;
+  const previousValue = capdPhoneNotifiedForPickup(entry);
+  if (previousValue === notified) return;
+  const updated = normalizeCapdHistoryEntry({
+    ...entry,
+    phoneNotifiedAt: notified ? new Date().toISOString() : "",
+    phoneNotifiedBy: notified ? currentSupabaseUser?.email || "" : "",
+    savedAt: new Date().toISOString(),
+    savedBy: currentSupabaseUser?.email || entry.savedBy,
+    workstation: currentWorkstationName() || entry.workstation
+  });
+  control.disabled = true;
+  try {
+    await persistCapdHistoryEntry(updated);
+    capdHistory = normalizeCapdHistory([updated, ...capdHistory.filter((item) => item.id !== id)]);
+    saveLocalCapdHistory();
+    renderCapdHistory();
+  } catch (error) {
+    control.checked = previousValue;
+    control.disabled = false;
+    alert(`Nie udało się zapisać informacji o telefonie: ${error.message}`);
+  }
+}
+
 function maskSensitiveIdentifier(value, visibleDigits = 4) {
   const normalized = String(value || "");
   if (normalized.length <= visibleDigits) return normalized;
@@ -19866,7 +19901,22 @@ function renderCapdHistory() {
     const audit = document.createElement("small");
     audit.className = "capd-history-audit";
     audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
-    main.append(title, meta, context, results, audit);
+    main.append(title, meta, context, results);
+    if (entry.status === "DO_ODBIORU") {
+      const notifiedLabel = document.createElement("label");
+      notifiedLabel.className = "capd-history-phone-notified";
+      const notifiedInput = document.createElement("input");
+      notifiedInput.type = "checkbox";
+      notifiedInput.checked = capdPhoneNotifiedForPickup(entry);
+      notifiedInput.setAttribute("aria-label", `Poinformowano telefonicznie: ${entry.patient}`);
+      notifiedInput.addEventListener("change", () => changeCapdPhoneNotified(entry.id, notifiedInput.checked, notifiedInput));
+      const notifiedText = document.createElement("span");
+      notifiedText.textContent = "Poinformowano tel.";
+      notifiedLabel.append(notifiedInput, notifiedText);
+      if (notifiedInput.checked && entry.phoneNotifiedBy) notifiedLabel.title = `Zaznaczono przez ${entry.phoneNotifiedBy}`;
+      main.append(notifiedLabel);
+    }
+    main.append(audit);
 
     const actions = document.createElement("div");
     actions.className = "capd-history-actions";
