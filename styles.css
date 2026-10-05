@@ -15410,7 +15410,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .rodo-page { padding: 18px; }
 }
 
-@page rodoPage { size: A4 portrait; margin: 11mm; }
+@page rodoPage { size: A4 portrait; margin: 10mm; }
 @media print {
   body.rodo-print { color: #111; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   body.rodo-print .app-shell > :not(#pricingNotebook),
@@ -15424,17 +15424,17 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
     width: 100%; max-width: none; margin: 0; padding: 0; border: 0; background: #fff; box-shadow: none;
   }
   body:is(.rodo-print, .offline-rodo-print) .rodo-print-document { display: block; width: 100%; max-width: none; margin: 0; gap: 0; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-page { page: rodoPage; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; font-size: 10pt; line-height: 1.34; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-page { page: rodoPage; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; font-size: 10pt; line-height: 1.3; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-page:first-child { break-after: page; page-break-after: always; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-print-head { margin-bottom: 4mm; padding-bottom: 2mm; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-print-head { margin-bottom: 3mm; padding-bottom: 0; border-bottom: 0; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-print-kicker { margin-bottom: 1mm; font-size: 7pt; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-print-head h2 { font-size: 12pt; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-print-head p { margin: 0.7mm 0 0; font-size: 8pt; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-print-head img { width: 12mm; height: 12mm; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-page h3 { margin: 3.5mm 0 1.5mm; font-size: 10pt; break-after: avoid; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-page p { margin: 1mm 0 2.2mm; line-height: 1.36; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-page ul { margin: 1mm 0 2mm; }
-  body:is(.rodo-print, .offline-rodo-print) .rodo-page li { margin: 0.5mm 0; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-page h3 { margin: 2.8mm 0 1.2mm; font-size: 10pt; break-after: avoid; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-page p { margin: 0.8mm 0 1.6mm; line-height: 1.3; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-page ul { margin: 0.8mm 0 1.5mm; line-height: 1.32; }
+  body:is(.rodo-print, .offline-rodo-print) .rodo-page li { margin: 0.4mm 0; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-consent-print { margin: 3mm 0; break-inside: avoid; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-choice-line { margin: 1mm 0; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-signatures {
