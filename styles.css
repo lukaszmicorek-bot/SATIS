@@ -2113,11 +2113,16 @@ h2 {
 }
 
 .capd-history-phone-notified {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  flex: 0 0 100%;
+}
+
+.capd-history-phone-notified label {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 6px;
-  flex: 0 0 100%;
   color: #003f5a;
   font-size: 0.72rem;
   font-weight: 700;
@@ -2129,6 +2134,12 @@ h2 {
   height: 15px;
   margin: 0;
   accent-color: #007a7a;
+}
+
+.capd-history-phone-notified time {
+  color: #61747b;
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .capd-history-actions {
