@@ -19901,22 +19901,7 @@ function renderCapdHistory() {
     const audit = document.createElement("small");
     audit.className = "capd-history-audit";
     audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
-    main.append(title, meta, context, results);
-    if (entry.status === "DO_ODBIORU") {
-      const notifiedLabel = document.createElement("label");
-      notifiedLabel.className = "capd-history-phone-notified";
-      const notifiedInput = document.createElement("input");
-      notifiedInput.type = "checkbox";
-      notifiedInput.checked = capdPhoneNotifiedForPickup(entry);
-      notifiedInput.setAttribute("aria-label", `Poinformowano telefonicznie: ${entry.patient}`);
-      notifiedInput.addEventListener("change", () => changeCapdPhoneNotified(entry.id, notifiedInput.checked, notifiedInput));
-      const notifiedText = document.createElement("span");
-      notifiedText.textContent = "Poinformowano tel.";
-      notifiedLabel.append(notifiedInput, notifiedText);
-      if (notifiedInput.checked && entry.phoneNotifiedBy) notifiedLabel.title = `Zaznaczono przez ${entry.phoneNotifiedBy}`;
-      main.append(notifiedLabel);
-    }
-    main.append(audit);
+    main.append(title, meta, context, results, audit);
 
     const actions = document.createElement("div");
     actions.className = "capd-history-actions";
@@ -19946,6 +19931,20 @@ function renderCapdHistory() {
       deleteButton.textContent = "Usuń";
       deleteButton.addEventListener("click", () => deleteCapdHistoryEntry(entry.id));
       actions.append(deleteButton);
+    }
+    if (entry.status === "DO_ODBIORU") {
+      const notifiedLabel = document.createElement("label");
+      notifiedLabel.className = "capd-history-phone-notified";
+      const notifiedInput = document.createElement("input");
+      notifiedInput.type = "checkbox";
+      notifiedInput.checked = capdPhoneNotifiedForPickup(entry);
+      notifiedInput.setAttribute("aria-label", `Poinformowano telefonicznie: ${entry.patient}`);
+      notifiedInput.addEventListener("change", () => changeCapdPhoneNotified(entry.id, notifiedInput.checked, notifiedInput));
+      const notifiedText = document.createElement("span");
+      notifiedText.textContent = "Poinformowano tel.";
+      notifiedLabel.append(notifiedInput, notifiedText);
+      if (notifiedInput.checked && entry.phoneNotifiedBy) notifiedLabel.title = `Zaznaczono przez ${entry.phoneNotifiedBy}`;
+      actions.append(notifiedLabel);
     }
     card.append(main, actions);
     return card;
