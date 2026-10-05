@@ -138,6 +138,8 @@ test('APD phone notification applies only to the current ready-for-pickup stage'
   assert.equal(scope.notified({ ...saved[0], statusUpdatedAt: '2099-01-01T00:00:00.000Z' }), false);
   assert.match(app, /phoneNotifiedAt: existing\?\.phoneNotifiedAt \|\| ""/);
   assert.match(app, /if \(entry\.status === "DO_ODBIORU"\) \{\s*const notifiedLabel/);
+  assert.match(app, /actions\.append\(notifiedLabel\)/);
+  assert.doesNotMatch(app, /main\.append\(notifiedLabel\)/);
 });
 
 test('APD keeps practitioner details in history and at the end of the report', () => {

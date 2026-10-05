@@ -2062,6 +2062,7 @@ h2 {
 .capd-history-item[data-status="DO_ODBIORU"] {
   --capd-stage-color: #003f5a;
   --capd-stage-wash: #eaf1f4;
+  align-items: stretch;
 }
 
 .capd-history-item[data-status="ODEBRANO"] {
@@ -2114,8 +2115,9 @@ h2 {
 .capd-history-phone-notified {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  width: fit-content;
+  flex: 0 0 100%;
   color: #003f5a;
   font-size: 0.72rem;
   font-weight: 700;
@@ -2134,6 +2136,11 @@ h2 {
   align-items: end;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.capd-history-item[data-status="DO_ODBIORU"] .capd-history-actions {
+  align-content: space-between;
+  justify-content: flex-end;
 }
 
 .capd-history-stage {
