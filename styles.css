@@ -852,6 +852,42 @@ h2 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.work-time-presets {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 7px;
+  color: #365962;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.work-time-preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.work-time-preset-buttons button {
+  border: 1px solid #cbd8d6;
+  background: #f5f9f8;
+  color: #315763;
+  padding: 6px 9px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.work-time-preset-buttons button.active {
+  border-color: #598d83;
+  background: #e6f1ee;
+  color: #194d4d;
+}
+
+.work-time-preset-buttons button[data-shift="POPOLUDNIOWA"].active {
+  border-color: #7488a0;
+  background: #ecf1f8;
+  color: #284b70;
+}
+
 .work-time-fields[hidden],
 .work-time-fields label[hidden] {
   display: none;
@@ -893,6 +929,12 @@ h2 {
   font-size: 0.75rem;
 }
 
+.work-time-planned-end {
+  justify-self: start;
+  min-height: 28px;
+  font-size: 0.75rem;
+}
+
 .work-time-form input[readonly] {
   color: #003f5a;
   background: #eef6f4;
@@ -901,6 +943,7 @@ h2 {
 
 .work-time-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -973,6 +1016,20 @@ h2 {
 .work-time-table td:nth-child(2) {
   font-weight: 700;
   color: #003f5a;
+}
+
+.work-time-row-actions {
+  white-space: nowrap;
+}
+
+.work-time-row-actions button {
+  min-height: 29px;
+  padding: 4px 7px;
+  font-size: 0.74rem;
+}
+
+.work-time-delete {
+  color: #a24c4c;
 }
 
 @media (max-width: 900px) {
