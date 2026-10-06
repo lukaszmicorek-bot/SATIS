@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261006-1">
+  <link rel="stylesheet" href="styles.css?v=20261006-2">
   </head>
   <body>
     <main class="app-shell">
@@ -61,7 +61,7 @@
             Cennik
           </button>
           <button class="notebook-switch-button notebook-shortcut vacation-shortcut" type="button" aria-pressed="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
-          <button class="notebook-switch-button notebook-shortcut" type="button" aria-pressed="false" data-notebook="attendance" data-private-owner hidden>Obecność</button>
+          <button class="notebook-switch-button notebook-shortcut" type="button" aria-pressed="false" data-notebook="workTime" data-private-owner hidden>Ewidencja</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -2445,25 +2445,57 @@
         </section>
       </section>
 
-      <section id="attendanceNotebook" class="notebook-section private-module-section" hidden>
-        <section class="private-module-panel attendance-panel" aria-label="Robocza lista obecności">
+      <section id="workTimeNotebook" class="notebook-section private-module-section" hidden>
+        <section class="private-module-panel work-time-panel" aria-label="Ewidencja czasu pracy">
           <header class="private-module-head">
-            <div><p class="eyebrow">Tylko SATIS</p><h2>Lista obecności</h2></div>
-            <label class="attendance-month-field">Miesiąc <input id="attendanceMonthInput" type="month"></label>
+            <div><p class="eyebrow">Tylko SATIS</p><h2>Ewidencja czasu pracy</h2></div>
+            <label class="work-time-month-field">Miesiąc <input id="workTimeMonthInput" type="month"></label>
           </header>
-          <p class="attendance-notice">Robocze potwierdzenie obecności. Nie zastępuje ewidencji czasu pracy.</p>
-          <form id="attendanceForm" class="attendance-form">
-            <label>Pracownik<select id="attendanceEmployeeInput" required></select></label>
-            <label>Data<input id="attendanceDateInput" type="date" required></label>
-            <label>Od<input id="attendanceStartInput" type="time" required></label>
-            <label>Do<input id="attendanceEndInput" type="time"></label>
-            <label>Miejsce<select id="attendanceWorkstationInput" required><option value="T12">T12</option><option value="P50">P50</option><option value="P63">P63</option></select></label>
-            <button id="attendanceSaveBtn" type="submit">Zapisz obecność</button>
-            <button id="attendanceCancelBtn" type="button" class="ghost" hidden>Anuluj edycję</button>
+          <p class="work-time-notice">Wybierz pracownika i dzień. Czas pracy wyliczy się z podanych godzin.</p>
+          <p class="vacation-employee-picker-label">Pracownik</p>
+          <div id="workTimeEmployeeButtons" class="vacation-employee-list work-time-employee-list" aria-label="Wybierz pracownika"></div>
+          <input id="workTimeEmployeeInput" type="hidden">
+          <form id="workTimeForm" class="work-time-form">
+            <div class="work-time-main-row">
+              <label>Data<input id="workTimeDateInput" type="date" required></label>
+              <label>Rodzaj dnia<select id="workTimeKindInput" required>
+                <option value="WORK">Praca</option>
+                <option value="FREE">Dzień wolny</option>
+                <option value="LEAVE">Urlop</option>
+                <option value="RELEASE">Zwolnienie od pracy</option>
+                <option value="EXCUSED">Inna nieobecność usprawiedliwiona</option>
+                <option value="UNEXCUSED">Nieobecność nieusprawiedliwiona</option>
+              </select></label>
+            </div>
+            <div id="workTimeWorkFields" class="work-time-fields">
+              <label>Od<input id="workTimeStartInput" type="time"></label>
+              <label>Do<input id="workTimeEndInput" type="time"></label>
+              <label>Godziny pracy<input id="workTimeHoursInput" type="text" readonly value="0:00"></label>
+              <label>W tym nadliczbowe<input id="workTimeOvertimeInput" type="number" min="0" max="24" step="0.01" inputmode="decimal" value="0"></label>
+            </div>
+            <div id="workTimeSecondPeriod" class="work-time-more" hidden>
+              <span class="work-time-more-title">Drugi przedział pracy</span>
+              <div class="work-time-fields">
+                <label>Od<input id="workTimeSecondStartInput" type="time"></label>
+                <label>Do<input id="workTimeSecondEndInput" type="time"></label>
+              </div>
+            </div>
+            <button id="workTimeSecondToggle" class="ghost work-time-second-toggle" type="button" hidden>+ Drugi przedział pracy</button>
+            <div id="workTimeFreeFields" class="work-time-fields" hidden>
+              <label>Tytuł dnia wolnego<input id="workTimeFreeReasonInput" type="text" maxlength="160" placeholder="np. niedziela, święto, dzień za sobotę"></label>
+            </div>
+            <div id="workTimeAbsenceFields" class="work-time-fields" hidden>
+              <label>Wymiar nieobecności (godz.)<input id="workTimeAbsenceHoursInput" type="number" min="0.01" max="24" step="0.01" inputmode="decimal"></label>
+              <label id="workTimeAbsenceLabelField">Rodzaj / podstawa<input id="workTimeAbsenceLabelInput" type="text" maxlength="160" placeholder="bez danych o stanie zdrowia"></label>
+            </div>
+            <div class="work-time-actions">
+              <button id="workTimeSaveBtn" type="submit">Zapisz dzień</button>
+              <button id="workTimeCancelBtn" class="ghost" type="button" hidden>Anuluj edycję</button>
+            </div>
           </form>
-          <p id="attendanceMessage" class="attendance-message" role="status" aria-live="polite"></p>
-          <div class="attendance-table-wrap">
-            <table class="attendance-table"><thead><tr><th>Data</th><th>Pracownik</th><th>Miejsce</th><th>Od</th><th>Do</th><th>Zmiana</th><th></th></tr></thead><tbody id="attendanceBody"></tbody></table>
+          <p id="workTimeMessage" class="work-time-message" role="status" aria-live="polite"></p>
+          <div class="work-time-table-wrap">
+            <table class="work-time-table"><thead><tr><th>Data</th><th>Pracownik</th><th>Rodzaj</th><th>Godziny / wymiar</th><th>Szczegóły</th><th>Zmiana</th><th></th></tr></thead><tbody id="workTimeBody"></tbody></table>
           </div>
         </section>
       </section>
@@ -3026,11 +3058,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261006-1"></script>
-    <script src="data-layer.js?v=20261006-1"></script>
-    <script src="sync-layer.js?v=20261006-1"></script>
-    <script src="offline-vault.js?v=20261006-1"></script>
-    <script src="offline-forms.js?v=20261006-1"></script>
-  <script src="app.js?v=20261006-1"></script>
+    <script src="supabase-config.js?v=20261006-2"></script>
+    <script src="data-layer.js?v=20261006-2"></script>
+    <script src="sync-layer.js?v=20261006-2"></script>
+    <script src="offline-vault.js?v=20261006-2"></script>
+    <script src="offline-forms.js?v=20261006-2"></script>
+  <script src="app.js?v=20261006-2"></script>
   </body>
 </html>
