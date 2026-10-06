@@ -537,6 +537,54 @@ test('vacation follows pricing as a separate shortcut with the correct pressed s
   assert.equal(vacation.attributes['aria-pressed'], 'false');
   assert.equal(pricing.attributes['aria-pressed'], 'true');
 });
+test('work-time month choices use Polish names and preserve machine-readable values', () => {
+  const ctx = vm.createContext({});
+  vm.runInContext(extract('workTimeMonthOptions'), ctx);
+  const options = ctx.workTimeMonthOptions(2026);
+  assert.equal(options.length, 72);
+  assert.equal(options.find(item => item.value === '2026-09').label, 'Wrzesień 2026');
+  assert.equal(options.find(item => item.value === '2030-12').label, 'Grudzień 2030');
+  assert.match(html, /<select id="workTimeMonthInput"/);
+});
+
+test('hourly bars split late, scheduled and additional time without counting gaps as work', () => {
+  const ctx = vm.createContext({});
+  vm.runInContext(extract('workTimeHourlySegments'), ctx);
+  const plan = {start: '08:00', end: '16:00', off: false};
+  const segments = (data, schedule = plan) => JSON.parse(JSON.stringify(ctx.workTimeHourlySegments({kind: 'WORK', ...data}, schedule)));
+  assert.deepEqual(segments({start: '08:00', end: '16:00'}), [{from: 480, to: 960, tone: 'match'}]);
+  assert.deepEqual(segments({start: '08:15', end: '17:00'}), [
+    {from: 480, to: 495, tone: 'late'}, {from: 495, to: 960, tone: 'match'}, {from: 960, to: 1020, tone: 'extra'}]);
+  assert.deepEqual(segments({start: '08:00', end: '12:00', secondStart: '13:00', secondEnd: '16:00'}), [
+    {from: 480, to: 720, tone: 'match'}, {from: 780, to: 960, tone: 'match'}]);
+  assert.deepEqual(segments({start: '08:00', end: ''}), []);
+  assert.deepEqual(segments({start: '16:00', end: '08:00'}), []);
+  assert.equal(segments({start: '08:00', end: '16:00'}, null)[0].tone, 'difference');
+  assert.equal(segments({start: '08:00', end: '16:00'}, {off: true})[0].tone, 'extra');
+});
+
+test('copying a schedule day updates only chosen fields and requires explicit save', () => {
+  const row = (day, working, start, end) => {
+    const fields = { 'input[type="checkbox"]': {checked: working}, '[data-time-field="start"]': {value: start}, '[data-time-field="end"]': {value: end} };
+    return {dataset: {day}, fields, querySelector: selector => fields[selector]};
+  };
+  const days = [row('1', true, '08:00', '16:00'), row('2', false, '', ''), row('6', false, '', '')];
+  const ctx = vm.createContext({canViewPrivateModules: () => true, workTimeExamplesActive: false,
+    workTimeScheduleDays: {children: days}, workTimeScheduleMessage: {textContent: ''}});
+  for (const name of ['workTimeIntervalMinutes', 'workTimeCopyScheduleDay']) vm.runInContext(extract(name), ctx);
+  ctx.workTimeCopyScheduleDay('1', 'weekdays');
+  assert.equal(days[1].fields['[data-time-field="start"]'].value, '08:00');
+  assert.equal(days[1].fields['input[type="checkbox"]'].checked, true);
+  assert.equal(days[2].fields['input[type="checkbox"]'].checked, false);
+  assert.match(ctx.workTimeScheduleMessage.textContent, /Zapisz grafik/);
+  ctx.workTimeExamplesActive = true;
+  ctx.workTimeCopyScheduleDay('1', '6');
+  assert.equal(days[2].fields['input[type="checkbox"]'].checked, false);
+  ctx.workTimeExamplesActive = false;
+  ctx.workTimeCopyScheduleDay('1', '6');
+  assert.equal(days[2].fields['[data-time-field="end"]'].value, '16:00');
+});
+
 test('September examples contain normal, late and extra work without creating official entries', () => {
   const ctx = vm.createContext({Date});
   for (const name of ['workTimeExampleSchedule', 'workTimeExampleRecords', 'workTimeIntervalMinutes',

@@ -55,6 +55,29 @@ test('APD diagnostic wording remains an age-limited manual choice', () => {
   assert.match(html, /id="capdInsertConclusionBtn"/);
 });
 
+test('new APD descriptions select impaired functions and recommendations from the supplied document', () => {
+  const results = [{code: 'ASPN-S', value: '8', norm: '≤ 4', unit: 'dB SNR'}];
+  const text = context.capdSuggestedConclusionText(8, '', results);
+  assert.match(text, /rozumienia słów w hałasie/);
+  assert.match(text, /Zalecenia/);
+  assert.match(text, /502 605 663/);
+  assert.doesNotMatch(text, /tu można wymienić|Muzyczny Trening Ruchowy/);
+  assert.match(context.capdSuggestedConclusionText(8, '', results, true), /Muzyczny Trening Ruchowy/);
+});
+
+test('normal APD wording requires all supplied results to be evaluated and within norms', () => {
+  const good = [{code: 'TRS', value: '450', norm: '≤ 550', unit: 'ms'}];
+  assert.match(context.capdSuggestedConclusionText(8, '', good), /Uzyskane wyniki mieszczą się w normach wiekowych/);
+  assert.match(context.capdSuggestedConclusionText(8, '', good, true), /Muzyczny Trening Ruchowy/);
+  assert.equal(context.capdSuggestedConclusionText(null, '', good), '');
+  assert.equal(context.capdNormalConclusionText([]), '');
+  assert.equal(context.capdNormalConclusionText([...good, {code: 'FPT', value: '', norm: '≥ 50'}]), '');
+  assert.equal(context.capdNormalConclusionText([...good, {code: 'FPT', value: '60', norm: ''}]), '');
+  assert.equal(context.capdNormalConclusionText([{code: 'DDT', value: 'P: 80', norm: 'P ≥ 60; L ≥ 35'}]), '');
+  assert.match(html, /capd-report-interpretation/);
+  assert.ok(html.indexOf('capd-report-interpretation') < html.indexOf('<h3>Opis badania i wnioski</h3>'));
+});
+
 test('DDT names only the ear with an abnormal entered result', () => {
   const result = { code: 'DDT', value: 'L: 20', norm: 'P ≥ 60; L ≥ 35', unit: '%' };
   assert.equal(context.evaluate('DDT', result.value, result.norm), 'bad');

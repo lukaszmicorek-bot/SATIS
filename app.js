@@ -1124,6 +1124,7 @@ const capdAbnormalSummary = document.querySelector("#capdAbnormalSummary");
 const capdAbnormalPreview = document.querySelector("#capdAbnormalPreview");
 const capdConclusionType = document.querySelector("#capdConclusionType");
 const capdInsertConclusionBtn = document.querySelector("#capdInsertConclusionBtn");
+const capdIncludeMtr = document.querySelector("#capdIncludeMtr");
 const capdDescriptionInput = document.querySelector("#capdDescriptionInput");
 const capdDescriptionToolbar = document.querySelector("#capdDescriptionToolbar");
 const capdDescriptionColor = document.querySelector("#capdDescriptionColor");
@@ -18852,13 +18853,13 @@ function capdEvaluationLabel(evaluation) {
 }
 
 const CAPD_ABNORMAL_DESCRIPTIONS = {
-  TRW: "Nieprawidłowy wynik może wiązać się z wolniejszą reakcją na bodźce wzrokowe, tempem pracy lub koncentracją. Warto uwzględnić go przy interpretacji pozostałych testów.",
-  TRS: "Nieprawidłowy wynik może oznaczać wolniejszą reakcję na prosty dźwięk. W codziennych sytuacjach dziecko może później odpowiadać na polecenia lub częściej prosić o powtórzenie.",
-  "ASPN-S": "W teście rozumienia słów w szumie dziecko powtarza słowa prezentowane na tle mowy innych osób. Wynik poniżej normy może wiązać się z trudnościami w rozumieniu słów i poleceń w klasie, grupie lub innym hałaśliwym otoczeniu.",
-  "ASPN-Z": "W teście rozumienia zdań w szumie dziecko powtarza zdania prezentowane na tle mowy innych osób. Wynik poniżej normy może wiązać się z gubieniem fragmentów dłuższych poleceń i trudnością w śledzeniu wypowiedzi w hałasie.",
-  FPT: "Nieprawidłowy wynik może wskazywać na trudności z rozróżnianiem i zapamiętywaniem kolejności dźwięków o różnej wysokości. Może to mieć znaczenie dla analizy słuchowej, melodii i intonacji mowy.",
-  GDT: "Nieprawidłowy wynik może wskazywać na obniżoną zdolność wykrywania krótkich przerw w dźwięku. Może to utrudniać zauważanie szybkich zmian w mowie.",
-  DLF: "Podwyższony próg różnicowania wysokości dźwięku może świadczyć o trudności z wychwytywaniem niewielkich różnic w brzmieniu i intonacji mowy."
+  TRW: "Słabszy wynik może wskazywać na wolniejsze reagowanie na bodźce wzrokowe. W szkole może przekładać się na wolniejsze tempo pracy, trudności z szybkim odnajdywaniem informacji w tekście lub na tablicy oraz potrzebę dodatkowego czasu na wykonanie zadań.",
+  TRS: "Słabszy wynik może świadczyć o wolniejszym reagowaniu na informacje słuchowe. Dziecko może potrzebować więcej czasu na przetworzenie polecenia nauczyciela, udzielenie odpowiedzi lub rozpoczęcie zadania, szczególnie gdy instrukcje są przekazywane szybko.",
+  "ASPN-S": "Słabszy wynik wskazuje na trudności w rozumieniu pojedynczych słów w obecności hałasu. W klasie dziecko może mieć problem z wychwyceniem wypowiedzi nauczyciela, gdy inni uczniowie rozmawiają, przesuwają krzesła lub występują inne dźwięki zakłócające.",
+  "ASPN-Z": "Słabszy wynik może oznaczać trudności ze zrozumieniem całych wypowiedzi w hałasie. W warunkach szkolnych może prowadzić do gubienia części instrukcji, niepełnego rozumienia poleceń oraz konieczności ich powtarzania.",
+  FPT: "Słabszy wynik może świadczyć o trudnościach w rozpoznawaniu i porządkowaniu kolejności dźwięków o różnej wysokości. W praktyce może utrudniać prawidłową analizę i zapamiętywanie informacji słuchowych, a także naukę języka, czytania i pisania.",
+  GDT: "Słabszy wynik może wskazywać na trudności w wychwytywaniu bardzo krótkich zmian w sygnale dźwiękowym. W warunkach szkolnych może to utrudniać dokładne różnicowanie podobnie brzmiących głosek oraz prawidłowe odbieranie szybkiej mowy nauczyciela.",
+  DLF: "Słabszy wynik może oznaczać trudności w dostrzeganiu niewielkich różnic pomiędzy dźwiękami. Może to mieć znaczenie dla różnicowania podobnie brzmiących głosek, rozwoju umiejętności fonologicznych, a w konsekwencji również dla nauki czytania i pisania."
 };
 
 function capdDdtAbnormalDescription(value, normValue) {
@@ -18866,7 +18867,7 @@ function capdDdtAbnormalDescription(value, normValue) {
   const norm = capdSideValues(normValue);
   const rightBad = result.right !== null && norm.right !== null && result.right < norm.right;
   const leftBad = result.left !== null && norm.left !== null && result.left < norm.left;
-  if (rightBad && leftBad) return "Wyniki poniżej normy dla obu uszu mogą wiązać się z trudnością w słuchaniu kilku osób jednocześnie, zapamiętywaniu informacji podawanych ustnie i wykonywaniu wieloetapowych poleceń.";
+  if (rightBad && leftBad) return "Wyniki poniżej normy dla obu uszu mogą wskazywać na trudności w jednoczesnym odbieraniu i przetwarzaniu informacji docierających do obu uszu. W szkole może być to szczególnie widoczne podczas pracy w grupie, słuchania nauczyciela przy jednoczesnych dźwiękach z otoczenia oraz wykonywania złożonych poleceń.";
   if (rightBad) return "Wynik poniżej normy dla ucha prawego może wiązać się z trudnościami w przetwarzaniu informacji słownych, na przykład podczas dyktanda i wykonywania poleceń ustnych.";
   if (leftBad) return "Wynik poniżej normy dla ucha lewego może wiązać się z trudnościami w rozdzielaniu jednoczesnych bodźców słuchowych i odbiorze pozawerbalnych cech mowy.";
   return "Wynik poniżej normy wymaga interpretacji w odniesieniu do wyników dla każdego ucha i pozostałych badań.";
@@ -18893,7 +18894,45 @@ function capdAbnormalConclusionText(age, conclusionType, results) {
   if (abnormal.some((result) => result.code === "TRW") && abnormal.some((result) => result.code === "TRS")) {
     descriptions.splice(2, 0, "TRW i TRS\nWyniki poniżej normy w obu testach reakcji mogą wskazywać na trudności z uwagą lub koncentracją. Przy interpretacji warto uwzględnić współpracę dziecka podczas badania.");
   }
-  return [introduction, summary, "Opis wyników badania", ...descriptions].join("\n\n");
+  const functions = { TRW: "reakcji wzrokowej", TRS: "reakcji słuchowej", "ASPN-S": "rozumienia słów w hałasie",
+    "ASPN-Z": "rozumienia zdań w hałasie", DDT: "rozdzielnousznego przetwarzania informacji",
+    FPT: "porządkowania dźwięków o różnej wysokości", GDT: "wykrywania przerw w szumie", DLF: "różnicowania wysokości dźwięków" };
+  const overview = `Obraz badania wskazuje na trudności w zakresie wybranych funkcji przetwarzania słuchowego. Obniżone wyniki mogą wskazywać na trudności w zakresie ${abnormal.map((result) => functions[result.code] || result.code).join(", ")}. Trudności te mogą mieć znaczenie szczególnie w sytuacjach wymagających koncentracji słuchowej, odbioru mowy w hałasie oraz jednoczesnego przetwarzania większej ilości informacji.`;
+  const caution = "Wyniki należy interpretować łącznie z wywiadem, badaniem audiologicznym oraz obserwacją funkcjonowania dziecka w domu i w środowisku szkolnym. Pojedyncze obniżone wyniki nie stanowią samodzielnej podstawy do rozpoznania zaburzeń przetwarzania słuchowego.";
+  const recommendations = [
+    "Wskazana jest obserwacja funkcjonowania słuchowego dziecka w warunkach domowych i szkolnych, ze szczególnym uwzględnieniem rozumienia mowy w hałasie, zapamiętywania informacji słuchowych, wykonywania poleceń oraz utrzymywania uwagi podczas słuchania.",
+    "Zaleca się systematyczne ćwiczenie osłabionych funkcji słuchowych, adekwatnie do uzyskanych wyników, poprzez zabawy i ćwiczenia rozwijające uwagę i pamięć słuchową, sekwencjonowanie oraz różnicowanie dźwięków.",
+    "W przypadku występowania trudności wpływających na codzienne funkcjonowanie dziecka można rozważyć wdrożenie specjalistycznego treningu słuchowego (np. Neuroflow ATS® lub innej terapii ukierunkowanej na rozwój i poprawę sprawności wyższych funkcji słuchowych), dostosowanego do jego indywidualnych potrzeb.",
+    "Warto również rozważyć zastosowanie systemu FM, który poprawia słyszalność mowy nauczyciela na tle hałasu, wspiera aktywne słuchanie oraz może ułatwiać utrzymanie koncentracji podczas zajęć. Informacje dotyczące możliwości wypożyczenia i przetestowania systemu można uzyskać w gabinecie SATIS, pod numerem 502 605 663.",
+    "Podczas nauki w domu zaleca się stworzenie optymalnych warunków do odbioru informacji, przede wszystkim poprzez ograniczenie zbędnego hałasu i innych bodźców rozpraszających. Wskazane jest również ograniczenie czasu spędzanego przed telewizorem, tabletem, telefonem i innymi urządzeniami ekranowymi, szczególnie w przypadku krótkich, dynamicznych materiałów wideo, które mogą nadmiernie stymulować układ percepcyjny dziecka.",
+    "Warto zadbać o regularny tryb dnia, odpowiednią ilość snu, aktywność fizyczną oraz zbilansowaną dietę, które wspierają prawidłowe funkcjonowanie układu nerwowego i koncentrację. Ewentualną suplementację należy stosować wyłącznie po konsultacji z lekarzem, który oceni jej zasadność.",
+    "Zaleca się również objęcie dziecka opieką poradni psychologiczno-pedagogicznej oraz stosowanie się do zaleceń specjalistów zarówno w domu, jak i w środowisku szkolnym."
+  ];
+  return [introduction, summary, overview, caution, "Opis wyników badania", ...descriptions,
+    "Zalecenia", ...recommendations.map((text) => `• ${text}`)].join("\n\n");
+}
+
+function capdNormalConclusionText(results) {
+  if (!results.length || !results.every((result) => capdResultEvaluation(result.code, result.value, result.norm) === "good")) return "";
+  if (results.some((result) => {
+    if (result.code !== "DDT") return false;
+    const values = capdSideValues(result.value);
+    const norms = capdSideValues(result.norm);
+    return values.right === null || values.left === null || norms.right === null || norms.left === null;
+  })) return "";
+  return ["Uzyskane wyniki mieszczą się w normach wiekowych i wskazują na prawidłowe funkcjonowanie badanych procesów słuchowych oraz sprawność w zakresie odbioru i przetwarzania informacji słuchowych.", "Zalecenia",
+    "• Nie ma obecnie wskazań do prowadzenia specjalistycznego treningu słuchowego, ponieważ uzyskane wyniki mieszczą się w normach wiekowych.",
+    "• Wskazane jest zapewnienie dziecku sprzyjających warunków do nauki, w szczególności ograniczenie nadmiernego hałasu i innych bodźców rozpraszających podczas wykonywania zadań wymagających koncentracji.",
+    "• Zaleca się dbanie o odpowiednią ilość snu, regularną aktywność fizyczną, prawidłowe odżywianie oraz higienę cyfrową, co sprzyja prawidłowej koncentracji i funkcjonowaniu poznawczemu.",
+    "• W przypadku pojawienia się w przyszłości trudności z rozumieniem mowy, koncentracją słuchową lub funkcjonowaniem w hałasie wskazana jest ponowna konsultacja i ewentualna kontrola przetwarzania słuchowego.",
+    "• W środowisku szkolnym warto zadbać o miejsce umożliwiające dziecku dobry odbiór wypowiedzi nauczyciela, szczególnie podczas zajęć wymagających dłuższego skupienia."].join("\n\n");
+}
+
+function capdSuggestedConclusionText(age, conclusionType, results, includeMtr = false) {
+  if (age === null) return "";
+  const text = capdAbnormalConclusionText(age, conclusionType, results) || capdNormalConclusionText(results);
+  if (!text || !includeMtr) return text;
+  return `${text}\n\nDodatkowa opcja – przed rozpoczęciem treningu słuchowego\n\nPrzed rozpoczęciem właściwego treningu słuchowego można rozważyć wdrożenie programu Neuroflow – Muzyczny Trening Ruchowy (MTR). Jest to forma aktywności łącząca muzykę, ruch i ćwiczenia koordynacyjne, wspierająca regulację napięcia, koncentrację, koordynację ruchową oraz wyciszenie organizmu. Program może być szczególnie pomocny u dzieci, które wykazują nadwrażliwość słuchową, podwyższone napięcie emocjonalne, łatwo się stresują, mają trudności z wyciszeniem i regulacją emocji lub potrzebują dodatkowego wsparcia w zakresie koncentracji i organizacji ruchu.\n\nMTR może stanowić przygotowanie i uzupełnienie dalszych oddziaływań terapeutycznych, szczególnie w przypadku dzieci wymagających wsparcia w zakresie regulacji napięcia i gotowości do pracy z bodźcami słuchowymi.`;
 }
 
 function ensureCapdNormEditors() {
@@ -19297,22 +19336,24 @@ function renderCapdAbnormalPanel(results) {
   if (!capdAbnormalPanel) return;
   const age = capdAgeValue();
   const abnormal = age === null ? [] : capdAbnormalResults(results);
-  capdAbnormalPanel.hidden = abnormal.length === 0;
-  if (!abnormal.length) return;
+  const text = capdSuggestedConclusionText(age, capdConclusionType?.value || "", results, capdIncludeMtr?.checked);
+  capdAbnormalPanel.hidden = !text;
+  if (capdConclusionType) capdConclusionType.closest("label").hidden = abnormal.length === 0;
+  if (!text) return;
   const riskOption = capdConclusionType?.querySelector('[value="risk"]');
   const featuresOption = capdConclusionType?.querySelector('[value="features"]');
   if (riskOption) riskOption.disabled = age >= 6;
   if (featuresOption) featuresOption.disabled = age < 6;
   if (capdConclusionType?.selectedOptions[0]?.disabled) capdConclusionType.value = "";
-  if (capdAbnormalSummary) capdAbnormalSummary.textContent = abnormal.map((result) => result.code).join(" · ");
-  if (capdAbnormalPreview) capdAbnormalPreview.textContent = capdAbnormalConclusionText(age, capdConclusionType?.value || "", results);
+  if (capdAbnormalSummary) capdAbnormalSummary.textContent = abnormal.length ? abnormal.map((result) => result.code).join(" · ") : "Wyniki w normie";
+  if (capdAbnormalPreview) capdAbnormalPreview.textContent = capdSuggestedConclusionText(age, capdConclusionType?.value || "", results, capdIncludeMtr?.checked);
 }
 
 function insertCapdAbnormalConclusion() {
   if (!capdDescriptionInput) return;
-  const text = capdAbnormalConclusionText(capdAgeValue(), capdConclusionType?.value || "", capdCurrentResults());
+  const text = capdSuggestedConclusionText(capdAgeValue(), capdConclusionType?.value || "", capdCurrentResults(), capdIncludeMtr?.checked);
   if (!text) return;
-  if (capdDescriptionInput.textContent?.includes("Wyniki poza normą:") && !confirm("W opisie jest już propozycja wniosków. Dodać kolejną?")) return;
+  if ((capdDescriptionInput.textContent?.includes("Wyniki poza normą:") || capdDescriptionInput.textContent?.includes("Uzyskane wyniki mieszczą się w normach wiekowych")) && !confirm("W opisie jest już propozycja wniosków. Dodać kolejną?")) return;
   capdDescriptionInput.insertAdjacentHTML("beforeend", capdPlainTextToHtml(text));
   renderCapdReport();
   capdDescriptionInput.focus({ preventScroll: true });
@@ -20042,6 +20083,7 @@ function resetCapdForm() {
   activeCapdPractitionerProfileId = "";
   updateCapdPerformedExamPanels();
   if (capdConclusionType) capdConclusionType.value = "";
+  if (capdIncludeMtr) capdIncludeMtr.checked = false;
   if (capdDescriptionInput) capdDescriptionInput.replaceChildren();
   if (capdAgeInput) delete capdAgeInput.dataset.manual;
   if (capdForm) delete capdForm.dataset.normAge;
@@ -21467,6 +21509,108 @@ function workTimeNormalizeSchedules(entries) {
   return [...versions.values()].sort((a, b) => a.from.localeCompare(b.from));
 }
 
+function workTimeMonthOptions(year) {
+  const names = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+  const options = [];
+  for (let y = Math.min(2025, year); y <= Math.max(2030, year); y++) {
+    names.forEach((name, index) => options.push({ value: `${y}-${String(index + 1).padStart(2, "0")}`, label: `${name} ${y}` }));
+  }
+  return options;
+}
+
+function workTimePopulateMonths() {
+  const selected = workTimeFields.Month.value || todayInputValue().slice(0, 7);
+  workTimeFields.Month.replaceChildren(...workTimeMonthOptions(Number(selected.slice(0, 4))).map((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    return option;
+  }));
+  workTimeFields.Month.value = selected;
+}
+
+function workTimeHourlySegments(data, schedule) {
+  const minutes = value => /^\d{2}:\d{2}$/.test(value || "")
+    && Number(value.slice(0, 2)) < 24 && Number(value.slice(3)) < 60
+    ? Number(value.slice(0, 2)) * 60 + Number(value.slice(3)) : null;
+  const intervals = [[data.start, data.end], [data.secondStart, data.secondEnd]]
+    .map(([start, end]) => [minutes(start), minutes(end)])
+    .filter(([start, end]) => start !== null && end !== null && end > start);
+  if (data.kind !== "WORK" || !intervals.length) return [];
+  const plannedStart = schedule?.off ? null : minutes(schedule?.start);
+  const plannedEnd = schedule?.off ? null : minutes(schedule?.end);
+  const planned = plannedStart !== null && plannedEnd !== null && plannedEnd > plannedStart;
+  const firstStart = Math.min(...intervals.map(([start]) => start));
+  const points = [...new Set([...intervals.flat(), ...(planned ? [plannedStart, plannedEnd] : [])])].sort((a, b) => a - b);
+  const segments = [];
+  for (let i = 1; i < points.length; i++) {
+    const from = points[i - 1], to = points[i];
+    const worked = intervals.some(([start, end]) => from >= start && to <= end);
+    const inPlan = planned && from >= plannedStart && to <= plannedEnd;
+    const late = !worked && inPlan && to <= firstStart;
+    if (!worked && !late) continue;
+    const tone = late ? "late" : !schedule ? "difference" : inPlan ? "match" : "extra";
+    segments.push({ from, to, tone });
+  }
+  return segments;
+}
+
+function workTimeHourlyView(record, schedule) {
+  const segments = workTimeHourlySegments(record.payload || {}, schedule);
+  if (!segments.length) return null;
+  const details = document.createElement("details");
+  details.className = "work-time-hourly";
+  const summary = document.createElement("summary");
+  summary.textContent = "Przebieg godzinowy";
+  details.append(summary);
+  const track = document.createElement("div");
+  track.className = "work-time-hourly-track";
+  const time = minutes => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const names = {match: "Praca zgodnie z grafikiem", late: "Spóźnienie", extra: "Praca poza grafikiem", difference: "Praca — brak grafiku"};
+  for (const segment of segments) {
+    const bar = document.createElement("span");
+    bar.dataset.tone = segment.tone;
+    bar.style.left = `${segment.from / 1440 * 100}%`;
+    bar.style.width = `${(segment.to - segment.from) / 1440 * 100}%`;
+    bar.title = `${names[segment.tone]}: ${time(segment.from)}–${time(segment.to)}`;
+    bar.setAttribute("aria-label", bar.title);
+    track.append(bar);
+  }
+  details.append(track);
+  const axis = document.createElement("div");
+  axis.className = "work-time-hourly-axis";
+  for (const hour of ["00", "06", "12", "18", "24"]) {
+    const label = document.createElement("span");
+    label.textContent = hour;
+    axis.append(label);
+  }
+  details.append(axis);
+  return details;
+}
+
+function workTimeCopyScheduleDay(sourceDay, targetDay) {
+  if (!canViewPrivateModules() || workTimeExamplesActive) return;
+  const source = [...workTimeScheduleDays.children].find(row => row.dataset.day === sourceDay);
+  if (!source) return;
+  const working = source.querySelector('input[type="checkbox"]').checked;
+  const start = source.querySelector('[data-time-field="start"]').value;
+  const end = source.querySelector('[data-time-field="end"]').value;
+  if (working && !workTimeIntervalMinutes(start, end)) {
+    workTimeScheduleMessage.textContent = "Najpierw uzupełnij poprawne godziny dnia, który kopiujesz.";
+    return;
+  }
+  for (const row of workTimeScheduleDays.children) {
+    if (row === source || (targetDay === "weekdays" ? Number(row.dataset.day) > 5 : row.dataset.day !== targetDay)) continue;
+    row.querySelector('input[type="checkbox"]').checked = working;
+    for (const [key, value] of [["start", start], ["end", end]]) {
+      const input = row.querySelector(`[data-time-field="${key}"]`);
+      input.value = working ? value : "";
+      input.disabled = !working;
+    }
+  }
+  workTimeScheduleMessage.textContent = "Dni skopiowane. Kliknij „Zapisz grafik”, aby zachować zmiany.";
+}
+
 function workTimeExampleSchedule(employee) {
   const firstName = String(employee?.name || "").trim().split(/\s+/)[0].toLocaleLowerCase("pl-PL");
   const startHour = firstName === "iwona" ? 7 : firstName === "justyna" ? 9 : 8;
@@ -21631,6 +21775,23 @@ function renderWorkTimeSchedule(preferredFrom = "") {
     working.addEventListener("change", () => {
       row.querySelectorAll("input[type=time]").forEach((input) => { input.disabled = !working.checked; });
     });
+    if (owner) {
+      const copy = document.createElement("select");
+      copy.className = "work-time-schedule-copy";
+      copy.setAttribute("aria-label", `Kopiuj grafik: ${name}`);
+      for (const [value, text] of [["", "Kopiuj do…"], ["weekdays", "Pon.–pt."],
+        ...["Pon.", "Wt.", "Śr.", "Czw.", "Pt.", "Sob.", "Niedz."].map((text, i) => [String(i + 1), text]).filter(([value]) => value !== day)]) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        copy.append(option);
+      }
+      copy.addEventListener("change", () => {
+        if (copy.value) workTimeCopyScheduleDay(day, copy.value);
+        copy.value = "";
+      });
+      row.append(copy);
+    }
     return row;
   }));
   if (owner && typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_VACATION_EMPLOYEE_TABLE, employeeId);
@@ -21872,6 +22033,8 @@ function renderWorkTimeRecords() {
     }
     const schedule = data.schedule || workTimeScheduleForDate(record.employee_id, record.work_date);
     const comparison = workTimeScheduleComparison(record, schedule);
+    const hourly = workTimeHourlyView(record, schedule);
+    if (hourly) row.cells[4].append(hourly);
     const dateCell = row.cells[0];
     dateCell.classList.add("work-time-date-cell");
     dateCell.title = comparison.label;
@@ -22016,6 +22179,7 @@ async function loadWorkTimeRecords() {
 
 function renderWorkTimeModule() {
   if (!currentSupabaseUser || !workTimeFields.Month) return;
+  workTimePopulateMonths();
   if (!workTimeFields.Month.value) workTimeFields.Month.value = todayInputValue().slice(0, 7);
   if (!workTimeFields.Date.value && !workTimeEditingKey) workTimeFields.Date.value = displayDateForInput(todayInputValue());
   workTimeEmployeeOptions();
@@ -26367,6 +26531,7 @@ capdNormToggle?.addEventListener("click", () => {
 });
 capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
 capdConclusionType?.addEventListener("change", () => renderCapdAbnormalPanel(capdCurrentResults()));
+capdIncludeMtr?.addEventListener("change", () => renderCapdAbnormalPanel(capdCurrentResults()));
 capdInsertConclusionBtn?.addEventListener("click", insertCapdAbnormalConclusion);
 capdPerformedExamsPanel?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-capd-exam-template]");

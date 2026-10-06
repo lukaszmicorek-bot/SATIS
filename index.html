@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261006-4">
+  <link rel="stylesheet" href="styles.css?v=20261006-5">
   </head>
   <body>
     <main class="app-shell">
@@ -2130,7 +2130,7 @@
             <section id="capdAbnormalPanel" class="capd-abnormal-panel private-form-wide" hidden aria-label="Propozycja wniosków przy wynikach poza normą">
               <div class="capd-abnormal-head">
                 <div>
-                  <strong>Wyniki poza normą</strong>
+                  <strong>Propozycja opisu i zaleceń</strong>
                   <span id="capdAbnormalSummary"></span>
                 </div>
                 <label>
@@ -2147,6 +2147,7 @@
                 <small>To propozycja do oceny i edycji. Sam wynik poza normą nie stanowi rozpoznania.</small>
                 <button id="capdInsertConclusionBtn" type="button">Dodaj do opisu</button>
               </div>
+              <label><input id="capdIncludeMtr" type="checkbox"> Dodaj informację o Muzycznym Treningu Ruchowym (MTR)</label>
               <details class="capd-abnormal-details" open>
                 <summary>Podgląd proponowanego tekstu</summary>
                 <div id="capdAbnormalPreview"></div>
@@ -2262,6 +2263,7 @@
               <tbody id="capdReportResults"></tbody>
             </table>
             <section class="capd-report-conclusions">
+              <p class="capd-report-interpretation">Zaburzenia przetwarzania słuchowego rozpoznaje się u dzieci o co najmniej przeciętnym poziomie funkcjonowania intelektualnego. Przy wyniku poniżej przeciętnej testy słuchowe mają charakter orientacyjny i służą ocenie aktualnego poziomu przetwarzania informacji słuchowych. W celu oceny funkcjonowania intelektualnego zaleca się konsultację z psychologiem w poradni psychologiczno-pedagogicznej lub specjalistycznej placówce diagnostycznej.</p>
               <h3>Opis badania i wnioski</h3>
               <div id="capdReportDescription">Miejsce na podsumowanie wyników, obserwacje i zalecenia.</div>
             </section>
@@ -2449,7 +2451,7 @@
         <section class="private-module-panel work-time-panel" aria-label="Ewidencja czasu pracy">
           <header class="private-module-head">
             <div><p class="eyebrow" id="workTimeAccessLabel">Ewidencja</p><h2>Ewidencja czasu pracy</h2></div>
-            <label class="work-time-month-field">Miesiąc <input id="workTimeMonthInput" type="month"></label>
+            <label class="work-time-month-field">Miesiąc <select id="workTimeMonthInput" aria-label="Miesiąc i rok"></select></label>
           </header>
           <p class="work-time-notice">Rano zapisz rozpoczęcie. Przy wyjściu uzupełnij godzinę zakończenia w tym samym wpisie.</p>
           <p class="vacation-employee-picker-label">Pracownik</p>
@@ -3097,11 +3099,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261006-4"></script>
-    <script src="data-layer.js?v=20261006-4"></script>
-    <script src="sync-layer.js?v=20261006-4"></script>
-    <script src="offline-vault.js?v=20261006-4"></script>
-    <script src="offline-forms.js?v=20261006-4"></script>
-  <script src="app.js?v=20261006-4"></script>
+    <script src="supabase-config.js?v=20261006-5"></script>
+    <script src="data-layer.js?v=20261006-5"></script>
+    <script src="sync-layer.js?v=20261006-5"></script>
+    <script src="offline-vault.js?v=20261006-5"></script>
+    <script src="offline-forms.js?v=20261006-5"></script>
+  <script src="app.js?v=20261006-5"></script>
   </body>
 </html>
