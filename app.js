@@ -1460,10 +1460,15 @@ function updatePrivateModulesVisibility() {
     pricingHistoryPreviewContent?.replaceChildren();
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
   }
-  if (!sharedVisible) {
+  if (!ownerVisible) {
     workTimeRecords = [];
     workTimeEditingKey = "";
     workTimeStoreReady = false;
+    workTimeLoadedSchedules = { employeeId: "", versions: [] };
+    workTimeExamplesActive = false;
+    workTimeExamplesPrevious = null;
+    if (workTimePinInput) workTimePinInput.value = "";
+    if (workTimeNewPinInput) workTimeNewPinInput.value = "";
     workTimeBody?.replaceChildren();
     workTimeEmployeeButtons?.replaceChildren();
     if (activeNotebook === "workTime") switchNotebook("devices");
@@ -22094,7 +22099,7 @@ function renderWorkTimeRecords() {
 }
 
 async function loadWorkTimeRecords() {
-  if (!currentSupabaseUser) return;
+  if (!currentSupabaseUser || !canViewPrivateModules()) return;
   workTimeStoreReady = false;
   if (workTimeExamplesActive && canViewPrivateModules()) {
     workTimeRecords = workTimeExampleRecords(vacationEmployees.find((item) => item.id === workTimeFields.Employee.value));
@@ -22178,7 +22183,7 @@ async function loadWorkTimeRecords() {
 }
 
 function renderWorkTimeModule() {
-  if (!currentSupabaseUser || !workTimeFields.Month) return;
+  if (!currentSupabaseUser || !canViewPrivateModules() || !workTimeFields.Month) return;
   workTimePopulateMonths();
   if (!workTimeFields.Month.value) workTimeFields.Month.value = todayInputValue().slice(0, 7);
   if (!workTimeFields.Date.value && !workTimeEditingKey) workTimeFields.Date.value = displayDateForInput(todayInputValue());
@@ -22328,7 +22333,7 @@ async function deleteWorkTimeRecord(record, button) {
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime"].includes(notebookName)) return;
-  if (notebookName === "workTime" && !currentSupabaseUser) return;
+  if (notebookName === "workTime" && !canViewPrivateModules()) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideVacationPeriodPreview();
