@@ -547,13 +547,40 @@ test('work-time month choices use Polish names and preserve machine-readable val
   assert.equal(options.length, 72);
   assert.equal(options.find(item => item.value === '2026-09').label, 'Wrzesień 2026');
   assert.equal(options.find(item => item.value === '2030-12').label, 'Grudzień 2030');
-  assert.match(html, /<select id="workTimeMonthInput"/);
+  assert.match(html, /<select id="workTimeYearSelect"/);
+  assert.match(html, /<select id="workTimeMonthSelect"/);
+  assert.match(html, /<input id="workTimeMonthInput" type="hidden"/);
+});
+
+test('separate year and month controls preserve selection and badges format summed minutes', () => {
+  const select = () => ({value: '', children: [], replaceChildren(...children) { this.children = children; }});
+  const month = {value: '2026-09'};
+  const yearSelect = select(), monthSelect = select();
+  const ctx = vm.createContext({workTimeFields: {Month: month}, workTimeYearSelect: yearSelect,
+    workTimeMonthSelect: monthSelect, todayInputValue: () => '2026-10-06',
+    document: {createElement: () => ({value: '', textContent: ''})}});
+  for (const name of ['workTimeMonthOptions', 'workTimePopulateMonths', 'workTimeBadgeTime']) vm.runInContext(extract(name), ctx);
+  ctx.workTimePopulateMonths();
+  assert.equal(yearSelect.value, '2026');
+  assert.equal(monthSelect.value, '09');
+  assert.equal(monthSelect.children.length, 12);
+  assert.equal(monthSelect.children[0].textContent, '1 · Styczeń');
+  assert.equal(monthSelect.children[11].textContent, '12 · Grudzień');
+  month.value = '2030-02';
+  ctx.workTimePopulateMonths();
+  assert.equal(yearSelect.value, '2030');
+  assert.equal(monthSelect.value, '02');
+  assert.equal(ctx.workTimeBadgeTime(25).unit, 'min');
+  assert.equal(ctx.workTimeBadgeTime(85).value, '1:25');
+  assert.equal(ctx.workTimeBadgeTime(120).value, '2:00');
+  assert.match(html, /id="workTimeKindTiles"/);
+  assert.match(extract('workTimeSyncKind'), /button\.setAttribute\("aria-pressed"/);
 });
 
 test('employee summaries show only missing or irregular work, not future days or off days', () => {
   const ctx = vm.createContext({Date, polishPublicHolidayOnDate: () => false, vacationWorkingDays: () => 1});
   for (const name of ['workTimeMonthBounds', 'workTimeIntervalMinutes', 'workTimeCalculatedMinutes',
-    'workTimeScheduleComparison', 'workTimeApprovedLeave', 'workTimeEmployeeIssues']) vm.runInContext(extract(name), ctx);
+    'workTimeScheduleComparison', 'workTimeApprovedLeave', 'workTimeEmployeeOverview', 'workTimeEmployeeIssues']) vm.runInContext(extract(name), ctx);
   const days = {1: {start: '08:00', end: '16:00'}, 2: {start: '08:00', end: '16:00'},
     3: {start: '08:00', end: '16:00'}, 4: {start: '08:00', end: '16:00'}, 5: {start: '08:00', end: '16:00'}};
   const schedules = [{from: '2026-09-01', days}];
@@ -609,7 +636,8 @@ test('hourly display focuses on working hours and the information column shows o
   assert.equal(ctx.workTimeDeviationText(record('08:00', '16:00'), null), '');
   assert.match(ctx.workTimeDeviationText(record('08:15', '16:00'), plan), /Spóźnienie: 15 min/);
   assert.match(ctx.workTimeDeviationText(record('08:00', '17:00'), plan), /Ponad grafik: 60 min/);
-  assert.match(html, /<th>Poza grafikiem<\/th>/);
+  assert.doesNotMatch(html, /<th>Poza grafikiem<\/th>/);
+  assert.match(extract('renderWorkTimeRecords'), /row\.cells\[3\]\.append\(info\)/);
   assert.doesNotMatch(extract('renderWorkTimeRecords'), /toLocaleString/);
   assert.match(extract('renderWorkTimeRecords'), /row\.cells\[4\]\.replaceChildren\(hourly\)/);
   assert.doesNotMatch(extract('workTimeHourlyView'), /work-time-hourly-axis|work-time-hourly-legend|createElement\("details"\)/);

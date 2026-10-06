@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261006-10">
+  <link rel="stylesheet" href="styles.css?v=20261006-11">
   </head>
   <body>
     <main class="app-shell">
@@ -2458,7 +2458,11 @@
         <section class="private-module-panel work-time-panel" aria-label="Ewidencja czasu pracy">
           <header class="private-module-head">
             <div><p class="eyebrow" id="workTimeAccessLabel">Ewidencja</p><h2>Ewidencja czasu pracy</h2></div>
-            <label class="work-time-month-field">Miesiąc <select id="workTimeMonthInput" aria-label="Miesiąc i rok"></select></label>
+            <div class="work-time-period-picker">
+              <label>Rok<select id="workTimeYearSelect" aria-label="Rok ewidencji"></select></label>
+              <label>Miesiąc<select id="workTimeMonthSelect" aria-label="Miesiąc ewidencji"></select></label>
+              <input id="workTimeMonthInput" type="hidden">
+            </div>
           </header>
           <p class="work-time-notice">Rano zapisz rozpoczęcie. Przy wyjściu uzupełnij godzinę zakończenia w tym samym wpisie.</p>
           <p class="vacation-employee-picker-label">Pracownik</p>
@@ -2490,14 +2494,14 @@
           <form id="workTimeForm" class="work-time-form">
             <div class="work-time-main-row">
               <label>Data<input id="workTimeDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" required></label>
-              <label>Rodzaj dnia<select id="workTimeKindInput" required>
+              <fieldset class="work-time-kind-picker"><legend>Rodzaj dnia</legend><select id="workTimeKindInput" hidden>
                 <option value="WORK">Praca</option>
                 <option value="FREE">Dzień wolny</option>
                 <option value="LEAVE">Urlop</option>
                 <option value="RELEASE">Zwolnienie od pracy</option>
                 <option value="EXCUSED">Inna nieobecność usprawiedliwiona</option>
                 <option value="UNEXCUSED">Nieobecność nieusprawiedliwiona</option>
-              </select></label>
+              </select><div id="workTimeKindTiles" class="work-time-kind-tiles" role="group" aria-label="Rodzaj dnia"></div></fieldset>
             </div>
             <div id="workTimeWorkFields" class="work-time-fields">
               <div class="work-time-time-field" id="workTimeStartField">
@@ -2543,7 +2547,7 @@
           </form>
           <p id="workTimeMessage" class="work-time-message" role="status" aria-live="polite"></p>
           <div class="work-time-table-wrap">
-            <table class="work-time-table"><thead><tr><th>Data</th><th>Pracownik</th><th>Rodzaj</th><th>Godziny / wymiar</th><th>Szczegóły</th><th>Poza grafikiem</th><th></th></tr></thead><tbody id="workTimeBody"></tbody></table>
+            <table class="work-time-table"><thead><tr><th>Data</th><th>Pracownik</th><th>Rodzaj</th><th>Godziny / wymiar</th><th>Szczegóły</th><th></th></tr></thead><tbody id="workTimeBody"></tbody></table>
           </div>
         </section>
       </section>
@@ -3106,11 +3110,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261006-10"></script>
-    <script src="data-layer.js?v=20261006-10"></script>
-    <script src="sync-layer.js?v=20261006-10"></script>
-    <script src="offline-vault.js?v=20261006-10"></script>
-    <script src="offline-forms.js?v=20261006-10"></script>
-  <script src="app.js?v=20261006-10"></script>
+    <script src="supabase-config.js?v=20261006-11"></script>
+    <script src="data-layer.js?v=20261006-11"></script>
+    <script src="sync-layer.js?v=20261006-11"></script>
+    <script src="offline-vault.js?v=20261006-11"></script>
+    <script src="offline-forms.js?v=20261006-11"></script>
+  <script src="app.js?v=20261006-11"></script>
   </body>
 </html>
