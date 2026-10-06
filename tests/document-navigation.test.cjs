@@ -6,7 +6,8 @@ const { test } = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 function extract(name) {
-  const start = source.indexOf(`function ${name}(`);
+  const asyncStart = source.indexOf(`async function ${name}(`);
+  const start = asyncStart >= 0 ? asyncStart : source.indexOf(`function ${name}(`);
   assert.ok(start >= 0, name);
   const rest = source.slice(start);
   return rest.slice(0, rest.slice(1).search(/\n(?:async )?function /) + 1);
@@ -20,7 +21,7 @@ function node(id, dataset = {}, active = false) {
   };
 }
 function setup() {
-  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'attendance'].map(name => node(`${name}Notebook`));
+  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime'].map(name => node(`${name}Notebook`));
   const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'rodo'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
@@ -28,7 +29,7 @@ function setup() {
   const context = { activeNotebook: 'devices', activePricingView: '', activeDeviceView: 'database',
     currentSupabaseUser: {email: 'satis@pracowniasluchu.pl'}, owner: true,
     notebookSections: sections, tabButtons: tabs, viewSections: views, statsPanel: node('stats'),
-    notebookSwitchButtons: ['devices', 'repairs', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'attendance'].map(name => node(name, {notebook: name})),
+    notebookSwitchButtons: ['devices', 'repairs', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'workTime'].map(name => node(name, {notebook: name})),
     canViewPrivateModules: () => context.owner,
     canViewDocumentHistory: () => Boolean(context.currentSupabaseUser),
     document: {querySelector: () => null},
@@ -39,7 +40,7 @@ function setup() {
     'renderPricingOfferDeviceList', 'renderPricingOffer', 'renderPricingLoan', 'renderPricingRodo', 'renderPricingPcprList', 'renderPricingOrder', 'renderPricingComplaint',
     'renderPricingDocumentHistory', 'renderPricingRecords', 'updateStats', 'renderRepairRecords', 'renderDataControlView', 'renderDemoRecords',
     'renderStockView', 'renderDeviceViews', 'updateCapdScope', 'renderCapdHistory', 'renderVacationModule',
-    'renderAttendanceModule', 'loadAttendanceEntries']) {
+    'renderWorkTimeModule', 'loadWorkTimeRecords']) {
     context[name] = () => { context.renderCounts[name] = (context.renderCounts[name] || 0) + 1; };
   }
   vm.createContext(context);
@@ -70,28 +71,85 @@ test('document views route to the correct notebook, preserve form nodes, and ret
     assert.equal(ctx.statsPanel.hidden, group !== 'devices');
   }
 });
-test('attendance is accessible only to SATIS and keeps other notebooks separate', () => {
+test('work time month boundaries and owner policy are explicit', () => {
+  const ctx = vm.createContext({Date, String});
+  vm.runInContext(extract('workTimeMonthBounds'), ctx);
+  assert.equal(ctx.workTimeMonthBounds('2026-12').to, '2027-01-01');
+  assert.equal(ctx.workTimeMonthBounds('2026-13'), null);
+  assert.doesNotMatch(html, /data-notebook="attendance"/);
+});
+test('work time is a separate owner-only notebook with protected records', () => {
   const ctx = setup();
-  ctx.switchNotebook('attendance');
-  assert.equal(ctx.activeNotebook, 'attendance');
-  assert.equal(ctx.notebookSections.find(n => n.id === 'attendanceNotebook').hidden, false);
-  assert.equal(ctx.renderCounts.loadAttendanceEntries, 1);
+  ctx.switchNotebook('workTime');
+  assert.equal(ctx.activeNotebook, 'workTime');
+  assert.equal(ctx.notebookSections.find(n => n.id === 'workTimeNotebook').hidden, false);
+  assert.equal(ctx.renderCounts.loadWorkTimeRecords, 1);
   ctx.owner = false;
   ctx.switchNotebook('devices');
-  ctx.switchNotebook('attendance');
+  ctx.switchNotebook('workTime');
   assert.equal(ctx.activeNotebook, 'devices');
-});
-test('attendance month boundaries and server policy are explicit', () => {
-  const ctx = vm.createContext({Date, String});
-  vm.runInContext(extract('attendanceMonthBounds'), ctx);
-  assert.equal(ctx.attendanceMonthBounds('2026-12').to, '2027-01-01');
-  assert.equal(ctx.attendanceMonthBounds('2026-13'), null);
-  const migration = fs.readFileSync(path.join(__dirname, '../supabase-attendance.sql'), 'utf8');
-  assert.match(migration, /alter table public\.attendance_entries enable row level security/i);
+  const migration = fs.readFileSync(path.join(__dirname, '../supabase-work-time.sql'), 'utf8');
+  assert.match(migration, /alter table public\.work_time_records enable row level security/i);
   assert.match(migration, /using \(public\.is_satis_owner\(\)\)/i);
-  assert.match(migration, /revoke all on public\.attendance_entries from public, anon, authenticated/i);
-  assert.match(migration, /attendance_entry_history/i);
-  assert.match(html, /data-notebook="attendance" data-private-owner hidden/);
+  assert.match(migration, /revoke all on public\.work_time_records from public, anon, authenticated/i);
+  assert.match(migration, /work_time_record_history/i);
+});
+test('work time rejects impossible or incomplete entries', () => {
+  const ctx = vm.createContext({
+    todayInputValue: () => '2026-10-06', isoDateForSave: value => /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '',
+    WORK_TIME_KINDS: {WORK: 'Praca', FREE: 'Wolne', LEAVE: 'Urlop', RELEASE: 'Zwolnienie', EXCUSED: 'Usprawiedliwiona', UNEXCUSED: 'Nieusprawiedliwiona'}
+  });
+  vm.runInContext(extract('workTimeIntervalMinutes'), ctx);
+  vm.runInContext(extract('workTimeCalculatedMinutes'), ctx);
+  vm.runInContext(extract('validateWorkTimeDraft'), ctx);
+  const base = {date: '2026-10-06', kind: 'WORK', start: '08:00', end: '16:00', hours: 8,
+    secondStart: '', secondEnd: '', overtime: 0, absenceHours: 0, freeReason: '', absenceLabel: ''};
+  assert.equal(ctx.validateWorkTimeDraft(base), '');
+  assert.equal(ctx.workTimeCalculatedMinutes({...base, start: '08:00', end: '12:00', secondStart: '13:00', secondEnd: '17:00'}), 480);
+  assert.match(ctx.validateWorkTimeDraft({...base, overtime: 9}), /nadliczbowe/);
+  assert.match(ctx.validateWorkTimeDraft({...base, secondStart: '11:00', secondEnd: '13:00'}), /po zakończeniu/);
+  assert.match(ctx.validateWorkTimeDraft({...base, date: '2026-10-07'}), /późniejszą/);
+  assert.match(ctx.validateWorkTimeDraft({...base, kind: 'FREE'}), /tytuł/);
+  assert.equal(ctx.validateWorkTimeDraft({...base, kind: 'FREE', freeReason: 'niedziela'}), '');
+  assert.match(ctx.validateWorkTimeDraft({...base, kind: 'LEAVE', absenceHours: 8}), /rodzaj nieobecności/);
+  assert.equal(ctx.workTimeIntervalMinutes('24:00', '25:00'), 0);
+});
+test('work time shows only the three workers from the selected vacation year', () => {
+  const ctx = vm.createContext({normalize: value => String(value).toLowerCase()});
+  vm.runInContext(extract('workTimeRosterForYear'), ctx);
+  const entries = ['Oliwia Piecha', 'Justyna Waliczek', 'Iwona Test', 'Dorota Test', 'Inna Osoba']
+    .map((name, index) => ({id: String(index), name, year: 2026, redacted: false}));
+  entries.push({id: 'old', name: 'Oliwia Piecha', year: 2025, redacted: false});
+  assert.equal(ctx.workTimeRosterForYear(entries, 2026).map(item => item.name).join(','),
+    'Oliwia Piecha,Justyna Waliczek,Iwona Test');
+});
+test('work time save persists calculated minutes and rejects a store that is not ready', async () => {
+  const saved = [];
+  const messages = [];
+  const ctx = vm.createContext({
+    canViewPrivateModules: () => true, currentSupabaseUser: {id: 'owner'}, hasSupabaseConfig: true,
+    workTimeStoreReady: false, workTimeEditingKey: '', workTimeRecords: [],
+    workTimeFields: {Employee: {value: 'e1'}, Month: {value: '2026-10'}},
+    vacationEmployees: [{id: 'e1', name: 'Oliwia Piecha', year: 2026, redacted: false}],
+    workTimeSaveBtn: {disabled: false},
+    supabaseClient: {from: () => ({upsert: async (record, options) => {
+      saved.push({record, options}); return {error: null};
+    }})},
+    workTimeDraft: () => ({date: '2026-10-06', kind: 'WORK', start: '08:00', end: '12:00',
+      secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8, overtime: 0}),
+    validateWorkTimeDraft: () => '', workTimeSetMessage: message => messages.push(message),
+    workTimeResetForm: () => {}, loadWorkTimeRecords: async () => {}, Date,
+  });
+  vm.runInContext(extract('saveWorkTimeRecord'), ctx);
+  await ctx.saveWorkTimeRecord({preventDefault() {}});
+  assert.equal(saved.length, 0);
+  assert.match(messages.at(-1), /Zapis niedostępny/);
+  ctx.workTimeStoreReady = true;
+  await ctx.saveWorkTimeRecord({preventDefault() {}});
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].record.payload.workMinutes, 480);
+  assert.equal(saved[0].record.payload.secondStart, '13:00');
+  assert.equal(saved[0].options.onConflict, 'employee_id,work_date');
 });
 test('PCPR and History stand alone, pricing stays available, and gabinet can open History', () => {
   const ctx = setup();
@@ -137,7 +195,7 @@ test('history renderers and previews refuse anonymous access but permit authenti
 });
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(top, ['devices', 'repairs', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'attendance']);
+  assert.deepEqual(top, ['devices', 'repairs', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime']);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {
     assert.match(html, new RegExp(`id="${view}Tab"[^>]*aria-controls="pricing${view[0].toUpperCase() + view.slice(1)}View"`));

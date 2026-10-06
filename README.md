@@ -18,11 +18,13 @@ Workflow `.github/workflows/quality.yml` uruchamia na GitHubie testy syntetyczne
 
 Formularze offline (oferta, umowa, zamówienie, reklamacja): instrukcja pierwszego włączenia, hasła, wydruków roboczych i synchronizacji jest w `OFFLINE.md`.
 
-## Robocza lista obecności
+Poprzedni roboczy widok listy obecności został zastąpiony przez Ewidencję. Plik `supabase-attendance.sql` pozostał wyłącznie jako ślad wcześniejszej migracji; nie uruchamiaj go dla nowej ewidencji i nie usuwaj istniejącej tabeli bez sprawdzenia danych.
 
-Zakładka **Obecność** jest dostępna wyłącznie dla konta SATIS. Korzysta z pracowników przypisanych do danego roku w zakładce Urlop. Po uruchomieniu dotychczasowych migracji wykonaj `supabase-attendance.sql` w SQL Editor, najpierw w projekcie testowym. Dane listy są przechowywane tylko w Supabase; brak połączenia blokuje odczyt i zapis. RLS chroni tabelę oraz historię korekt przed kontami gabinetowymi.
+## Ewidencja czasu pracy
 
-To pomocnicza lista obecności, **nie kompletna ewidencja czasu pracy**. Obowiązkowa ewidencja wymaga dodatkowych kategorii (m.in. pracy nocnej i nadliczbowej, dyżurów, dni wolnych i nieobecności) i osobnej organizacji dokumentacji pracowniczej. Przed zastąpieniem nią dotychczasowego procesu kadrowego należy ustalić zasady potwierdzania obecności i retencji danych.
+Osobna zakładka **Ewidencja** znajduje się obok Urlopu i pokazuje z jego rocznej listy tylko Oliwię, Justynę oraz Iwonę. Praca (od–do, opcjonalnie drugi przedział) jest automatycznie liczona w minutach; nadgodziny wpisuje się oddzielnie. Można też zapisać tytuł dnia wolnego i rodzaj oraz wymiar nieobecności. Dane nie są automatycznie przepisywane z wniosków urlopowych.
+
+Przed użyciem wykonaj `supabase-work-time.sql` w SQL Editor, po kopii zapasowej i teście na projekcie testowym. Samo opublikowanie plików strony nie tworzy tabeli. Bez niej zapis jest zablokowany i aplikacja pokaże komunikat. Dostęp do tabeli i historii zmian ma tylko SATIS. To funkcja robocza: przed przyjęciem jej jako jedynej dokumentacji pracowniczej zweryfikuj z osobą prowadzącą kadry kompletność wpisów, sposób korekt, retencję i kopie zapasowe. Jeśli pojawią się nocna praca, dyżury lub zatrudnienie młodocianego, należy rozszerzyć ewidencję o te dane wymagane przez § 6 rozporządzenia.
 
 ## Supabase: wspólna baza przez internet
 

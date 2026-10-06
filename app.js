@@ -643,8 +643,9 @@ let capdHistorySupabaseAvailable = null;
 let appAccessHardeningAvailable = null;
 let vacationEmployees = [];
 let vacationRequests = [];
-let attendanceEntries = [];
-let attendanceEditingKey = "";
+let workTimeRecords = [];
+let workTimeEditingKey = "";
+let workTimeStoreReady = false;
 let capdHistory = loadCapdHistory();
 let capdSavedPractitionerProfiles = [];
 let activeCapdPractitionerProfileId = "";
@@ -1055,17 +1056,18 @@ const appTitle = document.querySelector("#appTitle");
 const statsPanel = document.querySelector(".stats");
 const privateOwnerNotebookButtons = document.querySelectorAll("[data-private-owner]");
 const privateSharedNotebookButtons = document.querySelectorAll("[data-private-shared]");
-const attendanceForm = document.querySelector("#attendanceForm");
-const attendanceMonthInput = document.querySelector("#attendanceMonthInput");
-const attendanceEmployeeInput = document.querySelector("#attendanceEmployeeInput");
-const attendanceDateInput = document.querySelector("#attendanceDateInput");
-const attendanceStartInput = document.querySelector("#attendanceStartInput");
-const attendanceEndInput = document.querySelector("#attendanceEndInput");
-const attendanceWorkstationInput = document.querySelector("#attendanceWorkstationInput");
-const attendanceSaveBtn = document.querySelector("#attendanceSaveBtn");
-const attendanceCancelBtn = document.querySelector("#attendanceCancelBtn");
-const attendanceMessage = document.querySelector("#attendanceMessage");
-const attendanceBody = document.querySelector("#attendanceBody");
+const workTimeForm = document.querySelector("#workTimeForm");
+const workTimeFields = Object.fromEntries([
+  "Month", "Employee", "Date", "Kind", "Start", "End", "Hours", "Overtime",
+  "SecondStart", "SecondEnd", "FreeReason", "AbsenceHours", "AbsenceLabel"
+].map((name) => [name, document.querySelector(`#workTime${name}Input`)]));
+const workTimeEmployeeButtons = document.querySelector("#workTimeEmployeeButtons");
+const workTimeSecondPeriod = document.querySelector("#workTimeSecondPeriod");
+const workTimeSecondToggle = document.querySelector("#workTimeSecondToggle");
+const workTimeBody = document.querySelector("#workTimeBody");
+const workTimeMessageNode = document.querySelector("#workTimeMessage");
+const workTimeSaveBtn = document.querySelector("#workTimeSaveBtn");
+const workTimeCancelBtn = document.querySelector("#workTimeCancelBtn");
 const capdForm = document.querySelector("#capdForm");
 const capdPatientInput = document.querySelector("#capdPatientInput");
 const capdPeselInput = document.querySelector("#capdPeselInput");
@@ -1425,10 +1427,12 @@ function updatePrivateModulesVisibility() {
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
   }
   if (!ownerVisible) {
-    attendanceEntries = [];
-    attendanceEditingKey = "";
-    attendanceBody?.replaceChildren();
-    if (activeNotebook === "attendance") switchNotebook("devices");
+    workTimeRecords = [];
+    workTimeEditingKey = "";
+    workTimeStoreReady = false;
+    workTimeBody?.replaceChildren();
+    workTimeEmployeeButtons?.replaceChildren();
+    if (activeNotebook === "workTime") switchNotebook("devices");
   }
   if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
 }
@@ -2667,10 +2671,12 @@ function clearSensitiveApplicationState() {
   pricingPcprList = [];
   vacationEmployees = [];
   vacationRequests = [];
-  attendanceEntries = [];
-  attendanceEditingKey = "";
-  attendanceBody?.replaceChildren();
-  attendanceSetMessage("");
+  workTimeRecords = [];
+  workTimeEditingKey = "";
+  workTimeStoreReady = false;
+  workTimeBody?.replaceChildren();
+  workTimeEmployeeButtons?.replaceChildren();
+  workTimeSetMessage("");
   capdHistory = [];
   capdSavedPractitionerProfiles = [];
   activeCapdPractitionerProfileId = "";
@@ -21390,53 +21396,186 @@ async function deleteVacationRequest(id) {
   }
 }
 
-function attendanceMonthBounds(month) {
+function workTimeMonthBounds(month) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || "")) return null;
   const [year, number] = month.split("-").map(Number);
   const next = new Date(year, number, 1);
   return { from: `${month}-01`, to: `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`, year };
 }
 
-function attendanceEmployeeOptions() {
-  if (!attendanceEmployeeInput || !attendanceMonthInput) return;
-  const year = attendanceMonthBounds(attendanceMonthInput.value)?.year;
-  const previous = attendanceEmployeeInput.value;
-  attendanceEmployeeInput.replaceChildren(new Option("Wybierz pracownika", ""));
-  vacationEmployees.filter((item) => !item.redacted && item.year === year).forEach((employee) => {
-    attendanceEmployeeInput.add(new Option(employee.name, employee.id));
-  });
-  attendanceEmployeeInput.value = previous;
-  if (!attendanceEmployeeInput.value) attendanceEmployeeInput.selectedIndex = 0;
-  attendanceEmployeeInput.disabled = attendanceEmployeeInput.options.length < 2 || Boolean(attendanceEditingKey);
+const WORK_TIME_KINDS = {
+  WORK: "Praca", FREE: "Dzień wolny", LEAVE: "Urlop", RELEASE: "Zwolnienie od pracy",
+  EXCUSED: "Inna nieobecność usprawiedliwiona", UNEXCUSED: "Nieobecność nieusprawiedliwiona"
+};
+
+function workTimeSetMessage(message, error = false) {
+  if (!workTimeMessageNode) return;
+  workTimeMessageNode.textContent = message;
+  workTimeMessageNode.dataset.error = error ? "true" : "false";
 }
 
-function attendanceSetMessage(message, error = false) {
-  if (!attendanceMessage) return;
-  attendanceMessage.textContent = message;
-  attendanceMessage.dataset.error = error ? "true" : "false";
+function workTimeRosterForYear(employees, year) {
+  const allowed = new Set(["oliwia", "justyna", "iwona"]);
+  return employees.filter((item) => !item.redacted && item.year === year &&
+    allowed.has(normalize(item.name).split(" ")[0]));
 }
 
-function attendanceCancelEdit() {
-  attendanceEditingKey = "";
-  if (attendanceForm) attendanceForm.reset();
-  if (attendanceDateInput) {
-    attendanceDateInput.value = todayInputValue();
-    attendanceDateInput.disabled = false;
+function workTimeEmployeeOptions() {
+  if (!workTimeFields.Month || !workTimeFields.Employee || !workTimeEmployeeButtons) return;
+  const year = workTimeMonthBounds(workTimeFields.Month.value)?.year;
+  const previous = workTimeFields.Employee.value;
+  const employees = workTimeRosterForYear(vacationEmployees, year);
+  workTimeFields.Employee.value = employees.some((item) => item.id === previous) ? previous : employees[0]?.id || "";
+  workTimeEmployeeButtons.replaceChildren(...employees.map((employee) => {
+    const entry = document.createElement("div");
+    entry.className = "vacation-employee-entry";
+    entry.dataset.locationTone = employee.workstation || "";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "vacation-employee-item work-time-employee-button";
+    button.classList.toggle("active", employee.id === workTimeFields.Employee.value);
+    button.dataset.employeeId = employee.id;
+    button.setAttribute("aria-pressed", String(employee.id === workTimeFields.Employee.value));
+    const name = document.createElement("strong");
+    name.textContent = employee.name;
+    button.append(name);
+    if (employee.workstation) {
+      const place = document.createElement("span");
+      place.className = "vacation-employee-workstation";
+      place.dataset.locationTone = employee.workstation;
+      place.textContent = employee.workstation;
+      button.append(place);
+    }
+    entry.append(button);
+    return entry;
+  }));
+}
+
+function workTimeSyncKind() {
+  const kind = workTimeFields.Kind?.value;
+  const work = document.querySelector("#workTimeWorkFields");
+  const free = document.querySelector("#workTimeFreeFields");
+  const absence = document.querySelector("#workTimeAbsenceFields");
+  if (work) work.hidden = kind !== "WORK";
+  if (free) free.hidden = kind !== "FREE";
+  if (absence) absence.hidden = !["LEAVE", "RELEASE", "EXCUSED", "UNEXCUSED"].includes(kind);
+  const label = document.querySelector("#workTimeAbsenceLabelField");
+  if (label) label.hidden = kind === "UNEXCUSED";
+  if (workTimeSecondToggle) workTimeSecondToggle.hidden = kind !== "WORK";
+  if (kind !== "WORK" && workTimeSecondPeriod) workTimeSecondPeriod.hidden = true;
+}
+
+function workTimeResetForm() {
+  const employeeId = workTimeFields.Employee?.value || "";
+  workTimeEditingKey = "";
+  workTimeForm?.reset();
+  if (workTimeFields.Employee) workTimeFields.Employee.value = employeeId;
+  if (workTimeFields.Date) {
+    workTimeFields.Date.value = todayInputValue();
+    workTimeFields.Date.disabled = false;
   }
-  if (attendanceSaveBtn) attendanceSaveBtn.textContent = "Zapisz obecność";
-  if (attendanceCancelBtn) attendanceCancelBtn.hidden = true;
-  attendanceEmployeeOptions();
+  if (workTimeSaveBtn) workTimeSaveBtn.textContent = "Zapisz dzień";
+  if (workTimeCancelBtn) workTimeCancelBtn.hidden = true;
+  if (workTimeSecondPeriod) workTimeSecondPeriod.hidden = true;
+  if (workTimeSecondToggle) workTimeSecondToggle.textContent = "+ Drugi przedział pracy";
+  workTimeEmployeeOptions();
+  workTimeSyncKind();
+  workTimeUpdateDuration();
 }
 
-function renderAttendanceEntries() {
-  if (!attendanceBody) return;
-  attendanceBody.replaceChildren();
+function workTimeIntervalMinutes(start, end) {
+  if (!/^\d{2}:\d{2}$/.test(start || "") || !/^\d{2}:\d{2}$/.test(end || "")) return 0;
+  const [startHour, startMinute] = start.split(":").map(Number);
+  const [endHour, endMinute] = end.split(":").map(Number);
+  if (startHour > 23 || endHour > 23 || startMinute > 59 || endMinute > 59) return 0;
+  const first = startHour * 60 + startMinute;
+  const last = endHour * 60 + endMinute;
+  return first < last ? last - first : 0;
+}
+
+function workTimeCalculatedMinutes(draft) {
+  const main = workTimeIntervalMinutes(draft.start, draft.end);
+  const extra = draft.secondStart || draft.secondEnd
+    ? workTimeIntervalMinutes(draft.secondStart, draft.secondEnd) : 0;
+  return main + extra;
+}
+
+function workTimeUpdateDuration() {
+  if (!workTimeFields.Hours) return;
+  const minutes = workTimeCalculatedMinutes({
+    start: workTimeFields.Start?.value, end: workTimeFields.End?.value,
+    secondStart: workTimeFields.SecondStart?.value, secondEnd: workTimeFields.SecondEnd?.value
+  });
+  workTimeFields.Hours.value = `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function validateWorkTimeDraft(draft, today = todayInputValue()) {
+  if (!isoDateForSave(draft.date) || draft.date > today) return "Podaj poprawną datę, nie późniejszą niż dziś.";
+  if (!WORK_TIME_KINDS[draft.kind]) return "Wybierz rodzaj dnia.";
+  const numeric = [draft.hours, draft.overtime, draft.absenceHours];
+  if (numeric.some((value) => !Number.isFinite(value) || value < 0 || value > 24)) return "Liczba godzin musi mieścić się w zakresie 0–24.";
+  if (draft.kind === "WORK") {
+    if (workTimeIntervalMinutes(draft.start, draft.end) <= 0) return "Podaj godziny rozpoczęcia i zakończenia pracy (od wcześniejszej do późniejszej).";
+    if (Boolean(draft.secondStart) !== Boolean(draft.secondEnd)) return "Uzupełnij obie godziny drugiego przedziału pracy.";
+    if (draft.secondStart && (workTimeIntervalMinutes(draft.secondStart, draft.secondEnd) <= 0 || draft.secondStart < draft.end)) {
+      return "Drugi przedział musi zaczynać się po zakończeniu pierwszego.";
+    }
+    if (draft.hours <= 0 || draft.hours > 24) return "Sprawdź przedziały godzin pracy.";
+    if (draft.overtime > draft.hours) return "Godziny nadliczbowe nie mogą przekraczać czasu pracy.";
+  }
+  if (draft.kind === "FREE" && !draft.freeReason.trim()) return "Podaj tytuł udzielenia dnia wolnego.";
+  if (["LEAVE", "RELEASE", "EXCUSED", "UNEXCUSED"].includes(draft.kind) && draft.absenceHours <= 0) {
+    return "Podaj wymiar nieobecności w godzinach.";
+  }
+  if (["LEAVE", "RELEASE", "EXCUSED"].includes(draft.kind) && !draft.absenceLabel.trim()) return "Podaj rodzaj nieobecności bez danych o stanie zdrowia.";
+  return "";
+}
+
+function workTimeDraft() {
+  const value = (name) => workTimeFields[name]?.value || "";
+  const number = (name) => value(name).trim() === "" ? 0 : Number(value(name).replace(",", "."));
+  const draft = {
+    date: value("Date"), kind: value("Kind"), start: value("Start"), end: value("End"),
+    secondStart: workTimeSecondPeriod?.hidden ? "" : value("SecondStart"),
+    secondEnd: workTimeSecondPeriod?.hidden ? "" : value("SecondEnd"),
+    overtime: number("Overtime"),
+    freeReason: value("FreeReason").trim(), absenceHours: number("AbsenceHours"),
+    absenceLabel: value("AbsenceLabel").trim()
+  };
+  draft.workMinutes = workTimeCalculatedMinutes(draft);
+  draft.hours = draft.workMinutes / 60;
+  return draft;
+}
+
+function workTimeDetails(record) {
+  const data = record.payload || {};
+  const parts = [];
+  if (data.kind === "WORK") {
+    parts.push(`${data.start || ""}–${data.end || ""}`);
+    if (data.secondStart && data.secondEnd) parts.push(`${data.secondStart}–${data.secondEnd}`);
+    if (data.overtime) parts.push(`nadgodz. ${data.overtime} h`);
+  } else if (data.kind === "FREE") parts.push(data.freeReason || "");
+  else if (data.absenceLabel) parts.push(data.absenceLabel);
+  return parts.filter(Boolean).join(" · ");
+}
+
+function workTimeDurationText(minutes) {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")} h`;
+}
+
+function renderWorkTimeRecords() {
+  if (!workTimeBody) return;
+  workTimeBody.replaceChildren();
   if (!canViewPrivateModules()) return;
-  for (const entry of attendanceEntries) {
-    const row = attendanceBody.insertRow();
-    for (const value of [formatDate(entry.work_date), entry.employee_name, entry.workstation,
-      String(entry.started_at || "").slice(0, 5), String(entry.ended_at || "").slice(0, 5) || "—",
-      entry.updated_at ? new Date(entry.updated_at).toLocaleString("pl-PL") : "—"]) {
+  for (const record of workTimeRecords) {
+    const row = workTimeBody.insertRow();
+    const data = record.payload || {};
+    const extent = data.kind === "WORK" ? workTimeDurationText(data.workMinutes ?? (Number(data.hours) || 0) * 60) :
+      data.kind === "FREE" ? "—" : `${data.absenceHours || 0} h`;
+    for (const value of [formatDate(record.work_date), record.employee_name,
+      WORK_TIME_KINDS[data.kind] || "—", extent, workTimeDetails(record),
+      record.updated_at ? new Date(record.updated_at).toLocaleString("pl-PL") : "—"]) {
       row.insertCell().textContent = value;
     }
     const edit = document.createElement("button");
@@ -21444,120 +21583,144 @@ function renderAttendanceEntries() {
     edit.className = "ghost";
     edit.textContent = "Edytuj";
     edit.addEventListener("click", () => {
-      attendanceEditingKey = `${entry.employee_id}|${entry.work_date}`;
-      attendanceEmployeeOptions();
-      attendanceEmployeeInput.value = entry.employee_id;
-      attendanceDateInput.value = entry.work_date;
-      attendanceDateInput.disabled = true;
-      attendanceStartInput.value = String(entry.started_at || "").slice(0, 5);
-      attendanceEndInput.value = String(entry.ended_at || "").slice(0, 5);
-      attendanceWorkstationInput.value = entry.workstation;
-      attendanceSaveBtn.textContent = "Zapisz zmianę";
-      attendanceCancelBtn.hidden = false;
-      attendanceForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      workTimeEditingKey = `${record.employee_id}|${record.work_date}`;
+      workTimeEmployeeOptions();
+      workTimeFields.Employee.value = record.employee_id;
+      workTimeFields.Date.value = record.work_date;
+      workTimeFields.Date.disabled = true;
+      for (const [name, key] of Object.entries({ Kind: "kind", Start: "start", End: "end",
+        SecondStart: "secondStart", SecondEnd: "secondEnd", Overtime: "overtime",
+        FreeReason: "freeReason", AbsenceHours: "absenceHours", AbsenceLabel: "absenceLabel" })) {
+        workTimeFields[name].value = data[key] ?? "";
+      }
+      if (workTimeSecondPeriod) workTimeSecondPeriod.hidden = !(data.secondStart && data.secondEnd);
+      if (workTimeSecondToggle) workTimeSecondToggle.textContent = workTimeSecondPeriod?.hidden ? "+ Drugi przedział pracy" : "Usuń drugi przedział";
+      workTimeSyncKind();
+      workTimeUpdateDuration();
+      workTimeSaveBtn.textContent = "Zapisz zmianę";
+      workTimeCancelBtn.hidden = false;
+      workTimeForm.scrollIntoView({ behavior: "smooth", block: "center" });
     });
     row.insertCell().append(edit);
   }
 }
 
-async function loadAttendanceEntries() {
+async function loadWorkTimeRecords() {
   if (!canViewPrivateModules()) return;
+  workTimeStoreReady = false;
   if (!hasSupabaseConfig || !currentSupabaseUser || !supabaseClient) {
-    attendanceSetMessage("Lista obecności wymaga połączenia z Supabase i konta SATIS.", true);
+    workTimeStoreReady = false;
+    workTimeSetMessage("Ewidencja wymaga połączenia z Supabase i konta SATIS. Zapis jest wyłączony.", true);
     return;
   }
-  const bounds = attendanceMonthBounds(attendanceMonthInput?.value);
-  if (!bounds) return;
+  const bounds = workTimeMonthBounds(workTimeFields.Month?.value);
+  const employeeId = workTimeFields.Employee?.value;
+  if (!bounds || !employeeId) {
+    workTimeRecords = [];
+    renderWorkTimeRecords();
+    workTimeSetMessage("Wybierz pracownika z listy Urlop.");
+    return;
+  }
   const userId = currentSupabaseUser.id;
-  const month = attendanceMonthInput.value;
-  attendanceSetMessage("Wczytywanie...");
+  const month = workTimeFields.Month.value;
+  const request = (loadWorkTimeRecords.sequence || 0) + 1;
+  loadWorkTimeRecords.sequence = request;
+  workTimeSetMessage("Wczytywanie...");
   let data;
   let error;
   try {
-    ({ data, error } = await supabaseClient.from("attendance_entries")
-      .select("employee_id,employee_name,work_date,workstation,started_at,ended_at,updated_at")
-      .gte("work_date", bounds.from).lt("work_date", bounds.to)
-      .order("work_date", { ascending: false }).order("employee_name")
-      .limit(1000));
+    ({ data, error } = await supabaseClient.from("work_time_records")
+      .select("employee_id,employee_name,work_date,payload,updated_at")
+      .eq("employee_id", employeeId).gte("work_date", bounds.from).lt("work_date", bounds.to)
+      .order("work_date", { ascending: false }).limit(100));
   } catch (failure) {
     error = failure;
   }
-  if (!canViewPrivateModules() || currentSupabaseUser?.id !== userId || attendanceMonthInput.value !== month) return;
+  if (!canViewPrivateModules() || loadWorkTimeRecords.sequence !== request || currentSupabaseUser?.id !== userId ||
+      workTimeFields.Month.value !== month || workTimeFields.Employee.value !== employeeId) return;
   if (error) {
-    attendanceEntries = [];
-    renderAttendanceEntries();
-    attendanceSetMessage("Nie można wczytać listy. Sprawdź połączenie i migrację supabase-attendance.sql.", true);
-    console.warn("Lista obecności:", error.message);
+    workTimeStoreReady = false;
+    workTimeRecords = [];
+    renderWorkTimeRecords();
+    workTimeSetMessage("Nie można zapisać: tabela ewidencji jest niedostępna. Wykonaj supabase-work-time.sql w SQL Editor albo sprawdź połączenie.", true);
+    console.warn("Ewidencja:", error.message);
     return;
   }
-  attendanceEntries = data || [];
-  renderAttendanceEntries();
-  attendanceSetMessage(attendanceEntries.length === 1000
-    ? "Osiągnięto limit 1000 wpisów w miesiącu; skontaktuj się z administratorem."
-    : `Wpisy: ${attendanceEntries.length}. Zmiany zapisuje wyłącznie konto SATIS.`, attendanceEntries.length === 1000);
+  workTimeStoreReady = true;
+  workTimeRecords = data || [];
+  renderWorkTimeRecords();
+  const workedMinutes = workTimeRecords.reduce((total, record) => total +
+    (record.payload?.kind === "WORK" ? Number(record.payload.workMinutes ?? (Number(record.payload.hours) || 0) * 60) || 0 : 0), 0);
+  workTimeSetMessage(`Wpisy: ${workTimeRecords.length}. Czas pracy: ${workTimeDurationText(workedMinutes)}.`);
 }
 
-function renderAttendanceModule() {
-  if (!canViewPrivateModules() || !attendanceMonthInput) return;
-  if (!attendanceMonthInput.value) attendanceMonthInput.value = todayInputValue().slice(0, 7);
-  if (!attendanceDateInput.value && !attendanceEditingKey) attendanceDateInput.value = todayInputValue();
-  attendanceEmployeeOptions();
+function renderWorkTimeModule() {
+  if (!canViewPrivateModules() || !workTimeFields.Month) return;
+  if (!workTimeFields.Month.value) workTimeFields.Month.value = todayInputValue().slice(0, 7);
+  if (!workTimeFields.Date.value && !workTimeEditingKey) workTimeFields.Date.value = todayInputValue();
+  workTimeEmployeeOptions();
+  workTimeSyncKind();
 }
 
-async function saveAttendanceEntry(event) {
+async function saveWorkTimeRecord(event) {
   event.preventDefault();
-  if (!canViewPrivateModules() || !currentSupabaseUser || !hasSupabaseConfig || !supabaseClient) return;
-  const employee = vacationEmployees.find((item) => item.id === attendanceEmployeeInput.value && !item.redacted);
-  const workDate = attendanceDateInput.value;
-  const startedAt = attendanceStartInput.value;
-  const endedAt = attendanceEndInput.value || null;
-  if (!employee || !isoDateForSave(workDate) || employee.year !== Number(workDate.slice(0, 4))) {
-    attendanceSetMessage("Wybierz pracownika przypisanego do roku wybranej daty.", true);
+  if (!canViewPrivateModules() || !currentSupabaseUser || !hasSupabaseConfig || !supabaseClient || !workTimeStoreReady) {
+    workTimeSetMessage("Zapis niedostępny. Sprawdź połączenie i uruchom migrację supabase-work-time.sql w SQL Editor.", true);
     return;
   }
-  if (workDate > todayInputValue() || (endedAt && endedAt < startedAt)) {
-    attendanceSetMessage("Nie wpisuj przyszłej daty ani godziny zakończenia wcześniejszej od rozpoczęcia.", true);
+  const employee = vacationEmployees.find((item) => item.id === workTimeFields.Employee.value && !item.redacted);
+  const draft = workTimeDraft();
+  if (!employee || employee.year !== Number(draft.date.slice(0, 4))) {
+    workTimeSetMessage("Wybierz pracownika przypisanego do roku wybranej daty.", true);
     return;
   }
-  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(startedAt) || (endedAt && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endedAt))) {
-    attendanceSetMessage("Podaj godziny w formacie GG:MM.", true);
+  const issue = validateWorkTimeDraft(draft);
+  if (issue) {
+    workTimeSetMessage(issue, true);
     return;
   }
-  const key = `${employee.id}|${workDate}`;
-  if (attendanceEditingKey && attendanceEditingKey !== key) {
-    attendanceSetMessage("Podczas edycji nie można zmienić pracownika ani daty.", true);
+  const key = `${employee.id}|${draft.date}`;
+  if (workTimeEditingKey && workTimeEditingKey !== key) {
+    workTimeSetMessage("Podczas edycji nie można zmienić pracownika ani daty.", true);
     return;
   }
-  if (!attendanceEditingKey && attendanceEntries.some((item) => `${item.employee_id}|${item.work_date}` === key)
-      && !confirm("Wpis dla tego pracownika i dnia już istnieje. Zastąpić go?")) return;
+  if (!workTimeEditingKey && workTimeRecords.some((record) => `${record.employee_id}|${record.work_date}` === key)
+      && !confirm("Ewidencja dla tego dnia już istnieje. Zastąpić wpis?")) return;
+  const payload = { kind: draft.kind };
+  if (draft.kind === "WORK") Object.assign(payload, { start: draft.start, end: draft.end,
+    secondStart: draft.secondStart, secondEnd: draft.secondEnd, workMinutes: draft.workMinutes,
+    hours: Math.round(draft.hours * 10000) / 10000, overtime: draft.overtime });
+  else if (draft.kind === "FREE") payload.freeReason = draft.freeReason;
+  else Object.assign(payload, { absenceHours: draft.absenceHours,
+    absenceLabel: ["LEAVE", "RELEASE", "EXCUSED"].includes(draft.kind) ? draft.absenceLabel : "" });
   const userId = currentSupabaseUser.id;
-  attendanceSaveBtn.disabled = true;
+  workTimeSaveBtn.disabled = true;
   try {
-    const { error } = await supabaseClient.from("attendance_entries").upsert({
-      employee_id: employee.id, employee_name: employee.name, work_date: workDate,
-      workstation: attendanceWorkstationInput.value, started_at: startedAt,
-      ended_at: endedAt, updated_by: userId, updated_at: new Date().toISOString()
+    const { error } = await supabaseClient.from("work_time_records").upsert({
+      employee_id: employee.id, employee_name: employee.name, work_date: draft.date, payload,
+      updated_by: userId, updated_at: new Date().toISOString()
     }, { onConflict: "employee_id,work_date" });
     if (error) throw error;
     if (!canViewPrivateModules() || currentSupabaseUser?.id !== userId) return;
-    attendanceCancelEdit();
-    attendanceMonthInput.value = workDate.slice(0, 7);
-    await loadAttendanceEntries();
+    workTimeResetForm();
+    workTimeFields.Month.value = draft.date.slice(0, 7);
+    workTimeFields.Employee.value = employee.id;
+    await loadWorkTimeRecords();
   } catch (error) {
-    attendanceSetMessage(`Nie zapisano obecności: ${error.message}`, true);
+    workTimeSetMessage(`Nie zapisano ewidencji: ${error.message}`, true);
   } finally {
-    attendanceSaveBtn.disabled = false;
+    workTimeSaveBtn.disabled = false;
   }
 }
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "attendance"].includes(notebookName)) return;
-  if (notebookName === "attendance" && !canViewPrivateModules()) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime"].includes(notebookName)) return;
+  if (notebookName === "workTime" && !canViewPrivateModules()) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
-  if (statsPanel) statsPanel.hidden = ["capd", "vacation", "attendance"].includes(activeNotebook);
+  if (statsPanel) statsPanel.hidden = ["capd", "vacation", "workTime"].includes(activeNotebook);
   updateCustomerRelationsPanelVisibility();
   if (["devices", "repairs"].includes(activeNotebook)) renderCustomerRelations();
   notebookSwitchButtons.forEach((button) => {
@@ -21602,9 +21765,9 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
     renderVacationModule();
     return;
   }
-  if (activeNotebook === "attendance") {
-    renderAttendanceModule();
-    void loadAttendanceEntries();
+  if (activeNotebook === "workTime") {
+    renderWorkTimeModule();
+    void loadWorkTimeRecords();
   }
 }
 
@@ -25642,17 +25805,36 @@ notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));
 });
 
-attendanceForm?.addEventListener("submit", saveAttendanceEntry);
-attendanceCancelBtn?.addEventListener("click", attendanceCancelEdit);
-attendanceMonthInput?.addEventListener("change", () => {
-  attendanceCancelEdit();
-  if (attendanceDateInput) attendanceDateInput.value = `${attendanceMonthInput.value}-01`;
-  renderAttendanceModule();
-  void loadAttendanceEntries();
+workTimeForm?.addEventListener("submit", saveWorkTimeRecord);
+workTimeCancelBtn?.addEventListener("click", workTimeResetForm);
+workTimeFields.Kind?.addEventListener("change", workTimeSyncKind);
+workTimeEmployeeButtons?.addEventListener("click", (event) => {
+  const employeeId = event.target.closest("[data-employee-id]")?.dataset.employeeId;
+  if (!employeeId) return;
+  workTimeResetForm();
+  workTimeFields.Employee.value = employeeId;
+  workTimeEmployeeOptions();
+  void loadWorkTimeRecords();
 });
-attendanceEmployeeInput?.addEventListener("change", () => {
-  const employee = vacationEmployees.find((item) => item.id === attendanceEmployeeInput.value);
-  if (employee?.workstation && attendanceWorkstationInput) attendanceWorkstationInput.value = employee.workstation;
+workTimeSecondToggle?.addEventListener("click", () => {
+  const opening = workTimeSecondPeriod.hidden;
+  workTimeSecondPeriod.hidden = !opening;
+  workTimeSecondToggle.textContent = opening ? "Usuń drugi przedział" : "+ Drugi przedział pracy";
+  if (!opening) {
+    workTimeFields.SecondStart.value = "";
+    workTimeFields.SecondEnd.value = "";
+  }
+  workTimeUpdateDuration();
+});
+["Start", "End", "SecondStart", "SecondEnd"].forEach((name) => {
+  workTimeFields[name]?.addEventListener("input", workTimeUpdateDuration);
+  workTimeFields[name]?.addEventListener("change", workTimeUpdateDuration);
+});
+workTimeFields.Month?.addEventListener("change", () => {
+  workTimeResetForm();
+  workTimeFields.Date.value = `${workTimeFields.Month.value}-01`;
+  renderWorkTimeModule();
+  void loadWorkTimeRecords();
 });
 
 capdAgeInput?.addEventListener("input", () => {

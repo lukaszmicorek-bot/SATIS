@@ -683,6 +683,7 @@ h2 {
   display: flex;
   min-width: 0;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -817,12 +818,106 @@ h2 {
   padding: 0 0 32px;
 }
 
-.attendance-panel {
-  width: min(1120px, 100%);
+.work-time-panel {
+  width: min(1180px, 100%);
 }
 
-.attendance-month-field,
-.attendance-form label {
+.vacation-employee-list.work-time-employee-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vacation-employee-item.work-time-employee-button {
+  grid-template-areas: "employee-name employee-place";
+  min-height: 55px;
+}
+
+.work-time-form {
+  display: grid;
+  gap: 15px;
+  padding: 0 0 14px;
+}
+
+.work-time-main-row,
+.work-time-fields {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+}
+
+.work-time-main-row {
+  grid-template-columns: minmax(145px, 1fr) minmax(230px, 1.7fr);
+}
+
+.work-time-fields {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.work-time-fields[hidden],
+.work-time-fields label[hidden] {
+  display: none;
+}
+
+.work-time-form label {
+  display: grid;
+  gap: 6px;
+  color: #365962;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.work-time-form input,
+.work-time-form select {
+  min-width: 0;
+  width: 100%;
+}
+
+.work-time-more {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.work-time-more-title {
+  color: #496674;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.work-time-more .work-time-fields {
+  padding-top: 12px;
+}
+
+.work-time-second-toggle {
+  justify-self: start;
+  min-height: 28px;
+  font-size: 0.75rem;
+}
+
+.work-time-form input[readonly] {
+  color: #003f5a;
+  background: #eef6f4;
+  font-weight: 800;
+}
+
+.work-time-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .work-time-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .work-time-main-row,
+  .work-time-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.work-time-month-field {
   display: grid;
   gap: 6px;
   color: #365962;
@@ -830,86 +925,65 @@ h2 {
   font-weight: 700;
 }
 
-.attendance-month-field input {
+.work-time-month-field input {
   min-width: 150px;
 }
 
-.attendance-notice {
+.work-time-notice {
   margin: 0 0 16px;
   color: #4f6570;
   font-size: 0.83rem;
 }
 
-.attendance-form {
-  display: grid;
-  grid-template-columns: minmax(175px, 2fr) minmax(145px, 1.2fr) repeat(2, minmax(100px, 0.7fr)) minmax(95px, 0.7fr) auto auto;
-  align-items: end;
-  gap: 10px;
-  padding: 0 0 14px;
-}
-
-.attendance-form input,
-.attendance-form select {
-  width: 100%;
-  min-width: 0;
-}
-
-.attendance-form button {
-  white-space: nowrap;
-}
-
-.attendance-message {
+.work-time-message {
   min-height: 1.5em;
   margin: 0 0 12px;
   color: #416c59;
   font-size: 0.8rem;
 }
 
-.attendance-message[data-error="true"] {
+.work-time-message[data-error="true"] {
   color: #a44540;
 }
 
-.attendance-table-wrap {
+.work-time-table-wrap {
   overflow-x: auto;
 }
 
-.attendance-table {
+.work-time-table {
   width: 100%;
   min-width: 720px;
   border-collapse: collapse;
   font-size: 0.8rem;
 }
 
-.attendance-table th,
-.attendance-table td {
+.work-time-table th,
+.work-time-table td {
   padding: 10px 8px;
   text-align: left;
   border-bottom: 1px solid var(--line);
 }
 
-.attendance-table th {
+.work-time-table th {
   color: #45616e;
   background: #f4f7f7;
   font-size: 0.72rem;
 }
 
-.attendance-table td:nth-child(2) {
+.work-time-table td:nth-child(2) {
   font-weight: 700;
   color: #003f5a;
 }
 
-@media (max-width: 1100px) {
-  .attendance-form {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (max-width: 900px) {
+  .vacation-employee-list.work-time-employee-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 620px) {
-  .attendance-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .attendance-form label:first-child {
-    grid-column: 1 / -1;
+  .vacation-employee-list.work-time-employee-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
