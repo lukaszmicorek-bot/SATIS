@@ -12,6 +12,7 @@
 !/offline-sw.js
 !/styles.css
 !/supabase-config.js
+!/supabase-attendance.sql
 !/security-manifest.json
 !/Inter-LICENSE.txt
 !/InterVariable.woff2

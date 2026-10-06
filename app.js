@@ -643,6 +643,8 @@ let capdHistorySupabaseAvailable = null;
 let appAccessHardeningAvailable = null;
 let vacationEmployees = [];
 let vacationRequests = [];
+let attendanceEntries = [];
+let attendanceEditingKey = "";
 let capdHistory = loadCapdHistory();
 let capdSavedPractitionerProfiles = [];
 let activeCapdPractitionerProfileId = "";
@@ -1053,6 +1055,17 @@ const appTitle = document.querySelector("#appTitle");
 const statsPanel = document.querySelector(".stats");
 const privateOwnerNotebookButtons = document.querySelectorAll("[data-private-owner]");
 const privateSharedNotebookButtons = document.querySelectorAll("[data-private-shared]");
+const attendanceForm = document.querySelector("#attendanceForm");
+const attendanceMonthInput = document.querySelector("#attendanceMonthInput");
+const attendanceEmployeeInput = document.querySelector("#attendanceEmployeeInput");
+const attendanceDateInput = document.querySelector("#attendanceDateInput");
+const attendanceStartInput = document.querySelector("#attendanceStartInput");
+const attendanceEndInput = document.querySelector("#attendanceEndInput");
+const attendanceWorkstationInput = document.querySelector("#attendanceWorkstationInput");
+const attendanceSaveBtn = document.querySelector("#attendanceSaveBtn");
+const attendanceCancelBtn = document.querySelector("#attendanceCancelBtn");
+const attendanceMessage = document.querySelector("#attendanceMessage");
+const attendanceBody = document.querySelector("#attendanceBody");
 const capdForm = document.querySelector("#capdForm");
 const capdPatientInput = document.querySelector("#capdPatientInput");
 const capdPeselInput = document.querySelector("#capdPeselInput");
@@ -1410,6 +1423,12 @@ function updatePrivateModulesVisibility() {
     if (pricingHistoryPreviewDialog?.open) pricingHistoryPreviewDialog.close();
     pricingHistoryPreviewContent?.replaceChildren();
     [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
+  }
+  if (!ownerVisible) {
+    attendanceEntries = [];
+    attendanceEditingKey = "";
+    attendanceBody?.replaceChildren();
+    if (activeNotebook === "attendance") switchNotebook("devices");
   }
   if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
 }
@@ -2648,6 +2667,10 @@ function clearSensitiveApplicationState() {
   pricingPcprList = [];
   vacationEmployees = [];
   vacationRequests = [];
+  attendanceEntries = [];
+  attendanceEditingKey = "";
+  attendanceBody?.replaceChildren();
+  attendanceSetMessage("");
   capdHistory = [];
   capdSavedPractitionerProfiles = [];
   activeCapdPractitionerProfileId = "";
@@ -21367,13 +21390,174 @@ async function deleteVacationRequest(id) {
   }
 }
 
+function attendanceMonthBounds(month) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || "")) return null;
+  const [year, number] = month.split("-").map(Number);
+  const next = new Date(year, number, 1);
+  return { from: `${month}-01`, to: `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`, year };
+}
+
+function attendanceEmployeeOptions() {
+  if (!attendanceEmployeeInput || !attendanceMonthInput) return;
+  const year = attendanceMonthBounds(attendanceMonthInput.value)?.year;
+  const previous = attendanceEmployeeInput.value;
+  attendanceEmployeeInput.replaceChildren(new Option("Wybierz pracownika", ""));
+  vacationEmployees.filter((item) => !item.redacted && item.year === year).forEach((employee) => {
+    attendanceEmployeeInput.add(new Option(employee.name, employee.id));
+  });
+  attendanceEmployeeInput.value = previous;
+  if (!attendanceEmployeeInput.value) attendanceEmployeeInput.selectedIndex = 0;
+  attendanceEmployeeInput.disabled = attendanceEmployeeInput.options.length < 2 || Boolean(attendanceEditingKey);
+}
+
+function attendanceSetMessage(message, error = false) {
+  if (!attendanceMessage) return;
+  attendanceMessage.textContent = message;
+  attendanceMessage.dataset.error = error ? "true" : "false";
+}
+
+function attendanceCancelEdit() {
+  attendanceEditingKey = "";
+  if (attendanceForm) attendanceForm.reset();
+  if (attendanceDateInput) {
+    attendanceDateInput.value = todayInputValue();
+    attendanceDateInput.disabled = false;
+  }
+  if (attendanceSaveBtn) attendanceSaveBtn.textContent = "Zapisz obecność";
+  if (attendanceCancelBtn) attendanceCancelBtn.hidden = true;
+  attendanceEmployeeOptions();
+}
+
+function renderAttendanceEntries() {
+  if (!attendanceBody) return;
+  attendanceBody.replaceChildren();
+  if (!canViewPrivateModules()) return;
+  for (const entry of attendanceEntries) {
+    const row = attendanceBody.insertRow();
+    for (const value of [formatDate(entry.work_date), entry.employee_name, entry.workstation,
+      String(entry.started_at || "").slice(0, 5), String(entry.ended_at || "").slice(0, 5) || "—",
+      entry.updated_at ? new Date(entry.updated_at).toLocaleString("pl-PL") : "—"]) {
+      row.insertCell().textContent = value;
+    }
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "ghost";
+    edit.textContent = "Edytuj";
+    edit.addEventListener("click", () => {
+      attendanceEditingKey = `${entry.employee_id}|${entry.work_date}`;
+      attendanceEmployeeOptions();
+      attendanceEmployeeInput.value = entry.employee_id;
+      attendanceDateInput.value = entry.work_date;
+      attendanceDateInput.disabled = true;
+      attendanceStartInput.value = String(entry.started_at || "").slice(0, 5);
+      attendanceEndInput.value = String(entry.ended_at || "").slice(0, 5);
+      attendanceWorkstationInput.value = entry.workstation;
+      attendanceSaveBtn.textContent = "Zapisz zmianę";
+      attendanceCancelBtn.hidden = false;
+      attendanceForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    row.insertCell().append(edit);
+  }
+}
+
+async function loadAttendanceEntries() {
+  if (!canViewPrivateModules()) return;
+  if (!hasSupabaseConfig || !currentSupabaseUser || !supabaseClient) {
+    attendanceSetMessage("Lista obecności wymaga połączenia z Supabase i konta SATIS.", true);
+    return;
+  }
+  const bounds = attendanceMonthBounds(attendanceMonthInput?.value);
+  if (!bounds) return;
+  const userId = currentSupabaseUser.id;
+  const month = attendanceMonthInput.value;
+  attendanceSetMessage("Wczytywanie...");
+  let data;
+  let error;
+  try {
+    ({ data, error } = await supabaseClient.from("attendance_entries")
+      .select("employee_id,employee_name,work_date,workstation,started_at,ended_at,updated_at")
+      .gte("work_date", bounds.from).lt("work_date", bounds.to)
+      .order("work_date", { ascending: false }).order("employee_name")
+      .limit(1000));
+  } catch (failure) {
+    error = failure;
+  }
+  if (!canViewPrivateModules() || currentSupabaseUser?.id !== userId || attendanceMonthInput.value !== month) return;
+  if (error) {
+    attendanceEntries = [];
+    renderAttendanceEntries();
+    attendanceSetMessage("Nie można wczytać listy. Sprawdź połączenie i migrację supabase-attendance.sql.", true);
+    console.warn("Lista obecności:", error.message);
+    return;
+  }
+  attendanceEntries = data || [];
+  renderAttendanceEntries();
+  attendanceSetMessage(attendanceEntries.length === 1000
+    ? "Osiągnięto limit 1000 wpisów w miesiącu; skontaktuj się z administratorem."
+    : `Wpisy: ${attendanceEntries.length}. Zmiany zapisuje wyłącznie konto SATIS.`, attendanceEntries.length === 1000);
+}
+
+function renderAttendanceModule() {
+  if (!canViewPrivateModules() || !attendanceMonthInput) return;
+  if (!attendanceMonthInput.value) attendanceMonthInput.value = todayInputValue().slice(0, 7);
+  if (!attendanceDateInput.value && !attendanceEditingKey) attendanceDateInput.value = todayInputValue();
+  attendanceEmployeeOptions();
+}
+
+async function saveAttendanceEntry(event) {
+  event.preventDefault();
+  if (!canViewPrivateModules() || !currentSupabaseUser || !hasSupabaseConfig || !supabaseClient) return;
+  const employee = vacationEmployees.find((item) => item.id === attendanceEmployeeInput.value && !item.redacted);
+  const workDate = attendanceDateInput.value;
+  const startedAt = attendanceStartInput.value;
+  const endedAt = attendanceEndInput.value || null;
+  if (!employee || !isoDateForSave(workDate) || employee.year !== Number(workDate.slice(0, 4))) {
+    attendanceSetMessage("Wybierz pracownika przypisanego do roku wybranej daty.", true);
+    return;
+  }
+  if (workDate > todayInputValue() || (endedAt && endedAt < startedAt)) {
+    attendanceSetMessage("Nie wpisuj przyszłej daty ani godziny zakończenia wcześniejszej od rozpoczęcia.", true);
+    return;
+  }
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(startedAt) || (endedAt && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endedAt))) {
+    attendanceSetMessage("Podaj godziny w formacie GG:MM.", true);
+    return;
+  }
+  const key = `${employee.id}|${workDate}`;
+  if (attendanceEditingKey && attendanceEditingKey !== key) {
+    attendanceSetMessage("Podczas edycji nie można zmienić pracownika ani daty.", true);
+    return;
+  }
+  if (!attendanceEditingKey && attendanceEntries.some((item) => `${item.employee_id}|${item.work_date}` === key)
+      && !confirm("Wpis dla tego pracownika i dnia już istnieje. Zastąpić go?")) return;
+  const userId = currentSupabaseUser.id;
+  attendanceSaveBtn.disabled = true;
+  try {
+    const { error } = await supabaseClient.from("attendance_entries").upsert({
+      employee_id: employee.id, employee_name: employee.name, work_date: workDate,
+      workstation: attendanceWorkstationInput.value, started_at: startedAt,
+      ended_at: endedAt, updated_by: userId, updated_at: new Date().toISOString()
+    }, { onConflict: "employee_id,work_date" });
+    if (error) throw error;
+    if (!canViewPrivateModules() || currentSupabaseUser?.id !== userId) return;
+    attendanceCancelEdit();
+    attendanceMonthInput.value = workDate.slice(0, 7);
+    await loadAttendanceEntries();
+  } catch (error) {
+    attendanceSetMessage(`Nie zapisano obecności: ${error.message}`, true);
+  } finally {
+    attendanceSaveBtn.disabled = false;
+  }
+}
+
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation"].includes(notebookName)) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "attendance"].includes(notebookName)) return;
+  if (notebookName === "attendance" && !canViewPrivateModules()) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
-  if (statsPanel) statsPanel.hidden = ["capd", "vacation"].includes(activeNotebook);
+  if (statsPanel) statsPanel.hidden = ["capd", "vacation", "attendance"].includes(activeNotebook);
   updateCustomerRelationsPanelVisibility();
   if (["devices", "repairs"].includes(activeNotebook)) renderCustomerRelations();
   notebookSwitchButtons.forEach((button) => {
@@ -21417,6 +21601,10 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (activeNotebook === "vacation") {
     renderVacationModule();
     return;
+  }
+  if (activeNotebook === "attendance") {
+    renderAttendanceModule();
+    void loadAttendanceEntries();
   }
 }
 
@@ -25452,6 +25640,19 @@ updateScrollTopButton();
 
 notebookSwitchButtons.forEach((button) => {
   button.addEventListener("click", () => switchNotebook(button.dataset.notebook));
+});
+
+attendanceForm?.addEventListener("submit", saveAttendanceEntry);
+attendanceCancelBtn?.addEventListener("click", attendanceCancelEdit);
+attendanceMonthInput?.addEventListener("change", () => {
+  attendanceCancelEdit();
+  if (attendanceDateInput) attendanceDateInput.value = `${attendanceMonthInput.value}-01`;
+  renderAttendanceModule();
+  void loadAttendanceEntries();
+});
+attendanceEmployeeInput?.addEventListener("change", () => {
+  const employee = vacationEmployees.find((item) => item.id === attendanceEmployeeInput.value);
+  if (employee?.workstation && attendanceWorkstationInput) attendanceWorkstationInput.value = employee.workstation;
 });
 
 capdAgeInput?.addEventListener("input", () => {

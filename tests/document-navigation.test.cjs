@@ -20,7 +20,7 @@ function node(id, dataset = {}, active = false) {
   };
 }
 function setup() {
-  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation'].map(name => node(`${name}Notebook`));
+  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'attendance'].map(name => node(`${name}Notebook`));
   const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'rodo'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
@@ -28,7 +28,7 @@ function setup() {
   const context = { activeNotebook: 'devices', activePricingView: '', activeDeviceView: 'database',
     currentSupabaseUser: {email: 'satis@pracowniasluchu.pl'}, owner: true,
     notebookSections: sections, tabButtons: tabs, viewSections: views, statsPanel: node('stats'),
-    notebookSwitchButtons: ['devices', 'repairs', 'pricing', 'capd', 'pcpr', 'history', 'vacation'].map(name => node(name, {notebook: name})),
+    notebookSwitchButtons: ['devices', 'repairs', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'attendance'].map(name => node(name, {notebook: name})),
     canViewPrivateModules: () => context.owner,
     canViewDocumentHistory: () => Boolean(context.currentSupabaseUser),
     document: {querySelector: () => null},
@@ -38,7 +38,8 @@ function setup() {
   for (const name of ['hideVacationPeriodPreview', 'updateCustomerRelationsPanelVisibility', 'renderCustomerRelations', 'setCurrentYearTitle',
     'renderPricingOfferDeviceList', 'renderPricingOffer', 'renderPricingLoan', 'renderPricingRodo', 'renderPricingPcprList', 'renderPricingOrder', 'renderPricingComplaint',
     'renderPricingDocumentHistory', 'renderPricingRecords', 'updateStats', 'renderRepairRecords', 'renderDataControlView', 'renderDemoRecords',
-    'renderStockView', 'renderDeviceViews', 'updateCapdScope', 'renderCapdHistory', 'renderVacationModule']) {
+    'renderStockView', 'renderDeviceViews', 'updateCapdScope', 'renderCapdHistory', 'renderVacationModule',
+    'renderAttendanceModule', 'loadAttendanceEntries']) {
     context[name] = () => { context.renderCounts[name] = (context.renderCounts[name] || 0) + 1; };
   }
   vm.createContext(context);
@@ -68,6 +69,29 @@ test('document views route to the correct notebook, preserve form nodes, and ret
     assert.equal(ctx.notebookSections.find(n => n.id === 'pricingNotebook').hidden, true);
     assert.equal(ctx.statsPanel.hidden, group !== 'devices');
   }
+});
+test('attendance is accessible only to SATIS and keeps other notebooks separate', () => {
+  const ctx = setup();
+  ctx.switchNotebook('attendance');
+  assert.equal(ctx.activeNotebook, 'attendance');
+  assert.equal(ctx.notebookSections.find(n => n.id === 'attendanceNotebook').hidden, false);
+  assert.equal(ctx.renderCounts.loadAttendanceEntries, 1);
+  ctx.owner = false;
+  ctx.switchNotebook('devices');
+  ctx.switchNotebook('attendance');
+  assert.equal(ctx.activeNotebook, 'devices');
+});
+test('attendance month boundaries and server policy are explicit', () => {
+  const ctx = vm.createContext({Date, String});
+  vm.runInContext(extract('attendanceMonthBounds'), ctx);
+  assert.equal(ctx.attendanceMonthBounds('2026-12').to, '2027-01-01');
+  assert.equal(ctx.attendanceMonthBounds('2026-13'), null);
+  const migration = fs.readFileSync(path.join(__dirname, '../supabase-attendance.sql'), 'utf8');
+  assert.match(migration, /alter table public\.attendance_entries enable row level security/i);
+  assert.match(migration, /using \(public\.is_satis_owner\(\)\)/i);
+  assert.match(migration, /revoke all on public\.attendance_entries from public, anon, authenticated/i);
+  assert.match(migration, /attendance_entry_history/i);
+  assert.match(html, /data-notebook="attendance" data-private-owner hidden/);
 });
 test('PCPR and History stand alone, pricing stays available, and gabinet can open History', () => {
   const ctx = setup();
@@ -113,7 +137,7 @@ test('history renderers and previews refuse anonymous access but permit authenti
 });
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(top, ['devices', 'repairs', 'capd', 'pcpr', 'history', 'pricing', 'vacation']);
+  assert.deepEqual(top, ['devices', 'repairs', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'attendance']);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {
     assert.match(html, new RegExp(`id="${view}Tab"[^>]*aria-controls="pricing${view[0].toUpperCase() + view.slice(1)}View"`));
