@@ -1176,9 +1176,9 @@ h2 {
   cursor: zoom-in;
 }
 
-.work-time-hourly .work-time-hourly-track { transition: transform 140ms ease; transform-origin: center; }
+.work-time-hourly .work-time-hourly-track { transition: transform 180ms ease, box-shadow 180ms ease; transform-origin: center; }
 .work-time-hourly:hover .work-time-hourly-track,
-.work-time-hourly[aria-expanded="true"] .work-time-hourly-track { transform: scaleY(1.14); }
+.work-time-hourly[aria-expanded="true"] .work-time-hourly-track { transform: scaleY(1.12); box-shadow: 0 5px 14px #245a6021; }
 .work-time-hourly:focus-visible { outline: 2px solid #45958b; outline-offset: 4px; border-radius: 6px; }
 
 .work-time-duration {
@@ -1210,7 +1210,7 @@ h2 {
 }
 .work-time-hourly-preview > strong { display: block; font-size: 0.95rem; }
 .work-time-hourly-preview > p { margin: 6px 0 12px; color: #536a71; }
-.work-time-hourly-preview .work-time-hourly-track { height: 56px; margin: 12px 0; }
+.work-time-hourly-preview .work-time-hourly-track { height: 70px; margin: 16px 0; }
 .work-time-hourly-preview .work-time-hourly-track > span { font-size: 0.88rem; }
 .work-time-hourly-preview-line { margin-top: 7px; line-height: 1.45; }
 .work-time-hourly-preview-line::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 3px; background: #a7b1b6; }
@@ -1220,11 +1220,11 @@ h2 {
 
 .work-time-hourly-track {
   position: relative;
-  height: 42px;
-  margin: 3px 0;
-  background: repeating-linear-gradient(to right, #edf0f1 0, #edf0f1 calc(var(--hour-width) - 1px), #cdd6d9 calc(var(--hour-width) - 1px), #cdd6d9 var(--hour-width));
-  border-radius: 6px;
-  border: 1px solid #d3dfe1;
+  height: 52px;
+  margin: 4px 0;
+  background: repeating-linear-gradient(to right, #f1f5f5 0, #f1f5f5 calc(var(--hour-width) - 1px), #d9e3e5 calc(var(--hour-width) - 1px), #d9e3e5 var(--hour-width));
+  border-radius: 8px;
+  border: 1px solid #dae4e6;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -1232,23 +1232,50 @@ h2 {
 .work-time-hourly-track > span {
   position: absolute;
   box-sizing: border-box;
-  box-shadow: inset -1px 0 #ffffff45;
-  height: 100%;
-  top: 0;
+  box-shadow: inset 0 1px 0 #ffffff70, inset 0 -2px 0 #00000012, 0 3px 5px #244c5526;
+  height: calc(100% - 12px);
+  top: 6px;
+  border-radius: 6px;
+  border: 1px solid #ffffff70;
   display: flex;
   justify-content: center;
   align-items: center;
   color: #fff;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
 }
 
-.work-time-hourly-track [data-tone="match"] { background: linear-gradient(180deg, #81bb92, #508b66); border-top: 3px solid #b4d8be; }
-.work-time-hourly-track [data-tone="late"] { background: repeating-linear-gradient(135deg, #eaa75b 0, #eaa75b 5px, #f0b871 5px, #f0b871 10px); border-top: 3px solid #f8d6a6; }
-.work-time-hourly-track [data-tone="extra"] { background: linear-gradient(180deg, #bda3d6, #9474b1); border-top: 3px solid #ddcce9; }
-.work-time-hourly-track [data-tone="difference"] { background: #a7b1b6; }
+.work-time-hourly-track [data-tone="match"] { background: linear-gradient(125deg, #55b38a 0%, #2c9471 55%, #237762 100%); }
+.work-time-hourly-track [data-tone="late"] { background: repeating-linear-gradient(135deg, #eaa04f 0, #eaa04f 6px, #f6bc72 6px, #f6bc72 12px); }
+.work-time-hourly-track [data-tone="extra"] { background: linear-gradient(125deg, #b39ad3 0%, #9271bb 55%, #785ca2 100%); }
+.work-time-hourly-track [data-tone="difference"] { background: linear-gradient(125deg, #a8b9be, #7f969e); }
+.work-time-hour-label {
+  position: relative;
+  z-index: 1;
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: #ffffff18;
+  border: 1px solid #ffffff32;
+  text-shadow: 0 1px 1px #00000020;
+  font-variant-numeric: tabular-nums;
+}
+.work-time-hourly-track > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, #ffffff26 48%, transparent 65%);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.work-time-hourly:hover .work-time-hourly-track > span::after,
+.work-time-hourly[aria-expanded="true"] .work-time-hourly-track > span::after { animation: work-time-bar-highlight 700ms ease-out both; }
+@keyframes work-time-bar-highlight { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .work-time-hourly .work-time-hourly-track { transition: none; }
+  .work-time-hourly-track > span::after { display: none; }
+}
 
 .work-time-deviation { display: block; font-size: 0.72rem; font-weight: 500; color: #77502c; max-width: 180px; white-space: normal; margin-top: 5px; line-height: 1.4; }
 
