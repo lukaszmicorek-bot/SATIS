@@ -21690,7 +21690,12 @@ function workTimeHourlyView(record, schedule) {
     bar.style.width = `${(segment.to - segment.from) / span * 100}%`;
     bar.title = `${names[segment.tone]}: ${time(segment.from)}–${time(segment.to)}`;
     bar.setAttribute("aria-label", bar.title);
-    if (segment.to - segment.from >= 120) bar.textContent = `${time(segment.from)}–${time(segment.to)}`;
+    if (segment.to - segment.from >= 120) {
+      const label = document.createElement("strong");
+      label.className = "work-time-hour-label";
+      label.textContent = `${time(segment.from)}–${time(segment.to)}`;
+      bar.append(label);
+    }
     track.append(bar);
   }
   details.append(track);
