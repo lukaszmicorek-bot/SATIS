@@ -1059,14 +1059,17 @@ const privateSharedNotebookButtons = document.querySelectorAll("[data-private-sh
 const workTimeForm = document.querySelector("#workTimeForm");
 const workTimeFields = Object.fromEntries([
   "Month", "Employee", "Date", "Kind", "Start", "End", "Hours", "Overtime",
-  "SecondStart", "SecondEnd", "FreeReason", "AbsenceHours", "AbsenceLabel"
+  "PlannedEnd", "SecondStart", "SecondEnd", "FreeReason", "AbsenceHours", "AbsenceLabel"
 ].map((name) => [name, document.querySelector(`#workTime${name}Input`)]));
 const workTimeEmployeeButtons = document.querySelector("#workTimeEmployeeButtons");
+const workTimePresetButtons = document.querySelector("#workTimePresetButtons");
+const workTimeUsePlannedEndBtn = document.querySelector("#workTimeUsePlannedEndBtn");
 const workTimeSecondPeriod = document.querySelector("#workTimeSecondPeriod");
 const workTimeSecondToggle = document.querySelector("#workTimeSecondToggle");
 const workTimeBody = document.querySelector("#workTimeBody");
 const workTimeMessageNode = document.querySelector("#workTimeMessage");
 const workTimeSaveBtn = document.querySelector("#workTimeSaveBtn");
+const workTimeStartSaveBtn = document.querySelector("#workTimeStartSaveBtn");
 const workTimeCancelBtn = document.querySelector("#workTimeCancelBtn");
 const capdForm = document.querySelector("#capdForm");
 const capdPatientInput = document.querySelector("#capdPatientInput");
@@ -21451,6 +21454,20 @@ function workTimeEmployeeOptions() {
   }));
 }
 
+function workTimeSyncPreset() {
+  const start = workTimeFields.Start?.value || "";
+  const plannedEnd = workTimeFields.PlannedEnd?.value || "";
+  workTimePresetButtons?.querySelectorAll("[data-start][data-end]").forEach((button) => {
+    const active = button.dataset.start === start && button.dataset.end === plannedEnd;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (workTimeUsePlannedEndBtn) {
+    workTimeUsePlannedEndBtn.hidden = workTimeFields.Kind?.value !== "WORK" || !plannedEnd || Boolean(workTimeFields.End?.value);
+    workTimeUsePlannedEndBtn.textContent = plannedEnd ? `Wstaw planowany koniec ${plannedEnd}` : "";
+  }
+}
+
 function workTimeSyncKind() {
   const kind = workTimeFields.Kind?.value;
   const work = document.querySelector("#workTimeWorkFields");
@@ -21463,6 +21480,10 @@ function workTimeSyncKind() {
   if (label) label.hidden = kind === "UNEXCUSED";
   if (workTimeSecondToggle) workTimeSecondToggle.hidden = kind !== "WORK";
   if (kind !== "WORK" && workTimeSecondPeriod) workTimeSecondPeriod.hidden = true;
+  if (workTimeStartSaveBtn) workTimeStartSaveBtn.hidden = kind !== "WORK" ||
+    Boolean(workTimeEditingKey && workTimeRecords.some((record) =>
+      `${record.employee_id}|${record.work_date}` === workTimeEditingKey && record.payload?.end));
+  workTimeSyncPreset();
 }
 
 function workTimeResetForm() {
@@ -21471,10 +21492,11 @@ function workTimeResetForm() {
   workTimeForm?.reset();
   if (workTimeFields.Employee) workTimeFields.Employee.value = employeeId;
   if (workTimeFields.Date) {
-    workTimeFields.Date.value = todayInputValue();
+    workTimeFields.Date.value = displayDateForInput(todayInputValue());
     workTimeFields.Date.disabled = false;
   }
   if (workTimeSaveBtn) workTimeSaveBtn.textContent = "Zapisz dzień";
+  if (workTimeStartSaveBtn) workTimeStartSaveBtn.textContent = "Zapisz rozpoczęcie";
   if (workTimeCancelBtn) workTimeCancelBtn.hidden = true;
   if (workTimeSecondPeriod) workTimeSecondPeriod.hidden = true;
   if (workTimeSecondToggle) workTimeSecondToggle.textContent = "+ Drugi przedział pracy";
@@ -21507,14 +21529,16 @@ function workTimeUpdateDuration() {
     secondStart: workTimeFields.SecondStart?.value, secondEnd: workTimeFields.SecondEnd?.value
   });
   workTimeFields.Hours.value = `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+  workTimeSyncPreset();
 }
 
-function validateWorkTimeDraft(draft, today = todayInputValue()) {
+function validateWorkTimeDraft(draft, today = todayInputValue(), startOnly = false) {
   if (!isoDateForSave(draft.date) || draft.date > today) return "Podaj poprawną datę, nie późniejszą niż dziś.";
   if (!WORK_TIME_KINDS[draft.kind]) return "Wybierz rodzaj dnia.";
   const numeric = [draft.hours, draft.overtime, draft.absenceHours];
   if (numeric.some((value) => !Number.isFinite(value) || value < 0 || value > 24)) return "Liczba godzin musi mieścić się w zakresie 0–24.";
   if (draft.kind === "WORK") {
+    if (startOnly) return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(draft.start) ? "" : "Podaj poprawną godzinę rozpoczęcia pracy.";
     if (workTimeIntervalMinutes(draft.start, draft.end) <= 0) return "Podaj godziny rozpoczęcia i zakończenia pracy (od wcześniejszej do późniejszej).";
     if (Boolean(draft.secondStart) !== Boolean(draft.secondEnd)) return "Uzupełnij obie godziny drugiego przedziału pracy.";
     if (draft.secondStart && (workTimeIntervalMinutes(draft.secondStart, draft.secondEnd) <= 0 || draft.secondStart < draft.end)) {
@@ -21535,7 +21559,8 @@ function workTimeDraft() {
   const value = (name) => workTimeFields[name]?.value || "";
   const number = (name) => value(name).trim() === "" ? 0 : Number(value(name).replace(",", "."));
   const draft = {
-    date: value("Date"), kind: value("Kind"), start: value("Start"), end: value("End"),
+    date: isoDateForSave(value("Date")), kind: value("Kind"), start: value("Start"), end: value("End"),
+    plannedEnd: value("PlannedEnd"),
     secondStart: workTimeSecondPeriod?.hidden ? "" : value("SecondStart"),
     secondEnd: workTimeSecondPeriod?.hidden ? "" : value("SecondEnd"),
     overtime: number("Overtime"),
@@ -21551,7 +21576,8 @@ function workTimeDetails(record) {
   const data = record.payload || {};
   const parts = [];
   if (data.kind === "WORK") {
-    parts.push(`${data.start || ""}–${data.end || ""}`);
+    parts.push(data.end ? `${data.start || ""}–${data.end}` : `Rozpoczęto ${data.start || "—"}; do uzupełnienia przy wyjściu`);
+    if (!data.end && data.plannedEnd) parts.push(`plan do ${data.plannedEnd}`);
     if (data.secondStart && data.secondEnd) parts.push(`${data.secondStart}–${data.secondEnd}`);
     if (data.overtime) parts.push(`nadgodz. ${data.overtime} h`);
   } else if (data.kind === "FREE") parts.push(data.freeReason || "");
@@ -21571,7 +21597,8 @@ function renderWorkTimeRecords() {
   for (const record of workTimeRecords) {
     const row = workTimeBody.insertRow();
     const data = record.payload || {};
-    const extent = data.kind === "WORK" ? workTimeDurationText(data.workMinutes ?? (Number(data.hours) || 0) * 60) :
+    const extent = data.kind === "WORK" ? data.end
+      ? workTimeDurationText(data.workMinutes ?? (Number(data.hours) || 0) * 60) : "W trakcie" :
       data.kind === "FREE" ? "—" : `${data.absenceHours || 0} h`;
     for (const value of [formatDate(record.work_date), record.employee_name,
       WORK_TIME_KINDS[data.kind] || "—", extent, workTimeDetails(record),
@@ -21581,15 +21608,15 @@ function renderWorkTimeRecords() {
     const edit = document.createElement("button");
     edit.type = "button";
     edit.className = "ghost";
-    edit.textContent = "Edytuj";
+    edit.textContent = data.kind === "WORK" && !data.end ? "Dokończ" : "Edytuj";
     edit.addEventListener("click", () => {
       workTimeEditingKey = `${record.employee_id}|${record.work_date}`;
       workTimeEmployeeOptions();
       workTimeFields.Employee.value = record.employee_id;
-      workTimeFields.Date.value = record.work_date;
+      workTimeFields.Date.value = displayDateForInput(record.work_date);
       workTimeFields.Date.disabled = true;
       for (const [name, key] of Object.entries({ Kind: "kind", Start: "start", End: "end",
-        SecondStart: "secondStart", SecondEnd: "secondEnd", Overtime: "overtime",
+        PlannedEnd: "plannedEnd", SecondStart: "secondStart", SecondEnd: "secondEnd", Overtime: "overtime",
         FreeReason: "freeReason", AbsenceHours: "absenceHours", AbsenceLabel: "absenceLabel" })) {
         workTimeFields[name].value = data[key] ?? "";
       }
@@ -21597,11 +21624,19 @@ function renderWorkTimeRecords() {
       if (workTimeSecondToggle) workTimeSecondToggle.textContent = workTimeSecondPeriod?.hidden ? "+ Drugi przedział pracy" : "Usuń drugi przedział";
       workTimeSyncKind();
       workTimeUpdateDuration();
-      workTimeSaveBtn.textContent = "Zapisz zmianę";
+      workTimeSaveBtn.textContent = data.kind === "WORK" && !data.end ? "Zapisz wyjście" : "Zapisz zmianę";
+      if (workTimeStartSaveBtn) workTimeStartSaveBtn.textContent = "Popraw rozpoczęcie";
       workTimeCancelBtn.hidden = false;
       workTimeForm.scrollIntoView({ behavior: "smooth", block: "center" });
     });
-    row.insertCell().append(edit);
+    const actions = row.insertCell();
+    actions.className = "work-time-row-actions";
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost work-time-delete";
+    remove.textContent = "Usuń";
+    remove.addEventListener("click", () => void deleteWorkTimeRecord(record, remove));
+    actions.append(edit, remove);
   }
 }
 
@@ -21647,22 +21682,22 @@ async function loadWorkTimeRecords() {
     return;
   }
   workTimeStoreReady = true;
-  workTimeRecords = data || [];
+  workTimeRecords = (data || []).filter((record) => !record.payload?.deletedAt);
   renderWorkTimeRecords();
   const workedMinutes = workTimeRecords.reduce((total, record) => total +
-    (record.payload?.kind === "WORK" ? Number(record.payload.workMinutes ?? (Number(record.payload.hours) || 0) * 60) || 0 : 0), 0);
+    (record.payload?.kind === "WORK" && record.payload?.end ? Number(record.payload.workMinutes ?? (Number(record.payload.hours) || 0) * 60) || 0 : 0), 0);
   workTimeSetMessage(`Wpisy: ${workTimeRecords.length}. Czas pracy: ${workTimeDurationText(workedMinutes)}.`);
 }
 
 function renderWorkTimeModule() {
   if (!canViewPrivateModules() || !workTimeFields.Month) return;
   if (!workTimeFields.Month.value) workTimeFields.Month.value = todayInputValue().slice(0, 7);
-  if (!workTimeFields.Date.value && !workTimeEditingKey) workTimeFields.Date.value = todayInputValue();
+  if (!workTimeFields.Date.value && !workTimeEditingKey) workTimeFields.Date.value = displayDateForInput(todayInputValue());
   workTimeEmployeeOptions();
   workTimeSyncKind();
 }
 
-async function saveWorkTimeRecord(event) {
+async function saveWorkTimeRecord(event, { startOnly = false } = {}) {
   event.preventDefault();
   if (!canViewPrivateModules() || !currentSupabaseUser || !hasSupabaseConfig || !supabaseClient || !workTimeStoreReady) {
     workTimeSetMessage("Zapis niedostępny. Sprawdź połączenie i uruchom migrację supabase-work-time.sql w SQL Editor.", true);
@@ -21674,7 +21709,8 @@ async function saveWorkTimeRecord(event) {
     workTimeSetMessage("Wybierz pracownika przypisanego do roku wybranej daty.", true);
     return;
   }
-  const issue = validateWorkTimeDraft(draft);
+  if (startOnly && draft.kind !== "WORK") return;
+  const issue = validateWorkTimeDraft(draft, todayInputValue(), startOnly);
   if (issue) {
     workTimeSetMessage(issue, true);
     return;
@@ -21684,17 +21720,25 @@ async function saveWorkTimeRecord(event) {
     workTimeSetMessage("Podczas edycji nie można zmienić pracownika ani daty.", true);
     return;
   }
+  if (startOnly && workTimeRecords.some((record) => `${record.employee_id}|${record.work_date}` === key && record.payload?.end)) {
+    workTimeSetMessage("Ten dzień został już zakończony. Użyj zapisu zmiany, aby poprawić godziny.", true);
+    return;
+  }
   if (!workTimeEditingKey && workTimeRecords.some((record) => `${record.employee_id}|${record.work_date}` === key)
       && !confirm("Ewidencja dla tego dnia już istnieje. Zastąpić wpis?")) return;
   const payload = { kind: draft.kind };
-  if (draft.kind === "WORK") Object.assign(payload, { start: draft.start, end: draft.end,
-    secondStart: draft.secondStart, secondEnd: draft.secondEnd, workMinutes: draft.workMinutes,
-    hours: Math.round(draft.hours * 10000) / 10000, overtime: draft.overtime });
+  if (draft.kind === "WORK") Object.assign(payload, { start: draft.start, end: startOnly ? "" : draft.end,
+    plannedEnd: draft.plannedEnd || (startOnly ? draft.end : ""),
+    secondStart: startOnly ? "" : draft.secondStart, secondEnd: startOnly ? "" : draft.secondEnd,
+    workMinutes: startOnly ? 0 : draft.workMinutes,
+    hours: startOnly ? 0 : Math.round(draft.hours * 10000) / 10000,
+    overtime: startOnly ? 0 : draft.overtime });
   else if (draft.kind === "FREE") payload.freeReason = draft.freeReason;
   else Object.assign(payload, { absenceHours: draft.absenceHours,
     absenceLabel: ["LEAVE", "RELEASE", "EXCUSED"].includes(draft.kind) ? draft.absenceLabel : "" });
   const userId = currentSupabaseUser.id;
   workTimeSaveBtn.disabled = true;
+  if (workTimeStartSaveBtn) workTimeStartSaveBtn.disabled = true;
   try {
     const { error } = await supabaseClient.from("work_time_records").upsert({
       employee_id: employee.id, employee_name: employee.name, work_date: draft.date, payload,
@@ -21706,10 +21750,37 @@ async function saveWorkTimeRecord(event) {
     workTimeFields.Month.value = draft.date.slice(0, 7);
     workTimeFields.Employee.value = employee.id;
     await loadWorkTimeRecords();
+    if (workTimeStoreReady) workTimeSetMessage(startOnly
+      ? "Rozpoczęcie zapisane. Przy wyjściu kliknij „Dokończ” przy tym dniu."
+      : "Ewidencja dnia zapisana.");
   } catch (error) {
     workTimeSetMessage(`Nie zapisano ewidencji: ${error.message}`, true);
   } finally {
     workTimeSaveBtn.disabled = false;
+    if (workTimeStartSaveBtn) workTimeStartSaveBtn.disabled = false;
+  }
+}
+
+async function deleteWorkTimeRecord(record, button) {
+  if (!canViewPrivateModules() || !workTimeStoreReady || !currentSupabaseUser || !supabaseClient) return;
+  if (!confirm(`Usunąć wpis ${formatDate(record.work_date)} dla ${record.employee_name}? Historia zmiany pozostanie w bazie.`)) return;
+  const userId = currentSupabaseUser.id;
+  button.disabled = true;
+  try {
+    const { error } = await supabaseClient.from("work_time_records").upsert({
+      employee_id: record.employee_id, employee_name: record.employee_name, work_date: record.work_date,
+      payload: { ...record.payload, deletedAt: new Date().toISOString() },
+      updated_by: userId, updated_at: new Date().toISOString()
+    }, { onConflict: "employee_id,work_date" });
+    if (error) throw error;
+    if (!canViewPrivateModules() || currentSupabaseUser?.id !== userId) return;
+    if (workTimeEditingKey === `${record.employee_id}|${record.work_date}`) workTimeResetForm();
+    await loadWorkTimeRecords();
+    if (workTimeStoreReady) workTimeSetMessage("Wpis usunięty z bieżącej listy; historia zmiany została zachowana.");
+  } catch (error) {
+    workTimeSetMessage(`Nie udało się usunąć wpisu: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -24730,6 +24801,7 @@ function activeLoanPeriodRange() {
 function renderDatePicker() {
   const picker = ensureDatePicker();
   const weekendWorkCalendar = activeDateInput?.id === "vacationCompensationDate";
+  const workTimeCalendar = activeDateInput?.id === "workTimeDateInput";
   picker.classList.toggle("weekend-work-picker", weekendWorkCalendar);
   const selectedDate = parseIsoDate(activeDateInput?.value);
   const today = new Date();
@@ -24752,7 +24824,7 @@ function renderDatePicker() {
   });
 
   const title = document.createElement("strong");
-  title.textContent = weekendWorkCalendar ? "Wybierz sobotę lub niedzielę" : "Wybierz datę";
+  title.textContent = weekendWorkCalendar ? "Wybierz sobotę lub niedzielę" : workTimeCalendar ? "Wybierz dzień ewidencji" : "Wybierz datę";
 
   const nextButton = document.createElement("button");
   nextButton.className = "date-picker-nav";
@@ -24787,15 +24859,15 @@ function renderDatePicker() {
   const months = document.createElement("div");
   months.className = "date-picker-months";
   months.append(
-    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar),
-    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar)
+    createDatePickerMonth(currentMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar, workTimeCalendar),
+    createDatePickerMonth(nextMonth, selectedDate, today, dateMinimum, loanPeriodRange, weekendWorkCalendar, workTimeCalendar)
   );
 
   picker.replaceChildren(head, hint, months);
   positionDatePicker();
 }
 
-function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null, loanPeriodRange = null, weekendWorkCalendar = false) {
+function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = null, loanPeriodRange = null, weekendWorkCalendar = false, workTimeCalendar = false) {
   const month = document.createElement("section");
   month.className = "date-picker-month";
   const selectedIsoDate = selectedDate
@@ -24858,8 +24930,8 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     }
     const publicHoliday = polishPublicHolidayOnDate(isoDate);
     const vacationHolidayBlocked = Boolean(publicHoliday && isVacationCalendarInput());
-    const occupiedPeople = vacationOccupiedPeopleOnDate(isoDate);
-    const ownLeave = vacationOwnLeaveOnDate(isoDate);
+    const occupiedPeople = workTimeCalendar ? [] : vacationOccupiedPeopleOnDate(isoDate);
+    const ownLeave = workTimeCalendar ? null : vacationOwnLeaveOnDate(isoDate);
     if (publicHoliday) {
       button.classList.add("public-holiday");
       button.dataset.publicHoliday = publicHoliday.name;
@@ -24881,7 +24953,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       appendDatePickerTitle(button, `${ownerLabel}: ${vacationCompensatesWeekend(ownLeave) ? "wolne za weekend" : vacationTypeLabel(ownLeave.type).toLocaleLowerCase("pl-PL")}.`);
     }
 
-    const saturdayLinks = vacationSaturdayLinksOnDate(isoDate);
+    const saturdayLinks = workTimeCalendar ? [] : vacationSaturdayLinksOnDate(isoDate);
     if (saturdayLinks.length) {
       const arrow = document.createElement("span");
       arrow.className = "vacation-saturday-arrow";
@@ -25806,8 +25878,23 @@ notebookSwitchButtons.forEach((button) => {
 });
 
 workTimeForm?.addEventListener("submit", saveWorkTimeRecord);
+workTimeStartSaveBtn?.addEventListener("click", (event) => void saveWorkTimeRecord(event, { startOnly: true }));
 workTimeCancelBtn?.addEventListener("click", workTimeResetForm);
 workTimeFields.Kind?.addEventListener("change", workTimeSyncKind);
+workTimePresetButtons?.addEventListener("click", (event) => {
+  const preset = event.target.closest("[data-start][data-end]");
+  if (!preset) return;
+  workTimeFields.Kind.value = "WORK";
+  workTimeFields.Start.value = preset.dataset.start;
+  workTimeFields.PlannedEnd.value = preset.dataset.end;
+  workTimeFields.End.value = "";
+  workTimeSyncKind();
+  workTimeUpdateDuration();
+});
+workTimeUsePlannedEndBtn?.addEventListener("click", () => {
+  workTimeFields.End.value = workTimeFields.PlannedEnd.value;
+  workTimeUpdateDuration();
+});
 workTimeEmployeeButtons?.addEventListener("click", (event) => {
   const employeeId = event.target.closest("[data-employee-id]")?.dataset.employeeId;
   if (!employeeId) return;
@@ -25832,7 +25919,7 @@ workTimeSecondToggle?.addEventListener("click", () => {
 });
 workTimeFields.Month?.addEventListener("change", () => {
   workTimeResetForm();
-  workTimeFields.Date.value = `${workTimeFields.Month.value}-01`;
+  workTimeFields.Date.value = displayDateForInput(`${workTimeFields.Month.value}-01`);
   renderWorkTimeModule();
   void loadWorkTimeRecords();
 });

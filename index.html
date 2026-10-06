@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261006-2">
+  <link rel="stylesheet" href="styles.css?v=20261006-3">
   </head>
   <body>
     <main class="app-shell">
@@ -2451,13 +2451,13 @@
             <div><p class="eyebrow">Tylko SATIS</p><h2>Ewidencja czasu pracy</h2></div>
             <label class="work-time-month-field">Miesiąc <input id="workTimeMonthInput" type="month"></label>
           </header>
-          <p class="work-time-notice">Wybierz pracownika i dzień. Czas pracy wyliczy się z podanych godzin.</p>
+          <p class="work-time-notice">Rano zapisz rozpoczęcie. Przy wyjściu uzupełnij godzinę zakończenia w tym samym wpisie.</p>
           <p class="vacation-employee-picker-label">Pracownik</p>
           <div id="workTimeEmployeeButtons" class="vacation-employee-list work-time-employee-list" aria-label="Wybierz pracownika"></div>
           <input id="workTimeEmployeeInput" type="hidden">
           <form id="workTimeForm" class="work-time-form">
             <div class="work-time-main-row">
-              <label>Data<input id="workTimeDateInput" type="date" required></label>
+              <label>Data<input id="workTimeDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" required></label>
               <label>Rodzaj dnia<select id="workTimeKindInput" required>
                 <option value="WORK">Praca</option>
                 <option value="FREE">Dzień wolny</option>
@@ -2467,12 +2467,23 @@
                 <option value="UNEXCUSED">Nieobecność nieusprawiedliwiona</option>
               </select></label>
             </div>
+            <input id="workTimePlannedEndInput" type="hidden">
             <div id="workTimeWorkFields" class="work-time-fields">
+              <div id="workTimePresetField" class="work-time-presets">
+                <span>Przykładowe zmiany</span>
+                <div id="workTimePresetButtons" class="work-time-preset-buttons" role="group" aria-label="Przykładowe godziny pracy">
+                  <button type="button" data-shift="RANNA" data-start="08:00" data-end="14:00">Ranna 08:00–14:00</button>
+                  <button type="button" data-shift="RANNA" data-start="08:00" data-end="16:00">Ranna 08:00–16:00</button>
+                  <button type="button" data-shift="POPOLUDNIOWA" data-start="12:00" data-end="18:00">Popołudniowa 12:00–18:00</button>
+                  <button type="button" data-shift="POPOLUDNIOWA" data-start="14:00" data-end="20:00">Popołudniowa 14:00–20:00</button>
+                </div>
+              </div>
               <label>Od<input id="workTimeStartInput" type="time"></label>
-              <label>Do<input id="workTimeEndInput" type="time"></label>
+              <label>Do (przy wyjściu)<input id="workTimeEndInput" type="time"></label>
               <label>Godziny pracy<input id="workTimeHoursInput" type="text" readonly value="0:00"></label>
               <label>W tym nadliczbowe<input id="workTimeOvertimeInput" type="number" min="0" max="24" step="0.01" inputmode="decimal" value="0"></label>
             </div>
+            <button id="workTimeUsePlannedEndBtn" class="ghost work-time-planned-end" type="button" hidden></button>
             <div id="workTimeSecondPeriod" class="work-time-more" hidden>
               <span class="work-time-more-title">Drugi przedział pracy</span>
               <div class="work-time-fields">
@@ -2489,13 +2500,14 @@
               <label id="workTimeAbsenceLabelField">Rodzaj / podstawa<input id="workTimeAbsenceLabelInput" type="text" maxlength="160" placeholder="bez danych o stanie zdrowia"></label>
             </div>
             <div class="work-time-actions">
+              <button id="workTimeStartSaveBtn" class="ghost" type="button">Zapisz rozpoczęcie</button>
               <button id="workTimeSaveBtn" type="submit">Zapisz dzień</button>
               <button id="workTimeCancelBtn" class="ghost" type="button" hidden>Anuluj edycję</button>
             </div>
           </form>
           <p id="workTimeMessage" class="work-time-message" role="status" aria-live="polite"></p>
           <div class="work-time-table-wrap">
-            <table class="work-time-table"><thead><tr><th>Data</th><th>Pracownik</th><th>Rodzaj</th><th>Godziny / wymiar</th><th>Szczegóły</th><th>Zmiana</th><th></th></tr></thead><tbody id="workTimeBody"></tbody></table>
+            <table class="work-time-table"><thead><tr><th>Data</th><th>Pracownik</th><th>Rodzaj</th><th>Godziny / wymiar</th><th>Szczegóły</th><th>Zaktualizowano</th><th></th></tr></thead><tbody id="workTimeBody"></tbody></table>
           </div>
         </section>
       </section>
@@ -3058,11 +3070,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261006-2"></script>
-    <script src="data-layer.js?v=20261006-2"></script>
-    <script src="sync-layer.js?v=20261006-2"></script>
-    <script src="offline-vault.js?v=20261006-2"></script>
-    <script src="offline-forms.js?v=20261006-2"></script>
-  <script src="app.js?v=20261006-2"></script>
+    <script src="supabase-config.js?v=20261006-3"></script>
+    <script src="data-layer.js?v=20261006-3"></script>
+    <script src="sync-layer.js?v=20261006-3"></script>
+    <script src="offline-vault.js?v=20261006-3"></script>
+    <script src="offline-forms.js?v=20261006-3"></script>
+  <script src="app.js?v=20261006-3"></script>
   </body>
 </html>

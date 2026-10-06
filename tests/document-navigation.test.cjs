@@ -112,6 +112,8 @@ test('work time rejects impossible or incomplete entries', () => {
   assert.match(ctx.validateWorkTimeDraft({...base, kind: 'FREE'}), /tytuł/);
   assert.equal(ctx.validateWorkTimeDraft({...base, kind: 'FREE', freeReason: 'niedziela'}), '');
   assert.match(ctx.validateWorkTimeDraft({...base, kind: 'LEAVE', absenceHours: 8}), /rodzaj nieobecności/);
+  assert.equal(ctx.validateWorkTimeDraft({...base, end: '', hours: 0}, '2026-10-06', true), '');
+  assert.match(ctx.validateWorkTimeDraft({...base, end: '', hours: 0}), /zakończenia/);
   assert.equal(ctx.workTimeIntervalMinutes('24:00', '25:00'), 0);
 });
 test('work time shows only the three workers from the selected vacation year', () => {
@@ -126,17 +128,18 @@ test('work time shows only the three workers from the selected vacation year', (
 test('work time save persists calculated minutes and rejects a store that is not ready', async () => {
   const saved = [];
   const messages = [];
+  let draft = {date: '2026-10-06', kind: 'WORK', start: '08:00', end: '12:00',
+    plannedEnd: '16:00', secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8, overtime: 0};
   const ctx = vm.createContext({
     canViewPrivateModules: () => true, currentSupabaseUser: {id: 'owner'}, hasSupabaseConfig: true,
     workTimeStoreReady: false, workTimeEditingKey: '', workTimeRecords: [],
     workTimeFields: {Employee: {value: 'e1'}, Month: {value: '2026-10'}},
     vacationEmployees: [{id: 'e1', name: 'Oliwia Piecha', year: 2026, redacted: false}],
-    workTimeSaveBtn: {disabled: false},
+    workTimeSaveBtn: {disabled: false}, workTimeStartSaveBtn: {disabled: false},
     supabaseClient: {from: () => ({upsert: async (record, options) => {
       saved.push({record, options}); return {error: null};
     }})},
-    workTimeDraft: () => ({date: '2026-10-06', kind: 'WORK', start: '08:00', end: '12:00',
-      secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8, overtime: 0}),
+    workTimeDraft: () => draft, todayInputValue: () => '2026-10-06',
     validateWorkTimeDraft: () => '', workTimeSetMessage: message => messages.push(message),
     workTimeResetForm: () => {}, loadWorkTimeRecords: async () => {}, Date,
   });
@@ -145,11 +148,42 @@ test('work time save persists calculated minutes and rejects a store that is not
   assert.equal(saved.length, 0);
   assert.match(messages.at(-1), /Zapis niedostępny/);
   ctx.workTimeStoreReady = true;
-  await ctx.saveWorkTimeRecord({preventDefault() {}});
+  draft = {...draft, end: '', secondStart: '', secondEnd: '', workMinutes: 0, hours: 0};
+  await ctx.saveWorkTimeRecord({preventDefault() {}}, {startOnly: true});
   assert.equal(saved.length, 1);
-  assert.equal(saved[0].record.payload.workMinutes, 480);
-  assert.equal(saved[0].record.payload.secondStart, '13:00');
-  assert.equal(saved[0].options.onConflict, 'employee_id,work_date');
+  assert.equal(saved[0].record.payload.end, '');
+  assert.equal(saved[0].record.payload.plannedEnd, '16:00');
+  assert.equal(saved[0].record.payload.workMinutes, 0);
+  assert.match(messages.at(-1), /Rozpoczęcie zapisane/);
+  draft = {...draft, end: '12:00', secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8};
+  await ctx.saveWorkTimeRecord({preventDefault() {}});
+  assert.equal(saved.length, 2);
+  assert.equal(saved[1].record.payload.workMinutes, 480);
+  assert.equal(saved[1].record.payload.secondStart, '13:00');
+  assert.equal(saved[1].options.onConflict, 'employee_id,work_date');
+  assert.equal(saved[0].record.employee_id, saved[1].record.employee_id);
+  assert.equal(saved[0].record.work_date, saved[1].record.work_date);
+  assert.match(extract('loadWorkTimeRecords'), /!record\.payload\?\.deletedAt/);
+  assert.match(html, /id="workTimeDateInput"[^>]*data-date-picker/);
+  assert.match(extract('renderDatePicker'), /workTimeCalendar/);
+});
+test('only SATIS can remove a work time entry and the audit trail remains', async () => {
+  const saved = [];
+  const ctx = vm.createContext({
+    canViewPrivateModules: () => true, workTimeStoreReady: true, currentSupabaseUser: {id: 'owner'},
+    supabaseClient: {from: () => ({upsert: async (record) => {saved.push(record); return {error: null};}})},
+    confirm: () => true, formatDate: value => value, Date, workTimeEditingKey: '',
+    workTimeSetMessage: () => {}, loadWorkTimeRecords: async () => {}
+  });
+  vm.runInContext(extract('deleteWorkTimeRecord'), ctx);
+  const record = {employee_id: 'e1', employee_name: 'Oliwia Piecha', work_date: '2026-10-06', payload: {kind: 'WORK'}};
+  await ctx.deleteWorkTimeRecord(record, {disabled: false});
+  assert.equal(saved.length, 1);
+  assert.ok(saved[0].payload.deletedAt);
+  assert.equal(saved[0].payload.kind, 'WORK');
+  ctx.canViewPrivateModules = () => false;
+  await ctx.deleteWorkTimeRecord(record, {disabled: false});
+  assert.equal(saved.length, 1);
 });
 test('PCPR and History stand alone, pricing stays available, and gabinet can open History', () => {
   const ctx = setup();
