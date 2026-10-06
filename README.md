@@ -18,6 +18,12 @@ Workflow `.github/workflows/quality.yml` uruchamia na GitHubie testy syntetyczne
 
 Formularze offline (oferta, umowa, zamówienie, reklamacja): instrukcja pierwszego włączenia, hasła, wydruków roboczych i synchronizacji jest w `OFFLINE.md`.
 
+## Robocza lista obecności
+
+Zakładka **Obecność** jest dostępna wyłącznie dla konta SATIS. Korzysta z pracowników przypisanych do danego roku w zakładce Urlop. Po uruchomieniu dotychczasowych migracji wykonaj `supabase-attendance.sql` w SQL Editor, najpierw w projekcie testowym. Dane listy są przechowywane tylko w Supabase; brak połączenia blokuje odczyt i zapis. RLS chroni tabelę oraz historię korekt przed kontami gabinetowymi.
+
+To pomocnicza lista obecności, **nie kompletna ewidencja czasu pracy**. Obowiązkowa ewidencja wymaga dodatkowych kategorii (m.in. pracy nocnej i nadliczbowej, dyżurów, dni wolnych i nieobecności) i osobnej organizacji dokumentacji pracowniczej. Przed zastąpieniem nią dotychczasowego procesu kadrowego należy ustalić zasady potwierdzania obecności i retencji danych.
+
 ## Supabase: wspólna baza przez internet
 
 Supabase jest zalecanym trybem dla kilku użytkowników pracujących z różnych miejsc. Komputer główny nie musi być wtedy włączony. Każdy użytkownik loguje się własnym adresem e-mail i hasłem, a zmiany są synchronizowane automatycznie.

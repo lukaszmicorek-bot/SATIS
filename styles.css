@@ -817,6 +817,102 @@ h2 {
   padding: 0 0 32px;
 }
 
+.attendance-panel {
+  width: min(1120px, 100%);
+}
+
+.attendance-month-field,
+.attendance-form label {
+  display: grid;
+  gap: 6px;
+  color: #365962;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.attendance-month-field input {
+  min-width: 150px;
+}
+
+.attendance-notice {
+  margin: 0 0 16px;
+  color: #4f6570;
+  font-size: 0.83rem;
+}
+
+.attendance-form {
+  display: grid;
+  grid-template-columns: minmax(175px, 2fr) minmax(145px, 1.2fr) repeat(2, minmax(100px, 0.7fr)) minmax(95px, 0.7fr) auto auto;
+  align-items: end;
+  gap: 10px;
+  padding: 0 0 14px;
+}
+
+.attendance-form input,
+.attendance-form select {
+  width: 100%;
+  min-width: 0;
+}
+
+.attendance-form button {
+  white-space: nowrap;
+}
+
+.attendance-message {
+  min-height: 1.5em;
+  margin: 0 0 12px;
+  color: #416c59;
+  font-size: 0.8rem;
+}
+
+.attendance-message[data-error="true"] {
+  color: #a44540;
+}
+
+.attendance-table-wrap {
+  overflow-x: auto;
+}
+
+.attendance-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.attendance-table th,
+.attendance-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.attendance-table th {
+  color: #45616e;
+  background: #f4f7f7;
+  font-size: 0.72rem;
+}
+
+.attendance-table td:nth-child(2) {
+  font-weight: 700;
+  color: #003f5a;
+}
+
+@media (max-width: 1100px) {
+  .attendance-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .attendance-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .attendance-form label:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 .private-module-head {
   display: flex;
   align-items: center;
