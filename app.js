@@ -20274,6 +20274,7 @@ async function loadVacationData() {
   }
   if (loadVacationData.access) loadVacationData.error = "";
   renderVacationModule();
+  if (activeNotebook === "workTime") workTimeEmployeeOptions();
   if (typeof refreshCurrentDateWidget === "function") refreshCurrentDateWidget();
   scheduleVacationPolling();
 }
@@ -21439,11 +21440,61 @@ function workTimeDeviationText(record, schedule) {
   return comparison.label.split(" · ").slice(1).filter(text => text !== "Dzień jeszcze niezakończony").join(" · ");
 }
 
+function workTimeDurationTone(record, schedule, today) {
+  const data = record.payload || {};
+  if (data.kind !== "WORK") return "";
+  if (!data.end && record.work_date < today) return "missing";
+  const tones = workTimeScheduleComparison(record, schedule).tones;
+  return tones.includes("late") ? "late" : tones.includes("extra") ? "extra"
+    : tones.includes("difference") ? "difference" : "";
+}
+
+function hideWorkTimeHourlyPreview() {
+  document.querySelector(".work-time-hourly-preview")?.remove();
+  document.querySelectorAll('.work-time-hourly[aria-expanded="true"]').forEach(element => {
+    element.setAttribute("aria-expanded", "false");
+  });
+}
+
+function showWorkTimeHourlyPreview(anchor, record, schedule, segments, track) {
+  hideWorkTimeHourlyPreview();
+  anchor.setAttribute("aria-expanded", "true");
+  const panel = document.createElement("div");
+  panel.className = "work-time-hourly-preview";
+  panel.setAttribute("role", "tooltip");
+  const heading = document.createElement("strong");
+  heading.textContent = `${record.employee_name} · ${formatDate(record.work_date)}`;
+  panel.append(heading);
+  const plan = document.createElement("p");
+  plan.textContent = !schedule ? "Brak grafiku" : schedule.off ? "Grafik: dzień wolny" : `Grafik: ${schedule.start}–${schedule.end}`;
+  panel.append(plan, track.cloneNode(true));
+  const time = minutes => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const names = {match: "Zgodnie z grafikiem", late: "Spóźnienie", extra: "Poza grafikiem", difference: "Praca"};
+  for (const segment of segments) {
+    const line = document.createElement("div");
+    line.className = "work-time-hourly-preview-line";
+    line.dataset.tone = segment.tone;
+    line.textContent = `${names[segment.tone]}: ${time(segment.from)}–${time(segment.to)} · ${workTimeDurationText(segment.to - segment.from)}`;
+    panel.append(line);
+  }
+  document.body.append(panel);
+  const rect = anchor.getBoundingClientRect();
+  const width = panel.getBoundingClientRect().width;
+  const height = panel.getBoundingClientRect().height;
+  panel.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
+  const below = rect.bottom + 10;
+  panel.style.top = `${Math.max(12, below + height <= window.innerHeight - 12 ? below : rect.top - height - 10)}px`;
+}
+
 function workTimeHourlyView(record, schedule) {
   const segments = workTimeHourlySegments(record.payload || {}, schedule);
   if (!segments.length) return null;
   const details = document.createElement("div");
   details.className = "work-time-hourly";
+  details.tabIndex = 0;
+  details.setAttribute("role", "button");
+  details.setAttribute("aria-label", "Powiększ pasek i pokaż dokładne godziny");
+  details.setAttribute("aria-expanded", "false");
   const track = document.createElement("div");
   track.className = "work-time-hourly-track";
   const time = minutes => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -21462,6 +21513,16 @@ function workTimeHourlyView(record, schedule) {
     track.append(bar);
   }
   details.append(track);
+  const show = () => showWorkTimeHourlyPreview(details, record, schedule, segments, track);
+  details.addEventListener("mouseenter", show);
+  details.addEventListener("mouseleave", hideWorkTimeHourlyPreview);
+  details.addEventListener("focus", show);
+  details.addEventListener("blur", hideWorkTimeHourlyPreview);
+  details.addEventListener("click", show);
+  details.addEventListener("keydown", event => {
+    if (event.key === "Escape") hideWorkTimeHourlyPreview();
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); show(); }
+  });
   return details;
 }
 
@@ -21580,7 +21641,12 @@ function workTimeScheduleComparison(record, schedule) {
   const actual = workTimeCalculatedMinutes(data);
   const late = !schedule.off && data.start > schedule.start
     ? workTimeIntervalMinutes(schedule.start, data.start) : 0;
-  const extra = data.end ? Math.max(0, actual - planned, Math.round((Number(data.overtime) || 0) * 60)) : 0;
+  const outside = schedule.off ? actual : [[data.start, data.end], [data.secondStart, data.secondEnd]]
+    .filter(([start, end]) => start && end && end > start)
+    .reduce((total, [start, end]) => total +
+      workTimeIntervalMinutes(start, end < schedule.start ? end : schedule.start) +
+      workTimeIntervalMinutes(start > schedule.end ? start : schedule.end, end), 0);
+  const extra = data.end ? Math.max(0, outside, Math.round((Number(data.overtime) || 0) * 60)) : 0;
   const tones = [];
   const labels = [schedule.off ? "Grafik: dzień wolny" : `Grafik: ${schedule.start}–${schedule.end}`];
   if (late) { tones.push("late"); labels.push(`Spóźnienie: ${late} min`); }
@@ -21591,7 +21657,7 @@ function workTimeScheduleComparison(record, schedule) {
     labels.push(match ? "Zgodnie z grafikiem" : "Godziny różnią się od grafiku");
   }
   if (!data.end) labels.push("Dzień jeszcze niezakończony");
-  return { tones, label: labels.join(" · ") };
+  return { tones, label: labels.join(" · "), lateMinutes: late, extraMinutes: extra };
 }
 
 function renderWorkTimeSchedule(preferredFrom = "") {
@@ -21728,9 +21794,21 @@ function workTimeRosterForYear(employees, year) {
   return employees.filter((item) => item.year === year && item.workTimeEnabled === true);
 }
 
-function workTimeEmployeeIssues(employeeId, month, records, schedules, today) {
+function workTimeApprovedLeave(employeeId, date, plan, requests) {
+  const types = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "ZA WEEKEND", "NA ŻĄDANIE", "INNY"];
+  return requests.some(request => {
+    if (request.ownerLeave || request.status !== "ZATWIERDZONY" || request.employeeId !== employeeId
+      || !types.includes(request.type) || !request.dateFrom || !request.dateTo || request.dateFrom > date || request.dateTo < date) return false;
+    if (!request.hours) return true;
+    const days = vacationWorkingDays(request.dateFrom, request.dateTo);
+    const hoursPerDay = request.hours / Math.max(1, days);
+    return hoursPerDay * 60 >= workTimeIntervalMinutes(plan?.start, plan?.end);
+  });
+}
+
+function workTimeEmployeeIssues(employeeId, month, records, schedules, today, requests = []) {
   if (!records || !month || !employeeId) return [];
-  const relevant = records.filter(record => record.employee_id === employeeId && !record.payload?.deletedAt);
+  const relevant = records.filter(record => record.employee_id === employeeId && record.work_date?.startsWith(`${month}-`) && !record.payload?.deletedAt);
   const issues = [];
   const dates = new Set(relevant.map(record => record.work_date));
   let late = 0, extra = 0, different = 0, incomplete = 0;
@@ -21744,9 +21822,10 @@ function workTimeEmployeeIssues(employeeId, month, records, schedules, today) {
   for (const record of relevant) {
     if (record.work_date > today || record.payload?.kind !== "WORK") continue;
     if (!record.payload.end && record.work_date < today) incomplete++;
-    const tones = workTimeScheduleComparison(record, record.payload.schedule || scheduleOn(record.work_date)).tones;
-    if (tones.includes("late")) late++;
-    if (tones.includes("extra")) extra++;
+    const comparison = workTimeScheduleComparison(record, record.payload.schedule || scheduleOn(record.work_date));
+    const tones = comparison.tones;
+    late += comparison.lateMinutes || 0;
+    extra += comparison.extraMinutes || 0;
     if (tones.includes("difference")) different++;
   }
   const missing = [];
@@ -21757,14 +21836,14 @@ function workTimeEmployeeIssues(employeeId, month, records, schedules, today) {
       const date = `${month}-${String(day).padStart(2, "0")}`;
       if (date >= bounds.to || date >= today) break;
       const plan = scheduleOn(date);
-      if (plan && !plan.off && !dates.has(date)) missing.push(date);
+      if (plan && !plan.off && !dates.has(date) && !workTimeApprovedLeave(employeeId, date, plan, requests)) missing.push(date);
     }
   }
   if (!schedules.length && `${month}-01` <= today) issues.push("Brak grafiku");
   if (missing.length) issues.push(`Brak wpisu: ${missing.length}`);
   if (incomplete) issues.push(`Brak wyjścia: ${incomplete}`);
-  if (late) issues.push(`Spóźnienia: ${late}`);
-  if (extra) issues.push(`Ponad grafik: ${extra}`);
+  if (late) issues.push(`Spóźnienia: ${late} min`);
+  if (extra) issues.push(`Nadprogramowo: ${extra} min`);
   if (different) issues.push(`Inne godziny: ${different}`);
   return issues;
 }
@@ -21799,7 +21878,7 @@ function workTimeEmployeeOptions() {
       : workTimeLoadedMonth === workTimeFields.Month.value ? workTimeMonthRecords : null;
     const schedules = workTimeExamplesActive ? [workTimeExampleSchedule(employee)]
       : workTimeNormalizeSchedules(employee.workSchedules);
-    const issues = workTimeEmployeeIssues(employee.id, workTimeFields.Month.value, records, schedules, todayInputValue());
+    const issues = workTimeEmployeeIssues(employee.id, workTimeFields.Month.value, records, schedules, todayInputValue(), workTimeExamplesActive ? [] : vacationRequests);
     if (issues.length) {
       const notice = document.createElement("div");
       notice.className = "work-time-employee-issues";
@@ -21950,6 +22029,7 @@ function workTimeDurationText(minutes) {
 
 function renderWorkTimeRecords() {
   if (!workTimeBody) return;
+  hideWorkTimeHourlyPreview();
   workTimeBody.replaceChildren();
   if (!currentSupabaseUser) return;
   for (const record of workTimeRecords) {
@@ -21965,6 +22045,9 @@ function renderWorkTimeRecords() {
     }
     const schedule = data.schedule || workTimeScheduleForDate(record.employee_id, record.work_date);
     const comparison = workTimeScheduleComparison(record, schedule);
+    row.cells[3].className = "work-time-duration";
+    row.cells[3].dataset.tone = workTimeDurationTone(record, schedule, todayInputValue());
+    row.cells[3].title = comparison.label;
     row.cells[5].textContent = workTimeDeviationText(record, schedule);
     row.cells[5].className = "work-time-deviation";
     const hourly = workTimeHourlyView(record, schedule);
@@ -22272,6 +22355,7 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (notebookName === "workTime" && !canViewPrivateModules()) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
+  hideWorkTimeHourlyPreview();
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
   if (statsPanel) statsPanel.hidden = ["capd", "vacation", "workTime"].includes(activeNotebook);
@@ -26400,6 +26484,11 @@ for (const name of ["Start", "End"]) {
 }
 document.addEventListener("pointerdown", (event) => {
   if (!event.target.closest(".work-time-time-field")) workTimeHideTimeSuggestions();
+});
+window.addEventListener("resize", hideWorkTimeHourlyPreview);
+document.addEventListener("scroll", hideWorkTimeHourlyPreview, { capture: true, passive: true });
+document.addEventListener("pointerdown", event => {
+  if (!event.target.closest(".work-time-hourly")) hideWorkTimeHourlyPreview();
 });
 workTimeExamplesShow?.addEventListener("click", () => workTimeToggleExamples(true));
 workTimeExamplesRemove?.addEventListener("click", () => workTimeToggleExamples(false));

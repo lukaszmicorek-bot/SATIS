@@ -36,7 +36,7 @@ function setup() {
     renderCounts: {}
   };
   for (const name of ['List', 'Offer', 'Loan', 'Rodo', 'Pcpr', 'Order', 'Complaint', 'History']) context[`pricing${name}View`] = node(name);
-  for (const name of ['hideVacationPeriodPreview', 'updateCustomerRelationsPanelVisibility', 'renderCustomerRelations', 'setCurrentYearTitle',
+  for (const name of ['hideWorkTimeHourlyPreview', 'hideVacationPeriodPreview', 'updateCustomerRelationsPanelVisibility', 'renderCustomerRelations', 'setCurrentYearTitle',
     'renderPricingOfferDeviceList', 'renderPricingOffer', 'renderPricingLoan', 'renderPricingRodo', 'renderPricingPcprList', 'renderPricingOrder', 'renderPricingComplaint',
     'renderPricingDocumentHistory', 'renderPricingRecords', 'updateStats', 'renderRepairRecords', 'renderDataControlView', 'renderDemoRecords',
     'renderStockView', 'renderDeviceViews', 'updateCapdScope', 'renderCapdHistory', 'renderVacationModule',
@@ -237,11 +237,11 @@ test('schedule comparison distinguishes matching hours, lateness, excess, unfini
   assert.match(compare('08:10', '16:00').label, /10 min/);
   assert.equal(compare('08:00', '17:00').tones.join(','), 'extra');
   assert.equal(compare('08:10', '17:00').tones.join(','), 'late,extra');
-  assert.match(compare('08:10', '17:00').label, /50 min/);
+  assert.match(compare('08:10', '17:00').label, /60 min/);
   assert.equal(compare('08:00', '').tones.length, 0);
   assert.equal(compare('08:10', '').tones.join(','), 'late');
   assert.equal(compare('08:00', '15:00').tones.join(','), 'difference');
-  assert.equal(compare('08:00', '12:00', {secondStart: '13:00', secondEnd: '17:00'}).tones.join(','), 'difference');
+  assert.equal(compare('08:00', '12:00', {secondStart: '13:00', secondEnd: '17:00'}).tones.join(','), 'extra');
   assert.equal(compare('08:00', '16:00', {}, null).tones.length, 0);
   assert.equal(compare('08:00', '10:00', {}, {off: true}).tones.join(','), 'extra');
 });
@@ -551,9 +551,9 @@ test('work-time month choices use Polish names and preserve machine-readable val
 });
 
 test('employee summaries show only missing or irregular work, not future days or off days', () => {
-  const ctx = vm.createContext({Date, polishPublicHolidayOnDate: () => false});
+  const ctx = vm.createContext({Date, polishPublicHolidayOnDate: () => false, vacationWorkingDays: () => 1});
   for (const name of ['workTimeMonthBounds', 'workTimeIntervalMinutes', 'workTimeCalculatedMinutes',
-    'workTimeScheduleComparison', 'workTimeEmployeeIssues']) vm.runInContext(extract(name), ctx);
+    'workTimeScheduleComparison', 'workTimeApprovedLeave', 'workTimeEmployeeIssues']) vm.runInContext(extract(name), ctx);
   const days = {1: {start: '08:00', end: '16:00'}, 2: {start: '08:00', end: '16:00'},
     3: {start: '08:00', end: '16:00'}, 4: {start: '08:00', end: '16:00'}, 5: {start: '08:00', end: '16:00'}};
   const schedules = [{from: '2026-09-01', days}];
@@ -561,10 +561,17 @@ test('employee summaries show only missing or irregular work, not future days or
   assert.equal(ctx.workTimeEmployeeIssues('a', '2026-09', null, schedules, '2026-09-04').length, 0);
   assert.equal(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01')], schedules, '2026-09-02').length, 0);
   const issues = Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01', '08:15'), record('2026-09-02', '08:00', '')], schedules, '2026-09-04'));
-  assert.deepEqual(issues, ['Brak wpisu: 1', 'Brak wyjścia: 1', 'Spóźnienia: 1']);
+  assert.deepEqual(issues, ['Brak wpisu: 1', 'Brak wyjścia: 1', 'Spóźnienia: 15 min']);
   assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-11', [], schedules, '2026-09-04')), []);
   assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [], [], '2026-09-04')), ['Brak grafiku']);
   assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [], schedules, '2026-10-06')), ['Brak wpisu: 22']);
+  const leave = {employeeId: 'a', dateFrom: '2026-09-03', dateTo: '2026-09-03', type: 'WYPOCZYNKOWY', status: 'ZATWIERDZONY'};
+  const regular = [record('2026-09-01'), record('2026-09-02')];
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', regular, schedules, '2026-09-04', [leave])), []);
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', regular, schedules, '2026-09-04', [{...leave, status: 'OCZEKUJE'}])), ['Brak wpisu: 1']);
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', regular, schedules, '2026-09-04', [{...leave, hours: 4}])), ['Brak wpisu: 1']);
+  const monthTotals = Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01', '08:15', '17:00'), record('2026-09-02', '08:10', '16:30'), record('2026-08-31', '09:00', '18:00')], schedules, '2026-09-03'));
+  assert.deepEqual(monthTotals, ['Spóźnienia: 25 min', 'Nadprogramowo: 90 min']);
   ctx.polishPublicHolidayOnDate = date => date === '2026-09-03';
   assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01'), record('2026-09-02')], schedules, '2026-09-04')), []);
 });
@@ -607,6 +614,24 @@ test('hourly display focuses on working hours and the information column shows o
   assert.match(extract('renderWorkTimeRecords'), /row\.cells\[4\]\.replaceChildren\(hourly\)/);
   assert.doesNotMatch(extract('workTimeHourlyView'), /work-time-hourly-axis|work-time-hourly-legend|createElement\("details"\)/);
   assert.match(extract('workTimeHourlyView'), /bar\.title =/);
+});
+
+test('work-time duration is emphasized by the deviation and the hourly preview opens on hover and focus', () => {
+  const ctx = vm.createContext({});
+  for (const name of ['workTimeDurationTone', 'workTimeIntervalMinutes', 'workTimeCalculatedMinutes',
+    'workTimeScheduleComparison']) vm.runInContext(extract(name), ctx);
+  const plan = {start: '08:00', end: '16:00'};
+  const record = (start, end, date = '2026-10-05') => ({work_date: date, payload: {kind: 'WORK', start, end}});
+  assert.equal(ctx.workTimeDurationTone(record('08:00', '16:00'), plan, '2026-10-06'), '');
+  assert.equal(ctx.workTimeDurationTone(record('08:15', '16:00'), plan, '2026-10-06'), 'late');
+  assert.equal(ctx.workTimeDurationTone(record('08:00', '17:00'), plan, '2026-10-06'), 'extra');
+  assert.equal(ctx.workTimeDurationTone(record('08:00', ''), plan, '2026-10-06'), 'missing');
+  assert.equal(ctx.workTimeDurationTone(record('08:00', '', '2026-10-06'), plan, '2026-10-06'), '');
+  const view = extract('workTimeHourlyView');
+  assert.match(view, /addEventListener\("mouseenter", show\)/);
+  assert.match(view, /addEventListener\("focus", show\)/);
+  assert.match(extract('showWorkTimeHourlyPreview'), /document\.body\.append\(panel\)/);
+  assert.match(extract('showWorkTimeHourlyPreview'), /window\.innerHeight/);
 });
 
 test('copying a schedule day updates only chosen fields and requires explicit save', () => {

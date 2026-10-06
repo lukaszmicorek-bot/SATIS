@@ -1128,7 +1128,50 @@ h2 {
   width: 370px;
   max-width: 100%;
   white-space: normal;
+  cursor: zoom-in;
 }
+
+.work-time-hourly .work-time-hourly-track { transition: transform 140ms ease; transform-origin: center; }
+.work-time-hourly:hover .work-time-hourly-track,
+.work-time-hourly[aria-expanded="true"] .work-time-hourly-track { transform: scaleY(1.14); }
+.work-time-hourly:focus-visible { outline: 2px solid #45958b; outline-offset: 4px; border-radius: 6px; }
+
+.work-time-duration {
+  font-size: 1.03rem !important;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.work-time-duration[data-tone="late"] { color: #a15c13; background: #fff3e0; }
+.work-time-duration[data-tone="extra"] { color: #78519a; background: #f2eaf9; }
+.work-time-duration[data-tone="missing"] { color: #b54255; background: #fff0f2; }
+.work-time-duration[data-tone="difference"] { color: #9a672c; background: #fff7e9; }
+
+.work-time-hourly-preview {
+  position: fixed;
+  z-index: 20000;
+  width: min(550px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  border: 1px solid #cbd9dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #243b43;
+  box-shadow: 0 8px 28px #193a4326;
+  pointer-events: none;
+  font-size: 0.85rem;
+}
+.work-time-hourly-preview > strong { display: block; font-size: 0.95rem; }
+.work-time-hourly-preview > p { margin: 6px 0 12px; color: #536a71; }
+.work-time-hourly-preview .work-time-hourly-track { height: 56px; margin: 12px 0; }
+.work-time-hourly-preview .work-time-hourly-track > span { font-size: 0.88rem; }
+.work-time-hourly-preview-line { margin-top: 7px; line-height: 1.45; }
+.work-time-hourly-preview-line::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 3px; background: #a7b1b6; }
+.work-time-hourly-preview-line[data-tone="match"]::before { background: #4f9c6c; }
+.work-time-hourly-preview-line[data-tone="late"]::before { background: #e59b42; }
+.work-time-hourly-preview-line[data-tone="extra"]::before { background: #9a79bf; }
 
 .work-time-hourly-track {
   position: relative;
