@@ -550,6 +550,25 @@ test('work-time month choices use Polish names and preserve machine-readable val
   assert.match(html, /<select id="workTimeMonthInput"/);
 });
 
+test('employee summaries show only missing or irregular work, not future days or off days', () => {
+  const ctx = vm.createContext({Date, polishPublicHolidayOnDate: () => false});
+  for (const name of ['workTimeMonthBounds', 'workTimeIntervalMinutes', 'workTimeCalculatedMinutes',
+    'workTimeScheduleComparison', 'workTimeEmployeeIssues']) vm.runInContext(extract(name), ctx);
+  const days = {1: {start: '08:00', end: '16:00'}, 2: {start: '08:00', end: '16:00'},
+    3: {start: '08:00', end: '16:00'}, 4: {start: '08:00', end: '16:00'}, 5: {start: '08:00', end: '16:00'}};
+  const schedules = [{from: '2026-09-01', days}];
+  const record = (date, start = '08:00', end = '16:00') => ({employee_id: 'a', work_date: date, payload: {kind: 'WORK', start, end}});
+  assert.equal(ctx.workTimeEmployeeIssues('a', '2026-09', null, schedules, '2026-09-04').length, 0);
+  assert.equal(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01')], schedules, '2026-09-02').length, 0);
+  const issues = Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01', '08:15'), record('2026-09-02', '08:00', '')], schedules, '2026-09-04'));
+  assert.deepEqual(issues, ['Brak wpisu: 1', 'Brak wyjścia: 1', 'Spóźnienia: 1']);
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-11', [], schedules, '2026-09-04')), []);
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [], [], '2026-09-04')), ['Brak grafiku']);
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [], schedules, '2026-10-06')), ['Brak wpisu: 22']);
+  ctx.polishPublicHolidayOnDate = date => date === '2026-09-03';
+  assert.deepEqual(Array.from(ctx.workTimeEmployeeIssues('a', '2026-09', [record('2026-09-01'), record('2026-09-02')], schedules, '2026-09-04')), []);
+});
+
 test('hourly bars split late, scheduled and additional time without counting gaps as work', () => {
   const ctx = vm.createContext({});
   vm.runInContext(extract('workTimeHourlySegments'), ctx);
@@ -585,6 +604,9 @@ test('hourly display focuses on working hours and the information column shows o
   assert.match(ctx.workTimeDeviationText(record('08:00', '17:00'), plan), /Ponad grafik: 60 min/);
   assert.match(html, /<th>Poza grafikiem<\/th>/);
   assert.doesNotMatch(extract('renderWorkTimeRecords'), /toLocaleString/);
+  assert.match(extract('renderWorkTimeRecords'), /row\.cells\[4\]\.replaceChildren\(hourly\)/);
+  assert.doesNotMatch(extract('workTimeHourlyView'), /work-time-hourly-axis|work-time-hourly-legend|createElement\("details"\)/);
+  assert.match(extract('workTimeHourlyView'), /bar\.title =/);
 });
 
 test('copying a schedule day updates only chosen fields and requires explicit save', () => {
