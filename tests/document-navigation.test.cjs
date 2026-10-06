@@ -566,6 +566,27 @@ test('hourly bars split late, scheduled and additional time without counting gap
   assert.equal(segments({start: '08:00', end: '16:00'}, {off: true})[0].tone, 'extra');
 });
 
+test('hourly display focuses on working hours and the information column shows only deviations', () => {
+  const ctx = vm.createContext({});
+  for (const name of ['workTimeHourlyRange', 'workTimeDeviationText', 'workTimeIntervalMinutes',
+    'workTimeCalculatedMinutes', 'workTimeScheduleComparison']) vm.runInContext(extract(name), ctx);
+  const range = ctx.workTimeHourlyRange([{from: 480, to: 960}]);
+  assert.equal(range.from, 360);
+  assert.equal(range.to, 1080);
+  const wide = ctx.workTimeHourlyRange([{from: 30, to: 1410}]);
+  assert.equal(wide.from, 0);
+  assert.equal(wide.to, 1440);
+  const plan = {start: '08:00', end: '16:00'};
+  const record = (start, end) => ({payload: {kind: 'WORK', start, end}});
+  assert.equal(ctx.workTimeDeviationText(record('08:00', '16:00'), plan), '');
+  assert.equal(ctx.workTimeDeviationText(record('08:00', ''), plan), '');
+  assert.equal(ctx.workTimeDeviationText(record('08:00', '16:00'), null), '');
+  assert.match(ctx.workTimeDeviationText(record('08:15', '16:00'), plan), /Spóźnienie: 15 min/);
+  assert.match(ctx.workTimeDeviationText(record('08:00', '17:00'), plan), /Ponad grafik: 60 min/);
+  assert.match(html, /<th>Poza grafikiem<\/th>/);
+  assert.doesNotMatch(extract('renderWorkTimeRecords'), /toLocaleString/);
+});
+
 test('copying a schedule day updates only chosen fields and requires explicit save', () => {
   const row = (day, working, start, end) => {
     const fields = { 'input[type="checkbox"]': {checked: working}, '[data-time-field="start"]': {value: start}, '[data-time-field="end"]': {value: end} };

@@ -21560,36 +21560,70 @@ function workTimeHourlySegments(data, schedule) {
   return segments;
 }
 
+function workTimeHourlyRange(segments) {
+  return {
+    from: Math.min(360, Math.max(0, Math.floor(Math.min(...segments.map(item => item.from)) / 60) * 60 - 60)),
+    to: Math.max(1080, Math.min(1440, Math.ceil(Math.max(...segments.map(item => item.to)) / 60) * 60 + 60))
+  };
+}
+
+function workTimeDeviationText(record, schedule) {
+  const comparison = workTimeScheduleComparison(record, schedule);
+  if (!comparison.tones.some(tone => ["late", "extra", "difference"].includes(tone))) return "";
+  return comparison.label.split(" · ").slice(1).filter(text => text !== "Dzień jeszcze niezakończony").join(" · ");
+}
+
 function workTimeHourlyView(record, schedule) {
   const segments = workTimeHourlySegments(record.payload || {}, schedule);
   if (!segments.length) return null;
   const details = document.createElement("details");
   details.className = "work-time-hourly";
   const summary = document.createElement("summary");
-  summary.textContent = "Przebieg godzinowy";
+  summary.textContent = "Pasek godzinowy";
   details.append(summary);
   const track = document.createElement("div");
   track.className = "work-time-hourly-track";
   const time = minutes => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const range = workTimeHourlyRange(segments);
+  const span = range.to - range.from;
+  track.style.setProperty("--hour-width", `${60 / span * 100}%`);
   const names = {match: "Praca zgodnie z grafikiem", late: "Spóźnienie", extra: "Praca poza grafikiem", difference: "Praca — brak grafiku"};
   for (const segment of segments) {
     const bar = document.createElement("span");
     bar.dataset.tone = segment.tone;
-    bar.style.left = `${segment.from / 1440 * 100}%`;
-    bar.style.width = `${(segment.to - segment.from) / 1440 * 100}%`;
+    bar.style.left = `${(segment.from - range.from) / span * 100}%`;
+    bar.style.width = `${(segment.to - segment.from) / span * 100}%`;
     bar.title = `${names[segment.tone]}: ${time(segment.from)}–${time(segment.to)}`;
     bar.setAttribute("aria-label", bar.title);
+    if (segment.to - segment.from >= 120) bar.textContent = `${time(segment.from)}–${time(segment.to)}`;
     track.append(bar);
   }
   details.append(track);
   const axis = document.createElement("div");
   axis.className = "work-time-hourly-axis";
-  for (const hour of ["00", "06", "12", "18", "24"]) {
+  const ticks = [];
+  for (let hour = range.from; hour < range.to; hour += 120) ticks.push(hour);
+  if (range.to - ticks.at(-1) < 60) ticks.pop();
+  ticks.push(range.to);
+  for (const hour of ticks) {
     const label = document.createElement("span");
-    label.textContent = hour;
+    label.textContent = time(hour);
+    label.style.left = `${(hour - range.from) / span * 100}%`;
+    if (hour === range.from) label.className = "first";
+    if (hour === range.to) label.className = "last";
     axis.append(label);
   }
   details.append(axis);
+  const legend = document.createElement("div");
+  legend.className = "work-time-hourly-legend";
+  for (const tone of [...new Set(segments.map(segment => segment.tone))]) {
+    const item = document.createElement("span");
+    item.dataset.tone = tone;
+    const minutes = segments.filter(segment => segment.tone === tone).reduce((total, segment) => total + segment.to - segment.from, 0);
+    item.textContent = `${names[tone]} · ${workTimeDurationText(minutes)}`;
+    legend.append(item);
+  }
+  details.append(legend);
   return details;
 }
 
@@ -22033,11 +22067,13 @@ function renderWorkTimeRecords() {
       data.kind === "FREE" ? "—" : `${data.absenceHours || 0} h`;
     for (const value of [formatDate(record.work_date), record.employee_name,
       WORK_TIME_KINDS[data.kind] || "—", extent, workTimeDetails(record),
-      record.updated_at ? new Date(record.updated_at).toLocaleString("pl-PL") : "—"]) {
+      ""]) {
       row.insertCell().textContent = value;
     }
     const schedule = data.schedule || workTimeScheduleForDate(record.employee_id, record.work_date);
     const comparison = workTimeScheduleComparison(record, schedule);
+    row.cells[5].textContent = workTimeDeviationText(record, schedule);
+    row.cells[5].className = "work-time-deviation";
     const hourly = workTimeHourlyView(record, schedule);
     if (hourly) row.cells[4].append(hourly);
     const dateCell = row.cells[0];
@@ -22057,7 +22093,6 @@ function renderWorkTimeRecords() {
       dateCell.prepend(marks);
     }
     if (record.example) {
-      row.cells[5].textContent = comparison.label;
       row.insertCell().textContent = "Przykład";
       continue;
     }
