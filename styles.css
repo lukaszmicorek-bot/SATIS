@@ -15969,3 +15969,17 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .work-time-example-toolbar[hidden] {
   display: none;
 }
+.capd-norm-source-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 10px 0;
+  font-size: 0.78rem;
+  color: #365962;
+}
+.capd-norm-source-field select {
+  width: min(100%, 350px);
+  min-height: 34px;
+  font: inherit;
+}

@@ -31,6 +31,27 @@ test('APD uses only published Neuroflow norms for new results', () => {
   assert.doesNotMatch(html, /capdNormVersionSelect|Stara – orientacyjna/);
 });
 
+test('the supplied PDF is a separate norm set, with empty cells and the 11-plus group preserved', () => {
+  assert.equal(context.normFor('TRW', 5, 'table-pdf').value, '≤ 650');
+  assert.equal(context.normFor('TRS', 6, 'table-pdf').value, '≤ 575');
+  assert.equal(context.normFor('ASPN-S', 7, 'table-pdf').value, '≤ -1');
+  assert.equal(context.normFor('ASPN-Z', 6, 'table-pdf').value, '≤ 1');
+  assert.equal(context.normFor('DDT', 6, 'table-pdf').value, 'P ≥ 65; L ≥ 45');
+  assert.equal(context.normFor('FPT', 7, 'table-pdf').value, '≥ 50');
+  assert.equal(context.normFor('GDT', 8, 'table-pdf').value, '≤ 8');
+  assert.equal(context.normFor('DLF', 10, 'table-pdf').value, '≤ 25');
+  assert.match(context.normFor('DLF', 8, 'table-pdf').note, /1000 Hz/);
+  assert.equal(context.normFor('ASPN-S', 18, 'table-pdf').value, '≤ -3');
+  assert.equal(context.normFor('DDT', 18, 'table-pdf').value, 'P ≥ 80; L ≥ 70');
+  assert.equal(context.normFor('TRW', 4, 'table-pdf'), null);
+  assert.equal(context.normFor('ASPN-Z', 5, 'table-pdf'), null);
+  assert.equal(context.normFor('GDT', 7, 'table-pdf'), null);
+  assert.equal(context.normFor('TRW', 6).value, '≤ 585,20');
+  assert.match(html, /id="capdNormSourceSelect"/);
+  assert.match(app, /normSource: entry\.normSource === "table-pdf"/);
+  assert.match(app, /capdNormSourceSelect\.value = historyEntry\.normSource/);
+});
+
 test('APD proposes text only for results outside an entered norm', () => {
   const results = [
     { code: 'TRW', value: '730', norm: '≤ 721,85', unit: 'ms' },
