@@ -78,7 +78,7 @@ test('work time month boundaries and owner policy are explicit', () => {
   assert.equal(ctx.workTimeMonthBounds('2026-13'), null);
   assert.doesNotMatch(html, /data-notebook="attendance"/);
 });
-test('work time is shared, but direct records remain owner-only', () => {
+test('work time is visible only to SATIS, including navigation and record loading', () => {
   const ctx = setup();
   ctx.switchNotebook('workTime');
   assert.equal(ctx.activeNotebook, 'workTime');
@@ -87,8 +87,11 @@ test('work time is shared, but direct records remain owner-only', () => {
   ctx.owner = false;
   ctx.switchNotebook('devices');
   ctx.switchNotebook('workTime');
-  assert.equal(ctx.activeNotebook, 'workTime');
-  assert.match(html, /data-notebook="workTime" data-private-shared/);
+  assert.equal(ctx.activeNotebook, 'devices');
+  assert.equal(ctx.notebookSections.find(n => n.id === 'workTimeNotebook').hidden, true);
+  assert.equal(ctx.renderCounts.loadWorkTimeRecords, 1);
+  assert.match(html, /data-notebook="workTime" data-private-owner/);
+  assert.match(extract('loadWorkTimeRecords'), /if \(!currentSupabaseUser \|\| !canViewPrivateModules\(\)\) return/);
   const migration = fs.readFileSync(path.join(__dirname, '../supabase-work-time.sql'), 'utf8');
   assert.match(migration, /alter table public\.work_time_records enable row level security/i);
   assert.match(migration, /using \(public\.is_satis_owner\(\)\)/i);
