@@ -1103,24 +1103,25 @@ h2 {
 }
 
 .work-time-hourly {
-  margin-top: 6px;
-  width: 240px;
+  margin-top: 10px;
+  width: 370px;
   max-width: 100%;
   white-space: normal;
 }
 
 .work-time-hourly summary {
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: #52656b;
 }
 
 .work-time-hourly-track {
   position: relative;
-  height: 14px;
-  margin-top: 8px;
-  background: repeating-linear-gradient(to right, #edf0f1 0, #edf0f1 calc(100% / 24 - 1px), #cdd6d9 calc(100% / 24 - 1px), #cdd6d9 calc(100% / 24));
-  border-radius: 3px;
+  height: 38px;
+  margin-top: 12px;
+  background: repeating-linear-gradient(to right, #edf0f1 0, #edf0f1 calc(var(--hour-width) - 1px), #cdd6d9 calc(var(--hour-width) - 1px), #cdd6d9 var(--hour-width));
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -1128,21 +1129,40 @@ h2 {
   position: absolute;
   height: 100%;
   top: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.work-time-hourly-track [data-tone="match"] { background: #4f9c6c; }
-.work-time-hourly-track [data-tone="late"] { background: #e59b42; }
-.work-time-hourly-track [data-tone="extra"] { background: #9a79bf; }
+.work-time-hourly-track [data-tone="match"] { background: linear-gradient(180deg, #75af86, #49865e); }
+.work-time-hourly-track [data-tone="late"] { background: linear-gradient(180deg, #efb568, #d99035); }
+.work-time-hourly-track [data-tone="extra"] { background: linear-gradient(180deg, #b398ce, #8f6dae); }
 .work-time-hourly-track [data-tone="difference"] { background: #a7b1b6; }
 
 .work-time-hourly-axis {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.65rem;
+  position: relative;
+  height: 20px;
+  font-size: 0.7rem;
   color: #62737a;
-  margin-top: 3px;
+  margin-top: 6px;
   font-variant-numeric: tabular-nums;
 }
+
+.work-time-hourly-axis span { position: absolute; transform: translateX(-50%); }
+.work-time-hourly-axis .first { transform: none; }
+.work-time-hourly-axis .last { transform: translateX(-100%); }
+.work-time-hourly-legend { display: grid; gap: 5px; margin-top: 6px; font-size: 0.74rem; }
+.work-time-hourly-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 7px; }
+.work-time-hourly-legend [data-tone="match"]::before { background: #4f9c6c; }
+.work-time-hourly-legend [data-tone="late"]::before { background: #e59b42; }
+.work-time-hourly-legend [data-tone="extra"]::before { background: #9a79bf; }
+.work-time-hourly-legend [data-tone="difference"]::before { background: #a7b1b6; }
+.work-time-deviation { font-size: 0.78rem; color: #77502c; max-width: 180px; white-space: normal; }
 
 .work-time-date-cell {
   position: relative;
