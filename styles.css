@@ -848,9 +848,54 @@ h2 {
   line-height: 1.4;
 }
 
-.work-time-employee-issues span {
+.work-time-employee-issues .work-time-issue-label {
   border-bottom: 1px solid #ead1c1;
 }
+
+.work-time-total-badge { display: inline-flex; align-items: center; gap: 8px; border: 0; color: #99611e; }
+.work-time-total-badge[data-tone="extra"] { color: #795d9c; }
+.work-time-total-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  border: 3px solid #e4ba7e;
+  border-radius: 50%;
+  background: #fff9ef;
+  box-sizing: border-box;
+}
+.work-time-total-badge[data-tone="extra"] .work-time-total-circle { border-color: #bca7d1; background: #f8f3fc; }
+.work-time-total-circle strong { font-size: 0.95rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.work-time-total-circle small { font-size: 0.65rem; }
+.work-time-employee-issues { align-items: center; gap: 8px 14px; }
+
+.work-time-period-picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.work-time-period-picker label { display: grid; gap: 4px; font-size: 0.8rem; color: #536a71; }
+.work-time-period-picker select { min-height: 38px; font: inherit; width: 175px; max-width: 100%; }
+.work-time-period-picker label:first-child select { width: 95px; }
+
+.work-time-kind-picker { border: 0; padding: 0; margin: 0; min-width: 0; }
+.work-time-kind-picker legend { font-size: 0.78rem; color: #536a71; margin-bottom: 7px; }
+.work-time-kind-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.work-time-kind-tiles button {
+  min-height: 64px;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  border: 1px solid #d5dfe1;
+  border-radius: 6px;
+  color: #48616b;
+  background: #f7fafb;
+  white-space: normal;
+}
+.work-time-kind-tiles button:hover { border-color: #75a8a2; background: #edf6f4; }
+.work-time-kind-tiles [aria-pressed="true"] { border-color: #4b9187; color: #175950; background: #e4f1ed; font-weight: 700; }
+.work-time-kind-tiles [data-work-time-kind="LEAVE"][aria-pressed="true"] { border-color: #a18abc; background: #f2ecf8; color: #725191; }
+.work-time-kind-tiles [data-work-time-kind="FREE"][aria-pressed="true"] { border-color: #9eaa80; background: #eef2e4; color: #66763e; }
+.work-time-kind-tiles [data-work-time-kind="UNEXCUSED"][aria-pressed="true"] { border-color: #c99da4; background: #faedf0; color: #a14e60; }
 
 .work-time-form {
   display: grid;
@@ -1175,15 +1220,19 @@ h2 {
 
 .work-time-hourly-track {
   position: relative;
-  height: 38px;
+  height: 42px;
   margin: 3px 0;
   background: repeating-linear-gradient(to right, #edf0f1 0, #edf0f1 calc(var(--hour-width) - 1px), #cdd6d9 calc(var(--hour-width) - 1px), #cdd6d9 var(--hour-width));
   border-radius: 6px;
+  border: 1px solid #d3dfe1;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
 .work-time-hourly-track > span {
   position: absolute;
+  box-sizing: border-box;
+  box-shadow: inset -1px 0 #ffffff45;
   height: 100%;
   top: 0;
   display: flex;
@@ -1196,12 +1245,12 @@ h2 {
   overflow: hidden;
 }
 
-.work-time-hourly-track [data-tone="match"] { background: linear-gradient(180deg, #75af86, #49865e); }
-.work-time-hourly-track [data-tone="late"] { background: linear-gradient(180deg, #efb568, #d99035); }
-.work-time-hourly-track [data-tone="extra"] { background: linear-gradient(180deg, #b398ce, #8f6dae); }
+.work-time-hourly-track [data-tone="match"] { background: linear-gradient(180deg, #81bb92, #508b66); border-top: 3px solid #b4d8be; }
+.work-time-hourly-track [data-tone="late"] { background: repeating-linear-gradient(135deg, #eaa75b 0, #eaa75b 5px, #f0b871 5px, #f0b871 10px); border-top: 3px solid #f8d6a6; }
+.work-time-hourly-track [data-tone="extra"] { background: linear-gradient(180deg, #bda3d6, #9474b1); border-top: 3px solid #ddcce9; }
 .work-time-hourly-track [data-tone="difference"] { background: #a7b1b6; }
 
-.work-time-deviation { font-size: 0.78rem; color: #77502c; max-width: 180px; white-space: normal; }
+.work-time-deviation { display: block; font-size: 0.72rem; font-weight: 500; color: #77502c; max-width: 180px; white-space: normal; margin-top: 5px; line-height: 1.4; }
 
 .work-time-date-cell {
   position: relative;

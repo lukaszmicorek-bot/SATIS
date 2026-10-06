@@ -1079,6 +1079,9 @@ const workTimeFields = Object.fromEntries([
   "SecondStart", "SecondEnd", "FreeReason", "AbsenceHours", "AbsenceLabel"
 ].map((name) => [name, document.querySelector(`#workTime${name}Input`)]));
 const workTimeEmployeeButtons = document.querySelector("#workTimeEmployeeButtons");
+const workTimeYearSelect = document.querySelector("#workTimeYearSelect");
+const workTimeMonthSelect = document.querySelector("#workTimeMonthSelect");
+const workTimeKindTiles = document.querySelector("#workTimeKindTiles");
 const workTimeTimeSuggestions = {
   Start: document.querySelector("#workTimeStartSuggestions"),
   End: document.querySelector("#workTimeEndSuggestions")
@@ -21560,12 +21563,22 @@ function workTimeMonthOptions(year) {
 
 function workTimePopulateMonths() {
   const selected = workTimeFields.Month.value || todayInputValue().slice(0, 7);
-  workTimeFields.Month.replaceChildren(...workTimeMonthOptions(Number(selected.slice(0, 4))).map((item) => {
+  const year = selected.slice(0, 4);
+  const options = workTimeMonthOptions(Number(year));
+  workTimeYearSelect.replaceChildren(...[...new Set(options.map(item => item.value.slice(0, 4)))].map(value => {
     const option = document.createElement("option");
-    option.value = item.value;
-    option.textContent = item.label;
+    option.value = value;
+    option.textContent = value;
     return option;
   }));
+  workTimeMonthSelect.replaceChildren(...options.filter(item => item.value.startsWith(`${year}-`)).map((item, index) => {
+    const option = document.createElement("option");
+    option.value = item.value.slice(5);
+    option.textContent = `${index + 1} · ${item.label.replace(` ${year}`, "")}`;
+    return option;
+  }));
+  workTimeYearSelect.value = year;
+  workTimeMonthSelect.value = selected.slice(5);
   workTimeFields.Month.value = selected;
 }
 
@@ -21977,8 +21990,8 @@ function workTimeApprovedLeave(employeeId, date, plan, requests) {
   });
 }
 
-function workTimeEmployeeIssues(employeeId, month, records, schedules, today, requests = []) {
-  if (!records || !month || !employeeId) return [];
+function workTimeEmployeeOverview(employeeId, month, records, schedules, today, requests = []) {
+  if (!records || !month || !employeeId) return { issues: [], late: 0, extra: 0 };
   const relevant = records.filter(record => record.employee_id === employeeId && record.work_date?.startsWith(`${month}-`) && !record.payload?.deletedAt);
   const issues = [];
   const dates = new Set(relevant.map(record => record.work_date));
@@ -22016,7 +22029,16 @@ function workTimeEmployeeIssues(employeeId, month, records, schedules, today, re
   if (late) issues.push(`Spóźnienia: ${late} min`);
   if (extra) issues.push(`Nadprogramowo: ${extra} min`);
   if (different) issues.push(`Inne godziny: ${different}`);
-  return issues;
+  return { issues, late, extra };
+}
+
+function workTimeEmployeeIssues(employeeId, month, records, schedules, today, requests = []) {
+  return workTimeEmployeeOverview(employeeId, month, records, schedules, today, requests).issues;
+}
+
+function workTimeBadgeTime(minutes) {
+  return minutes < 60 ? {value: String(minutes), unit: "min"}
+    : {value: `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`, unit: "h"};
 }
 
 function workTimeEmployeeOptions() {
@@ -22049,13 +22071,33 @@ function workTimeEmployeeOptions() {
       : workTimeLoadedMonth === workTimeFields.Month.value ? workTimeMonthRecords : null;
     const schedules = workTimeExamplesActive ? [workTimeExampleSchedule(employee)]
       : workTimeNormalizeSchedules(employee.workSchedules);
-    const issues = workTimeEmployeeIssues(employee.id, workTimeFields.Month.value, records, schedules, todayInputValue(), workTimeExamplesActive ? [] : vacationRequests);
+    const {issues, late, extra} = workTimeEmployeeOverview(employee.id, workTimeFields.Month.value, records, schedules, todayInputValue(), workTimeExamplesActive ? [] : vacationRequests);
     if (issues.length) {
       const notice = document.createElement("div");
       notice.className = "work-time-employee-issues";
       notice.setAttribute("aria-label", `Do sprawdzenia: ${employee.name}`);
-      for (const text of issues) {
+      for (const [tone, minutes, title] of [["late", late, "Spóźnienia"], ["extra", extra, "Nadprogramowo"]]) {
+        if (!minutes) continue;
+        const badge = document.createElement("span");
+        badge.className = "work-time-total-badge";
+        badge.dataset.tone = tone;
+        badge.title = `${title}: ${minutes} min w wybranym miesiącu`;
+        const amount = workTimeBadgeTime(minutes);
+        const circle = document.createElement("span");
+        circle.className = "work-time-total-circle";
+        const value = document.createElement("strong");
+        value.textContent = amount.value;
+        const unit = document.createElement("small");
+        unit.textContent = amount.unit;
+        circle.append(value, unit);
+        const caption = document.createElement("span");
+        caption.textContent = title;
+        badge.append(circle, caption);
+        notice.append(badge);
+      }
+      for (const text of issues.filter(text => !text.startsWith("Spóźnienia:") && !text.startsWith("Nadprogramowo:"))) {
         const label = document.createElement("span");
+        label.className = "work-time-issue-label";
         label.textContent = text;
         notice.append(label);
       }
@@ -22080,6 +22122,17 @@ function workTimeShowTimeSuggestions(name) {
 
 function workTimeSyncKind() {
   const kind = workTimeFields.Kind?.value;
+  if (workTimeKindTiles) {
+    workTimeKindTiles.replaceChildren(...Object.entries(WORK_TIME_KINDS).map(([value, title]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.workTimeKind = value;
+      button.textContent = title;
+      button.disabled = workTimeFields.Kind.disabled;
+      button.setAttribute("aria-pressed", String(value === kind));
+      return button;
+    }));
+  }
   const work = document.querySelector("#workTimeWorkFields");
   const free = document.querySelector("#workTimeFreeFields");
   const absence = document.querySelector("#workTimeAbsenceFields");
@@ -22210,8 +22263,7 @@ function renderWorkTimeRecords() {
       ? workTimeDurationText(data.workMinutes ?? (Number(data.hours) || 0) * 60) : "W trakcie" :
       data.kind === "FREE" ? "—" : `${data.absenceHours || 0} h`;
     for (const value of [formatDate(record.work_date), record.employee_name,
-      WORK_TIME_KINDS[data.kind] || "—", extent, workTimeDetails(record),
-      ""]) {
+      WORK_TIME_KINDS[data.kind] || "—", extent, workTimeDetails(record)]) {
       row.insertCell().textContent = value;
     }
     const schedule = data.schedule || workTimeScheduleForDate(record.employee_id, record.work_date);
@@ -22219,8 +22271,13 @@ function renderWorkTimeRecords() {
     row.cells[3].className = "work-time-duration";
     row.cells[3].dataset.tone = workTimeDurationTone(record, schedule, todayInputValue());
     row.cells[3].title = comparison.label;
-    row.cells[5].textContent = workTimeDeviationText(record, schedule);
-    row.cells[5].className = "work-time-deviation";
+    const deviation = workTimeDeviationText(record, schedule);
+    if (deviation) {
+      const info = document.createElement("small");
+      info.className = "work-time-deviation";
+      info.textContent = deviation;
+      row.cells[3].append(info);
+    }
     const hourly = workTimeHourlyView(record, schedule);
     if (hourly) row.cells[4].replaceChildren(hourly);
     const dateCell = row.cells[0];
@@ -26630,6 +26687,12 @@ workTimePinInput?.addEventListener("keydown", (event) => {
 workTimeSetPinBtn?.addEventListener("click", () => void setWorkTimeEmployeePin());
 workTimeScheduleVersion?.addEventListener("change", renderWorkTimeSchedule);
 workTimeScheduleSaveBtn?.addEventListener("click", () => void saveWorkTimeSchedule());
+workTimeKindTiles?.addEventListener("click", event => {
+  const kind = event.target.closest("[data-work-time-kind]")?.dataset.workTimeKind;
+  if (!kind || workTimeFields.Kind.disabled || !canViewPrivateModules()) return;
+  workTimeFields.Kind.value = kind;
+  workTimeFields.Kind.dispatchEvent(new Event("change", { bubbles: true }));
+});
 workTimeFields.Kind?.addEventListener("change", workTimeSyncKind);
 for (const name of ["Start", "End"]) {
   const input = workTimeFields[name];
@@ -26689,6 +26752,12 @@ workTimeSecondToggle?.addEventListener("click", () => {
   workTimeFields[name]?.addEventListener("input", workTimeUpdateDuration);
   workTimeFields[name]?.addEventListener("change", workTimeUpdateDuration);
 });
+for (const select of [workTimeYearSelect, workTimeMonthSelect]) {
+  select?.addEventListener("change", () => {
+    workTimeFields.Month.value = `${workTimeYearSelect.value}-${workTimeMonthSelect.value}`;
+    workTimeFields.Month.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
 workTimeFields.Month?.addEventListener("change", () => {
   if (workTimeExamplesActive && workTimeFields.Month.value !== "2026-09") {
     workTimeExamplesActive = false;
