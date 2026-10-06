@@ -1087,6 +1087,63 @@ h2 {
   font-size: 0.78rem;
 }
 
+.work-time-schedule-copy {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  margin-top: 3px;
+  font-size: 0.72rem;
+}
+
+.work-time-month-field select {
+  width: 200px;
+  max-width: 100%;
+  min-height: 36px;
+  font: inherit;
+}
+
+.work-time-hourly {
+  margin-top: 6px;
+  width: 240px;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.work-time-hourly summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  color: #52656b;
+}
+
+.work-time-hourly-track {
+  position: relative;
+  height: 14px;
+  margin-top: 8px;
+  background: repeating-linear-gradient(to right, #edf0f1 0, #edf0f1 calc(100% / 24 - 1px), #cdd6d9 calc(100% / 24 - 1px), #cdd6d9 calc(100% / 24));
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.work-time-hourly-track > span {
+  position: absolute;
+  height: 100%;
+  top: 0;
+}
+
+.work-time-hourly-track [data-tone="match"] { background: #4f9c6c; }
+.work-time-hourly-track [data-tone="late"] { background: #e59b42; }
+.work-time-hourly-track [data-tone="extra"] { background: #9a79bf; }
+.work-time-hourly-track [data-tone="difference"] { background: #a7b1b6; }
+
+.work-time-hourly-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: #62737a;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
 .work-time-date-cell {
   position: relative;
   padding-left: 17px !important;
@@ -2046,6 +2103,13 @@ h2 {
   margin: 0 0 8px;
   color: #003f5a;
   font-size: 0.86rem;
+}
+
+.capd-report-conclusions .capd-report-interpretation {
+  margin: 0 0 12px;
+  font-style: italic;
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
 .capd-abnormal-panel {
