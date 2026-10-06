@@ -169,6 +169,23 @@ const CAPD_NORMATIVE_VALUES = {
     DLF: { value: "≤ 55,0", note: "adaptacyjny aDLF; 75. percentyl", source: "Neuroflow / APD-Medical 2017" }
   }
 };
+const CAPD_TABLE_PDF_VALUES = Object.fromEntries([
+  [5, 650, 650, 2, null, null, null, null, null, null],
+  [6, 600, 575, 0, 1, 65, 45, 35, null, null],
+  [7, 550, 550, -1, 0, 65, 50, 50, null, null],
+  [8, 450, 450, -2, 0, 75, 60, 55, 8, 30],
+  [9, 400, 400, -2, -1, 75, 60, 60, 7, 30],
+  [10, 400, 400, -2, -1, 80, 65, 60, 6, 25],
+  [11, 400, 400, -3, -2, 80, 70, 65, 6, 20]
+].map(([age, trw, trs, words, sentences, right, left, fpt, gdt, dlf]) => {
+  const source = "Neuroflow — tabela wiekowa z przekazanego PDF";
+  const values = { TRW: trw, TRS: trs, "ASPN-S": words, "ASPN-Z": sentences, FPT: fpt, GDT: gdt, DLF: dlf };
+  const definitions = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null)
+    .map(([code, value]) => [code, { value: `${code === "FPT" ? "≥" : "≤"} ${value}`, source,
+      note: code === "DLF" ? "częstotliwość odniesienia 1000 Hz" : "" }]));
+  if (right !== null && left !== null) definitions.DDT = { value: `P ≥ ${right}; L ≥ ${left}`, note: "ucho prawe / ucho lewe", source };
+  return [age, definitions];
+}));
 const CAPD_NORM_CODES = ["TRW", "TRS", "ASPN-S", "ASPN-Z", "DDT", "FPT", "GDT", "DLF"];
 const DOCUMENT_LOCATIONS = [
   { key: "T12", value: "Bielsko-Biała, ul. Traugutta 12" },
@@ -1119,6 +1136,7 @@ const capdScopeDescription = document.querySelector("#capdScopeDescription");
 const capdNormToggle = document.querySelector("#capdNormToggle");
 const capdNormReferenceContent = document.querySelector("#capdNormReferenceContent");
 const capdNormAgeSelect = document.querySelector("#capdNormAgeSelect");
+const capdNormSourceSelect = document.querySelector("#capdNormSourceSelect");
 const capdNormReferenceBody = document.querySelector("#capdNormReferenceBody");
 const capdNormReferenceNote = document.querySelector("#capdNormReferenceNote");
 const capdAbnormalPanel = document.querySelector("#capdAbnormalPanel");
@@ -18801,17 +18819,18 @@ function setCapdPeselStatus(message = "", state = "") {
   capdPeselStatus.dataset.state = state;
 }
 
-function capdNormSourceAge(age) {
+function capdNormSourceAge(age, source = "neuroflow") {
   const numericAge = Number(age);
   if (!Number.isFinite(numericAge)) return null;
+  if (source === "table-pdf") return numericAge < 5 ? null : Math.min(11, Math.floor(numericAge));
   if (numericAge < 4) return null;
   return numericAge > 12 ? 13 : Math.floor(numericAge);
 }
 
-function capdNormDefinition(code, age = capdAgeValue()) {
-  const sourceAge = capdNormSourceAge(age);
+function capdNormDefinition(code, age = capdAgeValue(), source = "neuroflow") {
+  const sourceAge = capdNormSourceAge(age, source);
   if (!sourceAge) return null;
-  const definition = CAPD_NORMATIVE_VALUES[sourceAge]?.[code];
+  const definition = (source === "table-pdf" ? CAPD_TABLE_PDF_VALUES : CAPD_NORMATIVE_VALUES)[sourceAge]?.[code];
   return definition ? { ...definition, sourceAge } : null;
 }
 
@@ -18996,12 +19015,12 @@ function syncCapdNormsForAge({ force = false } = {}) {
     const code = item.dataset.capdCode || "";
     const input = item.querySelector("[data-capd-norm-input]");
     if (!input) return;
-    const definition = capdNormDefinition(code, age);
+    const definition = capdNormDefinition(code, age, capdNormSourceSelect?.value || "neuroflow");
     if (force || input.dataset.manual !== "1") {
       input.value = definition?.value || "";
       delete input.dataset.manual;
     }
-    input.placeholder = definition ? "Wpisz normę" : "Brak opublikowanej normy – wpisz ręcznie";
+    input.placeholder = definition ? "Wpisz normę" : "Brak normy w zestawie – wpisz ręcznie";
     updateCapdTestEvaluation(item);
   });
 }
@@ -19009,10 +19028,11 @@ function syncCapdNormsForAge({ force = false } = {}) {
 function renderCapdNormReference() {
   if (!capdNormReferenceBody) return;
   const selectedAge = Number(capdNormAgeSelect?.value || 4);
-  const sourceAge = capdNormSourceAge(selectedAge);
+  const source = capdNormSourceSelect?.value || "neuroflow";
+  const sourceAge = capdNormSourceAge(selectedAge, source);
   const rows = CAPD_NORM_CODES.map((code) => {
     const item = document.querySelector(`#capdTestsPanel [data-capd-code="${code}"]`);
-    const definition = capdNormDefinition(code, selectedAge);
+    const definition = capdNormDefinition(code, selectedAge, source);
     const row = document.createElement("tr");
     const testCell = document.createElement("td");
     const testCode = document.createElement("strong");
@@ -19023,7 +19043,7 @@ function renderCapdNormReference() {
     const normCell = document.createElement("td");
     normCell.textContent = definition
       ? `${definition.value} ${item?.dataset.capdUnit || ""}${definition.note ? ` · ${definition.note}` : ""}`
-      : "Brak opublikowanej normy Neuroflow dla tego wieku/testu";
+      : "Brak normy w wybranym zestawie dla tego wieku/testu";
     if (!definition) normCell.classList.add("muted-cell");
     const ruleCell = document.createElement("td");
     ruleCell.textContent = definition?.manual
@@ -19043,11 +19063,14 @@ function renderCapdNormReference() {
   const heading = document.querySelector("#capdNormReferencePanel .capd-norm-reference-head h3");
   if (heading) {
     const ageLabel = selectedAge === 13 ? "wieku powyżej 12 lat" : selectedAge === 12 ? "12 lat" : `${selectedAge} lat`;
-    const sourceLabel = sourceAge && sourceAge !== selectedAge ? `, według grupy ${sourceAge} lat` : "";
+    const sourceLabel = source === "table-pdf" && selectedAge >= 11 ? ", grupa ≥11 lat"
+      : sourceAge && sourceAge !== selectedAge ? `, według grupy ${sourceAge} lat` : "";
     heading.textContent = `Normy dla ${ageLabel}${sourceLabel}`;
   }
   if (capdNormReferenceNote) {
-    capdNormReferenceNote.textContent = "Dokładne wartości referencyjne platformy Neuroflow / APD-Medical: TRW, TRS, ASPN-S, DDT i FPT dla wieku 4–9 lat oraz adaptacyjne aGDT i aDLF dla wieku 8–12 lat. Brakujące progi nie są wyliczane ani przenoszone z innej grupy wiekowej. Normę można wpisać ręcznie.";
+    capdNormReferenceNote.textContent = source === "table-pdf"
+      ? "Zestawienie z przekazanego PDF: 5–10 lat oraz grupa ≥11 lat. FTP z tabeli przypisano do FPT; DDT UP/UL oznaczają ucho prawe/lewe. DLF dotyczy częstotliwości odniesienia 1000 Hz. Puste pola pozostają bez normy. Dokument nie podaje daty ani wersji norm; zestaw należy dobrać do użytej wersji testu."
+      : "Dokładne wartości referencyjne platformy Neuroflow / APD-Medical: TRW, TRS, ASPN-S, DDT i FPT dla wieku 4–9 lat oraz adaptacyjne aGDT i aDLF dla wieku 8–12 lat. Brakujące progi nie są wyliczane ani przenoszone z innej grupy wiekowej. Normę można wpisać ręcznie.";
   }
 }
 
@@ -19661,6 +19684,7 @@ function normalizeCapdHistoryEntry(entry) {
     pesel: String(entry.pesel || "").replace(/\D/g, "").slice(0, 11),
     birthDate: isoDateForSave(entry.birthDate) || normalizeLoanHistoryText(entry.birthDate),
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
+    normSource: entry.normSource === "table-pdf" ? "table-pdf" : "neuroflow",
     testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
     location: documentLocationKey(entry.location),
     examiner: titleCaseName(entry.examiner || "").slice(0, 80),
@@ -19743,6 +19767,7 @@ function currentCapdSnapshot() {
     pesel: String(capdPeselInput?.value || "").replace(/\D/g, ""),
     birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
     age: age ?? "",
+    normSource: capdNormSourceSelect?.value || "neuroflow",
     testDate: isoDateForSave(capdDateInput?.value || ""),
     location: documentLocationKey(capdLocationInput?.value),
     examiner: titleCaseName(capdExaminerInput?.value || ""),
@@ -19864,6 +19889,10 @@ function restoreCapdHistoryEntry(entry) {
     const code = input.closest("[data-capd-code]")?.dataset.capdCode || "";
     input.value = historyEntry.results.find((result) => result.code === code)?.value || "";
   });
+  if (capdNormSourceSelect) {
+    capdNormSourceSelect.value = historyEntry.normSource || "neuroflow";
+    capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
+  }
   updateCapdFromPesel();
   if (historyEntry.age !== "") {
     capdAgeInput.value = String(historyEntry.age);
@@ -19873,8 +19902,8 @@ function restoreCapdHistoryEntry(entry) {
   document.querySelectorAll("#capdTestsPanel [data-capd-code]").forEach((item) => {
     const savedResult = historyEntry.results.find((result) => result.code === item.dataset.capdCode);
     const normInput = item.querySelector("[data-capd-norm-input]");
-    if (!normInput || !savedResult?.norm) return;
-    normInput.value = savedResult.norm;
+    if (!normInput || !savedResult) return;
+    normInput.value = savedResult.norm || "";
     normInput.dataset.manual = "1";
     updateCapdTestEvaluation(item);
   });
@@ -20088,6 +20117,7 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  if (capdNormSourceSelect) capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
   if (capdExaminerBadgeName) capdExaminerBadgeName.textContent = "Nie wybrano";
   activeCapdPractitionerProfileId = "";
   updateCapdPerformedExamPanels();
@@ -26701,6 +26731,18 @@ capdNormToggle?.addEventListener("click", () => {
   if (capdNormReferenceContent) capdNormReferenceContent.hidden = expanded;
 });
 capdNormAgeSelect?.addEventListener("change", renderCapdNormReference);
+capdNormSourceSelect?.addEventListener("change", () => {
+  const previous = capdNormSourceSelect.dataset.previous || "neuroflow";
+  const hasNorms = [...document.querySelectorAll("#capdTestsPanel [data-capd-norm-input]")].some(input => input.value.trim());
+  if (hasNorms && !confirm("Zmiana zestawu zastąpi normy w otwartym formularzu i przeliczy ocenę wyników. Kontynuować?")) {
+    capdNormSourceSelect.value = previous;
+    return;
+  }
+  capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
+  syncCapdNormsForAge({ force: true });
+  renderCapdNormReference();
+  renderCapdReport();
+});
 capdConclusionType?.addEventListener("change", () => renderCapdAbnormalPanel(capdCurrentResults()));
 capdIncludeMtr?.addEventListener("change", () => renderCapdAbnormalPanel(capdCurrentResults()));
 capdInsertConclusionBtn?.addEventListener("click", insertCapdAbnormalConclusion);
