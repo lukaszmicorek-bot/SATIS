@@ -78,7 +78,7 @@ test('work time month boundaries and owner policy are explicit', () => {
   assert.equal(ctx.workTimeMonthBounds('2026-13'), null);
   assert.doesNotMatch(html, /data-notebook="attendance"/);
 });
-test('work time is a separate owner-only notebook with protected records', () => {
+test('work time is shared, but direct records remain owner-only', () => {
   const ctx = setup();
   ctx.switchNotebook('workTime');
   assert.equal(ctx.activeNotebook, 'workTime');
@@ -87,12 +87,19 @@ test('work time is a separate owner-only notebook with protected records', () =>
   ctx.owner = false;
   ctx.switchNotebook('devices');
   ctx.switchNotebook('workTime');
-  assert.equal(ctx.activeNotebook, 'devices');
+  assert.equal(ctx.activeNotebook, 'workTime');
+  assert.match(html, /data-notebook="workTime" data-private-shared/);
   const migration = fs.readFileSync(path.join(__dirname, '../supabase-work-time.sql'), 'utf8');
   assert.match(migration, /alter table public\.work_time_records enable row level security/i);
   assert.match(migration, /using \(public\.is_satis_owner\(\)\)/i);
   assert.match(migration, /revoke all on public\.work_time_records from public, anon, authenticated/i);
   assert.match(migration, /work_time_record_history/i);
+  const pinMigration = fs.readFileSync(path.join(__dirname, '../supabase-work-time-pin.sql'), 'utf8');
+  assert.match(pinMigration, /private\.work_time_employee_pins/);
+  assert.match(pinMigration, /extensions\.crypt\(p_pin/);
+  assert.match(pinMigration, /failed_attempts >= 5|v_attempts >= 5/);
+  assert.match(pinMigration, /public\.is_satis_owner\(\)/);
+  assert.match(pinMigration, /public\.is_satis_app_user\(\)/);
 });
 test('work time rejects impossible or incomplete entries', () => {
   const ctx = vm.createContext({
@@ -129,7 +136,7 @@ test('work time save persists calculated minutes and rejects a store that is not
   const saved = [];
   const messages = [];
   let draft = {date: '2026-10-06', kind: 'WORK', start: '08:00', end: '12:00',
-    plannedEnd: '16:00', secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8, overtime: 0};
+    secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8, overtime: 0};
   const ctx = vm.createContext({
     canViewPrivateModules: () => true, currentSupabaseUser: {id: 'owner'}, hasSupabaseConfig: true,
     workTimeStoreReady: false, workTimeEditingKey: '', workTimeRecords: [],
@@ -140,6 +147,7 @@ test('work time save persists calculated minutes and rejects a store that is not
       saved.push({record, options}); return {error: null};
     }})},
     workTimeDraft: () => draft, todayInputValue: () => '2026-10-06',
+    workTimeScheduleForDate: () => ({start: '08:00', end: '16:00', off: false, validFrom: '2026-01-01'}),
     validateWorkTimeDraft: () => '', workTimeSetMessage: message => messages.push(message),
     workTimeResetForm: () => {}, loadWorkTimeRecords: async () => {}, Date,
   });
@@ -152,8 +160,9 @@ test('work time save persists calculated minutes and rejects a store that is not
   await ctx.saveWorkTimeRecord({preventDefault() {}}, {startOnly: true});
   assert.equal(saved.length, 1);
   assert.equal(saved[0].record.payload.end, '');
-  assert.equal(saved[0].record.payload.plannedEnd, '16:00');
+  assert.equal(saved[0].record.payload.plannedEnd, undefined);
   assert.equal(saved[0].record.payload.workMinutes, 0);
+  assert.equal(saved[0].record.payload.schedule.start, '08:00');
   assert.match(messages.at(-1), /Rozpoczęcie zapisane/);
   draft = {...draft, end: '12:00', secondStart: '13:00', secondEnd: '17:00', workMinutes: 480, hours: 8};
   await ctx.saveWorkTimeRecord({preventDefault() {}});
@@ -166,6 +175,86 @@ test('work time save persists calculated minutes and rejects a store that is not
   assert.match(extract('loadWorkTimeRecords'), /!record\.payload\?\.deletedAt/);
   assert.match(html, /id="workTimeDateInput"[^>]*data-date-picker/);
   assert.match(extract('renderDatePicker'), /workTimeCalendar/);
+});
+test('gabinet saves only through the PIN-gated RPC for the selected worker', async () => {
+  const calls = [];
+  const ctx = vm.createContext({
+    canViewPrivateModules: () => false, currentSupabaseUser: {id: 'gabinet'}, hasSupabaseConfig: true,
+    workTimeStoreReady: true, workTimeEditingKey: '', workTimeRecords: [],
+    workTimeFields: {Employee: {value: 'e1'}, Month: {value: '2026-10'}},
+    workTimePinInput: {value: '381927'},
+    vacationEmployees: [{id: 'e1', name: 'Oliwia Piecha', year: 2026, redacted: true}],
+    workTimeSaveBtn: {disabled: false}, workTimeStartSaveBtn: {disabled: false},
+    supabaseClient: {rpc: async (name, args) => {calls.push({name, args}); return {data: {ok: true}, error: null};}},
+    workTimeDraft: () => ({date: '2026-10-06', kind: 'WORK', start: '08:00', end: '',
+      secondStart: '', secondEnd: '', workMinutes: 0, hours: 0, overtime: 0}),
+    todayInputValue: () => '2026-10-06', validateWorkTimeDraft: () => '',
+    workTimeSetMessage: () => {}, workTimeResetForm: () => {}, loadWorkTimeRecords: async () => {}, Date
+  });
+  vm.runInContext(extract('saveWorkTimeRecord'), ctx);
+  await ctx.saveWorkTimeRecord({preventDefault() {}}, {startOnly: true});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, 'work_time_write_person');
+  assert.equal(calls[0].args.p_employee_id, 'e1');
+  assert.equal(calls[0].args.p_pin, '381927');
+  assert.equal(calls[0].args.p_end, null);
+});
+test('work time suggests only the requested hours for each editable field', () => {
+  const start = html.match(/id="workTimeStartSuggestions"[\s\S]*?<\/div>/)?.[0] || '';
+  const end = html.match(/id="workTimeEndSuggestions"[\s\S]*?<\/div>/)?.[0] || '';
+  assert.deepEqual([...start.matchAll(/data-time="([0-9:]+)"/g)].map(match => match[1]),
+    ['07:00', '08:00', '09:00', '10:00', '11:00']);
+  assert.deepEqual([...end.matchAll(/data-time="([0-9:]+)"/g)].map(match => match[1]),
+    ['14:00', '15:00', '16:00', '17:00']);
+  assert.match(html, /id="workTimeStartInput" type="time"/);
+  assert.match(html, /id="workTimeEndInput" type="time"/);
+  assert.doesNotMatch(html, /workTimePresetButtons|workTimePlannedEndInput/);
+  const menus = {Start: {hidden: true}, End: {hidden: true}};
+  const ctx = vm.createContext({workTimeTimeSuggestions: menus});
+  vm.runInContext(extract('workTimeHideTimeSuggestions') + extract('workTimeShowTimeSuggestions'), ctx);
+  ctx.workTimeShowTimeSuggestions('Start');
+  assert.equal(menus.Start.hidden, false);
+  assert.equal(menus.End.hidden, true);
+  ctx.workTimeShowTimeSuggestions('End');
+  assert.equal(menus.Start.hidden, true);
+  assert.equal(menus.End.hidden, false);
+  ctx.workTimeHideTimeSuggestions();
+  assert.equal(menus.End.hidden, true);
+});
+test('schedule comparison distinguishes matching hours, lateness, excess, unfinished and short days', () => {
+  const ctx = vm.createContext({});
+  for (const name of ['workTimeIntervalMinutes', 'workTimeCalculatedMinutes', 'workTimeScheduleComparison']) {
+    vm.runInContext(extract(name), ctx);
+  }
+  const plan = {start: '08:00', end: '16:00', off: false};
+  const compare = (start, end, extra = {}, schedule = plan) => ctx.workTimeScheduleComparison(
+    {payload: {kind: 'WORK', start, end, ...extra}}, schedule);
+  assert.equal(compare('08:00', '16:00').tones.join(','), 'match');
+  assert.equal(compare('08:10', '16:00').tones.join(','), 'late');
+  assert.match(compare('08:10', '16:00').label, /10 min/);
+  assert.equal(compare('08:00', '17:00').tones.join(','), 'extra');
+  assert.equal(compare('08:10', '17:00').tones.join(','), 'late,extra');
+  assert.match(compare('08:10', '17:00').label, /50 min/);
+  assert.equal(compare('08:00', '').tones.length, 0);
+  assert.equal(compare('08:10', '').tones.join(','), 'late');
+  assert.equal(compare('08:00', '15:00').tones.join(','), 'difference');
+  assert.equal(compare('08:00', '12:00', {secondStart: '13:00', secondEnd: '17:00'}).tones.join(','), 'difference');
+  assert.equal(compare('08:00', '16:00', {}, null).tones.length, 0);
+  assert.equal(compare('08:00', '10:00', {}, {off: true}).tones.join(','), 'extra');
+});
+test('effective schedule versions and holidays determine the plan without altering saved snapshots', () => {
+  const versions = [{from: '2026-01-01', days: {2: {start: '08:00', end: '16:00'}}},
+    {from: '2026-10-01', days: {2: {start: '09:00', end: '17:00'}}}];
+  const ctx = vm.createContext({Date, workTimeSchedulesForEmployee: () => versions,
+    polishPublicHolidayOnDate: date => date === '2026-12-25'});
+  vm.runInContext(extract('workTimeScheduleForDate'), ctx);
+  assert.equal(ctx.workTimeScheduleForDate('e1', '2026-09-29').start, '08:00');
+  const snapshot = ctx.workTimeScheduleForDate('e1', '2026-10-06');
+  assert.equal(snapshot.start, '09:00');
+  versions[1].days[2].start = '10:00';
+  assert.equal(snapshot.start, '09:00');
+  assert.equal(ctx.workTimeScheduleForDate('e1', '2026-12-25').off, true);
+  assert.equal(ctx.workTimeScheduleForDate('e1', '2025-12-30'), null);
 });
 test('only SATIS can remove a work time entry and the audit trail remains', async () => {
   const saved = [];
@@ -447,4 +536,27 @@ test('vacation follows pricing as a separate shortcut with the correct pressed s
   ctx.switchNotebook('pricing');
   assert.equal(vacation.attributes['aria-pressed'], 'false');
   assert.equal(pricing.attributes['aria-pressed'], 'true');
+});
+test('September examples contain normal, late and extra work without creating official entries', () => {
+  const ctx = vm.createContext({Date});
+  for (const name of ['workTimeExampleSchedule', 'workTimeExampleRecords', 'workTimeIntervalMinutes',
+    'workTimeCalculatedMinutes', 'workTimeScheduleComparison']) vm.runInContext(extract(name), ctx);
+  for (const name of ['Oliwia Piecha', 'Justyna Testowa', 'Iwona Testowa']) {
+    const rows = ctx.workTimeExampleRecords({id: name, name});
+    assert.equal(rows.length, 22);
+    assert.equal(rows[0].work_date, '2026-09-30');
+    assert.ok(rows.every(row => row.example && row.work_date.startsWith('2026-09-')));
+    const tones = day => Array.from(ctx.workTimeScheduleComparison(
+      rows.find(row => row.work_date === `2026-09-${day}`),
+      rows.find(row => row.work_date === `2026-09-${day}`).payload.schedule).tones);
+    assert.deepEqual(tones('01'), ['match']);
+    assert.deepEqual(tones('03'), ['late']);
+    assert.deepEqual(tones('08'), ['extra']);
+    assert.deepEqual(tones('24'), ['late', 'extra']);
+  }
+  assert.equal(ctx.workTimeExampleRecords(null).length, 0);
+  const loader = extract('loadWorkTimeRecords');
+  assert.ok(loader.indexOf('workTimeExamplesActive') < loader.indexOf('supabaseClient.from'));
+  assert.match(extract('renderWorkTimeRecords'), /if \(record.example\)/);
+  assert.match(extract('saveWorkTimeSchedule'), /if \(workTimeExamplesActive\) return/);
 });

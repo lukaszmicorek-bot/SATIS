@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261006-3">
+  <link rel="stylesheet" href="styles.css?v=20261006-4">
   </head>
   <body>
     <main class="app-shell">
@@ -61,7 +61,7 @@
             Cennik
           </button>
           <button class="notebook-switch-button notebook-shortcut vacation-shortcut" type="button" aria-pressed="false" data-notebook="vacation" data-private-shared hidden>Urlop</button>
-          <button class="notebook-switch-button notebook-shortcut" type="button" aria-pressed="false" data-notebook="workTime" data-private-owner hidden>Ewidencja</button>
+          <button class="notebook-switch-button notebook-shortcut" type="button" aria-pressed="false" data-notebook="workTime" data-private-shared hidden>Ewidencja</button>
         </div>
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
@@ -2448,13 +2448,36 @@
       <section id="workTimeNotebook" class="notebook-section private-module-section" hidden>
         <section class="private-module-panel work-time-panel" aria-label="Ewidencja czasu pracy">
           <header class="private-module-head">
-            <div><p class="eyebrow">Tylko SATIS</p><h2>Ewidencja czasu pracy</h2></div>
+            <div><p class="eyebrow" id="workTimeAccessLabel">Ewidencja</p><h2>Ewidencja czasu pracy</h2></div>
             <label class="work-time-month-field">Miesiąc <input id="workTimeMonthInput" type="month"></label>
           </header>
           <p class="work-time-notice">Rano zapisz rozpoczęcie. Przy wyjściu uzupełnij godzinę zakończenia w tym samym wpisie.</p>
           <p class="vacation-employee-picker-label">Pracownik</p>
           <div id="workTimeEmployeeButtons" class="vacation-employee-list work-time-employee-list" aria-label="Wybierz pracownika"></div>
           <input id="workTimeEmployeeInput" type="hidden">
+          <div id="workTimeExamples" class="work-time-example-toolbar" hidden>
+            <button id="workTimeExamplesShow" class="ghost" type="button">Przykłady · wrzesień 2026</button>
+            <button id="workTimeExamplesRemove" class="ghost" type="button" hidden>Usuń przykłady</button>
+            <span id="workTimeExamplesNotice" hidden>Podgląd przykładowy — bez zapisu w ewidencji.</span>
+          </div>
+          <details id="workTimeScheduleDetails" class="work-time-schedule">
+            <summary id="workTimeScheduleSummary">Grafik</summary>
+            <div class="work-time-schedule-toolbar">
+              <label>Wersja grafiku<select id="workTimeScheduleVersion"></select></label>
+              <label>Obowiązuje od<input id="workTimeScheduleFrom" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off"></label>
+              <button id="workTimeScheduleSaveBtn" class="ghost" type="button">Zapisz grafik</button>
+            </div>
+            <div id="workTimeScheduleDays" class="work-time-schedule-days"></div>
+            <p id="workTimeScheduleMessage" class="work-time-message" role="status"></p>
+          </details>
+          <div id="workTimePinGate" class="work-time-pin-row" hidden>
+            <label>PIN pracownika<input id="workTimePinInput" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="6 cyfr"></label>
+            <button id="workTimeUnlockBtn" class="ghost" type="button">Pokaż moje wpisy</button>
+          </div>
+          <div id="workTimePinAdmin" class="work-time-pin-row" hidden>
+            <label>Ustaw PIN wybranego pracownika<input id="workTimeNewPinInput" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password" placeholder="6 cyfr"></label>
+            <button id="workTimeSetPinBtn" class="ghost" type="button">Ustaw PIN</button>
+          </div>
           <form id="workTimeForm" class="work-time-form">
             <div class="work-time-main-row">
               <label>Data<input id="workTimeDateInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off" required></label>
@@ -2467,23 +2490,27 @@
                 <option value="UNEXCUSED">Nieobecność nieusprawiedliwiona</option>
               </select></label>
             </div>
-            <input id="workTimePlannedEndInput" type="hidden">
             <div id="workTimeWorkFields" class="work-time-fields">
-              <div id="workTimePresetField" class="work-time-presets">
-                <span>Przykładowe zmiany</span>
-                <div id="workTimePresetButtons" class="work-time-preset-buttons" role="group" aria-label="Przykładowe godziny pracy">
-                  <button type="button" data-shift="RANNA" data-start="08:00" data-end="14:00">Ranna 08:00–14:00</button>
-                  <button type="button" data-shift="RANNA" data-start="08:00" data-end="16:00">Ranna 08:00–16:00</button>
-                  <button type="button" data-shift="POPOLUDNIOWA" data-start="12:00" data-end="18:00">Popołudniowa 12:00–18:00</button>
-                  <button type="button" data-shift="POPOLUDNIOWA" data-start="14:00" data-end="20:00">Popołudniowa 14:00–20:00</button>
+              <div class="work-time-time-field" id="workTimeStartField">
+                <label for="workTimeStartInput">Od</label>
+                <input id="workTimeStartInput" type="time" autocomplete="off" aria-controls="workTimeStartSuggestions">
+                <div id="workTimeStartSuggestions" class="work-time-time-suggestions" role="group" aria-label="Proponowane godziny rozpoczęcia" hidden>
+                  <button type="button" data-time="07:00">07:00</button><button type="button" data-time="08:00">08:00</button>
+                  <button type="button" data-time="09:00">09:00</button><button type="button" data-time="10:00">10:00</button>
+                  <button type="button" data-time="11:00">11:00</button>
                 </div>
               </div>
-              <label>Od<input id="workTimeStartInput" type="time"></label>
-              <label>Do (przy wyjściu)<input id="workTimeEndInput" type="time"></label>
+              <div class="work-time-time-field" id="workTimeEndField">
+                <label for="workTimeEndInput">Do (przy wyjściu)</label>
+                <input id="workTimeEndInput" type="time" autocomplete="off" aria-controls="workTimeEndSuggestions">
+                <div id="workTimeEndSuggestions" class="work-time-time-suggestions" role="group" aria-label="Proponowane godziny zakończenia" hidden>
+                  <button type="button" data-time="14:00">14:00</button><button type="button" data-time="15:00">15:00</button>
+                  <button type="button" data-time="16:00">16:00</button><button type="button" data-time="17:00">17:00</button>
+                </div>
+              </div>
               <label>Godziny pracy<input id="workTimeHoursInput" type="text" readonly value="0:00"></label>
               <label>W tym nadliczbowe<input id="workTimeOvertimeInput" type="number" min="0" max="24" step="0.01" inputmode="decimal" value="0"></label>
             </div>
-            <button id="workTimeUsePlannedEndBtn" class="ghost work-time-planned-end" type="button" hidden></button>
             <div id="workTimeSecondPeriod" class="work-time-more" hidden>
               <span class="work-time-more-title">Drugi przedział pracy</span>
               <div class="work-time-fields">
@@ -3070,11 +3097,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261006-3"></script>
-    <script src="data-layer.js?v=20261006-3"></script>
-    <script src="sync-layer.js?v=20261006-3"></script>
-    <script src="offline-vault.js?v=20261006-3"></script>
-    <script src="offline-forms.js?v=20261006-3"></script>
-  <script src="app.js?v=20261006-3"></script>
+    <script src="supabase-config.js?v=20261006-4"></script>
+    <script src="data-layer.js?v=20261006-4"></script>
+    <script src="sync-layer.js?v=20261006-4"></script>
+    <script src="offline-vault.js?v=20261006-4"></script>
+    <script src="offline-forms.js?v=20261006-4"></script>
+  <script src="app.js?v=20261006-4"></script>
   </body>
 </html>

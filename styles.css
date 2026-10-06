@@ -852,40 +852,74 @@ h2 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.work-time-presets {
-  grid-column: 1 / -1;
+.work-time-time-field {
   display: grid;
-  gap: 7px;
+  gap: 6px;
+  min-width: 0;
+  position: relative;
+}
+
+.work-time-time-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  width: min(210px, calc(100vw - 24px));
+  padding: 7px;
+  border: 1px solid #cbd8d6;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.work-time-time-suggestions[hidden] {
+  display: none;
+}
+
+.work-time-pin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.work-time-pin-row[hidden] {
+  display: none;
+}
+
+.work-time-pin-row label {
+  display: grid;
+  gap: 5px;
+  min-width: 190px;
   color: #365962;
   font-size: 0.8rem;
   font-weight: 700;
 }
 
-.work-time-preset-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.work-time-pin-row input {
+  max-width: 190px;
 }
 
-.work-time-preset-buttons button {
+.work-time-time-suggestions button {
   border: 1px solid #cbd8d6;
   background: #f5f9f8;
   color: #315763;
-  padding: 6px 9px;
+  padding: 7px 5px;
   font-size: 0.76rem;
   font-weight: 600;
 }
 
-.work-time-preset-buttons button.active {
-  border-color: #598d83;
+.work-time-time-suggestions button:hover,
+.work-time-time-suggestions button:focus-visible {
+  border-color: #6d9b92;
   background: #e6f1ee;
-  color: #194d4d;
 }
 
-.work-time-preset-buttons button[data-shift="POPOLUDNIOWA"].active {
-  border-color: #7488a0;
-  background: #ecf1f8;
-  color: #284b70;
+#workTimeEndSuggestions {
+  left: auto;
+  right: 0;
 }
 
 .work-time-fields[hidden],
@@ -924,12 +958,6 @@ h2 {
 }
 
 .work-time-second-toggle {
-  justify-self: start;
-  min-height: 28px;
-  font-size: 0.75rem;
-}
-
-.work-time-planned-end {
   justify-self: start;
   min-height: 28px;
   font-size: 0.75rem;
@@ -992,6 +1020,95 @@ h2 {
 .work-time-table-wrap {
   overflow-x: auto;
 }
+
+.work-time-schedule {
+  margin: 0 0 14px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 9px;
+}
+
+.work-time-schedule summary {
+  cursor: pointer;
+  color: #365962;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.work-time-schedule-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.work-time-schedule label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #365962;
+}
+
+.work-time-schedule-toolbar input,
+.work-time-schedule-toolbar select {
+  width: 160px;
+}
+
+.work-time-schedule-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.work-time-schedule-day {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.work-time-schedule-day .work-time-schedule-working {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.work-time-schedule-working input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.work-time-schedule-day input[type="time"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  font-size: 0.78rem;
+}
+
+.work-time-date-cell {
+  position: relative;
+  padding-left: 17px !important;
+  white-space: nowrap;
+}
+
+.work-time-day-marks {
+  position: absolute;
+  left: 3px;
+  top: 9px;
+  bottom: 9px;
+  width: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.work-time-day-mark { flex: 1; border-radius: 2px; }
+.work-time-day-mark[data-tone="match"] { background: #4f9c6c; }
+.work-time-day-mark[data-tone="late"] { background: #e59b42; }
+.work-time-day-mark[data-tone="extra"] { background: #9a79bf; }
+.work-time-day-mark[data-tone="difference"] { background: #a7b1b6; }
 
 .work-time-table {
   width: 100%;
@@ -15715,4 +15832,17 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-signatures p:last-child { grid-column: auto; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-signatures strong { min-height: 6mm; }
   body:is(.rodo-print, .offline-rodo-print) .rodo-signatures span { font-size: 7.5pt; }
+}
+.work-time-example-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 10px 0;
+  font-size: 0.8rem;
+  color: #5d696d;
+}
+
+.work-time-example-toolbar[hidden] {
+  display: none;
 }

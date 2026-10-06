@@ -11,6 +11,14 @@ const values = app.slice(app.indexOf('const CAPD_NORMATIVE_VALUES ='), app.index
 const lookup = app.slice(app.indexOf('function capdNormSourceAge('), app.indexOf('function capdNumberValues('));
 const evaluation = app.slice(app.indexOf('function capdNumberValues('), app.indexOf('function ensureCapdNormEditors('));
 const context = vm.createContext({ normalize: value => String(value || '').toLowerCase() });
+const titleContext = vm.createContext({});
+vm.runInContext(app.slice(app.indexOf('function capdPractitionerTitle('), app.indexOf('function renderCapdReport(')), titleContext);
+test('APD footer assigns the combined profession only to Justyna', () => {
+  assert.equal(titleContext.capdPractitionerTitle('Justyna Waliczek'), 'Protetyk słuchu/logopeda:');
+  assert.equal(titleContext.capdPractitionerTitle(' JUSTYNA Waliczek '), 'Protetyk słuchu/logopeda:');
+  assert.equal(titleContext.capdPractitionerTitle('Dorota Mikosz-Micorek'), 'Protetyk słuchu:');
+  assert.equal(titleContext.capdPractitionerTitle(''), 'Protetyk słuchu:');
+});
 vm.runInContext(`${values}\n${lookup}\n${evaluation}\nglobalThis.normFor = capdNormDefinition; globalThis.evaluate = capdResultEvaluation; globalThis.conclusion = capdAbnormalConclusionText;`, context);
 
 test('APD uses only published Neuroflow norms for new results', () => {
