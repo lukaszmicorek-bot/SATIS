@@ -26,6 +26,7 @@ const SUPABASE_DELETE_BATCH_SIZE = 200;
 const SUPABASE_WRITE_RETRY_DELAYS = [600, 1600];
 const SUPABASE_DEVICE_TABLE = "device_records";
 const SUPABASE_REPAIR_TABLE = "repair_records";
+const SUPABASE_ROW_ORDER_TABLE = "table_row_orders";
 const SUPABASE_PRICING_TABLE = "pricing_records";
 const SUPABASE_PRIVATE_PAYMENTS_TABLE = "device_private_payments";
 const SUPABASE_AUDIT_TABLE = "record_audit_logs";
@@ -379,6 +380,9 @@ let deviceStats = { soldByYear: new Map(), reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
 let currentSupabaseUser = null;
+const sharedRowOrders = new Map();
+const sharedRowOrderSaving = new Set();
+let sharedRowOrdersReady = false;
 let inactivityLogoutTimeout = 0;
 let inactivityLogoutInProgress = false;
 let supabaseRealtimeChannel = null;
@@ -2369,7 +2373,8 @@ async function refreshRecordsFromSupabase(options = {}) {
       loadSupabasePricingOrderHistory(),
       loadSupabasePricingComplaintHistory(),
       loadSupabasePricingPcprList(),
-      loadSupabaseCapdHistory()
+      loadSupabaseCapdHistory(),
+      loadSharedRowOrders()
     ]);
     if (currentSupabaseUser?.id !== userId) return;
     if (![sharedRecords, sharedRepairRecords, sharedDemoRecords, sharedPricingRecords,
@@ -2624,6 +2629,9 @@ function subscribeToSupabaseChanges() {
       satisChangeQueue.push(table, payload.new?.id || payload.old?.id || payload.new?.record_id || payload.old?.record_id);
     });
   });
+  channel = channel.on("postgres_changes", { event: "UPDATE", schema: "public", table: SUPABASE_ROW_ORDER_TABLE }, () => {
+    loadSharedRowOrders().then(renderSharedRowOrderViews);
+  });
   let subscribedOnce = false;
   supabaseRealtimeChannel = channel.subscribe((status) => {
     if (status === "SUBSCRIBED") {
@@ -2729,6 +2737,8 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  sharedRowOrders.clear();
+  sharedRowOrdersReady = false;
   offlineForms?.lock();
   satisDataStore?.clear();
   satisChangeQueue?.clear();
@@ -4599,6 +4609,8 @@ function compareServiceSerialMatches(left, right) {
 
 function serviceSerialHistoryLine(match) {
   const parts = [];
+  const kind = match.relationKind === "order" ? "Zamówienie" : "Serwis";
+  if (match.relationKind) parts.push([kind, match.sourceDocumentNumber].filter(Boolean).join(" "));
   if (match.receivedDate) parts.push(`Przyjęte: ${formatDate(match.receivedDate)}`);
   if (match.deviceName) parts.push(`Model: ${match.deviceName}`);
 
@@ -4614,7 +4626,10 @@ function serviceSerialTitle(matches) {
   const lines = [...new Set(matches.map(serviceSerialHistoryLine))];
   const matchList = lines.slice(0, 5).join("\n");
   const extraCount = lines.length > 5 ? `\n+ ${lines.length - 5} więcej` : "";
-  return `Historia serwisu:\n${matchList}${extraCount}`;
+  const hasOrders = matches.some(match => match.relationKind === "order");
+  const hasService = matches.some(match => match.relationKind !== "order");
+  const heading = hasOrders ? (hasService ? "Historia serwisu i zamówień" : "Historia zamówień") : "Historia serwisu";
+  return `${heading}:\n${matchList}${extraCount}`;
 }
 
 function saleSerialSortValue(match) {
@@ -6577,7 +6592,73 @@ function localRowOrderStorageKey(tableKey) {
   return `satis-row-order-v1:${currentSupabaseUser?.id || "local"}:${tableKey}`;
 }
 
+async function loadSharedRowOrders() {
+  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  const userId = currentSupabaseUser.id;
+  try {
+    const { data, error } = await supabaseClient.from(SUPABASE_ROW_ORDER_TABLE).select("id,data,revision");
+    if (error) throw error;
+    if (currentSupabaseUser?.id !== userId) return;
+    for (const key of ["devices", "demo", "repairs"]) {
+      const row = data?.find(item => item.id === key);
+      if (!row || !Array.isArray(row.data?.ids) || !Number.isSafeInteger(row.revision)) {
+        throw new Error("Niekompletna konfiguracja kolejności wierszy.");
+      }
+    }
+    data.forEach(row => {
+      if (!["devices", "demo", "repairs"].includes(row.id)) return;
+      const previous = sharedRowOrders.get(row.id);
+      if (!previous || row.revision >= previous.revision) sharedRowOrders.set(row.id, {
+        ids: [...new Set(row.data.ids.filter(id => typeof id === "string"))], revision: row.revision
+      });
+    });
+    sharedRowOrdersReady = true;
+  } catch (error) {
+    if (currentSupabaseUser?.id !== userId) return;
+    sharedRowOrdersReady = false;
+    console.warn("Nie wczytano wspólnej kolejności wierszy:", error?.message || error);
+  }
+}
+
+function renderSharedRowOrderViews() {
+  if (!currentSupabaseUser) return;
+  if (activeNotebook === "devices") {
+    if (activeDeviceView === "demo") renderDemoRecords();
+    else renderDeviceViews();
+  } else if (activeNotebook === "repairs") renderRepairRecords();
+}
+
+async function persistSharedRowOrder(tableKey, ids) {
+  if (!canViewPrivateModules() || !currentSupabaseUser || !sharedRowOrdersReady || sharedRowOrderSaving.has(tableKey)) return false;
+  const userId = currentSupabaseUser.id;
+  const previous = sharedRowOrders.get(tableKey);
+  if (!previous) return false;
+  sharedRowOrderSaving.add(tableKey);
+  try {
+    renderSharedRowOrderViews();
+    const { data, error } = await supabaseClient.from(SUPABASE_ROW_ORDER_TABLE)
+      .update({ data: { ids } }).eq("id", tableKey).eq("revision", previous.revision)
+      .select("id,data,revision").maybeSingle();
+    if (currentSupabaseUser?.id !== userId) return false;
+    if (error) throw error;
+    if (!data) {
+      await loadSharedRowOrders();
+      throw new Error("Kolejność zmieniono na innym komputerze. Spróbuj ponownie.");
+    }
+    const current = sharedRowOrders.get(tableKey);
+    if (!current || data.revision >= current.revision) sharedRowOrders.set(tableKey, { ids: data.data.ids, revision: data.revision });
+    return true;
+  } catch (error) {
+    if (currentSupabaseUser?.id === userId) alert(`Nie zapisano kolejności dla gabinetu: ${error.message}`);
+    return false;
+  } finally {
+    sharedRowOrderSaving.delete(tableKey);
+    if (currentSupabaseUser?.id === userId) renderSharedRowOrderViews();
+  }
+}
+
 function readLocalRowOrder(tableKey) {
+  if (hasSupabaseConfig) return sharedRowOrders.get(tableKey)?.ids.slice() || [];
   if (!canViewPrivateModules()) return [];
   try {
     const value = JSON.parse(localStorage.getItem(localRowOrderStorageKey(tableKey)) || "[]");
@@ -6594,7 +6675,7 @@ function applyLocalRowOrder(items, tableKey) {
   return items.map(item => ranks.has(item.id) ? ranked[index++] : item);
 }
 
-function moveLocalTableRow(tableKey, items, sourceId, targetId, after = false) {
+async function moveLocalTableRow(tableKey, items, sourceId, targetId, after = false) {
   if (!canViewPrivateModules() || sourceId === targetId) return false;
   const source = items.find(item => item.id === sourceId);
   const target = items.find(item => item.id === targetId);
@@ -6602,9 +6683,11 @@ function moveLocalTableRow(tableKey, items, sourceId, targetId, after = false) {
   if (!source || !target || year(source) !== year(target)) return false;
   const ids = readLocalRowOrder(tableKey);
   // Keep filtered-out rows in their saved positions; add only previously unseen IDs.
-  for (const item of items) if (!ids.includes(item.id)) ids.push(item.id);
+  const knownIds = new Set(ids);
+  for (const item of items) if (!knownIds.has(item.id)) { ids.push(item.id); knownIds.add(item.id); }
   ids.splice(ids.indexOf(sourceId), 1);
   ids.splice(ids.indexOf(targetId) + Number(after), 0, sourceId);
+  if (hasSupabaseConfig) return persistSharedRowOrder(tableKey, ids);
   try { localStorage.setItem(localRowOrderStorageKey(tableKey), JSON.stringify(ids)); }
   catch { alert("Nie udało się zapamiętać kolejności w tej przeglądarce."); return false; }
   return true;
@@ -6621,15 +6704,25 @@ function setupLocalRowDrag(body, items, tableKey) {
     reset.type = "button";
     reset.className = "reset-filters-btn";
     reset.textContent = "Przywróć kolejność";
-    reset.addEventListener("click", () => {
+    reset.addEventListener("click", async () => {
+      if (hasSupabaseConfig) {
+        await persistSharedRowOrder(tableKey, []);
+        return;
+      }
       try { localStorage.removeItem(localRowOrderStorageKey(tableKey)); }
       catch { return; }
       rerender();
     });
     document.getElementById(anchorIds[tableKey])?.after(reset);
   }
-  if (reset) reset.hidden = !canViewPrivateModules() || !readLocalRowOrder(tableKey).length;
+  if (reset) {
+    reset.hidden = !canViewPrivateModules() || (sharedRowOrdersReady && !readLocalRowOrder(tableKey).length);
+    reset.disabled = hasSupabaseConfig && (!sharedRowOrdersReady || sharedRowOrderSaving.has(tableKey));
+    reset.textContent = hasSupabaseConfig && !sharedRowOrdersReady ? "Kolejność: wymaga połączenia / SQL" : "Przywróć kolejność";
+    reset.title = hasSupabaseConfig && !sharedRowOrdersReady ? "Sprawdź połączenie. Przy pierwszym wdrożeniu uruchom supabase-row-order.sql w Supabase." : "Przywróć domyślną kolejność dla wszystkich użytkowników";
+  }
   if (!canViewPrivateModules()) return;
+  if (hasSupabaseConfig && (!sharedRowOrdersReady || sharedRowOrderSaving.has(tableKey))) return;
   const grouped = groupItemsByYear(items, item => item.receivedDate).flatMap(([, rows]) => rows);
   const rows = [...body.querySelectorAll("tr:not(.year-separator-row)")];
   let draggedId = "";
@@ -6642,7 +6735,7 @@ function setupLocalRowDrag(body, items, tableKey) {
     handle.textContent = "⋮⋮";
     handle.draggable = true;
     handle.setAttribute("aria-label", "Przesuń wiersz");
-    handle.title = "Złap i puść. Klawiatura: strzałka w górę lub w dół. Kolejność tylko na tym komputerze.";
+    handle.title = hasSupabaseConfig ? "Złap i puść. Klawiatura: strzałka w górę lub w dół. Kolejność wspólna dla SATIS i gabinetu." : "Złap i puść. Kolejność tylko na tym komputerze.";
     row.firstElementChild?.prepend(handle);
     handle.addEventListener("dragstart", event => {
       if (!canViewPrivateModules()) { event.preventDefault(); return; }
@@ -6662,20 +6755,21 @@ function setupLocalRowDrag(body, items, tableKey) {
       rows.forEach(item => item.classList.remove("local-row-drop-before", "local-row-drop-after"));
       row.classList.add(after ? "local-row-drop-after" : "local-row-drop-before");
     });
-    row.addEventListener("drop", event => {
+    row.addEventListener("drop", async event => {
       event.preventDefault();
       const after = row.classList.contains("local-row-drop-after");
       clear();
-      if (moveLocalTableRow(tableKey, grouped, draggedId, record.id, after)) rerender();
+      const sourceId = draggedId;
       draggedId = "";
+      if (await moveLocalTableRow(tableKey, grouped, sourceId, record.id, after)) rerender();
     });
-    handle.addEventListener("keydown", event => {
+    handle.addEventListener("keydown", async event => {
       if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
       const down = event.key === "ArrowDown";
       const target = grouped[index + (down ? 1 : -1)];
       if (!target) return;
       event.preventDefault();
-      if (moveLocalTableRow(tableKey, grouped, record.id, target.id, down)) rerender();
+      if (await moveLocalTableRow(tableKey, grouped, record.id, target.id, down)) rerender();
     });
   });
 }
@@ -7717,6 +7811,9 @@ function rebuildSerialIndex() {
   });
 
   repairRecords.forEach((record) => {
+    const documentInfo = repairDocumentInfo(record);
+    const isOrder = documentInfo.type === "ORDER" || (!documentInfo.type &&
+      ["WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA", "ZAMÓWIENIE"].includes(normalizeRepairCategory(record.category)));
     repairSerialNumbers(record).forEach((serialNumber) => {
       const serial = serialDuplicateKey(serialNumber);
       if (!serial) return;
@@ -7725,6 +7822,8 @@ function rebuildSerialIndex() {
         source: "repairs",
         id: record.id,
         notebook: "Zeszyt serwisu i zamówień",
+        relationKind: isOrder ? "order" : "service",
+        sourceDocumentNumber: documentInfo.number,
         serialNumber,
         receivedDate: record.receivedDate,
         sentDate: record.sentDate,
@@ -17597,6 +17696,9 @@ function ageLevel(record, age = stockAge(record)) {
 }
 
 function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "", inventoryTitle = "") {
+  const hasOrders = serviceMatches.some(match => match.relationKind === "order");
+  const hasService = serviceMatches.some(match => match.relationKind !== "order");
+  const relationLabel = hasOrders ? (hasService ? "serwis / zamówienie" : "zamówienie") : "serwis";
   const pill = document.createElement("button");
   pill.className = "serial-pill";
   pill.type = "button";
@@ -17652,14 +17754,14 @@ function createSerialPill(serialNumber, duplicateMatches = [], serviceMatches = 
   const marker = document.createElement("small");
   if (duplicateMatches.length || serviceMatches.length) {
     marker.className = duplicateMatches.length ? "serial-duplicate-marker" : "serial-service-marker";
-    marker.textContent = duplicateMatches.length ? "duplikat" : "serwis";
+    marker.textContent = duplicateMatches.length ? "duplikat" : relationLabel;
   }
   if (duplicateMatches.length || serviceMatches.length) pill.append(marker);
 
   if (duplicateMatches.length && serviceMatches.length) {
     const serviceMarker = document.createElement("small");
     serviceMarker.className = "serial-service-marker";
-    serviceMarker.textContent = "serwis";
+    serviceMarker.textContent = relationLabel;
     pill.append(serviceMarker);
   }
 
