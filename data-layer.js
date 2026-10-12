@@ -20,10 +20,13 @@
     return [...byId.values()];
   }
 
-  function createStore({ client, uuid, retry = (action) => action(), workstation = () => "" }) {
+  function createStore({ client, uuid, retry = (action) => action(), workstation = () => "", undoTables = [], onUndoChange = () => {} }) {
     const versions = new Map();
     const edits = new Map();
     const pending = new Map();
+    const originals = new Map();
+    const undoTableSet = new Set(undoTables);
+    let undoGroup = null, lastUndo = null, undoRunning = false;
     let generation = 0;
     const key = (table, id) => JSON.stringify([table, id]);
     function observe(table, row) {
@@ -32,7 +35,15 @@
       const revision = Number(row.revision);
       if (!Number.isSafeInteger(revision) || revision < 1) return;
       const current = versions.get(key(table, id));
-      if (current == null || revision >= current) versions.set(key(table, id), revision);
+      if (current == null || revision >= current) {
+        versions.set(key(table, id), revision);
+        if (undoTableSet.has(table)) {
+          const data = table === "device_private_payments"
+            ? { amount: row.amount ?? row.data?.amount, receivedDate: row.received_date ?? row.data?.receivedDate }
+            : row.data;
+          if (data) originals.set(key(table, id), { revision, data });
+        }
+      }
     }
     function beginEdit(table, id, revision) {
       if (id) edits.set(key(table, id), revision === undefined ? versions.get(key(table, id)) ?? null : revision);
@@ -46,12 +57,22 @@
         ? { amount: record.amount, receivedDate: record.receivedDate } : record;
       return { table, id, data: options.delete ? null : data, expectedRevision, delete: Boolean(options.delete) };
     }
-    async function commit(changes) {
+    async function commit(changes, { undo = false } = {}) {
+      if (undoRunning && !undo) throw new Error("Trwa cofanie zmiany. Poczekaj przed kolejnym zapisem.");
       if (!changes.length) return [];
       changes = structuredClone(changes);
       const startedGeneration = generation;
       const fingerprint = JSON.stringify(changes);
-      const attempt = pending.get(fingerprint) || { operation: uuid(), workstation: workstation() };
+      const changeIndex = new Map(changes.map((change, index) => [key(change.table, change.id), index]));
+      const attempt = pending.get(fingerprint) || {
+        operation: uuid(), workstation: workstation(),
+        before: undoGroup && !undo ? changes.map(change => {
+          const original = originals.get(key(change.table, change.id));
+          return change.expectedRevision === null ? null
+            : original?.revision === change.expectedRevision ? structuredClone(original.data) : undefined;
+        }) : []
+      };
+      const group = undo ? null : undoGroup;
       pending.set(fingerprint, attempt);
       try {
         const rows = await retry(async () => {
@@ -69,11 +90,27 @@
         }
         for (const row of rows) {
           const recordKey = key(row.table, row.id);
-          if (row.deleted) versions.delete(recordKey);
-          else observe(row.table, row);
+          const index = changeIndex.get(recordKey);
+          const change = changes[index];
+          if (row.deleted) { versions.delete(recordKey); originals.delete(recordKey); }
+          else observe(row.table, { ...row, data: row.data ?? change?.data });
+          if (group && undoTableSet.has(row.table) && change) {
+            if (attempt.before[index] === undefined) group.invalid = true;
+            const previous = group.changes.get(recordKey);
+            group.changes.set(recordKey, {
+              table: row.table, id: row.id,
+              data: previous ? previous.data : attempt.before[index],
+              delete: previous ? previous.delete : attempt.before[index] === null,
+              expectedRevision: row.deleted ? null : Number(row.revision)
+            });
+          }
           if (edits.has(recordKey)) edits.set(recordKey, versions.get(recordKey) ?? null);
         }
         pending.delete(fingerprint);
+        if (!group && !undo && changes.some(change => undoTableSet.has(change.table))) {
+          lastUndo = null;
+          onUndoChange();
+        }
         return rows;
       } catch (error) {
         // A lost response may follow a committed transaction. Reuse its operation ID.
@@ -86,14 +123,40 @@
         throw error;
       }
     }
+    function beginUndo(label) {
+      if (undoGroup || undoRunning) throw new Error("Poczekaj na zakończenie poprzedniego zapisu.");
+      undoGroup = { label, changes: new Map(), invalid: false };
+      onUndoChange();
+      return undoGroup;
+    }
+    function endUndo(group) {
+      if (undoGroup !== group) return;
+      undoGroup = null;
+      if (group.changes.size) lastUndo = group.invalid ? null : group;
+      onUndoChange();
+    }
+    async function undoLast() {
+      if (!lastUndo || undoGroup || undoRunning) throw new Error("Brak zmiany do cofnięcia lub trwa zapis.");
+      const action = lastUndo;
+      undoRunning = true;
+      onUndoChange();
+      try {
+        const changes = [...action.changes.values()].reverse();
+        const rows = await commit(changes, { undo: true });
+        lastUndo = null;
+        return { rows, changes, label: action.label };
+      } finally { undoRunning = false; onUndoChange(); }
+    }
     return {
       observe, beginEdit, prepare, commit,
+      beginUndo, endUndo, undoLast,
+      undoState: () => ({ available: Boolean(lastUndo) && !undoGroup && !undoRunning, busy: Boolean(undoGroup) || undoRunning, label: lastUndo?.label || "" }),
       endEdit: (table, id) => edits.delete(key(table, id)),
       endTableEdits(table) { for (const entry of edits.keys()) if (JSON.parse(entry)[0] === table) edits.delete(entry); },
       write: (table, record) => commit([prepare(table, record)]),
       remove: (table, id) => commit([prepare(table, { id }, { delete: true })]),
       revision: (table, id) => versions.get(key(table, id)) ?? null,
-      clear() { generation += 1; versions.clear(); edits.clear(); pending.clear(); }
+      clear() { generation += 1; versions.clear(); edits.clear(); pending.clear(); originals.clear(); undoGroup = null; lastUndo = null; onUndoChange(); }
     };
   }
   return { createStore, applyChanges };

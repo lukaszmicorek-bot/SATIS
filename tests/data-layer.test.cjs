@@ -209,6 +209,112 @@ function appFunction(name) {
   return source.slice(start, start + 1 + source.slice(start + 1).search(/\n(?:async )?function /));
 }
 
+test('undo reverses a multi-record save atomically with exact saved revisions', async () => {
+  const remote = server();
+  remote.seed('devices', 'a', { id: 'a', value: 'original' });
+  remote.seed('service', 's', { id: 's', value: 'original' });
+  const store = remote.store({ undoTables: ['devices', 'service'] });
+  for (const [table, id] of [['devices', 'a'], ['service', 's']]) store.observe(table, remote.get(table, id));
+  const group = store.beginUndo('paired save');
+  await store.write('devices', { id: 'a', value: 'new' });
+  await store.write('service', { id: 's', value: 'new' });
+  await store.write('devices', { id: 'a', value: 'second write in same action' });
+  assert.equal(store.undoState().available, false);
+  store.endUndo(group);
+  assert.equal(store.undoState().available, true);
+  const result = await store.undoLast();
+  assert.equal(result.changes.length, 2);
+  assert.equal(remote.get('devices', 'a').data.value, 'original');
+  assert.equal(remote.get('service', 's').data.value, 'original');
+  assert.equal(remote.calls.at(-1).p_changes.length, 2);
+  assert.equal(store.undoState().available, false);
+});
+
+test('remote edit blocks the entire undo without overwriting either record', async () => {
+  const remote = server();
+  remote.seed('devices', 'a', { id: 'a', value: 'original' });
+  remote.seed('devices', 'b', { id: 'b', value: 'original' });
+  const store = remote.store({ undoTables: ['devices'] });
+  for (const id of ['a', 'b']) store.observe('devices', remote.get('devices', id));
+  const group = store.beginUndo('save');
+  await store.commit(['a', 'b'].map(id => store.prepare('devices', { id, value: 'mine' })));
+  store.endUndo(group);
+  remote.seed('devices', 'a', { id: 'a', value: 'remote' }, 3);
+  store.observe('devices', remote.get('devices', 'a'));
+  await assert.rejects(store.undoLast(), { code: 'PT409' });
+  assert.equal(remote.get('devices', 'a').data.value, 'remote');
+  assert.equal(remote.get('devices', 'b').data.value, 'mine');
+});
+
+test('undo creation deletes only its own insert, and logout erases undo', async () => {
+  const remote = server(), store = remote.store({ undoTables: ['devices'] });
+  const group = store.beginUndo('new');
+  await store.write('devices', { id: 'new', value: 'new' });
+  store.endUndo(group);
+  await store.undoLast();
+  assert.equal(remote.get('devices', 'new'), undefined);
+  const next = store.beginUndo('new');
+  await store.write('devices', { id: 'next' });
+  store.endUndo(next);
+  store.clear();
+  assert.equal(store.undoState().available, false);
+});
+
+test('unknown old content disables undo instead of inventing data', async () => {
+  const remote = server(); remote.seed('devices', 'a', { value: 'original' });
+  const store = remote.store({ undoTables: ['devices'] });
+  store.observe('devices', { id: 'a', revision: 1 });
+  const group = store.beginUndo('save');
+  await store.write('devices', { id: 'a', value: 'new' });
+  store.endUndo(group);
+  assert.equal(store.undoState().available, false);
+});
+
+test('lost undo response retries the identical operation without duplicate writes', async () => {
+  const remote = server(); remote.seed('devices', 'a', { id: 'a', value: 'old' });
+  const store = remote.store({ undoTables: ['devices'] });
+  store.observe('devices', remote.get('devices', 'a'));
+  const group = store.beginUndo('save');
+  await store.write('devices', { id: 'a', value: 'new' }); store.endUndo(group);
+  remote.loseResponse();
+  await assert.rejects(store.undoLast(), /response lost/);
+  await store.undoLast();
+  assert.equal(remote.calls.at(-1).p_operation, remote.calls.at(-2).p_operation);
+  assert.equal(remote.get('devices', 'a').revision, 3);
+});
+
+test('undo restores private payment and device in a single permission-checked operation', async () => {
+  const remote = server();
+  remote.seed('devices', 'a', { id: 'a', value: 'old' });
+  remote.seed('device_private_payments', 'a', { amount: '100', receivedDate: '2026-10-01' });
+  const store = remote.store({ undoTables: ['devices', 'device_private_payments'] });
+  store.observe('devices', remote.get('devices', 'a'));
+  store.observe('device_private_payments', { record_id: 'a', revision: 1, amount: '100', received_date: '2026-10-01' });
+  const group = store.beginUndo('payment');
+  await store.commit([
+    store.prepare('devices', { id: 'a', value: 'new' }),
+    store.prepare('device_private_payments', { id: 'a', amount: '200', receivedDate: '2026-10-02' })
+  ]);
+  store.endUndo(group);
+  remote.fail({ code: '42501', message: 'denied' });
+  await assert.rejects(store.undoLast(), { code: '42501' });
+  assert.equal(remote.get('devices', 'a').data.value, 'new');
+  remote.fail(null);
+  await store.undoLast();
+  assert.equal(remote.get('devices', 'a').data.value, 'old');
+  assert.deepEqual(remote.get('device_private_payments', 'a').data, { amount: '100', receivedDate: '2026-10-01' });
+});
+
+test('failed writes do not replace the last successful undo', async () => {
+  const remote = server(), store = remote.store({ undoTables: ['devices'] });
+  const first = store.beginUndo('first');
+  await store.write('devices', { id: 'a' }); store.endUndo(first);
+  remote.fail({ code: '42501', message: 'denied' });
+  const second = store.beginUndo('second');
+  await assert.rejects(store.write('devices', { id: 'b' })); store.endUndo(second);
+  assert.equal(store.undoState().label, 'first');
+});
+
 test('app device/payment save sends one atomic RPC and never reports online on bundle failure', async () => {
   const remote = server(), statuses = [], store = remote.store();
   remote.fail({ code: '42501', message: 'payment denied' });

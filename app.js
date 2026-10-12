@@ -337,6 +337,10 @@ const satisDataStore = hasSupabaseConfig ? window.SatisData.createStore({
   client: supabaseClient,
   uuid: () => crypto.randomUUID(),
   retry: (action) => retrySupabaseWrite(action),
+  undoTables: [SUPABASE_DEVICE_TABLE, SUPABASE_REPAIR_TABLE, SUPABASE_PRIVATE_PAYMENTS_TABLE,
+    SUPABASE_LOAN_CONTRACT_TABLE, SUPABASE_OFFER_HISTORY_TABLE, SUPABASE_ORDER_HISTORY_TABLE,
+    SUPABASE_COMPLAINT_HISTORY_TABLE, SUPABASE_PCPR_LIST_TABLE, SUPABASE_CAPD_HISTORY_TABLE],
+  onUndoChange: updateSavedUndoButton,
   workstation: () => currentWorkstationName()
 }) : null;
 let supabaseRefreshInProgress = false;
@@ -362,6 +366,10 @@ const customerDocumentIndex = new Map();
 const customerPhoneIndex = new Map();
 const activeDemoLoanCustomerIndex = new Map();
 const agreementDraftStates = new Map();
+let lastFormUndo = null;
+let restoringFormUndo = false;
+let formUndoGeneration = 0;
+let formUndoCheckpoints = new WeakMap();
 const documentSaveLocks = new Map();
 const pricingHistorySelectableEntries = new Map();
 let pricingHistorySelectedKey = "";
@@ -1283,6 +1291,7 @@ function setConnectionStatus(state, text) {
 
 function updateConnectionUser(user) {
   currentSupabaseUser = user || null;
+  updateSavedUndoButton();
   if (!canViewPrivatePayments()) privatePayments = {};
   if (connectionUser) {
     connectionUser.textContent = currentSupabaseUser?.email || "";
@@ -2487,6 +2496,7 @@ function renderDocumentSyncState(count = 0) {
 
 async function processPendingDocumentSync() {
   if (!hasSupabaseConfig || !currentSupabaseUser || document.hidden || documentSyncRunning ||
+    satisDataStore.undoState().busy ||
     supabaseRefreshInProgress || recordDialog.open || repairDialog.open || demoDialog.open) return;
   documentSyncRunning = true;
   const userId = currentSupabaseUser.id;
@@ -2718,6 +2728,7 @@ function resetInactivityLogoutTimer() {
 }
 
 function clearSensitiveApplicationState() {
+  clearFormUndo();
   offlineForms?.lock();
   satisDataStore?.clear();
   satisChangeQueue?.clear();
@@ -13104,10 +13115,13 @@ async function loadSupabasePricingPcprList() {
 }
 
 async function persistPricingPcprItem(entry, { silent = false } = {}) {
-  if (!hasSupabaseConfig) return;
+  if (!hasSupabaseConfig) return true;
   if (!currentSupabaseUser) throw new Error("Zaloguj się przed zapisaniem PCPR.");
-  await upsertSupabaseRecord(SUPABASE_PCPR_LIST_TABLE, entry);
-  pricingPcprListSupabaseAvailable = true;
+  return withSavedUndo("PCPR", async () => {
+    await upsertSupabaseRecord(SUPABASE_PCPR_LIST_TABLE, entry);
+    pricingPcprListSupabaseAvailable = true;
+    return true;
+  });
 }
 
 function selectedPcprEar() {
@@ -13253,7 +13267,7 @@ function editPricingPcprItem(id) {
   pcprCustomerInput?.focus();
 }
 
-function addPricingPcprItem(event) {
+async function addPricingPcprItem(event) {
   event?.preventDefault();
   const entry = normalizePricingPcprItem(currentPricingPcprItemSnapshot());
   if (!entry?.customer) {
@@ -13262,18 +13276,23 @@ function addPricingPcprItem(event) {
     return;
   }
 
-  pricingPcprList = [
-    entry,
-    ...pricingPcprList.filter((item) => item.id !== entry.id)
-  ];
-  saveLocalPricingPcprList();
-  renderPricingPcprList();
-  persistPricingPcprItem(entry);
-  resetPricingPcprForm();
-  pcprCustomerInput?.focus();
+  if (pcprForm.dataset.saving === "1") return;
+  pcprForm.dataset.saving = "1";
+  try {
+    if (!await persistPricingPcprItem(entry)) return;
+    pricingPcprList = [
+      entry,
+      ...pricingPcprList.filter((item) => item.id !== entry.id)
+    ];
+    saveLocalPricingPcprList();
+    renderPricingPcprList();
+    resetPricingPcprForm();
+    pcprCustomerInput?.focus();
+  } catch (error) { alert(`Nie zapisano PCPR: ${error.message}`); }
+  finally { pcprForm.dataset.saving = ""; }
 }
 
-function togglePricingPcprDone(id, checked) {
+async function togglePricingPcprDone(id, checked) {
   const currentEntry = pricingPcprList.find((entry) => entry.id === id);
   if (!currentEntry) return;
   const updatedEntry = normalizePricingPcprItem({
@@ -13284,10 +13303,12 @@ function togglePricingPcprDone(id, checked) {
     workstation: currentWorkstationName() || currentEntry.workstation
   });
   if (!updatedEntry) return;
-  pricingPcprList = pricingPcprList.map((entry) => (entry.id === id ? updatedEntry : entry));
-  saveLocalPricingPcprList();
-  renderPricingPcprList();
-  persistPricingPcprItem(updatedEntry, { silent: true });
+  try {
+    if (!await persistPricingPcprItem(updatedEntry, { silent: true })) return;
+    pricingPcprList = pricingPcprList.map((entry) => (entry.id === id ? updatedEntry : entry));
+    saveLocalPricingPcprList();
+    renderPricingPcprList();
+  } catch (error) { renderPricingPcprList(); alert(`Nie zapisano PCPR: ${error.message}`); }
 }
 
 async function deletePricingPcprItem(id) {
@@ -20279,7 +20300,7 @@ function renderCapdHistory() {
     if (!entry.status) stageSelect.add(new Option("Nie ustawiono", ""));
     Object.entries(CAPD_HISTORY_STATUS_LABELS).forEach(([value, label]) => stageSelect.add(new Option(label, value)));
     stageSelect.value = entry.status;
-    stageSelect.addEventListener("change", () => changeCapdHistoryStatus(entry.id, stageSelect.value, stageSelect));
+    stageSelect.addEventListener("change", () => withSavedUndo("APD — etap", () => changeCapdHistoryStatus(entry.id, stageSelect.value, stageSelect)));
     stage.append(stageLabel, stageSelect);
     if (entry.status === "ODEBRANO") {
       const pickup = document.createElement("time");
@@ -20314,7 +20335,7 @@ function renderCapdHistory() {
       notifiedInput.type = "checkbox";
       notifiedInput.checked = capdPhoneNotifiedForPickup(entry);
       notifiedInput.setAttribute("aria-label", `Poinformowano telefonicznie: ${entry.patient}`);
-      notifiedInput.addEventListener("change", () => changeCapdPhoneNotified(entry.id, notifiedInput.checked, notifiedInput));
+      notifiedInput.addEventListener("change", () => withSavedUndo("APD — telefon", () => changeCapdPhoneNotified(entry.id, notifiedInput.checked, notifiedInput)));
       const notifiedText = document.createElement("span");
       notifiedText.textContent = "Poinformowano tel.";
       notifiedLabel.append(notifiedInput, notifiedText);
@@ -22803,6 +22824,152 @@ async function deleteWorkTimeRecord(record, button) {
   } finally {
     button.disabled = false;
   }
+}
+
+function formUndoSnapshot(scope) {
+  return [...scope.querySelectorAll("input, select, textarea, [contenteditable='true']")]
+    .filter(input => input.type !== "password" && input.type !== "file")
+    .map(input => ({ input, value: input.isContentEditable ? input.innerHTML : input.value, checked: input.checked }));
+}
+
+function sameFormUndoSnapshot(left, right) {
+  return left.length === right.length && left.every((item, index) => item.input === right[index].input
+    && item.value === right[index].value && item.checked === right[index].checked);
+}
+
+function clearFormUndo() {
+  lastFormUndo = null;
+  formUndoGeneration += 1;
+  formUndoCheckpoints = new WeakMap();
+  document.querySelectorAll(".undo-form-button").forEach(button => { button.disabled = true; });
+}
+
+function setupFormUndo() {
+  const scopes = document.querySelectorAll("#capdForm, #pcprForm, #recordForm, #repairForm, #demoForm, .offer-builder");
+  scopes.forEach(scope => {
+    const tools = document.createElement("div");
+    tools.className = "form-undo-tools";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost undo-form-button";
+    button.textContent = "Cofnij wpisywanie";
+    button.disabled = true;
+    button.addEventListener("click", () => {
+      const undo = lastFormUndo;
+      if (!undo || undo.scope !== scope) return;
+      if (!sameFormUndoSnapshot(formUndoSnapshot(scope), undo.after)) {
+        clearFormUndo();
+        alert("Formularz zmienił się. Nie cofnięto pól innego wpisu.");
+        return;
+      }
+      restoringFormUndo = true;
+      try {
+        undo.before.forEach(({ input, value, checked }) => {
+          if (input.isContentEditable) input.innerHTML = value;
+          else input.value = value;
+          if (typeof checked === "boolean") input.checked = checked;
+        });
+        undo.target.dispatchEvent(new Event("input", { bubbles: true }));
+        undo.target.dispatchEvent(new Event("change", { bubbles: true }));
+        undo.target.focus({ preventScroll: true });
+      } finally {
+        restoringFormUndo = false;
+        clearFormUndo();
+        formUndoCheckpoints.set(scope, formUndoSnapshot(scope));
+      }
+    });
+    tools.append(button);
+    if (scope.closest("dialog")) {
+      const saved = document.createElement("button");
+      saved.type = "button";
+      saved.className = "ghost undo-saved-button";
+      saved.textContent = "Cofnij zapis";
+      saved.disabled = true;
+      saved.addEventListener("click", undoLastSavedChange);
+      tools.append(saved);
+    }
+    const dialogHead = scope.querySelector(".dialog-head");
+    if (dialogHead) dialogHead.after(tools);
+    else scope.prepend(tools);
+    scope.addEventListener("focusin", event => {
+      if (!tools.contains(event.target)) formUndoCheckpoints.set(scope, formUndoSnapshot(scope));
+    });
+    scope.addEventListener("beforeinput", () => { if (!restoringFormUndo) formUndoCheckpoints.set(scope, formUndoSnapshot(scope)); });
+    const track = event => {
+      if (restoringFormUndo || tools.contains(event.target)) return;
+      const before = formUndoCheckpoints.get(scope);
+      const generation = formUndoGeneration;
+      queueMicrotask(() => {
+        if (restoringFormUndo || !before || generation !== formUndoGeneration) return;
+        const after = formUndoSnapshot(scope);
+        if (sameFormUndoSnapshot(before, after)) return;
+        // Removed rows cannot be restored without recreating their event handlers.
+        if (before.length !== after.length || before.some((item, index) => item.input !== after[index]?.input)) {
+          clearFormUndo(); formUndoCheckpoints.set(scope, after); return;
+        }
+        lastFormUndo = { scope, before, after, target: event.target };
+        document.querySelectorAll(".undo-form-button").forEach(control => { control.disabled = control !== button; });
+        formUndoCheckpoints.set(scope, after);
+      });
+    };
+    scope.addEventListener("input", track);
+    scope.addEventListener("change", track);
+    scope.addEventListener("reset", clearFormUndo);
+  });
+  updateSavedUndoButton();
+}
+
+function updateSavedUndoButton() {
+  const state = satisDataStore?.undoState();
+  document.querySelectorAll(".undo-saved-button").forEach((button) => {
+    button.disabled = !currentSupabaseUser || !state?.available;
+    button.title = state?.label ? `Cofnij zapis: ${state.label}` : "Brak zapisu do cofnięcia w tej sesji";
+  });
+}
+
+async function withSavedUndo(label, action) {
+  if (!hasSupabaseConfig || !currentSupabaseUser || offlineForms?.active()) return action();
+  if (documentSyncRunning || satisDataStore.undoState().busy) {
+    alert("Trwa zapis lub synchronizacja. Poczekaj chwilę i spróbuj ponownie.");
+    return null;
+  }
+  const group = satisDataStore.beginUndo(label);
+  try { return await action(); }
+  finally { satisDataStore.endUndo(group); updateSavedUndoButton(); }
+}
+
+async function undoLastSavedChange() {
+  if (!currentSupabaseUser || !satisDataStore?.undoState().available) return;
+  if (!confirm(`Cofnąć ostatni zapis: ${satisDataStore.undoState().label}? Powiązane zmiany zostaną cofnięte razem. Nowo dodane wpisy z tej operacji zostaną usunięte. Liczniki numeracji nie zostaną cofnięte. Pola otwartego formularza pozostaną bez zmian.`)) return;
+  try {
+    const result = await satisDataStore.undoLast();
+    const tables = new Set(result.changes.map(change => change.table));
+    for (const table of tables) {
+      const changes = result.changes.filter(change => change.table === table);
+      const rows = changes.filter(change => !change.delete).map(change => {
+        const revision = result.rows.find(row => row.table === table && row.id === change.id)?.revision;
+        return table === SUPABASE_PRIVATE_PAYMENTS_TABLE
+          ? { record_id: change.id, amount: change.data.amount, received_date: change.data.receivedDate, revision }
+          : { id: change.id, data: change.data, revision };
+      });
+      applyChangedSupabaseRecords(table, changes.map(change => change.id), rows);
+    }
+    saveLocalPricingLoanHistory(); saveLocalPricingOfferHistory(); saveLocalPricingOrderHistory();
+    saveLocalPricingComplaintHistory(); saveLocalPricingPcprList(); saveLocalCapdHistory();
+    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
+    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
+    saveLocalPrivatePayments();
+    const documentKinds = new Map([[SUPABASE_OFFER_HISTORY_TABLE, "offer"], [SUPABASE_LOAN_CONTRACT_TABLE, "loan"],
+      [SUPABASE_ORDER_HISTORY_TABLE, "order"], [SUPABASE_COMPLAINT_HISTORY_TABLE, "complaint"]]);
+    for (const table of tables) {
+      const kind = documentKinds.get(table);
+      if (kind) markAgreementDraftDirty(kind);
+    }
+    renderCapdHistory(); renderPricingPcprList(); renderPricingLoanHistory(); renderPricingDocumentHistory();
+    setConnectionStatus("online", "Cofnięto ostatni zapis");
+  } catch (error) { alert(`Nie cofnięto zapisu: ${error.message}`); }
+  finally { updateSavedUndoButton(); }
 }
 
 function currentTabNavigation() {
@@ -26340,8 +26507,8 @@ offerDuplicateFirstBtn?.addEventListener("click", () => {
 offerMoveRightToLeftBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput1, offerDeviceInput2, "P"));
 offerMoveLeftToRightBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput2, offerDeviceInput1, "L"));
 newPricingOfferBtn?.addEventListener("click", startNewPricingOffer);
-savePricingOfferBtn?.addEventListener("click", () => saveCurrentPricingOfferToHistory());
-printPricingOfferBtn?.addEventListener("click", printPricingOffer);
+savePricingOfferBtn?.addEventListener("click", () => withSavedUndo("Oferta", () => saveCurrentPricingOfferToHistory()));
+printPricingOfferBtn?.addEventListener("click", () => withSavedUndo("Oferta", printPricingOffer));
 loanContractNumberInput?.addEventListener("input", () => {
   loanContractNumberInput.dataset.autoNumber = "";
   updateLoanContractNumberValidity();
@@ -26492,9 +26659,9 @@ loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "
 newPricingLoanBtn?.addEventListener("click", startNewPricingLoan);
 savePricingLoanBtn?.addEventListener("click", () => {
   if (!validatePricingLoanForAction()) return;
-  void saveCurrentPricingLoanToHistory();
+  void withSavedUndo("Umowa i wypożyczenie", () => saveCurrentPricingLoanToHistory());
 });
-printPricingLoanBtn?.addEventListener("click", () => void printPricingLoan());
+printPricingLoanBtn?.addEventListener("click", () => void withSavedUndo("Umowa i wypożyczenie", printPricingLoan));
 pricingHistorySearchInput?.addEventListener("input", debounce(renderPricingDocumentHistory, SEARCH_DEBOUNCE_MS));
 pricingHistoryTypeFilter?.addEventListener("change", renderPricingDocumentHistory);
 pricingHistoryYearFilter?.addEventListener("change", renderPricingDocumentHistory);
@@ -26565,8 +26732,8 @@ addOrderItemBtn?.addEventListener("click", () => {
 });
 orderCopyOfferBtn?.addEventListener("click", copyPricingOfferToOrder);
 newPricingOrderBtn?.addEventListener("click", resetPricingOrderForm);
-savePricingOrderBtn?.addEventListener("click", () => withFreshRepairRecords(savePricingOrderAndRepairNotebook));
-printPricingOrderBtn?.addEventListener("click", () => withFreshRepairRecords(printPricingOrder));
+savePricingOrderBtn?.addEventListener("click", () => withSavedUndo("Zamówienie i Serwis", () => withFreshRepairRecords(savePricingOrderAndRepairNotebook)));
+printPricingOrderBtn?.addEventListener("click", () => withSavedUndo("Zamówienie i Serwis", () => withFreshRepairRecords(printPricingOrder)));
 complaintNumberInput?.addEventListener("input", () => {
   complaintNumberInput.dataset.autoNumber = "";
 }, { capture: true });
@@ -26689,8 +26856,8 @@ document.querySelectorAll(".complaint-editor-table tbody > tr:not(.complaint-war
 addComplaintItemBtn?.addEventListener("click", addPricingComplaintItem);
 removeComplaintItemBtn1?.addEventListener("click", () => removePricingComplaintItem(1));
 removeComplaintItemBtn2?.addEventListener("click", () => removePricingComplaintItem(2));
-savePricingComplaintBtn?.addEventListener("click", () => withFreshRepairRecords(savePricingComplaintAndRepairNotebook));
-printPricingComplaintBtn?.addEventListener("click", () => withFreshRepairRecords(printPricingComplaint));
+savePricingComplaintBtn?.addEventListener("click", () => withSavedUndo("Reklamacja i Serwis", () => withFreshRepairRecords(savePricingComplaintAndRepairNotebook)));
+printPricingComplaintBtn?.addEventListener("click", () => withSavedUndo("Reklamacja i Serwis", () => withFreshRepairRecords(printPricingComplaint)));
 printDemoChecklistBtn.addEventListener("click", printDemoChecklist);
 showMoreDemoBtn.addEventListener("click", () => showMoreTableRows("demo", renderDemoRecords));
 showMoreDataControlBtn.addEventListener("click", () => showMoreTableRows("dataControl", renderDataControlView));
@@ -26732,10 +26899,13 @@ deleteRepairBtn.addEventListener("click", deleteCurrentRepairRecord);
 deleteDemoBtn.addEventListener("click", deleteCurrentDemoRecord);
 duplicateDemoBtn.addEventListener("click", duplicateCurrentDemoRecord);
 moveToDevicesBtn.addEventListener("click", moveCurrentDemoRecordToDevices);
-recordForm.addEventListener("submit", saveFormRecord);
+recordForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void withSavedUndo("Aparaty", () => saveFormRecord(event));
+});
 repairForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  withFreshRepairRecords(() => saveRepairFormRecord(event));
+  void withSavedUndo("Serwis", () => withFreshRepairRecords(() => saveRepairFormRecord(event)));
 });
 ["#repairReceivedDate", "#repairCustomerName", "#repairSerialNumber", "#repairSerialNumber2"].forEach((selector) => {
   const input = document.querySelector(selector);
@@ -26743,7 +26913,10 @@ repairForm.addEventListener("submit", (event) => {
     input?.addEventListener(eventName, () => scheduleNearbyEntryWarning("repairs"));
   });
 });
-demoForm.addEventListener("submit", saveDemoFormRecord);
+demoForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void withSavedUndo("Demo", () => saveDemoFormRecord(event));
+});
 recordForm.addEventListener("click", handleClearDateClick);
 repairForm.addEventListener("click", handleClearDateClick);
 demoForm.addEventListener("click", handleClearDateClick);
@@ -26925,6 +27098,7 @@ document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", (
 });
 
 setupDatePickers();
+setupFormUndo();
 fillStockAuditForm();
 updateScrollTopButton();
 
@@ -26936,6 +27110,7 @@ notebookSwitchButtons.forEach((button) => {
   });
 });
 document.querySelector("#previousTabBtn")?.addEventListener("click", returnToPreviousTab);
+document.querySelector("#undoSavedBtn")?.addEventListener("click", undoLastSavedChange);
 
 workTimeForm?.addEventListener("submit", saveWorkTimeRecord);
 workTimeStartSaveBtn?.addEventListener("click", (event) => void saveWorkTimeRecord(event, { startOnly: true }));
@@ -27132,7 +27307,7 @@ capdPatientInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
 });
 resetCapdFormBtn?.addEventListener("click", resetCapdForm);
-saveCapdHistoryBtn?.addEventListener("click", saveCurrentCapdToHistory);
+saveCapdHistoryBtn?.addEventListener("click", () => withSavedUndo("APD — wynik badania", saveCurrentCapdToHistory));
 printCapdReportBtn?.addEventListener("click", printCapdReport);
 capdHistorySearchInput?.addEventListener("input", debounce(renderCapdHistory, SEARCH_DEBOUNCE_MS));
 capdHistoryStatusFilter?.addEventListener("click", (event) => {
