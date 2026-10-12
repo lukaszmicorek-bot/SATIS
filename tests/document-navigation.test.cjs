@@ -303,6 +303,7 @@ test('history renderers and previews refuse anonymous access but permit authenti
   const ctx = setup();
   ctx.pricingHistorySelectableEntries = new Map();
   ctx.renderPricingHistoryRelations = () => {};
+  ctx.renderActivePricingLoans = () => {};
   ctx.owner = false;
   ctx.currentSupabaseUser = null;
   for (const name of ['loanHistoryList', 'offerHistoryList', 'orderHistoryList', 'complaintHistoryList', 'loanHistoryCount', 'loanDeadlineSummary']) {
