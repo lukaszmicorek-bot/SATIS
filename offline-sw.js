@@ -1,12 +1,12 @@
 /* Static shell only. Never cache API responses, uploaded files or user data. */
-const VERSION = "20261012-10";
+const VERSION = "20261012-11";
 const CACHE = `satis-shell-${VERSION}`;
 const SDK = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
 const SDK_INTEGRITY = "sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP";
 const ASSETS = ["index.html", "app.js", "data-layer.js", "sync-layer.js", "offline-vault.js", "offline-forms.js",
   "styles.css", "supabase-config.js", "InterVariable.woff2", "InterVariable-Italic.woff2", "satis-monogram.png",
   "favicon-32.png", "favicon.png", "favicon.svg", "apple-touch-icon.png",
-  "manufacturer-logos/audio-service.png", "manufacturer-logos/audibel.png", "manufacturer-logos/beltone.png",
+  "manufacturer-logos/audio-service.png", "manufacturer-logos/audibel.png", "manufacturer-logos/audibel-offer.jpeg", "manufacturer-logos/beltone.png",
   "manufacturer-logos/bernafon.png", "manufacturer-logos/bernafon-offer.svg", "manufacturer-logos/oticon.png",
   "manufacturer-logos/philips.svg", "manufacturer-logos/phonak.png", "manufacturer-logos/resound.png",
   "manufacturer-logos/resound-offer.png", "manufacturer-logos/signia.png", "manufacturer-logos/sonic.png",
