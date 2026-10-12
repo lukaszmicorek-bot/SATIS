@@ -2718,6 +2718,17 @@ h2 {
   gap: 6px;
 }
 
+.previous-tab-button {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.previous-tab-button:disabled { opacity: 0.4; cursor: default; }
+@media print { .previous-tab-button { display: none !important; } }
+
 .capd-stage-tiles button {
   --stage-text: #48606a;
   --stage-bg: #f1f4f5;
