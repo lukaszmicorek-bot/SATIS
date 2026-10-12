@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261012-11">
+  <link rel="stylesheet" href="styles.css?v=20261012-12">
   </head>
   <body>
     <main class="app-shell">
@@ -1237,6 +1237,7 @@
             <section class="offer-builder rodo-builder" aria-label="Dane do formularza RODO">
               <div class="rodo-form-grid">
                 <label class="person-name-field"><span>Imię i nazwisko</span><input id="rodoNameInput" type="text" list="customerNameSuggestions" autocomplete="off" placeholder="Imię i nazwisko"></label>
+                <label><span>PESEL</span><input id="rodoPeselInput" type="text" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="11 cyfr (opcjonalnie)"></label>
                 <label><span>Data urodzenia</span><input id="rodoBirthDateInput" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
                 <label><span>Telefon</span><input id="rodoPhoneInput" type="tel" autocomplete="off" placeholder="Numer telefonu"></label>
                 <label class="rodo-address-field"><span>Adres</span><input id="rodoAddressInput" type="text" autocomplete="off" placeholder="Ulica, numer, kod pocztowy, miejscowość"></label>
@@ -1310,7 +1311,7 @@
                   <p>Zgoda jest dobrowolna i może zostać w każdej chwili wycofana.</p></div>
                 <div class="rodo-signatures">
                   <p><strong data-rodo-out="name"></strong><span>Imię i nazwisko klienta</span></p>
-                  <p><strong data-rodo-out="birthDate"></strong><span>Data urodzenia</span></p>
+                  <p><strong data-rodo-out="birthIdentity"></strong><span>Data urodzenia / PESEL</span></p>
                   <p><strong data-rodo-out="phone"></strong><span>Numer telefonu</span></p>
                   <p><strong data-rodo-out="address"></strong><span>Adres</span></p>
                   <p><strong data-rodo-out="placeDate"></strong><span>Miejscowość i data</span></p>
@@ -3138,11 +3139,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261012-11"></script>
-    <script src="data-layer.js?v=20261012-11"></script>
-    <script src="sync-layer.js?v=20261012-11"></script>
-    <script src="offline-vault.js?v=20261012-11"></script>
-    <script src="offline-forms.js?v=20261012-11"></script>
-  <script src="app.js?v=20261012-11"></script>
+    <script src="supabase-config.js?v=20261012-12"></script>
+    <script src="data-layer.js?v=20261012-12"></script>
+    <script src="sync-layer.js?v=20261012-12"></script>
+    <script src="offline-vault.js?v=20261012-12"></script>
+    <script src="offline-forms.js?v=20261012-12"></script>
+  <script src="app.js?v=20261012-12"></script>
   </body>
 </html>

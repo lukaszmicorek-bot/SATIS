@@ -9040,11 +9040,12 @@ function renderPricingRodo() {
   if (!print) return;
   const name = document.querySelector("#rodoNameInput")?.value.trim() || "";
   const birthDate = document.querySelector("#rodoBirthDateInput")?.value || "";
+  const pesel = document.querySelector("#rodoPeselInput")?.value.trim() || "";
   const phone = document.querySelector("#rodoPhoneInput")?.value.trim() || "";
   const address = document.querySelector("#rodoAddressInput")?.value.trim() || "";
   const city = document.querySelector("#rodoCityInput")?.value.trim() || "";
   const date = document.querySelector("#rodoDateInput")?.value || "";
-  const outputs = { name, birthDate: birthDate ? formatDate(birthDate) : "", phone, address, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
+  const outputs = { name, birthIdentity: [birthDate ? formatDate(birthDate) : "", pesel ? `PESEL: ${pesel}` : ""].filter(Boolean).join(" · "), phone, address, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
   print.querySelectorAll("[data-rodo-out]").forEach((element) => {
     element.textContent = outputs[element.dataset.rodoOut] || "";
   });
