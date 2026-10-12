@@ -20244,7 +20244,7 @@ function renderCapdHistory() {
     title.textContent = entry.patient;
     const meta = document.createElement("span");
     const ageLabel = entry.age === "" ? "wiek -" : formatCapdAge(Number(entry.age));
-    meta.textContent = `${formatDate(entry.testDate)} · PESEL ${maskSensitiveIdentifier(entry.pesel)} · ${ageLabel}`;
+    meta.textContent = `Data badania: ${formatDate(entry.testDate)} · PESEL ${maskSensitiveIdentifier(entry.pesel)} · ${ageLabel}`;
     const context = document.createElement("div");
     context.className = "capd-history-context";
     if (entry.location) {
@@ -20265,15 +20265,6 @@ function renderCapdHistory() {
     audit.className = "capd-history-audit";
     audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
     main.append(title, meta, context, results, audit);
-    if (entry.status === "ODEBRANO") {
-      const pickup = document.createElement("time");
-      pickup.className = "capd-history-pickup";
-      if (entry.pickedUpAt) pickup.dateTime = entry.pickedUpAt;
-      pickup.textContent = entry.pickedUpAt
-        ? `Odebrano: ${formatAuditDateTime(entry.pickedUpAt)}`
-        : "Odebrano: brak zapisanej daty";
-      main.append(pickup);
-    }
 
     const actions = document.createElement("div");
     actions.className = "capd-history-actions";
@@ -20289,6 +20280,16 @@ function renderCapdHistory() {
     stageSelect.value = entry.status;
     stageSelect.addEventListener("change", () => changeCapdHistoryStatus(entry.id, stageSelect.value, stageSelect));
     stage.append(stageLabel, stageSelect);
+    if (entry.status === "ODEBRANO") {
+      const pickup = document.createElement("time");
+      pickup.className = "capd-history-pickup";
+      const pickedUpAt = entry.pickedUpAt || entry.statusUpdatedAt;
+      if (pickedUpAt) pickup.dateTime = pickedUpAt;
+      pickup.textContent = pickedUpAt
+        ? `Odbiór: ${formatAuditDateTime(pickedUpAt)}`
+        : "Odbiór: brak zapisanej daty";
+      stage.append(pickup);
+    }
     actions.append(stage);
     const openButton = document.createElement("button");
     openButton.type = "button";

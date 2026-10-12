@@ -2650,10 +2650,11 @@ h2 {
   white-space: nowrap;
 }
 
-.capd-history-main .capd-history-pickup {
+.capd-history-stage .capd-history-pickup {
   color: #007b78;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.4;
 }
 
 .capd-history-main .capd-history-audit {
