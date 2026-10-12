@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261012-4">
+  <link rel="stylesheet" href="styles.css?v=20261012-5">
   </head>
   <body>
     <main class="app-shell">
@@ -2302,16 +2302,15 @@
                 <span>Szukaj</span>
                 <input id="capdHistorySearchInput" type="search" placeholder="Imię i nazwisko, PESEL lub data" autocomplete="off">
               </label>
-              <label class="capd-history-filter">
+              <div class="capd-history-filter">
                 <span>Etap</span>
-                <select id="capdHistoryStatusFilter">
-                  <option value="">Wszystkie</option>
-                  <option value="OPIS">Opis</option>
-                  <option value="DO_ODBIORU">Do odbioru</option>
-                  <option value="ODEBRANO">Odebrano</option>
-                  <option value="BEZ_ETAPU">Bez etapu</option>
-                </select>
-              </label>
+                <div id="capdHistoryStatusFilter" class="capd-stage-tiles" role="group" aria-label="Filtr etapu APD" data-value="">
+                  <button type="button" data-stage="" aria-pressed="true">Wszystkie</button>
+                  <button type="button" data-stage="OPIS" aria-pressed="false">Opis</button>
+                  <button type="button" data-stage="DO_ODBIORU" aria-pressed="false">Do odbioru</button>
+                  <button type="button" data-stage="ODEBRANO" aria-pressed="false">Odebrano</button>
+                </div>
+              </div>
             </div>
             <div id="capdHistoryList" class="capd-history-list"></div>
             <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych badań APD.</p>
@@ -3116,11 +3115,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261012-4"></script>
-    <script src="data-layer.js?v=20261012-4"></script>
-    <script src="sync-layer.js?v=20261012-4"></script>
-    <script src="offline-vault.js?v=20261012-4"></script>
-    <script src="offline-forms.js?v=20261012-4"></script>
-  <script src="app.js?v=20261012-4"></script>
+    <script src="supabase-config.js?v=20261012-5"></script>
+    <script src="data-layer.js?v=20261012-5"></script>
+    <script src="sync-layer.js?v=20261012-5"></script>
+    <script src="offline-vault.js?v=20261012-5"></script>
+    <script src="offline-forms.js?v=20261012-5"></script>
+  <script src="app.js?v=20261012-5"></script>
   </body>
 </html>
