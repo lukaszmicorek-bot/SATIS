@@ -9035,13 +9035,38 @@ function switchPricingView(viewName) {
   if (activePricingView === "history") renderPricingDocumentHistory();
 }
 
+function formatRodoPhone(value) {
+  const text = String(value ?? "").trim();
+  const digits = text.replace(/\D/g, "");
+  return /^(?:48|0048)?\d{9}$/u.test(digits) ? formatPcprPhone(text) : text;
+}
+
+function updateRodoFromPesel() {
+  const input = document.querySelector("#rodoPeselInput");
+  const birthInput = document.querySelector("#rodoBirthDateInput");
+  if (!input || !birthInput) return;
+  const pesel = normalizeLoanIdentityValue(input.value);
+  input.value = pesel;
+  const valid = isValidPesel(pesel);
+  input.setCustomValidity(pesel && !valid ? "Nieprawidłowy PESEL. Sprawdź 11 cyfr numeru." : "");
+  input.setAttribute("aria-invalid", String(Boolean(pesel && !valid)));
+  if (valid) {
+    setDateInputValue(birthInput, peselBirthDate(pesel).toISOString().slice(0, 10));
+    birthInput.dataset.rodoPeselDate = birthInput.value;
+  } else if (birthInput.dataset.rodoPeselDate === birthInput.value) {
+    setDateInputValue(birthInput, "");
+    delete birthInput.dataset.rodoPeselDate;
+  }
+  renderPricingRodo();
+}
+
 function renderPricingRodo() {
   const print = document.querySelector("#pricingRodoPrint");
   if (!print) return;
   const name = document.querySelector("#rodoNameInput")?.value.trim() || "";
   const birthDate = document.querySelector("#rodoBirthDateInput")?.value || "";
   const pesel = document.querySelector("#rodoPeselInput")?.value.trim() || "";
-  const phone = document.querySelector("#rodoPhoneInput")?.value.trim() || "";
+  const phone = formatRodoPhone(document.querySelector("#rodoPhoneInput")?.value);
   const address = document.querySelector("#rodoAddressInput")?.value.trim() || "";
   const city = document.querySelector("#rodoCityInput")?.value.trim() || "";
   const date = document.querySelector("#rodoDateInput")?.value || "";
@@ -9062,10 +9087,12 @@ function resetPricingRodo() {
     else input.value = "";
   });
   setDateInputValue("#rodoDateInput", todayInputValue());
-  renderPricingRodo();
+  updateRodoFromPesel();
 }
 
 async function printPricingRodo() {
+  updateRodoFromPesel();
+  if (!document.querySelector("#rodoPeselInput")?.reportValidity()) return false;
   renderPricingRodo();
   const cleanup = () => document.body.classList.remove("rodo-print");
   document.body.classList.add("rodo-print");
@@ -27434,6 +27461,14 @@ tabButtons.forEach((button) => {
   });
 });
 pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("input", renderPricingRodo);
+document.querySelector("#rodoPeselInput")?.addEventListener("input", updateRodoFromPesel);
+document.querySelector("#rodoBirthDateInput")?.addEventListener("input", (event) => {
+  delete event.target.dataset.rodoPeselDate;
+});
+document.querySelector("#rodoPhoneInput")?.addEventListener("blur", (event) => {
+  event.target.value = formatRodoPhone(event.target.value);
+  renderPricingRodo();
+});
 document.querySelector("#rodoNameInput")?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
   renderPricingRodo();
