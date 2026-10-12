@@ -192,6 +192,9 @@ test('APD records pickup time and clears it when reopening the study', async () 
   await scope.changeCapdHistoryStatus('study', 'OPIS', {});
   assert.equal(scope.capdHistory[0].pickedUpAt, '');
   assert.match(app, /pickedUpAt: existing\?\.pickedUpAt \|\| ""/);
+  assert.match(app, /stage\.append\(pickup\)/);
+  assert.match(app, /const pickedUpAt = entry\.pickedUpAt \|\| entry\.statusUpdatedAt/);
+  assert.match(app, /Data badania: \$\{formatDate\(entry\.testDate\)\}/);
 });
 
 test('APD phone notification applies only to the current ready-for-pickup stage', async () => {
