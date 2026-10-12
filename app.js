@@ -1481,7 +1481,9 @@ function updatePrivateModulesVisibility() {
     if (pricingHistoryView) pricingHistoryView.hidden = true;
     if (pricingHistoryPreviewDialog?.open) pricingHistoryPreviewDialog.close();
     pricingHistoryPreviewContent?.replaceChildren();
-    [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList].forEach((list) => list?.replaceChildren());
+    [loanHistoryList, offerHistoryList, orderHistoryList, complaintHistoryList, document.querySelector("#loanActiveList")].forEach((list) => list?.replaceChildren());
+    const activeLoanSection = document.querySelector("#loanActiveSection");
+    if (activeLoanSection) activeLoanSection.hidden = true;
   }
   if (!ownerVisible) {
     workTimeRecords = [];
@@ -10648,7 +10650,70 @@ function pricingHistoryDuplicateLookup(entries, kind) {
   };
 }
 
+function activePricingLoanEntries(entries, today = todayInputValue()) {
+  return entries.filter(entry => {
+    const start = isoDateForSave(entry.periodFrom || entry.date);
+    const returned = isoDateForSave(entry.returnDate);
+    return (!start || start <= today) && !(returned && returned <= today && (!start || returned >= start));
+  }).sort((a, b) => {
+    const endA = isoDateForSave(a.periodTo) || "9999-12-31";
+    const endB = isoDateForSave(b.periodTo) || "9999-12-31";
+    return endA.localeCompare(endB) || String(b.date || "").localeCompare(String(a.date || ""));
+  });
+}
+
+function renderActivePricingLoans() {
+  const section = document.querySelector("#loanActiveSection");
+  const list = document.querySelector("#loanActiveList");
+  const count = document.querySelector("#loanActiveCount");
+  if (!section || !list || !count) return;
+  section.hidden = !canViewDocumentHistory();
+  if (section.hidden) { list.replaceChildren(); count.textContent = ""; return; }
+  const entries = activePricingLoanEntries(normalizePricingLoanHistory(pricingLoanHistory));
+  count.textContent = `(${entries.length})`;
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "loan-history-empty";
+    empty.textContent = "Brak aktywnych umów.";
+    list.replaceChildren(empty);
+    return;
+  }
+  const createItem = entry => {
+    const item = document.createElement("article");
+    item.className = "loan-history-item loan-active-item";
+    const content = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = entry.customer || "Brak imienia i nazwiska";
+    const meta = document.createElement("small");
+    meta.textContent = [entry.number ? `nr ${entry.number}` : "Bez numeru", entry.location || entry.city,
+      `Okres: ${formatDate(entry.periodFrom) || "—"} – ${formatDate(entry.periodTo) || "—"}`].filter(Boolean).join(" · ");
+    const model = document.createElement("span");
+    model.textContent = pricingLoanHistoryDeviceLabel(entry);
+    content.append(title, meta, model);
+    const status = pricingLoanDeadlineStatus(entry);
+    if (status) {
+      const badge = document.createElement("span");
+      badge.className = `loan-deadline-badge ${status.level}`;
+      badge.textContent = status.label;
+      item.classList.add(`loan-deadline-${status.level}`);
+      content.append(badge);
+    }
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "reset-filters-btn loan-history-open";
+    open.textContent = "Otwórz";
+    open.addEventListener("click", () => {
+      restorePricingLoanFromHistory(entry);
+      pricingLoanView?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+    item.append(content, open);
+    return item;
+  };
+  list.replaceChildren(...yearGroupedListNodes(entries, createItem, entry => entry.date || entry.periodFrom));
+}
+
 function renderPricingLoanHistory(deferRelations = false) {
+  renderActivePricingLoans();
   if (!loanHistoryList || !loanHistoryCount) return;
   pricingHistorySelectableEntries.forEach((value, key) => {
     if (value.kind === "loan") pricingHistorySelectableEntries.delete(key);
@@ -12682,6 +12747,7 @@ function renderPricingLoan() {
   setLoanOutput("deductionReason", deductionReason);
   setLoanOutput("depositReturnDate", loanDateText(loanDepositReturnDateInput));
   renderPricingLoanEquipment(visibleDevices);
+  renderActivePricingLoans();
   if (pricingHistoryView && !pricingHistoryView.hidden) renderPricingLoanHistory();
   updatePricingLoanRequiredHighlights();
 
