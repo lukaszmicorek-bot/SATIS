@@ -681,6 +681,7 @@ h2 {
 
 .notebook-navigation {
   display: flex;
+  flex: 1;
   min-width: 0;
   align-items: center;
   flex-wrap: wrap;
@@ -2719,13 +2720,23 @@ h2 {
 }
 
 .previous-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
   min-height: 30px;
   padding: 4px 10px;
   font-size: 12px;
   border-radius: 6px;
   flex-shrink: 0;
+  color: #006b6b;
+  background: #e6f4f2;
+  border: 1px solid #bddbd6;
 }
 
+.previous-tab-button:not(:disabled):hover { background: #d6ece8; border-color: #78b5ad; }
+.previous-tab-button:focus-visible { outline: 2px solid #007a7a; outline-offset: 2px; }
 .previous-tab-button:disabled { opacity: 0.4; cursor: default; }
 @media print { .previous-tab-button { display: none !important; } }
 
