@@ -2738,6 +2738,27 @@ h2 {
 .previous-tab-button:not(:disabled):hover { background: #d6ece8; border-color: #78b5ad; }
 .previous-tab-button:focus-visible { outline: 2px solid #007a7a; outline-offset: 2px; }
 .previous-tab-button:disabled { opacity: 0.4; cursor: default; }
+.undo-saved-button,
+.undo-form-button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #003f5a;
+  background: #edf3f5;
+  border: 1px solid #c4d6df;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.undo-saved-button:disabled,
+.undo-form-button:disabled { opacity: 0.4; cursor: default; }
+.form-undo-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+}
+@media print { .form-undo-tools, .undo-saved-button { display: none !important; } }
 @media print { .previous-tab-button { display: none !important; } }
 
 .capd-stage-tiles button {
