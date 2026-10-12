@@ -6559,6 +6559,113 @@ function yearGroupedListNodes(items, createItem, getDate) {
   ]);
 }
 
+function localRowOrderStorageKey(tableKey) {
+  return `satis-row-order-v1:${currentSupabaseUser?.id || "local"}:${tableKey}`;
+}
+
+function readLocalRowOrder(tableKey) {
+  if (!canViewPrivateModules()) return [];
+  try {
+    const value = JSON.parse(localStorage.getItem(localRowOrderStorageKey(tableKey)) || "[]");
+    return Array.isArray(value) ? [...new Set(value.filter(id => typeof id === "string"))] : [];
+  } catch { return []; }
+}
+
+function applyLocalRowOrder(items, tableKey) {
+  const order = readLocalRowOrder(tableKey);
+  if (!order.length) return items;
+  const ranks = new Map(order.map((id, index) => [id, index]));
+  const ranked = items.filter(item => ranks.has(item.id)).sort((a, b) => ranks.get(a.id) - ranks.get(b.id));
+  let index = 0;
+  return items.map(item => ranks.has(item.id) ? ranked[index++] : item);
+}
+
+function moveLocalTableRow(tableKey, items, sourceId, targetId, after = false) {
+  if (!canViewPrivateModules() || sourceId === targetId) return false;
+  const source = items.find(item => item.id === sourceId);
+  const target = items.find(item => item.id === targetId);
+  const year = item => (isoDateForSave(item?.receivedDate) || "").slice(0, 4);
+  if (!source || !target || year(source) !== year(target)) return false;
+  const ids = readLocalRowOrder(tableKey);
+  // Keep filtered-out rows in their saved positions; add only previously unseen IDs.
+  for (const item of items) if (!ids.includes(item.id)) ids.push(item.id);
+  ids.splice(ids.indexOf(sourceId), 1);
+  ids.splice(ids.indexOf(targetId) + Number(after), 0, sourceId);
+  try { localStorage.setItem(localRowOrderStorageKey(tableKey), JSON.stringify(ids)); }
+  catch { alert("Nie udało się zapamiętać kolejności w tej przeglądarce."); return false; }
+  return true;
+}
+
+function setupLocalRowDrag(body, items, tableKey) {
+  if (!body) return;
+  const rerender = () => tableKey === "devices" ? renderDeviceViews() : tableKey === "demo" ? renderDemoRecords() : renderRepairRecords();
+  const anchorIds = { devices: "resetDeviceFiltersBtn", demo: "resetDemoFiltersBtn", repairs: "resetRepairFiltersBtn" };
+  let reset = document.querySelector(`#resetRowOrder-${tableKey}`);
+  if (!reset && canViewPrivateModules()) {
+    reset = document.createElement("button");
+    reset.id = `resetRowOrder-${tableKey}`;
+    reset.type = "button";
+    reset.className = "reset-filters-btn";
+    reset.textContent = "Przywróć kolejność";
+    reset.addEventListener("click", () => {
+      try { localStorage.removeItem(localRowOrderStorageKey(tableKey)); }
+      catch { return; }
+      rerender();
+    });
+    document.getElementById(anchorIds[tableKey])?.after(reset);
+  }
+  if (reset) reset.hidden = !canViewPrivateModules() || !readLocalRowOrder(tableKey).length;
+  if (!canViewPrivateModules()) return;
+  const grouped = groupItemsByYear(items, item => item.receivedDate).flatMap(([, rows]) => rows);
+  const rows = [...body.querySelectorAll("tr:not(.year-separator-row)")];
+  let draggedId = "";
+  rows.forEach((row, index) => {
+    const record = grouped[index];
+    if (!record) return;
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "local-row-drag-handle";
+    handle.textContent = "⋮⋮";
+    handle.draggable = true;
+    handle.setAttribute("aria-label", "Przesuń wiersz");
+    handle.title = "Złap i puść. Klawiatura: strzałka w górę lub w dół. Kolejność tylko na tym komputerze.";
+    row.firstElementChild?.prepend(handle);
+    handle.addEventListener("dragstart", event => {
+      if (!canViewPrivateModules()) { event.preventDefault(); return; }
+      draggedId = record.id;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", record.id);
+      row.classList.add("local-row-dragging");
+    });
+    const clear = () => rows.forEach(item => item.classList.remove("local-row-drop-before", "local-row-drop-after", "local-row-dragging"));
+    handle.addEventListener("dragend", () => { draggedId = ""; clear(); });
+    row.addEventListener("dragover", event => {
+      const source = grouped.find(item => item.id === draggedId);
+      if (!source || draggedId === record.id || (source.receivedDate || "").slice(0, 4) !== (record.receivedDate || "").slice(0, 4)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      const after = event.clientY > row.getBoundingClientRect().top + row.offsetHeight / 2;
+      rows.forEach(item => item.classList.remove("local-row-drop-before", "local-row-drop-after"));
+      row.classList.add(after ? "local-row-drop-after" : "local-row-drop-before");
+    });
+    row.addEventListener("drop", event => {
+      event.preventDefault();
+      const after = row.classList.contains("local-row-drop-after");
+      clear();
+      if (moveLocalTableRow(tableKey, grouped, draggedId, record.id, after)) rerender();
+      draggedId = "";
+    });
+    handle.addEventListener("keydown", event => {
+      if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+      const down = event.key === "ArrowDown";
+      const target = grouped[index + (down ? 1 : -1)];
+      if (!target) return;
+      event.preventDefault();
+      if (moveLocalTableRow(tableKey, grouped, record.id, target.id, down)) rerender();
+    });
+  });
+}
+
 function yearGroupedTableRows(body, items, createRow, getDate) {
   return groupItemsByYear(items, getDate).flatMap(([year, yearItems]) => [
     createYearTableSeparator(body, year),
@@ -7977,10 +8084,11 @@ function render() {
 function renderDeviceViews() {
   updatePrivatePaymentVisibility();
   const searchCounts = renderSearchMatchSummary(searchInput, deviceSearchSummary);
-  const visibleRecords = filteredRecords();
+  const visibleRecords = applyLocalRowOrder(filteredRecords(), "devices");
   renderDeviceSearchFilterNotice(searchCounts?.devices || 0, visibleRecords.length);
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
   renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords, createRow, (record) => record.receivedDate));
+  setupLocalRowDrag(recordsBody, renderedRecords, "devices");
   emptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(databaseRenderNotice, databaseRenderText, visibleRecords.length, renderedRecords.length, "aparatów");
 }
@@ -8020,11 +8128,12 @@ function filteredDemoRecords() {
 
 function renderDemoRecords() {
   renderSearchMatchSummary(demoSearchInput, demoSearchSummary);
-  const visibleRecords = filteredDemoRecords();
+  const visibleRecords = applyLocalRowOrder(filteredDemoRecords(), "demo");
   const renderedRecords = visibleTableItems(visibleRecords, "demo");
   const agreementGroups = canViewDocumentHistory() ? demoLoanAgreementGroups() : new Map();
   renderTableRows(demoRecordsBody, yearGroupedTableRows(demoRecordsBody, renderedRecords,
     (record) => createDemoRow(record, agreementGroups.get(record.id)), (record) => record.receivedDate));
+  setupLocalRowDrag(demoRecordsBody, renderedRecords, "demo");
   demoEmptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(demoRenderNotice, demoRenderText, visibleRecords.length, renderedRecords.length, "aparatów demo");
   updateDemoChecklistState(visibleRecords);
@@ -8937,7 +9046,7 @@ function resetPricingRodo() {
     if (input.type === "radio" || input.type === "checkbox") input.checked = false;
     else input.value = "";
   });
-  document.querySelector("#rodoDateInput").value = todayInputValue();
+  setDateInputValue("#rodoDateInput", todayInputValue());
   renderPricingRodo();
 }
 
@@ -16378,11 +16487,12 @@ function isRepairClosed(record) {
 function renderRepairRecords() {
   hideRepairTimelinePreview();
   renderSearchMatchSummary(repairSearchInput, repairSearchSummary);
-  const visibleRecords = filteredRepairRecords();
+  const visibleRecords = applyLocalRowOrder(filteredRepairRecords(), "repairs");
   const openRecords = openRepairRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "repairs");
   const renderedOpenRecords = visibleTableItems(openRecords, "repairOpen");
   renderTableRows(repairRecordsBody, yearGroupedTableRows(repairRecordsBody, renderedRecords, createRepairRow, (record) => record.receivedDate));
+  setupLocalRowDrag(repairRecordsBody, renderedRecords, "repairs");
   renderTableRows(repairOpenRecordsBody, yearGroupedTableRows(repairOpenRecordsBody, renderedOpenRecords, createRepairOpenRow, (record) => record.receivedDate));
   repairEmptyState.hidden = visibleRecords.length > 0;
   repairOpenEmptyState.hidden = openRecords.length > 0;

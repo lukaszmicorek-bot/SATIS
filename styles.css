@@ -15469,6 +15469,26 @@ textarea {
   white-space: nowrap;
 }
 
+.local-row-drag-handle {
+  float: left;
+  width: 20px;
+  height: 26px;
+  padding: 0;
+  margin: 0 5px 0 0;
+  color: #6d8189;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: grab;
+  line-height: 1;
+}
+.local-row-drag-handle:hover, .local-row-drag-handle:focus-visible { color: #003f5a; background: #e3eff0; }
+.local-row-drag-handle:active { cursor: grabbing; }
+.local-row-dragging { opacity: .5; }
+.local-row-drop-before > td { box-shadow: inset 0 3px #007c80; }
+.local-row-drop-after > td { box-shadow: inset 0 -3px #007c80; }
+@media print { .local-row-drag-handle, [id^="resetRowOrder-"] { display: none !important; } }
+
 .nearby-entry-warning {
   min-width: 0;
   max-height: 170px;
