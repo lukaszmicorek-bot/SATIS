@@ -5066,7 +5066,7 @@ function nearbyEntryMatches(draft, entries) {
   return entries.flatMap((entry) => {
     if (draft.id && entry.id === draft.id) return [];
     const entryDate = isoDateForSave(entry.date);
-    if (!entryDate || Math.abs(Date.parse(entryDate) / 86400000 - day) > 3) return [];
+    if (!entryDate || Math.abs(Date.parse(entryDate) / 86400000 - day) > 7) return [];
     const sharedSerials = (entry.serials || []).filter((serial) => serials.has(serialDuplicateKey(serial)));
     const sameCustomer = hasFullName && customerNameLookupKey(entry.customer) === customer;
     if (!sharedSerials.length && !sameCustomer) return [];
@@ -5074,7 +5074,41 @@ function nearbyEntryMatches(draft, entries) {
   }).sort((left, right) => Number(Boolean(right.sharedSerials.length)) - Number(Boolean(left.sharedSerials.length)) || right.date.localeCompare(left.date));
 }
 
+function nearbyServiceEntries(kind = "", currentId = "", repairId = "") {
+  const entries = repairRecords.filter(record => record.id !== repairId
+    && !(currentId && record.sourceDocumentId === currentId && record.sourceDocumentType === kind.toUpperCase()))
+    .map(record => {
+      const info = repairDocumentInfo(record);
+      return { id: record.id, date: record.receivedDate, customer: record.customerName,
+        reference: info.number ? `${info.label} ${info.number}` : "Wpis serwisowy",
+        model: record.deviceName, serials: repairSerialNumbers(record) };
+    });
+  for (const [type, history, label] of [["order", pricingOrderHistory, "Zamówienie"], ["complaint", pricingComplaintHistory, "Reklamacja"]]) {
+    for (const entry of history) {
+      if (type === kind && entry.id === currentId) continue;
+      if (repairRecords.some(record => repairDocumentSourceMatches(record, type.toUpperCase(), entry.id, entry.number))) continue;
+      entries.push({ id: `${type}:${entry.id}`, date: entry.date, customer: entry.customer,
+        reference: `${label} ${entry.number || "bez numeru"}`,
+        model: (entry.items || []).map(item => item.productName || item.description || item.model).filter(Boolean).join(" / "),
+        serials: (entry.items || []).map(item => item.serial).filter(Boolean) });
+    }
+  }
+  return entries;
+}
+
 function nearbyEntryWarningData(source) {
+  if (source === "order" || source === "complaint") {
+    const isOrder = source === "order";
+    const identity = documentDraftIdentities.get(source);
+    return {
+      draft: { date: isOrder ? orderDateInput?.value : complaintDateInput?.value,
+        customer: isOrder ? orderCustomerInput?.value : complaintCustomerInput?.value,
+        serials: (isOrder ? pricingOrderFormItems() : complaintFormItems()).map(item => item.serial).filter(Boolean) },
+      entries: nearbyServiceEntries(source, identity?.id || ""),
+      customerInput: isOrder ? orderCustomerInput : complaintCustomerInput,
+      serialInputs: isOrder ? [] : [1, 2, 3].map(slot => complaintItemInputs(slot).serial)
+    };
+  }
   if (source === "loan") {
     return {
       draft: {
@@ -5100,21 +5134,15 @@ function nearbyEntryWarningData(source) {
       customer: document.querySelector("#repairCustomerName").value,
       serials: [document.querySelector("#repairSerialNumber").value, document.querySelector("#repairSerialNumber2").value]
     },
-    entries: repairRecords.map((record) => {
-      const info = repairDocumentInfo(record);
-      return {
-        id: record.id, date: record.receivedDate, customer: record.customerName,
-        reference: info.number ? `${info.label} ${info.number}` : "Wpis serwisowy",
-        model: record.deviceName, serials: repairSerialNumbers(record)
-      };
-    }),
+    entries: nearbyServiceEntries("", "", document.querySelector("#repairId").value),
     customerInput: document.querySelector("#repairCustomerName"),
     serialInputs: [document.querySelector("#repairSerialNumber"), document.querySelector("#repairSerialNumber2")]
   };
 }
 
 function renderNearbyEntryWarning(source) {
-  const panel = document.querySelector(source === "loan" ? "#loanNearbyWarning" : "#repairNearbyWarning");
+  const panels = { loan: "#loanNearbyWarning", order: "#orderNearbyWarning", complaint: "#complaintNearbyWarning", repairs: "#repairNearbyWarning" };
+  const panel = document.querySelector(panels[source]);
   if (!panel) return;
   const { draft, entries, customerInput, serialInputs } = nearbyEntryWarningData(source);
   const matches = nearbyEntryMatches(draft, entries);
@@ -5126,7 +5154,7 @@ function renderNearbyEntryWarning(source) {
     return;
   }
   const title = document.createElement("strong");
-  title.textContent = `Sprawdź podobne wpisy: ${matches.length} (do 3 dni różnicy)`;
+  title.textContent = `Sprawdź podobne wpisy: ${matches.length} (do 7 dni różnicy)`;
   const list = document.createElement("ul");
   matches.slice(0, 5).forEach((match) => {
     const item = document.createElement("li");
@@ -9278,10 +9306,11 @@ function confirmNearbyDocumentSave(kind, snapshot, existingEntry) {
   const history = { offer: pricingOfferHistory, order: pricingOrderHistory, complaint: pricingComplaintHistory }[kind];
   const serials = entry => (entry.items || []).map(item => item.serial).filter(Boolean);
   const date = entry => kind === "offer" ? entry.offerDate : entry.date;
-  const matches = nearbyEntryMatches({ id: snapshot.id, customer: snapshot.customer, date: date(snapshot), serials: serials(snapshot) },
-    history.map(entry => ({ id: entry.id, customer: entry.customer, date: date(entry), serials: serials(entry), number: entry.number })));
+  const entries = kind === "order" || kind === "complaint" ? nearbyServiceEntries(kind, snapshot.id)
+    : history.map(entry => ({ id: entry.id, customer: entry.customer, date: date(entry), serials: serials(entry), number: entry.number }));
+  const matches = nearbyEntryMatches({ id: snapshot.id, customer: snapshot.customer, date: date(snapshot), serials: serials(snapshot) }, entries);
   if (!matches.length) return true;
-  return confirm(`Podobne dokumenty w ciągu 3 dni:\n\n${matches.slice(0, 3).map(entry => `${entry.customer}, ${formatDate(entry.date)}${entry.number ? `, nr ${entry.number}` : ""}`).join("\n")}\n\nCzy na pewno chcesz zapisać nowy dokument zamiast edytować istniejący?`);
+  return confirm(`Podobne sprawy w ciągu 7 dni:\n\n${matches.slice(0, 5).map(entry => `${entry.sharedSerials.length ? `Ten sam nr ser.: ${entry.sharedSerials.join(" / ")}` : "Ta sama osoba"} · ${entry.reference || entry.number || "Dokument"} · ${entry.customer} · ${formatDate(entry.date)}`).join("\n")}\n\nSprawdź, czy to nowa sprawa czy uzupełnienie wcześniejszej. Zapisać mimo ostrzeżenia?`);
 }
 
 async function persistPricingOfferHistoryEntry(entry) {
@@ -14576,6 +14605,7 @@ function renderPricingOrderItems(items) {
 function renderPricingOrder() {
   if (!pricingOrderView) return;
   ensurePricingOrderDefaults();
+  scheduleNearbyEntryWarning("order");
   updateDocumentLocationAccent(orderLocationInput);
 
   const orderDate = isoDateForSave(orderDateInput?.value) || todayInputValue();
@@ -15643,6 +15673,7 @@ function renderPricingComplaintProducts(items) {
 function renderPricingComplaint() {
   if (!pricingComplaintView) return;
   ensurePricingComplaintDefaults();
+  scheduleNearbyEntryWarning("complaint");
   updateDocumentLocationAccent(complaintLocationInput);
 
   const complaintDate = isoDateForSave(complaintDateInput?.value) || todayInputValue();
@@ -24133,6 +24164,12 @@ async function saveRepairFormRecord(event) {
   if (existingDuplicate && JSON.stringify(repairDuplicateKeys(previousIdentity)) !== JSON.stringify(repairDuplicateKeys(data))) {
     alert(repairDuplicateMessage(existingDuplicate));
     return;
+  }
+  if (!previousIdentity || previousIdentity.receivedDate !== data.receivedDate
+    || customerNameLookupKey(previousIdentity.customerName) !== customerNameLookupKey(data.customerName)
+    || JSON.stringify(repairSerialNumbers(previousIdentity)) !== JSON.stringify(repairSerialNumbers(data))) {
+    const matches = nearbyEntryMatches({ date: data.receivedDate, customer: data.customerName, serials: repairSerialNumbers(data) }, nearbyServiceEntries("", "", id));
+    if (matches.length && !confirm(`Podobne sprawy w ciągu 7 dni:\n\n${matches.slice(0, 5).map(entry => `${entry.sharedSerials.length ? `Ten sam nr ser.: ${entry.sharedSerials.join(" / ")}` : "Ta sama osoba"} · ${entry.reference} · ${formatDate(entry.date)} · ${entry.customer}`).join("\n")}\n\nSprawdź wcześniejszy wpis. Zapisać mimo ostrzeżenia?`)) return;
   }
   if (!confirmRepairWarrantySave(data, id)) return;
   const previousRepairRecord = id ? auditSnapshot(repairRecords.find((record) => record.id === id)) : null;
