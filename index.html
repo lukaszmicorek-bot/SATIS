@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261012-9">
+  <link rel="stylesheet" href="styles.css?v=20261012-10">
   </head>
   <body>
     <main class="app-shell">
@@ -1965,7 +1965,7 @@
                 <span>Zestaw norm do badania</span>
                 <select id="capdNormSourceSelect">
                   <option value="neuroflow">Neuroflow / APD-Medical 2016–2017</option>
-                  <option value="table-pdf">Neuroflow — tabela wiekowa z PDF</option>
+                  <option value="table-pdf">Neuroflow — tabela wiekowa Neuroflow 2026</option>
                 </select>
               </label>
               <div id="capdNormReferenceContent" class="capd-norm-reference-content" hidden>
@@ -2207,21 +2207,39 @@
               <div class="capd-rich-text-head">
                 <span>Opis badania i wnioski</span>
                 <div id="capdDescriptionToolbar" class="capd-rich-text-toolbar" role="toolbar" aria-label="Formatowanie opisu">
+                  <div class="capd-toolbar-group" role="group" aria-label="Tekst">
+                  <button type="button" data-capd-format="bold" title="Pogrubienie (Ctrl+B / Cmd+B)" aria-label="Pogrubienie" aria-pressed="false"><strong>B</strong></button>
+                  <button type="button" data-capd-format="italic" title="Kursywa (Ctrl+I / Cmd+I)" aria-label="Kursywa" aria-pressed="false"><em>I</em></button>
+                  </div>
+                  <div class="capd-toolbar-group" role="group" aria-label="Akapity i listy">
                   <button class="capd-toolbar-text" type="button" data-capd-format="paragraph" title="Utwórz zwykły akapit" aria-label="Zwykły akapit">Akapit</button>
-                  <button type="button" data-capd-format="bold" title="Pogrubienie" aria-label="Pogrubienie" aria-pressed="false"><strong>B</strong></button>
-                  <button type="button" data-capd-format="italic" title="Kursywa" aria-label="Kursywa" aria-pressed="false"><em>I</em></button>
-                  <button type="button" data-capd-format="underline" title="Podkreślenie" aria-label="Podkreślenie" aria-pressed="false"><u>U</u></button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="heading" title="Śródtytuł, np. Wnioski lub Zalecenia" aria-label="Śródtytuł" aria-pressed="false">Śródtytuł</button>
                   <button class="capd-toolbar-text" type="button" data-capd-format="unordered" title="Lista punktowana" aria-label="Lista punktowana" aria-pressed="false">• Lista</button>
                   <button class="capd-toolbar-text" type="button" data-capd-format="ordered" title="Lista numerowana" aria-label="Lista numerowana" aria-pressed="false">1. Lista</button>
-                  <span class="capd-toolbar-divider" aria-hidden="true"></span>
+                  </div>
+                  <div class="capd-toolbar-group" role="group" aria-label="Wyrównanie">
                   <button class="capd-toolbar-text" type="button" data-capd-format="left" title="Wyrównaj do lewej" aria-label="Wyrównaj do lewej" aria-pressed="false">Lewo</button>
                   <button class="capd-toolbar-text" type="button" data-capd-format="center" title="Wyśrodkuj" aria-label="Wyśrodkuj" aria-pressed="false">Środek</button>
+                  </div>
+                  <details class="capd-toolbar-more">
+                    <summary>Więcej</summary>
+                    <div class="capd-toolbar-extra">
+                  <button type="button" data-capd-format="underline" title="Podkreślenie (Ctrl+U / Cmd+U)" aria-label="Podkreślenie" aria-pressed="false"><u>U</u></button>
                   <button class="capd-toolbar-text" type="button" data-capd-format="right" title="Wyrównaj do prawej" aria-label="Wyrównaj do prawej" aria-pressed="false">Prawo</button>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="selectAll" title="Zaznacz cały opis" aria-label="Zaznacz cały opis">Zaznacz wszystko</button>
+                  <div class="capd-toolbar-colors" role="group" aria-label="Kolor tekstu">
+                    <button type="button" class="capd-color-swatch" data-capd-color="#171717" style="--swatch: #171717" title="Czarny" aria-label="Czarny tekst"></button>
+                    <button type="button" class="capd-color-swatch" data-capd-color="#003f5a" style="--swatch: #003f5a" title="Granat" aria-label="Granatowy tekst"></button>
+                    <button type="button" class="capd-color-swatch" data-capd-color="#007a7a" style="--swatch: #007a7a" title="Turkus" aria-label="Turkusowy tekst"></button>
+                    <button type="button" class="capd-color-swatch" data-capd-color="#b52d43" style="--swatch: #b52d43" title="Czerwony" aria-label="Czerwony tekst"></button>
                   <label class="capd-rich-text-color" title="Kolor tekstu">
                     <span>Kolor</span>
                     <input id="capdDescriptionColor" type="color" value="#003f5a" aria-label="Kolor tekstu">
                   </label>
-                  <button class="capd-toolbar-text" type="button" data-capd-format="clear" title="Wyczyść formatowanie zaznaczonego tekstu" aria-label="Wyczyść formatowanie">Wyczyść</button>
+                  </div>
+                  <button class="capd-toolbar-text" type="button" data-capd-format="clear" title="Usuń formatowanie zaznaczenia bez usuwania treści" aria-label="Usuń formatowanie">Usuń format</button>
+                    </div>
+                  </details>
                 </div>
               </div>
               <div id="capdDescriptionInput" class="capd-rich-text-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Podsumowanie wyników, obserwacje i zalecenia"></div>
@@ -3120,11 +3138,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261012-9"></script>
-    <script src="data-layer.js?v=20261012-9"></script>
-    <script src="sync-layer.js?v=20261012-9"></script>
-    <script src="offline-vault.js?v=20261012-9"></script>
-    <script src="offline-forms.js?v=20261012-9"></script>
-  <script src="app.js?v=20261012-9"></script>
+    <script src="supabase-config.js?v=20261012-10"></script>
+    <script src="data-layer.js?v=20261012-10"></script>
+    <script src="sync-layer.js?v=20261012-10"></script>
+    <script src="offline-vault.js?v=20261012-10"></script>
+    <script src="offline-forms.js?v=20261012-10"></script>
+  <script src="app.js?v=20261012-10"></script>
   </body>
 </html>

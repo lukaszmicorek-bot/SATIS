@@ -178,7 +178,7 @@ const CAPD_TABLE_PDF_VALUES = Object.fromEntries([
   [10, 400, 400, -2, -1, 80, 65, 60, 6, 25],
   [11, 400, 400, -3, -2, 80, 70, 65, 6, 20]
 ].map(([age, trw, trs, words, sentences, right, left, fpt, gdt, dlf]) => {
-  const source = "Neuroflow — tabela wiekowa z przekazanego PDF";
+  const source = "Neuroflow — tabela wiekowa Neuroflow 2026";
   const values = { TRW: trw, TRS: trs, "ASPN-S": words, "ASPN-Z": sentences, FPT: fpt, GDT: gdt, DLF: dlf };
   const definitions = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null)
     .map(([code, value]) => [code, { value: `${code === "FPT" ? "≥" : "≤"} ${value}`, source,
@@ -19429,7 +19429,7 @@ function sanitizeCapdRichText(value) {
   const template = document.createElement("template");
   template.innerHTML = String(value || "");
   const output = document.createElement("div");
-  const allowedTags = new Set(["P", "DIV", "BR", "UL", "OL", "LI", "STRONG", "B", "EM", "I", "U", "SPAN", "FONT"]);
+  const allowedTags = new Set(["P", "DIV", "BR", "UL", "OL", "LI", "STRONG", "B", "EM", "I", "U", "SPAN", "FONT", "H3"]);
   const copyNode = (node, target) => {
     if (node.nodeType === Node.TEXT_NODE) {
       target.append(document.createTextNode(node.textContent || ""));
@@ -19504,6 +19504,12 @@ function updateCapdDescriptionToolbarState() {
     right: "justifyRight"
   };
   capdDescriptionToolbar.querySelectorAll("button[data-capd-format]").forEach((button) => {
+    if (button.dataset.capdFormat === "heading") {
+      let block = "";
+      try { block = String(document.queryCommandValue("formatBlock") || "").toLowerCase(); } catch {}
+      button.setAttribute("aria-pressed", String(block === "h3"));
+      return;
+    }
     const command = commands[button.dataset.capdFormat];
     if (!command) return;
     let active = false;
@@ -19552,8 +19558,18 @@ function applyCapdDescriptionFormat(format, value = "") {
   const restored = restoreCapdDescriptionSelection();
   capdDescriptionInput.focus({ preventScroll: true });
   if (!restored) ensureCapdDescriptionSelection();
+  if (format === "selectAll") {
+    const range = document.createRange();
+    range.selectNodeContents(capdDescriptionInput);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    rememberCapdDescriptionSelection();
+    return;
+  }
   const commands = {
     paragraph: ["formatBlock", "p"],
+    heading: ["formatBlock", "h3"],
     bold: ["bold", ""],
     italic: ["italic", ""],
     underline: ["underline", ""],
@@ -19566,9 +19582,11 @@ function applyCapdDescriptionFormat(format, value = "") {
   };
   const [command, commandValue] = format === "color" ? ["foreColor", value] : commands[format] || [];
   if (!command) return;
+  capdDescriptionInput.dispatchEvent(new Event("beforeinput", { bubbles: true }));
   if (format === "color") document.execCommand("styleWithCSS", false, true);
   document.execCommand(command, false, commandValue);
   if (format === "clear") document.execCommand("unlink", false, "");
+  capdDescriptionInput.dispatchEvent(new Event("input", { bubbles: true }));
   rememberCapdDescriptionSelection();
   updateCapdDescriptionToolbarState();
   renderCapdReport();
@@ -27287,9 +27305,15 @@ capdDescriptionInput?.addEventListener("paste", (event) => {
 });
 capdDescriptionToolbar?.addEventListener("mousedown", (event) => {
   rememberCapdDescriptionSelection();
-  if (event.target.closest("button[data-capd-format]")) event.preventDefault();
+  if (event.target.closest("button[data-capd-format], button[data-capd-color]")) event.preventDefault();
 });
 capdDescriptionToolbar?.addEventListener("click", (event) => {
+  const colorButton = event.target.closest("button[data-capd-color]");
+  if (colorButton) {
+    if (capdDescriptionColor) capdDescriptionColor.value = colorButton.dataset.capdColor;
+    applyCapdDescriptionFormat("color", colorButton.dataset.capdColor);
+    return;
+  }
   const button = event.target.closest("button[data-capd-format]");
   if (!button) return;
   applyCapdDescriptionFormat(button.dataset.capdFormat || "");
