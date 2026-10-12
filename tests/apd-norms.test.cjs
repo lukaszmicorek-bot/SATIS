@@ -168,6 +168,24 @@ test('APD records only confirmed preliminary examinations', () => {
   assert.match(app, /Wstaw opis wyniku w normie|Próg słyszenia w normie/);
 });
 
+test('APD records pickup time and clears it when reopening the study', async () => {
+  const source = app.slice(app.indexOf('async function changeCapdHistoryStatus('), app.indexOf('function capdPhoneNotifiedForPickup('));
+  const scope = vm.createContext({
+    CAPD_HISTORY_STATUS_LABELS: { OPIS: 'Opis', ODEBRANO: 'Odebrano' },
+    capdHistory: [{ id: 'study', status: 'OPIS' }],
+    currentSupabaseUser: { email: 'test' }, currentWorkstationName: () => 'P63',
+    normalizeCapdHistoryEntry: entry => entry, normalizeCapdHistory: entries => entries,
+    persistCapdHistoryEntry: async () => {}, saveLocalCapdHistory() {}, renderCapdHistory() {}, alert() {}
+  });
+  vm.runInContext(source, scope);
+  await scope.changeCapdHistoryStatus('study', 'ODEBRANO', {});
+  assert.equal(scope.capdHistory[0].pickedUpAt, scope.capdHistory[0].statusUpdatedAt);
+  assert.ok(Number.isFinite(Date.parse(scope.capdHistory[0].pickedUpAt)));
+  await scope.changeCapdHistoryStatus('study', 'OPIS', {});
+  assert.equal(scope.capdHistory[0].pickedUpAt, '');
+  assert.match(app, /pickedUpAt: existing\?\.pickedUpAt \|\| ""/);
+});
+
 test('APD phone notification applies only to the current ready-for-pickup stage', async () => {
   const source = app.slice(app.indexOf('function capdPhoneNotifiedForPickup('), app.indexOf('function maskSensitiveIdentifier('));
   const saved = [];

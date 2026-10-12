@@ -19904,6 +19904,7 @@ function normalizeCapdHistoryEntry(entry) {
     scope: normalizeLoanHistoryText(entry.scope),
     status: Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, entry.status) ? entry.status : "",
     statusUpdatedAt: normalizeLoanHistoryText(entry.statusUpdatedAt),
+    pickedUpAt: normalizeLoanHistoryText(entry.pickedUpAt || (entry.status === "ODEBRANO" ? entry.statusUpdatedAt : "")),
     phoneNotifiedAt: normalizeLoanHistoryText(entry.phoneNotifiedAt),
     phoneNotifiedBy: normalizeLoanHistoryText(entry.phoneNotifiedBy),
     description: capdRichTextPlainText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
@@ -20036,6 +20037,7 @@ async function saveCurrentCapdToHistory() {
     createdAt: existing?.createdAt || snapshot.createdAt,
     status: existing?.status ?? "OPIS",
     statusUpdatedAt: existing?.statusUpdatedAt || (existing ? "" : snapshot.savedAt),
+    pickedUpAt: existing?.pickedUpAt || "",
     phoneNotifiedAt: existing?.phoneNotifiedAt || "",
     phoneNotifiedBy: existing?.phoneNotifiedBy || "",
     savedAt: new Date().toISOString()
@@ -20151,10 +20153,12 @@ async function changeCapdHistoryStatus(id, status, control) {
   if (!Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, status)) return;
   const entry = capdHistory.find((item) => item.id === id);
   if (!entry || entry.status === status) return;
+  const changedAt = new Date().toISOString();
   const updated = normalizeCapdHistoryEntry({
     ...entry,
     status,
-    statusUpdatedAt: new Date().toISOString(),
+    statusUpdatedAt: changedAt,
+    pickedUpAt: status === "ODEBRANO" ? changedAt : "",
     savedAt: new Date().toISOString(),
     savedBy: currentSupabaseUser?.email || entry.savedBy,
     workstation: currentWorkstationName() || entry.workstation
@@ -20261,6 +20265,15 @@ function renderCapdHistory() {
     audit.className = "capd-history-audit";
     audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
     main.append(title, meta, context, results, audit);
+    if (entry.status === "ODEBRANO") {
+      const pickup = document.createElement("time");
+      pickup.className = "capd-history-pickup";
+      if (entry.pickedUpAt) pickup.dateTime = entry.pickedUpAt;
+      pickup.textContent = entry.pickedUpAt
+        ? `Odebrano: ${formatAuditDateTime(entry.pickedUpAt)}`
+        : "Odebrano: brak zapisanej daty";
+      main.append(pickup);
+    }
 
     const actions = document.createElement("div");
     actions.className = "capd-history-actions";

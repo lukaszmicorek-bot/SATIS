@@ -2650,6 +2650,12 @@ h2 {
   white-space: nowrap;
 }
 
+.capd-history-main .capd-history-pickup {
+  color: #007b78;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .capd-history-main .capd-history-audit {
   color: #879398;
   font-size: 0.65rem;
