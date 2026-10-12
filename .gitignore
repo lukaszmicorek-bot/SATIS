@@ -15,6 +15,7 @@
 !/supabase-attendance.sql
 !/supabase-work-time.sql
 !/supabase-work-time-pin.sql
+!/supabase-row-order.sql
 !/security-manifest.json
 !/Inter-LICENSE.txt
 !/InterVariable.woff2
@@ -69,3 +70,4 @@
 !/tests/offline-vault.test.cjs
 !/tests/print-font-readiness.test.cjs
 !/tests/sync-layer.test.cjs
+!/tests/local-row-order.test.cjs

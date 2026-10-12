@@ -35,6 +35,7 @@ MIGRATIONS = [
 EXTRA_PUBLIC_FILES = {
     ".gitignore", "CNAME", "README.md", "supabase-attendance.sql", "supabase-work-time.sql",
     "supabase-work-time-pin.sql", "scripts/release_satis.py",
+    "supabase-row-order.sql", "tests/local-row-order.test.cjs",
     ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
     "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
     "tests/customer-phone-tooltip.test.cjs",
