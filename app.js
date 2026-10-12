@@ -679,6 +679,7 @@ let sortState = { key: "receivedDate", direction: "desc" };
 let repairSortState = { key: "receivedDate", direction: "desc" };
 let demoSortState = { key: "receivedDate", direction: "desc" };
 let activeNotebook = "devices";
+let previousTab = null;
 let activeDeviceView = "database";
 let activePricingView = "list";
 let activeAgreementDocumentLocation = "";
@@ -22804,6 +22805,31 @@ async function deleteWorkTimeRecord(record, button) {
   }
 }
 
+function currentTabNavigation() {
+  const selected = [...tabButtons].find((button) => button.dataset.viewGroup === activeNotebook && button.classList.contains("active"));
+  return { notebook: activeNotebook, view: selected?.dataset.view || "" };
+}
+
+function rememberTabNavigation(before) {
+  const after = currentTabNavigation();
+  if (before.notebook === after.notebook && before.view === after.view) return;
+  previousTab = before;
+  const back = document.querySelector("#previousTabBtn");
+  if (back) {
+    back.disabled = false;
+    const label = [...notebookSwitchButtons].find((button) => button.dataset.notebook === before.notebook)?.textContent.trim() || "zakładka";
+    back.title = `Wróć: ${label}`;
+  }
+}
+
+function returnToPreviousTab() {
+  if (!previousTab) return;
+  const target = previousTab;
+  const before = currentTabNavigation();
+  switchNotebook(target.notebook, { documentView: target.view });
+  rememberTabNavigation(before);
+}
+
 function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime"].includes(notebookName)) return;
   if (notebookName === "workTime" && !canViewPrivateModules()) return;
@@ -26903,8 +26929,13 @@ fillStockAuditForm();
 updateScrollTopButton();
 
 notebookSwitchButtons.forEach((button) => {
-  button.addEventListener("click", () => switchNotebook(button.dataset.notebook));
+  button.addEventListener("click", () => {
+    const before = currentTabNavigation();
+    switchNotebook(button.dataset.notebook);
+    rememberTabNavigation(before);
+  });
 });
+document.querySelector("#previousTabBtn")?.addEventListener("click", returnToPreviousTab);
 
 workTimeForm?.addEventListener("submit", saveWorkTimeRecord);
 workTimeStartSaveBtn?.addEventListener("click", (event) => void saveWorkTimeRecord(event, { startOnly: true }));
@@ -27196,7 +27227,11 @@ loadLocalVacationData();
 resetVacationForm();
 
 tabButtons.forEach((button) => {
-  button.addEventListener("click", () => switchView(button.dataset.view, button.dataset.viewGroup));
+  button.addEventListener("click", () => {
+    const before = currentTabNavigation();
+    switchView(button.dataset.view, button.dataset.viewGroup);
+    rememberTabNavigation(before);
+  });
 });
 pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("input", renderPricingRodo);
 document.querySelector("#rodoNameInput")?.addEventListener("blur", (event) => {
