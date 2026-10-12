@@ -2324,10 +2324,8 @@ h2 {
 }
 
 .capd-rich-text-head {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
   gap: 8px 12px;
   color: #4f646c;
   font-size: 0.78rem;
@@ -2335,35 +2333,74 @@ h2 {
 }
 
 .capd-rich-text-toolbar {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  border-top: 1px solid #e1e9eb;
+  border-bottom: 1px solid #e1e9eb;
 }
+
+.capd-toolbar-group,
+.capd-toolbar-extra,
+.capd-toolbar-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.capd-toolbar-group + .capd-toolbar-group {
+  border-left: 1px solid #dce5e7;
+  padding-left: 8px;
+}
+.capd-toolbar-more { margin-left: auto; }
+.capd-toolbar-more summary {
+  padding: 7px 10px;
+  border-radius: 5px;
+  color: #48606a;
+  font-size: 12px;
+  cursor: pointer;
+}
+.capd-toolbar-more summary:hover { background: #edf5f6; }
+.capd-toolbar-more summary:focus-visible { outline: 2px solid #007a7a; }
+.capd-toolbar-more[open] { flex-basis: 100%; margin-left: 0; }
+.capd-toolbar-extra { padding-top: 6px; gap: 8px; }
 
 .capd-rich-text-toolbar button {
   display: inline-grid;
-  min-width: 29px;
-  height: 27px;
+  min-width: 34px;
+  height: 34px;
   place-items: center;
   border: 1px solid #d2dfe2;
   border-radius: 5px;
   padding: 0 7px;
   color: #3d5b66;
-  background: #fbfdfd;
+  background: #f8fbfb;
+  box-shadow: none;
   font-family: inherit;
   font-size: 0.72rem;
   cursor: pointer;
 }
 
 .capd-rich-text-toolbar button:not(.capd-toolbar-text) {
-  width: 29px;
+  width: 34px;
   padding: 0;
 }
 
 .capd-rich-text-toolbar button.capd-toolbar-text {
-  font-size: 0.66rem;
-  font-weight: 720;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.capd-rich-text-toolbar button.capd-color-swatch::before {
+  content: "";
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: var(--swatch);
+  border-radius: 3px;
 }
 
 .capd-rich-text-toolbar button:hover,
@@ -2390,8 +2427,8 @@ h2 {
 
 .capd-rich-text-color {
   display: inline-flex;
-  width: 27px;
-  height: 27px;
+  width: 34px;
+  height: 34px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -2434,6 +2471,15 @@ h2 {
 .capd-rich-text-editor:focus {
   border-color: #6f9ca8;
   box-shadow: 0 0 0 3px rgba(92, 145, 159, 0.13);
+}
+
+.capd-rich-text-editor h3,
+#capdReportDescription h3 {
+  margin: 12px 0 6px;
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.4;
+  break-after: avoid;
 }
 
 .capd-rich-text-editor:empty::before {
