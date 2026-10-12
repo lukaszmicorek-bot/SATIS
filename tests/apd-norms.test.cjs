@@ -168,6 +168,14 @@ test('APD records only confirmed preliminary examinations', () => {
   assert.match(app, /Wstaw opis wyniku w normie|Próg słyszenia w normie/);
 });
 
+test('APD stage filter has four accessible colored tiles', () => {
+  const filter = html.slice(html.indexOf('id="capdHistoryStatusFilter"'), html.indexOf('id="capdHistoryList"'));
+  assert.equal((filter.match(/data-stage=/g) || []).length, 4);
+  for (const value of ['', 'OPIS', 'DO_ODBIORU', 'ODEBRANO']) assert.ok(filter.includes(`data-stage="${value}"`));
+  assert.match(filter, /aria-pressed="true">Wszystkie/);
+  assert.match(app, /capdHistoryStatusFilter\?\.dataset.value/);
+});
+
 test('APD records pickup time and clears it when reopening the study', async () => {
   const source = app.slice(app.indexOf('async function changeCapdHistoryStatus('), app.indexOf('function capdPhoneNotifiedForPickup('));
   const scope = vm.createContext({

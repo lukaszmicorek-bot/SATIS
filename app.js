@@ -20216,7 +20216,7 @@ function maskSensitiveIdentifier(value, visibleDigits = 4) {
 function renderCapdHistory() {
   if (!capdHistoryList) return;
   const query = normalize(capdHistorySearchInput?.value || "");
-  const statusFilter = capdHistoryStatusFilter?.value || "";
+  const statusFilter = capdHistoryStatusFilter?.dataset.value || "";
   const matchingHistory = capdHistory.filter((entry) =>
     (!statusFilter || (statusFilter === "BEZ_ETAPU" ? !entry.status : entry.status === statusFilter)) &&
     (!query || normalize([
@@ -27103,7 +27103,15 @@ resetCapdFormBtn?.addEventListener("click", resetCapdForm);
 saveCapdHistoryBtn?.addEventListener("click", saveCurrentCapdToHistory);
 printCapdReportBtn?.addEventListener("click", printCapdReport);
 capdHistorySearchInput?.addEventListener("input", debounce(renderCapdHistory, SEARCH_DEBOUNCE_MS));
-capdHistoryStatusFilter?.addEventListener("change", renderCapdHistory);
+capdHistoryStatusFilter?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-stage]");
+  if (!button || !capdHistoryStatusFilter.contains(button)) return;
+  capdHistoryStatusFilter.dataset.value = button.dataset.stage;
+  capdHistoryStatusFilter.querySelectorAll("button[data-stage]").forEach((tile) => {
+    tile.setAttribute("aria-pressed", String(tile === button));
+  });
+  renderCapdHistory();
+});
 vacationTypeInput?.addEventListener("change", updateVacationSaturdayField);
 vacationTypeChoices?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-type]");

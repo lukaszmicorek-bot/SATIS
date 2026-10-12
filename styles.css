@@ -2546,7 +2546,7 @@ h2 {
 }
 
 .capd-history-filter {
-  grid-template-columns: auto minmax(130px, 150px);
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .capd-history-list {
@@ -2710,6 +2710,33 @@ h2 {
   font-size: 0.66rem;
   font-weight: 700;
 }
+
+.capd-stage-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capd-stage-tiles button {
+  --stage-text: #48606a;
+  --stage-bg: #f1f4f5;
+  color: var(--stage-text);
+  background: var(--stage-bg);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.capd-stage-tiles button[data-stage="OPIS"] { --stage-text: #9d4a00; --stage-bg: #fff0e3; }
+.capd-stage-tiles button[data-stage="DO_ODBIORU"] { --stage-text: #003f5a; --stage-bg: #eaf1f4; }
+.capd-stage-tiles button[data-stage="ODEBRANO"] { --stage-text: #006767; --stage-bg: #e6f4f2; }
+.capd-stage-tiles button[aria-pressed="true"] { border-color: var(--stage-text); }
+.capd-stage-tiles button:hover { border-color: var(--stage-text); }
+.capd-stage-tiles button:focus-visible { outline: 2px solid var(--stage-text); outline-offset: 2px; }
 
 .capd-history-stage select {
   min-width: 125px;
