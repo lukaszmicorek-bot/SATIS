@@ -57,7 +57,7 @@
         ? { amount: record.amount, receivedDate: record.receivedDate } : record;
       return { table, id, data: options.delete ? null : data, expectedRevision, delete: Boolean(options.delete) };
     }
-    async function commit(changes, { undo = false } = {}) {
+    async function commit(changes, { undo = false, requestTimeoutMs = 0 } = {}) {
       if (undoRunning && !undo) throw new Error("Trwa cofanie zmiany. Poczekaj przed kolejnym zapisem.");
       if (!changes.length) return [];
       changes = structuredClone(changes);
@@ -76,9 +76,29 @@
       pending.set(fingerprint, attempt);
       try {
         const rows = await retry(async () => {
-          const { data, error } = await client.rpc("satis_write_records", {
+          const controller = requestTimeoutMs > 0 ? new AbortController() : null;
+          let timer;
+          let request = client.rpc("satis_write_records", {
             p_operation: attempt.operation, p_changes: changes, p_workstation: attempt.workstation
           });
+          if (controller && typeof request.abortSignal === "function") request = request.abortSignal(controller.signal);
+          let response;
+          try {
+            response = controller ? await Promise.race([
+              request,
+              new Promise((resolve, reject) => {
+                timer = setTimeout(() => {
+                  const error = new Error(`Nie otrzymano potwierdzenia zapisu w ciągu ${Math.max(1, Math.ceil(requestTimeoutMs / 1000))} sekund. Wpis mógł zostać zapisany. Sprawdź historię przed ponowieniem; zachowano dane formularza.`);
+                  error.code = "SATIS_WRITE_TIMEOUT";
+                  reject(error);
+                  controller.abort();
+                }, requestTimeoutMs);
+              })
+            ]) : await request;
+          } finally {
+            if (timer) clearTimeout(timer);
+          }
+          const { data, error } = response;
           if (error) throw error;
           if (!Array.isArray(data)) throw new Error("Nieprawidłowe potwierdzenie zapisu z serwera.");
           return data;
@@ -153,7 +173,7 @@
       undoState: () => ({ available: Boolean(lastUndo) && !undoGroup && !undoRunning, busy: Boolean(undoGroup) || undoRunning, label: lastUndo?.label || "" }),
       endEdit: (table, id) => edits.delete(key(table, id)),
       endTableEdits(table) { for (const entry of edits.keys()) if (JSON.parse(entry)[0] === table) edits.delete(entry); },
-      write: (table, record) => commit([prepare(table, record)]),
+      write: (table, record, options) => commit([prepare(table, record)], options),
       remove: (table, id) => commit([prepare(table, { id }, { delete: true })]),
       revision: (table, id) => versions.get(key(table, id)) ?? null,
       clear() { generation += 1; versions.clear(); edits.clear(); pending.clear(); originals.clear(); undoGroup = null; lastUndo = null; onUndoChange(); }

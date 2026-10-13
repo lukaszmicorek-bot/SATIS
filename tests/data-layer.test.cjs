@@ -42,6 +42,27 @@ function server() {
   };
 }
 
+test('timed out writes retain their operation ID and do not duplicate a retry', async () => {
+  const calls = [];
+  let next = 0, aborted = false;
+  const client = { rpc(name, args) {
+    calls.push(args.p_operation);
+    if (calls.length === 1) {
+      const hung = new Promise(() => {});
+      hung.abortSignal = signal => { signal.addEventListener('abort', () => { aborted = true; }); return hung; };
+      return hung;
+    }
+    return Promise.resolve({ data: [{ table: 'vacation_requests', id: 'one', revision: 1 }] });
+  } };
+  const store = createStore({ client, uuid: () => `op-${++next}` });
+  await assert.rejects(store.write('vacation_requests', { id: 'one' }, { requestTimeoutMs: 5 }), error => error.code === 'SATIS_WRITE_TIMEOUT');
+  assert.equal(aborted, true);
+  assert.equal(store.revision('vacation_requests', 'one'), null);
+  await store.write('vacation_requests', { id: 'one' }, { requestTimeoutMs: 50 });
+  assert.deepEqual(calls, ['op-1', 'op-1']);
+  assert.equal(store.revision('vacation_requests', 'one'), 1);
+});
+
 test('observations are monotonic, table scoped and reject invalid revisions', () => {
   const store = server().store();
   store.observe('devices', { id: 'a', revision: '4' });
