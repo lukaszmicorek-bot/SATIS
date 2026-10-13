@@ -2298,11 +2298,11 @@ async function loadSupabaseIds(tableName, options = {}) {
   return ids;
 }
 
-async function upsertSupabaseRecord(tableName, record) {
+async function upsertSupabaseRecord(tableName, record, options = {}) {
   if (!requireInitialDataReady()) throw new Error("Dane nie są jeszcze gotowe do zapisu.");
   setConnectionStatus("syncing", "Zapisywanie...");
   try {
-    await satisDataStore.write(tableName, record);
+    await satisDataStore.write(tableName, record, options);
     setConnectionStatus("online", "Supabase");
   } catch (error) {
     setConnectionStatus("error", isTransientSupabaseError(error) ? "Brak połączenia" : "Błąd zapisu");
@@ -20949,7 +20949,7 @@ async function persistVacationRecord(tableName, record) {
   if (!currentSupabaseUser) throw new Error("Zaloguj się ponownie przed zapisaniem urlopu.");
   const available = tableName === SUPABASE_VACATION_EMPLOYEE_TABLE ? vacationEmployeesSupabaseAvailable : vacationRequestsSupabaseAvailable;
   if (available !== true) throw new Error("Wczytaj urlopy ponownie. Wymagana migracja supabase-audit-vacation.sql.");
-  await upsertSupabaseRecord(tableName, record);
+  await upsertSupabaseRecord(tableName, record, { requestTimeoutMs: 20000 });
   if (tableName === SUPABASE_VACATION_EMPLOYEE_TABLE) vacationEmployeesSupabaseAvailable = true;
   else vacationRequestsSupabaseAvailable = true;
 }
@@ -21909,7 +21909,11 @@ async function submitVacationRequest(event) {
     return;
   }
   submitVacationRequest.pending = true;
-  if (typeof submitVacationRequestBtn !== "undefined" && submitVacationRequestBtn) submitVacationRequestBtn.disabled = true;
+  const originalButtonText = typeof submitVacationRequestBtn !== "undefined" ? submitVacationRequestBtn?.textContent : "";
+  if (typeof submitVacationRequestBtn !== "undefined" && submitVacationRequestBtn) {
+    submitVacationRequestBtn.disabled = true;
+    submitVacationRequestBtn.textContent = "Wysyłanie…";
+  }
   if (typeof resetVacationFormBtn !== "undefined" && resetVacationFormBtn) resetVacationFormBtn.disabled = true;
   try {
     await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
@@ -21918,7 +21922,7 @@ async function submitVacationRequest(event) {
     saveLocalVacationData();
     renderVacationModule();
     resetVacationForm({ afterSave: true });
-    if (typeof hasSupabaseConfig !== "undefined" && hasSupabaseConfig) await loadVacationData();
+    scheduleVacationPolling();
     if (authUser !== currentSupabaseUser) return;
     alert(isEditing
       ? "Wpis został poprawiony."
@@ -21928,7 +21932,10 @@ async function submitVacationRequest(event) {
     alert(error.message);
   } finally {
     submitVacationRequest.pending = false;
-    if (typeof submitVacationRequestBtn !== "undefined" && submitVacationRequestBtn) submitVacationRequestBtn.disabled = false;
+    if (typeof submitVacationRequestBtn !== "undefined" && submitVacationRequestBtn) {
+      submitVacationRequestBtn.disabled = false;
+      if (submitVacationRequestBtn.textContent === "Wysyłanie…") submitVacationRequestBtn.textContent = originalButtonText;
+    }
     if (typeof resetVacationFormBtn !== "undefined" && resetVacationFormBtn) resetVacationFormBtn.disabled = false;
   }
 }
