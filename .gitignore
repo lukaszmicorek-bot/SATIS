@@ -71,3 +71,5 @@
 !/tests/print-font-readiness.test.cjs
 !/tests/sync-layer.test.cjs
 !/tests/local-row-order.test.cjs
+!/tests/startup-performance.test.cjs
+!/tests/document-save-guards.test.cjs

@@ -51,7 +51,7 @@ const PRIVATE_PAYMENT_EMAIL = "satis@pracowniasluchu.pl";
 const DEMO_ID_PREFIX = "demo-";
 const DEMO_SEED_MARKER_ID = "demo-seed-marker-v1";
 const SEARCH_DEBOUNCE_MS = 120;
-const TABLE_RENDER_BATCH_SIZE = 500;
+const TABLE_RENDER_BATCH_SIZE = 100;
 const MAX_DEVICE_NAME_SUGGESTIONS = 300;
 const MAX_MODEL_NAME_SUGGESTIONS = 120;
 const MAX_QUALITY_HINT_CANDIDATES = 320;
@@ -345,6 +345,35 @@ const satisDataStore = hasSupabaseConfig ? window.SatisData.createStore({
   workstation: () => currentWorkstationName()
 }) : null;
 let supabaseRefreshInProgress = false;
+let supabaseInitialDataReady = false;
+let deferredSuggestionsTimer = 0;
+const loadPerformanceSamples = [];
+
+function recordLoadTiming(stage, startedAt) {
+  const sample = { stage, milliseconds: Math.round(performance.now() - startedAt) };
+  loadPerformanceSamples.push(sample);
+  if (loadPerformanceSamples.length > 30) loadPerformanceSamples.shift();
+  console.debug("SATIS: czas ładowania", sample);
+}
+
+function requireInitialDataReady() {
+  if (!hasSupabaseConfig || supabaseInitialDataReady || offlineForms?.active()) return true;
+  alert("Trwa ładowanie powiązań i danych potrzebnych do bezpiecznego zapisu. Poczekaj chwilę.");
+  return false;
+}
+
+function publishEarlyDeviceRecords(loaded, userId, startedAt) {
+  if (supabaseInitialDataReady || currentSupabaseUser?.id !== userId || !Array.isArray(loaded)) return loaded;
+  records = loaded;
+  rebuildDeviceDerivedData();
+  if (activeNotebook === "devices" && activeDeviceView === "database") {
+    updateStats();
+    renderDeviceViews();
+    setConnectionStatus("syncing", "Produkty wczytane — ładowanie powiązań i płatności…");
+    recordLoadTiming("produkty widoczne", startedAt);
+  }
+  return loaded;
+}
 const satisChangeQueue = hasSupabaseConfig ? window.SatisSync.createQueue({
   ready: () => Boolean(currentSupabaseUser && !document.hidden && !supabaseRefreshInProgress &&
     !recordDialog.open && !repairDialog.open && !demoDialog.open && !pricingMutationInProgress),
@@ -1727,8 +1756,11 @@ function saveLocalPrivatePayments() {
 
 async function loadPrivatePayments() {
   const loadingUserId = currentSupabaseUser?.id;
-  privatePayments = canViewPrivatePayments() ? loadLocalPrivatePayments() : {};
-  if (!canViewPrivatePayments()) return privatePayments;
+  if (!canViewPrivatePayments()) {
+    privatePayments = {};
+    return privatePayments;
+  }
+  if (!hasSupabaseConfig) privatePayments = loadLocalPrivatePayments();
 
   if (hasSupabaseConfig) {
     const data = [];
@@ -2181,6 +2213,9 @@ function supabaseWriteErrorMessage(error) {
 }
 
 async function retrySupabaseWrite(action) {
+  if (hasSupabaseConfig && currentSupabaseUser && !supabaseInitialDataReady) {
+    throw new Error("Trwa ładowanie danych. Zapis będzie dostępny po zakończeniu synchronizacji.");
+  }
   let lastError = null;
 
   for (let attempt = 0; attempt <= SUPABASE_WRITE_RETRY_DELAYS.length; attempt += 1) {
@@ -2264,6 +2299,7 @@ async function loadSupabaseIds(tableName, options = {}) {
 }
 
 async function upsertSupabaseRecord(tableName, record) {
+  if (!requireInitialDataReady()) throw new Error("Dane nie są jeszcze gotowe do zapisu.");
   setConnectionStatus("syncing", "Zapisywanie...");
   try {
     await satisDataStore.write(tableName, record);
@@ -2275,6 +2311,7 @@ async function upsertSupabaseRecord(tableName, record) {
 }
 
 async function deleteSupabaseRecord(tableName, id) {
+  if (!requireInitialDataReady()) throw new Error("Dane nie są jeszcze gotowe do usuwania.");
   setConnectionStatus("syncing", "Usuwanie...");
   try {
     await satisDataStore.remove(tableName, id);
@@ -2346,8 +2383,13 @@ async function refreshRecordsFromSupabase(options = {}) {
   }
 
   supabaseRefreshInProgress = true;
+  const loadStartedAt = performance.now();
   try {
     setConnectionStatus("syncing", "Synchronizacja...");
+    const paymentLoad = loadPrivatePayments().then(() => {
+      recordLoadTiming("płatności pobrane", loadStartedAt);
+      return { error: null };
+    }, error => ({ error }));
     const [
       sharedRecords,
       sharedRepairRecords,
@@ -2360,7 +2402,8 @@ async function refreshRecordsFromSupabase(options = {}) {
       sharedPcprList,
       sharedCapdHistory
     ] = await Promise.all([
-      loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX }),
+      loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX })
+        .then(loaded => publishEarlyDeviceRecords(loaded, userId, loadStartedAt)),
       loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse),
       loadSupabaseTable(
         SUPABASE_DEVICE_TABLE,
@@ -2392,13 +2435,14 @@ async function refreshRecordsFromSupabase(options = {}) {
     if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
     if (sharedPcprList) pricingPcprList = sharedPcprList;
     if (sharedCapdHistory) capdHistory = sharedCapdHistory;
-    await loadPrivatePayments();
-    writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
-    writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-    writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
-    rebuildDerivedData();
+    const paymentResult = await paymentLoad;
+    if (currentSupabaseUser?.id !== userId) return;
+    if (paymentResult.error) throw paymentResult.error;
+    supabaseInitialDataReady = true;
+    rebuildDerivedData({ deferSuggestions: true });
     render();
     setConnectionStatus("online", "Supabase");
+    recordLoadTiming("pełne dane gotowe", loadStartedAt);
   } catch (error) {
     console.warn(error);
     setConnectionStatus("error", "Błąd synchronizacji");
@@ -2737,6 +2781,10 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  supabaseInitialDataReady = false;
+  window.clearTimeout(deferredSuggestionsTimer);
+  deferredSuggestionsTimer = 0;
+  loadPerformanceSamples.length = 0;
   sharedRowOrders.clear();
   sharedRowOrdersReady = false;
   offlineForms?.lock();
@@ -4500,6 +4548,7 @@ function collectQualityHints(config) {
 }
 
 function renderQualityHints(context) {
+  flushDeferredSuggestions();
   const config = qualityHintConfig(context);
   if (!config?.container) return;
   clearQualityHintInputs(config.form);
@@ -7947,18 +7996,35 @@ function rebuildCustomerNameSuggestions() {
   customerNameSuggestions.replaceChildren(fragment);
 }
 
-function rebuildDerivedData() {
+function flushDeferredSuggestions() {
+  if (!deferredSuggestionsTimer) return;
+  window.clearTimeout(deferredSuggestionsTimer);
+  deferredSuggestionsTimer = 0;
+  rebuildDemoFormSuggestions();
+  rebuildDeviceNameSuggestions();
+  rebuildCustomerNameSuggestions();
+  rebuildQualityHintCandidates();
+}
+
+function rebuildDerivedData({ deferSuggestions = false } = {}) {
   invalidateDataControlCache();
   rebuildDeviceDerivedData();
   rebuildRepairDerivedData();
   rebuildDemoDerivedData();
   rebuildDemoManufacturerFilter();
-  rebuildDemoFormSuggestions();
   rebuildSerialIndex();
   rebuildCustomerDocumentIndex();
-  rebuildDeviceNameSuggestions();
-  rebuildCustomerNameSuggestions();
-  rebuildQualityHintCandidates();
+  if (deferSuggestions) {
+    window.clearTimeout(deferredSuggestionsTimer);
+    deferredSuggestionsTimer = window.setTimeout(flushDeferredSuggestions, 50);
+  } else {
+    window.clearTimeout(deferredSuggestionsTimer);
+    deferredSuggestionsTimer = 0;
+    rebuildDemoFormSuggestions();
+    rebuildDeviceNameSuggestions();
+    rebuildCustomerNameSuggestions();
+    rebuildQualityHintCandidates();
+  }
 }
 
 function rebuildAfterDeviceChange() {
@@ -17987,6 +18053,7 @@ function privatePaymentReceivedDate(recordId) {
 }
 
 function createPrivatePaymentCell(record) {
+  if (hasSupabaseConfig && !supabaseInitialDataReady) return "…";
   const amount = privatePaymentAmount(record?.id);
   if (!amount) return "";
   const receivedDate = privatePaymentReceivedDate(record?.id);
@@ -23076,6 +23143,7 @@ function updateSavedUndoButton() {
 }
 
 async function withSavedUndo(label, action) {
+  if (!requireInitialDataReady()) return null;
   if (!hasSupabaseConfig || !currentSupabaseUser || offlineForms?.active()) return action();
   if (documentSyncRunning || satisDataStore.undoState().busy) {
     alert("Trwa zapis lub synchronizacja. Poczekaj chwilę i spróbuj ponownie.");
@@ -23292,6 +23360,8 @@ function fillDemoFormValues(record = {}) {
 }
 
 function openDialog(record = null) {
+  if (!requireInitialDataReady()) return;
+  flushDeferredSuggestions();
   satisDataStore?.beginEdit(SUPABASE_DEVICE_TABLE, record?.id);
   privatePaymentInvoiceGroup(record).forEach((item) =>
     satisDataStore?.beginEdit(SUPABASE_PRIVATE_PAYMENTS_TABLE, String(item.id)));
@@ -23384,6 +23454,8 @@ function setRepairSerial2Visibility(show, options = {}) {
 }
 
 function openRepairDialog(record = null) {
+  if (!requireInitialDataReady()) return;
+  flushDeferredSuggestions();
   satisDataStore?.beginEdit(SUPABASE_REPAIR_TABLE, record?.id);
   repairForm.dataset.draftId = crypto.randomUUID();
   setPrimarySaveHighlight(saveRepairBtn, false);
@@ -23477,6 +23549,8 @@ function repairDialogCustomerTitle(record) {
 }
 
 function openDemoDialog(record = null) {
+  if (!requireInitialDataReady()) return;
+  flushDeferredSuggestions();
   satisDataStore?.beginEdit(SUPABASE_DEVICE_TABLE, record?.id);
   demoForm.dataset.draftId = `${DEMO_ID_PREFIX}${crypto.randomUUID()}`;
   setPrimarySaveHighlight(saveDemoBtn, false);
