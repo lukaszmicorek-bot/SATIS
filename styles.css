@@ -15687,7 +15687,10 @@ textarea {
 .customer-transfer-tools svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .customer-transfer-status { color: #536c79; font-size: 0.7rem; }
 @media print { .customer-transfer-tools, .customer-transfer-status { display: none !important; } }
-.loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
+.loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; font-size: 0.82rem; }
+.loan-active-item .loan-active-equipment-label { margin: 0; font-size: inherit; font-weight: 650; line-height: 1.4; }
+.loan-active-item .loan-active-client strong, .loan-active-item small, .loan-active-item > button { font-size: 0.82rem; }
+.loan-active-item small { font-weight: 500; }
 .loan-active-equipment-line > span { margin-top: 0; }
 .loan-active-equipment-line .demo-purpose-pill { display: inline-flex; align-items: center; flex-shrink: 0; white-space: nowrap; line-height: 1.2; }
 .loan-active-equipment-line .loan-active-demo-link { cursor: pointer; font-family: inherit; }
@@ -15713,6 +15716,8 @@ textarea {
   align-items: center;
   min-height: 24px;
   flex-wrap: nowrap;
+  font-size: inherit;
+  font-weight: 750;
   background: #fbfdfe;
   box-shadow: none;
 }

@@ -11010,6 +11010,7 @@ function createActiveLoanEquipment(entry) {
     const line = document.createElement("div");
     line.className = "loan-active-equipment-line";
     const label = document.createElement("span");
+    label.className = "loan-active-equipment-label";
     label.textContent = device.model || "";
     const sideBadge = document.createElement("span");
     sideBadge.className = `loan-side-badge loan-side-${side === "P" ? "right" : "left"}`;
@@ -11041,13 +11042,14 @@ function createActiveLoanEquipment(entry) {
     equipment.append(line);
   });
   if (entry.charger || entry.chargerSerial || entry.chargerState) {
-    const charger = document.createElement("span");
+    const charger = document.createElement("div");
     charger.className = "loan-active-equipment-line";
     const chargerIcon = document.createElement("span");
     chargerIcon.className = "loan-charger-badge";
     chargerIcon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 2 5 14h6l-1 8 9-13h-6l1-7Z"/></svg>';
     chargerIcon.title = "Ładowarka";
     const chargerLabel = document.createElement("span");
+    chargerLabel.className = "loan-active-equipment-label";
     const state = String(entry.chargerState || "").trim();
     chargerLabel.textContent = [entry.charger || "Ładowarka",
       state.toLocaleLowerCase("pl-PL") === "sprawna" ? "" : state].filter(Boolean).join(" · ");
