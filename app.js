@@ -5601,6 +5601,7 @@ function normalizePricingRecordForUse(record) {
   });
   normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
   normalizedRecord.manufacturer = normalizePricingManufacturerName(normalizedRecord.manufacturer);
+  if (["A", "CH"].includes(normalizedRecord.nfzCode.toUpperCase()) && pricingOfferAccessoryKind(normalizedRecord) === "charger") normalizedRecord.nfzCode = "Ch";
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
   normalizedRecord.discountOne = normalizePricingPrice(record?.discountOne) || 0;
   normalizedRecord.discountPair = normalizePricingPrice(record?.discountPair) || 0;
@@ -9111,7 +9112,7 @@ function pricingRecordFingerprint(record) {
 }
 
 function pricingChargerBundlePrices(record) {
-  if (String(record.nfzCode || "").trim().toUpperCase() !== "A" || pricingOfferAccessoryKind(record) !== "charger") return null;
+  if (!["A", "CH"].includes(String(record.nfzCode || "").trim().toUpperCase()) || pricingOfferAccessoryKind(record) !== "charger") return null;
   const one = normalizePricingPrice(record.chargerPriceOne);
   const two = normalizePricingPrice(record.chargerPriceTwo);
   return { one: one === "" || one < 0 ? 700 : Math.round(one * 100) / 100, two: two === "" || two < 0 ? 500 : Math.round(two * 100) / 100 };
@@ -9130,7 +9131,7 @@ function updatePricingDiscountEditor() {
   const form = document.querySelector("#pricingRecordForm");
   const active = String(form.elements.namedItem("nfzCode").value).trim().toUpperCase() === "A";
   const permitted = canCreatePricingRecord();
-  const bundle = active && pricingOfferAccessoryKind({ model: form.elements.namedItem("model").value, tradeName: form.elements.namedItem("tradeName").value }) === "charger";
+  const bundle = ["A", "CH"].includes(form.elements.namedItem("nfzCode").value.trim().toUpperCase()) && pricingOfferAccessoryKind({ model: form.elements.namedItem("model").value, tradeName: form.elements.namedItem("tradeName").value }) === "charger";
   document.querySelector("#pricingDiscountPanel").hidden = !active || !permitted || bundle;
   document.querySelector("#pricingChargerBundlePanel").hidden = !bundle || !permitted;
   const price = normalizePricingPrice(form.elements.namedItem("grossPrice").value);
@@ -9321,7 +9322,7 @@ async function savePricingRecordEditor(event) {
   if (canCreatePricingRecord()) {
     values.discountOne = values.nfzCode === "A" ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
     values.discountPair = values.nfzCode === "A" ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
-    if (values.nfzCode === "A" && pricingOfferAccessoryKind(values) === "charger") {
+    if (["A", "CH"].includes(values.nfzCode) && pricingOfferAccessoryKind(values) === "charger") {
       values.chargerPriceOne = discounts.chargerPriceOne;
       values.chargerPriceTwo = discounts.chargerPriceTwo;
       values.grossPrice = discounts.chargerPriceOne;
@@ -17820,17 +17821,21 @@ function createPricingRow(record, index) {
       wrap.className = "pricing-price-wrap";
       const text = document.createElement("span");
       text.className = "pricing-price-value";
-      text.append(createPricingPriceElement(record.grossPrice));
+      const chargerBundle = pricingChargerBundlePrices(record);
+      if (chargerBundle) {
+        for (const [label, price] of [["1 aparat", chargerBundle.one], ["2 aparaty", chargerBundle.two]]) {
+          const line = document.createElement("span"); line.className = "pricing-charger-tier";
+          const caption = document.createElement("small"); caption.textContent = label;
+          line.append(caption, createPricingPriceElement(price)); text.append(line);
+        }
+      } else text.append(createPricingPriceElement(record.grossPrice));
       wrap.append(text);
-      if (String(record.nfzCode || "").trim().toUpperCase() === "A") {
-        const bundle = pricingChargerBundlePrices(record);
-        const prices = bundle || pricingDiscountPrices(record);
+      if (!chargerBundle && String(record.nfzCode || "").trim().toUpperCase() === "A") {
+        const prices = pricingDiscountPrices(record);
         if (prices) {
           const discounted = document.createElement("small");
           discounted.className = "pricing-discount-summary";
-          discounted.textContent = bundle
-            ? `1 aparat: ${formatPricingPrice(bundle.one)} · 2 aparaty: ${formatPricingPrice(bundle.two)} (1 ładowarka)`
-            : `1 szt.: ${formatPricingPrice(prices.one)} · 2 szt.: ${formatPricingPrice(prices.pair)}`;
+          discounted.textContent = `1 szt.: ${formatPricingPrice(prices.one)} · 2 szt.: ${formatPricingPrice(prices.pair)}`;
           text.append(discounted);
         }
       }
