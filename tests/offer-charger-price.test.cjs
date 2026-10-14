@@ -45,6 +45,18 @@ input.dataset.manualPrice = '1'; input.value = '0'; deviceCount = 2;
 assert.equal(ctx.pricingOfferChargerWithPrice(bundle).grossPrice, 0, 'explicit per-offer override retained');
 assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, chargerPriceOne: 800, chargerPriceTwo: 600 }).two, 600);
 assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, nfzCode: 'P.01.01.00' }), null);
+assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, nfzCode: 'Ch' }).two, 500);
+Object.assign(ctx, {
+  pricingFields: ['idProduct', 'nfzCode', 'tradeName', 'model', 'manufacturer', 'grossPrice'],
+  repairPricingRecordColumns: record => record,
+  normalizeAudibelTradeName: record => record.tradeName,
+  normalizePricingManufacturerName: value => value
+});
+vm.runInContext(extract('normalizePricingRecordForUse'), ctx);
+assert.equal(ctx.normalizePricingRecordForUse(bundle).nfzCode, 'Ch', 'legacy charger code A is shown as Ch');
+assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, model: 'Aparat' }).nfzCode, 'A', 'other product codes are untouched');
+assert.match(source, /\[\["1 aparat", chargerBundle\.one\], \["2 aparaty", chargerBundle\.two\]\]/);
+assert.ok(!source.includes('(1 ładowarka)'));
 assert.doesNotMatch(extract('renderPricingOffer'), /item\.input\.value = pricingOfferDeviceLabel/);
 assert.match(extract('restorePricingOfferFromHistory'), /offerChargerPriceInput\.value = String\(savedItem\.grossPrice/);
 assert.match(source, /if \(offerChargerPriceInput\?\.validationMessage\)/);

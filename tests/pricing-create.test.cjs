@@ -63,6 +63,7 @@ async function main() {
     openPricingRecordDialog: record => { opened = record; }, pricingMutationInProgress: false
   });
   vm.runInContext(extract('createPricingRow'), ctx);
+  vm.runInContext(extract('pricingChargerBundlePrices'), ctx);
   const row = ctx.createPricingRow(sourceRecord, 0);
   const edit = row.children[3].children[0];
   assert.match(edit.className, /pricing-product-edit-btn/);
