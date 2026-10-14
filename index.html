@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261014-16">
+  <link rel="stylesheet" href="styles.css?v=20261014-17">
   </head>
   <body>
     <main class="app-shell">
@@ -799,10 +799,14 @@
                   <input id="offerDeviceInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi aparat albo puste" autocomplete="off">
                 </label>
                 </div>
-                <label class="offer-accessory-field offer-charger-field">
-                  <span>Ładowarka</span>
-                  <input id="offerChargerInput" type="text" list="pricingOfferChargerList" placeholder="Opcjonalnie, wybierz z cennika" autocomplete="off">
-                </label>
+                <div class="offer-accessory-field offer-charger-field">
+                  <label><span>Ładowarka</span>
+                    <input id="offerChargerInput" type="text" list="pricingOfferChargerList" placeholder="Opcjonalnie, wybierz z cennika" autocomplete="off">
+                  </label>
+                  <label><span class="offer-charger-price-caption">Cena w tej ofercie (zł)</span>
+                    <input id="offerChargerPriceInput" type="text" inputmode="decimal" placeholder="Cena z cennika" autocomplete="off" aria-label="Cena ładowarki w tej ofercie" disabled>
+                  </label>
+                </div>
                 <label class="offer-accessory-field offer-earmold-field">
                   <span>Wkładka uszna</span>
                   <input id="offerEarmoldInput" type="text" list="pricingOfferEarmoldList" placeholder="Opcjonalnie, wybierz z cennika" autocomplete="off">
@@ -3179,12 +3183,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261014-16"></script>
-    <script src="data-layer.js?v=20261014-16"></script>
-    <script src="sync-layer.js?v=20261014-16"></script>
-    <script src="repair-returns.js?v=20261014-16"></script>
-    <script src="offline-vault.js?v=20261014-16"></script>
-    <script src="offline-forms.js?v=20261014-16"></script>
-  <script src="app.js?v=20261014-16"></script>
+    <script src="supabase-config.js?v=20261014-17"></script>
+    <script src="data-layer.js?v=20261014-17"></script>
+    <script src="sync-layer.js?v=20261014-17"></script>
+    <script src="repair-returns.js?v=20261014-17"></script>
+    <script src="offline-vault.js?v=20261014-17"></script>
+    <script src="offline-forms.js?v=20261014-17"></script>
+  <script src="app.js?v=20261014-17"></script>
   </body>
 </html>

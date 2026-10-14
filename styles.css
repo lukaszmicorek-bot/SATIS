@@ -4819,6 +4819,10 @@ h2 {
   border-left: 4px solid #82a9a1;
   background: #f8fbfa;
 }
+.offer-charger-field .offer-charger-price-caption { color: #62737a; font-size: 0.72rem; font-weight: 500; }
+.offer-charger-field > label { display: grid; gap: 6px; min-width: 0; }
+.offer-charger-field > label > span:not(.offer-charger-price-caption) { color: #536a75; font-size: 0.78rem; font-weight: 850; }
+#offerChargerPriceInput { max-width: 160px; }
 
 .offer-device-field > span {
   font-size: 0.82rem;

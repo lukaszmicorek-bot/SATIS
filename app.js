@@ -800,6 +800,7 @@ const offerNoNfzInput = document.querySelector("#offerNoNfzInput");
 const offerDeviceInput1 = document.querySelector("#offerDeviceInput1");
 const offerDeviceInput2 = document.querySelector("#offerDeviceInput2");
 const offerChargerInput = document.querySelector("#offerChargerInput");
+const offerChargerPriceInput = document.querySelector("#offerChargerPriceInput");
 const offerEarmoldInput = document.querySelector("#offerEarmoldInput");
 const offerTransferSidesBtn = document.querySelector("#offerTransferSidesBtn");
 const newPricingOfferBtn = document.querySelector("#newPricingOfferBtn");
@@ -8705,8 +8706,36 @@ function selectedPricingOfferAccessoryItems() {
     { input: offerEarmoldInput, kind: "earmold" }
   ].map((item) => ({
     ...item,
-    record: findPricingOfferAccessoryRecord(item.input?.value, item.kind)
+    record: item.kind === "charger"
+      ? pricingOfferChargerWithPrice(findPricingOfferAccessoryRecord(item.input?.value, item.kind))
+      : findPricingOfferAccessoryRecord(item.input?.value, item.kind)
   })).filter((item) => item.record);
+}
+
+function resetOfferChargerPrice() {
+  if (!offerChargerPriceInput) return;
+  offerChargerPriceInput.value = "";
+  delete offerChargerPriceInput.dataset.chargerKey;
+  delete offerChargerPriceInput.dataset.manualPrice;
+  offerChargerPriceInput.setCustomValidity("");
+  offerChargerPriceInput.disabled = true;
+}
+
+function pricingOfferChargerWithPrice(record) {
+  const input = offerChargerPriceInput;
+  if (!input) return record;
+  if (!record) { resetOfferChargerPrice(); return null; }
+  const key = pricingRecordKey(record);
+  if (input.dataset.chargerKey !== key) {
+    input.dataset.chargerKey = key;
+    delete input.dataset.manualPrice;
+  }
+  input.disabled = false;
+  if (!input.dataset.manualPrice && document.activeElement !== input) input.value = String(record.grossPrice ?? "").replace(".", ",");
+  const price = input.dataset.manualPrice ? normalizePricingPrice(input.value) : normalizePricingPrice(record.grossPrice);
+  const valid = price !== "" && price >= 0;
+  input.setCustomValidity(valid ? "" : "Wpisz prawidłową cenę ładowarki: zero lub więcej.");
+  return valid ? { ...record, grossPrice: Math.round(price * 100) / 100 } : record;
 }
 
 function selectedPricingOfferAllItems() {
@@ -8730,6 +8759,7 @@ function pricingOfferItemDescription(item) {
 function removePricingOfferItem(item) {
   if (!item?.input) return;
   item.input.value = "";
+  if (item.kind === "charger") resetOfferChargerPrice();
   markAgreementDraftDirty("offer");
   renderPricingOffer();
 }
@@ -8975,6 +9005,7 @@ function ensurePricingOfferLocation() {
 
 function startNewPricingOffer() {
   if (documentSaveLocks.has("offer")) return;
+  resetOfferChargerPrice();
   documentDraftIdentities.delete("offer");
   [
     offerCustomerInput,
@@ -9022,12 +9053,9 @@ function renderPricingOffer() {
   }
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
-  offerItems.forEach((item) => {
-    if (item.input?.value.split("|").length >= 3) item.input.value = pricingOfferDeviceLabel(item.record);
-  });
   const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
   const deviceTotal = deviceItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
-  const hasValidDevice = deviceItems.length > 0;
+  const hasValidDevice = deviceItems.length > 0 && !offerChargerPriceInput?.validationMessage;
   if (savePricingOfferBtn) savePricingOfferBtn.disabled = ageRequired || !hasValidDevice;
   const withoutNfz = Boolean(offerNoNfzInput?.checked);
   const nfzLimit = deviceItems.reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
@@ -9894,6 +9922,7 @@ async function persistPricingOfferHistoryEntry(entry) {
 }
 
 async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
+  if (offerChargerPriceInput?.validationMessage) { offerChargerPriceInput.reportValidity(); return null; }
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("offer");
   if (!requireDocumentCustomerName(offerCustomerInput)) return null;
   if (!beginDocumentSave("offer")) return null;
@@ -11729,6 +11758,7 @@ function restorePricingOfferFromHistory(entry) {
   [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
     if (input) input.value = "";
   });
+  resetOfferChargerPrice();
   let fallbackDeviceIndex = 0;
   saved.items.forEach((savedItem) => {
     let input = null;
@@ -11746,6 +11776,11 @@ function restorePricingOfferFromHistory(entry) {
       fallbackDeviceIndex = Math.max(fallbackDeviceIndex + 1, deviceIndex + 1);
     }
     if (input) input.value = record ? pricingOfferDeviceLabel(record) : (savedItem.model || savedItem.tradeName || "");
+    if (savedItem.kind === "charger" && record && offerChargerPriceInput) {
+      offerChargerPriceInput.dataset.chargerKey = pricingRecordKey(record);
+      offerChargerPriceInput.dataset.manualPrice = "1";
+      offerChargerPriceInput.value = String(savedItem.grossPrice ?? record.grossPrice).replace(".", ",");
+    }
   });
   renderPricingOfferDeviceList();
   switchPricingView("offer");
@@ -27435,6 +27470,15 @@ updatePcprFormMode();
 [offerCustomerInput, offerDateInput, offerLocationInput, offerPfronInput, offerPfronEnabledInput, offerNoNfzInput, offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput, offerNotesInput].forEach((input) => {
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
+});
+offerChargerPriceInput?.addEventListener("input", () => {
+  offerChargerPriceInput.dataset.manualPrice = "1";
+  markAgreementDraftDirty("offer");
+  renderPricingOffer();
+});
+offerChargerPriceInput?.addEventListener("blur", () => {
+  if (!offerChargerPriceInput.value.trim()) delete offerChargerPriceInput.dataset.manualPrice;
+  renderPricingOffer();
 });
 offerPatientGroupInputs.forEach((input) => input.addEventListener("change", () => {
   renderPricingOfferDeviceList();
