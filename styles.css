@@ -4604,6 +4604,21 @@ h2 {
 .pricing-table td:nth-child(10) { width: 122px; min-width: 122px; }
 .pricing-table .row-actions button { min-width: 24px; min-height: 26px; padding: 0 5px; margin: 2px; }
 .pricing-table .pricing-record-edit-btn { font-size: 0.7rem; }
+.pricing-table .pricing-product-edit-btn {
+  display: block;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 5px 10px;
+  min-height: 28px;
+  border: 1px solid #b5d3d2;
+  border-radius: 6px;
+  color: #006e73;
+  background: #eef7f6;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+.pricing-table .pricing-product-edit-btn:hover { color: #003f5a; background: #dff0ef; border-color: #80b3b1; }
+.pricing-table .pricing-product-edit-btn:focus-visible { outline: 2px solid #007b80; outline-offset: 2px; }
 
 @media (max-width: 480px) {
   .pricing-editor-fields { grid-template-columns: minmax(0, 1fr); padding: 14px; }

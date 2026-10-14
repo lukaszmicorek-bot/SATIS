@@ -50,6 +50,26 @@ async function main() {
   assert.equal(ctx.pricingMutationInProgress, false);
   assert.match(extract('savePricingRecordEditor'), /pricingCreatingRecord.*nameKey|pricingCreatingRecord && nameKey/s);
   assert.match(source, /if \(pricingCreatingRecord && !canCreatePricingRecord\(\)\) return;/);
+  const node = () => ({
+    children: [], dataset: {}, style: { setProperty() {} }, classList: { add() {}, toggle() {} },
+    handlers: {}, append(...children) { this.children.push(...children); },
+    setAttribute() {}, addEventListener(name, handler) { this.handlers[name] = handler; }
+  });
+  Object.assign(ctx, {
+    document: { createElement: node }, isPricingModelUnavailable: () => false,
+    pricingManufacturerTone: () => ({}), formatPricingPrice: value => String(value),
+    createPricingPriceElement: value => String(value), pricingChargerWarrantyTooltip: () => '',
+    normalizePricingPrice: value => Number(value), pricingOfferPatientGroup: () => '',
+    openPricingRecordDialog: record => { opened = record; }, pricingMutationInProgress: false
+  });
+  vm.runInContext(extract('createPricingRow'), ctx);
+  const row = ctx.createPricingRow(sourceRecord, 0);
+  const edit = row.children[3].children[0];
+  assert.match(edit.className, /pricing-product-edit-btn/);
+  assert.equal(edit.disabled, false, 'editing independent of patient group required for offer');
+  edit.handlers.click(); assert.equal(opened, sourceRecord);
+  ctx.canManagePricing = () => false;
+  assert.equal(ctx.createPricingRow(sourceRecord, 0).children[3].children.length, 0, 'staff receives no product edit button');
   console.log('OK: owner-only pricing creation, fresh identity, source preserved, confirmed insert and failed-save recovery.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
