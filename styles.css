@@ -15641,6 +15641,9 @@ textarea {
 .loan-active-section h3 { margin: 0 0 14px; font-size: 17px; color: #003f5a; }
 .loan-active-section h3 span { font-size: 13px; font-weight: 400; color: #62737a; }
 .loan-active-list { display: grid; gap: 8px; }
+.loan-active-equipment { display: grid; gap: 5px; }
+.loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
+.loan-active-equipment-line .demo-purpose-pill { flex-shrink: 0; white-space: nowrap; }
 .loan-deposit-toggle { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 36px; }
 .loan-deposit-toggle input { width: 18px; height: 18px; min-height: 0; }
 .loan-signatures.signature-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
