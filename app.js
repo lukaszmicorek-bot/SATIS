@@ -3858,7 +3858,7 @@ async function persistDeviceRecord(record) {
 async function persistRepairRecord(record) {
   writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
   if (hasSupabaseConfig) {
-    await upsertSupabaseRecord(SUPABASE_REPAIR_TABLE, record);
+    await upsertSupabaseRecord(SUPABASE_REPAIR_TABLE, record, { requestTimeoutMs: 20000 });
     return;
   }
   await saveRepairRecords();
@@ -24390,6 +24390,15 @@ function repairRequiredModelViolation(data) {
 }
 
 function repairDateValidationViolation(data) {
+  if (!String(data?.customerName || "").trim()) return {
+    field: "customerName", selector: "#repairCustomerName", message: "Imię i nazwisko jest wymagane do zapisania sprawy."
+  };
+  for (const info of REPAIR_DATE_ORDER) {
+    const raw = String(document.querySelector(info.selector)?.value || "").trim();
+    if (raw && !isoDateForSave(raw)) return {
+      field: info.field, selector: info.selector, message: `${info.label} ma nieprawidłowy format. Wpisz datę jako dd.mm.rrrr.`
+    };
+  }
   return repairRequiredDateViolation(data) || repairDateOrderViolation(data) || repairRequiredSerialViolation(data) || repairRequiredModelViolation(data);
 }
 
@@ -24400,7 +24409,7 @@ function clearRepairDateOrderError() {
     input?.removeAttribute("aria-invalid");
     input?.closest(".date-input-wrap")?.classList.remove("invalid-date");
   });
-  ["#repairSerialNumber", "#repairSerialNumber2", "#repairDeviceName"].forEach((selector) => {
+  ["#repairSerialNumber", "#repairSerialNumber2", "#repairDeviceName", "#repairCustomerName"].forEach((selector) => {
     document.querySelector(selector)?.removeAttribute("aria-invalid");
   });
 }
@@ -24867,6 +24876,8 @@ async function saveRepairFormRecord(event) {
   }
 
   repairForm.dataset.saving = "1";
+  const originalSaveText = saveRepairBtn.textContent;
+  saveRepairBtn.textContent = "Zapisywanie…";
   saveRepairBtn.disabled = true;
   try {
     await nextFrame();
@@ -24894,6 +24905,7 @@ async function saveRepairFormRecord(event) {
   } finally {
     repairForm.dataset.saving = "";
     saveRepairBtn.disabled = false;
+    saveRepairBtn.textContent = originalSaveText;
   }
 }
 
