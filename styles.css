@@ -15692,6 +15692,26 @@ textarea {
   outline: none;
   box-shadow: none;
 }
+.repair-order-items-panel h3 { margin: 0; color: #003f5a; font-size: 0.95rem; }
+.repair-order-items-panel > p { margin: 5px 0 10px; font-size: 0.75rem; color: #62737a; }
+#repairOrderItemsList { display: grid; gap: 12px; }
+.repair-order-item { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; padding-top: 10px; border-top: 1px solid #dce6e8; }
+.repair-order-item > strong, .repair-order-item > small { grid-column: 1 / -1; }
+.repair-order-item > strong { color: #003f5a; font-size: 0.8rem; }
+.repair-order-item > strong { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.repair-order-item > label { min-width: 0; }
+.repair-order-item > small { color: #62737a; font-size: 0.75rem; }
+.repair-kind-tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.repair-kind-tiles button { border: 1px solid #d7e2e5; border-radius: 6px; padding: 7px 12px; background: #f7fafb; color: #536c79; font-size: 0.8rem; }
+.repair-kind-tiles button[aria-pressed="true"] { border-color: #91bdbf; color: #006e73; background: #eaf5f5; font-weight: 700; }
+.repair-kind-tiles [data-repair-kind="order"][aria-pressed="true"] { border-color: #dab98e; background: #fff3e4; color: #915d21; }
+.repair-order-progress { display: block; font-size: 0.68rem; color: #62737a; margin-top: 4px; white-space: normal; }
+.repair-order-payment { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.repair-order-payment label { max-width: 160px; }
+.repair-order-payment strong { color: #003f5a; font-size: 0.85rem; padding-bottom: 8px; }
+@media print { .repair-kind-tiles { display: none !important; } }
+#repairOrderItemsPanel input.repair-return-serial-required { border: 1px solid #df9da8; box-shadow: none; }
+@media (max-width: 600px) { .repair-order-item { grid-template-columns: minmax(0, 1fr); } }
 .loan-active-equipment { display: grid; gap: 5px; }
 .customer-transfer-field { position: relative; min-width: 0; width: 100%; }
 .customer-transfer-field > input { width: 100%; padding-right: 68px !important; }

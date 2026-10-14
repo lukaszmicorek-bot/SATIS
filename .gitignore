@@ -83,4 +83,5 @@
 !/tests/customer-transfer.test.cjs
 !/tests/document-new-toolbar.test.cjs
 !/tests/loan-transfer-sides.test.cjs
+!/tests/repair-order-items.test.cjs
 !/tests/repair-returns.sqltest.cjs

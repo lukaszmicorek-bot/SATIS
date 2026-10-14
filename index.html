@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261014-11">
+  <link rel="stylesheet" href="styles.css?v=20261014-12">
   </head>
   <body>
     <main class="app-shell">
@@ -541,6 +541,11 @@
         </details>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
+          <div class="repair-kind-tiles" role="group" aria-label="Rodzaj spraw">
+            <button type="button" data-repair-kind="all" aria-pressed="true">Wszystkie</button>
+            <button type="button" data-repair-kind="service" aria-pressed="false">Serwis</button>
+            <button type="button" data-repair-kind="order" aria-pressed="false">Zamówienia</button>
+          </div>
           <section class="controls repairs-controls compact-filters" aria-label="Narzędzia zeszytu serwisu i zamówień">
             <div class="search-with-summary">
               <label class="search-box paste-input-field">
@@ -627,6 +632,11 @@
         </section>
 
         <section id="repairOpenView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairOpenTab" hidden>
+          <div class="repair-kind-tiles" role="group" aria-label="Rodzaj niedokończonych spraw">
+            <button type="button" data-repair-kind="all" aria-pressed="true">Wszystkie</button>
+            <button type="button" data-repair-kind="service" aria-pressed="false">Serwis</button>
+            <button type="button" data-repair-kind="order" aria-pressed="false">Zamówienia</button>
+          </div>
           <section id="repairOpenPriorityFilters" class="compact-filter-chips" aria-label="Filtr kolejki niedokończonych">
             <button type="button" class="active" data-repair-open-filter="all" aria-pressed="true">Wszystkie</button>
             <button type="button" data-repair-open-filter="ready" aria-pressed="false">Do odbioru</button>
@@ -2865,6 +2875,15 @@
               <datalist id="repairPhoneSuggestions"></datalist>
             </label>
           </div>
+          <section id="repairOrderItemsPanel" class="wide repair-order-items-panel" hidden aria-label="Pozycje zamówienia">
+            <h3>Pozycje zamówienia</h3>
+            <p>Numery dla kilku sztuk oddziel przecinkiem. Powrót i odbiór zapisuj osobno dla każdej pozycji.</p>
+            <div id="repairOrderItemsList"></div>
+            <div class="repair-order-payment">
+              <label><span>Zadatek</span><input id="repairOrderDeposit" type="text" inputmode="decimal" placeholder="0,00"></label>
+              <strong id="repairOrderRemaining"></strong>
+            </div>
+          </section>
           <label class="wide">
             <span id="repairDeviceNameLabel">Aparat / wkładka</span>
             <input id="repairDeviceName" name="deviceName" type="text" list="deviceNameSuggestions" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -3149,12 +3168,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261014-11"></script>
-    <script src="data-layer.js?v=20261014-11"></script>
-    <script src="sync-layer.js?v=20261014-11"></script>
-    <script src="repair-returns.js?v=20261014-11"></script>
-    <script src="offline-vault.js?v=20261014-11"></script>
-    <script src="offline-forms.js?v=20261014-11"></script>
-  <script src="app.js?v=20261014-11"></script>
+    <script src="supabase-config.js?v=20261014-12"></script>
+    <script src="data-layer.js?v=20261014-12"></script>
+    <script src="sync-layer.js?v=20261014-12"></script>
+    <script src="repair-returns.js?v=20261014-12"></script>
+    <script src="offline-vault.js?v=20261014-12"></script>
+    <script src="offline-forms.js?v=20261014-12"></script>
+  <script src="app.js?v=20261014-12"></script>
   </body>
 </html>
