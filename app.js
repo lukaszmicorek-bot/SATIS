@@ -10875,6 +10875,29 @@ function filterActivePricingLoansByLocation(entries, location) {
   return location ? entries.filter(entry => pricingHistoryEntryLocation(entry, "loan") === location) : entries;
 }
 
+function createActiveLoanEquipment(entry) {
+  const equipment = document.createElement("div");
+  equipment.className = "loan-active-equipment";
+  [entry.rightDevice, entry.leftDevice].filter(hasLoanDeviceData).forEach(device => {
+    const line = document.createElement("div");
+    line.className = "loan-active-equipment-line";
+    const label = document.createElement("span");
+    label.textContent = [device.side, device.model, device.serial].filter(Boolean).join(" · ");
+    line.append(label);
+    const purpose = normalizeLoanDemoPurpose(device.purpose);
+    if (purpose) line.append(createDemoPurposePill(purpose));
+    equipment.append(line);
+  });
+  if (entry.charger || entry.chargerSerial || entry.chargerState) {
+    const charger = document.createElement("span");
+    const state = String(entry.chargerState || "").trim();
+    charger.textContent = [entry.charger || "Ładowarka", entry.chargerSerial,
+      state.toLocaleLowerCase("pl-PL") === "sprawna" ? "" : state].filter(Boolean).join(" · ");
+    equipment.append(charger);
+  }
+  return equipment;
+}
+
 function renderActivePricingLoans() {
   const section = document.querySelector("#loanActiveSection");
   const list = document.querySelector("#loanActiveList");
@@ -10916,8 +10939,7 @@ function renderActivePricingLoans() {
     const meta = document.createElement("small");
     meta.textContent = [entry.number ? `nr ${entry.number}` : "Bez numeru",
       `Okres: ${formatDate(entry.periodFrom) || "—"} – ${formatDate(entry.periodTo) || "—"}`].filter(Boolean).join(" · ");
-    const model = document.createElement("span");
-    model.textContent = pricingLoanHistoryDeviceLabel(entry);
+    const model = createActiveLoanEquipment(entry);
     content.append(titleLine, meta, model);
     const status = pricingLoanDeadlineStatus(entry);
     if (status) {
