@@ -5601,6 +5601,8 @@ function normalizePricingRecordForUse(record) {
   normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
   normalizedRecord.manufacturer = normalizePricingManufacturerName(normalizedRecord.manufacturer);
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
+  normalizedRecord.discountOne = normalizePricingPrice(record?.discountOne) || 0;
+  normalizedRecord.discountPair = normalizePricingPrice(record?.discountPair) || 0;
   if (record?.id) normalizedRecord.id = String(record.id);
   return normalizedRecord;
 }
@@ -9070,7 +9072,37 @@ function renderPricingOffer() {
 
 function pricingRecordFingerprint(record) {
   const normalized = normalizePricingRecordForUse(record);
-  return JSON.stringify(pricingFields.map((field) => normalized[field]));
+  return JSON.stringify([...pricingFields.map((field) => normalized[field]), normalized.discountOne, normalized.discountPair]);
+}
+
+function pricingDiscountPrices(record) {
+  const price = normalizePricingPrice(record.grossPrice);
+  if (price === "" || price < 0) return null;
+  const base = Math.round(price * 100);
+  const active = String(record.nfzCode || "").trim().toUpperCase() === "A";
+  const discount = (value, maximum) => active ? Math.min(maximum, Math.max(0, Math.round((normalizePricingPrice(value) || 0) * 100))) : 0;
+  return { one: (base - discount(record.discountOne, base)) / 100, pair: (base * 2 - discount(record.discountPair, base * 2)) / 100 };
+}
+
+function updatePricingDiscountEditor() {
+  const form = document.querySelector("#pricingRecordForm");
+  const active = String(form.elements.namedItem("nfzCode").value).trim().toUpperCase() === "A";
+  const permitted = canCreatePricingRecord();
+  document.querySelector("#pricingDiscountPanel").hidden = !active || !permitted;
+  const price = normalizePricingPrice(form.elements.namedItem("grossPrice").value);
+  const values = { grossPrice: price, nfzCode: active ? "A" : "" };
+  for (const [field, count] of [["discountOne", 1], ["discountPair", 2]]) {
+    const input = form.elements.namedItem(field);
+    const raw = input.value.trim();
+    const discount = raw ? normalizePricingPrice(raw) : 0;
+    const invalid = active && permitted && (discount === "" || discount < 0 || (price !== "" && discount > price * count));
+    input.setCustomValidity(invalid ? `Rabat musi być kwotą od 0 do ceny ${count === 1 ? "aparatu" : "całej pary"}.` : "");
+    values[field] = discount;
+  }
+  const prices = pricingDiscountPrices(values);
+  document.querySelector("#pricingDiscountOnePrice").textContent = prices ? formatPricingPrice(prices.one) : "—";
+  document.querySelector("#pricingDiscountPairPrice").textContent = prices ? formatPricingPrice(prices.pair) : "—";
+  return values;
 }
 
 function pricingRecordIndex(record) {
@@ -9166,6 +9198,12 @@ function openPricingRecordDialog(record, focusField = "tradeName", { create = fa
     input.value = field === "grossPrice" ? String(record[field] ?? "").replace(".", ",") : record[field] || "";
     input.setCustomValidity("");
   });
+  for (const field of ["discountOne", "discountPair"]) {
+    const input = form.elements.namedItem(field);
+    input.value = String(record[field] ?? 0).replace(".", ",");
+    input.setCustomValidity("");
+  }
+  updatePricingDiscountEditor();
   document.querySelector("#pricingRecordEditorMode").textContent = create ? "Nowa pozycja cennika" : "Edycja pozycji cennika";
   document.querySelector("#deletePricingRecordBtn").hidden = create;
   document.querySelector("#copyPricingProductBtn").hidden = create || !canCreatePricingRecord();
@@ -9219,10 +9257,15 @@ async function savePricingRecordEditor(event) {
   const values = Object.fromEntries(pricingFields.map((field) => [field, form.elements.namedItem(field).value.trim()]));
   values.nfzCode = values.nfzCode.toLocaleUpperCase("pl-PL");
   const price = normalizePricingPrice(values.grossPrice);
+  const discounts = updatePricingDiscountEditor();
   form.elements.namedItem("grossPrice").setCustomValidity(price === "" || price < 0 ? "Podaj poprawną cenę brutto (zero lub więcej)." : "");
   form.elements.namedItem("tradeName").setCustomValidity(!values.tradeName && !values.model ? "Podaj nazwę handlową lub model." : "");
   if (!form.reportValidity()) return;
   values.grossPrice = Math.round(price * 100) / 100;
+  if (canCreatePricingRecord()) {
+    values.discountOne = values.nfzCode === "A" ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
+    values.discountPair = values.nfzCode === "A" ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
+  }
   const replacement = normalizePricingRecordForUse({ ...pricingEditingRecord, ...values });
   const index = pricingRecordIndex(pricingEditingRecord);
   const nameKey = item => normalize([item.nfzCode, item.tradeName, item.model, item.manufacturer].join("|"));
@@ -17710,6 +17753,15 @@ function createPricingRow(record, index) {
       text.className = "pricing-price-value";
       text.append(createPricingPriceElement(record.grossPrice));
       wrap.append(text);
+      if (String(record.nfzCode || "").trim().toUpperCase() === "A") {
+        const prices = pricingDiscountPrices(record);
+        if (prices) {
+          const discounted = document.createElement("small");
+          discounted.className = "pricing-discount-summary";
+          discounted.textContent = `1 szt.: ${formatPricingPrice(prices.one)} · 2 szt.: ${formatPricingPrice(prices.pair)}`;
+          text.append(discounted);
+        }
+      }
       if (canManagePricing()) {
         const editButton = document.createElement("button");
         editButton.type = "button";
@@ -26520,7 +26572,10 @@ function mergePricingRecords(existingRecords, importedRecords) {
     const key = pricingRecordKey(record);
     if (indexByKey.has(key)) {
       const index = indexByKey.get(key);
-      recordsToMerge[index] = { ...record, ...(recordsToMerge[index].id ? { id: recordsToMerge[index].id } : {}) };
+      recordsToMerge[index] = { ...record,
+        discountOne: recordsToMerge[index].discountOne || 0,
+        discountPair: recordsToMerge[index].discountPair || 0,
+        ...(recordsToMerge[index].id ? { id: recordsToMerge[index].id } : {}) };
       updated += 1;
       return;
     }
@@ -27248,11 +27303,13 @@ document.querySelector("#copyPricingProductBtn")?.addEventListener("click", () =
   if (!pricingEditingRecord || pricingCreatingRecord || !canCreatePricingRecord()) return;
   const form = document.querySelector("#pricingRecordForm");
   const values = Object.fromEntries(pricingFields.map(field => [field, form.elements.namedItem(field).value.trim()]));
+  for (const field of ["discountOne", "discountPair"]) values[field] = form.elements.namedItem(field).value.trim();
   openNewPricingProduct(values);
 });
 document.querySelector("#pricingRecordForm")?.addEventListener("input", (event) => {
   event.target.setCustomValidity?.("");
   document.querySelector('#pricingRecordForm [name="tradeName"]').setCustomValidity("");
+  updatePricingDiscountEditor();
 });
 document.querySelectorAll("[data-close-pricing-record]").forEach((button) => button.addEventListener("click", () => {
   if (!pricingMutationInProgress) document.querySelector("#pricingRecordDialog").close();
