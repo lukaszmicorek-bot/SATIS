@@ -17854,18 +17854,6 @@ function createPricingRow(record, index) {
     } else {
       cell.textContent = value || "-";
     }
-    if (cellIndex === 3 && canManagePricing()) {
-      const editButton = document.createElement("button");
-      editButton.type = "button";
-      editButton.className = "pricing-record-edit-btn pricing-product-edit-btn";
-      editButton.textContent = "Edytuj";
-      editButton.title = "Edytuj produkt, cenę i rabaty";
-      editButton.setAttribute("aria-label", `Edytuj produkt: ${record.tradeName || record.model || "pozycja cennika"}`);
-      editButton.dataset.pricingWrite = "";
-      editButton.disabled = pricingMutationInProgress;
-      editButton.addEventListener("click", () => openPricingRecordDialog(record));
-      cell.append(editButton);
-    }
     if (cellIndex === 4) {
       if (unavailable) {
         const availability = document.createElement("span");
@@ -17899,6 +17887,16 @@ function createPricingRow(record, index) {
   offerButton.addEventListener("click", () => addPricingRecordToOffer(record));
   offerCell.append(offerButton);
   if (canManagePricing()) {
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "pricing-record-edit-btn";
+    editButton.textContent = "Edytuj";
+    editButton.title = "Edytuj produkt, cenę i rabaty";
+    editButton.setAttribute("aria-label", `Edytuj produkt: ${record.tradeName || record.model || "pozycja cennika"}`);
+    editButton.dataset.pricingWrite = "";
+    editButton.disabled = pricingMutationInProgress;
+    editButton.addEventListener("click", () => openPricingRecordDialog(record));
+    offerCell.append(editButton);
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "pricing-remove-btn danger";
