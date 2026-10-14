@@ -15641,6 +15641,20 @@ textarea {
 .loan-active-section h3 { margin: 0 0 14px; font-size: 17px; color: #003f5a; }
 .loan-active-section h3 span { font-size: 13px; font-weight: 400; color: #62737a; }
 .loan-active-list { display: grid; gap: 8px; }
+.loan-deposit-toggle { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 36px; }
+.loan-deposit-toggle input { width: 18px; height: 18px; min-height: 0; }
+.loan-signatures.signature-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.loan-signatures.signature-tiles p { grid-column: auto; display: block; min-height: 82px; padding: 12px; border: 1px solid #d6e0e4; border-radius: 8px; background: #fbfdfd; }
+.loan-signatures.signature-tiles p span { font-size: 0.72rem; font-weight: 800; }
+.loan-signatures.signature-tiles p strong { display: block; margin-top: 36px; border: 0; padding: 0; }
+@media print {
+  body.pricing-loan-print .loan-signatures.signature-tiles { gap: 2mm; break-inside: avoid; }
+  body.pricing-loan-print .loan-signatures.signature-tiles p { min-height: 22mm; padding: 2mm 2.2mm; border-radius: 0; background: #fff; }
+  body.pricing-loan-print .loan-signatures.signature-tiles p strong { margin-top: 10mm; }
+}
+@media screen and (max-width: 600px) {
+  .loan-signatures.signature-tiles { grid-template-columns: 1fr; }
+}
 .loan-active-location-filters { margin-bottom: 14px; flex-wrap: wrap; }
 .loan-active-location-filters .pcpr-tab { min-width: 64px; min-height: 34px; }
 .loan-active-client { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }

@@ -815,6 +815,7 @@ const loanContractNumberInput = document.querySelector("#loanContractNumberInput
 const loanDateInput = document.querySelector("#loanDateInput");
 const loanCityInput = document.querySelector("#loanCityInput");
 const loanDepositInput = document.querySelector("#loanDepositInput");
+const loanDepositEnabledInput = document.querySelector("#loanDepositEnabledInput");
 const loanTestingFeeInputs = [...document.querySelectorAll('input[name="loanTestingFee"]')];
 const loanPeriodFromInput = document.querySelector("#loanPeriodFromInput");
 const loanPeriodToInput = document.querySelector("#loanPeriodToInput");
@@ -9824,6 +9825,7 @@ function normalizePricingLoanHistoryEntry(entry) {
     date: isoDateForSave(entry.date) || normalizeLoanHistoryText(entry.date),
     city: normalizeLoanHistoryText(entry.city) ? normalizeLoanCityValue(entry.city) : "",
     deposit: normalizeLoanHistoryText(entry.deposit),
+    depositEnabled: entry.depositEnabled === true || (entry.depositEnabled == null && /[1-9]/u.test(String(entry.deposit || ""))),
     testingFee: normalizeLoanTestingFee(entry.testingFee),
     periodFrom: isoDateForSave(entry.periodFrom) || normalizeLoanHistoryText(entry.periodFrom),
     periodTo: isoDateForSave(entry.periodTo) || normalizeLoanHistoryText(entry.periodTo),
@@ -10339,7 +10341,8 @@ function currentPricingLoanSnapshot() {
     number: loanInputValue(loanContractNumberInput),
     date: isoDateForSave(loanDateInput?.value) || loanInputValue(loanDateInput),
     city: normalizeLoanCityValue(loanInputValue(loanCityInput)),
-    deposit: loanInputValue(loanDepositInput),
+    depositEnabled: Boolean(loanDepositEnabledInput?.checked),
+    deposit: loanDepositEnabledInput?.checked ? loanInputValue(loanDepositInput) : "",
     testingFee: pricingLoanTestingFee(),
     periodFrom: isoDateForSave(loanPeriodFromInput?.value) || loanInputValue(loanPeriodFromInput),
     periodTo: isoDateForSave(loanPeriodToInput?.value) || loanInputValue(loanPeriodToInput),
@@ -10357,7 +10360,7 @@ function currentPricingLoanSnapshot() {
     chargerMissingValue: loanInputValue(loanChargerMissingValueInput),
     issueNotes: loanInputValue(loanIssueNotesInput),
     returnDate: isoDateForSave(loanReturnDateInput?.value) || loanInputValue(loanReturnDateInput),
-    depositReturnDate: isoDateForSave(loanDepositReturnDateInput?.value) || loanInputValue(loanDepositReturnDateInput),
+    depositReturnDate: loanDepositEnabledInput?.checked ? (isoDateForSave(loanDepositReturnDateInput?.value) || loanInputValue(loanDepositReturnDateInput)) : "",
     deductions: loanInputValue(loanDeductionsInput),
     deductionReason: loanInputValue(loanDeductionReasonInput)
   };
@@ -10564,6 +10567,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanDateInput, historyEntry.date, { date: true });
   setLoanSnapshotInput(loanCityInput, normalizeLoanCityValue(historyEntry.city));
   setLoanSnapshotInput(loanDepositInput, historyEntry.deposit);
+  if (loanDepositEnabledInput) loanDepositEnabledInput.checked = historyEntry.depositEnabled;
   setPricingLoanTestingFee(historyEntry.testingFee);
   setLoanSnapshotInput(loanPeriodFromInput, historyEntry.periodFrom, { date: true });
   setLoanSnapshotInput(loanPeriodToInput, historyEntry.periodTo, { date: true });
@@ -11286,12 +11290,10 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Telefon", saved.phone);
     appendPricingHistoryPreviewField(summary, "Adres", saved.address);
     appendPricingHistoryPreviewField(summary, "Dokument", saved.document);
-    appendPricingHistoryPreviewField(summary, "Kaucja", saved.deposit);
+    if (saved.depositEnabled) appendPricingHistoryPreviewField(summary, "Kaucja", saved.deposit);
     appendPricingHistoryPreviewField(summary, "Pobrano", saved.testingFee);
     appendPricingHistoryPreviewField(summary, "Data zwrotu", formatDate(saved.returnDate));
-    appendPricingHistoryPreviewField(summary, "Zwrot kaucji", formatDate(saved.depositReturnDate));
-    appendPricingHistoryPreviewField(summary, "Potrącenia", saved.deductions);
-    appendPricingHistoryPreviewField(summary, "Powód potrącenia", saved.deductionReason);
+    if (saved.depositEnabled) appendPricingHistoryPreviewField(summary, "Zwrot kaucji", formatDate(saved.depositReturnDate));
     [saved.rightDevice, saved.leftDevice].filter(hasLoanDeviceData).forEach((device) => {
       const row = document.createElement("p");
       const side = normalizeLoanHistoryText(device.side).toLocaleLowerCase("pl-PL").includes("lew") ? "Aparat L" : "Aparat P";
@@ -12743,6 +12745,7 @@ function ensurePricingLoanDefaults() {
 function startNewPricingLoan() {
   if (pricingLoanSaveInProgress) return;
   resetLoanAutofillState();
+  if (loanDepositEnabledInput) loanDepositEnabledInput.checked = false;
   documentDraftIdentities.delete("loan");
   setDocumentCustomerNameValidity(loanCustomerInput, true);
   setLoanReturnEditMode(false);
@@ -12929,7 +12932,14 @@ function renderPricingLoan() {
   const periodText = [periodFrom, periodTo].filter(Boolean).join(" - ");
   const returnDate = loanDateText(loanReturnDateInput);
   const issueNotes = loanInputValue(loanIssueNotesInput) || "bez zastrzeżeń";
-  const deductionReason = loanInputValue(loanDeductionReasonInput);
+  const depositEnabled = Boolean(loanDepositEnabledInput?.checked);
+  pricingLoanView?.querySelectorAll("[data-loan-deposit]").forEach(element => { element.hidden = !depositEnabled; });
+  let clauseNumber = 0;
+  pricingLoanView?.querySelectorAll(".loan-terms p").forEach(paragraph => {
+    if (paragraph.hidden) return;
+    const heading = paragraph.querySelector("strong");
+    if (heading) heading.textContent = heading.textContent.replace(/^§\d+\./u, `§${++clauseNumber}.`);
+  });
   const devices = [loanDeviceData("right"), loanDeviceData("left")];
   const activeDevices = devices.filter(hasLoanDeviceData);
   const visibleDevices = activeDevices.map((device) => ({
@@ -12967,9 +12977,7 @@ function renderPricingLoan() {
   setLoanMoneyOutput("chargerMissingValue", loanInputValue(loanChargerMissingValueInput));
   setLoanOutput("issueNotes", issueNotes);
   setLoanOutput("issueProtocol", `${issueNotes}; instrukcja${hasCharger ? ", ładowarka" : ""}`);
-  setLoanOutput("returnProtocol", `Data: ${returnDate || "-"}${deductionReason ? `; uwagi: ${deductionReason}` : ""}`);
-  setLoanMoneyOutput("deductions", loanInputValue(loanDeductionsInput));
-  setLoanOutput("deductionReason", deductionReason);
+  setLoanOutput("returnProtocol", `Data: ${returnDate || "-"}`);
   setLoanOutput("depositReturnDate", loanDateText(loanDepositReturnDateInput));
   renderPricingLoanEquipment(visibleDevices);
   renderActivePricingLoans();
@@ -27680,6 +27688,7 @@ document.querySelector("#loanActiveLocationFilters")?.addEventListener("click", 
   event.currentTarget.dataset.location = button.dataset.loanActiveLocation;
   renderActivePricingLoans();
 });
+loanDepositEnabledInput?.addEventListener("change", renderPricingLoan);
 pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("input", renderPricingRodo);
 document.querySelector("#rodoPeselInput")?.addEventListener("input", updateRodoFromPesel);
 document.querySelector("#rodoBirthDateInput")?.addEventListener("input", (event) => {
