@@ -12400,28 +12400,32 @@ tbody tr.demo-return-critical:hover {
 .devices-table th:nth-child(1),
 .devices-table td:nth-child(1) { width: 8%; }
 .devices-table th:nth-child(2),
-.devices-table td:nth-child(2) { width: 18%; }
+.devices-table td:nth-child(2) { width: 17%; }
 .devices-table th:nth-child(3),
-.devices-table td:nth-child(3) { width: 12%; }
+.devices-table td:nth-child(3) { width: 16%; }
+.devices-table td:nth-child(3) .serial-pill { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 4px; white-space: nowrap; }
+.devices-table td:nth-child(3) .serial-pill-number { flex: 0 0 auto; }
+.devices-table td:nth-child(3) .serial-service-marker,
+.devices-table td:nth-child(3) .serial-duplicate-marker { display: inline-block; flex: 0 0 auto; margin: 0; white-space: nowrap; font-size: 0.58rem; }
 .devices-table th:nth-child(4),
 .devices-table td:nth-child(4) { width: 7%; }
 .devices-table th:nth-child(5),
-.devices-table td:nth-child(5) { width: 10%; }
+.devices-table td:nth-child(5) { width: 9%; }
 .devices-table th:nth-child(6),
 .devices-table td:nth-child(6) { width: 18%; }
 .devices-table th:nth-child(7),
-.devices-table td:nth-child(7) { width: 13%; }
+.devices-table td:nth-child(7) { width: 12%; }
 .devices-table th:nth-child(8),
-.devices-table td:nth-child(8) { width: 9%; }
+.devices-table td:nth-child(8) { width: 8%; }
 .devices-table th.actions-head,
 .devices-table td.row-actions { width: 5%; }
 
 .devices-table.private-payments-enabled th:nth-child(6),
 .devices-table.private-payments-enabled td:nth-child(6) { width: 17%; }
 .devices-table.private-payments-enabled th:nth-child(7),
-.devices-table.private-payments-enabled td:nth-child(7) { width: 12%; }
+.devices-table.private-payments-enabled td:nth-child(7) { width: 11%; }
 .devices-table.private-payments-enabled th:nth-child(8),
-.devices-table.private-payments-enabled td:nth-child(8) { width: 8%; }
+.devices-table.private-payments-enabled td:nth-child(8) { width: 7%; }
 .devices-table.private-payments-enabled th.private-payment-column,
 .devices-table.private-payments-enabled td:nth-child(9) { width: 3%; }
 
