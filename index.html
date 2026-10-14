@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261014-14">
+  <link rel="stylesheet" href="styles.css?v=20261014-15">
   </head>
   <body>
     <main class="app-shell">
@@ -708,6 +708,7 @@
                   <input id="pricingMaxPriceFilter" type="text" inputmode="decimal" placeholder="do" aria-label="Cena maksymalna">
                 </div>
               </div>
+              <button id="addPricingProductBtn" class="reset-filters-btn" type="button" data-pricing-write hidden>Dodaj produkt</button>
               <button id="importPricingBtn" class="icon-button" type="button" aria-label="Import nowych pozycji CSV" title="Import nowych pozycji CSV">
                 <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
                   <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
@@ -2604,7 +2605,7 @@
       <dialog id="pricingRecordDialog" aria-labelledby="pricingRecordDialogTitle">
         <form id="pricingRecordForm">
           <header class="pricing-editor-head">
-            <div><span>Edycja pozycji cennika</span><h2 id="pricingRecordDialogTitle">Pozycja cennika</h2></div>
+            <div><span id="pricingRecordEditorMode">Edycja pozycji cennika</span><h2 id="pricingRecordDialogTitle">Pozycja cennika</h2></div>
             <button type="button" data-close-pricing-record data-pricing-write aria-label="Zamknij">×</button>
           </header>
           <div class="pricing-editor-fields">
@@ -2623,6 +2624,7 @@
           </div>
           <footer class="pricing-editor-actions">
             <button id="deletePricingRecordBtn" type="button" class="danger" data-pricing-write>Usuń</button>
+            <button id="copyPricingProductBtn" type="button" class="reset-filters-btn" data-pricing-write hidden>Nowy na podstawie</button>
             <button type="button" data-close-pricing-record data-pricing-write>Anuluj</button>
             <button id="savePricingRecordBtn" type="submit" class="primary" data-pricing-write>Zapisz</button>
           </footer>
@@ -3168,12 +3170,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261014-14"></script>
-    <script src="data-layer.js?v=20261014-14"></script>
-    <script src="sync-layer.js?v=20261014-14"></script>
-    <script src="repair-returns.js?v=20261014-14"></script>
-    <script src="offline-vault.js?v=20261014-14"></script>
-    <script src="offline-forms.js?v=20261014-14"></script>
-  <script src="app.js?v=20261014-14"></script>
+    <script src="supabase-config.js?v=20261014-15"></script>
+    <script src="data-layer.js?v=20261014-15"></script>
+    <script src="sync-layer.js?v=20261014-15"></script>
+    <script src="repair-returns.js?v=20261014-15"></script>
+    <script src="offline-vault.js?v=20261014-15"></script>
+    <script src="offline-forms.js?v=20261014-15"></script>
+  <script src="app.js?v=20261014-15"></script>
   </body>
 </html>
