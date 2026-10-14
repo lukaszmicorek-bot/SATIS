@@ -15,7 +15,8 @@ test('repair validation handles missing names, invalid date text and valid edits
     REPAIR_DATE_ORDER: [{ field: 'receivedDate', selector: '#repairReceivedDate', label: 'Data przyjęcia' }],
     isoDateForSave: value => value === '14.10.2026' ? '2026-10-14' : '',
     repairRequiredDateViolation: () => null, repairDateOrderViolation: () => null,
-    repairRequiredSerialViolation: () => null, repairRequiredModelViolation: () => null
+    repairRequiredSerialViolation: () => null, repairRequiredModelViolation: () => null,
+    repairOrderDatesViolation: () => null
   });
   vm.runInContext(extract('repairDateValidationViolation'), ctx);
   assert.equal(ctx.repairDateValidationViolation({ customerName: '' }).selector, '#repairCustomerName');

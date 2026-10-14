@@ -730,6 +730,7 @@ let dataControlRenderToken = 0;
 let dataControlBuildScheduled = false;
 let dataControlFilter = "all";
 let repairOpenPriorityFilter = "all";
+let repairKindFilter = "all";
 let capdDescriptionSelection = null;
 const tableRenderLimits = {
   devices: TABLE_RENDER_BATCH_SIZE,
@@ -2790,6 +2791,9 @@ function clearSensitiveApplicationState() {
   customerTransferGeneration += 1;
   document.querySelectorAll(".customer-transfer-status").forEach(status => { status.textContent = ""; status.hidden = true; });
   repairReturns?.clear();
+  document.querySelector("#repairOrderItemsList")?.replaceChildren();
+  const orderPanel = document.querySelector("#repairOrderItemsPanel");
+  if (orderPanel) orderPanel.hidden = true;
   supabaseInitialDataReady = false;
   window.clearTimeout(deferredSuggestionsTimer);
   deferredSuggestionsTimer = 0;
@@ -14754,6 +14758,8 @@ function pricingOrderRepairRecord(entry) {
     sourceDocumentNumber: normalizedEntry.number,
     receivedDate: isoDateForSave(normalizedEntry.date) || todayInputValue(),
     category: "ZAMÓWIENIE",
+    orderItems: normalizedEntry.items.map(item => ({ ...item, serialNumbers: [] })),
+    orderDeposit: normalizedEntry.deposit,
     location: documentLocationToRepairLocation(normalizedEntry.location),
     customerName: normalizedEntry.customer,
     phone: normalizedEntry.phone,
@@ -14820,6 +14826,13 @@ function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
     : normalizeServiceCost(existingRecord.serviceCost) === normalizeServiceCost(existingRecord.sourceServiceCost);
   return normalizeRepairRecordForUse({
     ...existingRecord,
+    ...(incomingRecord.sourceDocumentType === "ORDER" ? {
+      orderItems: (incomingRecord.orderItems || []).map((item, index) => {
+        const old = existingRecord.orderItems?.[index];
+        const same = old && old.type === item.type && old.side === item.side && (old.sourceDescription || old.description) === item.description;
+        return { ...item, ...(same ? { description: old.description, sourceDescription: item.description, returnDate: old.returnDate, pickupDate: old.pickupDate } : {}), serialNumbers: same ? old.serialNumbers || [] : [] };
+      })
+    } : {}),
     sourceDocumentType: incomingRecord.sourceDocumentType || existingRecord.sourceDocumentType,
     sourceDocumentId: incomingRecord.sourceDocumentId || existingRecord.sourceDocumentId,
     sourceDocumentNumber: incomingRecord.sourceDocumentNumber || existingRecord.sourceDocumentNumber,
@@ -14829,9 +14842,9 @@ function mergeDocumentRepairRecord(existingRecord, incomingRecord) {
     customerName: incomingRecord.customerName,
     phone: incomingRecord.phone || "",
     deviceName: incomingRecord.deviceName,
-    serialNumber: incomingRecord.serialNumber || "",
-    serialNumber2: incomingRecord.serialNumber2 || "",
-    sourceSerialNumbers: incomingRecord.sourceSerialNumbers || [],
+    serialNumber: incomingRecord.sourceDocumentType === "ORDER" ? existingRecord.serialNumber || "" : incomingRecord.serialNumber || "",
+    serialNumber2: incomingRecord.sourceDocumentType === "ORDER" ? existingRecord.serialNumber2 || "" : incomingRecord.serialNumber2 || "",
+    sourceSerialNumbers: incomingRecord.sourceDocumentType === "ORDER" ? repairSerialNumbers(existingRecord) : incomingRecord.sourceSerialNumbers || [],
     sourceDocumentSummary,
     serviceCost: sourceCostUnchanged ? incomingRecord.serviceCost : existingRecord.serviceCost,
     sourceServiceCost: incomingRecord.serviceCost,
@@ -17016,6 +17029,15 @@ function formatDataIssueShortCount(count) {
   return formatDataIssueCount(count).replace(" do sprawdzenia", "");
 }
 
+function isOrderRepairRecord(record) {
+  if (record.sourceDocumentType) return record.sourceDocumentType === "ORDER";
+  return ["ZAMÓWIENIE", "WKŁADKA USZNA", "WKŁADKA PRZECIWWODNA"].includes(normalizeRepairCategory(record.category));
+}
+
+function matchesRepairKind(record) {
+  return repairKindFilter === "all" || (repairKindFilter === "order") === isOrderRepairRecord(record);
+}
+
 function filteredRepairRecords() {
   const query = normalize(repairSearchInput.value).trim();
   const selectedCategory = repairCategoryFilter.value;
@@ -17032,7 +17054,7 @@ function filteredRepairRecords() {
       const matchesStatus = !selectedStatus || status === selectedStatus;
       const matchesLocation = !selectedLocation || location === selectedLocation;
       const matchesQuery = !query || meta?.searchBlob.includes(query);
-      return matchesCategory && matchesStatus && matchesLocation && matchesQuery;
+      return matchesRepairKind(record) && matchesCategory && matchesStatus && matchesLocation && matchesQuery;
     });
 
   return sortRepairRecords(matchingRecords);
@@ -17053,6 +17075,9 @@ function isRepairClosed(record) {
 }
 
 function renderRepairRecords() {
+  document.querySelectorAll("[data-repair-kind]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.repairKind === repairKindFilter));
+  });
   hideRepairTimelinePreview();
   renderSearchMatchSummary(repairSearchInput, repairSearchSummary);
   const visibleRecords = applyLocalRowOrder(filteredRepairRecords(), "repairs");
@@ -17069,7 +17094,7 @@ function renderRepairRecords() {
 }
 
 function openRepairRecords() {
-  return sortOpenRepairRecords(repairRecords.filter((record) => !isRepairClosed(record) && matchesRepairOpenPriorityFilter(record)));
+  return sortOpenRepairRecords(repairRecords.filter((record) => matchesRepairKind(record) && !isRepairClosed(record) && matchesRepairOpenPriorityFilter(record)));
 }
 
 function matchesRepairOpenPriorityFilter(record) {
@@ -18968,6 +18993,7 @@ function applyRepairAgeGradient(row, record, status) {
 
 function effectiveRepairStatus(record) {
   return statusFromRepairDates({
+    orderItems: record.orderItems,
     receivedDate: record.receivedDate,
     sentDate: record.sentDate,
     returnDate: record.returnDate,
@@ -19010,7 +19036,17 @@ function createLocationPill(location) {
 function createRepairStatusCell(record, status) {
   const wrap = document.createElement("span");
   wrap.className = "repair-status-cell";
-  wrap.append(createStatusPill(status));
+  const pill = createStatusPill(status);
+  if (record.orderItems?.length) {
+    const progress = repairOrderProgress(record.orderItems, record);
+    if (progress.picked && progress.picked < progress.total) pill.textContent = "Częściowo odebrane";
+    else if (progress.ready && progress.ready < progress.total) pill.textContent = "Częściowo gotowe";
+    wrap.append(pill);
+    const count = document.createElement("small");
+    count.className = "repair-order-progress";
+    count.textContent = `Pozycje do odbioru: ${progress.ready} · Odebrane: ${progress.picked}/${progress.total}`;
+    wrap.append(count);
+  } else wrap.append(pill);
   const overdue = repairOverdueClass(record, status);
   if (!overdue) return wrap;
   const age = repairStatusAge(record, status);
@@ -23818,6 +23854,7 @@ function openRepairDialog(record = null) {
     repairLocationInput.dataset.userChanged = "1";
   }
   setRepairSerial2Visibility(Boolean(normalizeSerialNumber(normalizedRecord?.serialNumber2)));
+  renderRepairOrderItems(normalizedRecord);
   syncRepairServiceCostField();
   updateDocumentLocationAccent(repairLocationInput);
   updateDateInputsTodayState(repairForm);
@@ -23831,6 +23868,156 @@ function openRepairDialog(record = null) {
   renderNearbyEntryWarning("repairs");
   updateRepairReturnSerialPrompt();
   repairDialog.showModal();
+}
+
+function repairOrderItemsForRecord(record) {
+  if (record?.sourceDocumentType !== "ORDER") return [];
+  const dates = item => ({ ...item,
+    returnDate: item.returnDate === undefined ? record.returnDate || "" : item.returnDate,
+    pickupDate: item.pickupDate === undefined ? record.pickupDate || "" : item.pickupDate
+  });
+  if (Array.isArray(record.orderItems) && record.orderItems.length) return record.orderItems.map(dates);
+  const source = pricingOrderHistory.find(entry => entry.id === record.sourceDocumentId);
+  if (!source?.items?.length) return [];
+  const serials = repairSerialNumbers(record);
+  let offset = 0;
+  return source.items.map((item, index) => {
+    const quantity = Math.max(1, parseInt(item.quantity, 10) || 1);
+    const numbers = serials.slice(offset, index === source.items.length - 1 ? undefined : offset + quantity);
+    offset += quantity;
+    return dates({ ...item, serialNumbers: numbers });
+  });
+}
+
+function readRepairOrderItems() {
+  const panel = document.querySelector("#repairOrderItemsPanel");
+  if (!panel || panel.hidden) return null;
+  return [...panel.querySelectorAll(".repair-order-item")].map(row => ({
+    ...row.orderItem,
+    description: normalizeDeviceName(row.querySelector("[data-order-model]").value),
+    serialNumbers: row.querySelector("[data-order-serials]").value.split(/[,;\n]+/u).map(normalizeSerialNumber).filter(Boolean),
+    returnDate: isoDateForSave(row.querySelector("[data-order-return]").value),
+    pickupDate: isoDateForSave(row.querySelector("[data-order-pickup]").value)
+  }));
+}
+
+function repairOrderProgress(items, legacy = {}) {
+  items = items.map(item => ({ ...item,
+    returnDate: item.returnDate === undefined ? legacy.returnDate || "" : item.returnDate,
+    pickupDate: item.pickupDate === undefined ? legacy.pickupDate || "" : item.pickupDate
+  }));
+  const total = items.length;
+  const picked = items.filter(item => item.pickupDate).length;
+  const ready = items.filter(item => item.returnDate && !item.pickupDate).length;
+  const last = values => values.filter(Boolean).sort().at(-1) || "";
+  return { total, picked, ready, returnDate: last(items.filter(item => !item.pickupDate || picked === total).map(item => item.returnDate)), pickupDate: total && picked === total ? last(items.map(item => item.pickupDate)) : "" };
+}
+
+function updateRepairOrderPayment() {
+  const panel = document.querySelector("#repairOrderItemsPanel");
+  if (!panel || panel.hidden) return;
+  const total = normalizeServiceCost(repairServiceCostInput.value) || 0;
+  const deposit = normalizeServiceCost(document.querySelector("#repairOrderDeposit").value) || 0;
+  document.querySelector("#repairOrderRemaining").textContent = `Pozostało do zapłaty: ${formatServiceCost(Math.max(0, total - deposit))}`;
+}
+
+function syncRepairOrderItemSummary() {
+  const items = readRepairOrderItems();
+  if (!items) return;
+  const serials = items.flatMap(item => item.serialNumbers);
+  document.querySelector("#repairDeviceName").value = pricingOrderRepairDeviceName(items);
+  document.querySelector("#repairSerialNumber").value = serials[0] || "";
+  document.querySelector("#repairSerialNumber2").value = serials[1] || "";
+  const progress = repairOrderProgress(items);
+  setDateInputValue("#repairReturnDate", progress.returnDate);
+  setDateInputValue("#repairPickupDate", progress.pickupDate);
+  document.querySelector("#repairStatus").value = statusFromRepairDates({ orderItems: items, sentDate: isoDateForSave(document.querySelector("#repairSentDate").value) });
+  syncRepairDialogHeaderMeta();
+  updateRepairReturnSerialPrompt();
+  updateRepairOrderPayment();
+}
+
+function renderRepairOrderItems(record) {
+  const panel = document.querySelector("#repairOrderItemsPanel");
+  const list = document.querySelector("#repairOrderItemsList");
+  const items = repairOrderItemsForRecord(record);
+  panel.hidden = !items.length;
+  list.replaceChildren();
+  document.querySelector("#repairDeviceName").closest("label").hidden = Boolean(items.length);
+  document.querySelector("#repairSerialNumber").closest(".repair-serial-fields").hidden = Boolean(items.length);
+  for (const id of ["repairReturnDate", "repairPickupDate"]) document.getElementById(id).closest("label").hidden = Boolean(items.length);
+  const source = record?.sourceDocumentId ? pricingOrderHistory.find(entry => entry.id === record.sourceDocumentId) : null;
+  const deposit = record?.orderDeposit ?? source?.deposit ?? "";
+  document.querySelector("#repairOrderDeposit").value = deposit === "" ? "" : formatPricingAmount(deposit, " ");
+  for (const [index, item] of items.entries()) {
+    const row = document.createElement("div");
+    row.className = "repair-order-item";
+    row.orderItem = { ...item, sourceDescription: item.sourceDescription || item.description || "" };
+    const heading = document.createElement("strong");
+    heading.textContent = `${index + 1}. ${pricingOrderTypeLabel(item.type)} · ${item.quantity || 1} szt.`;
+    for (const side of item.side === "PL" ? ["P", "L"] : [item.side].filter(Boolean)) {
+      const badge = document.createElement("span");
+      badge.className = `order-side-badge order-side-${side.toLowerCase()}`; badge.textContent = side;
+      heading.append(badge);
+    }
+    const modelLabel = document.createElement("label");
+    const modelTitle = document.createElement("span"); modelTitle.textContent = "Model / produkt";
+    const model = document.createElement("input");
+    model.dataset.orderModel = "1";
+    model.id = `repairOrderModel${index}`;
+    model.value = item.description || "";
+    model.setAttribute("list", "deviceNameSuggestions");
+    model.autocomplete = "off";
+    modelLabel.append(modelTitle, model);
+    const serialLabel = document.createElement("label");
+    const serialTitle = document.createElement("span"); serialTitle.textContent = "Numery seryjne";
+    const serial = document.createElement("input");
+    serial.dataset.orderSerials = "1";
+    serial.id = `repairOrderSerial${index}`;
+    serial.value = (item.serialNumbers || []).join(", ");
+    serial.autocomplete = "off";
+    serial.spellcheck = false;
+    serial.placeholder = Number(item.quantity) > 1 ? "NR1, NR2" : "Numer seryjny";
+    serial.addEventListener("input", syncUppercaseTextInput);
+    serialLabel.append(serialTitle, serial);
+    for (const input of [model, serial]) input.addEventListener("input", () => {
+      syncRepairOrderItemSummary(); setPrimarySaveHighlight(saveRepairBtn, true);
+    });
+    row.append(heading, modelLabel, serialLabel);
+    for (const [key, title, dateId] of [["returnDate", "Powrót / gotowe", "Return"], ["pickupDate", "Odbiór przez klienta", "Pickup"]]) {
+      const label = document.createElement("label");
+      const caption = document.createElement("span"); caption.textContent = title;
+      const dateWrap = document.createElement("div"); dateWrap.className = "date-input-wrap";
+      const date = document.createElement("input"); date.type = "text";
+      date.id = `repairOrder${dateId}${index}`;
+      date.setAttribute("data-date-picker", "");
+      date.setAttribute(key === "returnDate" ? "data-order-return" : "data-order-pickup", "1");
+      date.placeholder = "DD.MM.RRRR"; date.autocomplete = "off";
+      date.value = displayDateForInput(item[key] || "");
+      bindDatePickerInput(date);
+      const clear = document.createElement("button"); clear.type = "button"; clear.className = "clear-date-btn";
+      clear.textContent = "×"; clear.setAttribute("aria-label", `Wyczyść ${title.toLowerCase()}`);
+      clear.addEventListener("click", () => { date.value = ""; date.dispatchEvent(new Event("change", { bubbles: true })); });
+      date.addEventListener("change", () => {
+        syncRepairOrderItemSummary(); validateRepairDateOrder(); setPrimarySaveHighlight(saveRepairBtn, true);
+        if (key === "pickupDate" && isoDateForSave(date.value)) renderRepairPickupLoanReminder();
+        if (key === "returnDate" && isoDateForSave(date.value) && item.type !== "ŚRODKI PIELĘGNACYJNE") window.setTimeout(() => {
+          if (!repairDialog.open) return;
+          serial.scrollIntoView({ block: "nearest", behavior: "smooth" }); serial.focus({ preventScroll: true });
+        }, 0);
+      });
+      dateWrap.append(date, clear); label.append(caption, dateWrap); row.append(label);
+    }
+    const cost = normalizeServiceCost(item.cost);
+    if (cost !== "") {
+      const price = document.createElement("small");
+      price.textContent = `Cena za sztukę: ${formatServiceCost(cost)} · Wartość pozycji: ${formatServiceCost(cost * Math.max(1, parseInt(item.quantity, 10) || 1))}`;
+      row.append(price);
+    }
+    if (item.notes) { const notes = document.createElement("small"); notes.textContent = item.notes; row.append(notes); }
+    list.append(row);
+  }
+  if (items.length) syncRepairOrderItemSummary();
 }
 
 function repairDialogProductLabel(record) {
@@ -24242,6 +24429,19 @@ function syncRepairSerialInput(event) {
 }
 
 function updateRepairReturnSerialPrompt({ focus = false } = {}) {
+  const orderPanel = document.querySelector("#repairOrderItemsPanel");
+  if (orderPanel && !orderPanel.hidden) {
+    const data = { orderItems: readRepairOrderItems(), returnDate: isoDateForSave(document.querySelector("#repairReturnDate")?.value) };
+    const violation = repairRequiredSerialViolation(data);
+    orderPanel.querySelectorAll("[data-order-serials]").forEach(input => input.classList.toggle("repair-return-serial-required", Boolean(violation && `#${input.id}` === violation.selector)));
+    saveRepairBtn.disabled = repairForm.dataset.saving === "1" || Boolean(violation);
+    if (focus && data.returnDate) window.setTimeout(() => {
+      if (!repairDialog.open) return;
+      const input = violation ? document.querySelector(violation.selector) : orderPanel.querySelector("[data-order-serials]");
+      input?.scrollIntoView({ block: "nearest", behavior: "smooth" }); input?.focus({ preventScroll: true });
+    }, 0);
+    return;
+  }
   const input = document.querySelector("#repairSerialNumber");
   const second = document.querySelector("#repairSerialNumber2");
   const hasReturnDate = Boolean(isoDateForSave(document.querySelector("#repairReturnDate")?.value));
@@ -24312,6 +24512,19 @@ function repairFormRecord() {
   data.serviceCost = repairServiceCostLabel(data.category) ? normalizeServiceCost(data.serviceCost) : "";
   data.status = statusFromRepairDates(data);
   data.notes = correctPolishNotes(data.notes);
+  const orderItems = readRepairOrderItems();
+  if (orderItems) {
+    data.orderItems = orderItems;
+    data.sourceSerialNumbers = orderItems.flatMap(item => item.serialNumbers);
+    data.deviceName = pricingOrderRepairDeviceName(orderItems);
+    data.serialNumber = data.sourceSerialNumbers[0] || "";
+    data.serialNumber2 = data.sourceSerialNumbers[1] || "";
+    data.orderDeposit = normalizeServiceCost(document.querySelector("#repairOrderDeposit").value);
+    const progress = repairOrderProgress(orderItems);
+    data.returnDate = progress.returnDate;
+    data.pickupDate = progress.pickupDate;
+    data.status = statusFromRepairDates(data);
+  }
   return data;
 }
 
@@ -24527,6 +24740,12 @@ function demoRecordToDeviceRecord(record) {
 }
 
 function statusFromRepairDates(data) {
+  if (data.orderItems?.length) {
+    const progress = repairOrderProgress(data.orderItems, data);
+    if (progress.picked === progress.total) return "ODEBRANE";
+    if (progress.ready) return "GOTOWE";
+    return data.sentDate ? "W TRAKCIE" : "PRZYJĘTE";
+  }
   if (data.pickupDate) return "ODEBRANE";
   if (data.returnDate) return "GOTOWE";
   if (data.sentDate) return "W TRAKCIE";
@@ -24612,6 +24831,22 @@ function repairRequiredDateViolation(data) {
 }
 
 function repairRequiredSerialViolation(data) {
+  if (Array.isArray(data?.orderItems)) {
+    const seen = new Set();
+    for (const [index, item] of data.orderItems.entries()) {
+      const quantity = Math.max(1, parseInt(item.quantity, 10) || 1);
+      const serials = item.serialNumbers || [];
+      const selector = `#repairOrderSerial${index}`;
+      if (serials.length > quantity) return { selector, message: `Pozycja ${index + 1}: wpisano więcej numerów seryjnych niż zamówionych sztuk.` };
+      if ((item.returnDate || item.pickupDate || (item.returnDate === undefined && data.returnDate)) && item.type !== "ŚRODKI PIELĘGNACYJNE" && serials.length < quantity) return { selector, message: `Pozycja ${index + 1}: przy powrocie lub odbiorze uzupełnij numery seryjne wszystkich ${quantity} szt.` };
+      for (const serial of serials) {
+        const key = serialDuplicateKey(serial);
+        if (seen.has(key)) return { selector, message: `Numer ${serial} powtarza się w pozycjach zamówienia.` };
+        seen.add(key);
+      }
+    }
+    return null;
+  }
   if (!data?.returnDate) return null;
   if (normalizeSerialNumber(data.serialNumber) || normalizeSerialNumber(data.serialNumber2)) return null;
   return {
@@ -24622,6 +24857,10 @@ function repairRequiredSerialViolation(data) {
 }
 
 function repairRequiredModelViolation(data) {
+  if (Array.isArray(data?.orderItems)) {
+    const index = data.orderItems.findIndex(item => item.serialNumbers?.length && !normalizeDeviceName(item.description));
+    if (index >= 0) return { selector: `#repairOrderModel${index}`, message: `Pozycja ${index + 1}: uzupełnij model lub nazwę produktu przy wpisanym numerze seryjnym.` };
+  }
   const hasSerial = Boolean(normalizeSerialNumber(data?.serialNumber) || normalizeSerialNumber(data?.serialNumber2));
   if (!hasSerial || normalizeDeviceName(data?.deviceName)) return null;
   return {
@@ -24641,7 +24880,27 @@ function repairDateValidationViolation(data) {
       field: info.field, selector: info.selector, message: `${info.label} ma nieprawidłowy format. Wpisz datę jako dd.mm.rrrr.`
     };
   }
-  return repairRequiredDateViolation(data) || repairDateOrderViolation(data) || repairRequiredSerialViolation(data) || repairRequiredModelViolation(data);
+  return repairRequiredDateViolation(data) || repairDateOrderViolation(data) || repairOrderDatesViolation(data) || repairRequiredSerialViolation(data) || repairRequiredModelViolation(data);
+}
+
+function repairOrderDatesViolation(data) {
+  if (data.orderItems?.length) {
+    const depositInput = document.querySelector("#repairOrderDeposit");
+    const raw = depositInput?.value.trim() || "";
+    const deposit = normalizeServiceCost(raw);
+    if (raw && deposit === "") return { selector: "#repairOrderDeposit", message: "Wpisz prawidłową kwotę zadatku." };
+    if (deposit !== "" && (deposit < 0 || (data.serviceCost !== "" && deposit > Number(data.serviceCost)))) return { selector: "#repairOrderDeposit", message: "Zadatek musi mieścić się między 0 a wartością zamówienia." };
+  }
+  for (const [index, item] of (data.orderItems || []).entries()) {
+    for (const [field, suffix] of [["returnDate", "Return"], ["pickupDate", "Pickup"]]) {
+      const selector = `#repairOrder${suffix}${index}`;
+      const raw = document.querySelector(selector)?.value.trim();
+      if (raw && !isoDateForSave(raw)) return { selector, message: `Pozycja ${index + 1}: nieprawidłowa data.` };
+      const minimum = [data.receivedDate, data.sentDate, field === "pickupDate" ? item.returnDate : ""].filter(Boolean).sort().at(-1);
+      if (item[field] && minimum && item[field] < minimum) return { selector, message: `Pozycja ${index + 1}: ${field === "returnDate" ? "powrót" : "odbiór"} nie może być wcześniejszy niż poprzednie etapy.` };
+    }
+  }
+  return null;
 }
 
 function clearRepairDateOrderError() {
@@ -24654,6 +24913,7 @@ function clearRepairDateOrderError() {
   ["#repairSerialNumber", "#repairSerialNumber2", "#repairDeviceName", "#repairCustomerName"].forEach((selector) => {
     document.querySelector(selector)?.removeAttribute("aria-invalid");
   });
+  document.querySelectorAll("#repairOrderItemsPanel [aria-invalid]").forEach(input => input.removeAttribute("aria-invalid"));
 }
 
 function showRepairDateOrderError(violation, options = {}) {
@@ -24769,6 +25029,8 @@ function syncRepairStatusFromDates() {
   normalizeFormDateFields(data, REPAIR_DATE_FIELDS);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.serialNumber2 = normalizeSerialNumber(data.serialNumber2);
+  const orderItems = readRepairOrderItems();
+  if (orderItems) data.orderItems = orderItems;
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
   if (validateRepairDateOrder(data)) updateRepairWarrantyHint(data);
   syncRepairDialogHeaderMeta();
@@ -26425,9 +26687,9 @@ function ensureDatePicker() {
   return datePicker;
 }
 
-function setupDatePickers() {
-  ensureDatePicker();
-  document.querySelectorAll("input[data-date-picker]").forEach((input) => {
+function bindDatePickerInput(input) {
+    if (input.dataset.datePickerBound) return;
+    input.dataset.datePickerBound = "1";
     updateDateInputTodayState(input);
     input.addEventListener("focus", () => openDatePicker(input));
     input.addEventListener("click", () => openDatePicker(input));
@@ -26441,7 +26703,11 @@ function setupDatePickers() {
     input.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeDatePicker();
     });
-  });
+}
+
+function setupDatePickers() {
+  ensureDatePicker();
+  document.querySelectorAll("input[data-date-picker]").forEach(bindDatePickerInput);
 
   document.addEventListener("mousedown", (event) => {
     const picker = ensureDatePicker();
@@ -26516,6 +26782,15 @@ function activeDeviceDateMinimumInfo() {
 
 function activeRepairDateMinimumInfo() {
   if (!activeDateInput) return null;
+  if (activeDateInput.matches?.("[data-order-return], [data-order-pickup]")) {
+    const row = activeDateInput.closest(".repair-order-item");
+    const candidates = [
+      { label: "Data przyjęcia", date: isoDateForSave(document.querySelector("#repairReceivedDate")?.value) },
+      { label: "Data wysłania", date: isoDateForSave(document.querySelector("#repairSentDate")?.value) },
+      ...(activeDateInput.matches("[data-order-pickup]") ? [{ label: "Powrót pozycji", date: isoDateForSave(row?.querySelector("[data-order-return]")?.value) }] : [])
+    ].filter(item => item.date).sort((left, right) => right.date.localeCompare(left.date));
+    return candidates[0] || null;
+  }
 
   const currentIndex = REPAIR_DATE_ORDER.findIndex(({ selector }) => document.querySelector(selector) === activeDateInput);
   if (currentIndex <= 0) return null;
@@ -26838,6 +27113,7 @@ function resetDemoFilters() {
 }
 
 function resetRepairFilters() {
+  repairKindFilter = "all";
   repairSearchInput.value = "";
   syncLinkedSearchInputs("", "repairs");
   renderCustomerRelations();
@@ -27413,6 +27689,12 @@ resetDeviceFiltersBtn?.addEventListener("click", resetDeviceFilters);
 resetDemoFiltersBtn?.addEventListener("click", resetDemoFilters);
 resetRepairFiltersBtn?.addEventListener("click", resetRepairFilters);
 resetDataControlFiltersBtn?.addEventListener("click", resetDataControlFilters);
+document.querySelectorAll("[data-repair-kind]").forEach(button => button.addEventListener("click", () => {
+  repairKindFilter = button.dataset.repairKind;
+  resetTableRenderLimit("repairs");
+  resetTableRenderLimit("repairOpen");
+  renderRepairRecords();
+}));
 document.querySelector("#repairOpenPriorityFilters")?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-repair-open-filter]");
   if (!button) return;
@@ -27567,6 +27849,10 @@ document.querySelector("#repairPickupDate").addEventListener("focus", renderRepa
 document.querySelector("#repairPickupDate").addEventListener("click", renderRepairPickupLoanReminder);
 document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
 repairServiceCostInput?.addEventListener("input", markRepairServiceCostManualChange);
+repairServiceCostInput?.addEventListener("input", updateRepairOrderPayment);
+document.querySelector("#repairOrderDeposit")?.addEventListener("input", () => {
+  updateRepairOrderPayment(); setPrimarySaveHighlight(saveRepairBtn, true);
+});
 repairServiceCostInput?.addEventListener("change", markRepairServiceCostManualChange);
 repairServiceCostInput?.addEventListener("blur", () => {
   const amount = normalizeServiceCost(repairServiceCostInput.value);

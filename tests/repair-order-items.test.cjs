@@ -1,0 +1,73 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('app.js', 'utf8');
+function extract(name) {
+  const rest = source.slice(source.indexOf(`function ${name}(`));
+  return rest.slice(0, rest.slice(1).search(/\n(?:async )?function /) + 1);
+}
+const item = (name, serial, quantity = '1') => ({ type: 'APARAT SŁUCHOWY', description: name, quantity, serialNumbers: serial ? [serial] : [] });
+const sourceItems = [item('A', ''), item('B', ''), item('C', '')];
+const ctx = vm.createContext({
+  pricingOrderHistory: [{ id: 'order1', items: sourceItems }],
+  repairSerialNumbers: record => record.sourceSerialNumbers || [],
+  normalizeSerialNumber: value => String(value || '').trim().toUpperCase(),
+  serialDuplicateKey: value => String(value || '').toUpperCase().replace(/[\s-]/g, ''),
+  normalizeDeviceName: value => String(value || '').trim(),
+  normalizeServiceCost: value => value ? Number(value) : '',
+  isoDateForSave: value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : ''
+});
+for (const name of ['repairOrderItemsForRecord', 'repairRequiredSerialViolation', 'repairRequiredModelViolation']) vm.runInContext(extract(name), ctx);
+const saved = { sourceDocumentType: 'ORDER', orderItems: [item('A', 'S1'), item('B', 'S2'), item('C', 'S3')] };
+assert.deepEqual(Array.from(ctx.repairOrderItemsForRecord(saved), row => row.serialNumbers[0]), ['S1', 'S2', 'S3'], 'saved fulfillment rows reused');
+const legacy = ctx.repairOrderItemsForRecord({ sourceDocumentType: 'ORDER', sourceDocumentId: 'order1', sourceSerialNumbers: ['S1', 'S2', 'S3'] });
+assert.equal(legacy.length, 3);
+assert.deepEqual(Array.from(legacy, row => row.serialNumbers[0]), ['S1', 'S2', 'S3']);
+assert.equal(ctx.repairOrderItemsForRecord({ sourceDocumentType: 'COMPLAINT' }).length, 0);
+assert.equal(ctx.repairOrderItemsForRecord({ sourceDocumentType: 'ORDER', sourceDocumentId: 'unknown' }).length, 0, 'missing source keeps legacy editor');
+assert.equal(ctx.repairRequiredSerialViolation({ orderItems: saved.orderItems, returnDate: '2026-10-14' }), null);
+assert.equal(ctx.repairRequiredSerialViolation({ orderItems: [item('A', '')], returnDate: '2026-10-14' }).selector, '#repairOrderSerial0');
+assert.equal(ctx.repairRequiredSerialViolation({ orderItems: [item('A', 'S1'), item('B', 's1')] }).selector, '#repairOrderSerial1');
+assert.equal(ctx.repairRequiredSerialViolation({ orderItems: [{ ...item('A', 'S1'), serialNumbers: ['S1', 'S2'] }] }).selector, '#repairOrderSerial0');
+assert.equal(ctx.repairRequiredSerialViolation({ orderItems: [{ type: 'ŚRODKI PIELĘGNACYJNE', quantity: '3', serialNumbers: [] }], returnDate: '2026-10-14' }), null);
+assert.equal(ctx.repairRequiredModelViolation({ orderItems: [item('', 'S1')] }).selector, '#repairOrderModel0');
+const rows = saved.orderItems.map(row => ({
+  orderItem: row,
+  querySelector: selector => ({ value: selector === '[data-order-model]' ? row.description : row.serialNumbers.join(', ') })
+}));
+ctx.document = { querySelector: () => ({ hidden: false, querySelectorAll: () => rows }) };
+vm.runInContext(extract('readRepairOrderItems'), ctx);
+assert.equal(ctx.readRepairOrderItems().length, 3);
+assert.equal(ctx.readRepairOrderItems()[2].serialNumbers[0], 'S3');
+assert.match(extract('repairFormRecord'), /data\.orderItems = orderItems/);
+assert.match(extract('repairFormRecord'), /data\.sourceSerialNumbers = orderItems\.flatMap/);
+console.log('OK: multi-item orders keep all fulfillment rows/serials, legacy rows restored, duplicate/count/model validation and care-products exemption.');
+for (const name of ['repairOrderProgress', 'statusFromRepairDates', 'effectiveRepairStatus', 'isOrderRepairRecord', 'matchesRepairKind', 'repairOrderDatesViolation']) vm.runInContext(extract(name), ctx);
+ctx.normalizeRepairCategory = value => value;
+ctx.repairKindFilter = 'order';
+assert.equal(ctx.matchesRepairKind({ sourceDocumentType: 'ORDER' }), true);
+assert.equal(ctx.matchesRepairKind({ sourceDocumentType: 'COMPLAINT', category: 'WKŁADKA USZNA' }), false);
+ctx.repairKindFilter = 'service';
+assert.equal(ctx.matchesRepairKind({ sourceDocumentType: 'ORDER' }), false);
+assert.equal(ctx.matchesRepairKind({ category: 'NAPRAWA GWARANCYJNA' }), true);
+const partial = { sentDate: '2026-10-11', orderItems: [
+  { ...item('A', 'S1'), returnDate: '2026-10-12', pickupDate: '2026-10-13' },
+  { ...item('B', 'S2'), returnDate: '2026-10-14', pickupDate: '' },
+  { ...item('C', ''), returnDate: '', pickupDate: '' }
+] };
+assert.equal(ctx.effectiveRepairStatus(partial), 'GOTOWE');
+assert.equal(ctx.repairOrderProgress(partial.orderItems).picked, 1);
+assert.equal(ctx.repairOrderProgress(partial.orderItems).ready, 1);
+assert.equal(ctx.repairOrderProgress(partial.orderItems).pickupDate, '', 'partial pickup never closes order');
+assert.equal(ctx.repairRequiredSerialViolation(partial), null, 'unreturned item can still lack serial');
+const onlyPicked = { ...partial, orderItems: [partial.orderItems[0], partial.orderItems[2]] };
+assert.equal(ctx.repairOrderProgress(onlyPicked.orderItems).returnDate, '', 'do not notify about already picked product');
+assert.equal(ctx.effectiveRepairStatus(onlyPicked), 'W TRAKCIE');
+const closed = { orderItems: partial.orderItems.map(row => ({ ...row, pickupDate: '2026-10-15' })) };
+assert.equal(ctx.effectiveRepairStatus(JSON.parse(JSON.stringify(closed))), 'ODEBRANE');
+assert.equal(ctx.repairOrderProgress(closed.orderItems).pickupDate, '2026-10-15');
+assert.equal(ctx.effectiveRepairStatus({ orderItems: saved.orderItems, pickupDate: '2026-10-14' }), 'ODEBRANE', 'legacy closed order remains closed');
+ctx.document = { querySelector: () => null };
+assert.equal(ctx.repairOrderDatesViolation({ receivedDate: '2026-10-14', orderItems: [{ returnDate: '2026-10-13' }] }).selector, '#repairOrderReturn0');
+assert.equal(ctx.repairOrderDatesViolation({ orderItems: [{ returnDate: '2026-10-14', pickupDate: '2026-10-13' }] }).selector, '#repairOrderPickup0');
+console.log('OK: kind filters, partial fulfillment, final closure, old completed dates and per-item date chronology.');
