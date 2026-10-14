@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261014-15">
+  <link rel="stylesheet" href="styles.css?v=20261014-16">
   </head>
   <body>
     <main class="app-shell">
@@ -2615,6 +2615,15 @@
             <label>Kod NFZ<input name="nfzCode" type="text" maxlength="60"></label>
             <label>ID produktu<input name="idProduct" type="text" maxlength="100"></label>
             <label>Cena brutto (zł)<input name="grossPrice" type="text" inputmode="decimal" required></label>
+            <section id="pricingDiscountPanel" class="pricing-editor-wide pricing-discount-panel" hidden>
+              <h3>Rabat kwotowy — kod A</h3>
+              <div class="pricing-discount-grid">
+                <label>Rabat na 1 aparat (zł)<input name="discountOne" type="text" inputmode="decimal" placeholder="0,00"></label>
+                <label>Rabat na całą parę (zł)<input name="discountPair" type="text" inputmode="decimal" placeholder="0,00"></label>
+                <div><span>Cena 1 aparatu po rabacie</span><strong id="pricingDiscountOnePrice">—</strong></div>
+                <div><span>Cena 2 aparatów po rabacie</span><strong id="pricingDiscountPairPrice">—</strong></div>
+              </div>
+            </section>
             <details class="pricing-editor-wide"><summary>Dane dodatkowe</summary>
               <div class="pricing-editor-fields">
                 <label>Indeks<input name="orderIndex" type="text" maxlength="100"></label>
@@ -3170,12 +3179,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261014-15"></script>
-    <script src="data-layer.js?v=20261014-15"></script>
-    <script src="sync-layer.js?v=20261014-15"></script>
-    <script src="repair-returns.js?v=20261014-15"></script>
-    <script src="offline-vault.js?v=20261014-15"></script>
-    <script src="offline-forms.js?v=20261014-15"></script>
-  <script src="app.js?v=20261014-15"></script>
+    <script src="supabase-config.js?v=20261014-16"></script>
+    <script src="data-layer.js?v=20261014-16"></script>
+    <script src="sync-layer.js?v=20261014-16"></script>
+    <script src="repair-returns.js?v=20261014-16"></script>
+    <script src="offline-vault.js?v=20261014-16"></script>
+    <script src="offline-forms.js?v=20261014-16"></script>
+  <script src="app.js?v=20261014-16"></script>
   </body>
 </html>
