@@ -65,12 +65,14 @@ async function main() {
   vm.runInContext(extract('createPricingRow'), ctx);
   vm.runInContext(extract('pricingChargerBundlePrices'), ctx);
   const row = ctx.createPricingRow(sourceRecord, 0);
-  const edit = row.children[3].children[0];
-  assert.match(edit.className, /pricing-product-edit-btn/);
+  assert.equal(row.children[3].children.length, 0, 'name cell has no edit button');
+  const edit = row.children.at(-1).children[1];
+  assert.equal(edit.className, 'pricing-record-edit-btn');
   assert.equal(edit.disabled, false, 'editing independent of patient group required for offer');
   edit.handlers.click(); assert.equal(opened, sourceRecord);
   ctx.canManagePricing = () => false;
   assert.equal(ctx.createPricingRow(sourceRecord, 0).children[3].children.length, 0, 'staff receives no product edit button');
+  assert.equal(ctx.createPricingRow(sourceRecord, 0).children.at(-1).children.length, 1, 'staff action cell only allows adding to offer');
   console.log('OK: owner-only pricing creation, fresh identity, source preserved, confirmed insert and failed-save recovery.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
