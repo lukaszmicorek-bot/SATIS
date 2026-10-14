@@ -20,8 +20,11 @@ window.SatisOfflineForms = {
     document.body.append(dialog);
     const launcher = document.createElement("button");
     launcher.type = "button"; launcher.className = "ghost offline-launch"; launcher.textContent = "Formularze offline";
-    document.querySelector(".top-panel")?.append(launcher);
+    launcher.id = "offlineFormsLauncher";
+    document.body.append(launcher);
     const authLauncher = launcher.cloneNode(true);
+    authLauncher.removeAttribute("id");
+    authLauncher.classList.add("offline-auth-launch");
     document.querySelector("#authForm")?.append(authLauncher);
     function message(text) { status.textContent = text; }
     function touch() {

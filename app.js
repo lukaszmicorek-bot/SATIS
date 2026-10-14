@@ -5601,7 +5601,7 @@ function normalizePricingRecordForUse(record) {
   });
   normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
   normalizedRecord.manufacturer = normalizePricingManufacturerName(normalizedRecord.manufacturer);
-  if (["A", "CH"].includes(normalizedRecord.nfzCode.toUpperCase()) && pricingOfferAccessoryKind(normalizedRecord) === "charger") normalizedRecord.nfzCode = "Ch";
+  if (["A", "CH"].includes(normalizedRecord.nfzCode.toUpperCase())) normalizedRecord.nfzCode = "Ch";
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
   normalizedRecord.discountOne = normalizePricingPrice(record?.discountOne) || 0;
   normalizedRecord.discountPair = normalizePricingPrice(record?.discountPair) || 0;
@@ -9122,14 +9122,14 @@ function pricingDiscountPrices(record) {
   const price = normalizePricingPrice(record.grossPrice);
   if (price === "" || price < 0) return null;
   const base = Math.round(price * 100);
-  const active = String(record.nfzCode || "").trim().toUpperCase() === "A";
+  const active = ["A", "CH"].includes(String(record.nfzCode || "").trim().toUpperCase());
   const discount = (value, maximum) => active ? Math.min(maximum, Math.max(0, Math.round((normalizePricingPrice(value) || 0) * 100))) : 0;
   return { one: (base - discount(record.discountOne, base)) / 100, pair: (base * 2 - discount(record.discountPair, base * 2)) / 100 };
 }
 
 function updatePricingDiscountEditor() {
   const form = document.querySelector("#pricingRecordForm");
-  const active = String(form.elements.namedItem("nfzCode").value).trim().toUpperCase() === "A";
+  const active = ["A", "CH"].includes(String(form.elements.namedItem("nfzCode").value).trim().toUpperCase());
   const permitted = canCreatePricingRecord();
   const bundle = ["A", "CH"].includes(form.elements.namedItem("nfzCode").value.trim().toUpperCase()) && pricingOfferAccessoryKind({ model: form.elements.namedItem("model").value, tradeName: form.elements.namedItem("tradeName").value }) === "charger";
   document.querySelector("#pricingDiscountPanel").hidden = !active || !permitted || bundle;
@@ -9320,12 +9320,11 @@ async function savePricingRecordEditor(event) {
   if (!form.reportValidity()) return;
   values.grossPrice = Math.round(price * 100) / 100;
   if (canCreatePricingRecord()) {
-    values.discountOne = values.nfzCode === "A" ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
-    values.discountPair = values.nfzCode === "A" ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
+    values.discountOne = ["A", "CH"].includes(values.nfzCode) ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
+    values.discountPair = ["A", "CH"].includes(values.nfzCode) ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
     if (["A", "CH"].includes(values.nfzCode) && pricingOfferAccessoryKind(values) === "charger") {
       values.chargerPriceOne = discounts.chargerPriceOne;
       values.chargerPriceTwo = discounts.chargerPriceTwo;
-      values.grossPrice = discounts.chargerPriceOne;
       values.discountOne = 0; values.discountPair = 0;
     }
   }
@@ -17822,15 +17821,16 @@ function createPricingRow(record, index) {
       const text = document.createElement("span");
       text.className = "pricing-price-value";
       const chargerBundle = pricingChargerBundlePrices(record);
+      text.append(createPricingPriceElement(record.grossPrice));
       if (chargerBundle) {
         for (const [label, price] of [["1 aparat", chargerBundle.one], ["2 aparaty", chargerBundle.two]]) {
           const line = document.createElement("span"); line.className = "pricing-charger-tier";
           const caption = document.createElement("small"); caption.textContent = label;
           line.append(caption, createPricingPriceElement(price)); text.append(line);
         }
-      } else text.append(createPricingPriceElement(record.grossPrice));
+      }
       wrap.append(text);
-      if (!chargerBundle && String(record.nfzCode || "").trim().toUpperCase() === "A") {
+      if (!chargerBundle && ["A", "CH"].includes(String(record.nfzCode || "").trim().toUpperCase())) {
         const prices = pricingDiscountPrices(record);
         if (prices) {
           const discounted = document.createElement("small");
@@ -28625,7 +28625,7 @@ async function checkForPublishedAppUpdate() {
     if (navigator.serviceWorker?.controller) {
       const registration = await navigator.serviceWorker.getRegistration();
       await registration?.update();
-      const button = document.querySelector(".offline-launch");
+      const button = document.querySelector("#offlineFormsLauncher");
       if (button) button.title = "Nowa wersja: zapisz szkice i zamknij wszystkie karty SATIS, aby zastosować aktualizację.";
       return;
     }

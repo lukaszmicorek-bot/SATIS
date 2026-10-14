@@ -54,7 +54,11 @@ Object.assign(ctx, {
 });
 vm.runInContext(extract('normalizePricingRecordForUse'), ctx);
 assert.equal(ctx.normalizePricingRecordForUse(bundle).nfzCode, 'Ch', 'legacy charger code A is shown as Ch');
-assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, model: 'Aparat' }).nfzCode, 'A', 'other product codes are untouched');
+assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, model: 'Aparat' }).nfzCode, 'Ch', 'all old code A products move to Ch');
+assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, nfzCode: 'P.01.01.00' }).nfzCode, 'P.01.01.00', 'real NFZ codes are untouched');
+assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, grossPrice: 1200 }).grossPrice, 1200, 'catalog base charger price remains unchanged');
+assert.ok(!extract('savePricingRecordEditor').includes('values.grossPrice = discounts.chargerPriceOne'));
+assert.match(extract('createPricingRow'), /text\.append\(createPricingPriceElement\(record\.grossPrice\)\);\s*if \(chargerBundle\)/);
 assert.match(source, /\[\["1 aparat", chargerBundle\.one\], \["2 aparaty", chargerBundle\.two\]\]/);
 assert.ok(!source.includes('(1 ładowarka)'));
 assert.doesNotMatch(extract('renderPricingOffer'), /item\.input\.value = pricingOfferDeviceLabel/);
