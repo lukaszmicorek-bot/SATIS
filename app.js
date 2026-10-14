@@ -5604,6 +5604,10 @@ function normalizePricingRecordForUse(record) {
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
   normalizedRecord.discountOne = normalizePricingPrice(record?.discountOne) || 0;
   normalizedRecord.discountPair = normalizePricingPrice(record?.discountPair) || 0;
+  for (const field of ["chargerPriceOne", "chargerPriceTwo"]) {
+    const value = normalizePricingPrice(record?.[field]);
+    if (value !== "" && value >= 0) normalizedRecord[field] = value;
+  }
   if (record?.id) normalizedRecord.id = String(record.id);
   return normalizedRecord;
 }
@@ -8731,8 +8735,11 @@ function pricingOfferChargerWithPrice(record) {
     delete input.dataset.manualPrice;
   }
   input.disabled = false;
-  if (!input.dataset.manualPrice && document.activeElement !== input) input.value = String(record.grossPrice ?? "").replace(".", ",");
-  const price = input.dataset.manualPrice ? normalizePricingPrice(input.value) : normalizePricingPrice(record.grossPrice);
+  const bundle = pricingChargerBundlePrices(record);
+  const devices = selectedPricingOfferItems().filter(item => !pricingOfferAccessoryKind(item.record)).length;
+  const automaticPrice = bundle ? devices >= 2 ? bundle.two : bundle.one : record.grossPrice;
+  if (!input.dataset.manualPrice && document.activeElement !== input) input.value = String(automaticPrice ?? "").replace(".", ",");
+  const price = input.dataset.manualPrice ? normalizePricingPrice(input.value) : normalizePricingPrice(automaticPrice);
   const valid = price !== "" && price >= 0;
   input.setCustomValidity(valid ? "" : "Wpisz prawidłową cenę ładowarki: zero lub więcej.");
   return valid ? { ...record, grossPrice: Math.round(price * 100) / 100 } : record;
@@ -9100,7 +9107,14 @@ function renderPricingOffer() {
 
 function pricingRecordFingerprint(record) {
   const normalized = normalizePricingRecordForUse(record);
-  return JSON.stringify([...pricingFields.map((field) => normalized[field]), normalized.discountOne, normalized.discountPair]);
+  return JSON.stringify([...pricingFields.map((field) => normalized[field]), normalized.discountOne, normalized.discountPair, normalized.chargerPriceOne, normalized.chargerPriceTwo]);
+}
+
+function pricingChargerBundlePrices(record) {
+  if (String(record.nfzCode || "").trim().toUpperCase() !== "A" || pricingOfferAccessoryKind(record) !== "charger") return null;
+  const one = normalizePricingPrice(record.chargerPriceOne);
+  const two = normalizePricingPrice(record.chargerPriceTwo);
+  return { one: one === "" || one < 0 ? 700 : Math.round(one * 100) / 100, two: two === "" || two < 0 ? 500 : Math.round(two * 100) / 100 };
 }
 
 function pricingDiscountPrices(record) {
@@ -9116,17 +9130,27 @@ function updatePricingDiscountEditor() {
   const form = document.querySelector("#pricingRecordForm");
   const active = String(form.elements.namedItem("nfzCode").value).trim().toUpperCase() === "A";
   const permitted = canCreatePricingRecord();
-  document.querySelector("#pricingDiscountPanel").hidden = !active || !permitted;
+  const bundle = active && pricingOfferAccessoryKind({ model: form.elements.namedItem("model").value, tradeName: form.elements.namedItem("tradeName").value }) === "charger";
+  document.querySelector("#pricingDiscountPanel").hidden = !active || !permitted || bundle;
+  document.querySelector("#pricingChargerBundlePanel").hidden = !bundle || !permitted;
   const price = normalizePricingPrice(form.elements.namedItem("grossPrice").value);
   const values = { grossPrice: price, nfzCode: active ? "A" : "" };
   for (const [field, count] of [["discountOne", 1], ["discountPair", 2]]) {
     const input = form.elements.namedItem(field);
     const raw = input.value.trim();
     const discount = raw ? normalizePricingPrice(raw) : 0;
-    const invalid = active && permitted && (discount === "" || discount < 0 || (price !== "" && discount > price * count));
+    const invalid = active && permitted && !bundle && (discount === "" || discount < 0 || (price !== "" && discount > price * count));
     input.setCustomValidity(invalid ? `Rabat musi być kwotą od 0 do ceny ${count === 1 ? "aparatu" : "całej pary"}.` : "");
     values[field] = discount;
   }
+  for (const [field, fallback] of [["chargerPriceOne", 700], ["chargerPriceTwo", 500]]) {
+    const input = form.elements.namedItem(field);
+    const raw = input.value.trim();
+    const value = raw ? normalizePricingPrice(raw) : fallback;
+    input.setCustomValidity(bundle && permitted && (value === "" || value < 0) ? "Wpisz prawidłową cenę ładowarki: zero lub więcej." : "");
+    values[field] = value;
+  }
+  if (bundle && permitted && values.chargerPriceTwo > values.chargerPriceOne) form.elements.namedItem("chargerPriceTwo").setCustomValidity("Cena przy dwóch aparatach nie może być wyższa niż przy jednym.");
   const prices = pricingDiscountPrices(values);
   document.querySelector("#pricingDiscountOnePrice").textContent = prices ? formatPricingPrice(prices.one) : "—";
   document.querySelector("#pricingDiscountPairPrice").textContent = prices ? formatPricingPrice(prices.pair) : "—";
@@ -9231,6 +9255,10 @@ function openPricingRecordDialog(record, focusField = "tradeName", { create = fa
     input.value = String(record[field] ?? 0).replace(".", ",");
     input.setCustomValidity("");
   }
+  for (const [field, fallback] of [["chargerPriceOne", 700], ["chargerPriceTwo", 500]]) {
+    form.elements.namedItem(field).value = String(record[field] ?? fallback).replace(".", ",");
+    form.elements.namedItem(field).setCustomValidity("");
+  }
   updatePricingDiscountEditor();
   document.querySelector("#pricingRecordEditorMode").textContent = create ? "Nowa pozycja cennika" : "Edycja pozycji cennika";
   document.querySelector("#deletePricingRecordBtn").hidden = create;
@@ -9293,6 +9321,12 @@ async function savePricingRecordEditor(event) {
   if (canCreatePricingRecord()) {
     values.discountOne = values.nfzCode === "A" ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
     values.discountPair = values.nfzCode === "A" ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
+    if (values.nfzCode === "A" && pricingOfferAccessoryKind(values) === "charger") {
+      values.chargerPriceOne = discounts.chargerPriceOne;
+      values.chargerPriceTwo = discounts.chargerPriceTwo;
+      values.grossPrice = discounts.chargerPriceOne;
+      values.discountOne = 0; values.discountPair = 0;
+    }
   }
   const replacement = normalizePricingRecordForUse({ ...pricingEditingRecord, ...values });
   const index = pricingRecordIndex(pricingEditingRecord);
@@ -17789,11 +17823,14 @@ function createPricingRow(record, index) {
       text.append(createPricingPriceElement(record.grossPrice));
       wrap.append(text);
       if (String(record.nfzCode || "").trim().toUpperCase() === "A") {
-        const prices = pricingDiscountPrices(record);
+        const bundle = pricingChargerBundlePrices(record);
+        const prices = bundle || pricingDiscountPrices(record);
         if (prices) {
           const discounted = document.createElement("small");
           discounted.className = "pricing-discount-summary";
-          discounted.textContent = `1 szt.: ${formatPricingPrice(prices.one)} · 2 szt.: ${formatPricingPrice(prices.pair)}`;
+          discounted.textContent = bundle
+            ? `1 aparat: ${formatPricingPrice(bundle.one)} · 2 aparaty: ${formatPricingPrice(bundle.two)} (1 ładowarka)`
+            : `1 szt.: ${formatPricingPrice(prices.one)} · 2 szt.: ${formatPricingPrice(prices.pair)}`;
           text.append(discounted);
         }
       }
@@ -26614,6 +26651,8 @@ function mergePricingRecords(existingRecords, importedRecords) {
       recordsToMerge[index] = { ...record,
         discountOne: recordsToMerge[index].discountOne || 0,
         discountPair: recordsToMerge[index].discountPair || 0,
+        ...(recordsToMerge[index].chargerPriceOne !== undefined ? { chargerPriceOne: recordsToMerge[index].chargerPriceOne } : {}),
+        ...(recordsToMerge[index].chargerPriceTwo !== undefined ? { chargerPriceTwo: recordsToMerge[index].chargerPriceTwo } : {}),
         ...(recordsToMerge[index].id ? { id: recordsToMerge[index].id } : {}) };
       updated += 1;
       return;
@@ -27343,6 +27382,7 @@ document.querySelector("#copyPricingProductBtn")?.addEventListener("click", () =
   const form = document.querySelector("#pricingRecordForm");
   const values = Object.fromEntries(pricingFields.map(field => [field, form.elements.namedItem(field).value.trim()]));
   for (const field of ["discountOne", "discountPair"]) values[field] = form.elements.namedItem(field).value.trim();
+  for (const field of ["chargerPriceOne", "chargerPriceTwo"]) values[field] = form.elements.namedItem(field).value.trim();
   openNewPricingProduct(values);
 });
 document.querySelector("#pricingRecordForm")?.addEventListener("input", (event) => {

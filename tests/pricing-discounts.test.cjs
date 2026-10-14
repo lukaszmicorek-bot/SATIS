@@ -25,13 +25,16 @@ assert.equal(ctx.pricingDiscountPrices({ ...a, discountOne: 9000, discountPair: 
 assert.equal(ctx.pricingDiscountPrices({ ...a, grossPrice: 'invalid' }), null);
 assert.equal(a.grossPrice, 4000, 'catalog base price never overwritten by computed discount');
 const fields = {
-  nfzCode: { value: 'A' }, grossPrice: { value: '4000' },
+  nfzCode: { value: 'A' }, grossPrice: { value: '4000' }, model: { value: 'Aparat' }, tradeName: { value: '' },
+  chargerPriceOne: { value: '700', setCustomValidity(message) { this.error = message; } },
+  chargerPriceTwo: { value: '500', setCustomValidity(message) { this.error = message; } },
   discountOne: { value: '-1', setCustomValidity(message) { this.error = message; } },
   discountPair: { value: '9000', setCustomValidity(message) { this.error = message; } }
 };
 const panel = {};
 ctx.document = { querySelector: selector => selector === '#pricingRecordForm' ? { elements: { namedItem: name => fields[name] } } : panel };
 ctx.canCreatePricingRecord = () => true;
+ctx.pricingOfferAccessoryKind = record => /charger|ładowarka/i.test(record.model || '') ? 'charger' : '';
 ctx.formatPricingPrice = value => `${value} zł`;
 vm.runInContext(extract('updatePricingDiscountEditor'), ctx);
 ctx.updatePricingDiscountEditor();

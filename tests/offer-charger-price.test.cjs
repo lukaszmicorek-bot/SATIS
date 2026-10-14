@@ -7,16 +7,19 @@ function extract(name) {
   return rest.slice(0, rest.slice(1).search(/\n(?:async )?function /) + 1);
 }
 const input = { value: '', dataset: {}, setCustomValidity(message) { this.validationMessage = message; } };
+let deviceCount = 1;
 const ctx = vm.createContext({
   offerChargerPriceInput: input, document: { activeElement: null },
   pricingRecordKey: record => record.idProduct,
+  selectedPricingOfferItems: () => Array.from({ length: deviceCount }, () => ({ record: { model: 'Aparat' } })),
+  pricingOfferAccessoryKind: record => /charger|ładowarka/i.test(record.model || '') ? 'charger' : '',
   normalizePricingPrice: value => {
     if (String(value).trim() === '') return '';
     const result = Number(String(value).replace(',', '.'));
     return Number.isFinite(result) ? result : '';
   }
 });
-for (const name of ['resetOfferChargerPrice', 'pricingOfferChargerWithPrice']) vm.runInContext(extract(name), ctx);
+for (const name of ['pricingChargerBundlePrices', 'resetOfferChargerPrice', 'pricingOfferChargerWithPrice']) vm.runInContext(extract(name), ctx);
 const charger = { idProduct: 'CH1', model: 'Charger', grossPrice: 500 };
 assert.equal(ctx.pricingOfferChargerWithPrice(charger).grossPrice, 500);
 assert.equal(input.value, '500'); assert.equal(input.disabled, false);
@@ -32,6 +35,16 @@ ctx.document.activeElement = null;
 assert.equal(ctx.pricingOfferChargerWithPrice({ ...charger, idProduct: 'CH2', grossPrice: 700 }).grossPrice, 700);
 assert.equal(input.dataset.manualPrice, undefined); assert.equal(input.value, '700');
 assert.equal(ctx.pricingOfferChargerWithPrice(null), null); assert.equal(input.value, ''); assert.equal(input.disabled, true);
+const bundle = { ...charger, idProduct: 'A-CHARGER', nfzCode: 'A', grossPrice: 700 };
+assert.equal(ctx.pricingOfferChargerWithPrice(bundle).grossPrice, 700, 'one hearing aid: one charger costs 700');
+deviceCount = 2;
+assert.equal(ctx.pricingOfferChargerWithPrice(bundle).grossPrice, 500, 'two hearing aids: still one charger, costs 500');
+assert.equal(input.value, '500');
+deviceCount = 1; assert.equal(ctx.pricingOfferChargerWithPrice(bundle).grossPrice, 700);
+input.dataset.manualPrice = '1'; input.value = '0'; deviceCount = 2;
+assert.equal(ctx.pricingOfferChargerWithPrice(bundle).grossPrice, 0, 'explicit per-offer override retained');
+assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, chargerPriceOne: 800, chargerPriceTwo: 600 }).two, 600);
+assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, nfzCode: 'P.01.01.00' }), null);
 assert.doesNotMatch(extract('renderPricingOffer'), /item\.input\.value = pricingOfferDeviceLabel/);
 assert.match(extract('restorePricingOfferFromHistory'), /offerChargerPriceInput\.value = String\(savedItem\.grossPrice/);
 assert.match(source, /if \(offerChargerPriceInput\?\.validationMessage\)/);
