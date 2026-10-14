@@ -76,3 +76,4 @@
 !/tests/startup-performance.test.cjs
 !/tests/document-save-guards.test.cjs
 !/tests/recovery_backup_test.py
+!/tests/repair-save-validation.test.cjs

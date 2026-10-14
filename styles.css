@@ -15641,10 +15641,47 @@ textarea {
 .loan-active-section h3 { margin: 0 0 14px; font-size: 17px; color: #003f5a; }
 .loan-active-section h3 span { font-size: 13px; font-weight: 400; color: #62737a; }
 .loan-active-list { display: grid; gap: 8px; }
+#repairFormError:not(:empty) {
+  position: sticky;
+  bottom: 66px;
+  z-index: 6;
+  margin: 8px 0;
+  padding: 9px 12px;
+  border: 1px solid #e8bec4;
+  border-radius: 6px;
+  color: #8b293c;
+  background: #fff5f7;
+}
 .loan-active-equipment { display: grid; gap: 5px; }
 .loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
-.loan-active-equipment-line .demo-purpose-pill { flex-shrink: 0; white-space: nowrap; }
-.loan-active-equipment-line .loan-side-badge { width: 24px; height: 24px; min-height: 24px; flex-shrink: 0; border-radius: 4px; font-size: 0.72rem; }
+.loan-active-equipment-line > span { margin-top: 0; }
+.loan-active-equipment-line .demo-purpose-pill { display: inline-flex; align-items: center; flex-shrink: 0; white-space: nowrap; line-height: 1.2; }
+.loan-active-equipment-line .loan-side-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+.loan-active-equipment-line .serial-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  flex-wrap: nowrap;
+  background: #fbfdfe;
+  box-shadow: none;
+}
+.loan-active-equipment-line .serial-pill-number { margin: 0; color: inherit; font-size: inherit; line-height: 1.2; }
+.loan-active-equipment-line .serial-pill:hover { background: #f0f7fa; }
+.loan-active-equipment-line .serial-pill.copied { background: #f2faf5; box-shadow: inset 0 0 0 1px #dfede5; }
 .loan-deposit-toggle { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 36px; }
 .loan-deposit-toggle input { width: 18px; height: 18px; min-height: 0; }
 .loan-signatures.signature-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
