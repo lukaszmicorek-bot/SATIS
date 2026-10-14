@@ -680,6 +680,7 @@ let pricingRecords = [];
 let pricingMutationInProgress = false;
 let pricingMutationRevision = 0;
 let pricingEditingRecord = null;
+let pricingCreatingRecord = false;
 let pricingMeta = loadPricingMeta();
 let pricingLoanHistory = loadPricingLoanHistory();
 let pricingOfferHistory = loadPricingOfferHistory();
@@ -1463,6 +1464,10 @@ function canManagePricing() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
 
+function canCreatePricingRecord() {
+  return canManagePricing() && String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+}
+
 function canManagePricingLoanHistory() {
   if (!hasSupabaseConfig) return true;
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
@@ -1554,6 +1559,14 @@ function updatePricingManagementVisibility() {
     button.hidden = !visible;
     button.disabled = !visible;
   });
+  ["#addPricingProductBtn", "#copyPricingProductBtn"].forEach(selector => {
+    const button = document.querySelector(selector);
+    if (button) {
+      button.hidden = !canCreatePricingRecord() || (selector === "#copyPricingProductBtn" && (pricingCreatingRecord || !pricingEditingRecord));
+      button.disabled = !canCreatePricingRecord() || pricingMutationInProgress;
+    }
+  });
+  if (!visible && document.querySelector("#pricingRecordDialog")?.open) document.querySelector("#pricingRecordDialog").close();
 }
 
 function updateSensitiveTransferVisibility() {
@@ -9141,9 +9154,11 @@ async function commitPricingRecordChange(record, replacement) {
   }
 }
 
-function openPricingRecordDialog(record, focusField = "tradeName") {
+function openPricingRecordDialog(record, focusField = "tradeName", { create = false } = {}) {
   if (!record || !canManagePricing() || pricingMutationInProgress) return;
+  if (create && !canCreatePricingRecord()) return;
   pricingEditingRecord = { ...record };
+  pricingCreatingRecord = create;
   const form = document.querySelector("#pricingRecordForm");
   form.reset();
   pricingFields.forEach((field) => {
@@ -9151,9 +9166,45 @@ function openPricingRecordDialog(record, focusField = "tradeName") {
     input.value = field === "grossPrice" ? String(record[field] ?? "").replace(".", ",") : record[field] || "";
     input.setCustomValidity("");
   });
-  document.querySelector("#pricingRecordDialogTitle").textContent = record.model || record.tradeName || "Pozycja cennika";
-  document.querySelector("#pricingRecordDialog").showModal();
+  document.querySelector("#pricingRecordEditorMode").textContent = create ? "Nowa pozycja cennika" : "Edycja pozycji cennika";
+  document.querySelector("#deletePricingRecordBtn").hidden = create;
+  document.querySelector("#copyPricingProductBtn").hidden = create || !canCreatePricingRecord();
+  document.querySelector("#pricingRecordDialogTitle").textContent = create ? "Nowy produkt" : record.model || record.tradeName || "Pozycja cennika";
+  const dialog = document.querySelector("#pricingRecordDialog");
+  if (!dialog.open) dialog.showModal();
   form.elements.namedItem(focusField)?.focus();
+}
+
+function openNewPricingProduct(source = null) {
+  if (!canCreatePricingRecord() || pricingMutationInProgress || !requireInitialDataReady()) return;
+  const record = normalizePricingRecordForUse({ ...source, id: makeId(), idProduct: "", orderIndex: "", swdCode: "",
+    nfzCode: source?.nfzCode || pricingNfzFilter?.value || "" });
+  openPricingRecordDialog(record, "tradeName", { create: true });
+}
+
+async function commitNewPricingRecord(record) {
+  if (!canCreatePricingRecord() || pricingMutationInProgress || !requireInitialDataReady()) return false;
+  setPricingMutationBusy(true);
+  const userId = currentSupabaseUser?.id;
+  try {
+    if (hasSupabaseConfig) await upsertSupabaseRecord(SUPABASE_PRICING_TABLE, record, { requestTimeoutMs: 20000 });
+    if (userId !== currentSupabaseUser?.id || !canCreatePricingRecord()) return false;
+    const previous = pricingRecords;
+    pricingRecords = [...pricingRecords.filter(item => item.id !== record.id), record];
+    try { savePricingRecords(); } catch (error) {
+      if (!hasSupabaseConfig) { pricingRecords = previous; throw error; }
+      console.warn("Produkt zapisano na serwerze, ale nie w pamięci przeglądarki.");
+    }
+    try {
+      markPricingUpdatedNow();
+      if (hasSupabaseConfig) await upsertSupabaseRecord(SUPABASE_PRICING_TABLE, pricingMetaRecordForSupabase());
+    } catch { alert("Produkt zapisano. Nie udało się zaktualizować daty cennika."); }
+    rebuildDemoFormSuggestions(); renderPricingRecords(); renderPricingOfferDeviceList(); renderPricingOffer(); setCurrentYearTitle();
+    return true;
+  } catch (error) {
+    alert(`Nie udało się dodać produktu: ${error.message}`);
+    return false;
+  } finally { setPricingMutationBusy(false); }
 }
 
 function updatePricingRecordPrice(record) {
@@ -9163,6 +9214,7 @@ function updatePricingRecordPrice(record) {
 async function savePricingRecordEditor(event) {
   event.preventDefault();
   if (!pricingEditingRecord || !canManagePricing() || pricingMutationInProgress) return;
+  if (pricingCreatingRecord && !canCreatePricingRecord()) return;
   const form = event.currentTarget;
   const values = Object.fromEntries(pricingFields.map((field) => [field, form.elements.namedItem(field).value.trim()]));
   values.nfzCode = values.nfzCode.toLocaleUpperCase("pl-PL");
@@ -9173,14 +9225,17 @@ async function savePricingRecordEditor(event) {
   values.grossPrice = Math.round(price * 100) / 100;
   const replacement = normalizePricingRecordForUse({ ...pricingEditingRecord, ...values });
   const index = pricingRecordIndex(pricingEditingRecord);
-  if (pricingRecordKey(replacement) !== pricingRecordKey(pricingEditingRecord) &&
-      pricingRecords.some((item, i) => i !== index && pricingRecordKey(item) === pricingRecordKey(replacement))) {
+  const nameKey = item => normalize([item.nfzCode, item.tradeName, item.model, item.manufacturer].join("|"));
+  if ((pricingCreatingRecord || pricingRecordKey(replacement) !== pricingRecordKey(pricingEditingRecord)) &&
+      pricingRecords.some((item, i) => (pricingCreatingRecord || i !== index) &&
+        (pricingRecordKey(item) === pricingRecordKey(replacement) || (pricingCreatingRecord && nameKey(item) === nameKey(replacement))))) {
     alert("Taka pozycja z tym kodem NFZ już istnieje. Popraw dane lub edytuj istniejący wpis.");
     return;
   }
-  if (await commitPricingRecordChange(pricingEditingRecord, replacement)) {
+  if (await (pricingCreatingRecord ? commitNewPricingRecord(replacement) : commitPricingRecordChange(pricingEditingRecord, replacement))) {
     document.querySelector("#pricingRecordDialog").close();
     pricingEditingRecord = null;
+    pricingCreatingRecord = false;
   }
 }
 
@@ -27188,6 +27243,13 @@ importPricingBtn?.addEventListener("click", () => pricingImportInput.click());
 replacePricingBtn?.addEventListener("click", () => pricingReplaceInput.click());
 resetPricingBtn?.addEventListener("click", resetPricingRecords);
 document.querySelector("#pricingRecordForm")?.addEventListener("submit", savePricingRecordEditor);
+document.querySelector("#addPricingProductBtn")?.addEventListener("click", () => openNewPricingProduct());
+document.querySelector("#copyPricingProductBtn")?.addEventListener("click", () => {
+  if (!pricingEditingRecord || pricingCreatingRecord || !canCreatePricingRecord()) return;
+  const form = document.querySelector("#pricingRecordForm");
+  const values = Object.fromEntries(pricingFields.map(field => [field, form.elements.namedItem(field).value.trim()]));
+  openNewPricingProduct(values);
+});
 document.querySelector("#pricingRecordForm")?.addEventListener("input", (event) => {
   event.target.setCustomValidity?.("");
   document.querySelector('#pricingRecordForm [name="tradeName"]').setCustomValidity("");
@@ -27198,7 +27260,7 @@ document.querySelectorAll("[data-close-pricing-record]").forEach((button) => but
 document.querySelector("#pricingRecordDialog")?.addEventListener("cancel", (event) => {
   if (pricingMutationInProgress) event.preventDefault();
 });
-document.querySelector("#pricingRecordDialog")?.addEventListener("close", () => { pricingEditingRecord = null; });
+document.querySelector("#pricingRecordDialog")?.addEventListener("close", () => { pricingEditingRecord = null; pricingCreatingRecord = false; });
 document.querySelector("#deletePricingRecordBtn")?.addEventListener("click", async () => {
   if (await deletePricingRecord(pricingEditingRecord)) document.querySelector("#pricingRecordDialog").close();
 });
