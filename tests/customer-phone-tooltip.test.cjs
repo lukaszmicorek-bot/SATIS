@@ -20,6 +20,12 @@ test('serial order tooltip uses shared readable customer sections', () => {
   assert.match(rendered, /Model: Test/);
   assert.match(extract('showTableHoverTooltip'), /dataKey === "serialTooltip"/);
 });
+test('service demo and replacement tooltips share Aparaty detail layout and hover delay', () => {
+  assert.match(extract('showTableHoverTooltip'), /dataKey === "demoRelationTooltip"/);
+  assert.match(extract('showTableHoverTooltip'), /classList\.toggle\("customer-detail-tooltip", customerTooltip\)/);
+  assert.match(extract('attachTableHoverTooltip'), /dataKey === "demoRelationTooltip"/);
+  assert.match(extract('repairActiveDemoRelations'), /• \$\{activeDemoLoanLine\(loan\)\}/);
+});
 function extract(name) {
   const start = source.indexOf(`function ${name}(`);
   assert.ok(start >= 0);
