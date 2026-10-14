@@ -39,6 +39,8 @@ EXTRA_PUBLIC_FILES = {
     "tests/startup-performance.test.cjs", "tests/document-save-guards.test.cjs",
     "KOPIE-I-ODTWORZENIE.md", "scripts/recovery_backup.py", "tests/recovery_backup_test.py",
     "tests/repair-save-validation.test.cjs",
+    "tests/customer-transfer.test.cjs",
+    "tests/document-new-toolbar.test.cjs",
     "supabase-repair-returns.sql", "tests/repair-returns.test.cjs", "tests/repair-returns.sqltest.cjs",
     ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
     "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
