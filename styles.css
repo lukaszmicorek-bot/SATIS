@@ -2799,6 +2799,7 @@ h2 {
 .undo-form-button:disabled { opacity: 0.4; cursor: default; }
 .form-undo-tools {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
   grid-column: 1 / -1;
@@ -15677,9 +15678,21 @@ textarea {
   box-shadow: none;
 }
 .loan-active-equipment { display: grid; gap: 5px; }
+.customer-transfer-field { position: relative; min-width: 0; width: 100%; }
+.customer-transfer-field > input { width: 100%; padding-right: 68px !important; }
+.customer-transfer-tools { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; gap: 2px; }
+.customer-transfer-tools button { display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 27px; min-height: 0; padding: 4px; border: 0; border-radius: 4px; background: transparent; color: #627b88; cursor: pointer; }
+.customer-transfer-tools button:hover { background: #edf5f6; color: #003f5a; }
+.customer-transfer-tools button:focus-visible { outline: 2px solid #007b80; outline-offset: 1px; }
+.customer-transfer-tools svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.customer-transfer-status { color: #536c79; font-size: 0.7rem; }
+@media print { .customer-transfer-tools, .customer-transfer-status { display: none !important; } }
 .loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
 .loan-active-equipment-line > span { margin-top: 0; }
 .loan-active-equipment-line .demo-purpose-pill { display: inline-flex; align-items: center; flex-shrink: 0; white-space: nowrap; line-height: 1.2; }
+.loan-active-equipment-line .loan-active-demo-link { cursor: pointer; font-family: inherit; }
+.loan-active-equipment-line .loan-active-demo-link:hover { filter: brightness(0.96); }
+.loan-active-equipment-line .loan-active-demo-link:focus-visible { outline: 2px solid #007b80; outline-offset: 2px; }
 .loan-active-equipment-line .loan-side-badge {
   display: inline-flex;
   align-items: center;

@@ -786,6 +786,8 @@ const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList")
 const pricingOfferChargerList = document.querySelector("#pricingOfferChargerList");
 const pricingOfferEarmoldList = document.querySelector("#pricingOfferEarmoldList");
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
+let customerTransferMemory = null;
+let customerTransferGeneration = 0;
 const offerPatientGroupInputs = [...document.querySelectorAll('input[name="offerPatientGroup"]')];
 const offerDateInput = document.querySelector("#offerDateInput");
 const offerLocationInput = document.querySelector("#offerLocationInput");
@@ -2788,6 +2790,9 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  customerTransferMemory = null;
+  customerTransferGeneration += 1;
+  document.querySelectorAll(".customer-transfer-status").forEach(status => { status.textContent = ""; status.hidden = true; });
   repairReturns?.clear();
   supabaseInitialDataReady = false;
   window.clearTimeout(deferredSuggestionsTimer);
@@ -9215,6 +9220,120 @@ function formatRodoPhone(value) {
   return /^(?:48|0048)?\d{9}$/u.test(digits) ? formatPcprPhone(text) : text;
 }
 
+function customerTransferFields(nameId) {
+  const fields = {
+    offerCustomerInput: { name: "offerCustomerInput" },
+    loanCustomerInput: { name: "loanCustomerInput", phone: "loanPhoneInput", address: "loanAddressInput", document: "loanDocumentInput" },
+    orderCustomerInput: { name: "orderCustomerInput", phone: "orderPhoneInput" },
+    complaintCustomerInput: { name: "complaintCustomerInput", phone: "complaintPhoneInput" },
+    customerName: { name: "customerName" }
+  }[nameId];
+  return Object.fromEntries(Object.entries(fields || {}).map(([key, id]) => [key, document.getElementById(id)]).filter(([, input]) => input));
+}
+
+function serializeCustomerTransfer(data) {
+  return [["Imię i nazwisko", data.name], ["Telefon", data.phone], ["Adres", data.address], ["PESEL lub nr dowodu", data.document]]
+    .filter(([, value]) => value).map(([label, value]) => `${label}: ${String(value).replace(/[\r\n]+/g, " ").trim()}`).join("\n");
+}
+
+function parseCustomerTransfer(text) {
+  if (typeof text !== "string" || text.length > 2000) return null;
+  const labels = { "Imię i nazwisko": "name", "Telefon": "phone", "Adres": "address", "PESEL lub nr dowodu": "document" };
+  const data = {};
+  for (const line of text.trim().split(/\r?\n/)) {
+    const separator = line.indexOf(":");
+    const key = labels[line.slice(0, separator)];
+    if (separator < 0 || !key || Object.hasOwn(data, key)) return null;
+    data[key] = line.slice(separator + 1).trim();
+  }
+  return data.name && isFullPersonName(data.name) ? data : null;
+}
+
+function applyCustomerTransfer(fields, data) {
+  const values = {
+    name: titleCaseName(data.name), phone: formatRodoPhone(data.phone || ""),
+    address: String(data.address || "").trim(), document: String(data.document || "").trim().toUpperCase()
+  };
+  const changedCustomer = customerNameLookupKey(fields.name?.value) !== customerNameLookupKey(values.name);
+  const entries = Object.entries(fields).filter(([key]) => key === "name" || values[key] || changedCustomer);
+  if (entries.some(([key, input]) => input.value.trim() && input.value.trim() !== values[key]) &&
+      !confirm("Zastąpić wpisane dane klienta skopiowanymi danymi? Pozostałe pola pozostaną bez zmian.")) return false;
+  for (const [key, input] of entries) {
+    input.value = values[key];
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  return true;
+}
+
+function setupCustomerTransfer() {
+  for (const id of ["offerCustomerInput", "loanCustomerInput", "orderCustomerInput", "complaintCustomerInput", "customerName"]) {
+    const input = document.getElementById(id);
+    if (!input || input.dataset.customerTransfer) continue;
+    input.dataset.customerTransfer = "1";
+    const wrap = document.createElement("div");
+    wrap.className = "customer-transfer-field";
+    input.before(wrap);
+    wrap.append(input);
+    const tools = document.createElement("div");
+    tools.className = "customer-transfer-tools";
+    const status = document.createElement("small");
+    status.className = "customer-transfer-status";
+    status.setAttribute("role", "status");
+    status.hidden = true;
+    wrap.after(status);
+    const showStatus = text => { status.textContent = text; status.hidden = false; };
+    for (const action of ["copy", "paste"]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.title = action === "copy" ? "Kopiuj dane klienta" : "Wklej dane klienta";
+      button.setAttribute("aria-label", button.title);
+      button.innerHTML = action === "copy"
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5H5v16h14V5h-3"/><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 12h8M8 16h6"/></svg>';
+      button.addEventListener("click", async event => {
+        event.preventDefault();
+        const generation = customerTransferGeneration;
+        const fields = customerTransferFields(id);
+        button.disabled = true;
+        try {
+          if (action === "copy") {
+            const data = Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field.value.trim()]));
+            if (!isFullPersonName(data.name)) { showStatus("Wpisz imię i nazwisko klienta."); return; }
+            customerTransferMemory = { data, internalOnly: true };
+            let systemCopied = false;
+            try {
+              if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(serializeCustomerTransfer(data)); systemCopied = true; }
+            } catch { /* In-app transfer remains available without clipboard permission. */ }
+            if (generation === customerTransferGeneration) {
+              customerTransferMemory = { data, internalOnly: !systemCopied };
+              showStatus(systemCopied ? "Skopiowano dane klienta." : "Skopiowano w aplikacji — użyj przycisku Wklej.");
+            }
+          } else {
+            let data = null;
+            let clipboardRead = false;
+            try {
+              if (!customerTransferMemory?.internalOnly && navigator.clipboard?.readText) { data = parseCustomerTransfer(await navigator.clipboard.readText()); clipboardRead = true; }
+            } catch { /* Clipboard access can be unavailable offline. */ }
+            if (generation !== customerTransferGeneration) return;
+            if (!clipboardRead) data = customerTransferMemory?.data;
+            if (!data) { showStatus("Najpierw skopiuj dane klienta przyciskiem Kopiuj."); return; }
+            if (applyCustomerTransfer(fields, data)) showStatus("Wklejono dane klienta. Zapisz formularz, aby je zachować.");
+          }
+        } finally { button.disabled = false; }
+      });
+      tools.append(button);
+    }
+    wrap.append(tools);
+    input.addEventListener("paste", event => {
+      const data = parseCustomerTransfer(event.clipboardData?.getData("text/plain") || "");
+      if (!data) return;
+      event.preventDefault();
+      if (applyCustomerTransfer(customerTransferFields(id), data)) showStatus("Wklejono dane klienta. Zapisz formularz, aby je zachować.");
+    });
+    input.addEventListener("input", () => { status.hidden = true; });
+  }
+}
+
 function updateRodoFromPesel() {
   const input = document.querySelector("#rodoPeselInput");
   const birthInput = document.querySelector("#rodoBirthDateInput");
@@ -10898,7 +11017,27 @@ function createActiveLoanEquipment(entry) {
     line.append(sideBadge, label);
     if (device.serial) line.append(createSerialPill(device.serial));
     const purpose = normalizeLoanDemoPurpose(device.purpose);
-    if (purpose) line.append(createDemoPurposePill(purpose));
+    if (purpose) {
+      const badge = createDemoPurposePill(purpose);
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = `${badge.className} loan-active-demo-link`;
+      link.textContent = badge.textContent;
+      link.title = "Otwórz aparat w Demo";
+      link.addEventListener("click", () => {
+        const serial = serialDuplicateKey(device.serial);
+        const matches = serial ? demoRecords.filter(record => serialDuplicateKey(record.serialNumber) === serial) : [];
+        if (matches.length !== 1) {
+          alert(matches.length > 1
+            ? "Ten numer seryjny występuje w Demo więcej niż raz. Sprawdź duplikaty w Kontroli danych."
+            : "Nie znaleziono aparatu o tym numerze seryjnym w Demo.");
+          return;
+        }
+        switchView("demo", "devices");
+        openDemoDialog(matches[0]);
+      });
+      line.append(link);
+    }
     equipment.append(line);
   });
   if (entry.charger || entry.chargerSerial || entry.chargerState) {
@@ -23182,6 +23321,12 @@ function setupFormUndo() {
         formUndoCheckpoints.set(scope, formUndoSnapshot(scope));
       }
     });
+    const newDocumentButton = scope.querySelector("#newPricingOfferBtn, #newPricingLoanBtn, #newPricingOrderBtn, #newPricingComplaintBtn, #resetRodoBtn");
+    if (newDocumentButton) {
+      newDocumentButton.classList.add("document-new-btn");
+      if (newDocumentButton.id === "resetRodoBtn") newDocumentButton.textContent = "Nowy";
+      tools.append(newDocumentButton);
+    }
     tools.append(button);
     if (scope.closest("dialog")) {
       const saved = document.createElement("button");
@@ -28053,4 +28198,5 @@ repairReturns = window.SatisRepairReturns?.create({
   openRecord: record => { switchView("repairDatabase", "repairs"); openRepairDialog(record); },
   locationPill: createLocationPill
 });
+setupCustomerTransfer();
 init();
