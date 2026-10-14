@@ -799,9 +799,7 @@ const offerDeviceInput1 = document.querySelector("#offerDeviceInput1");
 const offerDeviceInput2 = document.querySelector("#offerDeviceInput2");
 const offerChargerInput = document.querySelector("#offerChargerInput");
 const offerEarmoldInput = document.querySelector("#offerEarmoldInput");
-const offerDuplicateFirstBtn = document.querySelector("#offerDuplicateFirstBtn");
-const offerMoveRightToLeftBtn = document.querySelector("#offerMoveRightToLeftBtn");
-const offerMoveLeftToRightBtn = document.querySelector("#offerMoveLeftToRightBtn");
+const offerTransferSidesBtn = document.querySelector("#offerTransferSidesBtn");
 const newPricingOfferBtn = document.querySelector("#newPricingOfferBtn");
 const printPricingOfferBtn = document.querySelector("#printPricingOfferBtn");
 const offerTitle = document.querySelector("#offerTitle");
@@ -848,9 +846,7 @@ const loanDepositReturnDateInput = document.querySelector("#loanDepositReturnDat
 const loanDeductionsInput = document.querySelector("#loanDeductionsInput");
 const loanDeductionReasonInput = document.querySelector("#loanDeductionReasonInput");
 const loanCopyOfferBtn = document.querySelector("#loanCopyOfferBtn");
-const loanDuplicateRightBtn = document.querySelector("#loanDuplicateRightBtn");
-const loanMoveRightToLeftBtn = document.querySelector("#loanMoveRightToLeftBtn");
-const loanMoveLeftToRightBtn = document.querySelector("#loanMoveLeftToRightBtn");
+const loanTransferSidesBtn = document.querySelector("#loanTransferSidesBtn");
 const newPricingLoanBtn = document.querySelector("#newPricingLoanBtn");
 const loanClearDeviceButtons = document.querySelectorAll("[data-clear-loan-device]");
 const loanSerialFields = document.querySelectorAll("[data-loan-serial-field]");
@@ -8731,6 +8727,17 @@ function movePricingOfferDevice(fromInput, toInput, sourceLabel) {
   renderPricingOffer();
 }
 
+function transferOfferSides() {
+  if (!pricingOfferPatientGroup() || !offerDeviceInput1 || !offerDeviceInput2) return;
+  const right = offerDeviceInput1.value;
+  const left = offerDeviceInput2.value;
+  if (!right.trim() && !left.trim()) return;
+  offerDeviceInput1.value = left;
+  offerDeviceInput2.value = right;
+  markAgreementDraftDirty("offer");
+  renderPricingOffer();
+}
+
 function duplicatePricingOfferDevice() {
   if (!pricingOfferPatientGroup()) {
     offerPatientGroupInputs[0]?.focus();
@@ -8972,9 +8979,14 @@ function renderPricingOffer() {
     if (input) input.disabled = ageRequired;
   });
   const hasOfferDevice = Boolean(offerDeviceInput1?.value.trim() || offerDeviceInput2?.value.trim());
-  [offerDuplicateFirstBtn, offerMoveRightToLeftBtn, offerMoveLeftToRightBtn].forEach((button) => {
-    if (button) button.disabled = ageRequired || !hasOfferDevice;
-  });
+  if (offerTransferSidesBtn) {
+    offerTransferSidesBtn.disabled = ageRequired || !hasOfferDevice;
+    const right = Boolean(offerDeviceInput1?.value.trim());
+    const left = Boolean(offerDeviceInput2?.value.trim());
+    const label = right && left ? "Zamień aparaty P i L" : right ? "Przenieś aparat z P do L" : left ? "Przenieś aparat z L do P" : "Najpierw wybierz aparat P albo L";
+    offerTransferSidesBtn.title = label;
+    offerTransferSidesBtn.setAttribute("aria-label", label);
+  }
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
   offerItems.forEach((item) => {
@@ -12876,6 +12888,43 @@ function moveLoanDevice(sourceSide, targetSide) {
   renderPricingLoan();
 }
 
+function loanSideHasInput(side) {
+  return Object.values(loanDeviceInputs(side)).some(input => String(input?.value || "").trim());
+}
+
+function updateLoanTransferButton() {
+  if (!loanTransferSidesBtn) return;
+  const right = loanSideHasInput("right");
+  const left = loanSideHasInput("left");
+  loanTransferSidesBtn.disabled = !right && !left;
+  const label = right && left ? "Zamień aparaty P i L" : right ? "Przenieś aparat z P do L" : left ? "Przenieś aparat z L do P" : "Najpierw uzupełnij aparat P albo L";
+  loanTransferSidesBtn.title = label;
+  loanTransferSidesBtn.setAttribute("aria-label", label);
+}
+
+function transferLoanSides() {
+  if (!loanSideHasInput("right") && !loanSideHasInput("left")) return;
+  const right = loanDeviceInputs("right");
+  const left = loanDeviceInputs("left");
+  const snapshot = inputs => Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, {
+    value: input?.value || "", matchedValue: input?.dataset.loanMatchedValue, matchedSerial: input?.dataset.loanMatchedSerial
+  }]));
+  const rightData = snapshot(right);
+  const leftData = snapshot(left);
+  for (const [target, data] of [[right, leftData], [left, rightData]]) {
+    for (const [key, input] of Object.entries(target)) {
+      if (!input) continue;
+      input.value = data[key].value;
+      for (const [attribute, value] of [["loanMatchedValue", data[key].matchedValue], ["loanMatchedSerial", data[key].matchedSerial]]) {
+        if (value === undefined) delete input.dataset[attribute];
+        else input.dataset[attribute] = value;
+      }
+    }
+  }
+  markAgreementDraftDirty("loan");
+  renderPricingLoan();
+}
+
 function duplicateLoanDevice() {
   const rightData = loanDeviceData("right");
   const leftData = loanDeviceData("left");
@@ -13102,6 +13151,7 @@ function validatePricingLoanForAction() {
 
 function renderPricingLoan() {
   if (!pricingLoanView) return;
+  updateLoanTransferButton();
   ensurePricingLoanDefaults();
   updateLoanReturnDeadlineHighlight();
   scheduleNearbyEntryWarning("loan");
@@ -26989,11 +27039,7 @@ offerCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
   renderPricingOffer();
 });
-offerDuplicateFirstBtn?.addEventListener("click", () => {
-  duplicatePricingOfferDevice();
-});
-offerMoveRightToLeftBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput1, offerDeviceInput2, "P"));
-offerMoveLeftToRightBtn?.addEventListener("click", () => movePricingOfferDevice(offerDeviceInput2, offerDeviceInput1, "L"));
+offerTransferSidesBtn?.addEventListener("click", transferOfferSides);
 newPricingOfferBtn?.addEventListener("click", startNewPricingOffer);
 savePricingOfferBtn?.addEventListener("click", () => withSavedUndo("Oferta", () => saveCurrentPricingOfferToHistory()));
 printPricingOfferBtn?.addEventListener("click", () => withSavedUndo("Oferta", printPricingOffer));
@@ -27141,9 +27187,7 @@ loanCopyOfferBtn?.addEventListener("click", () => {
   ensureLoanContractNumber({ force: true });
   renderPricingLoan();
 });
-loanDuplicateRightBtn?.addEventListener("click", duplicateLoanDevice);
-loanMoveRightToLeftBtn?.addEventListener("click", () => moveLoanDevice("right", "left"));
-loanMoveLeftToRightBtn?.addEventListener("click", () => moveLoanDevice("left", "right"));
+loanTransferSidesBtn?.addEventListener("click", transferLoanSides);
 newPricingLoanBtn?.addEventListener("click", startNewPricingLoan);
 savePricingLoanBtn?.addEventListener("click", () => {
   if (!validatePricingLoanForAction()) return;

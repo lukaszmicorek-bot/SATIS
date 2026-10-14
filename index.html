@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261014-8">
+  <link rel="stylesheet" href="styles.css?v=20261014-9">
   </head>
   <body>
     <main class="app-shell">
@@ -775,14 +775,19 @@
                     <option value="Żywiec, al. Piłsudskiego 50">Żywiec, al. Piłsudskiego 50</option>
                   </select>
                 </label>
+                <div class="offer-side-devices">
                 <label class="offer-device-field offer-device-right">
                   <span>Aparat P</span>
                   <input id="offerDeviceInput1" type="text" list="pricingOfferDeviceList" placeholder="Model lub nazwa z cennika" autocomplete="off">
                 </label>
+                <button id="offerTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień aparaty P i L" aria-label="Przenieś lub zamień aparaty P i L" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h16m-4-4 4 4-4 4M21 16H5m4-4-4 4 4 4"/></svg>
+                </button>
                 <label class="offer-device-field offer-device-left">
                   <span>Aparat L</span>
                   <input id="offerDeviceInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi aparat albo puste" autocomplete="off">
                 </label>
+                </div>
                 <label class="offer-accessory-field offer-charger-field">
                   <span>Ładowarka</span>
                   <input id="offerChargerInput" type="text" list="pricingOfferChargerList" placeholder="Opcjonalnie, wybierz z cennika" autocomplete="off">
@@ -812,9 +817,6 @@
                 <textarea id="offerNotesInput" rows="2" maxlength="300" placeholder="Dodatkowe ustalenia dotyczące oferty"></textarea>
               </label>
               <div class="offer-actions">
-                <button id="offerMoveRightToLeftBtn" class="reset-filters-btn" type="button">P → L</button>
-                <button id="offerMoveLeftToRightBtn" class="reset-filters-btn" type="button">L → P</button>
-                <button id="offerDuplicateFirstBtn" class="reset-filters-btn" type="button">2x ten sam</button>
                 <button id="newPricingOfferBtn" class="reset-filters-btn document-new-btn" type="button">Nowa</button>
                 <button id="savePricingOfferBtn" class="reset-filters-btn" type="button">Zapisz</button>
                 <button id="printPricingOfferBtn" type="button">Drukuj / PDF</button>
@@ -1016,6 +1018,11 @@
                   </div>
                 </div>
 
+                <div class="loan-side-transfer-row loan-full">
+                  <button id="loanTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień aparaty P i L" aria-label="Przenieś lub zamień aparaty P i L" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v16m-4-4 4 4 4-4M16 21V5m-4 4 4-4 4 4"/></svg>
+                  </button>
+                </div>
                 <div class="loan-device-row loan-full">
                   <span class="loan-side-badge loan-side-left">L</span>
                   <label class="loan-device-model-field">
@@ -1087,9 +1094,6 @@
               </div>
               <div class="offer-actions">
                 <button id="loanCopyOfferBtn" class="reset-filters-btn" type="button">Pobierz z oferty</button>
-                <button id="loanMoveRightToLeftBtn" class="reset-filters-btn" type="button">P → L</button>
-                <button id="loanMoveLeftToRightBtn" class="reset-filters-btn" type="button">L → P</button>
-                <button id="loanDuplicateRightBtn" class="reset-filters-btn" type="button">2x ten sam</button>
                 <button id="newPricingLoanBtn" class="reset-filters-btn document-new-btn" type="button">Nowa</button>
                 <button id="savePricingLoanBtn" class="reset-filters-btn" type="button">Zapisz w historii</button>
                 <button id="printPricingLoanBtn" type="button" title="Egzemplarz dla SATIS oraz egzemplarz dla klienta z zasadami testowania">Drukuj 2 egz. / PDF</button>
@@ -3145,12 +3149,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261014-8"></script>
-    <script src="data-layer.js?v=20261014-8"></script>
-    <script src="sync-layer.js?v=20261014-8"></script>
-    <script src="repair-returns.js?v=20261014-8"></script>
-    <script src="offline-vault.js?v=20261014-8"></script>
-    <script src="offline-forms.js?v=20261014-8"></script>
-  <script src="app.js?v=20261014-8"></script>
+    <script src="supabase-config.js?v=20261014-9"></script>
+    <script src="data-layer.js?v=20261014-9"></script>
+    <script src="sync-layer.js?v=20261014-9"></script>
+    <script src="repair-returns.js?v=20261014-9"></script>
+    <script src="offline-vault.js?v=20261014-9"></script>
+    <script src="offline-forms.js?v=20261014-9"></script>
+  <script src="app.js?v=20261014-9"></script>
   </body>
 </html>
