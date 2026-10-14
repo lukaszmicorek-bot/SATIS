@@ -3,6 +3,7 @@
 !/.gitignore
 !/CNAME
 !/README.md
+!/KOPIE-I-ODTWORZENIE.md
 !/index.html
 !/app.js
 !/data-layer.js
@@ -50,6 +51,7 @@
 !/scripts/
 /scripts/*
 !/scripts/release_satis.py
+!/scripts/recovery_backup.py
 !/.github/
 /.github/*
 !/.github/workflows/
@@ -73,3 +75,4 @@
 !/tests/local-row-order.test.cjs
 !/tests/startup-performance.test.cjs
 !/tests/document-save-guards.test.cjs
+!/tests/recovery_backup_test.py
