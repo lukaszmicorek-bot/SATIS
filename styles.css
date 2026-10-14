@@ -15644,6 +15644,7 @@ textarea {
 .loan-active-equipment { display: grid; gap: 5px; }
 .loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
 .loan-active-equipment-line .demo-purpose-pill { flex-shrink: 0; white-space: nowrap; }
+.loan-active-equipment-line .loan-side-badge { width: 24px; height: 24px; min-height: 24px; flex-shrink: 0; border-radius: 4px; font-size: 0.72rem; }
 .loan-deposit-toggle { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 36px; }
 .loan-deposit-toggle input { width: 18px; height: 18px; min-height: 0; }
 .loan-signatures.signature-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
