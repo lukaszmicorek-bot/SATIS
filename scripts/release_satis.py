@@ -37,6 +37,7 @@ EXTRA_PUBLIC_FILES = {
     "supabase-work-time-pin.sql", "scripts/release_satis.py",
     "supabase-row-order.sql", "tests/local-row-order.test.cjs",
     "tests/startup-performance.test.cjs", "tests/document-save-guards.test.cjs",
+    "KOPIE-I-ODTWORZENIE.md", "scripts/recovery_backup.py", "tests/recovery_backup_test.py",
     ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
     "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
     "tests/customer-phone-tooltip.test.cjs",

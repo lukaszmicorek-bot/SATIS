@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261013-2">
+  <link rel="stylesheet" href="styles.css?v=20261014-1">
   </head>
   <body>
     <main class="app-shell">
@@ -1054,7 +1054,7 @@
                   <input id="loanChargerStateInput" type="text" value="sprawna" placeholder="np. sprawna" autocomplete="off">
                 </label>
                 <label>
-                  <span>Wartość braku ładowarki</span>
+                  <span>Wartość ładowarki</span>
                   <input id="loanChargerMissingValueInput" type="text" inputmode="decimal" autocomplete="off">
                 </label>
 
@@ -1149,7 +1149,7 @@
                   <p><span>Ładowarka</span><strong data-loan-out="charger">-</strong></p>
                   <p><span>Nr seryjny</span><strong data-loan-out="chargerSerial">-</strong></p>
                   <p><span>Stan ładowarki przy wydaniu</span><strong data-loan-out="chargerState">-</strong></p>
-                  <p><span>Wartość braku</span><strong data-loan-out="chargerMissingValue">-</strong></p>
+                  <p><span>Wartość ładowarki</span><strong data-loan-out="chargerMissingValue">-</strong></p>
                 </div>
                 <p class="loan-doc-note"><strong>Uwagi przy wydaniu:</strong> <span data-loan-out="issueNotes">bez zastrzeżeń</span></p>
               </section>
@@ -1229,6 +1229,12 @@
             </section>
             <section id="loanActiveSection" class="loan-active-section" aria-label="Aktywne umowy" hidden>
               <header><h3>Aktywne umowy <span id="loanActiveCount"></span></h3></header>
+              <div id="loanActiveLocationFilters" class="pcpr-tab-group loan-active-location-filters" data-location="" role="group" aria-label="Filtr miejsca aktywnych umów">
+                <button type="button" class="pcpr-tab active" data-loan-active-location="" aria-pressed="true">Wszystkie</button>
+                <button type="button" class="pcpr-tab" data-loan-active-location="T12" data-location-tone="T12" aria-pressed="false">T12</button>
+                <button type="button" class="pcpr-tab" data-loan-active-location="P50" data-location-tone="P50" aria-pressed="false">P50</button>
+                <button type="button" class="pcpr-tab" data-loan-active-location="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+              </div>
               <div id="loanActiveList" class="loan-active-list"></div>
             </section>
           </section>
@@ -3139,11 +3145,11 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261013-2"></script>
-    <script src="data-layer.js?v=20261013-2"></script>
-    <script src="sync-layer.js?v=20261013-2"></script>
-    <script src="offline-vault.js?v=20261013-2"></script>
-    <script src="offline-forms.js?v=20261013-2"></script>
-  <script src="app.js?v=20261013-2"></script>
+    <script src="supabase-config.js?v=20261014-1"></script>
+    <script src="data-layer.js?v=20261014-1"></script>
+    <script src="sync-layer.js?v=20261014-1"></script>
+    <script src="offline-vault.js?v=20261014-1"></script>
+    <script src="offline-forms.js?v=20261014-1"></script>
+  <script src="app.js?v=20261014-1"></script>
   </body>
 </html>
