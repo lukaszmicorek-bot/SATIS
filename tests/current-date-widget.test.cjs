@@ -7,6 +7,16 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+test('Offline forms launcher has one fixed small position outside header layout', () => {
+  const offline = fs.readFileSync(path.join(root, 'offline-forms.js'), 'utf8');
+  assert.match(offline, /launcher\.id = "offlineFormsLauncher";/);
+  assert.match(offline, /document\.body\.append\(launcher\);/);
+  assert.match(offline, /authLauncher\.removeAttribute\("id"\);/);
+  assert.doesNotMatch(offline, /top-panel.*append\(launcher\)/);
+  assert.match(css, /#offlineFormsLauncher \{ position: fixed; left: 14px; bottom: 14px;/);
+  assert.match(css, /\.offline-launch \{[^}]*min-height: 27px;[^}]*font-size: 0\.7rem;/);
+  assert.match(css, /body\.offline-form-mode #offlineFormsLauncher \{ display: none !important;/);
+});
 test('Header reserves a stable calendar slot independent of statistics and title width', () => {
   assert.match(css, /\.top-panel\s*\{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0, 1fr\) 158px minmax\(0, 1fr\);/);
   assert.match(css, /\.current-date-widget\s*\{[^}]*grid-column: 2;[^}]*grid-row: 1;[^}]*width: 158px;/);

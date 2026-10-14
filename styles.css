@@ -4593,7 +4593,8 @@ h2 {
 .pricing-discount-grid > div { display: grid; gap: 5px; font-size: 0.75rem; color: #62737a; }
 .pricing-discount-grid strong { color: #007b80; font-size: 1rem; }
 .pricing-discount-summary { display: block; margin-top: 4px; color: #007b80; font-size: 0.7rem; font-weight: 600; white-space: normal; }
-.pricing-charger-tier { display: flex; justify-content: flex-end; align-items: baseline; gap: 7px; white-space: nowrap; }
+.pricing-charger-tier { display: flex; justify-content: flex-end; align-items: baseline; gap: 7px; white-space: nowrap; margin-top: 5px; color: #007b80; font-size: 0.72rem; font-weight: 600; }
+.pricing-charger-tier .price-amount { font-size: inherit; }
 .pricing-charger-tier + .pricing-charger-tier { margin-top: 5px; }
 .pricing-charger-tier > small { color: #62737a; font-size: 0.68rem; font-weight: 500; }
 @media (max-width: 480px) { .pricing-discount-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -16294,6 +16295,11 @@ input.nearby-entry-match {
 .document-sync-notice button { flex-shrink: 0; }
 @media print { .document-sync-notice { display: none !important; } }
 /* Offline workspace uses the existing document builders without exposing the other notebooks. */
+.offline-launch { padding: 5px 9px; min-height: 27px; border: 1px solid #b9d5d3; border-radius: 6px; background: #f2f8f7; color: #346b6d; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+#offlineFormsLauncher { position: fixed; left: 14px; bottom: 14px; z-index: 80; margin: 0; }
+#offlineFormsLauncher:hover { background: #e1f0ee; border-color: #8bb9b5; }
+body.offline-form-mode #offlineFormsLauncher { display: none !important; }
+@media screen { body:not(.offline-form-mode) > .app-shell { margin-bottom: 50px; } }
 .offline-controls, .offline-tabs, .offline-drafts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .offline-controls button, .offline-tabs button, .offline-drafts button { border-radius: 6px; padding: 8px 12px; border: 1px solid #bdcdcd; background: #f4f8f7; color: #003f5a; }
 .offline-controls strong { margin-right: auto; }
