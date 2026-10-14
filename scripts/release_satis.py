@@ -39,6 +39,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/startup-performance.test.cjs", "tests/document-save-guards.test.cjs",
     "KOPIE-I-ODTWORZENIE.md", "scripts/recovery_backup.py", "tests/recovery_backup_test.py",
     "tests/repair-save-validation.test.cjs",
+    "supabase-repair-returns.sql", "tests/repair-returns.test.cjs", "tests/repair-returns.sqltest.cjs",
     ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
     "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
     "tests/customer-phone-tooltip.test.cjs",
@@ -67,7 +68,7 @@ def node_binary():
 
 def check_source():
     node = node_binary()
-    for name in ("app.js", "data-layer.js", "sync-layer.js", "offline-vault.js", "offline-forms.js", "offline-sw.js"):
+    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js"):
         run(node, "--check", str(ROOT / name))
     tests = sorted((ROOT / "tests").glob("*.test.cjs"))
     if not tests:

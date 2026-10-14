@@ -72,7 +72,7 @@ test('complete bootstrap waits for histories and payments, but displays products
     loadSupabasePricingOrderHistory: async () => [], loadSupabasePricingComplaintHistory: async () => [],
     loadSupabasePricingPcprList: async () => [], loadSupabaseCapdHistory: async () => [], loadSharedRowOrders: async () => {},
     rebuildDeviceDerivedData() {}, updateStats() {}, renderDeviceViews() { early++; },
-    rebuildDerivedData() {}, render() { final++; }, satisChangeQueue: { flush() {} }, console
+    rebuildDerivedData() {}, render() { final++; }, satisChangeQueue: { flush() {} }, repairReturns: null, console
   });
   vm.runInContext(extract('publishEarlyDeviceRecords') + '\n' + extract('refreshRecordsFromSupabase'), ctx);
   const done = ctx.refreshRecordsFromSupabase({ throwOnError: true });

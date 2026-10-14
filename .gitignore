@@ -8,6 +8,8 @@
 !/app.js
 !/data-layer.js
 !/sync-layer.js
+!/repair-returns.js
+!/supabase-repair-returns.sql
 !/offline-vault.js
 !/offline-forms.js
 !/offline-sw.js
@@ -77,3 +79,5 @@
 !/tests/document-save-guards.test.cjs
 !/tests/recovery_backup_test.py
 !/tests/repair-save-validation.test.cjs
+!/tests/repair-returns.test.cjs
+!/tests/repair-returns.sqltest.cjs

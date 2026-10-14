@@ -15641,6 +15641,25 @@ textarea {
 .loan-active-section h3 { margin: 0 0 14px; font-size: 17px; color: #003f5a; }
 .loan-active-section h3 span { font-size: 13px; font-weight: 400; color: #62737a; }
 .loan-active-list { display: grid; gap: 8px; }
+.repair-returns-button { min-height: 30px; padding: 4px 10px; color: #456a7e; background: #f4f9fc; border: 1px solid #d7e7ef; border-radius: 6px; font-size: 0.75rem; }
+.repair-returns-button.has-new-returns { color: #245979; background: #eaf5fb; border-color: #bad8e8; }
+.repair-return-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 5px; padding: 0 4px; color: #245979; background: #eaf5fb; border-radius: 6px; font-size: 0.7rem; }
+.repair-returns-panel { margin: 12px 0 18px; padding: 12px 0; border-block: 1px solid #d9e8ee; }
+.repair-returns-panel header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.repair-returns-panel h3 { margin: 0; color: #245979; font-size: 1rem; }
+#repairReturnsMessage { margin: 9px 0; color: #536c79; font-size: 0.8rem; }
+#repairReturnsList { display: grid; gap: 8px; }
+.repair-return-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 10px; border: 1px solid #d9e8ee; border-radius: 6px; background: #f8fcfe; }
+.repair-return-item > div:first-child { display: flex; flex-wrap: wrap; gap: 5px 9px; align-items: center; }
+.repair-return-item strong { flex-basis: 100%; color: #003f5a; font-size: 0.85rem; }
+.repair-return-item span { font-size: 0.8rem; }
+.repair-return-item small { color: #627a86; font-size: 0.72rem; }
+.repair-return-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.repair-return-confirm { padding: 6px 10px; border: 1px solid #bfd9e6; border-radius: 6px; color: #245979; background: #eaf5fb; font-size: 0.75rem; }
+.repair-return-item .repair-return-confirmed { color: #557864; }
+.repair-return-toast { position: fixed; bottom: 18px; right: 18px; z-index: 100; max-width: min(380px, calc(100vw - 36px)); padding: 10px 13px; border: 1px solid #cbdfe9; border-radius: 6px; background: #f0f8fc; color: #245979; font-size: 0.8rem; }
+@media screen and (max-width: 700px) { .repair-return-item { grid-template-columns: 1fr; } }
+@media print { .repair-returns-panel, .repair-returns-button, .repair-return-count, .repair-return-toast { display: none !important; } }
 #repairFormError:not(:empty) {
   position: sticky;
   bottom: 66px;
@@ -15651,6 +15670,11 @@ textarea {
   border-radius: 6px;
   color: #8b293c;
   background: #fff5f7;
+}
+#repairForm #repairSerialNumber.repair-return-serial-required {
+  border: 1px solid #df9da8;
+  outline: none;
+  box-shadow: none;
 }
 .loan-active-equipment { display: grid; gap: 5px; }
 .loan-active-equipment-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
@@ -15679,6 +15703,19 @@ textarea {
   background: #fbfdfe;
   box-shadow: none;
 }
+.loan-active-equipment-line .loan-charger-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  border-radius: 4px;
+  color: #b76719;
+  background: #fff1df;
+}
+.loan-charger-badge svg { width: 16px; height: 16px; fill: currentColor; }
 .loan-active-equipment-line .serial-pill-number { margin: 0; color: inherit; font-size: inherit; line-height: 1.2; }
 .loan-active-equipment-line .serial-pill:hover { background: #f0f7fa; }
 .loan-active-equipment-line .serial-pill.copied { background: #f2faf5; box-shadow: inset 0 0 0 1px #dfede5; }
