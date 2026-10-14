@@ -10878,21 +10878,28 @@ function filterActivePricingLoansByLocation(entries, location) {
 function createActiveLoanEquipment(entry) {
   const equipment = document.createElement("div");
   equipment.className = "loan-active-equipment";
-  [entry.rightDevice, entry.leftDevice].filter(hasLoanDeviceData).forEach(device => {
+  [{ device: entry.rightDevice, side: "P" }, { device: entry.leftDevice, side: "L" }]
+    .filter(item => hasLoanDeviceData(item.device)).forEach(({ device, side }) => {
     const line = document.createElement("div");
     line.className = "loan-active-equipment-line";
     const label = document.createElement("span");
-    label.textContent = [device.side, device.model, device.serial].filter(Boolean).join(" · ");
-    line.append(label);
+    label.textContent = device.model || "";
+    const sideBadge = document.createElement("span");
+    sideBadge.className = `loan-side-badge loan-side-${side === "P" ? "right" : "left"}`;
+    sideBadge.textContent = side;
+    line.append(sideBadge, label);
+    if (device.serial) line.append(createSerialPill(device.serial));
     const purpose = normalizeLoanDemoPurpose(device.purpose);
     if (purpose) line.append(createDemoPurposePill(purpose));
     equipment.append(line);
   });
   if (entry.charger || entry.chargerSerial || entry.chargerState) {
     const charger = document.createElement("span");
+    charger.className = "loan-active-equipment-line";
     const state = String(entry.chargerState || "").trim();
-    charger.textContent = [entry.charger || "Ładowarka", entry.chargerSerial,
+    charger.textContent = [entry.charger || "Ładowarka",
       state.toLocaleLowerCase("pl-PL") === "sprawna" ? "" : state].filter(Boolean).join(" · ");
+    if (entry.chargerSerial) charger.append(createSerialPill(entry.chargerSerial));
     equipment.append(charger);
   }
   return equipment;
