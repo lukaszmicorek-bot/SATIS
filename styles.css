@@ -4739,6 +4739,8 @@ h2 {
 .offer-device-field {
   grid-column: span 2;
 }
+.offer-side-devices { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
+.offer-side-devices > .offer-device-field { grid-column: auto; grid-row: auto; min-width: 0; }
 
 .offer-device-field {
   display: grid;
@@ -6356,6 +6358,12 @@ h2 {
 .loan-device-row label {
   min-width: 0;
 }
+.loan-side-transfer-row { display: flex; align-items: center; }
+.loan-side-transfer-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 30px; min-height: 0; padding: 5px; border: 1px solid #d5e3e7; border-radius: 6px; color: #007b80; background: #f1f8f8; }
+.loan-side-transfer-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.loan-side-transfer-btn:hover:not(:disabled) { background: #e1f0f0; }
+.loan-side-transfer-btn:disabled { opacity: 0.4; cursor: default; }
+.loan-side-transfer-btn:focus-visible { outline: 2px solid #007b80; outline-offset: 2px; }
 
 .loan-demo-purpose-field {
   grid-column: 2 / -1;
@@ -13241,6 +13249,7 @@ textarea {
     grid-column: 1;
     grid-row: 4;
   }
+  .offer-side-devices { grid-row: 4; }
 
   .offer-device-left {
     grid-column: 2;
@@ -13582,6 +13591,8 @@ textarea {
   .offer-pfron-field {
     grid-row: auto;
   }
+  .offer-side-devices { grid-row: auto; grid-template-columns: minmax(0, 1fr); }
+  .offer-side-devices > .loan-side-transfer-btn { justify-self: center; transform: rotate(90deg); }
 
   .pcpr-form-row {
     grid-template-columns: 1fr;
