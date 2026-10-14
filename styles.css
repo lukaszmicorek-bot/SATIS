@@ -233,11 +233,12 @@ button.danger:hover {
   width: min(1840px, calc(100% - 12px));
   margin: 12px auto;
 }
+html { scrollbar-gutter: stable; }
 
 .top-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 158px minmax(0, 1fr);
+  align-items: start;
   gap: 16px;
   padding: 14px 18px;
   border: 1px solid rgba(216, 221, 227, 0.75);
@@ -251,6 +252,8 @@ button.danger:hover {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .header-logo {
@@ -268,6 +271,11 @@ button.danger:hover {
   position: relative;
   z-index: 120;
   flex: 0 0 auto;
+  grid-column: 2;
+  grid-row: 1;
+  width: 158px;
+  justify-self: center;
+  align-self: start;
 }
 
 .current-date-button {
@@ -642,6 +650,9 @@ h2 {
   flex-wrap: wrap;
   gap: 2px 0;
   min-width: 0;
+  grid-column: 3;
+  grid-row: 1;
+  justify-content: flex-end;
 }
 
 .stats div {
@@ -13127,8 +13138,7 @@ textarea {
   }
 
   .top-panel {
-    align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr) 158px;
   }
 
   .header-brand {
@@ -13136,12 +13146,14 @@ textarea {
   }
 
   .current-date-widget {
-    align-self: flex-start;
+    justify-self: end;
   }
+  .top-panel .stats { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
+  .header-title-block h1 { overflow-wrap: anywhere; }
 
   .current-date-calendar {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
     transform: none;
   }
 

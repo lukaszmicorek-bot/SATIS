@@ -7,6 +7,12 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+test('Header reserves a stable calendar slot independent of statistics and title width', () => {
+  assert.match(css, /\.top-panel\s*\{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0, 1fr\) 158px minmax\(0, 1fr\);/);
+  assert.match(css, /\.current-date-widget\s*\{[^}]*grid-column: 2;[^}]*grid-row: 1;[^}]*width: 158px;/);
+  assert.match(css, /html \{ scrollbar-gutter: stable; \}/);
+  assert.match(css, /\.top-panel \.stats \{ grid-column: 1 \/ -1; grid-row: 2;/);
+});
 function extract(name) {
   const start = js.indexOf(`function ${name}(`);
   assert.ok(start >= 0, name);
