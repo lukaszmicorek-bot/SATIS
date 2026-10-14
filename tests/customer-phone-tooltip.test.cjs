@@ -5,6 +5,21 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+test('serial order tooltip uses shared readable customer sections', () => {
+  let rendered = '';
+  const context = vm.createContext({
+    document: { createElement: () => ({}) },
+    appendCustomerTooltipSections: (target, text) => { rendered = text; }
+  });
+  vm.runInContext(extract('renderSerialRelationTooltip'), context);
+  let heading;
+  context.renderSerialRelationTooltip({ replaceChildren: node => { heading = node; } },
+    'Kliknij, aby skopiować numer seryjny\n\nHistoria zamówień:\nZamówienie 1/10/2026 | Przyjęte: 14.10.2026 | Model: Test | Odbiór: 15.10.2026');
+  assert.equal(heading.className, 'phone-tooltip-heading');
+  assert.match(rendered, /Historia zamówień:\n• Zamówienie 1\/10\/2026/);
+  assert.match(rendered, /Model: Test/);
+  assert.match(extract('showTableHoverTooltip'), /dataKey === "serialTooltip"/);
+});
 function extract(name) {
   const start = source.indexOf(`function ${name}(`);
   assert.ok(start >= 0);

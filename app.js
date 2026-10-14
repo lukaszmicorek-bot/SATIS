@@ -4988,6 +4988,18 @@ function appendCustomerTooltipSections(container, text) {
   });
 }
 
+function renderSerialRelationTooltip(element, text) {
+  const sections = String(text || "").split(/\n\s*\n/gu);
+  const hint = document.createElement("div");
+  hint.className = "phone-tooltip-heading";
+  hint.textContent = sections.shift() || "";
+  element.replaceChildren(hint);
+  const details = sections.map(section => section.split("\n").map((line, index) =>
+    index > 0 && line.includes(" | ") && !line.startsWith("• ") ? `• ${line}` : line
+  ).join("\n")).join("\n\n");
+  appendCustomerTooltipSections(element, details);
+}
+
 function showTableHoverTooltip(anchor, dataKey) {
   clearTimeout(tableHoverHideTimer);
   const text = String(anchor?.dataset?.[dataKey] || "").trim();
@@ -4995,7 +5007,7 @@ function showTableHoverTooltip(anchor, dataKey) {
   const tooltip = tableHoverTooltipElement();
   const phoneInfo = anchor.customerPhoneDetails;
   const calendarTooltip = dataKey === "currentDateTooltip";
-  const customerTooltip = dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip";
+  const customerTooltip = dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip";
   tooltip.classList.toggle("calendar-event-tooltip", calendarTooltip);
   tooltip.classList.toggle("customer-detail-tooltip", customerTooltip);
   if (calendarTooltip) {
@@ -5013,6 +5025,8 @@ function showTableHoverTooltip(anchor, dataKey) {
     });
   } else if (phoneInfo && text.startsWith(phoneInfo.tooltip)) {
     renderCustomerPhoneTooltip(tooltip, phoneInfo, text);
+  } else if (dataKey === "serialTooltip") {
+    renderSerialRelationTooltip(tooltip, text);
   } else if (customerTooltip) {
     tooltip.replaceChildren();
     appendCustomerTooltipSections(tooltip, text);
@@ -5049,7 +5063,7 @@ function hideTableHoverTooltip() {
 function attachTableHoverTooltip(element, dataKey) {
   element.addEventListener("mouseenter", () => showTableHoverTooltip(element, dataKey));
   element.addEventListener("mouseleave", () => {
-    if (dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip") {
+    if (dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip") {
       tableHoverHideTimer = setTimeout(hideTableHoverTooltip, 180);
     } else {
       hideTableHoverTooltip();
