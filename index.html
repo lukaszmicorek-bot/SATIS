@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261014-5">
+  <link rel="stylesheet" href="styles.css?v=20261014-6">
   </head>
   <body>
     <main class="app-shell">
@@ -52,7 +52,7 @@
         <div class="notebook-navigation">
           <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
             <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
-            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia</button>
+            <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia <span id="repairReturnsCount" class="repair-return-count" hidden></span></button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>APD</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="pcpr" data-private-shared hidden>PCPR</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="history" data-private-shared hidden>Historia</button>
@@ -71,11 +71,20 @@
         <div class="connection-panel" aria-live="polite">
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
           <span id="connectionUser" class="connection-user" hidden></span>
+          <button id="repairReturnsBtn" class="repair-returns-button" type="button" hidden>Powroty</button>
           <button id="workstationBtn" class="workstation-button" type="button" hidden>Stanowisko</button>
           <button id="logoutBtn" class="logout-button" type="button" hidden>Wyloguj</button>
         </div>
       </div>
 
+      <section id="repairReturnsPanel" class="repair-returns-panel" aria-label="Powroty produktów" hidden>
+        <header><h3>Powroty produktów — do odbioru</h3><div class="repair-return-actions">
+          <select id="repairReturnsPlace" aria-label="Miejsce powrotu"><option value="">Wszystkie miejsca</option><option>T12</option><option>P50</option><option>P63</option></select>
+          <button id="repairReturnsRefresh" class="reset-filters-btn" type="button">Odśwież</button>
+          <button id="repairReturnsClose" class="reset-filters-btn" type="button">Zamknij</button>
+        </div></header>
+        <p id="repairReturnsMessage" role="status"></p><div id="repairReturnsList"></div>
+      </section>
       <section class="customer-relations-panel" aria-label="Powiązania klienta i sprawy wymagające uwagi" hidden>
         <label class="customer-relations-search">
           <span>Powiązania</span>
@@ -3136,11 +3145,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261014-5"></script>
-    <script src="data-layer.js?v=20261014-5"></script>
-    <script src="sync-layer.js?v=20261014-5"></script>
-    <script src="offline-vault.js?v=20261014-5"></script>
-    <script src="offline-forms.js?v=20261014-5"></script>
-  <script src="app.js?v=20261014-5"></script>
+    <script src="supabase-config.js?v=20261014-6"></script>
+    <script src="data-layer.js?v=20261014-6"></script>
+    <script src="sync-layer.js?v=20261014-6"></script>
+    <script src="repair-returns.js?v=20261014-6"></script>
+    <script src="offline-vault.js?v=20261014-6"></script>
+    <script src="offline-forms.js?v=20261014-6"></script>
+  <script src="app.js?v=20261014-6"></script>
   </body>
 </html>

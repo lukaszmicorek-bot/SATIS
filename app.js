@@ -409,6 +409,7 @@ let deviceStats = { soldByYear: new Map(), reserved: 0, stock: 0 };
 let repairStats = { all: 0, repairs: 0, inserts: 0, open: 0 };
 let demoStats = { all: 0, stock: 0, loaned: 0, returnDue: 0 };
 let currentSupabaseUser = null;
+let repairReturns = null;
 const sharedRowOrders = new Map();
 const sharedRowOrderSaving = new Set();
 let sharedRowOrdersReady = false;
@@ -2444,6 +2445,7 @@ async function refreshRecordsFromSupabase(options = {}) {
     render();
     setConnectionStatus("online", "Supabase");
     recordLoadTiming("pełne dane gotowe", loadStartedAt);
+    void repairReturns?.load();
   } catch (error) {
     console.warn(error);
     setConnectionStatus("error", "Błąd synchronizacji");
@@ -2515,6 +2517,7 @@ function applyChangedSupabaseRecords(table, ids, rows) {
   }
   rebuild();
   render();
+  if (table === SUPABASE_REPAIR_TABLE) void repairReturns?.load();
   setConnectionStatus("online", "Supabase");
 }
 
@@ -2677,6 +2680,9 @@ function subscribeToSupabaseChanges() {
   channel = channel.on("postgres_changes", { event: "UPDATE", schema: "public", table: SUPABASE_ROW_ORDER_TABLE }, () => {
     loadSharedRowOrders().then(renderSharedRowOrderViews);
   });
+  channel = channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "repair_return_acknowledgements" }, () => {
+    void repairReturns?.load();
+  });
   let subscribedOnce = false;
   supabaseRealtimeChannel = channel.subscribe((status) => {
     if (status === "SUBSCRIBED") {
@@ -2782,6 +2788,7 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  repairReturns?.clear();
   supabaseInitialDataReady = false;
   window.clearTimeout(deferredSuggestionsTimer);
   deferredSuggestionsTimer = 0;
@@ -8221,6 +8228,7 @@ function compareByAge(left, right) {
 }
 
 function render() {
+  repairReturns?.render();
   updateDeviceTypeSelectStyles();
   updateDocumentLocationAccents();
   scheduleDemoReturnReminder();
@@ -10896,9 +10904,15 @@ function createActiveLoanEquipment(entry) {
   if (entry.charger || entry.chargerSerial || entry.chargerState) {
     const charger = document.createElement("span");
     charger.className = "loan-active-equipment-line";
+    const chargerIcon = document.createElement("span");
+    chargerIcon.className = "loan-charger-badge";
+    chargerIcon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 2 5 14h6l-1 8 9-13h-6l1-7Z"/></svg>';
+    chargerIcon.title = "Ładowarka";
+    const chargerLabel = document.createElement("span");
     const state = String(entry.chargerState || "").trim();
-    charger.textContent = [entry.charger || "Ładowarka",
+    chargerLabel.textContent = [entry.charger || "Ładowarka",
       state.toLocaleLowerCase("pl-PL") === "sprawna" ? "" : state].filter(Boolean).join(" · ");
+    charger.append(chargerIcon, chargerLabel);
     if (entry.chargerSerial) charger.append(createSerialPill(entry.chargerSerial));
     equipment.append(charger);
   }
@@ -23604,6 +23618,7 @@ function openRepairDialog(record = null) {
   renderAuditTrail("repairs", record?.id || "");
 
   renderNearbyEntryWarning("repairs");
+  updateRepairReturnSerialPrompt();
   repairDialog.showModal();
 }
 
@@ -24012,6 +24027,22 @@ function syncRepairSerialInput(event) {
   syncRepairModelRequirement();
   if (validateRepairDateOrder()) updateRepairWarrantyHint();
   syncRepairDialogHeaderMeta();
+  updateRepairReturnSerialPrompt();
+}
+
+function updateRepairReturnSerialPrompt({ focus = false } = {}) {
+  const input = document.querySelector("#repairSerialNumber");
+  const second = document.querySelector("#repairSerialNumber2");
+  const hasReturnDate = Boolean(isoDateForSave(document.querySelector("#repairReturnDate")?.value));
+  const missingSerial = hasReturnDate && !normalizeSerialNumber(input?.value) && !normalizeSerialNumber(second?.value);
+  input?.classList.toggle("repair-return-serial-required", missingSerial);
+  if (input) input.required = missingSerial;
+  if (saveRepairBtn) saveRepairBtn.disabled = repairForm.dataset.saving === "1" || missingSerial;
+  if (focus && hasReturnDate && input) window.setTimeout(() => {
+    if (!repairDialog.open || !isoDateForSave(document.querySelector("#repairReturnDate")?.value)) return;
+    input.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    input.focus({ preventScroll: true });
+  }, 0);
 }
 
 function syncRepairDeviceNameFromSerials() {
@@ -24736,6 +24767,7 @@ function handleClearDateClick(event) {
 
   if (targetId.startsWith("repair")) {
     syncRepairStatusFromDates();
+    updateRepairReturnSerialPrompt();
     return;
   }
 
@@ -27318,7 +27350,10 @@ importInput.addEventListener("change", importJson);
 importRepairInput.addEventListener("change", importRepairJson);
 document.querySelector("#repairReceivedDate").addEventListener("change", syncRepairStatusFromDates);
 document.querySelector("#repairSentDate").addEventListener("change", syncRepairStatusFromDates);
-document.querySelector("#repairReturnDate").addEventListener("change", syncRepairStatusFromDates);
+document.querySelector("#repairReturnDate").addEventListener("change", () => {
+  syncRepairStatusFromDates();
+  updateRepairReturnSerialPrompt({ focus: true });
+});
 document.querySelector("#repairPickupDate").addEventListener("change", () => {
   syncRepairStatusFromDates();
   renderRepairPickupLoanReminder();
@@ -28007,4 +28042,15 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
     hideAuth: () => hideAuthDialog(), showAuth: message => showAuthDialog(message)
   });
 }
+repairReturns = window.SatisRepairReturns?.create({
+  client: supabaseClient, records: () => repairRecords,
+  user: () => currentSupabaseUser, owner: canViewPrivateModules,
+  place: () => {
+    const value = documentLocationForWorkstation();
+    return value ? documentLocationKey(value) : "";
+  },
+  workstation: currentWorkstationName, iso: isoDateForSave, formatDate,
+  openRecord: record => { switchView("repairDatabase", "repairs"); openRepairDialog(record); },
+  locationPill: createLocationPill
+});
 init();
