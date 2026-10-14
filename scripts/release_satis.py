@@ -45,6 +45,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/repair-order-items.test.cjs",
     "tests/pricing-create.test.cjs",
     "tests/pricing-discounts.test.cjs",
+    "tests/offer-charger-price.test.cjs",
     "supabase-repair-returns.sql", "tests/repair-returns.test.cjs", "tests/repair-returns.sqltest.cjs",
     ".github/workflows/quality.yml", "ci/verify-release.cjs", "ci/stage-pages.cjs",
     "tests/apd-norms.test.cjs", "tests/automatic-document-number.test.cjs",
