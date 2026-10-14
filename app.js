@@ -5011,7 +5011,7 @@ function showTableHoverTooltip(anchor, dataKey) {
   const tooltip = tableHoverTooltipElement();
   const phoneInfo = anchor.customerPhoneDetails;
   const calendarTooltip = dataKey === "currentDateTooltip";
-  const customerTooltip = dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip";
+  const customerTooltip = dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip" || dataKey === "demoRelationTooltip";
   tooltip.classList.toggle("calendar-event-tooltip", calendarTooltip);
   tooltip.classList.toggle("customer-detail-tooltip", customerTooltip);
   if (calendarTooltip) {
@@ -5067,7 +5067,7 @@ function hideTableHoverTooltip() {
 function attachTableHoverTooltip(element, dataKey) {
   element.addEventListener("mouseenter", () => showTableHoverTooltip(element, dataKey));
   element.addEventListener("mouseleave", () => {
-    if (dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip") {
+    if (dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip" || dataKey === "demoRelationTooltip") {
       tableHoverHideTimer = setTimeout(hideTableHoverTooltip, 180);
     } else {
       hideTableHoverTooltip();
