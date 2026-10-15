@@ -88,3 +88,6 @@
 !/tests/pricing-discounts.test.cjs
 !/tests/offer-charger-price.test.cjs
 !/tests/repair-returns.sqltest.cjs
+!/supabase-vacation-shared.sql
+!/tests/vacation-shared.test.cjs
+!/tests/vacation-shared.sqltest.cjs
