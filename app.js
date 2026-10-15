@@ -2801,6 +2801,7 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  submitVacationRequest.draft = null;
   customerTransferMemory = null;
   customerTransferGeneration += 1;
   document.querySelectorAll(".customer-transfer-status").forEach(status => { status.textContent = ""; status.hidden = true; });
@@ -22152,12 +22153,47 @@ function renderVacationModule() {
 
 function updateVacationAccessMessage() {
   const message = document.querySelector?.("#vacationAccessMessage");
-  const unmapped = !canViewPrivateModules() && !vacationMyEmployeeId();
   if (message) {
     message.textContent = loadVacationData.error || "";
     message.hidden = !message.textContent;
   }
-  if (submitVacationRequestBtn) submitVacationRequestBtn.disabled = Boolean(submitVacationRequest.pending || unmapped || loadVacationData.error);
+  if (submitVacationRequestBtn) submitVacationRequestBtn.disabled = Boolean(submitVacationRequest.pending || loadVacationData.error);
+}
+
+async function persistSharedVacationRequest(request) {
+  if (!hasSupabaseConfig || !currentSupabaseUser || vacationRequestsSupabaseAvailable !== true) {
+    throw new Error("Wczytaj urlopy ponownie przed wysłaniem wniosku.");
+  }
+  const draft = submitVacationRequest.draft;
+  const payload = JSON.stringify(request);
+  if (draft.sharedPayload !== payload) {
+    draft.sharedOperation = makeId();
+    draft.sharedPayload = payload;
+  }
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 20000);
+  try {
+    const { data, error } = await supabaseClient.rpc("vacation_submit_shared", {
+      p_operation: draft.sharedOperation, p_request: request,
+      p_workstation: currentWorkstationName()
+    }).abortSignal(controller.signal);
+    if (error) {
+      if (["PGRST202", "42883"].includes(error.code)) throw new Error("Uruchom plik supabase-vacation-shared.sql w SQL Editor Supabase, aby włączyć wnioski z konta gabinet bez PIN-u.");
+      throw new Error(controller.signal.aborted
+        ? "Nie otrzymano potwierdzenia w ciągu 20 sekund. Spróbuj ponownie z tym samym wnioskiem; nie powstanie druga kopia."
+        : error.message || "Nie udało się wysłać wniosku.");
+    }
+    if (!data?.ok) throw new Error(data?.message || "Nie potwierdzono zapisu wniosku.");
+    const saved = data.receipt?.find(row => row.table === SUPABASE_VACATION_REQUEST_TABLE && row.id === request.id);
+    if (!saved?.data || saved.data.employeeId !== request.employeeId || saved.data.status !== "OCZEKUJE") {
+      throw new Error("Brak poprawnego potwierdzenia zapisu wniosku.");
+    }
+    if (draft !== submitVacationRequest.draft) throw new Error("Sesja zmieniła się podczas zapisu.");
+    satisDataStore?.observe(SUPABASE_VACATION_REQUEST_TABLE, saved);
+    return normalizeVacationRequest({ ...saved.data, id: saved.id });
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 function updateVacationSaturdayField() {
@@ -22298,10 +22334,6 @@ async function submitVacationRequest(event) {
   if (submitVacationRequest.pending) return;
   const authUser = currentSupabaseUser;
   const employee = selectedVacationEmployee();
-  if (!canViewPrivateModules() && (!vacationMyEmployeeId() || employee?.id !== vacationMyEmployeeId())) {
-    alert("Wniosek można wysłać tylko dla pracownika przypisanego przez SATIS do Twojego osobistego konta. Wspólne konto gabinet i wybór stanowiska nie potwierdzają tożsamości.");
-    return;
-  }
   const dateFrom = isoDateForSave(vacationDateFromInput?.value);
   const dateTo = isoDateForSave(vacationDateToInput?.value || vacationDateFromInput?.value);
   if (!employee || !dateFrom || !dateTo) {
@@ -22425,9 +22457,11 @@ async function submitVacationRequest(event) {
   }
   if (typeof resetVacationFormBtn !== "undefined" && resetVacationFormBtn) resetVacationFormBtn.disabled = true;
   try {
-    await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
+    const sharedAccount = !canViewPrivateModules() && (!vacationMyEmployeeId() || request.employeeId !== vacationMyEmployeeId());
+    const confirmed = sharedAccount ? await persistSharedVacationRequest(request) : null;
+    if (!sharedAccount) await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
     if (authUser !== currentSupabaseUser || submitVacationRequest.draft?.userId !== currentSupabaseUser?.id) return;
-    vacationRequests = normalizeVacationRequests([request, ...vacationRequests.filter((item) => item.id !== request.id)]);
+    vacationRequests = normalizeVacationRequests([confirmed || request, ...vacationRequests.filter((item) => item.id !== request.id)]);
     saveLocalVacationData();
     renderVacationModule();
     resetVacationForm({ afterSave: true });
@@ -28386,6 +28420,7 @@ vacationSaturdayChoices?.addEventListener("click", (event) => {
   });
 });
 vacationEmployeeInput?.addEventListener("change", () => {
+  updateVacationAccessMessage();
   renderVacationSummary();
   renderVacationHistory();
   updateVacationUnitFields();
@@ -28422,6 +28457,7 @@ vacationEmployeeList?.addEventListener("click", (event) => {
   renderVacationHistory();
   renderVacationSaturdayHolidays();
   updateVacationUnitFields();
+  updateVacationAccessMessage();
 });
 vacationPendingReminder?.addEventListener("click", () => {
   const request = vacationRequests.find((item) => item.id === vacationPendingReminder.dataset.firstRequestId);
