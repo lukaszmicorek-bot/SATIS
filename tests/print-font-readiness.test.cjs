@@ -7,10 +7,13 @@ const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
 const helper = source.slice(source.indexOf('async function printWithReadyFonts('), source.indexOf('\nfunction exportStockAuditPdf('));
 
-test('loan and order include the exact medical-device notice in preview and print', () => {
+test('offer, loan and order include the exact medical-device notice in preview and print', () => {
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   const notice = '<p class="medical-device-notice">To jest wyrób medyczny. Używaj go zgodnie z instrukcją używania lub etykietą.</p>';
-  assert.equal(html.split(notice).length - 1, 2);
+  assert.equal(html.split(notice).length - 1, 3);
+  assert.ok(html.indexOf(notice) > html.indexOf('id="offerNotesPrint"'));
+  assert.ok(html.indexOf(notice) < html.indexOf('<section class="document-description offer-description"'));
+  assert.match(css, /body\.pricing-offer-print \.medical-device-notice,/);
   assert.ok(html.indexOf(notice) < html.indexOf('<section class="loan-doc-section loan-terms">'));
   assert.ok(html.lastIndexOf(notice) > html.indexOf('id="orderContent"'));
   assert.ok(html.lastIndexOf(notice) < html.indexOf('<section class="order-signatures"'));
