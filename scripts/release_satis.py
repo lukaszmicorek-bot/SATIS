@@ -33,6 +33,7 @@ MIGRATIONS = [
     "supabase-audit-vacation.sql",
 ]
 EXTRA_PUBLIC_FILES = {
+    "tests/notes-tooltip.test.cjs",
     "supabase-vacation-shared.sql", "tests/vacation-shared.test.cjs", "tests/vacation-shared.sqltest.cjs",
     ".gitignore", "CNAME", "README.md", "supabase-attendance.sql", "supabase-work-time.sql",
     "supabase-work-time-pin.sql", "scripts/release_satis.py",

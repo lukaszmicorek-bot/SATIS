@@ -18995,7 +18995,7 @@ function attachRepairTimelinePreview(timeline, record) {
 }
 
 function createTableNotesCell(value) {
-  const notes = normalizeLoanHistoryText(value);
+  const notes = String(value ?? "").trim();
   if (!notes) return "";
 
   const wrap = document.createElement("div");
@@ -19005,7 +19005,7 @@ function createTableNotesCell(value) {
   preview.dataset.repairNotesTooltip = notes;
   preview.tabIndex = 0;
   preview.addEventListener("mouseenter", () => showRepairNotesTooltip(preview));
-  preview.addEventListener("mouseleave", hideRepairNotesTooltip);
+  preview.addEventListener("mouseleave", scheduleRepairNotesTooltipHide);
   preview.addEventListener("focus", () => showRepairNotesTooltip(preview));
   preview.addEventListener("blur", hideRepairNotesTooltip);
   const text = document.createElement("span");
@@ -19019,7 +19019,7 @@ function createTableNotesCell(value) {
 function createRepairNotesCell(record) {
   const meta = repairDerived.get(record.id);
   const issues = meta?.documentNumberIssues || [];
-  const notes = normalizeLoanHistoryText(record?.notes);
+  const notes = String(record?.notes ?? "").trim();
   if (!notes && !issues.length) return "";
 
   const wrap = notes ? createTableNotesCell(notes) : document.createElement("div");
@@ -19035,6 +19035,22 @@ function createRepairNotesCell(record) {
   return wrap;
 }
 
+function repairNotesSections(value) {
+  // Older summaries were stored on one line; recognize only their explicit labels/items.
+  const text = String(value ?? "").replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+(?=(?:Telefon|Żądanie|Koszt naprawy|Opis wady|Uwagi|Pozycje):)/giu, "\n")
+    .replace(/[ \t]+(?=\d+[.)] (?:(?:P|L|P\s*\+\s*L)\s*·\s*)?(?:\d+x )?(?:Aparat słuchowy|Wkładka uszna|Wkładka przeciwwodna|Ładowarka|Środki pielęgnacyjne)\b)/giu, "\n");
+  return text.split(/\n+|\s+\|\s+/u).map(line => line.trim()).filter(Boolean).map(line => {
+    const match = line.match(/^(Telefon|Żądanie|Koszt naprawy|Opis wady|Uwagi|Pozycje):\s*(.*)$/iu);
+    return match ? { label: match[1], text: match[2] } : { label: "", text: line };
+  });
+}
+
+function scheduleRepairNotesTooltipHide() {
+  window.clearTimeout(hideRepairNotesTooltip.timer);
+  hideRepairNotesTooltip.timer = window.setTimeout(hideRepairNotesTooltip, 180);
+}
+
 function repairNotesTooltipElement() {
   let tooltip = document.querySelector("#repairNotesTooltip");
   if (tooltip) return tooltip;
@@ -19042,16 +19058,36 @@ function repairNotesTooltipElement() {
   tooltip.id = "repairNotesTooltip";
   tooltip.className = "repair-notes-tooltip";
   tooltip.setAttribute("role", "tooltip");
+  tooltip.addEventListener("mouseenter", () => window.clearTimeout(hideRepairNotesTooltip.timer));
+  tooltip.addEventListener("mouseleave", scheduleRepairNotesTooltipHide);
   tooltip.hidden = true;
   document.body.append(tooltip);
   return tooltip;
 }
 
 function showRepairNotesTooltip(anchor) {
-  const text = normalizeLoanHistoryText(anchor?.dataset?.repairNotesTooltip);
-  if (!anchor || !text) return;
+  const sections = repairNotesSections(anchor?.dataset?.repairNotesTooltip);
+  if (!anchor || !sections.length) return;
+  window.clearTimeout(hideRepairNotesTooltip.timer);
   const tooltip = repairNotesTooltipElement();
-  tooltip.textContent = text;
+  const heading = document.createElement("strong");
+  heading.className = "repair-notes-tooltip-heading";
+  heading.textContent = "Uwagi";
+  tooltip.replaceChildren(heading, ...sections.map(section => {
+    const block = document.createElement("div");
+    block.className = "repair-notes-tooltip-section";
+    if (section.label) {
+      const label = document.createElement("strong");
+      label.textContent = section.label;
+      block.append(label);
+    }
+    if (section.text) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = section.text;
+      block.append(paragraph);
+    }
+    return block;
+  }));
   tooltip.hidden = false;
   tooltip.style.visibility = "hidden";
   const anchorBox = anchor.getBoundingClientRect();
@@ -19065,6 +19101,7 @@ function showRepairNotesTooltip(anchor) {
 }
 
 function hideRepairNotesTooltip() {
+  window.clearTimeout(hideRepairNotesTooltip.timer);
   const tooltip = document.querySelector("#repairNotesTooltip");
   if (tooltip) tooltip.hidden = true;
 }

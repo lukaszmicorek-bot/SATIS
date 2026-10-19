@@ -91,3 +91,4 @@
 !/supabase-vacation-shared.sql
 !/tests/vacation-shared.test.cjs
 !/tests/vacation-shared.sqltest.cjs
+!/tests/notes-tooltip.test.cjs
