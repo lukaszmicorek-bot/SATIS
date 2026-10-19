@@ -88,3 +88,33 @@ test('all application print buttons use font readiness, with legacy browser fall
   assert.doesNotMatch(css, /text-rendering: geometricPrecision/);
   assert.match(css, /\.offer-description-grid span,[^}]*font-size: 7\.5pt/);
 });
+
+test('RODO print is aligned right and shares normal/hover styling with all four documents', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  assert.match(html, /class="pricing-document-actions offer-actions">\s*<button id="resetRodoBtn"[^>]*>[^<]*<\/button>\s*<button id="printRodoBtn" type="button">Drukuj \/ PDF/);
+  assert.match(css, /\.offer-actions\s*\{[^}]*justify-content: flex-end/);
+  assert.match(css, /#printPricingOfferBtn,[\s\S]*?#printPricingComplaintBtn,\s*#printRodoBtn\s*\{[^}]*background: #2b8a78/);
+  assert.match(css, /#printPricingComplaintBtn:hover,\s*#printRodoBtn:hover\s*\{[^}]*background: #257867/);
+});
+
+test('RODO validates before print and routes to the same online/offline print pipeline', async () => {
+  const rodo = source.slice(source.indexOf('async function printPricingRodo('), source.indexOf('\nfunction markAgreementDraftDirty('));
+  let valid = false, offline = false, prints = 0, offlinePrints = 0;
+  const context = vm.createContext({
+    updateRodoFromPesel() {}, renderPricingRodo() {},
+    document: {querySelector: () => ({reportValidity: () => valid}), body: {classList: {add() {}, remove() {}}}},
+    window: {addEventListener() {}},
+    offlineForms: {active: () => offline, print: async kind => {assert.equal(kind, 'rodo'); offlinePrints++;}},
+    printWithReadyFonts: async () => {prints++; return true;}
+  });
+  vm.runInContext(rodo, context);
+  assert.equal(await context.printPricingRodo(), false);
+  assert.equal(prints, 0);
+  valid = true;
+  assert.equal(await context.printPricingRodo(), true);
+  assert.equal(prints, 1);
+  offline = true;
+  await context.printPricingRodo();
+  assert.equal(offlinePrints, 1);
+  assert.equal(prints, 1);
+});
