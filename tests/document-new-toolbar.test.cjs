@@ -21,10 +21,11 @@ const scopes = ids.map(id => {
   const bottom = element();
   const button = element(id);
   bottom.append(button); scope.append(bottom);
-  const copyOffer = id === 'newPricingLoanBtn' ? element('loanCopyOfferBtn') : null;
+  const copyOffer = id === 'newPricingLoanBtn' ? element('loanCopyOfferBtn')
+    : id === 'newPricingOrderBtn' ? element('orderCopyOfferBtn') : null;
   if (copyOffer) bottom.append(copyOffer);
   scope.querySelector = selector => selector.includes(`#${id}`) ? button
-    : selector === '#loanCopyOfferBtn' ? copyOffer : null;
+    : copyOffer && selector.includes(`#${copyOffer.id}`) ? copyOffer : null;
   return { scope, bottom, button, copyOffer };
 });
 const context = vm.createContext({
