@@ -9781,21 +9781,27 @@ tbody tr.repair-overdue-critical td:first-child {
 .repair-notes-tooltip {
   position: fixed;
   z-index: 100;
-  width: min(440px, calc(100vw - 24px));
-  max-height: min(320px, calc(100vh - 24px));
+  width: min(460px, calc(100vw - 24px));
+  box-sizing: border-box;
+  max-height: min(440px, calc(100vh - 24px));
   overflow: auto;
-  padding: 9px 10px;
+  padding: 13px 15px;
   border: 1px solid #cbd9dd;
   border-radius: 8px;
   color: #20343b;
   background: #ffffff;
   box-shadow: 0 10px 26px rgba(28, 31, 36, 0.16);
-  font-size: 0.76rem;
-  font-weight: 650;
-  line-height: 1.38;
-  white-space: pre-wrap;
-  pointer-events: none;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
 }
+.repair-notes-tooltip-heading { display: block; margin-bottom: 9px; color: #003f5a; font-size: 14px; font-weight: 700; }
+.repair-notes-tooltip-section + .repair-notes-tooltip-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid #edf1f3; }
+.repair-notes-tooltip-section > strong { display: block; margin-bottom: 3px; color: #4b636e; font-size: 11px; font-weight: 600; }
+.repair-notes-tooltip-section > p { margin: 0; color: #20343b; white-space: pre-wrap; }
 
 .repair-number-warning {
   width: fit-content;
