@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261015-1">
+  <link rel="stylesheet" href="styles.css?v=20261019-1">
   </head>
   <body>
     <main class="app-shell">
@@ -79,7 +79,12 @@
 
       <section id="repairReturnsPanel" class="repair-returns-panel" aria-label="Powroty produktów" hidden>
         <header><h3>Powroty produktów — do odbioru</h3><div class="repair-return-actions">
-          <select id="repairReturnsPlace" aria-label="Miejsce powrotu"><option value="">Wszystkie miejsca</option><option>T12</option><option>P50</option><option>P63</option></select>
+          <div id="repairReturnsPlace" class="repair-return-places" role="group" aria-label="Miejsce powrotu" hidden>
+            <button type="button" class="pcpr-tab active" data-return-place="" aria-pressed="true">Wszystkie</button>
+            <button type="button" class="pcpr-tab" data-return-place="T12" data-location-tone="T12" aria-pressed="false">T12</button>
+            <button type="button" class="pcpr-tab" data-return-place="P50" data-location-tone="P50" aria-pressed="false">P50</button>
+            <button type="button" class="pcpr-tab" data-return-place="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+          </div>
           <button id="repairReturnsRefresh" class="reset-filters-btn" type="button">Odśwież</button>
           <button id="repairReturnsClose" class="reset-filters-btn" type="button">Zamknij</button>
         </div></header>
@@ -3191,12 +3196,12 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261015-1"></script>
-    <script src="data-layer.js?v=20261015-1"></script>
-    <script src="sync-layer.js?v=20261015-1"></script>
-    <script src="repair-returns.js?v=20261015-1"></script>
-    <script src="offline-vault.js?v=20261015-1"></script>
-    <script src="offline-forms.js?v=20261015-1"></script>
-  <script src="app.js?v=20261015-1"></script>
+    <script src="supabase-config.js?v=20261019-1"></script>
+    <script src="data-layer.js?v=20261019-1"></script>
+    <script src="sync-layer.js?v=20261019-1"></script>
+    <script src="repair-returns.js?v=20261019-1"></script>
+    <script src="offline-vault.js?v=20261019-1"></script>
+    <script src="offline-forms.js?v=20261019-1"></script>
+  <script src="app.js?v=20261019-1"></script>
   </body>
 </html>

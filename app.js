@@ -28788,7 +28788,7 @@ repairReturns = window.SatisRepairReturns?.create({
   },
   workstation: currentWorkstationName, iso: isoDateForSave, formatDate,
   openRecord: record => { switchView("repairDatabase", "repairs"); openRepairDialog(record); },
-  locationPill: createLocationPill
+  locationPill: createLocationPill, isOrder: isOrderRepairRecord
 });
 setupCustomerTransfer();
 init();

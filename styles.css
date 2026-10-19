@@ -15696,8 +15696,13 @@ textarea {
 .repair-return-item > div:first-child { display: flex; flex-wrap: wrap; gap: 5px 9px; align-items: center; }
 .repair-return-item strong { flex-basis: 100%; color: #003f5a; font-size: 0.85rem; }
 .repair-return-item span { font-size: 0.8rem; }
+.repair-return-item .repair-return-kind { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 5px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+.repair-return-kind-service { color: #006e73; background: #eaf5f5; }
+.repair-return-kind-order { color: #915d21; background: #fff3e4; }
 .repair-return-item small { color: #627a86; font-size: 0.72rem; }
 .repair-return-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.repair-return-places { display: flex; flex-wrap: wrap; gap: 5px; }
+.repair-return-places .pcpr-tab { min-height: 30px; padding: 5px 10px; font-size: 0.75rem; white-space: nowrap; }
 .repair-return-confirm { padding: 6px 10px; border: 1px solid #bfd9e6; border-radius: 6px; color: #245979; background: #eaf5fb; font-size: 0.75rem; }
 .repair-return-item .repair-return-confirmed { color: #557864; }
 .repair-return-toast { position: fixed; bottom: 18px; right: 18px; z-index: 100; max-width: min(380px, calc(100vw - 36px)); padding: 10px 13px; border: 1px solid #cbdfe9; border-radius: 6px; background: #f0f8fc; color: #245979; font-size: 0.8rem; }

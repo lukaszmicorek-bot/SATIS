@@ -23,7 +23,7 @@
       return result.data;
     } finally { clearTimeout(timer); }
   }
-  function create({ client, records, user, owner, place, workstation, iso, formatDate, openRecord, locationPill }) {
+  function create({ client, records, user, owner, place, workstation, iso, formatDate, openRecord, locationPill, isOrder = () => false }) {
     const button = document.getElementById("repairReturnsBtn");
     const panel = document.getElementById("repairReturnsPanel");
     const list = document.getElementById("repairReturnsList");
@@ -32,11 +32,11 @@
     const menuCount = document.getElementById("repairReturnsCount");
     const saving = new Set();
     let acknowledgements = new Map(), ready = false, generation = 0, loading = false, reloadNeeded = false;
-    let previousEvents = null, toastTimer;
+    let previousEvents = null, toastTimer, selectedPlace = "";
     const toast = document.createElement("p");
     toast.className = "repair-return-toast"; toast.hidden = true;
     toast.setAttribute("role", "status"); document.body.append(toast);
-    function scope() { return owner() ? filter.value : place(); }
+    function scope() { return owner() ? selectedPlace : place(); }
     function rows() { return !owner() && !place() ? [] : pendingReturns(records(), iso, scope()); }
     function render() {
       if (!button || !panel || !user()) {
@@ -45,6 +45,11 @@
         return;
       }
       filter.hidden = !owner();
+      filter.querySelectorAll("[data-return-place]").forEach(tile => {
+        const active = tile.dataset.returnPlace === selectedPlace;
+        tile.classList.toggle("active", active);
+        tile.setAttribute("aria-pressed", String(active));
+      });
       const entries = rows();
       const unseen = entries.filter(record => !acknowledgements.has(eventKey(record, iso)));
       const events = new Set(entries.map(record => eventKey(record, iso)));
@@ -67,10 +72,14 @@
         const item = document.createElement("article"); item.className = "repair-return-item";
         const content = document.createElement("div");
         const title = document.createElement("strong"); title.textContent = record.customerName || "Brak imienia i nazwiska";
+        const order = isOrder(record);
+        const kind = document.createElement("span");
+        kind.className = `repair-return-kind repair-return-kind-${order ? "order" : "service"}`;
+        kind.textContent = order ? "Zamówienie" : "Serwis";
         const product = document.createElement("span"); product.textContent = record.deviceName || "Produkt";
         const meta = document.createElement("small");
         meta.textContent = [record.sourceDocumentNumber, `Powrót: ${formatDate(record.returnDate)}`].filter(Boolean).join(" · ");
-        content.append(title, product, meta, locationPill(record.location));
+        content.append(title, kind, product, meta, locationPill(record.location));
         const ack = acknowledgements.get(eventKey(record, iso));
         if (ack) {
           const info = document.createElement("small"); info.className = "repair-return-confirmed";
@@ -133,12 +142,17 @@
       } finally { saving.delete(record.id); render(); }
     }
     button?.addEventListener("click", () => { panel.hidden = !panel.hidden; if (!panel.hidden) { render(); panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); } });
-    filter?.addEventListener("change", () => { previousEvents = null; render(); });
+    filter?.addEventListener("click", event => {
+      const tile = event.target.closest("[data-return-place]");
+      if (!owner() || !tile || !filter.contains(tile) || !["", "T12", "P50", "P63"].includes(tile.dataset.returnPlace)) return;
+      selectedPlace = tile.dataset.returnPlace;
+      previousEvents = null; render();
+    });
     document.getElementById("repairReturnsRefresh")?.addEventListener("click", load);
     document.getElementById("repairReturnsClose")?.addEventListener("click", () => { panel.hidden = true; });
     return { render, load, clear() {
       generation++; ready = false; acknowledgements.clear(); previousEvents = null; reloadNeeded = false;
-      filter.value = ""; clearTimeout(toastTimer); toast.hidden = true; panel.hidden = true; button.hidden = true;
+      selectedPlace = ""; clearTimeout(toastTimer); toast.hidden = true; panel.hidden = true; button.hidden = true;
       list.replaceChildren(); message.textContent = "";
       if (menuCount) { menuCount.textContent = ""; menuCount.hidden = true; }
     } };
