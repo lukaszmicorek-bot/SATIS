@@ -5043,7 +5043,8 @@ h2 {
 #printPricingOfferBtn,
 #printPricingLoanBtn,
 #printPricingOrderBtn,
-#printPricingComplaintBtn {
+#printPricingComplaintBtn,
+#printRodoBtn {
   min-height: 30px;
   padding: 0 12px;
   color: #fff;
@@ -5056,7 +5057,8 @@ h2 {
 #printPricingOfferBtn:hover,
 #printPricingLoanBtn:hover,
 #printPricingOrderBtn:hover,
-#printPricingComplaintBtn:hover {
+#printPricingComplaintBtn:hover,
+#printRodoBtn:hover {
   color: #fff;
   background: #257867;
   border-color: #257867;

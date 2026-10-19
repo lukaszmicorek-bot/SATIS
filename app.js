@@ -9577,6 +9577,7 @@ function resetPricingRodo() {
 async function printPricingRodo() {
   updateRodoFromPesel();
   if (!document.querySelector("#rodoPeselInput")?.reportValidity()) return false;
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("rodo");
   renderPricingRodo();
   const cleanup = () => document.body.classList.remove("rodo-print");
   document.body.classList.add("rodo-print");
