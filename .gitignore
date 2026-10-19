@@ -92,3 +92,4 @@
 !/tests/vacation-shared.test.cjs
 !/tests/vacation-shared.sqltest.cjs
 !/tests/notes-tooltip.test.cjs
+!/tests/document-save-feedback.test.cjs

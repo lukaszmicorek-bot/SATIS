@@ -5026,6 +5026,20 @@ h2 {
   display: none;
 }
 
+.offer-actions button.document-save-btn.has-unsaved-changes,
+.offer-actions button.document-save-btn.has-unsaved-changes:hover,
+.offer-actions button.document-save-btn.has-unsaved-changes:focus-visible {
+  border-color: #ac2941;
+  background: #bd354f;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(189, 53, 79, 0.13);
+}
+.offer-actions button.document-save-btn.save-reminder-active {
+  border-color: #8e2035;
+  background: #a92842;
+  box-shadow: 0 0 0 3px rgba(189, 53, 79, 0.2);
+}
+
 #printPricingOfferBtn,
 #printPricingLoanBtn,
 #printPricingOrderBtn,

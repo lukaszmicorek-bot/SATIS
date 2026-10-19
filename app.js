@@ -9588,7 +9588,7 @@ function markAgreementDraftDirty(key) {
   const state = agreementDraftStates.get(key);
   if (!state) return;
   state.dirty = true;
-  state.saveButton.classList.add("has-unsaved-changes");
+  setPrimarySaveHighlight(state.saveButton, true);
   state.saveButton.classList.remove("save-reminder-active");
   state.saveButton.title = "Formularz zawiera niezapisane zmiany";
   state.reminder.hidden = true;
@@ -9606,7 +9606,8 @@ function markAgreementDraftSaved(key) {
   state.dirty = false;
   window.clearTimeout(state.timer);
   state.timer = 0;
-  state.saveButton.classList.remove("has-unsaved-changes", "save-reminder-active");
+  setPrimarySaveHighlight(state.saveButton, false);
+  state.saveButton.classList.remove("save-reminder-active");
   state.saveButton.title = "";
   state.reminder.hidden = true;
 }
