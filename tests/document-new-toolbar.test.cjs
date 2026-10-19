@@ -21,8 +21,11 @@ const scopes = ids.map(id => {
   const bottom = element();
   const button = element(id);
   bottom.append(button); scope.append(bottom);
-  scope.querySelector = selector => selector.includes(`#${id}`) ? button : null;
-  return { scope, bottom, button };
+  const copyOffer = id === 'newPricingLoanBtn' ? element('loanCopyOfferBtn') : null;
+  if (copyOffer) bottom.append(copyOffer);
+  scope.querySelector = selector => selector.includes(`#${id}`) ? button
+    : selector === '#loanCopyOfferBtn' ? copyOffer : null;
+  return { scope, bottom, button, copyOffer };
 });
 const context = vm.createContext({
   document: { querySelectorAll: () => scopes.map(item => item.scope), createElement: () => element() },
@@ -30,10 +33,11 @@ const context = vm.createContext({
 });
 vm.runInContext(source.slice(start, end), context);
 context.setupFormUndo();
-for (const { scope, bottom, button } of scopes) {
+for (const { scope, bottom, button, copyOffer } of scopes) {
   assert.equal(scope.children[0].className, 'form-undo-tools');
   assert.equal(scope.children[0].children[0], button, 'existing button moved before undo');
-  assert.equal(scope.children[0].children[1].textContent, 'Cofnij wpisywanie');
+  if (copyOffer) assert.equal(scope.children[0].children[1], copyOffer, 'copy from offer sits immediately after New');
+  assert.equal(scope.children[0].children[copyOffer ? 2 : 1].textContent, 'Cofnij wpisywanie');
   assert.equal(bottom.children.length, 0, 'no duplicate button at bottom');
 }
 assert.equal(scopes.at(-1).button.textContent, 'Nowy');
