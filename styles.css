@@ -16458,3 +16458,26 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   min-height: 34px;
   font: inherit;
 }
+
+.medical-device-notice {
+  margin: 12px 0;
+  padding: 8px 0 8px 12px;
+  border-left: 3px solid #007b7d;
+  color: #111;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+@media print {
+  body.pricing-loan-print .medical-device-notice,
+  body.pricing-order-print .medical-device-notice {
+    margin: 2.5mm 0;
+    padding: 1.5mm 0 1.5mm 2.5mm;
+    color: #111;
+    font-size: 11pt;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+}
