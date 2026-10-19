@@ -16,15 +16,21 @@ test('pending returns are scoped by place, newest first and disappear on pickup'
   assert.equal(records[0].pickupDate, undefined);
 });
 test('acknowledgement uses its own RPC, updates the counter and never changes a repair', async () => {
-  const element = () => ({ children: [], value: '', hidden: false, textContent: '',
+  const element = () => ({ children: [], value: '', hidden: false, textContent: '', dataset: {}, attributes: {}, events: {},
     classList: { toggle() {} }, append(...nodes) { this.children.push(...nodes); },
-    replaceChildren(...nodes) { this.children = nodes; }, setAttribute() {},
-    addEventListener() {}, scrollIntoView() {} });
+    replaceChildren(...nodes) { this.children = nodes; }, setAttribute(key, value) { this.attributes[key] = value; },
+    querySelectorAll() { return this.children; }, contains(node) { return this.children.includes(node); },
+    addEventListener(name, handler) { this.events[name] = handler; }, scrollIntoView() {} });
   const elements = new Map(['repairReturnsBtn','repairReturnsPanel','repairReturnsList','repairReturnsMessage',
     'repairReturnsPlace','repairReturnsCount','repairReturnsRefresh','repairReturnsClose'].map(id => [id, element()]));
   const previous = global.document;
   global.document = { getElementById: id => elements.get(id), createElement: element, body: element() };
   const record = { id: 'one', location: 'P50', returnDate: '2026-10-14', customerName: 'Synthetic', deviceName: 'Model' };
+  let isOwner = false;
+  const filter = elements.get('repairReturnsPlace');
+  filter.children = ['', 'T12', 'P50', 'P63'].map(place => {
+    const tile = element(); tile.dataset.returnPlace = place; tile.closest = () => tile; return tile;
+  });
   let saves = 0;
   const client = { async rpc(name, args) {
     if (name === 'satis_repair_return_acknowledgements') return { data: [] };
@@ -35,10 +41,30 @@ test('acknowledgement uses its own RPC, updates the counter and never changes a 
   } };
   let module;
   try {
-    module = create({ client, records: () => [record], user: () => ({ id: 'user' }), owner: () => false,
+    module = create({ client, records: () => [record], user: () => ({ id: 'user' }), owner: () => isOwner,
       place: () => 'P50', workstation: () => 'P50', iso, formatDate: value => value,
-      openRecord() {}, locationPill: () => element() });
+      openRecord() {}, locationPill: () => element(), isOrder: row => row.sourceDocumentType === 'ORDER' });
     await module.load();
+    assert.equal(filter.hidden, true);
+    filter.events.click({target: filter.children[1]});
+    assert.equal(elements.get('repairReturnsList').children.length, 1, 'staff cannot override workstation scope');
+    isOwner = true; module.render();
+    assert.equal(filter.hidden, false);
+    filter.events.click({target: filter.children[1]});
+    assert.equal(elements.get('repairReturnsList').children.length, 1); // Empty-state message only.
+    assert.equal(elements.get('repairReturnsList').children[0].textContent, 'Brak produktów oczekujących na odbiór.');
+    assert.equal(filter.children[1].attributes['aria-pressed'], 'true');
+    filter.events.click({target: filter.children[2]});
+    assert.equal(filter.children[1].attributes['aria-pressed'], 'false');
+    assert.equal(filter.children[2].attributes['aria-pressed'], 'true');
+    let kind = elements.get('repairReturnsList').children[0].children[0].children[1];
+    assert.equal(kind.textContent, 'Serwis');
+    assert.match(kind.className, /kind-service/);
+    record.sourceDocumentType = 'ORDER';
+    module.render();
+    kind = elements.get('repairReturnsList').children[0].children[0].children[1];
+    assert.equal(kind.textContent, 'Zamówienie');
+    assert.match(kind.className, /kind-order/);
     assert.equal(elements.get('repairReturnsCount').textContent, '1');
     const button = elements.get('repairReturnsList').children[0].children[1].children[1];
     await button.onclick();
@@ -50,6 +76,7 @@ test('acknowledgement uses its own RPC, updates the counter and never changes a 
   } finally { module?.clear(); global.document = previous; }
 });
 test('database stamps account/time, rejects stale returns and grants no direct client writes', () => {
+  assert.match(fs.readFileSync('app.js', 'utf8'), /locationPill: createLocationPill, isOrder: isOrderRepairRecord/);
   const sql = fs.readFileSync('supabase-repair-returns.sql', 'utf8');
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /auth\.uid\(\) is null or not public\.is_satis_app_user\(\)/);
