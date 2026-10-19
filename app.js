@@ -23990,7 +23990,23 @@ function syncRepairDialogHeaderMeta() {
     .trim()
     .toLocaleUpperCase("pl-PL");
 
-  if (repairDialogTitle) repairDialogTitle.textContent = repairDialogProductTitle();
+  const recordId = document.querySelector("#repairId")?.value;
+  const record = repairRecords.find(item => item.id === recordId);
+  if (repairDialogTitle) repairDialogTitle.textContent = record && isOrderRepairRecord(record)
+    ? ["Zamówienie", repairDocumentInfo(record).number].filter(Boolean).join(" · ")
+    : repairDialogProductTitle();
+  const customer = document.querySelector("#repairDialogCustomer");
+  if (customer) {
+    customer.textContent = titleCaseName(document.querySelector("#repairCustomerName")?.value || "");
+    customer.hidden = !customer.textContent;
+  }
+  const location = document.querySelector("#repairDialogLocation");
+  if (location) {
+    const value = normalizeRepairLocation(document.querySelector("#repairLocation")?.value);
+    location.textContent = value;
+    location.dataset.locationTone = value;
+    location.hidden = !value;
+  }
   [repairDialogSerial, repairDialogSerial2].forEach((badge, index) => {
     if (!badge) return;
     badge.textContent = serials[index];
@@ -24030,9 +24046,7 @@ function openRepairDialog(record = null) {
   delete repairLocationInput.dataset.userChanged;
   clearRepairLocationSuggestion(repairLocationInput);
   const normalizedRecord = record ? normalizeRepairRecordForUse(record) : null;
-  repairRecordEyebrow.textContent = normalizedRecord
-    ? `Edytuj · ${repairDialogProductLabel(normalizedRecord)}`
-    : "Dodaj";
+  repairRecordEyebrow.textContent = normalizedRecord ? "Edytuj" : "Dodaj";
 
   const fieldMap = {
     receivedDate: "#repairReceivedDate",
@@ -28105,6 +28119,7 @@ repairServiceCostInput?.addEventListener("blur", () => {
 document.querySelector("#repairStatus").addEventListener("change", syncRepairDialogHeaderMeta);
 document.querySelector("#repairCustomerName").addEventListener("input", syncRepairCustomerNameInput);
 document.querySelector("#repairCustomerName").addEventListener("input", () => {
+  syncRepairDialogHeaderMeta();
   if (!repairPickupLoanReminder?.hidden) renderRepairPickupLoanReminder();
 });
 document.querySelector("#repairCustomerName").addEventListener("blur", finalizeRepairCustomerNameInput);
@@ -28113,6 +28128,7 @@ document.querySelector("#repairPhone").addEventListener("input", (event) => {
 });
 document.querySelector("#repairLocation").addEventListener("change", markRepairLocationManualChange);
 document.querySelector("#repairLocation").addEventListener("change", (event) => updateDocumentLocationAccent(event.target));
+document.querySelector("#repairLocation").addEventListener("change", syncRepairDialogHeaderMeta);
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairDeviceName").addEventListener("input", markRepairDeviceNameManualChange);

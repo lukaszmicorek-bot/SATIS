@@ -71,3 +71,32 @@ ctx.document = { querySelector: () => null };
 assert.equal(ctx.repairOrderDatesViolation({ receivedDate: '2026-10-14', orderItems: [{ returnDate: '2026-10-13' }] }).selector, '#repairOrderReturn0');
 assert.equal(ctx.repairOrderDatesViolation({ orderItems: [{ returnDate: '2026-10-14', pickupDate: '2026-10-13' }] }).selector, '#repairOrderPickup0');
 console.log('OK: kind filters, partial fulfillment, final closure, old completed dates and per-item date chronology.');
+
+const headerNodes = Object.fromEntries(['repairId', 'repairSerialNumber', 'repairSerialNumber2', 'repairStatus',
+  'repairCustomerName', 'repairLocation', 'repairDialogCustomer', 'repairDialogLocation']
+  .map(id => [`#${id}`, {value: '', textContent: '', hidden: false, dataset: {}}]));
+headerNodes['#repairId'].value = 'order-header';
+headerNodes['#repairCustomerName'].value = 'Test Klient';
+headerNodes['#repairLocation'].value = 'P50';
+headerNodes['#repairSerialNumber'].value = 'test123';
+ctx.document = {querySelector: selector => headerNodes[selector]};
+ctx.repairRecords = [{id: 'order-header', sourceDocumentType: 'ORDER', sourceDocumentNumber: '4/10/2026'}];
+ctx.repairDocumentInfo = record => ({number: record.sourceDocumentNumber});
+ctx.repairDialogProductTitle = () => 'Serwis · Aparat';
+ctx.titleCaseName = value => value;
+ctx.normalizeRepairLocation = value => value;
+ctx.repairStatusDisplayLabel = value => value;
+for (const name of ['repairDialogTitle', 'repairDialogSerial', 'repairDialogSerial2', 'repairDialogStatusBadge']) {
+  ctx[name] = {textContent: '', hidden: false, dataset: {}};
+}
+vm.runInContext(extract('syncRepairDialogHeaderMeta'), ctx);
+ctx.syncRepairDialogHeaderMeta();
+assert.equal(ctx.repairDialogTitle.textContent, 'Zamówienie · 4/10/2026');
+assert.equal(headerNodes['#repairDialogCustomer'].textContent, 'Test Klient');
+assert.equal(headerNodes['#repairDialogLocation'].dataset.locationTone, 'P50');
+assert.equal(ctx.repairDialogSerial.textContent, 'TEST123');
+assert.equal(ctx.repairDialogSerial2.hidden, true);
+ctx.repairRecords[0].sourceDocumentType = 'COMPLAINT';
+ctx.syncRepairDialogHeaderMeta();
+assert.equal(ctx.repairDialogTitle.textContent, 'Serwis · Aparat', 'complaint keeps service title');
+console.log('OK: clean order header, client subtitle, location/status and separate serials.');
