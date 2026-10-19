@@ -16471,6 +16471,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   page-break-inside: avoid;
 }
 @media print {
+  body.pricing-offer-print .medical-device-notice,
   body.pricing-loan-print .medical-device-notice,
   body.pricing-order-print .medical-device-notice {
     margin: 2.5mm 0;
