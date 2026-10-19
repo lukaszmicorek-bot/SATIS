@@ -23688,7 +23688,7 @@ function setupFormUndo() {
       if (newDocumentButton.id === "resetRodoBtn") newDocumentButton.textContent = "Nowy";
       tools.append(newDocumentButton);
     }
-    const copyOfferButton = scope.querySelector("#loanCopyOfferBtn");
+    const copyOfferButton = scope.querySelector("#loanCopyOfferBtn, #orderCopyOfferBtn");
     if (copyOfferButton) tools.append(copyOfferButton);
     tools.append(button);
     if (scope.closest("dialog")) {
