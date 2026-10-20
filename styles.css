@@ -16475,6 +16475,21 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   font: inherit;
 }
 
+.traffic-meter-panel { margin: 12px 0; padding: 14px 0; border-block: 1px solid #d9e6e9; }
+.traffic-meter-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.traffic-meter-panel h3 { margin: 0; font-size: 15px; color: #003f5a; }
+.traffic-meter-summary { display: flex; flex-wrap: wrap; gap: 18px 40px; margin: 14px 0; }
+.traffic-meter-summary > div { display: grid; gap: 5px; }
+.traffic-meter-summary strong { color: #003f5a; font-size: 13px; }
+.traffic-meter-summary span { color: #006c70; font-size: 15px; font-variant-numeric: tabular-nums; }
+.traffic-meter-panel p { max-width: 850px; font-size: 12px; color: #61717a; line-height: 1.5; }
+.traffic-meter-panel details > summary { cursor: pointer; font-size: 13px; color: #003f5a; }
+.traffic-meter-table-wrap { max-height: 260px; overflow: auto; margin-top: 8px; }
+.traffic-meter-panel table { width: min(100%, 620px); table-layout: auto; font-size: 12px; }
+.traffic-meter-panel th, .traffic-meter-panel td { padding: 7px 10px; font-variant-numeric: tabular-nums; }
+.traffic-meter-panel :is(th, td):not(:first-child) { text-align: right; }
+@media print { .traffic-meter-panel, #trafficMeterBtn { display: none !important; } }
+
 .medical-device-notice {
   margin: 12px 0;
   padding: 8px 0 8px 12px;
