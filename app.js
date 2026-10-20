@@ -324,8 +324,12 @@ function clearSensitiveBrowserData() {
 clearLegacyPersistentAuthSession();
 if (hasSupabaseSettings) clearSensitiveBrowserData();
 const hasSupabaseConfig = Boolean(hasSupabaseSettings && window.supabase);
+const trafficMeter = hasSupabaseConfig && window.SatisTraffic ? window.SatisTraffic.create({
+  project: supabaseConfig.url, fetch: window.fetch.bind(window), storage: () => window.localStorage
+}) : null;
 const supabaseClient = hasSupabaseConfig
   ? window.supabase.createClient(supabaseConfig.url, supabaseKey, {
+      ...(trafficMeter ? {global: {fetch: trafficMeter.fetch}} : {}),
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -1479,6 +1483,56 @@ function canManagePricingPcprList() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
 
+function renderTrafficMeter() {
+  const button = document.querySelector("#trafficMeterBtn");
+  const panel = document.querySelector("#trafficMeterPanel");
+  if (!button || !panel) return;
+  const permitted = canViewPrivateModules() && Boolean(trafficMeter);
+  button.hidden = !permitted;
+  if (!permitted) {
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    document.querySelector("#trafficMeterSummary")?.replaceChildren();
+    document.querySelector("#trafficMeterMonths")?.replaceChildren();
+    return;
+  }
+  if (panel.hidden) return;
+  const shared = trafficMeter.sharedSnapshot();
+  const data = shared.data;
+  const status = document.querySelector("#trafficMeterStart");
+  if (!data) {
+    document.querySelector("#trafficMeterSummary")?.replaceChildren();
+    document.querySelector("#trafficMeterMonths")?.replaceChildren();
+    status.textContent = shared.error || (shared.syncing ? "Pobieranie statystyk ze wszystkich komputerów…" : "Kliknij Odśwież, aby pobrać statystyki ze wszystkich komputerów.");
+    return;
+  }
+  const mb = bytes => new Intl.NumberFormat("pl-PL", {minimumFractionDigits: 3, maximumFractionDigits: 3}).format(bytes / 1000000);
+  const monthly = data.months[data.currentMonth] || {sent: 0, received: 0};
+  const totals = Object.values(data.months).reduce((sum, row) => ({sent: sum.sent + row.sent, received: sum.received + row.received}), {sent: 0, received: 0});
+  const monthLabel = month => new Date(`${month}-15T12:00:00Z`).toLocaleDateString("pl-PL", {month: "long", year: "numeric", timeZone: "Europe/Warsaw"});
+  const summary = document.querySelector("#trafficMeterSummary");
+  summary.replaceChildren(...[["Łącznie od początku pomiaru", totals], [monthLabel(data.currentMonth), monthly]].map(([label, values]) => {
+    const section = document.createElement("div");
+    const heading = document.createElement("strong"); heading.textContent = label;
+    const sent = document.createElement("span"); sent.textContent = `↑ Wysłane: ${mb(values.sent)} MB`;
+    const received = document.createElement("span"); received.textContent = `↓ Odebrane: ${mb(values.received)} MB`;
+    section.append(heading, sent, received); return section;
+  }));
+  status.textContent = [data.startedAt
+    ? `Początek pomiaru: ${new Date(data.startedAt).toLocaleString("pl-PL", {timeZone: "Europe/Warsaw"})}.`
+    : "Brak pomiarów. Transfer sprzed włączenia licznika nie jest dostępny.",
+    data.updatedAt ? `Ostatni zapis: ${new Date(data.updatedAt).toLocaleString("pl-PL", {timeZone: "Europe/Warsaw"})}.` : "",
+    shared.error || ""].filter(Boolean).join(" ");
+  document.querySelector("#trafficMeterMonths").replaceChildren(...Object.keys({...data.months, [data.currentMonth]: monthly}).sort().reverse().map(month => {
+    const row = document.createElement("tr");
+    const values = data.months[month] || monthly;
+    for (const value of [monthLabel(month), mb(values.sent), mb(values.received)]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    return row;
+  }));
+}
+
 function canViewPrivateModules() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
@@ -1507,6 +1561,8 @@ function updateCustomerRelationsPanelVisibility() {
 
 function updatePrivateModulesVisibility() {
   const ownerVisible = canViewPrivateModules();
+  trafficMeter?.setAccount(currentSupabaseUser?.id || null);
+  renderTrafficMeter();
   const sharedVisible = Boolean(currentSupabaseUser);
   privateOwnerNotebookButtons.forEach((button) => {
     button.hidden = !ownerVisible;
@@ -28848,4 +28904,29 @@ repairReturns = window.SatisRepairReturns?.create({
   locationPill: createLocationPill, isOrder: isOrderRepairRecord
 });
 setupCustomerTransfer();
+trafficMeter?.connect(supabaseClient);
+trafficMeter?.subscribe(renderTrafficMeter);
+document.querySelector("#trafficMeterBtn")?.addEventListener("click", () => {
+  if (!canViewPrivateModules()) return;
+  const panel = document.querySelector("#trafficMeterPanel");
+  panel.hidden = !panel.hidden;
+  document.querySelector("#trafficMeterBtn").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) void trafficMeter?.sync({read: true});
+  renderTrafficMeter();
+});
+document.querySelector("#trafficMeterRefresh")?.addEventListener("click", () => {
+  if (canViewPrivateModules()) void trafficMeter?.sync({read: true});
+});
+window.setInterval(() => {
+  if (!currentSupabaseUser || document.hidden) return;
+  void trafficMeter?.sync({read: canViewPrivateModules() && !document.querySelector("#trafficMeterPanel")?.hidden});
+}, 60000);
+document.querySelector("#trafficMeterClose")?.addEventListener("click", () => {
+  document.querySelector("#trafficMeterPanel").hidden = true;
+  document.querySelector("#trafficMeterBtn").setAttribute("aria-expanded", "false");
+});
+window.addEventListener("pagehide", () => trafficMeter?.flush());
+window.addEventListener("storage", event => {
+  if (event.key?.startsWith("satis-api-traffic-v1:")) renderTrafficMeter();
+});
 init();

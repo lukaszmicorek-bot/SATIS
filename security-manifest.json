@@ -1,6 +1,6 @@
 {
-  "app_version": "20261019-9",
-  "asset_policy_sha256": "1cef4d74e0e1b17d085485b123ed61e1f971f1572235b560ddf1a234bbd49f8d",
+  "app_version": "20261020-1",
+  "asset_policy_sha256": "cc1206f4137eec89fab7f5d7e5e2a5500dd7cfa2114cb85f5a70e99b4ec0c7c1",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1674956,
-      "sha256": "d5fba637341fe2d75a52bf0157a1d47a497e92df8ddfc47814c3255c3a29db75"
+      "bytes": 1679684,
+      "sha256": "e32b5d23b22024535a310e5c0cba1ed32cd81074717fcb9aaaaa009d9d3ab405"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -43,8 +43,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 419223,
-      "sha256": "27324289b2f8498c52d572b6ee34adbd6971840917c342d2aa5a125e73061d03"
+      "bytes": 420669,
+      "sha256": "cef757b3311c69afaf4d23a5630970b9fc85647df3e1b88e522f98921fedff63"
     },
     "manufacturer-logos/audibel-offer.jpeg": {
       "bytes": 33002,
@@ -115,8 +115,8 @@
       "sha256": "0a9847a3258d44573b0284f2a54668a08ed6719c4e3d00b043d05746afbfe266"
     },
     "offline-sw.js": {
-      "bytes": 3175,
-      "sha256": "e40b64dc287047bad1970a9f7b91d48f7c8720020489b2b8aa189348da5885bd"
+      "bytes": 3195,
+      "sha256": "3533e60196b474f79dcef36e587a4f34275cd1bb89234563dacbaa3dd6439aba"
     },
     "offline-vault.js": {
       "bytes": 5614,
@@ -131,8 +131,8 @@
       "sha256": "6cb2dce8d3543aebc80b2a10c7efda40e062246dfcc2965340330e50827662f3"
     },
     "styles.css": {
-      "bytes": 345019,
-      "sha256": "8546ab8cb7606f3f5c0b7a347accda6ecdb86678d24ad615c396f84e7379ff19"
+      "bytes": 346245,
+      "sha256": "35c53a29e74560dbbb155c144e18f4fcf5c1751ba9bd8a3b5bc3d7d7594939ad"
     },
     "supabase-config.js": {
       "bytes": 227,
@@ -141,6 +141,10 @@
     "sync-layer.js": {
       "bytes": 1854,
       "sha256": "75a542517c1d15d19aeb2246bd72ec2c99b0374fe3756a305d63c8ff1ea4832e"
+    },
+    "traffic-meter.js": {
+      "bytes": 7412,
+      "sha256": "247dae2ad6fecb5e3563ede1a2dc40617aaadf5feaa115945b598f77d4663d26"
     }
   },
   "format": 1,

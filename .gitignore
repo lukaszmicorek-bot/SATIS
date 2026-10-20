@@ -8,6 +8,8 @@
 !/app.js
 !/data-layer.js
 !/sync-layer.js
+!/traffic-meter.js
+!/supabase-traffic-meter.sql
 !/repair-returns.js
 !/supabase-repair-returns.sql
 !/offline-vault.js
@@ -93,3 +95,5 @@
 !/tests/vacation-shared.sqltest.cjs
 !/tests/notes-tooltip.test.cjs
 !/tests/document-save-feedback.test.cjs
+!/tests/traffic-meter.test.cjs
+!/tests/traffic-meter.sqltest.cjs

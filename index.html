@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261019-9">
+  <link rel="stylesheet" href="styles.css?v=20261020-1">
   </head>
   <body>
     <main class="app-shell">
@@ -72,11 +72,19 @@
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
           <span id="connectionUser" class="connection-user" hidden></span>
           <button id="repairReturnsBtn" class="repair-returns-button" type="button" hidden>Powroty</button>
+          <button id="trafficMeterBtn" class="repair-returns-button" type="button" aria-expanded="false" aria-controls="trafficMeterPanel" hidden>Transfer · MB</button>
           <button id="workstationBtn" class="workstation-button" type="button" hidden>Stanowisko</button>
           <button id="logoutBtn" class="logout-button" type="button" hidden>Wyloguj</button>
         </div>
       </div>
 
+      <section id="trafficMeterPanel" class="traffic-meter-panel" aria-label="Transfer danych API Supabase" hidden>
+        <header><h3>Transfer danych · wszystkie komputery</h3><div class="repair-return-actions"><button id="trafficMeterRefresh" class="reset-filters-btn" type="button">Odśwież</button><button id="trafficMeterClose" class="reset-filters-btn" type="button">Zamknij</button></div></header>
+        <div id="trafficMeterSummary" class="traffic-meter-summary"></div>
+        <p id="trafficMeterStart"></p>
+        <details><summary>Miesięcznie</summary><div class="traffic-meter-table-wrap"><table><thead><tr><th>Miesiąc</th><th>Wysłane · MB</th><th>Odebrane · MB</th></tr></thead><tbody id="trafficMeterMonths"></tbody></table></div></details>
+        <p class="traffic-meter-scope">Suma z komputerów z włączonym nowym licznikiem, synchronizowana co minutę podczas pracy aplikacji. Pomiar treści zapytań i odpowiedzi API Supabase. Bez nagłówków, kompresji, Realtime, plików strony i zapytań samego licznika. Wcześniejszy transfer jest niedostępny. Trwałość statystyk zapewnia zapis w Supabase; ostatnie niezsynchronizowane pomiary pozostają w przeglądarce.</p>
+      </section>
       <section id="repairReturnsPanel" class="repair-returns-panel" aria-label="Powroty produktów" hidden>
         <header><h3>Powroty produktów — do odbioru</h3><div class="repair-return-actions">
           <div id="repairReturnsPlace" class="repair-return-places" role="group" aria-label="Miejsce powrotu" hidden>
@@ -3202,12 +3210,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261019-9"></script>
-    <script src="data-layer.js?v=20261019-9"></script>
-    <script src="sync-layer.js?v=20261019-9"></script>
-    <script src="repair-returns.js?v=20261019-9"></script>
-    <script src="offline-vault.js?v=20261019-9"></script>
-    <script src="offline-forms.js?v=20261019-9"></script>
-  <script src="app.js?v=20261019-9"></script>
+    <script src="supabase-config.js?v=20261020-1"></script>
+    <script src="data-layer.js?v=20261020-1"></script>
+    <script src="sync-layer.js?v=20261020-1"></script>
+    <script src="traffic-meter.js?v=20261020-1"></script>
+    <script src="repair-returns.js?v=20261020-1"></script>
+    <script src="offline-vault.js?v=20261020-1"></script>
+    <script src="offline-forms.js?v=20261020-1"></script>
+  <script src="app.js?v=20261020-1"></script>
   </body>
 </html>
