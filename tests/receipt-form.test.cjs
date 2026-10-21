@@ -30,7 +30,8 @@ function setup() {
     isoDateForSave: value => /^2026-\d{2}-\d{2}$/.test(value) ? value : '',
     isFullPersonName: value => value.trim().split(/\s+/).length > 1
   });
-  for (const name of ['pricingOfferAccessoryKind', 'receiptSnapshot', 'validatePricingReceipt', 'receiptDeviceForSerial', 'receiptCustomerPurchases',
+  ctx.normalizeDeviceSearchText = value => String(value || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/ł/g, 'l').trim();
+  for (const name of ['pricingOfferAccessoryKind', 'recentReceiptCustomers', 'receiptSnapshot', 'validatePricingReceipt', 'receiptDeviceForSerial', 'receiptCustomerPurchases',
     'receiptAutofillField', 'applyReceiptPurchase', 'completeReceiptCustomer', 'completeReceiptSerial', 'transferReceiptSides']) vm.runInContext(extract(name), ctx);
   return { ctx, fields, set(id, value) { fields.get(id).value = value; } };
 }
@@ -184,6 +185,27 @@ test('customer completion does not undo a deliberate side swap', () => {
   t.ctx.completeReceiptCustomer();
   assert.equal(t.fields.get('receiptSerialP').value, 'BBB');
   assert.equal(t.fields.get('receiptSerialL').value, 'AAA');
+});
+
+test('receipt suggestions contain ten unique recipients ordered by actual pickup date, not entry date', () => {
+  const { ctx } = setup();
+  const rows = Array.from({ length: 12 }, (_, index) => ({ customerName: `Jan Testowy${index}`,
+    pickupDate: `2026-10-${String(index + 1).padStart(2, '0')}`, deviceName: 'Model' }));
+  rows.push({ customerName: 'Jan Testowy0', pickupDate: '2026-10-20', deviceName: 'Model' });
+  rows.push({ customerName: 'Nie Odebrał', pickupDate: '', receivedDate: '2026-10-21' });
+  rows.push({ customerName: 'Przyszły Odbiór', pickupDate: '2026-10-22' });
+  rows.push({ customerName: 'Klient Zwrot', pickupDate: '2026-10-21', type: 'ZWROT' });
+  rows.push({ customerName: 'Klient Ładowarka', pickupDate: '2026-10-21', deviceName: 'Charger' });
+  const result = ctx.recentReceiptCustomers(rows, '', '2026-10-21');
+  assert.equal(result.length, 10);
+  assert.equal(result[0].customer, 'Jan Testowy0');
+  assert.equal(result[1].customer, 'Jan Testowy11');
+  assert.equal(new Set(result.map(entry => entry.customer)).size, 10);
+  assert.equal(ctx.recentReceiptCustomers(rows, 'nieznany', '2026-10-21').length, 0);
+  assert.equal(ctx.recentReceiptCustomers(rows, 'testowy1', '2026-10-21').length, 3);
+  assert.match(html, /id="receiptCustomerInput"[^>]*aria-controls="receiptRecentCustomers"/);
+  assert.match(extract('renderReceiptRecentCustomers'), /completeReceiptCustomer\(\)/);
+  assert.match(extract('resetPricingReceipt'), /hideReceiptRecentCustomers\(\)/);
 });
 test('receipt is available online and offline, clears personal data, and never writes business records', () => {
   assert.match(html, /id="receiptTab"[^>]+data-view="receipt"/);
