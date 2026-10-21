@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261021-9">
+  <link rel="stylesheet" href="styles.css?v=20261021-10">
   </head>
   <body>
     <main class="app-shell">
@@ -1281,16 +1281,17 @@
                 <label class="person-name-field"><span>Imię i nazwisko</span><input id="receiptCustomerInput" list="customerNameSuggestions" autocomplete="off" required></label>
                 <label><span>Data odbioru</span><input id="receiptDateInput" type="text" data-date-picker placeholder="DD.MM.RRRR" autocomplete="off" required></label>
                 <label class="rodo-address-field"><span>Adres zamieszkania</span><input id="receiptAddressInput" autocomplete="off"></label>
-                <label><span>Aparat P · model</span><input id="receiptModelP" list="deviceNameSuggestions" autocomplete="off"></label>
-                <label><span>Nr seryjny P</span><input id="receiptSerialP" autocomplete="off"></label>
-                <label><span>Aparat L · model</span><input id="receiptModelL" list="deviceNameSuggestions" autocomplete="off"></label>
-                <label><span>Nr seryjny L</span><input id="receiptSerialL" autocomplete="off"></label>
+                <label><span>Aparat <b class="receipt-side-P">P</b> · model</span><input id="receiptModelP" list="deviceNameSuggestions" autocomplete="off"></label>
+                <label><span>Nr seryjny <b class="receipt-side-P">P</b></span><span class="receipt-serial-control"><input id="receiptSerialP" autocomplete="off"><button type="button" data-receipt-copy="P" aria-label="Kopiuj numer seryjny P">Kopiuj</button></span></label>
+                <label><span>Aparat <b class="receipt-side-L">L</b> · model</span><input id="receiptModelL" list="deviceNameSuggestions" autocomplete="off"></label>
+                <label><span>Nr seryjny <b class="receipt-side-L">L</b></span><span class="receipt-serial-control"><input id="receiptSerialL" autocomplete="off"><button type="button" data-receipt-copy="L" aria-label="Kopiuj numer seryjny L">Kopiuj</button></span></label>
                 <label><span>Refundacja NFZ · łącznie (zł)</span><input id="receiptNfzInput" type="number" min="0" step="0.01" placeholder="0,00"></label>
                 <fieldset class="receipt-tested"><legend>Testowanie w domu</legend>
                   <label><input type="radio" name="receiptTested" value="yes"> Tak</label>
                   <label><input type="radio" name="receiptTested" value="no"> Nie</label>
                 </fieldset>
               </div>
+              <label id="receiptPurchaseField" hidden><span>Wybierz zakup klienta</span><select id="receiptPurchaseChoice" aria-label="Zakup do potwierdzenia odbioru"></select></label>
               <fieldset class="receipt-documents"><legend>Wydane dokumenty i zabezpieczenia</legend>
                 <label><input id="receiptInstructions" type="checkbox"> Instrukcja użytkowania</label>
                 <label><input id="receiptWarranty" type="checkbox"> Karta gwarancyjna</label>
@@ -1303,18 +1304,29 @@
               </div>
             </section>
             <article id="pricingReceiptPrint" class="receipt-document">
+              <section class="receipt-page">
               <header class="rodo-print-head"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Potwierdzenie odbioru aparatu słuchowego</h2></div><img src="satis-monogram.png" alt="SATIS"></header>
+              <h3>Dane klienta i odebrane aparaty</h3>
               <p>Ja, niżej podpisany/a <strong data-receipt-out="customer"></strong>, zamieszkały/a <span data-receipt-out="address"></span>, oświadczam, że w dniu <strong data-receipt-out="date"></strong> odebrałem/am <strong data-receipt-out="quantity"></strong>.</p>
               <table class="receipt-device-table"><thead><tr><th>Strona</th><th>Model aparatu</th><th>Nr seryjny</th></tr></thead><tbody id="receiptDeviceRows"></tbody></table>
+              <h3>Refundacja i dofinansowanie</h3>
               <p>Oświadczam, że w dniu dokonania zakupu skorzystałem/am z refundacji NFZ w wysokości <strong data-receipt-out="nfz"></strong> zł.</p>
               <p>Oświadczam, że zostałem/am poinformowany/a, że w przypadku posiadania orzeczenia o niepełnosprawności istnieje możliwość uzyskania dodatkowego dofinansowania z PCPR / MOPS. Zostałem/am również poinformowany/a o możliwości odbioru w gabinecie dokumentów niezbędnych do uzyskania dofinansowania oraz o możliwości samodzielnego złożenia wniosku.</p>
+              <h3>Wybór i testowanie</h3>
               <p>Potwierdzam, że przed dokonaniem wyboru zostałem/am poinformowany/a o dostępnych modelach aparatów słuchowych, ich funkcjach oraz możliwościach technicznych. Po zapoznaniu się z przedstawionymi informacjami dokonałem/am świadomego wyboru wskazanego aparatu lub aparatów.</p>
               <p>Potwierdzam, że zostałem/am poinformowany/a o możliwości wypróbowania aparatu słuchowego przed zakupem w warunkach domowych.</p>
               <p class="receipt-check-line">Pacjent testował aparat w warunkach domowych: <span data-receipt-check="testedYes"></span> TAK <span data-receipt-check="testedNo"></span> NIE</p>
               <p>Potwierdzam, że aparat słuchowy został dopasowany, uruchomiony oraz sprawdzony w mojej obecności, a jego działanie w chwili odbioru jest prawidłowe.</p>
+              <footer class="receipt-page-number">1 / 2</footer>
+              </section>
+              <section class="receipt-page">
+              <header class="rodo-print-head"><div><span class="rodo-print-kicker">SATIS · Pracownia Słuchu</span><h2>Użytkowanie i dokumenty</h2></div><img src="satis-monogram.png" alt="SATIS"></header>
+              <p class="receipt-client-repeat"><strong data-receipt-out="customer"></strong> · <span data-receipt-out="date"></span></p>
+              <h3>Instruktaż i opieka po zakupie</h3>
               <p>Oświadczam, że zostałem/am poinformowany/a o zasadach prawidłowego użytkowania aparatu słuchowego, jego pielęgnacji, czyszczeniu, przechowywaniu oraz o konieczności stosowania się do zaleceń dotyczących jego eksploatacji.</p>
               <p>Zostałem/am również poinformowany/a, że korzystanie z aparatu słuchowego może wymagać okresu adaptacji, w trakcie którego stopniowo następuje przyzwyczajenie się do nowych bodźców dźwiękowych.</p>
               <p>Potwierdzam, że zostałem/am poinformowany/a o możliwości oraz zaleceniach dotyczących wizyt kontrolnych i regulacyjnych, które mogą być konieczne dla prawidłowego dopasowania oraz komfortowego użytkowania aparatu.</p>
+              <h3>Wydane dokumenty i zabezpieczenia</h3>
               <p>Oświadczam, że otrzymałem/am instruktaż dotyczący obsługi aparatu słuchowego oraz potwierdzam odbiór następujących dokumentów i zabezpieczeń:</p>
               <ul class="receipt-check-list">
                 <li><span data-receipt-check="instructions"></span> instrukcja użytkowania</li>
@@ -1325,6 +1337,8 @@
               <p>Przyjmuję do wiadomości, że nieprawidłowe użytkowanie, brak odpowiedniej konserwacji lub uszkodzenia mechaniczne mogą wpływać na działanie aparatu oraz mogą skutkować ograniczeniem uprawnień wynikających z gwarancji.</p>
               <p>Oświadczam, że miałem/am możliwość zadawania pytań dotyczących użytkowania aparatu słuchowego i uzyskałem/am na nie wyczerpujące odpowiedzi.</p>
               <div class="receipt-signatures"><p><span>Data, pieczęć i podpis pracownika</span></p><p><span>Data i podpis klienta</span></p></div>
+              <footer class="receipt-page-number">2 / 2</footer>
+              </section>
             </article>
           </section>
 
@@ -3271,13 +3285,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261021-9"></script>
-    <script src="data-layer.js?v=20261021-9"></script>
-    <script src="sync-layer.js?v=20261021-9"></script>
-    <script src="traffic-meter.js?v=20261021-9"></script>
-    <script src="repair-returns.js?v=20261021-9"></script>
-    <script src="offline-vault.js?v=20261021-9"></script>
-    <script src="offline-forms.js?v=20261021-9"></script>
-  <script src="app.js?v=20261021-9"></script>
+    <script src="supabase-config.js?v=20261021-10"></script>
+    <script src="data-layer.js?v=20261021-10"></script>
+    <script src="sync-layer.js?v=20261021-10"></script>
+    <script src="traffic-meter.js?v=20261021-10"></script>
+    <script src="repair-returns.js?v=20261021-10"></script>
+    <script src="offline-vault.js?v=20261021-10"></script>
+    <script src="offline-forms.js?v=20261021-10"></script>
+  <script src="app.js?v=20261021-10"></script>
   </body>
 </html>
