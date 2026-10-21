@@ -97,3 +97,4 @@
 !/tests/document-save-feedback.test.cjs
 !/tests/traffic-meter.test.cjs
 !/tests/traffic-meter.sqltest.cjs
+!/tests/vacation-balance-visibility.test.cjs

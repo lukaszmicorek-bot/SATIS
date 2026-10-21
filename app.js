@@ -1574,7 +1574,7 @@ function updatePrivateModulesVisibility() {
   });
   if (vacationEmployeeAdmin) vacationEmployeeAdmin.hidden = !ownerVisible;
   updateVacationOwnerLeaveField();
-  if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible;
+  if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible || !vacationCanViewBalance(selectedVacationEmployee());
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
   if (!sharedVisible) {
     if (workTimePinInput) workTimePinInput.value = "";
@@ -21571,6 +21571,18 @@ function selectedVacationEmployee() {
   return vacationEmployees.find((employee) => employee.id === vacationEmployeeInput?.value) || null;
 }
 
+function vacationCanViewBalance(employee) {
+  if (!employee || !currentSupabaseUser) return false;
+  if (canViewPrivateModules()) return true;
+  const access = loadVacationData.access;
+  if (!access || access.userId !== currentSupabaseUser.id || !Array.isArray(access.employeeIds)) return false;
+  if (access.employeeIds.length) return access.employeeIds.includes(employee.id);
+  // Shared gabinet: workstation controls visibility only, never personal identity or write permission.
+  const workstation = normalizeWorkstationName(currentWorkstationName()).toLocaleUpperCase("pl-PL");
+  const places = ["T12", "P50", "P63"].filter(place => workstation.includes(place));
+  return places.length === 1 && normalizeVacationEmployeeWorkstation(employee.workstation, employee.name) === places[0];
+}
+
 function vacationMyEmployeeId() {
   if (canViewPrivateModules()) return "";
   const access = loadVacationData.access;
@@ -21677,7 +21689,8 @@ function renderVacationEmployees() {
   const previousValue = vacationEmployeeInput.value;
   const employees = vacationEmployeesForYear();
   const myEmployeeId = vacationMyEmployeeId();
-  const defaultEmployeeId = employees.some((employee) => employee.id === myEmployeeId) ? myEmployeeId : employees[0]?.id || "";
+  const defaultEmployeeId = employees.some((employee) => employee.id === myEmployeeId) ? myEmployeeId
+    : employees.find(employee => vacationCanViewBalance(employee))?.id || employees[0]?.id || "";
   vacationEmployeeInput.value = employees.some((employee) => employee.id === previousValue) ? previousValue : defaultEmployeeId;
 
   if (!vacationEmployeeList) return;
@@ -21700,7 +21713,8 @@ function renderVacationEmployees() {
     allowance.className = "vacation-employee-allowance";
     const amount = employee.redacted ? employee.remaining : employee.allowance;
     allowance.textContent = `${employee.redacted ? "Pozostało: " : ""}${amount == null ? "-" : formatVacationAmount(amount)} ${vacationEmployeeUsesHours(employee) ? "godz." : "dni"}`;
-    item.append(name, allowance);
+    item.append(name);
+    if (vacationCanViewBalance(employee)) item.append(allowance);
     if (canViewPrivateModules()) {
       const usagePercent = vacationEmployeeUsagePercent(employee);
       const percent = document.createElement("span");
@@ -21838,6 +21852,8 @@ function renderVacationSaturdayHolidays() {
 
 function renderVacationSummary() {
   const employee = selectedVacationEmployee();
+  const canViewBalance = vacationCanViewBalance(employee);
+  if (vacationRemainingCard) vacationRemainingCard.hidden = !canViewBalance;
   const usesHours = vacationEmployeeUsesHours(employee);
   const requests = vacationRequests.filter((request) =>
     request.year === selectedVacationYear() &&
@@ -21849,17 +21865,17 @@ function renderVacationSummary() {
   const pending = employee ? requests
     .filter((request) => request.status === "OCZEKUJE" && vacationUsesAnnualAllowance(request))
     .reduce((sum, request) => sum + requestAmount(request), 0) : 0;
-  const allowance = employee?.allowance ?? null;
+  const allowance = canViewBalance ? employee?.allowance ?? null : null;
   if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : formatVacationAmount(allowance);
-  if (vacationUsedTotal) vacationUsedTotal.textContent = employee && !employee.redacted ? formatVacationAmount(used) : "-";
-  const remaining = employee?.redacted ? employee.remaining : employee ? Math.max(0, allowance - used) : null;
+  if (vacationUsedTotal) vacationUsedTotal.textContent = canViewBalance && employee && !employee.redacted ? formatVacationAmount(used) : "-";
+  const remaining = !canViewBalance ? null : employee?.redacted ? employee.remaining : employee ? Math.max(0, allowance - used) : null;
   if (vacationRemainingTotal) vacationRemainingTotal.textContent = remaining === null ? "-" : formatVacationAmount(remaining);
   if (vacationRemainingCard) {
     vacationRemainingCard.dataset.tone = remaining === null ? "none" : remaining <= 3 ? "critical" : remaining <= 7 ? "warning" : "good";
   }
-  if (vacationPendingTotal) vacationPendingTotal.textContent = employee && !employee.redacted ? formatVacationAmount(pending) : "-";
+  if (vacationPendingTotal) vacationPendingTotal.textContent = canViewBalance && employee && !employee.redacted ? formatVacationAmount(pending) : "-";
   if (vacationAllowanceUnitLabel) vacationAllowanceUnitLabel.textContent = usesHours ? "godzin w roku" : "dni w roku";
-  const expected = employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
+  const expected = canViewPrivateModules() && employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
   const planBalance = expected === null ? null : expected - used;
   const unitLabel = usesHours ? "godz." : "dni";
   if (vacationExpectedTotal) vacationExpectedTotal.textContent = planBalance === null
