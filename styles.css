@@ -16422,11 +16422,25 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .receipt-documents { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 14px !important; }
 #receiptStatus { color: #a43449; font-size: 13px; }
 .receipt-document {
-  width: min(100%, 820px); margin: 0 auto; padding: 28px;
-  background: #fff; color: #111; border: 1px solid #d7e3e5;
-  font-family: "Inter", sans-serif; font-size: 13px; line-height: 1.4;
+  width: min(100%, 820px); margin: 0 auto;
+  color: #111; font-family: "Inter", sans-serif; font-size: 15px; line-height: 1.55;
 }
-.receipt-document p { margin: 0 0 9px; }
+.receipt-page { padding: 32px; border: 1px solid #d7e3e5; background: #fff; }
+.receipt-page + .receipt-page { margin-top: 22px; }
+.receipt-page h3 { color: #003f5a; font-size: 16px; margin: 24px 0 12px; }
+.receipt-document p { margin: 0 0 14px; }
+.receipt-page-number { text-align: right; margin-top: 25px; color: #64747b; font-size: 12px; }
+.receipt-side-P { color: #b82f43 !important; font-weight: 750; }
+.receipt-side-L { color: #2567a8 !important; font-weight: 750; }
+.receipt-serial-control { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.receipt-serial-control input { width: 100%; min-width: 0; }
+.receipt-serial-control button, .receipt-copy-serial {
+  flex: none; padding: 5px 7px; font-size: 11px; border: 1px solid #dce5e7;
+  color: #506b77; background: #f7fafa; border-radius: 5px;
+}
+.receipt-copy-serial { margin-left: 7px; }
+#receiptPurchaseField:not([hidden]) { display: grid; gap: 6px; margin-top: 12px; }
+#receiptPurchaseChoice { min-width: 0; width: 100%; }
 .receipt-device-table { width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: fixed; }
 .receipt-device-table th, .receipt-device-table td {
   border: 1px solid #c1cdcf; padding: 7px 9px; text-align: left; overflow-wrap: anywhere;
@@ -16447,9 +16461,9 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .receipt-signatures span { display: block; font-size: 11px; padding-bottom: 6px; }
 #printReceiptBtn { background: #007f80; border-color: #007f80; color: #fff; }
 #printReceiptBtn:hover { background: #006568; border-color: #006568; }
-@page receiptPage { size: A4 portrait; margin: 10mm; }
+@page receiptPage { size: A4 portrait; margin: 14mm; }
 @media (max-width: 640px) {
-  .receipt-document { padding: 16px; }
+  .receipt-page { padding: 16px; }
   .receipt-builder .rodo-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media print {
@@ -16463,15 +16477,21 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   }
   body:is(.receipt-print, .offline-receipt-print) .receipt-document {
     page: receiptPage; width: 100%; max-width: none; margin: 0; padding: 0; border: 0;
-    font-size: 10pt; line-height: 1.25; color: #000;
+    font-size: 11pt; line-height: 1.45; color: #000;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
   }
-  body:is(.receipt-print, .offline-receipt-print) .receipt-document p { margin-bottom: 2mm; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-page { padding: 0; border: 0; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-page + .receipt-page { margin-top: 0; break-before: page; page-break-before: always; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-page h3 { font-size: 12pt; margin: 5mm 0 2.5mm; break-after: avoid; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-document p { margin-bottom: 3mm; orphans: 3; widows: 3; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-page-number { margin-top: 5mm; font-size: 8pt; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-copy-serial { display: none; }
   body:is(.receipt-print, .offline-receipt-print) .rodo-print-head { margin-bottom: 3mm; padding-bottom: 2mm; }
   body:is(.receipt-print, .offline-receipt-print) .rodo-print-head h2 { font-size: 13pt; }
   body:is(.receipt-print, .offline-receipt-print) .receipt-device-table { margin: 2mm 0; }
   body:is(.receipt-print, .offline-receipt-print) .receipt-device-table :is(th, td) { padding: 1.5mm 2mm; }
-  body:is(.receipt-print, .offline-receipt-print) .receipt-signatures { margin-top: 3mm; break-inside: avoid; }
-  body:is(.receipt-print, .offline-receipt-print) .receipt-signatures p { padding-top: 7mm; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-signatures { margin-top: 6mm; break-inside: avoid; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-signatures p { padding-top: 12mm; }
   body.offline-receipt-print #offlinePrint { padding-top: 0; }
 }
 

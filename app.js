@@ -9491,6 +9491,9 @@ function renderPricingReceipt() {
   const print = document.getElementById("pricingReceiptPrint");
   if (!print) return;
   const snapshot = receiptSnapshot();
+  pricingReceiptView.querySelectorAll("[data-receipt-copy]").forEach((button) => {
+    button.disabled = !document.getElementById(`receiptSerial${button.dataset.receiptCopy}`).value.trim();
+  });
   const outputs = { customer: snapshot.customer, address: snapshot.address,
     date: snapshot.date ? formatDate(snapshot.date) : "",
     quantity: snapshot.items.length === 2 ? "aparaty słuchowe (2 szt.)" : "aparat słuchowy (1 szt.)",
@@ -9505,9 +9508,19 @@ function renderPricingReceipt() {
   const rows = snapshot.items.length ? snapshot.items : [{ side: "—", model: "", serial: "" }];
   document.getElementById("receiptDeviceRows").replaceChildren(...rows.map((item) => {
     const row = document.createElement("tr");
-    for (const value of [item.side, item.model, item.serial]) {
+    for (const [index, value] of [item.side, item.model, item.serial].entries()) {
       const cell = document.createElement("td");
       cell.textContent = value || "—";
+      if (index === 0) cell.className = `receipt-side-${item.side}`;
+      if (index === 2 && item.serial) {
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "receipt-copy-serial";
+        copy.textContent = "Kopiuj";
+        copy.setAttribute("aria-label", `Kopiuj numer ${item.serial}`);
+        copy.addEventListener("click", () => copySerialNumber(item.serial, copy, "Kopiuj numer seryjny"));
+        cell.append(copy);
+      }
       row.append(cell);
     }
     return row;
@@ -9519,7 +9532,13 @@ function resetPricingReceipt() {
     if (["radio", "checkbox"].includes(input.type)) input.checked = false;
     else input.value = "";
     input.setCustomValidity("");
+    delete input.dataset.receiptAuto;
   });
+  if (pricingReceiptView) delete pricingReceiptView.dataset.receiptCustomer;
+  const choice = document.getElementById("receiptPurchaseChoice");
+  choice?.replaceChildren();
+  const purchaseField = document.getElementById("receiptPurchaseField");
+  if (purchaseField) purchaseField.hidden = true;
   setDateInputValue("#receiptDateInput", todayInputValue());
   const status = document.getElementById("receiptStatus");
   if (status) status.textContent = "";
@@ -9534,19 +9553,109 @@ function receiptDeviceForSerial(serial, source) {
   return identities.size === 1 ? matches[0] : null;
 }
 
+function receiptCustomerPurchases(customer, source) {
+  const key = customerNameLookupKey(customer);
+  if (!key) return [];
+  const groups = new Map();
+  source.forEach((entry) => {
+    if (customerNameLookupKey(entry.customerName) !== key || !entry.deviceName || !entry.serialNumber || entry.type === "ZWROT"
+      || pricingOfferAccessoryKind({ model: entry.deviceName })) return;
+    const groupKey = normalize(entry.salesInvoice).trim() || isoDateForSave(entry.pickupDate) || entry.id;
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    const group = groups.get(groupKey);
+    if (!group.some((item) => normalizeSerialNumber(item.serialNumber) === normalizeSerialNumber(entry.serialNumber))) group.push(entry);
+  });
+  return [...groups.values()].sort((a, b) => String(b[0].pickupDate || b[0].receivedDate || "").localeCompare(String(a[0].pickupDate || a[0].receivedDate || "")));
+}
+
+function receiptAutofillField(id, value) {
+  const input = document.getElementById(id);
+  if (!input || !value || input.value.trim() && input.dataset.receiptAuto !== input.value) return;
+  input.value = value;
+  input.dataset.receiptAuto = input.value;
+  input.setCustomValidity("");
+}
+
+function applyReceiptPurchase(group, preferredSide = "P", preferredSerial = "") {
+  const status = document.getElementById("receiptStatus");
+  if (!group || group.length > 2) {
+    status.textContent = "Zakup zawiera więcej pozycji. Wybierz ręcznie maksymalnie dwa odebrane aparaty.";
+    return;
+  }
+  const ordered = [...group];
+  const anchor = ordered.findIndex((entry) => normalizeSerialNumber(entry.serialNumber) === normalizeSerialNumber(preferredSerial));
+  if (anchor > 0) ordered.unshift(...ordered.splice(anchor, 1));
+  const sides = preferredSide === "L" ? ["L", "P"] : ["P", "L"];
+  for (const side of sides) {
+    for (const prefix of ["receiptSerial", "receiptModel"]) {
+      const input = document.getElementById(`${prefix}${side}`);
+      if (input.dataset.receiptAuto === input.value) input.value = "";
+      delete input.dataset.receiptAuto;
+    }
+  }
+  ordered.forEach((entry, index) => {
+    receiptAutofillField(`receiptSerial${sides[index]}`, normalizeSerialNumber(entry.serialNumber));
+    receiptAutofillField(`receiptModel${sides[index]}`, entry.deviceName);
+  });
+  status.textContent = "Uzupełniono dane zakupu. Sprawdź przypisanie aparatów do strony P i L.";
+  renderPricingReceipt();
+}
+
+function completeReceiptCustomer({ preferredSide = "P", preferredSerial = "", selectedIndex = null } = {}) {
+  const customer = document.getElementById("receiptCustomerInput");
+  const key = customerNameLookupKey(customer.value);
+  const customerChanged = pricingReceiptView.dataset.receiptCustomer !== key;
+  if (customerChanged) {
+    pricingReceiptView.querySelectorAll("[data-receipt-auto]").forEach((input) => {
+      if (input.value === input.dataset.receiptAuto) input.value = "";
+      delete input.dataset.receiptAuto;
+    });
+    pricingReceiptView.dataset.receiptCustomer = key;
+  }
+  const groups = receiptCustomerPurchases(customer.value, records);
+  const choice = document.getElementById("receiptPurchaseChoice");
+  const previousChoice = customerChanged ? "" : choice.value;
+  const field = document.getElementById("receiptPurchaseField");
+  choice.replaceChildren(new Option("Wybierz zakup…", ""), ...groups.map((group, index) =>
+    new Option([group[0].salesInvoice, group[0].pickupDate ? formatDate(group[0].pickupDate) : "",
+      group.map((entry) => `${entry.deviceName} · ${entry.serialNumber}`).join(" / ")].filter(Boolean).join(" · "), String(index))));
+  field.hidden = groups.length <= 1;
+  const selected = selectedIndex !== null ? groups[selectedIndex] : preferredSerial
+    ? groups.find((group) => group.some((entry) => normalizeSerialNumber(entry.serialNumber) === normalizeSerialNumber(preferredSerial)))
+    : previousChoice !== "" ? groups[Number(previousChoice)] : groups.length === 1 ? groups[0] : null;
+  if (selected) {
+    choice.value = String(groups.indexOf(selected));
+    applyReceiptPurchase(selected, preferredSide, preferredSerial);
+  } else {
+    document.getElementById("receiptStatus").textContent = groups.length > 1
+      ? "Znaleziono kilka zakupów tej osoby. Wybierz właściwy zakup przed uzupełnieniem aparatów."
+      : "";
+  }
+  const addresses = [...new Set(customerHistoryContactEntries(customer.value).map((entry) => entry.address).filter(Boolean))];
+  if (addresses.length === 1) receiptAutofillField("receiptAddressInput", addresses[0]);
+  else if (addresses.length > 1) document.getElementById("receiptStatus").textContent += " W historii są różne adresy. Sprawdź i wpisz aktualny adres.";
+  renderPricingReceipt();
+}
+
 function completeReceiptSerial(side) {
   const serial = document.getElementById(`receiptSerial${side}`);
   serial.value = normalizeSerialNumber(serial.value);
   const match = receiptDeviceForSerial(serial.value, records);
   const status = document.getElementById("receiptStatus");
   status.textContent = "";
+  if (match && pricingOfferAccessoryKind({ model: match.deviceName })) {
+    status.textContent = "Ten numer dotyczy akcesorium. Wybierz numer seryjny aparatu słuchowego.";
+    renderPricingReceipt();
+    return;
+  }
   if (match) {
     const customer = document.getElementById("receiptCustomerInput");
     if (customer.value.trim() && customerNameLookupKey(customer.value) !== customerNameLookupKey(match.customerName)) {
       status.textContent = "Numer seryjny jest przypisany w Bazie do innej osoby. Sprawdź dane przed wydrukiem.";
     } else {
-      document.getElementById(`receiptModel${side}`).value = match.deviceName || "";
+      receiptAutofillField(`receiptModel${side}`, match.deviceName || "");
       if (!customer.value.trim()) customer.value = titleCaseName(match.customerName || "");
+      completeReceiptCustomer({ preferredSide: side, preferredSerial: serial.value });
     }
   } else if (serial.value) {
     status.textContent = "Brak jednoznacznego powiązania numeru w Bazie. Uzupełnij i sprawdź dane ręcznie.";
@@ -28860,12 +28969,17 @@ document.querySelector("#printRodoBtn")?.addEventListener("click", printPricingR
 resetPricingRodo();
 pricingReceiptView?.querySelector(".receipt-builder")?.addEventListener("input", (event) => {
   event.target.setCustomValidity?.("");
+  if (event.target.dataset) delete event.target.dataset.receiptAuto;
   renderPricingReceipt();
 });
 pricingReceiptView?.querySelector(".receipt-builder")?.addEventListener("change", renderPricingReceipt);
 document.getElementById("receiptCustomerInput")?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
-  renderPricingReceipt();
+  completeReceiptCustomer();
+});
+document.getElementById("receiptCustomerInput")?.addEventListener("input", debounce(() => completeReceiptCustomer(), SEARCH_DEBOUNCE_MS));
+document.getElementById("receiptPurchaseChoice")?.addEventListener("change", (event) => {
+  if (event.target.value !== "") completeReceiptCustomer({ selectedIndex: Number(event.target.value) });
 });
 document.getElementById("receiptAddressInput")?.addEventListener("blur", (event) => {
   event.target.value = formatLoanAddress(event.target.value, { final: true });
@@ -28876,8 +28990,15 @@ for (const side of ["P", "L"]) {
     event.target.value = normalizeSerialNumber(event.target.value);
     renderPricingReceipt();
   });
+  document.getElementById(`receiptSerial${side}`)?.addEventListener("input", debounce(() => completeReceiptSerial(side), SEARCH_DEBOUNCE_MS));
   document.getElementById(`receiptSerial${side}`)?.addEventListener("blur", () => completeReceiptSerial(side));
 }
+pricingReceiptView?.querySelectorAll("[data-receipt-copy]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const value = normalizeSerialNumber(document.getElementById(`receiptSerial${button.dataset.receiptCopy}`).value);
+    if (value) void copySerialNumber(value, button, "Kopiuj numer seryjny");
+  });
+});
 document.getElementById("newReceiptBtn")?.addEventListener("click", resetPricingReceipt);
 document.getElementById("printReceiptBtn")?.addEventListener("click", printPricingReceipt);
 resetPricingReceipt();

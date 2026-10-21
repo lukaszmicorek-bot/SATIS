@@ -12,20 +12,26 @@ function extract(name) {
 function setup() {
   const fields = new Map();
   for (const id of ['receiptCustomerInput', 'receiptDateInput', 'receiptAddressInput', 'receiptNfzInput',
-    'receiptModelP', 'receiptSerialP', 'receiptModelL', 'receiptSerialL', 'receiptInstructions', 'receiptWarranty', 'receiptBattery', 'receiptStatus']) {
-    fields.set(id, { value: '', checked: false, textContent: '', validity: '',
+    'receiptModelP', 'receiptSerialP', 'receiptModelL', 'receiptSerialL', 'receiptInstructions', 'receiptWarranty', 'receiptBattery', 'receiptStatus',
+    'receiptPurchaseChoice', 'receiptPurchaseField']) {
+    fields.set(id, { value: '', checked: false, textContent: '', validity: '', dataset: {},
+      replaceChildren(...children) { this.children = children; this.value = ''; },
       setCustomValidity(value) { this.validity = value; }, reportValidity() { return !this.validity; } });
   }
   const ctx = vm.createContext({
     document: { getElementById: id => fields.get(id) },
-    pricingReceiptView: { querySelector: () => null },
+    pricingReceiptView: { dataset: {}, querySelector: () => null,
+      querySelectorAll: () => [...fields.values()].filter(input => input.dataset.receiptAuto !== undefined) },
+    Option: function (text, value) { this.text = text; this.value = value; },
+    records: [], customerHistoryContactEntries: () => [], renderPricingReceipt() {}, formatDate: value => value,
     titleCaseName: value => value, normalizeSerialNumber: value => String(value || '').trim().toUpperCase(),
     normalize: value => String(value || '').toLowerCase(),
     customerNameLookupKey: value => String(value || '').toLowerCase(),
     isoDateForSave: value => /^2026-\d{2}-\d{2}$/.test(value) ? value : '',
     isFullPersonName: value => value.trim().split(/\s+/).length > 1
   });
-  for (const name of ['receiptSnapshot', 'validatePricingReceipt', 'receiptDeviceForSerial']) vm.runInContext(extract(name), ctx);
+  for (const name of ['pricingOfferAccessoryKind', 'receiptSnapshot', 'validatePricingReceipt', 'receiptDeviceForSerial', 'receiptCustomerPurchases',
+    'receiptAutofillField', 'applyReceiptPurchase', 'completeReceiptCustomer', 'completeReceiptSerial']) vm.runInContext(extract(name), ctx);
   return { ctx, fields, set(id, value) { fields.get(id).value = value; } };
 }
 test('receipt needs a customer, valid date and model; duplicate serials block printing', () => {
@@ -57,6 +63,78 @@ test('serial completion requires an unambiguous customer and model, even in hist
   assert.equal(ctx.receiptDeviceForSerial('ABC123', [record, { ...record, customerName: 'Inna Osoba' }]), null);
   assert.equal(ctx.receiptDeviceForSerial('', [record]), null);
   assert.equal(ctx.receiptDeviceForSerial('unknown', [record]), null);
+});
+
+test('customer completion fills a unique purchase and address without assuming consents or refund', () => {
+  const t = setup();
+  t.ctx.records = [
+    { id: 'a', serialNumber: 'AAA', deviceName: 'Model A', customerName: 'Jan Testowy', salesInvoice: 'FS 1', pickupDate: '2026-10-21' },
+    { id: 'b', serialNumber: 'BBB', deviceName: 'Model B', customerName: 'Jan Testowy', salesInvoice: 'FS 1', pickupDate: '2026-10-21' },
+    { id: 'charger', serialNumber: 'CH001', deviceName: 'Charger', customerName: 'Jan Testowy', salesInvoice: 'FS 1', pickupDate: '2026-10-21' }
+  ];
+  t.ctx.customerHistoryContactEntries = () => [{ address: 'ul. Testowa 1' }];
+  t.set('receiptCustomerInput', 'Jan Testowy');
+  t.ctx.completeReceiptCustomer();
+  assert.equal(t.fields.get('receiptModelP').value, 'Model A');
+  assert.equal(t.fields.get('receiptSerialL').value, 'BBB');
+  assert.equal(t.fields.get('receiptAddressInput').value, 'ul. Testowa 1');
+  assert.equal(t.fields.get('receiptNfzInput').value, '');
+  assert.equal(t.fields.get('receiptWarranty').checked, false);
+  t.set('receiptAddressInput', 'Adres poprawiony ręcznie');
+  t.ctx.completeReceiptCustomer();
+  assert.equal(t.fields.get('receiptAddressInput').value, 'Adres poprawiony ręcznie');
+  t.ctx.records.push({ id: 'c', serialNumber: 'CCC', deviceName: 'Inny model', customerName: 'Jan Testowy', salesInvoice: 'FS 2' });
+  t.fields.get('receiptPurchaseChoice').value = '';
+  t.ctx.completeReceiptCustomer();
+  assert.equal(t.fields.get('receiptPurchaseField').hidden, false);
+  assert.match(t.fields.get('receiptStatus').textContent, /kilka zakupów/);
+  t.ctx.completeReceiptCustomer({ selectedIndex: 1 });
+  assert.equal(t.fields.get('receiptSerialP').value, 'CCC');
+  assert.equal(t.fields.get('receiptSerialL').value, '', 'switching to a single device clears an old automatic second device');
+});
+
+test('pasted serial fills the customer, model and paired device, preserving the chosen side', () => {
+  const t = setup();
+  t.ctx.records = [
+    { id: 'a', serialNumber: 'AAA', deviceName: 'Model A', customerName: 'Jan Testowy', salesInvoice: 'FS 1' },
+    { id: 'b', serialNumber: 'BBB', deviceName: 'Model B', customerName: 'Jan Testowy', salesInvoice: 'FS 1' }
+  ];
+  t.set('receiptSerialL', 'aaa');
+  t.ctx.completeReceiptSerial('L');
+  assert.equal(t.fields.get('receiptCustomerInput').value, 'Jan Testowy');
+  assert.equal(t.fields.get('receiptModelL').value, 'Model A');
+  assert.equal(t.fields.get('receiptSerialP').value, 'BBB');
+  t.set('receiptCustomerInput', 'Inna Osoba');
+  t.ctx.completeReceiptSerial('L');
+  assert.equal(t.fields.get('receiptCustomerInput').value, 'Inna Osoba');
+  assert.match(t.fields.get('receiptStatus').textContent, /innej osoby/);
+});
+
+test('ambiguous historical addresses stay blank and different purchases are not silently combined', () => {
+  const t = setup();
+  t.ctx.customerHistoryContactEntries = () => [{ address: 'Adres A' }, { address: 'Adres B' }];
+  t.ctx.records = [
+    { id: 'a', serialNumber: 'AAA', deviceName: 'Model A', customerName: 'Jan Testowy', salesInvoice: 'FS 1' },
+    { id: 'b', serialNumber: 'BBB', deviceName: 'Model B', customerName: 'Jan Testowy', salesInvoice: 'FS 2' }
+  ];
+  t.set('receiptCustomerInput', 'Jan Testowy');
+  t.ctx.completeReceiptCustomer();
+  assert.equal(t.fields.get('receiptModelP').value, '');
+  assert.equal(t.fields.get('receiptAddressInput').value, '');
+  assert.match(t.fields.get('receiptStatus').textContent, /różne adresy/);
+});
+
+test('receipt has two explicit pages, matching side colors and screen-only copy controls', () => {
+  const receipt = html.slice(html.indexOf('id="pricingReceiptPrint"'), html.indexOf('</article>', html.indexOf('id="pricingReceiptPrint"')));
+  assert.equal((receipt.match(/class="receipt-page"/g) || []).length, 2);
+  assert.match(receipt, /1 \/ 2/);
+  assert.match(receipt, /2 \/ 2/);
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.receipt-side-P \{ color: #b82f43/);
+  assert.match(css, /\.receipt-side-L \{ color: #2567a8/);
+  assert.match(css, /\.receipt-page \+ \.receipt-page \{[^}]*break-before: page/);
+  assert.match(css, /\.receipt-copy-serial \{ display: none/);
+  assert.match(extract('renderPricingReceipt'), /copySerialNumber\(item.serial/);
 });
 test('receipt is available online and offline, clears personal data, and never writes business records', () => {
   assert.match(html, /id="receiptTab"[^>]+data-view="receipt"/);
