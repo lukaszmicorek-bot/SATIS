@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261021-3">
+  <link rel="stylesheet" href="styles.css?v=20261021-4">
   </head>
   <body>
     <main class="app-shell">
@@ -2438,13 +2438,21 @@
               <input id="vacationOwnerLeaveInput" type="checkbox">
               <span>Mój urlop – zapisz od razu jako zatwierdzony</span>
             </label>
+            <div id="vacationCompensationField" class="private-form-wide" hidden>
+              <div class="vacation-date-range">
+                <label><span>Praca w weekend · od</span><input id="vacationCompensationDate" type="text" data-date-picker readonly placeholder="dd.mm.rrrr" autocomplete="off"></label>
+                <label><span>Praca w weekend · do</span><input id="vacationCompensationDateTo" type="text" data-date-picker readonly placeholder="dd.mm.rrrr" autocomplete="off"></label>
+              </div>
+              <label><span id="vacationCompensationUnit">Liczba dni rekompensaty</span><input id="vacationCompensationAmount" type="number" min="1" max="2" step="1"></label>
+              <p>Wybierz jeden dzień lub zakres sobota–niedziela. Maksymalnie 1 dzień albo 8 godzin rekompensaty za każdy wskazany dzień pracy. Pozostały urlop zgłoś osobno.</p>
+            </div>
             <div class="vacation-date-range">
               <label>
-                <span>Data od</span>
+                <span id="vacationDateFromLabel">Data od</span>
                 <input id="vacationDateFromInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
               </label>
               <label>
-                <span>Data do</span>
+                <span id="vacationDateToLabel">Data do</span>
                 <input id="vacationDateToInput" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off">
               </label>
             </div>
@@ -2457,14 +2465,6 @@
               <div id="vacationSaturdayChoices" class="vacation-saturday-choices" role="group" aria-label="Wybierz święto przypadające w sobotę"></div>
               <input id="vacationSaturdayInput" type="hidden">
             </label>
-            <div id="vacationCompensationField" class="private-form-wide" hidden>
-              <div class="vacation-date-range">
-                <label><span>Praca w weekend · od</span><input id="vacationCompensationDate" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off"></label>
-                <label><span>Praca w weekend · do</span><input id="vacationCompensationDateTo" type="text" data-date-picker placeholder="dd.mm.rrrr" autocomplete="off"></label>
-              </div>
-              <label><span id="vacationCompensationUnit">Liczba dni rekompensaty</span><input id="vacationCompensationAmount" type="number" min="1" max="2" step="1"></label>
-              <p>Wybierz jeden dzień lub zakres sobota–niedziela. Maksymalnie 1 dzień albo 8 godzin rekompensaty za każdy wskazany dzień pracy. Pozostały urlop zgłoś osobno.</p>
-            </div>
             <label id="vacationWeekendReviewField" class="private-form-wide" hidden>
               <input id="vacationWeekendReviewInput" type="checkbox">
               <span>Sprawdzono starą uwagę o weekendzie. Pozostaw urlop roczny lub wybierz „Za pracę w weekend” i podaj datę oraz ilość.</span>
@@ -3213,13 +3213,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261021-3"></script>
-    <script src="data-layer.js?v=20261021-3"></script>
-    <script src="sync-layer.js?v=20261021-3"></script>
-    <script src="traffic-meter.js?v=20261021-3"></script>
-    <script src="repair-returns.js?v=20261021-3"></script>
-    <script src="offline-vault.js?v=20261021-3"></script>
-    <script src="offline-forms.js?v=20261021-3"></script>
-  <script src="app.js?v=20261021-3"></script>
+    <script src="supabase-config.js?v=20261021-4"></script>
+    <script src="data-layer.js?v=20261021-4"></script>
+    <script src="sync-layer.js?v=20261021-4"></script>
+    <script src="traffic-meter.js?v=20261021-4"></script>
+    <script src="repair-returns.js?v=20261021-4"></script>
+    <script src="offline-vault.js?v=20261021-4"></script>
+    <script src="offline-forms.js?v=20261021-4"></script>
+  <script src="app.js?v=20261021-4"></script>
   </body>
 </html>
