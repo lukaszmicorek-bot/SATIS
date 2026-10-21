@@ -9,6 +9,7 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
   const db = new PGlite();
   const owner = '00000000-0000-0000-0000-000000000001';
   const staff = '00000000-0000-0000-0000-000000000002';
+  const otherStaff = '00000000-0000-0000-0000-000000000003';
   const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
   const login = async (id, email) => {
     await db.exec('reset role');
@@ -38,6 +39,7 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
       alter default privileges in schema public grant select,insert,update,delete,truncate,references,trigger on tables to authenticated;
     `);
     await db.query('insert into auth.users values ($1,$2),($3,$4)', [owner,'satis@pracowniasluchu.pl',staff,'gabinet@example.test']);
+    await db.query('insert into auth.users values ($1,$2)', [otherStaff, 'other@example.test']);
     for (const file of ['supabase-schema.sql','supabase-security-hardening.sql','supabase-document-write-guards.sql',
       'supabase-private-payments.sql','supabase-audit-log.sql']) await db.exec(read(file));
     await db.query('insert into vacation_employees(id,data) values ($1,$2),($3,$4)', [
@@ -60,11 +62,39 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     assert.deepEqual(await submit(), saved, 'same operation returns same receipt, not another insert');
     assert.equal((await one("select vacation_is_my_employee('oliwia') allowed")).allowed, false);
     assert.equal((await one('select count(*)::int n from vacation_requests')).n, 0, 'no persistent read grant');
+    const before = (await one('select vacation_read_authorized() result')).result;
+    assert.equal(before.requests.some(row => row.id === request.id), false,
+      'reproduce the bug: a saved shared-account pending request disappears from the read');
+    await db.exec('reset role');
+    await db.exec(read('supabase-vacation-read-submitted.sql'));
+    await db.exec(read('supabase-vacation-read-submitted.sql'));
+    await login(staff, 'gabinet@example.test');
+    const reread = (await one('select vacation_read_authorized() result')).result;
+    const pending = reread.requests.find(row => row.id === request.id);
+    assert.equal(pending.data.status, 'OCZEKUJE');
+    assert.equal(pending.data.redacted, true);
+    assert.equal(pending.data.notes, undefined);
+    assert.equal(pending.data.hours, undefined);
+    assert.equal(pending.revision, null);
+    assert.equal((await one('select count(*)::int n from vacation_requests')).n, 0,
+      'the fix does not grant raw-table access or editing');
+    await login(otherStaff, 'other@example.test');
+    assert.equal((await one('select vacation_read_authorized() result')).result.requests
+      .some(row => row.id === request.id), false, 'another account cannot see this pending submission');
+    await login(owner, 'satis@pracowniasluchu.pl');
+    const ownerRead = (await one('select vacation_read_authorized() result')).result;
+    assert.equal(ownerRead.requests.find(row => row.id === request.id).data.redacted, false);
+    const approved = { ...saved.receipt[0].data, status: 'ZATWIERDZONY' };
+    await db.query('select satis_write_records($1,$2,$3)', [randomUUID(),
+      [{table: 'vacation_requests', id: request.id, data: approved, expectedRevision: 1, delete: false}], 'SATIS']);
+    await login(staff, 'gabinet@example.test');
+    assert.equal((await one('select vacation_read_authorized() result')).result.requests
+      .find(row => row.id === request.id).data.status, 'ZATWIERDZONY');
     await denied(submit({...request, id: 'duplicate'}, randomUUID()));
     await denied(submit({...request, id: 'holiday', dateFrom: '2026-12-25', dateTo: '2026-12-25'}, randomUUID()));
     await denied(db.query('select * from private.vacation_submission_grants'));
     const direct = data => db.query('select satis_write_records($1,$2,$3)', [randomUUID(),
-      [{table: 'vacation_requests', id: 'pin-request', data, expectedRevision: 1, delete: false}], 'P63']);
+      [{table: 'vacation_requests', id: 'pin-request', data, expectedRevision: 2, delete: false}], 'P63']);
     await denied(direct({...saved.receipt[0].data, status: 'ZATWIERDZONY'}));
     await denied(db.query('select satis_write_records($1,$2,$3)', [randomUUID(),
       [{table: 'vacation_requests', id: 'no-pin', data: {...saved.receipt[0].data, id: 'no-pin'},
@@ -88,9 +118,18 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     const legacySaved = await submit({...weekend, id: 'single', dateFrom: '2026-06-18', dateTo: '2026-06-18',
       compensationDate: '2026-06-07', compensationDateTo: '', compensationAmount: 1}, randomUUID());
     assert.equal(legacySaved.receipt[0].data.compensationDateTo, '2026-06-07');
+    await login(owner, 'satis@pracowniasluchu.pl');
+    await db.query('select satis_write_records($1,$2,$3)', [randomUUID(),
+      [{table: 'vacation_requests', id: request.id, data: {...approved, status: 'ODRZUCONY'}, expectedRevision: 2, delete: false}], 'SATIS']);
+    await login(staff, 'gabinet@example.test');
+    assert.equal((await one('select vacation_read_authorized() result')).result.requests
+      .find(row => row.id === request.id).data.status, 'ODRZUCONY', 'a rejected submission remains visible to the submitting account');
+    await login(otherStaff, 'other@example.test');
+    assert.equal((await one('select vacation_read_authorized() result')).result.requests
+      .some(row => row.id === request.id), false);
     await db.exec('reset role');
     await db.exec("select set_config('request.jwt.claims','{}',false); set role anon;");
     await denied(submit());
-    console.log('PASS: shared submission without PIN, pending-only, CAS retry, duplicates, holidays, private grants and role isolation.');
+    console.log('PASS: shared submission, pending/approved/rejected rereads, redaction, CAS retry, duplicates, holidays and role isolation.');
   } finally { await db.close(); }
 })().catch(error => { console.error(error.message, error.code || ''); process.exitCode = 1; });

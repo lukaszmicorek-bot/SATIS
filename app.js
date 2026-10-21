@@ -22949,6 +22949,8 @@ async function submitVacationRequest(event) {
     const confirmed = sharedAccount ? await persistSharedVacationRequest(request) : null;
     if (!sharedAccount) await persistVacationRecord(SUPABASE_VACATION_REQUEST_TABLE, request);
     if (authUser !== currentSupabaseUser || submitVacationRequest.draft?.userId !== currentSupabaseUser?.id) return;
+    // Ignore an older read that started before this confirmed write.
+    loadVacationData.sequence = (loadVacationData.sequence || 0) + 1;
     vacationRequests = normalizeVacationRequests([confirmed || request, ...vacationRequests.filter((item) => item.id !== request.id)]);
     saveLocalVacationData();
     renderVacationModule();
