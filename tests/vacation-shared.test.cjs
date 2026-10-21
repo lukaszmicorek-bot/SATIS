@@ -62,3 +62,12 @@ test('account switch discards response, and vacation form has no PIN field', asy
   assert.match(extract('submitVacationRequest'), /persistSharedVacationRequest\(request\)/);
   assert.match(extract('clearSensitiveApplicationState'), /submitVacationRequest\.draft = null/);
 });
+test('confirmed submission invalidates older reads only after the write and session check', () => {
+  const submit = extract('submitVacationRequest');
+  const invalidate = submit.indexOf('loadVacationData.sequence =');
+  assert.ok(invalidate > submit.indexOf('if (!sharedAccount) await persistVacationRecord'));
+  assert.ok(invalidate > submit.indexOf('if (authUser !== currentSupabaseUser || submitVacationRequest.draft?.userId'));
+  assert.ok(invalidate < submit.indexOf('vacationRequests = normalizeVacationRequests'));
+  const load = extract('loadVacationData');
+  assert.match(load, /sequence !== loadVacationData.sequence/);
+});
