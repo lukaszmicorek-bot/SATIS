@@ -785,6 +785,7 @@ const pricingListView = document.querySelector("#pricingListView");
 const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingLoanView = document.querySelector("#pricingLoanView");
 const pricingRodoView = document.querySelector("#pricingRodoView");
+const pricingReceiptView = document.querySelector("#pricingReceiptView");
 const pricingPcprView = document.querySelector("#pricingPcprView");
 const pricingOrderView = document.querySelector("#pricingOrderView");
 const pricingComplaintView = document.querySelector("#pricingComplaintView");
@@ -2694,7 +2695,7 @@ async function refreshPricingFromSupabase() {
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
   if (sharedPcprList) pricingPcprList = sharedPcprList;
   renderPricingRecords();
-  if (activeNotebook === "devices" && !["offer", "loan", "rodo"].includes(activeDeviceView)) renderDeviceViews();
+  if (activeNotebook === "devices" && !["offer", "loan", "rodo", "receipt"].includes(activeDeviceView)) renderDeviceViews();
   setCurrentYearTitle();
 }
 
@@ -2913,6 +2914,7 @@ function clearSensitiveApplicationState() {
   if (customerRelationsInput) customerRelationsInput.value = "";
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
+  resetPricingReceipt();
   if (capdExaminerInput) capdExaminerInput.hidden = true;
   renderCapdPractitionerProfiles();
   clearSensitiveBrowserData();
@@ -9415,7 +9417,7 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", rodo: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
@@ -9452,6 +9454,7 @@ function switchPricingView(viewName) {
   if (pricingOfferView) pricingOfferView.hidden = activePricingView !== "offer";
   if (pricingLoanView) pricingLoanView.hidden = activePricingView !== "loan";
   if (pricingRodoView) pricingRodoView.hidden = activePricingView !== "rodo";
+  if (pricingReceiptView) pricingReceiptView.hidden = activePricingView !== "receipt";
   if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
@@ -9461,10 +9464,128 @@ function switchPricingView(viewName) {
   if (activePricingView === "offer") renderPricingOffer();
   if (activePricingView === "loan") renderPricingLoan();
   if (activePricingView === "rodo") renderPricingRodo();
+  if (activePricingView === "receipt") renderPricingReceipt();
   if (activePricingView === "pcpr") renderPricingPcprList();
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
   if (activePricingView === "history") renderPricingDocumentHistory();
+}
+
+function receiptSnapshot() {
+  const value = (id) => document.getElementById(id)?.value.trim() || "";
+  return {
+    customer: titleCaseName(value("receiptCustomerInput")),
+    address: value("receiptAddressInput"),
+    date: isoDateForSave(value("receiptDateInput")),
+    nfz: value("receiptNfzInput"),
+    items: ["P", "L"].map((side) => ({ side, model: value(`receiptModel${side}`),
+      serial: normalizeSerialNumber(value(`receiptSerial${side}`)) })).filter((item) => item.model || item.serial),
+    tested: pricingReceiptView?.querySelector('input[name="receiptTested"]:checked')?.value || "",
+    instructions: Boolean(document.getElementById("receiptInstructions")?.checked),
+    warranty: Boolean(document.getElementById("receiptWarranty")?.checked),
+    battery: Boolean(document.getElementById("receiptBattery")?.checked)
+  };
+}
+
+function renderPricingReceipt() {
+  const print = document.getElementById("pricingReceiptPrint");
+  if (!print) return;
+  const snapshot = receiptSnapshot();
+  const outputs = { customer: snapshot.customer, address: snapshot.address,
+    date: snapshot.date ? formatDate(snapshot.date) : "",
+    quantity: snapshot.items.length === 2 ? "aparaty słuchowe (2 szt.)" : "aparat słuchowy (1 szt.)",
+    nfz: snapshot.nfz === "" ? "" : formatPricingAmount(Number(snapshot.nfz)) };
+  print.querySelectorAll("[data-receipt-out]").forEach((node) => {
+    node.textContent = outputs[node.dataset.receiptOut] || "................................";
+  });
+  const checked = { ...snapshot, testedYes: snapshot.tested === "yes", testedNo: snapshot.tested === "no" };
+  print.querySelectorAll("[data-receipt-check]").forEach((node) => {
+    node.textContent = checked[node.dataset.receiptCheck] ? "X" : "";
+  });
+  const rows = snapshot.items.length ? snapshot.items : [{ side: "—", model: "", serial: "" }];
+  document.getElementById("receiptDeviceRows").replaceChildren(...rows.map((item) => {
+    const row = document.createElement("tr");
+    for (const value of [item.side, item.model, item.serial]) {
+      const cell = document.createElement("td");
+      cell.textContent = value || "—";
+      row.append(cell);
+    }
+    return row;
+  }));
+}
+
+function resetPricingReceipt() {
+  pricingReceiptView?.querySelectorAll(".receipt-builder input").forEach((input) => {
+    if (["radio", "checkbox"].includes(input.type)) input.checked = false;
+    else input.value = "";
+    input.setCustomValidity("");
+  });
+  setDateInputValue("#receiptDateInput", todayInputValue());
+  const status = document.getElementById("receiptStatus");
+  if (status) status.textContent = "";
+  renderPricingReceipt();
+}
+
+function receiptDeviceForSerial(serial, source) {
+  const key = normalizeSerialNumber(serial);
+  if (!key) return null;
+  const matches = source.filter((entry) => normalizeSerialNumber(entry.serialNumber) === key);
+  const identities = new Set(matches.map((entry) => `${customerNameLookupKey(entry.customerName)}|${normalize(entry.deviceName)}`));
+  return identities.size === 1 ? matches[0] : null;
+}
+
+function completeReceiptSerial(side) {
+  const serial = document.getElementById(`receiptSerial${side}`);
+  serial.value = normalizeSerialNumber(serial.value);
+  const match = receiptDeviceForSerial(serial.value, records);
+  const status = document.getElementById("receiptStatus");
+  status.textContent = "";
+  if (match) {
+    const customer = document.getElementById("receiptCustomerInput");
+    if (customer.value.trim() && customerNameLookupKey(customer.value) !== customerNameLookupKey(match.customerName)) {
+      status.textContent = "Numer seryjny jest przypisany w Bazie do innej osoby. Sprawdź dane przed wydrukiem.";
+    } else {
+      document.getElementById(`receiptModel${side}`).value = match.deviceName || "";
+      if (!customer.value.trim()) customer.value = titleCaseName(match.customerName || "");
+    }
+  } else if (serial.value) {
+    status.textContent = "Brak jednoznacznego powiązania numeru w Bazie. Uzupełnij i sprawdź dane ręcznie.";
+  }
+  renderPricingReceipt();
+}
+
+function validatePricingReceipt() {
+  const snapshot = receiptSnapshot();
+  const customer = document.getElementById("receiptCustomerInput");
+  customer.setCustomValidity(isFullPersonName(snapshot.customer) ? "" : "Wpisz imię i nazwisko.");
+  if (!customer.reportValidity()) return false;
+  const date = document.getElementById("receiptDateInput");
+  date.setCustomValidity(snapshot.date ? "" : "Wybierz prawidłową datę odbioru.");
+  if (!date.reportValidity()) return false;
+  const nfz = document.getElementById("receiptNfzInput");
+  if (!nfz.reportValidity()) return false;
+  for (const side of ["P", "L"]) {
+    const model = document.getElementById(`receiptModel${side}`);
+    const serial = document.getElementById(`receiptSerial${side}`);
+    const needed = Boolean(serial.value.trim()) || !snapshot.items.length && side === "P";
+    model.setCustomValidity(needed && !model.value.trim() ? "Wpisz model aparatu." : "");
+    if (!model.reportValidity()) return false;
+  }
+  if (snapshot.items.length === 2 && snapshot.items[0].serial && snapshot.items[0].serial === snapshot.items[1].serial) {
+    document.getElementById("receiptStatus").textContent = "Obie strony mają ten sam numer seryjny. Popraw numer przed wydrukiem.";
+    return false;
+  }
+  return true;
+}
+
+async function printPricingReceipt() {
+  if (!validatePricingReceipt()) return false;
+  renderPricingReceipt();
+  if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("receipt");
+  document.body.classList.add("receipt-print");
+  const cleanup = () => document.body.classList.remove("receipt-print");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  return printWithReadyFonts(cleanup);
 }
 
 function formatRodoPhone(value) {
@@ -28737,6 +28858,29 @@ pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("change", (eve
 document.querySelector("#resetRodoBtn")?.addEventListener("click", resetPricingRodo);
 document.querySelector("#printRodoBtn")?.addEventListener("click", printPricingRodo);
 resetPricingRodo();
+pricingReceiptView?.querySelector(".receipt-builder")?.addEventListener("input", (event) => {
+  event.target.setCustomValidity?.("");
+  renderPricingReceipt();
+});
+pricingReceiptView?.querySelector(".receipt-builder")?.addEventListener("change", renderPricingReceipt);
+document.getElementById("receiptCustomerInput")?.addEventListener("blur", (event) => {
+  event.target.value = titleCaseName(event.target.value);
+  renderPricingReceipt();
+});
+document.getElementById("receiptAddressInput")?.addEventListener("blur", (event) => {
+  event.target.value = formatLoanAddress(event.target.value, { final: true });
+  renderPricingReceipt();
+});
+for (const side of ["P", "L"]) {
+  document.getElementById(`receiptSerial${side}`)?.addEventListener("input", (event) => {
+    event.target.value = normalizeSerialNumber(event.target.value);
+    renderPricingReceipt();
+  });
+  document.getElementById(`receiptSerial${side}`)?.addEventListener("blur", () => completeReceiptSerial(side));
+}
+document.getElementById("newReceiptBtn")?.addEventListener("click", resetPricingReceipt);
+document.getElementById("printReceiptBtn")?.addEventListener("click", printPricingReceipt);
+resetPricingReceipt();
 
 document.querySelectorAll("th[data-sort]").forEach((header) => {
   header.addEventListener("click", () => {
@@ -28927,7 +29071,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
   const saves = { offer: saveCurrentPricingOfferToHistory, loan: saveCurrentPricingLoanToHistory,
     order: saveCurrentPricingOrderToHistory, complaint: saveCurrentPricingComplaintToHistory };
   offlineForms = window.SatisOfflineForms.mount({
-    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView },
+    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView, receipt: pricingReceiptView },
     user: () => currentSupabaseUser,
     pricing: () => pricingRecords,
     setPricing(value) { pricingRecords = normalizePricingRecordsForUse(value); resetPricingPriceLookup(); renderPricingOfferDeviceList(); },
@@ -28961,8 +29105,9 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Uzupełnij grupę pacjenta i wybierz aparat z cennika przed synchronizacją oferty.");
       return saves[kind]({ silent: false });
     },
-    render: kind => kind === "rodo" ? renderPricingRodo() : renderers[kind](),
-    reset: kind => kind === "rodo" ? resetPricingRodo() : resets[kind](),
+    render: kind => kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
+    reset: kind => kind === "receipt" ? resetPricingReceipt() : kind === "rodo" ? resetPricingRodo() : resets[kind](),
+    validate: kind => kind !== "receipt" || validatePricingReceipt(),
     renderApp: () => render(),
     clearForms() {
       Object.values({ offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView }).forEach(view => {
@@ -28970,12 +29115,14 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       });
       clearPricingOrderRows(); addPricingOrderItemRow();
       resetPricingRodo();
+      resetPricingReceipt();
       documentDraftIdentities.clear(); activePricingLoanHistoryId = "";
       for (const kind of Object.keys(renderers)) renderers[kind]();
     },
     localSaved: kind => markAgreementDraftSaved(kind),
     printSource(kind) {
       if (kind === "rodo") return document.querySelector("#pricingRodoPrint");
+      if (kind === "receipt") return document.querySelector("#pricingReceiptPrint");
       const selector = { offer: "#pricingOfferPrint", loan: "#pricingLoanPrint", order: "#pricingOrderPrint", complaint: "#pricingComplaintPrint" }[kind];
       if (kind !== "loan") return document.querySelector(selector);
       try {

@@ -61,6 +61,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/data-layer.test.cjs", "tests/document-navigation.test.cjs",
     "tests/offline-vault.test.cjs", "tests/print-font-readiness.test.cjs",
     "tests/sync-layer.test.cjs",
+    "tests/receipt-form.test.cjs",
 }
 VERSION_PATTERN = re.compile(r'(?m)^const VERSION = "(\d{8}-\d+)";')
 
