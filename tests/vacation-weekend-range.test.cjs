@@ -28,4 +28,45 @@ test('both source date fields use the weekend-only calendar; editing and history
   assert.match(extract('normalizeVacationRequest'), /compensationDateTo: isoDateForSave\(entry\?\.compensationDateTo \|\| entry\?\.compensationDate\)/);
   assert.match(extract('editVacationRequest'), /setDateInputValue\(compensationDateTo, request.compensationDateTo \|\| request.compensationDate\)/);
   assert.match(extract('renderVacationHistory'), /formatDate\(request.compensationDateTo\)/);
+  for (const id of ['vacationCompensationDate', 'vacationCompensationDateTo']) {
+    assert.match(html, new RegExp(`id="${id}"[^>]*readonly`));
+  }
+  assert.ok(html.indexOf('id="vacationCompensationField"') < html.indexOf('id="vacationDateFromInput"'));
+  assert.match(extract('updateVacationUnitFields'), /Odbiór wolnego · od/);
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\[data-vacation-type="ZA WEEKEND"\]\.active,[\s\S]*?background: #927451/);
+});
+
+test('weekend picker actually disables weekdays and ignores attempted weekday selection', () => {
+  const element = () => ({children: [], dataset: {}, attributes: {}, events: {}, title: '',
+    classList: {add() {}}, append(...nodes) {this.children.push(...nodes);},
+    setAttribute(name, value) {this.attributes[name] = value;}, getAttribute(name) {return this.attributes[name];},
+    addEventListener(name, callback) {this.events[name] = callback;}});
+  const selected = {value: '', dispatchEvent() {}};
+  const ctx = vm.createContext({document: {createElement: element},
+    activeDateInput: selected, Event: class {}, closeDatePicker() {},
+    isoDateFromParts: (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    displayDateForInput: value => value, formatDate: value => value,
+    polishPublicHolidayOnDate: () => null, isVacationCalendarInput: () => false,
+    vacationOccupiedPeopleOnDate: () => [], vacationOwnLeaveOnDate: () => null,
+    vacationSaturdayLinksOnDate: () => []});
+  for (const name of ['appendDatePickerTitle', 'createDatePickerMonth']) vm.runInContext(extract(name), ctx);
+  for (const id of ['vacationCompensationDate', 'vacationCompensationDateTo']) {
+    selected.id = id; selected.value = '';
+    const days = ctx.createDatePickerMonth(new Date(2026, 5, 1), null, new Date(2026, 5, 15), null, null, true).children[1].children;
+    const monday = days.find(day => day.dataset.value === '2026-06-15');
+    const saturday = days.find(day => day.dataset.value === '2026-06-13');
+    const sunday = days.find(day => day.dataset.value === '2026-06-14');
+    assert.equal(monday.disabled, true);
+    assert.equal(monday.attributes['aria-disabled'], 'true');
+    assert.notEqual(saturday.disabled, true);
+    assert.notEqual(sunday.disabled, true);
+    monday.events.click();
+    assert.equal(selected.value, '');
+    saturday.events.click();
+    assert.equal(selected.value, '2026-06-13');
+  }
+  const regular = ctx.createDatePickerMonth(new Date(2026, 5, 1), null, new Date(2026, 5, 15)).children[1].children;
+  assert.notEqual(regular.find(day => day.dataset.value === '2026-06-15').disabled, true,
+    'actual leave may still be received on a workday');
 });

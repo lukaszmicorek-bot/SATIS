@@ -21769,7 +21769,9 @@ function vacationEmployeeUsagePercent(employee) {
 
 function updateVacationTypeChoices() {
   vacationTypeChoices?.querySelectorAll("[data-vacation-type]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.vacationType === vacationTypeInput?.value);
+    const active = button.dataset.vacationType === vacationTypeInput?.value;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   });
 }
 
@@ -21932,6 +21934,10 @@ function updateVacationUnitFields() {
   }
   const compensationField = document.querySelector?.("#vacationCompensationField");
   if (compensationField) compensationField.hidden = type !== "ZA WEEKEND";
+  const dateFromLabel = document.querySelector?.("#vacationDateFromLabel");
+  const dateToLabel = document.querySelector?.("#vacationDateToLabel");
+  if (dateFromLabel) dateFromLabel.textContent = type === "ZA WEEKEND" ? "Odbiór wolnego · od" : "Data od";
+  if (dateToLabel) dateToLabel.textContent = type === "ZA WEEKEND" ? "Odbiór wolnego · do" : "Data do";
   const compensationAmount = document.querySelector?.("#vacationCompensationAmount");
   if (compensationAmount) {
     compensationAmount.min = usesHours ? "0.5" : "1";
@@ -27332,6 +27338,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     if (weekday === 0 || weekday === 6) button.classList.add("weekend");
     const invalidWeekendWorkDay = weekendWorkCalendar && weekday !== 0 && weekday !== 6;
     if (invalidWeekendWorkDay) {
+      button.disabled = true;
       button.classList.add("invalid-weekend-work");
       button.setAttribute("aria-disabled", "true");
       appendDatePickerTitle(button, "Wybierz sobotę lub niedzielę.");
