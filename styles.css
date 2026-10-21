@@ -6860,6 +6860,11 @@ h2 {
   font-size: 0.78rem;
 }
 
+.pcpr-history-search {
+  grid-template-columns: auto minmax(0, 420px);
+  justify-content: start;
+}
+
 .pricing-history-search {
   justify-content: start;
   margin: 0;
