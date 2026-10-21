@@ -454,8 +454,8 @@ test('waterproof inserts include glitter and suggest a 50% deposit without chang
   assert.match(html, /Odbiór zamówienia przez klienta<\/span><strong>data i podpis/);
 });
 
-test('weekend compensation accepts one full day and half-hour steps only for hourly staff', () => {
-  assert.match(html, /id="vacationCompensationAmount"[^>]*min="1" max="1" step="1"/);
+test('weekend compensation supports one or two source days and half-hour steps only for hourly staff', () => {
+  assert.match(html, /id="vacationCompensationAmount"[^>]*min="1" max="2" step="1"/);
   const update = extract('updateVacationUnitFields');
   assert.match(update, /compensationAmount\.min = usesHours \? "0\.5" : "1"/);
   assert.match(update, /compensationAmount\.step = usesHours \? "0\.5" : "1"/);
@@ -479,7 +479,7 @@ test('weekend work uses the shared calendar and rejected leave days have a separ
   assert.match(html, /id="vacationCompensationDate" type="text" data-date-picker/);
   assert.match(extract('editVacationRequest'), /setDateInputValue\(compensationDate, request\.compensationDate\)/);
   const picker = extract('createDatePickerMonth');
-  assert.match(extract('renderDatePicker'), /weekendWorkCalendar = activeDateInput\?\.id === "vacationCompensationDate"/);
+  assert.match(extract('renderDatePicker'), /weekendWorkCalendar = \["vacationCompensationDate", "vacationCompensationDateTo"\]\.includes\(activeDateInput\?\.id\)/);
   assert.match(extract('renderDatePicker'), /picker\.classList\.toggle\("weekend-work-picker", weekendWorkCalendar\)/);
   assert.match(picker, /weekendWorkCalendar && weekday !== 0 && weekday !== 6/);
   assert.match(picker, /vacationHolidayBlocked \|\| invalidWeekendWorkDay/);

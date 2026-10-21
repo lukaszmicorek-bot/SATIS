@@ -47,6 +47,8 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     await db.exec(read('supabase-audit-vacation.sql'));
     await db.exec(read('supabase-vacation-shared.sql'));
     await db.exec(read('supabase-vacation-shared.sql'));
+    await db.exec(read('supabase-vacation-weekend-range.sql'));
+    await db.exec(read('supabase-vacation-weekend-range.sql'));
     await login(staff, 'gabinet@example.test');
     await denied(submit({...request, employeeId: 'unknown'}, randomUUID()));
     const saved = await submit();
@@ -74,6 +76,18 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     await login(staff, 'gabinet@example.test');
     assert.equal((await one("select vacation_is_my_employee('justyna') allowed")).allowed, true,
       'personal account mappings still work');
+    const weekend = {...request, id: 'weekend-range', type: 'ZA WEEKEND',
+      dateFrom: '2026-06-15', dateTo: '2026-06-16', compensationDate: '2026-06-13', compensationDateTo: '2026-06-14', compensationAmount: 2};
+    const rangeSaved = await submit(weekend, randomUUID());
+    assert.equal(rangeSaved.receipt[0].data.days, 2);
+    assert.equal(rangeSaved.receipt[0].data.compensationDateTo, '2026-06-14');
+    await denied(submit({...weekend, id: 'reuse-sunday', dateFrom: '2026-06-17', dateTo: '2026-06-17',
+      compensationDate: '2026-06-14', compensationAmount: 1}, randomUUID()));
+    await denied(submit({...weekend, id: 'weekday', compensationDate: '2026-06-11', compensationDateTo: '2026-06-11'}, randomUUID()));
+    await denied(submit({...weekend, id: 'too-long', compensationDateTo: '2026-06-15'}, randomUUID()));
+    const legacySaved = await submit({...weekend, id: 'single', dateFrom: '2026-06-18', dateTo: '2026-06-18',
+      compensationDate: '2026-06-07', compensationDateTo: '', compensationAmount: 1}, randomUUID());
+    assert.equal(legacySaved.receipt[0].data.compensationDateTo, '2026-06-07');
     await db.exec('reset role');
     await db.exec("select set_config('request.jwt.claims','{}',false); set role anon;");
     await denied(submit());

@@ -91,6 +91,7 @@
 !/tests/offer-charger-price.test.cjs
 !/tests/repair-returns.sqltest.cjs
 !/supabase-vacation-shared.sql
+!/supabase-vacation-weekend-range.sql
 !/tests/vacation-shared.test.cjs
 !/tests/vacation-shared.sqltest.cjs
 !/tests/notes-tooltip.test.cjs
@@ -98,3 +99,4 @@
 !/tests/traffic-meter.test.cjs
 !/tests/traffic-meter.sqltest.cjs
 !/tests/vacation-balance-visibility.test.cjs
+!/tests/vacation-weekend-range.test.cjs

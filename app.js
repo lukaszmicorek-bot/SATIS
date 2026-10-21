@@ -21428,6 +21428,7 @@ function normalizeVacationRequest(entry) {
     dateTo,
     saturdayDate: isoDateForSave(entry?.saturdayDate),
     compensationDate: isoDateForSave(entry?.compensationDate),
+    compensationDateTo: isoDateForSave(entry?.compensationDateTo || entry?.compensationDate),
     compensationAmount: Math.max(0, Number(entry?.compensationAmount) || 0),
     weekendAccountingVersion: Number(entry?.weekendAccountingVersion) || 0,
     weekendReviewAcknowledged: entry?.weekendReviewAcknowledged === true,
@@ -21907,6 +21908,13 @@ function vacationExpectedUsage(allowance, year, usesHours) {
   return usesHours ? Math.floor(proportional * 2) / 2 : Math.floor(proportional);
 }
 
+function vacationWeekendRangeDays(dateFrom, dateTo = dateFrom) {
+  const start = parseIsoDate(dateFrom), end = parseIsoDate(dateTo);
+  if (!start || !end || dateTo < dateFrom || ![0, 6].includes(start.getDay()) || ![0, 6].includes(end.getDay())) return 0;
+  if (dateTo === dateFrom) return 1;
+  return start.getDay() === 6 && end.getDay() === 0 && addDaysToIsoDate(dateFrom, 1) === dateTo ? 2 : 0;
+}
+
 function updateVacationUnitFields() {
   const employee = selectedVacationEmployee();
   const usesHours = vacationEmployeeUsesHours(employee);
@@ -21922,7 +21930,10 @@ function updateVacationUnitFields() {
   const compensationAmount = document.querySelector?.("#vacationCompensationAmount");
   if (compensationAmount) {
     compensationAmount.min = usesHours ? "0.5" : "1";
-    compensationAmount.max = usesHours ? "8" : "1";
+    const from = isoDateForSave(document.querySelector?.("#vacationCompensationDate")?.value);
+    const to = isoDateForSave(document.querySelector?.("#vacationCompensationDateTo")?.value) || from;
+    const days = vacationWeekendRangeDays(from, to) || 1;
+    compensationAmount.max = String(days * (usesHours ? 8 : 1));
     compensationAmount.step = usesHours ? "0.5" : "1";
   }
   const compensationUnit = document.querySelector?.("#vacationCompensationUnit");
@@ -22232,7 +22243,9 @@ function renderVacationHistory() {
         : request.notes || "-";
     notesCell.classList.toggle("vacation-private-detail", !canViewDetails);
     if (canViewDetails && compensatesWeekend) {
-      notesCell.textContent = `Za pracę ${formatDate(request.compensationDate)}: ${formatVacationAmount(request.compensationAmount)} ${usesHours ? "godz." : "dni"}. ${request.notes || ""}`;
+      const period = request.compensationDateTo && request.compensationDateTo !== request.compensationDate
+        ? `${formatDate(request.compensationDate)}–${formatDate(request.compensationDateTo)}` : formatDate(request.compensationDate);
+      notesCell.textContent = `Za pracę ${period}: ${formatVacationAmount(request.compensationAmount)} ${usesHours ? "godz." : "dni"}. ${request.notes || ""}`;
     }
     if (canViewPrivateModules() && vacationLegacyWeekendNeedsReview(request)) {
       notesCell.textContent += " [Do sprawdzenia: stara uwaga o weekendzie. Obecnie wpis pomniejsza urlop. Sprawdź rozliczenie w edycji.]";
@@ -22351,6 +22364,8 @@ function editVacationRequest(id) {
   const reviewField = document.querySelector?.("#vacationWeekendReviewField");
   const reviewInput = document.querySelector?.("#vacationWeekendReviewInput");
   if (compensationDate) setDateInputValue(compensationDate, request.compensationDate);
+  const compensationDateTo = document.querySelector?.("#vacationCompensationDateTo");
+  if (compensationDateTo) setDateInputValue(compensationDateTo, request.compensationDateTo || request.compensationDate);
   if (compensationAmount) compensationAmount.value = request.compensationAmount || "";
   if (reviewField) reviewField.hidden = !vacationLegacyWeekendNeedsReview(request);
   if (reviewInput) reviewInput.checked = request.weekendReviewAcknowledged;
@@ -22495,13 +22510,14 @@ async function submitVacationRequest(event) {
     ? vacationRequests.find((request) => request.id === activeVacationRequestId) || null
     : null;
   const compensationDate = type === "ZA WEEKEND" ? isoDateForSave(document.querySelector?.("#vacationCompensationDate")?.value) : "";
+  const compensationDateTo = type === "ZA WEEKEND" ? isoDateForSave(document.querySelector?.("#vacationCompensationDateTo")?.value) || compensationDate : "";
   const compensationAmount = type === "ZA WEEKEND" ? Number(document.querySelector?.("#vacationCompensationAmount")?.value) : 0;
   if (type === "ZA WEEKEND") {
-    const weekend = parseIsoDate(compensationDate);
+    const workedDays = vacationWeekendRangeDays(compensationDate, compensationDateTo);
     const amount = usesHours ? hours : vacationWorkingDays(dateFrom, dateTo);
-    if (!weekend || ![0, 6].includes(weekend.getDay()) || compensationDate >= dateFrom
-      || !compensationAmount || compensationAmount !== amount || compensationAmount > (usesHours ? 8 : 1)) {
-      alert("Podaj wcześniejszą datę pracy w weekend oraz liczbę dni/godzin równą temu wpisowi (maksymalnie 1 dzień lub 8 godzin). Pozostały urlop zgłoś osobno.");
+    if (!workedDays || compensationDateTo >= dateFrom
+      || !compensationAmount || compensationAmount !== amount || compensationAmount > workedDays * (usesHours ? 8 : 1)) {
+      alert("Wybierz wcześniejszą sobotę, niedzielę lub zakres sobota–niedziela. Liczba dni/godzin rekompensaty musi być równa temu wpisowi: maksymalnie 1 dzień lub 8 godzin za każdy dzień pracy.");
       return;
     }
   }
@@ -22540,6 +22556,7 @@ async function submitVacationRequest(event) {
     dateTo,
     saturdayDate,
     compensationDate,
+    compensationDateTo,
     compensationAmount,
     weekendAccountingVersion: editedRequest?.weekendAccountingVersion || (isEditing ? 0 : 1),
     weekendReviewAcknowledged: Boolean(canViewPrivateModules() && document.querySelector?.("#vacationWeekendReviewInput")?.checked),
@@ -27199,7 +27216,7 @@ function activeLoanPeriodRange() {
 
 function renderDatePicker() {
   const picker = ensureDatePicker();
-  const weekendWorkCalendar = activeDateInput?.id === "vacationCompensationDate";
+  const weekendWorkCalendar = ["vacationCompensationDate", "vacationCompensationDateTo"].includes(activeDateInput?.id);
   const workTimeCalendar = ["workTimeDateInput", "workTimeScheduleFrom"].includes(activeDateInput?.id);
   picker.classList.toggle("weekend-work-picker", weekendWorkCalendar);
   const selectedDate = parseIsoDate(activeDateInput?.value);
@@ -28557,6 +28574,10 @@ vacationEmployeeInput?.addEventListener("change", () => {
 vacationYearInput?.addEventListener("change", () => {
   renderVacationModule();
   setCurrentYearTitle();
+});
+["#vacationCompensationDate", "#vacationCompensationDateTo"].forEach(selector => {
+  document.querySelector(selector)?.addEventListener("change", updateVacationUnitFields);
+  document.querySelector(selector)?.addEventListener("input", updateVacationUnitFields);
 });
 vacationNewEmployeeInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);
