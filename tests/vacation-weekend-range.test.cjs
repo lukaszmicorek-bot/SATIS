@@ -34,7 +34,9 @@ test('both source date fields use the weekend-only calendar; editing and history
   assert.ok(html.indexOf('id="vacationCompensationField"') < html.indexOf('id="vacationDateFromInput"'));
   assert.match(extract('updateVacationUnitFields'), /Odbiór wolnego · od/);
   const css = fs.readFileSync('styles.css', 'utf8');
-  assert.match(css, /\[data-vacation-type="ZA WEEKEND"\]\.active,[\s\S]*?background: #927451/);
+  assert.match(css, /\[data-vacation-type="ZA WEEKEND"\]\.active,[\s\S]*?background: #607f91/);
+  assert.match(css, /\.weekend-work-picker \.date-picker-day\.weekend[^{}]*\{[^}]*background: #f0f5f9/);
+  assert.match(css, /\.weekend-work-picker \.date-picker-weekday\.weekend-label\s*\{[^}]*background: #f0f5f9/);
 });
 
 test('weekend picker actually disables weekdays and ignores attempted weekday selection', () => {

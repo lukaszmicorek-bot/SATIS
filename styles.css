@@ -3487,9 +3487,9 @@ h2 {
 
 .vacation-type-choices button[data-vacation-type="ZA WEEKEND"].active,
 .vacation-type-choices button[data-vacation-type="ZA WEEKEND"].active:hover {
-  border-color: #927451;
+  border-color: #607f91;
   color: #fff;
-  background: #927451;
+  background: #607f91;
 }
 
 .vacation-type-choices button[data-vacation-type="NA ŻĄDANIE"].active {
@@ -8833,14 +8833,21 @@ input[aria-invalid="true"] {
 }
 
 .two-month-picker.weekend-work-picker .date-picker-day.weekend:not(.public-holiday):not(.selected):not(.today) {
-  border-color: #bad5cc;
-  color: #155f53;
-  background: #edf7f2;
+  border-color: #d0dfe8;
+  color: #526f82;
+  background: #f0f5f9;
 }
 
 .two-month-picker.weekend-work-picker .date-picker-day.weekend:not(.public-holiday):not(.selected):not(.today):hover {
-  border-color: #7fb4a4;
-  background: #e1f2e9;
+  border-color: #a5bfce;
+  background: #e6eff5;
+}
+
+.two-month-picker.weekend-work-picker .date-picker-weekday.weekend-label {
+  border-radius: 4px;
+  color: #526f82;
+  background: #f0f5f9;
+  font-weight: 600;
 }
 
 .two-month-picker.weekend-work-picker .date-picker-day.public-holiday.invalid-weekend-work {
