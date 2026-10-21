@@ -16432,6 +16432,9 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .receipt-page-number { text-align: right; margin-top: 25px; color: #64747b; font-size: 12px; }
 .receipt-side-P { color: #b82f43 !important; font-weight: 750; }
 .receipt-side-L { color: #2567a8 !important; font-weight: 750; }
+.receipt-side-transfer { grid-column: 1 / -1; display: flex; justify-content: center; }
+.receipt-side-transfer .loan-side-transfer-btn { width: 34px; height: 34px; min-height: 34px; }
+.receipt-side-transfer svg { width: 20px; height: 20px; }
 .receipt-serial-control { position: relative; display: block; min-width: 0; }
 .receipt-serial-control input { width: 100%; min-width: 0; padding-right: 67px; }
 .receipt-serial-control button {

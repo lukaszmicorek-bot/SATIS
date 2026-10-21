@@ -31,7 +31,7 @@ function setup() {
     isFullPersonName: value => value.trim().split(/\s+/).length > 1
   });
   for (const name of ['pricingOfferAccessoryKind', 'receiptSnapshot', 'validatePricingReceipt', 'receiptDeviceForSerial', 'receiptCustomerPurchases',
-    'receiptAutofillField', 'applyReceiptPurchase', 'completeReceiptCustomer', 'completeReceiptSerial']) vm.runInContext(extract(name), ctx);
+    'receiptAutofillField', 'applyReceiptPurchase', 'completeReceiptCustomer', 'completeReceiptSerial', 'transferReceiptSides']) vm.runInContext(extract(name), ctx);
   return { ctx, fields, set(id, value) { fields.get(id).value = value; } };
 }
 test('receipt needs a customer, valid date and model; duplicate serials block printing', () => {
@@ -148,6 +148,42 @@ test('receipt serial paste lives inside the input wrapper; copy and paste appear
   assert.match(css, /#receiptModelL, #receiptSerialL\):focus \{[^}]*border-color: #2567a8/);
   assert.match(extract('renderPricingReceipt'), /button.hidden = button.disabled/);
   assert.match(extract('renderPricingReceipt'), /data-receipt-paste/);
+});
+
+test('receipt side transfer moves a single device and swaps both model/serial pairs with autofill metadata', () => {
+  const t = setup();
+  t.set('receiptModelP', 'Model P'); t.set('receiptSerialP', 'P123');
+  t.fields.get('receiptSerialP').dataset.receiptAuto = 'P123';
+  t.ctx.transferReceiptSides();
+  assert.equal(t.fields.get('receiptModelP').value, '');
+  assert.equal(t.fields.get('receiptSerialP').value, '');
+  assert.equal(t.fields.get('receiptModelL').value, 'Model P');
+  assert.equal(t.fields.get('receiptSerialL').value, 'P123');
+  assert.equal(t.fields.get('receiptSerialL').dataset.receiptAuto, 'P123');
+  t.ctx.transferReceiptSides();
+  assert.equal(t.fields.get('receiptSerialP').value, 'P123');
+  t.set('receiptModelL', 'Model L'); t.set('receiptSerialL', 'L456');
+  t.ctx.transferReceiptSides();
+  assert.equal(t.fields.get('receiptModelP').value, 'Model L');
+  assert.equal(t.fields.get('receiptSerialP').value, 'L456');
+  assert.equal(t.fields.get('receiptModelL').value, 'Model P');
+  assert.equal(t.fields.get('receiptSerialL').value, 'P123');
+  assert.equal(t.ctx.pricingReceiptView.dataset.receiptManualSides, '1');
+  assert.match(html, /id="receiptTransferSidesBtn"[^>]*type="button"/);
+});
+
+test('customer completion does not undo a deliberate side swap', () => {
+  const t = setup();
+  t.ctx.records = [
+    { id: 'a', serialNumber: 'AAA', deviceName: 'Model A', customerName: 'Jan Testowy', salesInvoice: 'FS 1' },
+    { id: 'b', serialNumber: 'BBB', deviceName: 'Model B', customerName: 'Jan Testowy', salesInvoice: 'FS 1' }
+  ];
+  t.set('receiptCustomerInput', 'Jan Testowy');
+  t.ctx.completeReceiptCustomer();
+  t.ctx.transferReceiptSides();
+  t.ctx.completeReceiptCustomer();
+  assert.equal(t.fields.get('receiptSerialP').value, 'BBB');
+  assert.equal(t.fields.get('receiptSerialL').value, 'AAA');
 });
 test('receipt is available online and offline, clears personal data, and never writes business records', () => {
   assert.match(html, /id="receiptTab"[^>]+data-view="receipt"/);
