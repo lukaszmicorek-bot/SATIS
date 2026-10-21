@@ -892,6 +892,7 @@ const savePcprBtn = document.querySelector("#savePcprBtn");
 const cancelPcprEditBtn = document.querySelector("#cancelPcprEditBtn");
 const pcprListCount = document.querySelector("#pcprListCount");
 const pcprList = document.querySelector("#pcprList");
+const pcprSearchInput = document.querySelector("#pcprSearchInput");
 const resetPcprFiltersBtn = document.querySelector("#resetPcprFiltersBtn");
 const orderNumberInput = document.querySelector("#orderNumberInput");
 const orderDateInput = document.querySelector("#orderDateInput");
@@ -14182,19 +14183,48 @@ function updatePcprFilterTabs() {
   });
 }
 
+function pcprCustomerSerialSearchIndex() {
+  const index = new Map();
+  const add = (customer, serials) => {
+    const key = normalizeDeviceSearchText(customer);
+    if (!key) return;
+    const text = normalizeDeviceSearchText(serials.filter(Boolean).join(" "));
+    if (text) index.set(key, `${index.get(key) || ""} ${text}`);
+  };
+  records.forEach((entry) => add(entry.customerName, [entry.serialNumber]));
+  repairRecords.forEach((entry) => add(entry.customerName, repairSerialNumbers(entry)));
+  demoRecords.forEach((entry) => {
+    add(entry.currentUser, [entry.serialNumber]);
+    normalizeDemoLoanHistory(entry.loanHistory).forEach((loan) => add(loan.currentUser, [entry.serialNumber]));
+  });
+  return index;
+}
+
 function filteredPricingPcprList(list) {
   const placeFilter = normalizePcprPlace(pricingPcprPlaceFilter);
   const officeFilter = normalizeLoanHistoryText(pricingPcprOfficeFilter).toLocaleUpperCase("pl-PL");
+  const query = normalizeDeviceSearchText(pcprSearchInput?.value || "");
+  const terms = query.split(/\s+/u).filter(Boolean);
+  const serials = terms.length ? pcprCustomerSerialSearchIndex() : null;
   return list.filter((entry) => {
     const placeMatches = !placeFilter || normalizePcprPlace(entry.place) === placeFilter;
     const officeMatches = !officeFilter || entry.office.toLocaleUpperCase("pl-PL").startsWith(officeFilter);
-    return placeMatches && officeMatches;
+    if (!placeMatches || !officeMatches) return false;
+    if (!terms.length) return true;
+    const text = normalizeDeviceSearchText([
+      entry.customer, entry.phone, entry.address, entry.postalCode, entry.city, entry.street,
+      entry.model, entry.model2, entry.notes, entry.office, entry.place,
+      serials.get(normalizeDeviceSearchText(entry.customer))
+    ].filter(Boolean).join(" "));
+    const compact = text.replace(/\s+/gu, "");
+    return terms.every((term) => text.includes(term) || compact.includes(term));
   });
 }
 
 function resetPricingPcprFilters() {
   pricingPcprPlaceFilter = "";
   pricingPcprOfficeFilter = "";
+  if (pcprSearchInput) pcprSearchInput.value = "";
   updatePcprFilterTabs();
   renderPricingPcprList();
 }
@@ -14203,7 +14233,7 @@ function renderPricingPcprList() {
   if (!pcprList || !pcprListCount) return;
   const allItems = normalizePricingPcprList(pricingPcprList);
   const list = filteredPricingPcprList(allItems);
-  const visible = historyRenderBatch(pcprList, list, JSON.stringify([pricingPcprPlaceFilter, pricingPcprOfficeFilter]));
+  const visible = historyRenderBatch(pcprList, list, JSON.stringify([pricingPcprPlaceFilter, pricingPcprOfficeFilter, pcprSearchInput?.value || ""]));
   pcprListCount.textContent = list.length === allItems.length
     ? pricingPcprListCountLabel(list.length)
     : `${pricingPcprListCountLabel(list.length)} z ${allItems.length}`;
@@ -27718,6 +27748,7 @@ pcprOfficeTabs.forEach((button) => {
   });
 });
 resetPcprFiltersBtn?.addEventListener("click", resetPricingPcprFilters);
+pcprSearchInput?.addEventListener("input", debounce(renderPricingPcprList, SEARCH_DEBOUNCE_MS));
 updatePcprOfficeHint();
 updatePcprFilterTabs();
 updatePcprFormMode();
