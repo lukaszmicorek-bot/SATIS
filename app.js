@@ -9471,6 +9471,53 @@ function switchPricingView(viewName) {
   if (activePricingView === "history") renderPricingDocumentHistory();
 }
 
+function recentReceiptCustomers(source, query = "", today = todayInputValue()) {
+  const terms = normalizeDeviceSearchText(query).split(/\s+/u).filter(Boolean);
+  const recent = new Map();
+  source.forEach((entry) => {
+    const date = isoDateForSave(entry.pickupDate);
+    const customer = titleCaseName(entry.customerName || "");
+    if (!date || date > today || !isFullPersonName(customer) || entry.type === "ZWROT"
+      || pricingOfferAccessoryKind({ model: entry.deviceName })) return;
+    const key = customerNameLookupKey(customer);
+    if (!terms.every((term) => normalizeDeviceSearchText(customer).includes(term))) return;
+    if (!recent.has(key) || recent.get(key).date < date) recent.set(key, { customer, date });
+  });
+  return [...recent.values()].sort((a, b) => b.date.localeCompare(a.date) || a.customer.localeCompare(b.customer, "pl"))
+    .slice(0, 10);
+}
+
+function hideReceiptRecentCustomers() {
+  const list = document.getElementById("receiptRecentCustomers");
+  if (list) { list.hidden = true; list.replaceChildren(); }
+  document.getElementById("receiptCustomerInput")?.setAttribute("aria-expanded", "false");
+}
+
+function renderReceiptRecentCustomers() {
+  const input = document.getElementById("receiptCustomerInput");
+  const list = document.getElementById("receiptRecentCustomers");
+  if (!input || !list || document.activeElement !== input) return;
+  const suggestions = recentReceiptCustomers(records, input.value);
+  list.replaceChildren(...suggestions.map((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    const name = document.createElement("span"); name.textContent = entry.customer;
+    const date = document.createElement("small"); date.textContent = formatDate(entry.date);
+    button.append(name, date);
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => {
+      input.value = entry.customer;
+      input.setCustomValidity("");
+      completeReceiptCustomer();
+      input.focus();
+      hideReceiptRecentCustomers();
+    });
+    return button;
+  }));
+  list.hidden = suggestions.length === 0;
+  input.setAttribute("aria-expanded", String(!list.hidden));
+}
+
 function receiptSnapshot() {
   const value = (id) => document.getElementById(id)?.value.trim() || "";
   return {
@@ -9534,6 +9581,7 @@ function renderPricingReceipt() {
 }
 
 function resetPricingReceipt() {
+  hideReceiptRecentCustomers();
   pricingReceiptView?.querySelectorAll(".receipt-builder input").forEach((input) => {
     if (["radio", "checkbox"].includes(input.type)) input.checked = false;
     else input.value = "";
@@ -29009,7 +29057,17 @@ document.getElementById("receiptCustomerInput")?.addEventListener("blur", (event
   event.target.value = titleCaseName(event.target.value);
   completeReceiptCustomer();
 });
-document.getElementById("receiptCustomerInput")?.addEventListener("input", debounce(() => completeReceiptCustomer(), SEARCH_DEBOUNCE_MS));
+document.getElementById("receiptCustomerInput")?.addEventListener("input", debounce(() => {
+  completeReceiptCustomer();
+  renderReceiptRecentCustomers();
+}, SEARCH_DEBOUNCE_MS));
+document.getElementById("receiptCustomerInput")?.addEventListener("focus", renderReceiptRecentCustomers);
+document.getElementById("receiptCustomerInput")?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideReceiptRecentCustomers();
+});
+document.querySelector(".receipt-customer-field")?.addEventListener("focusout", (event) => {
+  if (!event.currentTarget.contains(event.relatedTarget)) hideReceiptRecentCustomers();
+});
 document.getElementById("receiptPurchaseChoice")?.addEventListener("change", (event) => {
   if (event.target.value !== "") completeReceiptCustomer({ selectedIndex: Number(event.target.value) });
 });

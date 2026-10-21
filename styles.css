@@ -16410,6 +16410,20 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 }
 
 .receipt-builder { margin-bottom: 16px; }
+.receipt-customer-field { position: relative; }
+.receipt-recent-customers:not([hidden]) {
+  position: absolute; z-index: 30; left: 0; right: 0; top: 100%; margin-top: 4px;
+  display: grid; max-height: 280px; overflow-y: auto; padding: 4px;
+  background: #fff; border: 1px solid #c4d5dc; border-radius: 6px;
+}
+.receipt-recent-customers button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-width: 0; padding: 9px 10px; border: 0; border-radius: 4px;
+  color: #173f50; background: #fff; text-align: left; font-size: 13px;
+}
+.receipt-recent-customers button:hover, .receipt-recent-customers button:focus-visible { background: #edf6f5; }
+.receipt-recent-customers button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.receipt-recent-customers small { flex: none; color: #70848c; font-size: 11px; }
 .receipt-builder :is(.receipt-tested, .receipt-documents) {
   margin: 0; padding: 10px 12px; border: 1px solid #d7e3e5; border-radius: 6px;
 }
