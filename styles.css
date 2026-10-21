@@ -7156,6 +7156,9 @@ h2 {
 }
 
 .pcpr-office-field {
+  display: grid;
+  gap: 6px;
+  align-content: start;
   grid-column: span 3;
   padding: 8px 10px 10px;
   border: 1.5px solid #d6e2e5;
@@ -7410,6 +7413,15 @@ h2 {
   border-left-color: #c8a062;
   background: #fdf8ef;
 }
+
+.pcpr-office-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.pcpr-office-choices button { min-width: 0; min-height: 42px; padding: 6px 8px; border: 1px solid var(--office-accent); border-radius: 6px; background: var(--office-background); color: #40545d; font-size: 12px; line-height: 1.3; font-weight: 500; white-space: normal; overflow-wrap: anywhere; box-shadow: none; }
+.pcpr-office-choices [data-pcpr-office-tone="mops-bielsko-biala"] { --office-accent: #abc3a5; --office-background: #f6fbf5; }
+.pcpr-office-choices [data-pcpr-office-tone="pcpr-bielsko-biala"] { --office-accent: #a5c8d1; --office-background: #f4fafb; }
+.pcpr-office-choices [data-pcpr-office-tone="pcpr-cieszyn"] { --office-accent: #c8b5d3; --office-background: #faf6fc; }
+.pcpr-office-choices [data-pcpr-office-tone="pcpr-zywiec"] { --office-accent: #d8bf95; --office-background: #fdf8ef; }
+.pcpr-office-choices button:hover, .pcpr-office-choices button:focus-visible { background: var(--office-background); color: #003f5a; outline: 2px solid var(--office-accent); outline-offset: 1px; transform: none; }
+.pcpr-office-choices button.active { box-shadow: inset 0 0 0 1px var(--office-accent); color: #003f5a; font-weight: 700; }
 
 .pcpr-place-badge {
   display: inline-flex;

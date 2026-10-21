@@ -13451,6 +13451,11 @@ function updatePcprOfficeHint() {
   const tone = pricingPcprOfficeTone(office);
   const field = pcprOfficeInput?.closest(".pcpr-office-field");
   if (field) field.dataset.pcprOfficeTone = tone;
+  field?.querySelectorAll?.("[data-pcpr-office-choice]").forEach(button => {
+    const active = button.dataset.pcprOfficeChoice === office;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   if (!pcprOfficeAddressHint) return;
   pcprOfficeAddressHint.textContent = pcprOfficeContactLabel(office);
 }
@@ -27479,6 +27484,14 @@ pcprCustomerInput?.addEventListener("blur", (event) => {
 });
 pcprOfficeInput?.addEventListener("change", updatePcprOfficeHint);
 pcprOfficeInput?.addEventListener("change", () => syncPcprPlaceFromOffice({ force: false }));
+document.querySelector("#pcprOfficeChoices")?.addEventListener("click", event => {
+  const button = event.target.closest("[data-pcpr-office-choice]");
+  if (!button) return;
+  const office = normalizePricingPcprOffice(button.dataset.pcprOfficeChoice);
+  if (!office) return;
+  setPcprOffice(pcprOfficeInput.value === office ? "" : office);
+  pcprOfficeInput.dispatchEvent(new Event("change", {bubbles: true}));
+});
 cancelPcprEditBtn?.addEventListener("click", resetPricingPcprForm);
 pcprPhoneInput?.addEventListener("input", (event) => {
   event.target.value = formatPcprPhone(event.target.value);

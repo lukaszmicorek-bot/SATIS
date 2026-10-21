@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261021-2">
+  <link rel="stylesheet" href="styles.css?v=20261021-3">
   </head>
   <body>
     <main class="app-shell">
@@ -1397,17 +1397,17 @@
                       <option value="P50">Żywiec, al. Piłsudskiego 50</option>
                     </select>
                   </label>
-                  <label class="pcpr-office-field" data-pcpr-office-tone="none">
-                    <span>PCPR / MOPS</span>
-                    <select id="pcprOfficeInput">
-                      <option value="">Wybierz</option>
-                      <option value="MOPS Bielsko-Biała">MOPS Bielsko-Biała</option>
-                      <option value="PCPR Bielsko-Biała">PCPR Bielsko-Biała</option>
-                      <option value="PCPR Cieszyn">PCPR Cieszyn</option>
-                      <option value="PCPR Żywiec">PCPR Żywiec</option>
-                    </select>
+                  <div class="pcpr-office-field" data-pcpr-office-tone="none">
+                    <span id="pcprOfficeChoicesLabel">PCPR / MOPS</span>
+                    <input id="pcprOfficeInput" type="hidden">
+                    <div id="pcprOfficeChoices" class="pcpr-office-choices" role="group" aria-labelledby="pcprOfficeChoicesLabel">
+                      <button type="button" data-pcpr-office-choice="MOPS Bielsko-Biała" data-pcpr-office-tone="mops-bielsko-biala" aria-pressed="false">MOPS Bielsko-Biała</button>
+                      <button type="button" data-pcpr-office-choice="PCPR Bielsko-Biała" data-pcpr-office-tone="pcpr-bielsko-biala" aria-pressed="false">PCPR Bielsko-Biała</button>
+                      <button type="button" data-pcpr-office-choice="PCPR Cieszyn" data-pcpr-office-tone="pcpr-cieszyn" aria-pressed="false">PCPR Cieszyn</button>
+                      <button type="button" data-pcpr-office-choice="PCPR Żywiec" data-pcpr-office-tone="pcpr-zywiec" aria-pressed="false">PCPR Żywiec</button>
+                    </div>
                     <small id="pcprOfficeAddressHint" class="pcpr-office-address"></small>
-                  </label>
+                  </div>
                   <div class="pcpr-model-stack">
                     <label class="pcpr-model-field">
                       <span>Wstępny model</span>
@@ -3213,13 +3213,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261021-2"></script>
-    <script src="data-layer.js?v=20261021-2"></script>
-    <script src="sync-layer.js?v=20261021-2"></script>
-    <script src="traffic-meter.js?v=20261021-2"></script>
-    <script src="repair-returns.js?v=20261021-2"></script>
-    <script src="offline-vault.js?v=20261021-2"></script>
-    <script src="offline-forms.js?v=20261021-2"></script>
-  <script src="app.js?v=20261021-2"></script>
+    <script src="supabase-config.js?v=20261021-3"></script>
+    <script src="data-layer.js?v=20261021-3"></script>
+    <script src="sync-layer.js?v=20261021-3"></script>
+    <script src="traffic-meter.js?v=20261021-3"></script>
+    <script src="repair-returns.js?v=20261021-3"></script>
+    <script src="offline-vault.js?v=20261021-3"></script>
+    <script src="offline-forms.js?v=20261021-3"></script>
+  <script src="app.js?v=20261021-3"></script>
   </body>
 </html>
