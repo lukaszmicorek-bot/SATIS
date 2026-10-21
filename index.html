@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261021-11">
+  <link rel="stylesheet" href="styles.css?v=20261021-12">
   </head>
   <body>
     <main class="app-shell">
@@ -1283,6 +1283,7 @@
                 <label class="rodo-address-field"><span>Adres zamieszkania</span><input id="receiptAddressInput" autocomplete="off"></label>
                 <label><span>Aparat <b class="receipt-side-P">P</b> · model</span><input id="receiptModelP" list="deviceNameSuggestions" autocomplete="off"></label>
                 <label><span>Nr seryjny <b class="receipt-side-P">P</b></span><span class="receipt-serial-control"><input id="receiptSerialP" autocomplete="off"><button type="button" data-receipt-copy="P" aria-label="Kopiuj numer seryjny P">Kopiuj</button><button type="button" data-paste-target="receiptSerialP" data-paste-format="serial" data-receipt-paste="P" aria-label="Wklej numer seryjny P">Wklej</button></span></label>
+                <div class="receipt-side-transfer"><button id="receiptTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień model i numer seryjny P / L" aria-label="Przenieś lub zamień aparaty P i L" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V4m-4 4 4-4 4 4M16 4v16m-4-4 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
                 <label><span>Aparat <b class="receipt-side-L">L</b> · model</span><input id="receiptModelL" list="deviceNameSuggestions" autocomplete="off"></label>
                 <label><span>Nr seryjny <b class="receipt-side-L">L</b></span><span class="receipt-serial-control"><input id="receiptSerialL" autocomplete="off"><button type="button" data-receipt-copy="L" aria-label="Kopiuj numer seryjny L">Kopiuj</button><button type="button" data-paste-target="receiptSerialL" data-paste-format="serial" data-receipt-paste="L" aria-label="Wklej numer seryjny L">Wklej</button></span></label>
                 <label><span>Refundacja NFZ · łącznie (zł)</span><input id="receiptNfzInput" type="number" min="0" step="0.01" placeholder="0,00"></label>
@@ -3285,13 +3286,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261021-11"></script>
-    <script src="data-layer.js?v=20261021-11"></script>
-    <script src="sync-layer.js?v=20261021-11"></script>
-    <script src="traffic-meter.js?v=20261021-11"></script>
-    <script src="repair-returns.js?v=20261021-11"></script>
-    <script src="offline-vault.js?v=20261021-11"></script>
-    <script src="offline-forms.js?v=20261021-11"></script>
-  <script src="app.js?v=20261021-11"></script>
+    <script src="supabase-config.js?v=20261021-12"></script>
+    <script src="data-layer.js?v=20261021-12"></script>
+    <script src="sync-layer.js?v=20261021-12"></script>
+    <script src="traffic-meter.js?v=20261021-12"></script>
+    <script src="repair-returns.js?v=20261021-12"></script>
+    <script src="offline-vault.js?v=20261021-12"></script>
+    <script src="offline-forms.js?v=20261021-12"></script>
+  <script src="app.js?v=20261021-12"></script>
   </body>
 </html>

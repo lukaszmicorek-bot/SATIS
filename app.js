@@ -9491,6 +9491,8 @@ function renderPricingReceipt() {
   const print = document.getElementById("pricingReceiptPrint");
   if (!print) return;
   const snapshot = receiptSnapshot();
+  const transfer = document.getElementById("receiptTransferSidesBtn");
+  if (transfer) transfer.disabled = snapshot.items.length === 0;
   pricingReceiptView.querySelectorAll("[data-receipt-copy]").forEach((button) => {
     button.disabled = !document.getElementById(`receiptSerial${button.dataset.receiptCopy}`).value.trim();
     button.hidden = button.disabled;
@@ -9539,6 +9541,7 @@ function resetPricingReceipt() {
     delete input.dataset.receiptAuto;
   });
   if (pricingReceiptView) delete pricingReceiptView.dataset.receiptCustomer;
+  if (pricingReceiptView) delete pricingReceiptView.dataset.receiptManualSides;
   const choice = document.getElementById("receiptPurchaseChoice");
   choice?.replaceChildren();
   const purchaseField = document.getElementById("receiptPurchaseField");
@@ -9555,6 +9558,27 @@ function receiptDeviceForSerial(serial, source) {
   const matches = source.filter((entry) => normalizeSerialNumber(entry.serialNumber) === key);
   const identities = new Set(matches.map((entry) => `${customerNameLookupKey(entry.customerName)}|${normalize(entry.deviceName)}`));
   return identities.size === 1 ? matches[0] : null;
+}
+
+function transferReceiptSides() {
+  const snapshots = ["P", "L"].map((side) => ["receiptModel", "receiptSerial"].map((prefix) => {
+    const input = document.getElementById(`${prefix}${side}`);
+    return { value: input.value, auto: input.dataset.receiptAuto };
+  }));
+  if (!snapshots.flat().some((entry) => entry.value.trim())) return;
+  ["P", "L"].forEach((side, sideIndex) => {
+    ["receiptModel", "receiptSerial"].forEach((prefix, fieldIndex) => {
+      const input = document.getElementById(`${prefix}${side}`);
+      const data = snapshots[1 - sideIndex][fieldIndex];
+      input.value = data.value;
+      if (data.auto === undefined) delete input.dataset.receiptAuto;
+      else input.dataset.receiptAuto = data.auto;
+      input.setCustomValidity("");
+    });
+  });
+  pricingReceiptView.dataset.receiptManualSides = "1";
+  document.getElementById("receiptStatus").textContent = "Przeniesiono aparaty P / L razem z numerami seryjnymi.";
+  renderPricingReceipt();
 }
 
 function receiptCustomerPurchases(customer, source) {
@@ -9610,6 +9634,7 @@ function completeReceiptCustomer({ preferredSide = "P", preferredSerial = "", se
   const key = customerNameLookupKey(customer.value);
   const customerChanged = pricingReceiptView.dataset.receiptCustomer !== key;
   if (customerChanged) {
+    delete pricingReceiptView.dataset.receiptManualSides;
     pricingReceiptView.querySelectorAll("[data-receipt-auto]").forEach((input) => {
       if (input.value === input.dataset.receiptAuto) input.value = "";
       delete input.dataset.receiptAuto;
@@ -9629,7 +9654,10 @@ function completeReceiptCustomer({ preferredSide = "P", preferredSerial = "", se
     : previousChoice !== "" ? groups[Number(previousChoice)] : groups.length === 1 ? groups[0] : null;
   if (selected) {
     choice.value = String(groups.indexOf(selected));
-    applyReceiptPurchase(selected, preferredSide, preferredSerial);
+    if (!(pricingReceiptView.dataset.receiptManualSides === "1" && selectedIndex === null && !preferredSerial)) {
+      delete pricingReceiptView.dataset.receiptManualSides;
+      applyReceiptPurchase(selected, preferredSide, preferredSerial);
+    }
   } else {
     document.getElementById("receiptStatus").textContent = groups.length > 1
       ? "Znaleziono kilka zakupów tej osoby. Wybierz właściwy zakup przed uzupełnieniem aparatów."
@@ -29004,6 +29032,7 @@ pricingReceiptView?.querySelectorAll("[data-receipt-copy]").forEach((button) => 
   });
 });
 document.getElementById("newReceiptBtn")?.addEventListener("click", resetPricingReceipt);
+document.getElementById("receiptTransferSidesBtn")?.addEventListener("click", transferReceiptSides);
 document.getElementById("printReceiptBtn")?.addEventListener("click", printPricingReceipt);
 resetPricingReceipt();
 
