@@ -25,11 +25,18 @@
       const currentGeneration = generation;
       let failed = false;
       try {
-        for (const [table, keys] of batch) {
+        // Start independent reads together, but apply in the original table order.
+        const reads = [...batch].map(async ([table, keys]) => {
+          const ids = [...keys];
+          try { return { table, keys, ids, rows: await load(table, ids) }; }
+          catch (error) { return { table, keys, ids, error, failed: true }; }
+        });
+        for (const read of reads) {
+          const result = await read;
+          if (generation !== currentGeneration) return;
+          const { table, keys, ids, rows } = result;
           try {
-            const ids = [...keys];
-            const rows = await load(table, ids);
-            if (generation !== currentGeneration) return;
+            if (result.failed) throw result.error;
             await apply(table, ids, rows);
           } catch (error) {
             if (generation !== currentGeneration) return;

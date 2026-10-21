@@ -33,6 +33,24 @@ function setup(options = {}) {
   };
 }
 
+test('independent table reads overlap while application order stays deterministic', async () => {
+  const first = deferred(), second = deferred(), started = [];
+  const t = setup({ load(table) {
+    started.push(table);
+    return table === 'devices' ? first.promise : second.promise;
+  } });
+  t.queue.push('devices', 'a');
+  t.queue.push('repairs', 'b');
+  const syncing = t.run();
+  assert.deepEqual(started, ['devices', 'repairs']);
+  second.resolve([{ id: 'b' }]);
+  await Promise.resolve();
+  assert.equal(t.applied.length, 0);
+  first.resolve([{ id: 'a' }]);
+  await syncing;
+  assert.deepEqual(t.applied.map(([table]) => table), ['devices', 'repairs']);
+});
+
 test('10k queued events coalesce duplicate IDs per table under one timer', async () => {
   const t = setup();
   for (let i = 0; i < 10000; i++) t.queue.push('devices', `row-${i % 1000}`);
