@@ -73,6 +73,7 @@
 !/tests/current-date-widget.test.cjs
 !/tests/data-layer.test.cjs
 !/tests/document-navigation.test.cjs
+!/tests/receipt-form.test.cjs
 !/tests/offline-vault.test.cjs
 !/tests/print-font-readiness.test.cjs
 !/tests/sync-layer.test.cjs

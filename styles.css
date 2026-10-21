@@ -16404,6 +16404,72 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   body.offline-rodo-print #offlinePrint { padding-top: 0; }
 }
 
+.receipt-builder { margin-bottom: 16px; }
+.receipt-builder :is(.receipt-tested, .receipt-documents) {
+  margin: 0; padding: 10px 12px; border: 1px solid #d7e3e5; border-radius: 6px;
+}
+.receipt-builder legend { padding: 0 5px; font-size: 12px; color: #003f5a; }
+.receipt-builder .receipt-tested { display: flex; gap: 22px; align-items: center; }
+.receipt-builder :is(.receipt-tested, .receipt-documents) label {
+  display: inline-flex; flex-direction: row; align-items: center; gap: 7px; font-size: 13px;
+}
+.receipt-builder input:is([type="radio"], [type="checkbox"]) { width: 16px; height: 16px; min-height: 0; }
+.receipt-documents { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 14px !important; }
+#receiptStatus { color: #a43449; font-size: 13px; }
+.receipt-document {
+  width: min(100%, 820px); margin: 0 auto; padding: 28px;
+  background: #fff; color: #111; border: 1px solid #d7e3e5;
+  font-family: "Inter", sans-serif; font-size: 13px; line-height: 1.4;
+}
+.receipt-document p { margin: 0 0 9px; }
+.receipt-device-table { width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: fixed; }
+.receipt-device-table th, .receipt-device-table td {
+  border: 1px solid #c1cdcf; padding: 7px 9px; text-align: left; overflow-wrap: anywhere;
+}
+.receipt-device-table th:first-child { width: 12%; }
+.receipt-device-table th:last-child { width: 30%; }
+.receipt-device-table td:last-child { white-space: nowrap; overflow-wrap: normal; }
+.receipt-check-list { list-style: none; padding: 0; margin: 0 0 9px; }
+.receipt-check-list li { margin: 3px 0; }
+[data-receipt-check] {
+  display: inline-flex; width: 13px; height: 13px; border: 1px solid #333;
+  align-items: center; justify-content: center; font-size: 10px; line-height: 1;
+  vertical-align: middle; margin-right: 5px;
+}
+.receipt-check-line [data-receipt-check] { margin-left: 12px; }
+.receipt-signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; margin-top: 28px; }
+.receipt-signatures p { padding-top: 25px; border-bottom: 1px solid #888; }
+.receipt-signatures span { display: block; font-size: 11px; padding-bottom: 6px; }
+#printReceiptBtn { background: #007f80; border-color: #007f80; color: #fff; }
+#printReceiptBtn:hover { background: #006568; border-color: #006568; }
+@page receiptPage { size: A4 portrait; margin: 10mm; }
+@media (max-width: 640px) {
+  .receipt-document { padding: 16px; }
+  .receipt-builder .rodo-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  body.receipt-print > :not(.app-shell),
+  body.receipt-print .app-shell > :not(#pricingNotebook),
+  body.receipt-print #pricingNotebook .pricing-panel > :not(#pricingReceiptView),
+  body.receipt-print #pricingReceiptView > :not(#pricingReceiptPrint) { display: none !important; }
+  body.receipt-print :is(.app-shell, #pricingNotebook, .pricing-panel, #pricingReceiptView, #pricingReceiptPrint) {
+    display: block !important; width: 100%; max-width: none; min-width: 0; height: auto;
+    margin: 0; padding: 0; border: 0; box-shadow: none; overflow: visible;
+  }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-document {
+    page: receiptPage; width: 100%; max-width: none; margin: 0; padding: 0; border: 0;
+    font-size: 10pt; line-height: 1.25; color: #000;
+  }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-document p { margin-bottom: 2mm; }
+  body:is(.receipt-print, .offline-receipt-print) .rodo-print-head { margin-bottom: 3mm; padding-bottom: 2mm; }
+  body:is(.receipt-print, .offline-receipt-print) .rodo-print-head h2 { font-size: 13pt; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-device-table { margin: 2mm 0; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-device-table :is(th, td) { padding: 1.5mm 2mm; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-signatures { margin-top: 3mm; break-inside: avoid; }
+  body:is(.receipt-print, .offline-receipt-print) .receipt-signatures p { padding-top: 7mm; }
+  body.offline-receipt-print #offlinePrint { padding-top: 0; }
+}
+
 .pricing-rodo-section { display: grid; gap: 14px; }
 .rodo-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .rodo-form-grid label { display: grid; gap: 5px; min-width: 0; }
