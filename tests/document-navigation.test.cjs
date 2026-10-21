@@ -461,6 +461,33 @@ test('weekend compensation supports one or two source days and half-hour steps o
   assert.match(update, /compensationAmount\.step = usesHours \? "0\.5" : "1"/);
 });
 
+test('PCPR/MOPS office tiles replace the select and follow loaded, changed and cleared office values', () => {
+  assert.match(html, /id="pcprOfficeInput" type="hidden"/);
+  assert.doesNotMatch(html, /<select id="pcprOfficeInput"/);
+  const offices = ['MOPS Bielsko-Biała', 'PCPR Bielsko-Biała', 'PCPR Cieszyn', 'PCPR Żywiec'];
+  const tiles = offices.map(office => ({dataset: {pcprOfficeChoice: office}, pressed: '', active: false,
+    classList: {toggle(name, active) {this.active = active;}}, setAttribute(name, value) {this.pressed = value;}}));
+  const field = {dataset: {}, querySelectorAll: () => tiles};
+  const input = {value: '', closest: () => field};
+  const hint = {textContent: ''};
+  const ctx = vm.createContext({pcprOfficeInput: input, pcprOfficeAddressHint: hint,
+    normalizePricingPcprOffice: value => offices.includes(value) ? value : '',
+    pricingPcprOfficeTone: value => value ? 'selected' : 'none', pcprOfficeContactLabel: value => value ? `Adres ${value}` : ''});
+  vm.runInContext(extract('updatePcprOfficeHint'), ctx);
+  vm.runInContext(extract('setPcprOffice'), ctx);
+  for (const office of offices) {
+    assert.ok(html.includes(`data-pcpr-office-choice="${office}"`));
+    ctx.setPcprOffice(office);
+    assert.equal(tiles.filter(tile => tile.pressed === 'true').length, 1);
+    assert.equal(tiles.find(tile => tile.pressed === 'true').dataset.pcprOfficeChoice, office);
+    assert.equal(hint.textContent, `Adres ${office}`);
+  }
+  ctx.setPcprOffice('');
+  assert.ok(tiles.every(tile => tile.pressed === 'false'));
+  assert.equal(hint.textContent, '');
+  assert.match(source, /pcprOfficeInput\.dispatchEvent\(new Event\("change", \{bubbles: true\}\)\)/);
+});
+
 test('APD and PCPR primary row actions use the larger button style only in their own lists', () => {
   assert.match(extract('renderCapdHistory'), /openButton\.className = "reset-filters-btn capd-history-open"/);
   assert.doesNotMatch(source, /openButton\.className = "reset-filters-btn capd-history-open";\s*openButton\.textContent = "Otwórz"/);
