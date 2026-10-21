@@ -2482,11 +2482,11 @@ async function refreshRecordsFromSupabase(options = {}) {
         { idPrefix: DEMO_ID_PREFIX }
       ),
       loadSupabasePricingRecords(),
-      loadSupabasePricingLoanHistory(),
-      loadSupabasePricingOfferHistory(),
-      loadSupabasePricingOrderHistory(),
-      loadSupabasePricingComplaintHistory(),
-      loadSupabasePricingPcprList(),
+      loadSupabasePricingLoanHistory({ deferSuggestions: true }),
+      loadSupabasePricingOfferHistory({ deferSuggestions: true }),
+      loadSupabasePricingOrderHistory({ deferSuggestions: true }),
+      loadSupabasePricingComplaintHistory({ deferSuggestions: true }),
+      loadSupabasePricingPcprList({ deferSuggestions: true }),
       loadSupabaseCapdHistory(),
       loadSharedRowOrders()
     ]);
@@ -2782,11 +2782,16 @@ async function verifySupabaseAppAccess(user) {
     await supabaseClient.auth.signOut({ scope: "local" });
     throw new Error("To konto nie ma dostępu do aplikacji SATIS. Właściciel musi je najpierw zatwierdzić.");
   }
-  const { data: version, error: versionError } = await supabaseClient.rpc("satis_schema_version");
+  const [
+    { data: version, error: versionError },
+    { data: privacyVersion, error: privacyError }
+  ] = await Promise.all([
+    supabaseClient.rpc("satis_schema_version"),
+    supabaseClient.rpc("vacation_privacy_schema_version")
+  ]);
   if (versionError || Number(version) < 20260908) {
     throw new Error("Wymagana aktualizacja bazy: supabase-audit-core.sql. Dane nie zostały wczytane.");
   }
-  const { data: privacyVersion, error: privacyError } = await supabaseClient.rpc("vacation_privacy_schema_version");
   if (privacyError || Number(privacyVersion) < 20260908) {
     throw new Error("Wymagana aktualizacja uprawnień urlopowych: supabase-audit-vacation.sql. Dane nie zostały wczytane.");
   }
@@ -9820,7 +9825,7 @@ function mergePricingOfferHistory(...historySets) {
   return normalizePricingOfferHistory(historySets.flat());
 }
 
-async function loadSupabasePricingOfferHistory() {
+async function loadSupabasePricingOfferHistory({ deferSuggestions = false } = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingOfferHistorySupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
 
@@ -9830,8 +9835,10 @@ async function loadSupabasePricingOfferHistory() {
     pricingOfferHistorySupabaseAvailable = true;
     pricingOfferHistory = normalizePricingOfferHistory(sharedHistory);
     saveLocalPricingOfferHistory();
-    rebuildCustomerDocumentIndex();
-    rebuildCustomerNameSuggestions();
+    if (!deferSuggestions) {
+      rebuildCustomerDocumentIndex();
+      rebuildCustomerNameSuggestions();
+    }
     return pricingOfferHistory;
   } catch (error) {
     if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
@@ -10429,7 +10436,7 @@ function mergePricingLoanHistory(...historySets) {
   return normalizePricingLoanHistory(historySets.flat());
 }
 
-async function loadSupabasePricingLoanHistory() {
+async function loadSupabasePricingLoanHistory({ deferSuggestions = false } = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingLoanHistorySupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
 
@@ -10439,8 +10446,10 @@ async function loadSupabasePricingLoanHistory() {
     pricingLoanHistorySupabaseAvailable = true;
     pricingLoanHistory = normalizePricingLoanHistory(sharedHistory);
     saveLocalPricingLoanHistory();
-    rebuildCustomerDocumentIndex();
-    rebuildCustomerNameSuggestions();
+    if (!deferSuggestions) {
+      rebuildCustomerDocumentIndex();
+      rebuildCustomerNameSuggestions();
+    }
     if (loanContractNumberInput?.dataset.autoNumber === "1") ensureLoanContractNumber({ force: true });
     renderPricingLoanHistory();
     return pricingLoanHistory;
@@ -13794,7 +13803,7 @@ function mergePricingPcprList(...listSets) {
   return normalizePricingPcprList(listSets.flat());
 }
 
-async function loadSupabasePricingPcprList() {
+async function loadSupabasePricingPcprList({ deferSuggestions = false } = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
 
@@ -13806,7 +13815,7 @@ async function loadSupabasePricingPcprList() {
     // entries do not return on another computer.
     pricingPcprList = normalizePricingPcprList(sharedList);
     saveLocalPricingPcprList();
-    rebuildCustomerNameSuggestions();
+    if (!deferSuggestions) rebuildCustomerNameSuggestions();
     renderPricingPcprList();
     return pricingPcprList;
   } catch (error) {
@@ -14366,7 +14375,7 @@ function mergePricingOrderHistory(...historySets) {
   return normalizePricingOrderHistory(historySets.flat());
 }
 
-async function loadSupabasePricingOrderHistory() {
+async function loadSupabasePricingOrderHistory({ deferSuggestions = false } = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingOrderHistorySupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
 
@@ -14376,7 +14385,7 @@ async function loadSupabasePricingOrderHistory() {
     pricingOrderHistorySupabaseAvailable = true;
     pricingOrderHistory = normalizePricingOrderHistory(sharedHistory);
     saveLocalPricingOrderHistory();
-    rebuildCustomerNameSuggestions();
+    if (!deferSuggestions) rebuildCustomerNameSuggestions();
     if (orderNumberInput?.dataset.autoNumber === "1") ensurePricingOrderNumber({ force: true });
     return pricingOrderHistory;
   } catch (error) {
@@ -15889,7 +15898,7 @@ function mergePricingComplaintHistory(...historySets) {
   return normalizePricingComplaintHistory(historySets.flat());
 }
 
-async function loadSupabasePricingComplaintHistory() {
+async function loadSupabasePricingComplaintHistory({ deferSuggestions = false } = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingComplaintHistorySupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
 
@@ -15901,7 +15910,7 @@ async function loadSupabasePricingComplaintHistory() {
     // here resurrected complaints deleted from another computer.
     pricingComplaintHistory = normalizePricingComplaintHistory(sharedHistory);
     saveLocalPricingComplaintHistory();
-    rebuildCustomerNameSuggestions();
+    if (!deferSuggestions) rebuildCustomerNameSuggestions();
     if (complaintNumberInput?.dataset.autoNumber === "1") ensurePricingComplaintNumber({ force: true });
     return pricingComplaintHistory;
   } catch (error) {

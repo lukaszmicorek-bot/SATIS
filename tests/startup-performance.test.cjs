@@ -8,6 +8,41 @@ function extract(name) {
   assert.ok(match);
   return source.slice(match.index, source.indexOf('\n}', match.index) + 2);
 }
+
+test('schema checks overlap only after access has been authorized', async () => {
+  let resolveCore, resolvePrivacy;
+  const calls = [];
+  const ctx = vm.createContext({
+    hasSupabaseConfig: true, SUPABASE_APP_ACCESS_TABLE: 'access',
+    supabaseClient: {
+      from() { return { select() { return this; }, eq() { return this; },
+        async maybeSingle() { calls.push('access'); return { data: { active: true } }; } }; },
+      rpc(name) { calls.push(name); return new Promise(resolve => {
+        if (name === 'satis_schema_version') resolveCore = resolve;
+        else resolvePrivacy = resolve;
+      }); }
+    }
+  });
+  vm.runInContext(extract('verifySupabaseAppAccess'), ctx);
+  const checking = ctx.verifySupabaseAppAccess({ id: 'user' });
+  await new Promise(setImmediate);
+  assert.deepEqual(calls, ['access', 'satis_schema_version', 'vacation_privacy_schema_version']);
+  resolveCore({ data: 20260908 }); resolvePrivacy({ data: 20260908 });
+  assert.equal(await checking, true);
+  const rejected = ctx.verifySupabaseAppAccess({ id: 'user' });
+  await new Promise(setImmediate);
+  resolveCore({ data: 20260908 }); resolvePrivacy({ error: { message: 'unavailable' } });
+  await assert.rejects(rejected, /aktualizacja uprawnień urlopowych/);
+});
+
+test('bootstrap defers repeated customer suggestion builds until the shared rebuild', () => {
+  const refresh = extract('refreshRecordsFromSupabase');
+  for (const name of ['LoanHistory', 'OfferHistory', 'OrderHistory', 'ComplaintHistory', 'PcprList']) {
+    assert.ok(refresh.includes(`loadSupabasePricing${name}({ deferSuggestions: true })`));
+    assert.match(extract(`loadSupabasePricing${name}`), /if \(!deferSuggestions\)/);
+  }
+  assert.match(refresh, /rebuildDerivedData\(\{ deferSuggestions: true \}\)/);
+});
 test('products appear before histories finish, without permitting saves', () => {
   let renders = 0;
   const ctx = vm.createContext({
