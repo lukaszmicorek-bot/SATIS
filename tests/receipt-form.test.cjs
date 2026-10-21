@@ -136,6 +136,19 @@ test('receipt has two explicit pages, matching side colors and screen-only copy 
   assert.match(css, /\.receipt-copy-serial \{ display: none/);
   assert.match(extract('renderPricingReceipt'), /copySerialNumber\(item.serial/);
 });
+
+test('receipt serial paste lives inside the input wrapper; copy and paste appear on hover or keyboard focus', () => {
+  for (const side of ['P', 'L']) {
+    assert.match(html, new RegExp(`<span class="receipt-serial-control"><input id="receiptSerial${side}"[^>]*>[\\s\\S]*?data-paste-target="receiptSerial${side}" data-paste-format="serial" data-receipt-paste="${side}"[^>]*>Wklej</button></span>`));
+  }
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.receipt-serial-control button \{[^}]*position: absolute; right: 6px;[^}]*opacity: 0; pointer-events: none/);
+  assert.match(css, /\.receipt-serial-control:focus-within button \{ opacity: 1; pointer-events: auto/);
+  assert.match(css, /#receiptModelP, #receiptSerialP\):focus \{[^}]*border-color: #b82f43/);
+  assert.match(css, /#receiptModelL, #receiptSerialL\):focus \{[^}]*border-color: #2567a8/);
+  assert.match(extract('renderPricingReceipt'), /button.hidden = button.disabled/);
+  assert.match(extract('renderPricingReceipt'), /data-receipt-paste/);
+});
 test('receipt is available online and offline, clears personal data, and never writes business records', () => {
   assert.match(html, /id="receiptTab"[^>]+data-view="receipt"/);
   assert.match(source, /resetPricingReceipt\(\);/);

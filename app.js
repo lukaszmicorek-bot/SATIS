@@ -9493,6 +9493,10 @@ function renderPricingReceipt() {
   const snapshot = receiptSnapshot();
   pricingReceiptView.querySelectorAll("[data-receipt-copy]").forEach((button) => {
     button.disabled = !document.getElementById(`receiptSerial${button.dataset.receiptCopy}`).value.trim();
+    button.hidden = button.disabled;
+  });
+  pricingReceiptView.querySelectorAll("[data-receipt-paste]").forEach((button) => {
+    button.hidden = Boolean(document.getElementById(`receiptSerial${button.dataset.receiptPaste}`).value.trim());
   });
   const outputs = { customer: snapshot.customer, address: snapshot.address,
     date: snapshot.date ? formatDate(snapshot.date) : "",
