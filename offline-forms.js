@@ -28,6 +28,9 @@ window.SatisOfflineForms = {
     authLauncher.classList.add("offline-auth-launch");
     document.querySelector("#authForm")?.append(authLauncher);
     function message(text) { status.textContent = text; }
+    function updateSaveState() {
+      panel.querySelector('[data-offline="save"]').classList.toggle("has-unsaved-changes", dirty);
+    }
     function touch() {
       clearTimeout(idle);
       if (vault.unlocked()) idle = setTimeout(() => lock(), 15 * 60 * 1000);
@@ -96,6 +99,7 @@ window.SatisOfflineForms = {
       api.pin(entry);
       show(entry.kind);
       dirty = false;
+      updateSaveState();
     }
     async function enter() {
       if (!vault.unlocked()) return unlock();
@@ -121,6 +125,7 @@ window.SatisOfflineForms = {
       writing = vault.change(data => ({ ...data, drafts: [entry, ...data.drafts.filter(item => item.id !== entry.id)] }));
       await writing;
       selected.set(kind, entry); dirty = false;
+      updateSaveState();
       api.localSaved(kind);
       message("Zapisano na tym komputerze — oczekuje na synchronizację.");
       list(); return entry;
@@ -193,6 +198,7 @@ window.SatisOfflineForms = {
     }
     function lock() {
       clearTimeout(timer); clearTimeout(idle); vault.lock(); selected.clear(); dirty = false;
+      updateSaveState();
       if (workspace) leave();
       api.clearForms(); release?.(); release = null;
       if (!api.user()) api.showAuth("Otwórz lokalne formularze albo zaloguj się online.");
@@ -259,6 +265,7 @@ window.SatisOfflineForms = {
         if (printOnly(kind)) { touch(); return; }
         if (!vault.unlocked() || syncing) return;
         dirty = true; touch(); clearTimeout(timer);
+        updateSaveState();
         message("Niezapisane zmiany lokalne…");
         timer = setTimeout(() => run(() => save(kind)), 800);
       };

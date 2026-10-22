@@ -3,17 +3,21 @@ const assert = require('node:assert/strict');
 const { webcrypto } = require('node:crypto');
 const { create } = require('../offline-vault.js');
 const encoder = new TextEncoder();
-test('offline form tabs and primary actions have distinct colors and a visible selected/focus state', () => {
+test('offline tabs share app document colors while actions use a separate palette and dirty save state', () => {
   const css = require('node:fs').readFileSync('styles.css', 'utf8');
-  const accents = new Set();
-  for (const kind of ['offer', 'loan', 'order', 'complaint', 'receipt', 'rodo']) {
-    const rule = css.match(new RegExp(`\\.offline-tabs \\[data-kind="${kind}"\\] \\{([^}]+)\\}`));
-    assert.ok(rule, kind);
-    accents.add(rule[1].match(/--offline-accent:\s*([^;]+)/)[1]);
+  const online = css.match(/\.document-tab-group \.tab-button\s*\{([^}]+)\}/)[1];
+  const offline = css.match(/\.offline-tabs button\s*\{([^}]+)\}/)[1];
+  for (const token of ['--document-tab-ink', '--document-tab-border', '--document-tab-background']) {
+    assert.ok(online.includes(`var(${token})`));
+    assert.ok(offline.includes(`var(${token})`));
   }
-  assert.equal(accents.size, 6);
   for (const action of ['save', 'print', 'sync', 'exit', 'lock']) assert.ok(css.includes(`.offline-controls [data-offline="${action}"]`));
-  assert.match(css, /\.offline-tabs button\[aria-pressed="true"\]\s*\{[^}]*background: var\(--offline-selected\)/s);
+  assert.match(css, /\.offline-tabs button\[aria-pressed="true"\]\s*\{[^}]*background: var\(--document-tab-selected\)/s);
+  assert.match(css, /\.offline-controls \[data-offline="save"\]\.has-unsaved-changes\s*\{[^}]*background: #bd354f/);
+  assert.match(css, /\.offline-controls \[data-offline="print"\]\s*\{[^}]*background: #003f5a/);
+  const source = require('node:fs').readFileSync('offline-forms.js', 'utf8');
+  assert.match(source, /classList.toggle\("has-unsaved-changes", dirty\)/);
+  assert.match(source, /selected.set\(kind, entry\); dirty = false;\s*updateSaveState\(\)/);
   assert.ok(css.includes('.offline-tabs button:focus-visible'));
 });
 test('offline launcher sits to the right of customer search in its own header row', () => {
