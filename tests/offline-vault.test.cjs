@@ -3,6 +3,19 @@ const assert = require('node:assert/strict');
 const { webcrypto } = require('node:crypto');
 const { create } = require('../offline-vault.js');
 const encoder = new TextEncoder();
+test('offline form tabs and primary actions have distinct colors and a visible selected/focus state', () => {
+  const css = require('node:fs').readFileSync('styles.css', 'utf8');
+  const accents = new Set();
+  for (const kind of ['offer', 'loan', 'order', 'complaint', 'receipt', 'rodo']) {
+    const rule = css.match(new RegExp(`\\.offline-tabs \\[data-kind="${kind}"\\] \\{([^}]+)\\}`));
+    assert.ok(rule, kind);
+    accents.add(rule[1].match(/--offline-accent:\s*([^;]+)/)[1]);
+  }
+  assert.equal(accents.size, 6);
+  for (const action of ['save', 'print', 'sync', 'exit', 'lock']) assert.ok(css.includes(`.offline-controls [data-offline="${action}"]`));
+  assert.match(css, /\.offline-tabs button\[aria-pressed="true"\]\s*\{[^}]*background: var\(--offline-selected\)/s);
+  assert.ok(css.includes('.offline-tabs button:focus-visible'));
+});
 test('offline launcher sits to the right of customer search in its own header row', () => {
   const fs = require('node:fs');
   const html = fs.readFileSync('index.html', 'utf8');
