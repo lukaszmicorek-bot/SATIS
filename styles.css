@@ -715,6 +715,26 @@ h2 {
   margin-left: auto;
 }
 
+.connection-account-actions {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.connection-account-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+#offlineFormsLauncherSlot:empty,
+.connection-account-row:not(:has(button:not([hidden]))) {
+  display: none;
+}
+
 .connection-status {
   display: inline-flex;
   align-items: center;
@@ -16482,10 +16502,9 @@ input.nearby-entry-match {
 @media print { .document-sync-notice { display: none !important; } }
 /* Offline workspace uses the existing document builders without exposing the other notebooks. */
 .offline-launch { padding: 5px 9px; min-height: 27px; border: 1px solid #b9d5d3; border-radius: 6px; background: #f2f8f7; color: #346b6d; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
-#offlineFormsLauncher { position: fixed; left: 14px; bottom: 14px; z-index: 80; margin: 0; }
+#offlineFormsLauncher { position: static; margin: 0; }
 #offlineFormsLauncher:hover { background: #e1f0ee; border-color: #8bb9b5; }
 body.offline-form-mode #offlineFormsLauncher { display: none !important; }
-@media screen { body:not(.offline-form-mode) > .app-shell { margin-bottom: 50px; } }
 .offline-controls, .offline-tabs, .offline-drafts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .offline-controls button, .offline-tabs button, .offline-drafts button { border-radius: 6px; padding: 8px 12px; border: 1px solid #bdcdcd; background: #f4f8f7; color: #003f5a; }
 .offline-controls strong { margin-right: auto; }

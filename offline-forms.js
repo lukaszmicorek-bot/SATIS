@@ -22,7 +22,7 @@ window.SatisOfflineForms = {
     const launcher = document.createElement("button");
     launcher.type = "button"; launcher.className = "ghost offline-launch"; launcher.textContent = "Formularze offline";
     launcher.id = "offlineFormsLauncher";
-    document.body.append(launcher);
+    (document.querySelector("#offlineFormsLauncherSlot") || document.body).append(launcher);
     const authLauncher = launcher.cloneNode(true);
     authLauncher.removeAttribute("id");
     authLauncher.classList.add("offline-auth-launch");

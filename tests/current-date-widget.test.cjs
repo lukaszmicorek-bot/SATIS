@@ -7,13 +7,13 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
-test('Offline forms launcher has one fixed small position outside header layout', () => {
+test('Offline forms launcher has one small position below the account controls', () => {
   const offline = fs.readFileSync(path.join(root, 'offline-forms.js'), 'utf8');
   assert.match(offline, /launcher\.id = "offlineFormsLauncher";/);
-  assert.match(offline, /document\.body\.append\(launcher\);/);
+  assert.match(offline, /document.querySelector\("#offlineFormsLauncherSlot"\) \|\| document.body/);
   assert.match(offline, /authLauncher\.removeAttribute\("id"\);/);
   assert.doesNotMatch(offline, /top-panel.*append\(launcher\)/);
-  assert.match(css, /#offlineFormsLauncher \{ position: fixed; left: 14px; bottom: 14px;/);
+  assert.match(css, /#offlineFormsLauncher \{ position: static;/);
   assert.match(css, /\.offline-launch \{[^}]*min-height: 27px;[^}]*font-size: 0\.7rem;/);
   assert.match(css, /body\.offline-form-mode #offlineFormsLauncher \{ display: none !important;/);
 });
