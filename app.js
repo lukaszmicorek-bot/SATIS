@@ -24540,6 +24540,7 @@ function openRepairDialog(record = null) {
   deleteRepairBtn.hidden = !record;
   const repairLocationInput = document.querySelector("#repairLocation");
   delete repairLocationInput.dataset.userChanged;
+  delete repairLocationInput.dataset.workstationDefault;
   clearRepairLocationSuggestion(repairLocationInput);
   const normalizedRecord = record ? normalizeRepairRecordForUse(record) : null;
   repairRecordEyebrow.textContent = normalizedRecord ? "Edytuj" : "Dodaj";
@@ -24578,7 +24579,9 @@ function openRepairDialog(record = null) {
 
   if (!record) {
     setDateInputValue("#repairReceivedDate", todayInputValue());
-    repairLocationInput.value = "P63";
+    const workstationLocation = documentLocationForWorkstation();
+    repairLocationInput.value = workstationLocation ? documentLocationKey(workstationLocation) : "P63";
+    if (workstationLocation) repairLocationInput.dataset.workstationDefault = "1";
     syncRepairDeviceNameFromCategory({ force: true });
   } else {
     repairLocationInput.dataset.userChanged = "1";
@@ -24587,6 +24590,7 @@ function openRepairDialog(record = null) {
   renderRepairOrderItems(normalizedRecord);
   syncRepairServiceCostField();
   updateDocumentLocationAccent(repairLocationInput);
+  syncRepairLocationTiles(repairLocationInput);
   updateDateInputsTodayState(repairForm);
   syncRepairDeviceNameFromSerials();
   syncRepairModelRequirement();
@@ -25008,6 +25012,15 @@ function clearRepairLocationSuggestion(locationInput = document.querySelector("#
   delete locationInput.dataset.suggestedLocation;
 }
 
+function syncRepairLocationTiles(input) {
+  if (!input) return;
+  document.querySelectorAll(`[data-repair-location-target="${input.id}"]`).forEach(button => {
+    const selected = button.dataset.value === input.value;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
 function syncRepairLocationFromCustomerName({ force = false } = {}) {
   const idInput = document.querySelector("#repairId");
   const customerInput = document.querySelector("#repairCustomerName");
@@ -25027,8 +25040,10 @@ function syncRepairLocationFromCustomerName({ force = false } = {}) {
   locationInput.dataset.suggestedLocation = suggestedLocation;
   locationInput.title = `Podpowiedź z Bazy dla tej osoby: ${suggestedLocation}`;
   locationInput.classList.add("location-suggested");
-  if (force || locationInput.dataset.userChanged !== "1") {
+  if (locationInput.dataset.userChanged !== "1" && locationInput.dataset.workstationDefault !== "1") {
     locationInput.value = suggestedLocation;
+    syncRepairLocationTiles(locationInput);
+    updateDocumentLocationAccent(locationInput);
   }
 }
 
@@ -27863,6 +27878,7 @@ function resetRepairFilters() {
   if (repairActiveOnlyFilter) repairActiveOnlyFilter.checked = false;
   repairLocationFilter.value = "";
   updateDocumentLocationAccent(repairLocationFilter);
+  syncRepairLocationTiles(repairLocationFilter);
   resetAndRenderRepairRecords();
 }
 
@@ -28601,7 +28617,17 @@ repairActiveOnlyFilter?.addEventListener("change", () => {
 });
 repairLocationFilter.addEventListener("change", (event) => {
   updateDocumentLocationAccent(event.target);
+  syncRepairLocationTiles(event.target);
   resetAndRenderRepairRecords();
+});
+document.querySelectorAll("[data-repair-location-target]").forEach(button => {
+  button.addEventListener("click", () => {
+    const input = document.getElementById(button.dataset.repairLocationTarget);
+    if (!input) return;
+    input.value = button.dataset.value;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    syncRepairLocationTiles(input);
+  });
 });
 demoSearchInput.addEventListener("input", debounce(resetAndRenderDemoRecords, SEARCH_DEBOUNCE_MS));
 demoStatusFilter.addEventListener("change", resetAndRenderDemoRecords);

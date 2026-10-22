@@ -4,6 +4,38 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('service location tiles preserve workstation/manual choices and use customer history only as fallback', () => {
+  const source = fs.readFileSync('app.js', 'utf8');
+  const extract = name => {
+    const start = source.indexOf(`function ${name}(`);
+    return source.slice(start, source.indexOf('\n}', start) + 2);
+  };
+  const input = {id: 'repairLocation', value: 'P50', dataset: {workstationDefault: '1'}, classList: {add() {}}, title: ''};
+  const buttons = ['T12', 'P63', 'P50'].map(value => ({dataset: {value}, classList: {toggle(_, active) { this.active = active; }}, setAttribute(_, value) { this.pressed = value; }}));
+  const nodes = {'#repairId': {value: ''}, '#repairCustomerName': {value: 'Test Klient'}, '#repairLocation': input};
+  const ctx = vm.createContext({document: {querySelector: selector => nodes[selector], querySelectorAll: () => buttons},
+    suggestedRepairLocationForCustomer: () => 'T12', clearRepairLocationSuggestion() {}, updateDocumentLocationAccent() {}});
+  for (const name of ['syncRepairLocationTiles', 'syncRepairLocationFromCustomerName']) vm.runInContext(extract(name), ctx);
+  ctx.syncRepairLocationFromCustomerName({force: true});
+  assert.equal(input.value, 'P50', 'station wins over customer history');
+  delete input.dataset.workstationDefault;
+  input.dataset.userChanged = '1';
+  ctx.syncRepairLocationFromCustomerName({force: true});
+  assert.equal(input.value, 'P50', 'explicit choice cannot be overwritten');
+  delete input.dataset.userChanged;
+  ctx.syncRepairLocationFromCustomerName();
+  assert.equal(input.value, 'T12');
+  assert.equal(buttons[0].pressed, 'true');
+  assert.equal(buttons[2].pressed, 'false');
+  nodes['#repairId'].value = 'existing';
+  input.value = 'P63';
+  ctx.syncRepairLocationFromCustomerName({force: true});
+  assert.equal(input.value, 'P63', 'editing preserves saved location');
+  assert.match(extract('openRepairDialog'), /const workstationLocation = documentLocationForWorkstation\(\)/);
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.equal((html.match(/data-repair-location-target="repairLocation"/g) || []).length, 3);
+  assert.equal((html.match(/data-repair-location-target="repairLocationFilter"/g) || []).length, 4);
+});
 test('active-only service filter hides completed records but preserves every open stage and other filters', () => {
   const js = fs.readFileSync('app.js', 'utf8');
   const start = js.indexOf('function filteredRepairRecords(');

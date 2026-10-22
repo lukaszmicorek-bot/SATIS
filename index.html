@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261022-2">
+  <link rel="stylesheet" href="styles.css?v=20261022-3">
   </head>
   <body>
     <main class="app-shell">
@@ -591,15 +591,21 @@
                 <option value="ODEBRANE">Odebrane</option>
               </select>
             </label>
-            <label class="document-location-field location-filter-field">
+            <div class="document-location-field location-filter-field repair-location-field">
               <span>Miejsce</span>
-              <select id="repairLocationFilter">
+              <select id="repairLocationFilter" hidden>
                 <option value="">Wszystkie</option>
                 <option value="T12">T12</option>
                 <option value="P50">P50</option>
                 <option value="P63">P63</option>
               </select>
-            </label>
+              <div class="repair-location-tiles" role="group" aria-label="Filtr miejsca">
+                <button type="button" class="pcpr-tab active" data-repair-location-target="repairLocationFilter" data-value="" aria-pressed="true">Wszystkie</button>
+                <button type="button" class="pcpr-tab" data-repair-location-target="repairLocationFilter" data-value="T12" data-location-tone="T12" aria-pressed="false">T12</button>
+                <button type="button" class="pcpr-tab" data-repair-location-target="repairLocationFilter" data-value="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+                <button type="button" class="pcpr-tab" data-repair-location-target="repairLocationFilter" data-value="P50" data-location-tone="P50" aria-pressed="false">P50</button>
+              </div>
+            </div>
             <button id="resetRepairFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addRepairBtn" type="button" data-private-owner hidden>DODAJ</button>
             <button id="exportRepairBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
@@ -2966,14 +2972,19 @@
               <button class="clear-date-btn" type="button" data-target="repairPickupDate" aria-label="Wyczyść datę">×</button>
             </div>
           </label>
-          <label class="document-location-field" data-location-tone="P63">
+          <div class="document-location-field repair-location-field" data-location-tone="P63">
             <span>Miejsce</span>
-            <select id="repairLocation" name="location">
+            <select id="repairLocation" name="location" hidden>
               <option value="T12">Bielsko-Biała, ul. Traugutta 12</option>
               <option value="P63">Bielsko-Biała, ul. Partyzantów 63</option>
               <option value="P50">Żywiec, al. Piłsudskiego 50</option>
             </select>
-          </label>
+            <div class="repair-location-tiles" role="group" aria-label="Miejsce wpisu">
+              <button type="button" class="pcpr-tab" data-repair-location-target="repairLocation" data-value="T12" data-location-tone="T12" aria-pressed="false" title="Bielsko-Biała, ul. Traugutta 12">T12</button>
+              <button type="button" class="pcpr-tab" data-repair-location-target="repairLocation" data-value="P63" data-location-tone="P63" aria-pressed="false" title="Bielsko-Biała, ul. Partyzantów 63">P63</button>
+              <button type="button" class="pcpr-tab" data-repair-location-target="repairLocation" data-value="P50" data-location-tone="P50" aria-pressed="false" title="Żywiec, al. Piłsudskiego 50">P50</button>
+            </div>
+          </div>
           <label>
             <span>Status</span>
             <select id="repairStatus" name="status">
@@ -3287,13 +3298,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261022-2"></script>
-    <script src="data-layer.js?v=20261022-2"></script>
-    <script src="sync-layer.js?v=20261022-2"></script>
-    <script src="traffic-meter.js?v=20261022-2"></script>
-    <script src="repair-returns.js?v=20261022-2"></script>
-    <script src="offline-vault.js?v=20261022-2"></script>
-    <script src="offline-forms.js?v=20261022-2"></script>
-  <script src="app.js?v=20261022-2"></script>
+    <script src="supabase-config.js?v=20261022-3"></script>
+    <script src="data-layer.js?v=20261022-3"></script>
+    <script src="sync-layer.js?v=20261022-3"></script>
+    <script src="traffic-meter.js?v=20261022-3"></script>
+    <script src="repair-returns.js?v=20261022-3"></script>
+    <script src="offline-vault.js?v=20261022-3"></script>
+    <script src="offline-forms.js?v=20261022-3"></script>
+  <script src="app.js?v=20261022-3"></script>
   </body>
 </html>
