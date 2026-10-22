@@ -10071,6 +10071,7 @@ function markAgreementDraftDirty(key) {
   const state = agreementDraftStates.get(key);
   if (!state) return;
   state.dirty = true;
+  globalThis.SatisDocumentLayout?.status(key, "Niezapisane zmiany");
   setPrimarySaveHighlight(state.saveButton, true);
   state.saveButton.classList.remove("save-reminder-active");
   state.saveButton.title = "Formularz zawiera niezapisane zmiany";
@@ -10087,6 +10088,7 @@ function markAgreementDraftSaved(key) {
   const state = agreementDraftStates.get(key);
   if (!state) return;
   state.dirty = false;
+  globalThis.SatisDocumentLayout?.savedStatus(key);
   window.clearTimeout(state.timer);
   state.timer = 0;
   setPrimarySaveHighlight(state.saveButton, false);
@@ -10098,6 +10100,175 @@ function markAgreementDraftSaved(key) {
 function setLoanReturnEditMode(active) {
   const editor = agreementDraftStates.get("loan")?.editor || pricingLoanView?.querySelector(".loan-builder");
   editor?.classList.toggle("loan-return-edit-active", Boolean(active));
+  if (active) globalThis.SatisDocumentLayout?.openReturn();
+}
+
+function setupUnifiedDocumentLayout() {
+  const statuses = new Map();
+  const label = id => document.getElementById(id)?.closest("label");
+  const title = (grid, text, before) => {
+    if (!grid || !before) return;
+    const heading = document.createElement("p");
+    heading.className = "document-section-title";
+    heading.textContent = text;
+    grid.insertBefore(heading, before);
+  };
+  const offerGrid = pricingOfferView.querySelector(".offer-form-grid");
+  offerGrid.prepend(label("offerDateInput"), label("offerLocationInput"));
+  title(offerGrid, "Dokument", offerGrid.firstElementChild);
+  title(offerGrid, "Klient", label("offerCustomerInput"));
+  title(offerGrid, "Produkty", offerGrid.querySelector(".offer-side-devices"));
+  title(offerGrid, "Rozliczenie", offerGrid.querySelector(".offer-option-field"));
+  const loanGrid = pricingLoanView.querySelector(".loan-form-grid");
+  const clientTitle = [...loanGrid.querySelectorAll(".loan-form-title")].find(node => node.textContent === "Dane klienta");
+  loanGrid.insertBefore(label("loanCityInput"), clientTitle);
+  const issueTitle = [...loanGrid.querySelectorAll(".loan-form-title")].find(node => node.textContent === "Wydanie i zwrot");
+  const paymentTitle = document.createElement("p");
+  paymentTitle.className = "loan-form-title loan-full";
+  paymentTitle.textContent = "Okres wypożyczenia i opłaty";
+  loanGrid.insertBefore(paymentTitle, issueTitle);
+  [loanGrid.querySelector(".loan-period-fields"), loanGrid.querySelector(".loan-testing-fee-field"),
+    loanGrid.querySelector(".loan-deposit-toggle"), label("loanDepositInput")].filter(Boolean).forEach(node => loanGrid.insertBefore(node, issueTitle));
+  issueTitle.textContent = "Wydanie";
+  const returnSection = document.createElement("details");
+  returnSection.id = "loanReturnSection";
+  returnSection.className = "loan-full document-return-section";
+  const summary = document.createElement("summary");
+  summary.textContent = "Zakończenie umowy · zwrot";
+  const returnFields = document.createElement("div");
+  returnFields.className = "loan-form-grid";
+  [label("loanReturnDateInput"), label("loanDepositReturnDateInput"), document.getElementById("loanReturnDeadlineHint")]
+    .filter(Boolean).forEach(node => returnFields.append(node));
+  returnSection.append(summary, returnFields);
+  loanGrid.append(returnSection);
+  for (const [view, placeId, nameId, phoneId] of [
+    [pricingOrderView, "orderLocationInput", "orderCustomerInput", "orderPhoneInput"],
+    [pricingComplaintView, "complaintLocationInput", "complaintCustomerInput", "complaintPhoneInput"]
+  ]) {
+    const grid = view.querySelector(".order-form-grid, .complaint-form-grid");
+    grid.insertBefore(label(placeId), label(nameId));
+    label(nameId).after(label(phoneId));
+    title(grid, "Dokument", grid.querySelector("label"));
+    title(grid, "Klient", label(nameId));
+  }
+  const complaintEditor = pricingComplaintView.querySelector(".complaint-editor");
+  label("complaintRequestInput").querySelector("span").textContent = "Domyślny rodzaj naprawy";
+  label("complaintRepairCostInput").querySelector("span").textContent = "Łączny koszt napraw";
+  label("complaintDefectInput").querySelector("span").textContent = "Wspólny opis zgłoszenia";
+  const detailsFields = new Map();
+  pricingComplaintView.querySelectorAll("[data-complaint-product-card]").forEach(card => {
+    const slot = Number(card.dataset.complaintProductCard);
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 7;
+    const details = document.createElement("details");
+    details.className = "complaint-item-details";
+    const summary = document.createElement("summary");
+    summary.textContent = `Rodzaj naprawy i usterka pozycji ${slot}`;
+    const fields = document.createElement("div");
+    fields.className = "complaint-item-detail-fields";
+    const requestLabel = document.createElement("label");
+    const caption = document.createElement("span"); caption.textContent = "Rodzaj naprawy tej pozycji";
+    const request = document.createElement("select"); request.id = `complaintItemRequest${slot}`;
+    for (const [value, text] of [["", "Jak w ustawieniu domyślnym"], ["NAPRAWA GWARANCYJNA", "Naprawa gwarancyjna"], ["NAPRAWA POGWARANCYJNA", "Naprawa pogwarancyjna"]]) {
+      const option = document.createElement("option"); option.value = value; option.textContent = text; request.append(option);
+    }
+    const defectLabel = document.createElement("label");
+    const defectCaption = document.createElement("span"); defectCaption.textContent = "Usterka tej pozycji";
+    const defect = document.createElement("textarea"); defect.id = `complaintItemDefect${slot}`; defect.rows = 2;
+    defect.placeholder = "Opcjonalnie; pusty opis oznacza wspólny opis zgłoszenia";
+    requestLabel.append(caption, request); defectLabel.append(defectCaption, defect);
+    fields.append(requestLabel, defectLabel); details.append(summary, fields); cell.append(details); row.append(cell); card.append(row);
+    detailsFields.set(slot, {request, defect, details});
+    [request, defect].forEach(input => input.addEventListener("input", renderPricingComplaint));
+    request.addEventListener("change", renderPricingComplaint);
+  });
+  globalThis.SatisComplaintItemDetails = {
+    read(slot) { const fields = detailsFields.get(slot); return {request: fields?.request.value || "", defect: fields?.defect.value || ""}; },
+    restore(slot, item) {
+      const fields = detailsFields.get(slot); if (!fields) return;
+      fields.request.value = item.request || ""; fields.defect.value = item.defect || "";
+      fields.details.open = Boolean(item.request || item.defect);
+    }
+  };
+  ["complaintCustomerMatchHint", "complaintCustomerDevicePicker"].forEach(id => {
+    const node = document.getElementById(id);
+    node.classList.add("complaint-full");
+    complaintEditor.before(node);
+  });
+  const purchase = document.getElementById("receiptPurchaseField");
+  purchase.classList.add("document-full-field");
+  label("receiptModelP").before(purchase);
+  const receiptNote = document.createElement("p");
+  receiptNote.className = "document-form-note";
+  receiptNote.textContent = "Wydruk potwierdzenia nie zmienia daty odbioru ani statusu aparatu w Bazie.";
+  pricingReceiptView.querySelector(".pricing-document-actions").before(receiptNote);
+  label("rodoCityInput").querySelector("span").textContent = "Miejsce podpisania";
+  for (const [view, dateId, nameId] of [[pricingReceiptView, "receiptDateInput", "receiptCustomerInput"], [pricingRodoView, "rodoDateInput", "rodoNameInput"]]) {
+    const grid = view.querySelector(".rodo-form-grid");
+    grid.prepend(label(dateId));
+    if (view === pricingRodoView) label(dateId).after(label("rodoCityInput"));
+    title(grid, "Dokument", grid.firstElementChild);
+    title(grid, "Klient", label(nameId));
+  }
+  title(pricingReceiptView.querySelector(".rodo-form-grid"), "Produkty", purchase);
+  label("rodoNameInput").after(label("rodoPhoneInput"));
+  pricingOrderView.querySelector(".order-editor-head > span").textContent = "Produkty";
+  for (const [view, kind] of [[pricingOfferView, "offer"], [pricingLoanView, "loan"], [pricingOrderView, "order"],
+    [pricingComplaintView, "complaint"], [pricingReceiptView, "receipt"], [pricingRodoView, "rodo"]]) {
+    const editor = view.querySelector(".offer-builder");
+    editor.classList.add("unified-document-editor");
+    const name = editor.querySelector(".person-name-field > span");
+    if (name) name.textContent = "Imię i nazwisko *";
+    const nameInput = editor.querySelector(".person-name-field input");
+    if (nameInput) nameInput.required = true;
+    const tools = editor.querySelector(".form-undo-tools");
+    const newButton = editor.querySelector(".document-new-btn, #newReceiptBtn");
+    if (newButton && tools) {
+      newButton.textContent = "Nowy formularz";
+      tools.prepend(newButton);
+      newButton.addEventListener("click", event => {
+        const dirty = agreementDraftStates.get(kind)?.dirty || (["receipt", "rodo"].includes(kind) && Boolean(editor.querySelector(".person-name-field input")?.value.trim()));
+        if (dirty && !confirm("Rozpocząć nowy formularz? Niezapisane dane bieżącego formularza zostaną wyczyszczone.")) {
+          event.preventDefault(); event.stopImmediatePropagation();
+        }
+      }, { capture: true });
+    }
+    const actions = editor.querySelector(".offer-actions");
+    actions?.querySelectorAll("button").forEach(button => {
+      if (!button.id.toLowerCase().includes("print")) return;
+      button.addEventListener("click", event => {
+        if (nameInput && !isFullPersonName(nameInput.value)) {
+          event.preventDefault(); event.stopImmediatePropagation();
+          nameInput.setCustomValidity("Wpisz imię i nazwisko klienta."); nameInput.reportValidity();
+        } else nameInput?.setCustomValidity("");
+      }, { capture: true });
+    });
+    nameInput?.addEventListener("input", () => nameInput.setCustomValidity(""));
+    const status = document.createElement("span");
+    status.className = "document-save-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    status.textContent = ["receipt", "rodo"].includes(kind) ? "Tylko wydruk · bez zapisu" : "Nowy formularz";
+    statuses.set(kind, status);
+    if (actions) actions.prepend(status);
+    if (tools && actions) tools.append(actions);
+  }
+  globalThis.SatisDocumentLayout = {
+    status(kind, text) { const node = statuses.get(kind); if (node) node.textContent = text; },
+    savedStatus(kind) {
+      this.status(kind, offlineForms?.active() ? "Zapisano na tym komputerze" : documentDraftIdentities.get(kind)?.saved ? "Zapisano dokument" : "Nowy formularz");
+    },
+    openReturn() { returnSection.open = true; },
+    orderTotals() {
+      orderItemsFormBody.querySelectorAll("[data-order-row]").forEach(row => {
+        const cost = normalizeServiceCost(row.querySelector('[data-order-field="cost"]').value);
+        const quantity = Math.max(1, parseInt(row.querySelector('[data-order-field="quantity"]').value, 10) || 1);
+        const output = row.querySelector("[data-order-total]");
+        if (output) output.textContent = cost === "" ? "Do wyceny" : formatServiceCost(cost * quantity);
+      });
+    }
+  };
 }
 
 function setupAgreementDraftTracking() {
@@ -15671,7 +15842,9 @@ function pricingComplaintRepairItemLine(item, index) {
     normalizedItem.productName,
     normalizedItem.serial ? `nr ${normalizedItem.serial}` : "",
     normalizedItem.purchaseDocument ? `FV ${normalizedItem.purchaseDocument}` : "",
-    normalizedItem.purchaseDate ? `sprzedaż ${formatDate(normalizedItem.purchaseDate)}` : ""
+    normalizedItem.purchaseDate ? `sprzedaż ${formatDate(normalizedItem.purchaseDate)}` : "",
+    normalizedItem.request ? `Naprawa: ${pricingComplaintRequestLabel(normalizedItem.request)}` : "",
+    normalizedItem.defect ? `Usterka: ${normalizedItem.defect}` : ""
   ].filter(Boolean).join(" · ");
 }
 
@@ -15735,7 +15908,7 @@ function pricingComplaintRepairRecord(entry) {
     sourceDocumentId: normalizedEntry.id,
     sourceDocumentNumber: normalizedEntry.number,
     receivedDate: isoDateForSave(normalizedEntry.date) || todayInputValue(),
-    category: normalizePricingComplaintRequest(normalizedEntry.request),
+    category: items.some(item => item.request === "NAPRAWA POGWARANCYJNA") ? "NAPRAWA POGWARANCYJNA" : normalizePricingComplaintRequest(normalizedEntry.request),
     location: documentLocationToRepairLocation(normalizedEntry.location),
     customerName: normalizedEntry.customer,
     phone: normalizedEntry.phone,
@@ -16046,7 +16219,12 @@ function addPricingOrderItemRow(item = {}) {
   removeButton.setAttribute("aria-label", removeButton.title);
   actionCell.append(removeButton);
 
-  row.append(typeCell, sideCell, quantityCell, descriptionCell, costCell, notesCell, actionCell);
+  const totalCell = document.createElement("td");
+  const total = document.createElement("output");
+  total.dataset.orderTotal = "1";
+  total.textContent = "Do wyceny";
+  totalCell.append(total);
+  row.append(typeCell, descriptionCell, sideCell, quantityCell, costCell, totalCell, notesCell, actionCell);
   orderItemsFormBody.append(row);
   updatePricingOrderSideButtons(row);
   syncPricingOrderDescriptionForType(row);
@@ -16273,6 +16451,7 @@ function renderPricingOrder() {
   if (savePricingOrderBtn) savePricingOrderBtn.classList.toggle("order-side-required", missingRequiredSide);
   renderPricingOrderItems(items);
   updatePricingOrderAddButton();
+  globalThis.SatisDocumentLayout?.orderTotals();
 }
 
 function copyPricingOfferToOrder() {
@@ -16482,6 +16661,8 @@ function normalizePricingComplaintItem(item = {}) {
     purchaseDocument: missingPurchaseDocument ? "" : rawPurchaseDocument,
     purchaseDate: isoDateForSave(item.purchaseDate) || normalizeLoanHistoryText(item.purchaseDate)
   };
+  if (normalizeLoanHistoryText(item.request)) normalizedItem.request = normalizePricingComplaintRequest(item.request);
+  if (normalizeLoanHistoryText(item.defect)) normalizedItem.defect = normalizeLoanHistoryText(item.defect);
   return normalizedItem;
 }
 
@@ -16541,7 +16722,7 @@ function normalizePricingComplaintHistoryEntry(entry) {
     location: normalizeLoanHistoryText(entry.location) ? normalizeDocumentLocationValue(entry.location) : "",
     items: normalizePricingComplaintItems(entry),
     request: normalizePricingComplaintRequest(entry.request),
-    repairCost: normalizePricingComplaintRequest(entry.request) === "NAPRAWA POGWARANCYJNA"
+    repairCost: (normalizePricingComplaintRequest(entry.request) === "NAPRAWA POGWARANCYJNA" || normalizePricingComplaintItems(entry).some(item => item.request === "NAPRAWA POGWARANCYJNA"))
       ? normalizeServiceCost(entry.repairCost ?? entry.serviceCost ?? entry.cost)
       : "",
     defect: normalizeLoanHistoryText(entry.defect),
@@ -16684,6 +16865,7 @@ function selectedComplaintProductName() {
 function complaintFormItem(slot = 1) {
   const inputs = complaintItemInputs(slot);
   return normalizePricingComplaintItem({
+    ...globalThis.SatisComplaintItemDetails?.read(slot),
     productType: complaintInputValue(inputs.productType),
     productName: selectedComplaintProductNameFromInput(inputs.productName),
     serial: complaintInputValue(inputs.serial),
@@ -16700,6 +16882,7 @@ function complaintFormItems({ includeBlank = false } = {}) {
 function setComplaintItemFields(slot = 1, item = {}) {
   const inputs = complaintItemInputs(slot);
   const normalizedItem = normalizePricingComplaintItem(item);
+  globalThis.SatisComplaintItemDetails?.restore(slot, normalizedItem);
   if (inputs.productType) {
     inputs.productType.value = normalizedItem.productType || PRICING_COMPLAINT_PRODUCT_TYPES[0];
     inputs.productType.dataset.complaintAutofilled = "";
@@ -16827,7 +17010,9 @@ function pricingComplaintSnapshotKey(entry) {
       item?.productName,
       item?.serial,
       item?.purchaseDocument,
-      item?.purchaseDate
+      item?.purchaseDate,
+      item?.request,
+      item?.defect
     ].map((value) => normalize(value)).join(":"))
     .join("|");
   return [
@@ -16841,7 +17026,7 @@ function pricingComplaintSnapshotKey(entry) {
 
 function pricingComplaintSemanticKey(entry) {
   const itemsKey = (entry?.items || [])
-    .map((item) => [item?.productType, item?.productName, item?.serial, item?.purchaseDocument, item?.purchaseDate]
+    .map((item) => [item?.productType, item?.productName, item?.serial, item?.purchaseDocument, item?.purchaseDate, item?.request, item?.defect]
       .map((value) => normalize(value)).join(":"))
     .join("|");
   return [entry?.date, entry?.customer, itemsKey, entry?.defect]
@@ -17284,7 +17469,13 @@ function renderPricingComplaintProducts(items) {
     const row = document.createElement("tr");
     appendOfferCell(row, String(index + 1), "complaint-products-lp");
     appendOfferCell(row, pricingComplaintProductTypeLabel(item.productType));
-    appendOfferCell(row, item.productName);
+    const productCell = appendOfferCell(row, item.productName);
+    if (item.request || item.defect) {
+      const detail = document.createElement("small");
+      detail.className = "complaint-product-detail";
+      detail.textContent = [item.request ? pricingComplaintRequestLabel(item.request) : "", item.defect].filter(Boolean).join(" · ");
+      productCell.append(detail);
+    }
     appendOfferCell(row, item.serial, "complaint-products-serial");
     appendOfferCell(row, item.purchaseDocument);
     appendOfferCell(row, formatDate(item.purchaseDate) || item.purchaseDate);
@@ -17310,7 +17501,7 @@ function renderPricingComplaint() {
   updateComplaintWarrantyHints(complaintFormItems({ includeBlank: true }));
   const request = normalizePricingComplaintRequest(complaintInputValue(complaintRequestInput));
   updatePricingComplaintRequestTone(request);
-  const showsRepairCost = syncComplaintRepairCostVisibility(request);
+  const showsRepairCost = syncComplaintRepairCostVisibility(items.some(item => item.request === "NAPRAWA POGWARANCYJNA") ? "NAPRAWA POGWARANCYJNA" : request);
   const firstItem = items[0] || normalizePricingComplaintItem({
     productType: complaintInputValue(complaintProductTypeInput),
     productName: selectedComplaintProductName()
@@ -29777,7 +29968,13 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
     },
     render: kind => kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
     reset: kind => kind === "receipt" ? resetPricingReceipt() : kind === "rodo" ? resetPricingRodo() : resets[kind](),
-    validate: kind => kind !== "receipt" || validatePricingReceipt(),
+    validate: kind => {
+      if (kind === "receipt") return validatePricingReceipt();
+      const names = {offer: "offerCustomerInput", loan: "loanCustomerInput", order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
+      if (!requireDocumentCustomerName(document.getElementById(names[kind]))) return false;
+      if (kind === "rodo") { updateRodoFromPesel(); return document.getElementById("rodoPeselInput").reportValidity(); }
+      return true;
+    },
     renderApp: () => render(),
     clearForms() {
       Object.values({ offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView }).forEach(view => {
@@ -29846,4 +30043,5 @@ window.addEventListener("storage", event => {
 setupStructuredAddresses();
 setupDocumentCustomerAutofill();
 setupPrivateSearchInputs();
+setupUnifiedDocumentLayout();
 init();
