@@ -16571,7 +16571,37 @@ body.offline-form-mode #offlineFormsLauncher { display: none !important; }
 .offline-controls strong { margin-right: auto; }
 .offline-controls button[hidden] { display: none; }
 .offline-tabs { margin: 16px 0 12px; }
-.offline-tabs [aria-pressed="true"] { background: #d8eeeb; border-color: #007f80; }
+.offline-tabs button {
+  --offline-ink: #365a69;
+  --offline-accent: #7397a4;
+  --offline-tint: #f0f5f7;
+  --offline-selected: #e1ecf1;
+  border-color: #d0dce0;
+  border-left: 3px solid var(--offline-accent);
+  color: var(--offline-ink);
+  background: var(--offline-tint);
+  min-height: 36px;
+}
+.offline-tabs [data-kind="offer"] { --offline-ink: #00696c; --offline-accent: #008388; --offline-tint: #edf8f6; --offline-selected: #d5efeb; }
+.offline-tabs [data-kind="loan"] { --offline-ink: #003f5a; --offline-accent: #276880; --offline-tint: #edf3f8; --offline-selected: #dce9f2; }
+.offline-tabs [data-kind="order"] { --offline-ink: #97531a; --offline-accent: #db741d; --offline-tint: #fff5e9; --offline-selected: #ffe7c9; }
+.offline-tabs [data-kind="complaint"] { --offline-ink: #91485a; --offline-accent: #ba7182; --offline-tint: #fcf0f3; --offline-selected: #f6dfe6; }
+.offline-tabs [data-kind="receipt"] { --offline-ink: #5c6b38; --offline-accent: #91a365; --offline-tint: #f3f7ec; --offline-selected: #e7eed8; }
+.offline-tabs [data-kind="rodo"] { --offline-ink: #596779; --offline-accent: #8493a9; --offline-tint: #f2f4f8; --offline-selected: #e4e9f1; }
+.offline-tabs button[aria-pressed="true"] {
+  background: var(--offline-selected);
+  border-color: var(--offline-accent);
+  font-weight: 750;
+}
+.offline-tabs button:hover { background: var(--offline-selected); }
+.offline-controls [data-offline="save"] { background: #e2f2eb; border-color: #9abfb0; color: #1c6554; }
+.offline-controls [data-offline="print"] { background: #e7eef6; border-color: #a3b8ce; color: #174a68; }
+.offline-controls [data-offline="sync"] { background: #fff0df; border-color: #dfbc95; color: #93531d; }
+.offline-controls [data-offline="exit"] { background: #f1f5f6; border-color: #bbcbd1; color: #425b66; }
+.offline-controls [data-offline="lock"] { background: #f9edf0; border-color: #d6b4bf; color: #8a485b; }
+.offline-controls button:hover:not(:disabled) { filter: brightness(0.97); }
+.offline-controls button:focus-visible,
+.offline-tabs button:focus-visible { outline: 2px solid #007f80; outline-offset: 3px; }
 .offline-drafts { margin-bottom: 16px; }
 .offline-draft { display: inline-flex; max-width: 100%; }
 .offline-draft button { overflow-wrap: anywhere; }
