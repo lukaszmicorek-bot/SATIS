@@ -4,6 +4,29 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('base/service printing is removed; transfer menus are owner-only and closed after logout', () => {
+  const source = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /id="(?:printBtn|printRepairBtn)"/);
+  assert.equal((html.match(/data-sensitive-transfer-menu hidden/g) || []).length, 2);
+  assert.equal((html.match(/data-device-location-target="locationFilter"/g) || []).length, 4);
+  const menu = {hidden: false, open: true};
+  const button = {hidden: false, disabled: false};
+  let allowed = false;
+  const ctx = vm.createContext({canManagePricing: () => allowed,
+    document: {querySelectorAll: () => [menu], querySelector: () => button}});
+  const start = source.indexOf('function updateSensitiveTransferVisibility(');
+  vm.runInContext(source.slice(start, source.indexOf('\n}', start) + 2), ctx);
+  ctx.updateSensitiveTransferVisibility();
+  assert.equal(menu.hidden, true);
+  assert.equal(menu.open, false);
+  assert.equal(button.disabled, true);
+  allowed = true;
+  ctx.updateSensitiveTransferVisibility();
+  assert.equal(menu.hidden, false);
+  assert.equal(menu.open, false, 'owner actions stay collapsed until explicitly opened');
+  assert.equal(button.disabled, false);
+});
 test('service location tiles preserve workstation/manual choices and use customer history only as fallback', () => {
   const source = fs.readFileSync('app.js', 'utf8');
   const extract = name => {

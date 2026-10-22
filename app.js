@@ -1631,6 +1631,10 @@ function updatePricingManagementVisibility() {
 
 function updateSensitiveTransferVisibility() {
   const allowed = canManagePricing();
+  document.querySelectorAll("[data-sensitive-transfer-menu]").forEach(menu => {
+    menu.hidden = !allowed;
+    if (!allowed) menu.open = false;
+  });
   ["#exportBtn", "#importBtn", "#exportDemoBtn", "#exportRepairBtn", "#importRepairBtn"].forEach((selector) => {
     const button = document.querySelector(selector);
     if (!button) return;
@@ -8266,6 +8270,7 @@ function renderSearchMatchSummary(input, container) {
 
 function showDeviceSearchAcrossFilters() {
   [typeFilter, ezwmFilter, fifoFilter, locationFilter].forEach((filter) => { filter.value = ""; });
+  syncRepairLocationTiles(locationFilter);
   updateDeviceTypeSelectStyles();
   updateDocumentLocationAccents();
   resetAndRenderDeviceViews();
@@ -25014,7 +25019,7 @@ function clearRepairLocationSuggestion(locationInput = document.querySelector("#
 
 function syncRepairLocationTiles(input) {
   if (!input) return;
-  document.querySelectorAll(`[data-repair-location-target="${input.id}"]`).forEach(button => {
+  document.querySelectorAll(`[data-repair-location-target="${input.id}"], [data-device-location-target="${input.id}"]`).forEach(button => {
     const selected = button.dataset.value === input.value;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-pressed", String(selected));
@@ -27856,6 +27861,7 @@ function resetDeviceFilters() {
   fifoFilter.value = "";
   locationFilter.value = "";
   updateDocumentLocationAccent(locationFilter);
+  syncRepairLocationTiles(locationFilter);
   resetAndRenderDeviceViews();
 }
 
@@ -27906,7 +27912,7 @@ function nextFrame() {
 document.querySelector("#addBtn").addEventListener("click", () => openDialog());
 document.querySelector("#exportBtn").addEventListener("click", () => chooseExportFormat(exportCsv, exportJson));
 document.querySelector("#importBtn").addEventListener("click", () => importInput.click());
-printDevicesBtn.addEventListener("click", () => printWithReadyFonts());
+printDevicesBtn?.addEventListener("click", () => printWithReadyFonts());
 printStockChecklistBtn.addEventListener("click", printStockChecklist);
 saveStockAuditBtn?.addEventListener("click", saveStockAuditFromForm);
 exportStockAuditPdfBtn?.addEventListener("click", exportStockAuditPdf);
@@ -27937,7 +27943,7 @@ showMoreRecordsBtn.addEventListener("click", () => showMoreTableRows("devices", 
 document.querySelector("#addRepairBtn").addEventListener("click", () => openRepairDialog());
 document.querySelector("#exportRepairBtn").addEventListener("click", () => chooseExportFormat(exportRepairCsv, exportRepairJson));
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
-printRepairsBtn.addEventListener("click", () => printWithReadyFonts());
+printRepairsBtn?.addEventListener("click", () => printWithReadyFonts());
 showMoreRepairBtn.addEventListener("click", () => showMoreTableRows("repairs", renderRepairRecords));
 showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairOpen", renderRepairRecords));
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
@@ -28599,6 +28605,7 @@ ezwmFilter.addEventListener("change", resetAndRenderDeviceViews);
 fifoFilter.addEventListener("change", resetAndRenderDeviceViews);
 locationFilter.addEventListener("change", (event) => {
   updateDocumentLocationAccent(event.target);
+  syncRepairLocationTiles(event.target);
   resetAndRenderDeviceViews();
 });
 repairSearchInput.addEventListener("input", () => {
@@ -28620,9 +28627,9 @@ repairLocationFilter.addEventListener("change", (event) => {
   syncRepairLocationTiles(event.target);
   resetAndRenderRepairRecords();
 });
-document.querySelectorAll("[data-repair-location-target]").forEach(button => {
+document.querySelectorAll("[data-repair-location-target], [data-device-location-target]").forEach(button => {
   button.addEventListener("click", () => {
-    const input = document.getElementById(button.dataset.repairLocationTarget);
+    const input = document.getElementById(button.dataset.repairLocationTarget || button.dataset.deviceLocationTarget);
     if (!input) return;
     input.value = button.dataset.value;
     input.dispatchEvent(new Event("change", { bubbles: true }));

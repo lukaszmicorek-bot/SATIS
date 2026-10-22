@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261022-4">
+  <link rel="stylesheet" href="styles.css?v=20261022-5">
   </head>
   <body>
     <main class="app-shell">
@@ -162,32 +162,42 @@
                 <option value="180">180+ dni</option>
               </select>
             </label>
-            <label class="document-location-field location-filter-field">
+            <div class="document-location-field location-filter-field repair-location-field">
               <span>Miejsce</span>
-              <select id="locationFilter">
+              <select id="locationFilter" hidden>
                 <option value="">Wszystkie</option>
                 <option value="T12">T12</option>
                 <option value="P50">P50</option>
                 <option value="P63">P63</option>
               </select>
-            </label>
+              <div class="repair-location-tiles" role="group" aria-label="Filtr miejsca aparatów">
+                <button type="button" class="pcpr-tab active" data-device-location-target="locationFilter" data-value="" aria-pressed="true">Wszystkie</button>
+                <button type="button" class="pcpr-tab" data-device-location-target="locationFilter" data-value="T12" data-location-tone="T12" aria-pressed="false">T12</button>
+                <button type="button" class="pcpr-tab" data-device-location-target="locationFilter" data-value="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+                <button type="button" class="pcpr-tab" data-device-location-target="locationFilter" data-value="P50" data-location-tone="P50" aria-pressed="false">P50</button>
+              </div>
+            </div>
             <button id="resetDeviceFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addBtn" type="button">DODAJ</button>
-            <button id="exportBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
+            <details class="notebook-transfer-menu" data-sensitive-transfer-menu hidden>
+              <summary aria-label="Import i eksport danych">Dane</summary>
+              <div class="notebook-transfer-actions">
+            <button id="exportBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON" hidden disabled>
               <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
                 <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
                 <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
               </svg>
               <span class="icon-button-label">CSV/JSON</span>
             </button>
-            <button id="importBtn" class="icon-button" type="button" aria-label="Import CSV lub JSON" title="Import CSV lub JSON">
+            <button id="importBtn" class="icon-button" type="button" aria-label="Import CSV lub JSON" title="Import CSV lub JSON" hidden disabled>
               <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
                 <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
                 <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
               </svg>
               <span class="icon-button-label">CSV/JSON</span>
             </button>
-            <button id="printBtn" type="button">Drukuj</button>
+              </div>
+            </details>
             <input id="importInput" type="file" accept=".csv,text/csv,application/json,.json" hidden>
           </section>
 
@@ -608,21 +618,25 @@
             </div>
             <button id="resetRepairFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addRepairBtn" type="button" data-private-owner hidden>DODAJ</button>
-            <button id="exportRepairBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON">
+            <details class="notebook-transfer-menu" data-sensitive-transfer-menu hidden>
+              <summary aria-label="Import i eksport danych">Dane</summary>
+              <div class="notebook-transfer-actions">
+            <button id="exportRepairBtn" class="icon-button" type="button" aria-label="Eksport CSV lub JSON" title="Eksport CSV lub JSON" hidden disabled>
               <svg class="io-glyph export-glyph" viewBox="0 0 24 24" aria-hidden="true">
                 <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
                 <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
               </svg>
               <span class="icon-button-label">CSV/JSON</span>
             </button>
-            <button id="importRepairBtn" class="icon-button" type="button" aria-label="Import CSV lub JSON" title="Import CSV lub JSON">
+            <button id="importRepairBtn" class="icon-button" type="button" aria-label="Import CSV lub JSON" title="Import CSV lub JSON" hidden disabled>
               <svg class="io-glyph import-glyph" viewBox="0 0 24 24" aria-hidden="true">
                 <path class="tray-path" d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"></path>
                 <path class="arrow-path" d="M12 4v10m0 0 4-4m-4 4-4-4"></path>
               </svg>
               <span class="icon-button-label">CSV/JSON</span>
             </button>
-            <button id="printRepairBtn" type="button">Drukuj</button>
+              </div>
+            </details>
             <input id="importRepairInput" type="file" accept=".csv,text/csv,application/json,.json" hidden>
           </section>
 
@@ -3298,13 +3312,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261022-4"></script>
-    <script src="data-layer.js?v=20261022-4"></script>
-    <script src="sync-layer.js?v=20261022-4"></script>
-    <script src="traffic-meter.js?v=20261022-4"></script>
-    <script src="repair-returns.js?v=20261022-4"></script>
-    <script src="offline-vault.js?v=20261022-4"></script>
-    <script src="offline-forms.js?v=20261022-4"></script>
-  <script src="app.js?v=20261022-4"></script>
+    <script src="supabase-config.js?v=20261022-5"></script>
+    <script src="data-layer.js?v=20261022-5"></script>
+    <script src="sync-layer.js?v=20261022-5"></script>
+    <script src="traffic-meter.js?v=20261022-5"></script>
+    <script src="repair-returns.js?v=20261022-5"></script>
+    <script src="offline-vault.js?v=20261022-5"></script>
+    <script src="offline-forms.js?v=20261022-5"></script>
+  <script src="app.js?v=20261022-5"></script>
   </body>
 </html>
