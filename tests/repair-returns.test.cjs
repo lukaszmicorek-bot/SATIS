@@ -56,8 +56,8 @@ test('active-only service filter hides completed records but preserves every ope
   ctx.repairLocationFilter.value = 'P50';
   assert.equal(ctx.filteredRepairRecords().length, 0);
   const resetStart = js.indexOf('function resetRepairFilters(');
-  assert.match(js.slice(resetStart, js.indexOf('\n}', resetStart)), /repairActiveOnlyFilter.checked = false/);
-  assert.match(fs.readFileSync('index.html', 'utf8'), /id="repairActiveOnlyFilter" type="checkbox" role="switch"/);
+  assert.match(js.slice(resetStart, js.indexOf('\n}', resetStart)), /repairActiveOnlyFilter.checked = true/);
+  assert.match(fs.readFileSync('index.html', 'utf8'), /id="repairActiveOnlyFilter" type="checkbox" role="switch" checked/);
 });
 test('pre-2025 pending returns are archived, but 2025 and recent returns on older cases stay visible', () => {
   const rows = [
