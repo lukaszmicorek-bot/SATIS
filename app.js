@@ -17674,7 +17674,11 @@ function renderRepairRecords() {
 }
 
 function openRepairRecords() {
-  return sortOpenRepairRecords(repairRecords.filter((record) => matchesRepairKind(record) && !isRepairClosed(record) && matchesRepairOpenPriorityFilter(record)));
+  return sortOpenRepairRecords(repairRecords.filter((record) => {
+    const stageDate = isoDateForSave(record.returnDate) || isoDateForSave(record.sentDate) || isoDateForSave(record.receivedDate);
+    return (!stageDate || stageDate >= "2025-01-01")
+      && matchesRepairKind(record) && !isRepairClosed(record) && matchesRepairOpenPriorityFilter(record);
+  }));
 }
 
 function matchesRepairOpenPriorityFilter(record) {
@@ -18630,10 +18634,8 @@ function showDemoReturnReminder() {
 }
 
 function canShowDemoReturnReminder() {
-  let storedAt = 0;
-  try { storedAt = Number(localStorage.getItem(DEMO_RETURN_REMINDER_STORAGE_KEY) || 0); } catch {}
-  const lastShownAt = Math.max(demoReturnReminderLastShownAt, Number.isFinite(storedAt) ? storedAt : 0);
-  return !lastShownAt || Date.now() - lastShownAt >= DEMO_RETURN_REMINDER_INTERVAL_MS;
+  // Upcoming and overdue returns are available in the header calendar.
+  return false;
 }
 
 function markDemoReturnReminderShown() {
@@ -19597,7 +19599,7 @@ function repairStatusAge(record, status = effectiveRepairStatus(record)) {
         ? record.sentDate
         : record.receivedDate;
 
-  if (!statusDate) return null;
+  if (!statusDate || statusDate < "2025-01-01") return null;
   const startDate = new Date(`${statusDate}T00:00:00`);
   if (Number.isNaN(startDate.getTime())) return null;
 
@@ -26618,9 +26620,10 @@ function currentDateEventDetail(event) {
   return lines.filter(Boolean).join("\n");
 }
 
-function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
+function currentDateUpcomingEvents(date = new Date(), rangeDays = 45, referenceDate = date) {
   const start = isoDateFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const end = addDaysToIsoDate(start, rangeDays);
+  const referenceDay = isoDateFromParts(referenceDate.getFullYear(), referenceDate.getMonth() + 1, referenceDate.getDate());
   const events = new Map();
   const employeeWorkstations = new Map(vacationEmployees.map((employee) => [employee.id, employee.workstation]));
   const add = (eventDate, kind, label, summary, detail, uniqueKey, location = "") => {
@@ -26651,20 +26654,24 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45) {
   });
   demoRecords.forEach(record => {
     const meta = demoDerived.get(record.id);
-    if (!meta) return;
-    if (["manufacturerReturned", "returned"].includes(meta.returnSource)) return;
-    const manufacturerSource = ["manufacturer", "philips"].includes(meta.returnSource);
+    if (!meta || meta.status === "BRAK") return;
     const equipment = `${record.deviceName || "aparat Demo"}${record.serialNumber ? ` (nr ${record.serialNumber})` : ""}`;
-    add(meta.returnDeadline,
-      manufacturerSource ? "demo-manufacturer" : "demo-client",
-      manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta",
-      record.deviceName || "aparat Demo",
-      manufacturerSource ? equipment : `${record.currentUser || "brak osoby"}\n${equipment}`,
-      record.id,
-      record.location);
-    if (meta.manufacturerReturn?.returnDeadline) {
-      add(meta.manufacturerReturn.returnDeadline, "demo-manufacturer", "Zwrot Demo do producenta", record.deviceName || "aparat Demo", equipment, record.id, record.location);
-    }
+    [meta, meta.manufacturerReturn].filter(Boolean).forEach(deadline => {
+      const returnDate = isoDateForSave(deadline.returnDeadline);
+      if (!returnDate || ["manufacturerReturned", "returned"].includes(deadline.returnSource)) return;
+      if (deadline.returnSource === "loan" && meta.status === "ZWRÓCONO") return;
+      const manufacturerSource = ["manufacturer", "philips"].includes(deadline.returnSource);
+      const overdue = returnDate < referenceDay && referenceDay >= start && referenceDay <= end;
+      const label = manufacturerSource ? "Zwrot Demo do producenta" : "Zwrot Demo od klienta";
+      add(overdue ? referenceDay : returnDate,
+        manufacturerSource ? "demo-manufacturer" : "demo-client",
+        overdue ? `${label} · po terminie` : label,
+        record.deviceName || "aparat Demo",
+        [manufacturerSource ? "" : record.currentUser || "brak osoby", equipment,
+          overdue ? `Termin zwrotu: ${formatDate(returnDate)}` : ""].filter(Boolean).join("\n"),
+        record.id,
+        record.location);
+    });
   });
   vacationRequests.forEach(request => {
     if (request.status !== "ZATWIERDZONY") return;
@@ -26759,7 +26766,7 @@ function createCurrentDateCalendar(date = new Date()) {
   const viewedMonth = currentDateViewedMonth || today.slice(0, 7);
   const range = currentDateCalendarRange(date, viewedMonth);
   const scope = currentDateEventScope();
-  const upcomingEvents = filterCurrentDateEvents(currentDateUpcomingEvents(range.firstDay, range.rangeDays), scope.location);
+  const upcomingEvents = filterCurrentDateEvents(currentDateUpcomingEvents(range.firstDay, range.rangeDays, date), scope.location);
   const navigation = document.createElement("div");
   navigation.className = "current-date-calendar-navigation";
   const title = document.createElement("h3");

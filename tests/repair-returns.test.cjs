@@ -1,8 +1,47 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('pre-2025 pending returns are archived, but 2025 and recent returns on older cases stay visible', () => {
+  const rows = [
+    {id: 'archive', returnDate: '2024-12-31'},
+    {id: 'boundary', returnDate: '2025-01-01'},
+    {id: 'recent', receivedDate: '2020-01-01', returnDate: '2026-10-22'},
+    {id: 'undated'},
+    {id: 'closed', returnDate: '2026-10-22', pickupDate: '2026-10-22'}
+  ];
+  assert.deepEqual(pendingReturns(rows, iso).map(row => row.id), ['recent', 'boundary']);
+  assert.equal(rows[0].returnDate, '2024-12-31', 'archival data is not changed');
+});
+
+test('unfinished service list excludes archival stages without hiding recent progress', () => {
+  const js = fs.readFileSync('app.js', 'utf8');
+  const extract = name => {
+    const start = js.indexOf(`function ${name}(`);
+    return js.slice(start, js.indexOf('\n}', start) + 2);
+  };
+  const ctx = vm.createContext({
+    repairRecords: [
+      {id: 'old-ready', receivedDate: '2024-01-01', returnDate: '2024-12-31'},
+      {id: 'old-sent', sentDate: '2024-12-31'},
+      {id: 'old-received', receivedDate: '2024-12-31'},
+      {id: 'current', receivedDate: '2024-01-01', returnDate: '2025-01-01'},
+      {id: 'missing'}
+    ],
+    isoDateForSave: iso, matchesRepairKind: () => true, isRepairClosed: () => false,
+    matchesRepairOpenPriorityFilter: () => true, sortOpenRepairRecords: rows => rows,
+    effectiveRepairStatus: row => row.status
+  });
+  vm.runInContext(extract('openRepairRecords'), ctx);
+  vm.runInContext(extract('repairStatusAge'), ctx);
+  assert.deepEqual(Array.from(ctx.openRepairRecords(), row => row.id), ['current', 'missing']);
+  assert.equal(ctx.repairStatusAge({returnDate: '2024-12-31'}, 'GOTOWE'), null);
+  assert.ok(ctx.repairStatusAge({returnDate: '2025-01-01'}, 'GOTOWE') > 0);
+  assert.match(extract('filteredRepairRecords'), /matchesRepairKind/);
+  assert.doesNotMatch(extract('filteredRepairRecords'), /2025-01-01/, 'the full base remains searchable');
+});
 test('pending returns are scoped by place, newest first and disappear on pickup', () => {
   const records = [
     { id: 'old', location: 'T12', returnDate: '2026-10-12' },

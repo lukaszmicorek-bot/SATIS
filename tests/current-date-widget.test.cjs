@@ -74,6 +74,37 @@ test('Calendar keeps known workstation with loan, Demo and vacation events', () 
   assert.match(context.currentDateEventDetail(events.get('2026-09-30')[0]), /Jan Kowalski\nMiejsce: T12\nP:/);
   assert.doesNotMatch(context.currentDateEventDetail(events.get('2026-10-01')[0]), /Miejsce:/);
   assert.match(css, /\.current-date-event-location\[data-location-tone="P63"\]/);
+  context.demoRecords.push(
+    {id: 'overdue', currentUser: 'Osoba Testowa', deviceName: 'Zaległy model', location: 'P63'},
+    {id: 'client-returned', deviceName: 'Po zwrocie klienta', location: 'P50'}
+  );
+  context.demoDerived.set('overdue', {status: 'WYPOŻYCZONY', returnSource: 'loan', returnDeadline: '2026-09-20',
+    manufacturerReturn: {returnSource: 'manufacturer', returnDeadline: '2026-09-25'}});
+  context.demoDerived.set('client-returned', {status: 'ZWRÓCONO', returnSource: 'returned', returnDeadline: '2026-09-25',
+    manufacturerReturn: {returnSource: 'manufacturer', returnDeadline: '2026-10-03'}});
+  const complete = context.currentDateUpcomingEvents(new Date(2026, 8, 29), 7);
+  const overdueEvents = complete.get('2026-09-29');
+  assert.equal(overdueEvents.length, 2);
+  assert.ok(overdueEvents.every(event => event.label.includes('po terminie')));
+  assert.match(overdueEvents.find(event => event.kind === 'demo-client').detail, /Termin zwrotu: 2026-09-20/);
+  assert.ok(complete.get('2026-10-03').some(event => event.kind === 'demo-manufacturer' && event.location === 'P50'),
+    'a client return must not hide a still-pending manufacturer return');
+  context.demoDerived.set('overdue', {returnSource: 'manufacturer', returnDeadline: '2026-10-03',
+    manufacturerReturn: {returnSource: 'manufacturer', returnDeadline: '2026-10-03'}});
+  const deduped = context.currentDateUpcomingEvents(new Date(2026, 8, 29), 7).get('2026-10-03');
+  assert.equal(deduped.filter(event => event.summary === 'Zaległy model').length, 1);
+  context.demoDerived.set('overdue', {status: 'WYPOŻYCZONY', returnSource: 'loan', returnDeadline: '2026-09-20'});
+  const wholeMonth = context.currentDateUpcomingEvents(new Date(2026, 8, 1), 45, new Date(2026, 8, 29));
+  assert.ok(wholeMonth.get('2026-09-29').some(event => event.label.includes('po terminie')),
+    'the header loads from the first day of the month but overdue returns belong to today');
+});
+
+test('return popup is disabled independently of hourly storage while calendar events remain enabled', () => {
+  const ctx = vm.createContext({});
+  vm.runInContext(extract('canShowDemoReturnReminder'), ctx);
+  assert.equal(ctx.canShowDemoReturnReminder(), false);
+  assert.match(extract('showDemoReturnReminder'), /!canShowDemoReturnReminder\(\)/);
+  assert.match(extract('refreshDemoReturnReminders'), /rebuildDemoDerivedData\(\)/);
 });
 
 test('Header calendar limits clinic workstations and gives ML all events with a filter', () => {
@@ -107,7 +138,7 @@ test('Header calendar limits clinic workstations and gives ML all events with a 
   assert.equal(context.filterCurrentDateEvents(events, 'P63').get('2026-10-02')[0].label, 'Umowa');
   assert.equal(context.filterCurrentDateEvents(events, 'UNASSIGNED').get('2026-10-02')[0].label, 'Bez miejsca');
   assert.equal(context.filterCurrentDateEvents(events, 'NONE').size, 0);
-  assert.match(extract('createCurrentDateCalendar'), /filterCurrentDateEvents\(currentDateUpcomingEvents\(range\.firstDay, range\.rangeDays\), scope\.location\)/);
+  assert.match(extract('createCurrentDateCalendar'), /filterCurrentDateEvents\(currentDateUpcomingEvents\(range\.firstDay, range\.rangeDays, date\), scope\.location\)/);
   assert.match(extract('createCurrentDateCalendar'), /\["UNASSIGNED", "Bez miejsca"\]/);
 });
 
@@ -126,7 +157,7 @@ test('Header calendar can browse complete months across year boundaries', () => 
   assert.equal(currentMonth.days, 31);
   assert.equal(currentMonth.rangeDays, 46);
   assert.equal(currentMonth.isCurrentMonth, true);
-  assert.match(extract('createCurrentDateCalendar'), /currentDateUpcomingEvents\(range\.firstDay, range\.rangeDays\)/);
+  assert.match(extract('createCurrentDateCalendar'), /currentDateUpcomingEvents\(range\.firstDay, range\.rangeDays, date\)/);
   assert.match(extract('createCurrentDateCalendar'), /Poprzedni miesiąc/);
   assert.match(extract('createCurrentDateCalendar'), /Następny miesiąc/);
   assert.match(extract('createCurrentDateCalendar'), /Wydarzenia w miesiącu/);
