@@ -9640,6 +9640,7 @@ function receiptSnapshot() {
 }
 
 function renderPricingReceipt() {
+  globalThis.SatisAddressFields?.sync("receiptAddressInput");
   const print = document.getElementById("pricingReceiptPrint");
   if (!print) return;
   const snapshot = receiptSnapshot();
@@ -10022,6 +10023,7 @@ function updateRodoFromPesel() {
 }
 
 function renderPricingRodo() {
+  globalThis.SatisAddressFields?.sync("rodoAddressInput");
   const print = document.querySelector("#pricingRodoPrint");
   if (!print) return;
   const name = document.querySelector("#rodoNameInput")?.value.trim() || "";
@@ -13067,6 +13069,114 @@ function postalStreetKey(value) {
   return normalize(value).replace(/^(?:ul\.?|ulica)\s+/u, "").replace(/\s+/gu, " ").trim();
 }
 
+function structuredAddressValue(parts) {
+  return [String(parts.street || "").trim(), [parts.postalCode, parts.city].filter(Boolean).join(" ").trim()]
+    .filter(Boolean).join(", ");
+}
+
+function structuredAddressNodes(root) {
+  return Object.fromEntries(["street", "postalCode", "city"].map(key => [key, root.querySelector(`[data-address-part="${key}"]`)]));
+}
+
+function syncStructuredAddress(root) {
+  const input = document.getElementById(root.dataset.addressInput);
+  if (!input || root.dataset.addressValue === input.value) return;
+  const fields = structuredAddressNodes(root);
+  const parts = postalAddressParts(input.value);
+  // Unrecognized legacy addresses remain intact and editable instead of being discarded.
+  const recognized = Boolean(parts.street || parts.city);
+  fields.street.value = recognized ? parts.street : input.value;
+  fields.postalCode.value = recognized ? parts.postalCode : "";
+  fields.city.value = parts.city;
+  const hint = root.querySelector(".structured-address-hint");
+  hint.hidden = recognized || !input.value;
+  hint.textContent = hint.hidden ? "" : "Sprawdź podział adresu na ulicę, kod i miejscowość.";
+  root.dataset.addressValue = input.value;
+}
+
+function commitStructuredAddress(root, final = false) {
+  const input = document.getElementById(root.dataset.addressInput);
+  const fields = structuredAddressNodes(root);
+  const hint = root.querySelector(".structured-address-hint");
+  if (final) {
+    if (fields.postalCode.value) { hint.hidden = true; hint.textContent = ""; }
+    fields.street.value = fields.street.value.includes(",") ? fields.street.value.trim() : formatLoanStreet(fields.street.value);
+    fields.postalCode.value = formatPcprPostalCode(fields.postalCode.value);
+    fields.city.value = /^bielsko$/iu.test(fields.city.value.trim()) ? "Bielsko-Biała" : normalizePcprCity(fields.city.value);
+    if (!fields.city.value && /^\d{2}-\d{3}$/u.test(fields.postalCode.value)) {
+      const cities = [...new Set(knownPostalAddresses().filter(item => item.postalCode === fields.postalCode.value)
+        .map(item => normalizePcprCity(item.city)).filter(Boolean))];
+      if (cities.length === 1) fields.city.value = cities[0];
+    }
+    if (!fields.postalCode.value && fields.city.value) {
+      const suggestion = suggestPostalCode(fields.city.value, fields.street.value);
+      if (suggestion.code) fields.postalCode.value = suggestion.code;
+      hint.hidden = Boolean(suggestion.code);
+      hint.textContent = suggestion.code ? "" : "Brak jednoznacznego kodu pocztowego. Uzupełnij go ręcznie.";
+    }
+  }
+  delete input.dataset.autoPostalCode;
+  delete input.dataset.autoPostalAddress;
+  input.value = structuredAddressValue(Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field.value])));
+  root.dataset.addressValue = input.value;
+  fields.street.setCustomValidity("");
+  fields.postalCode.setCustomValidity(final && fields.postalCode.value && !/^\d{2}-\d{3}$/u.test(fields.postalCode.value)
+    ? "Wpisz kod pocztowy w formacie 00-000." : "");
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  if (final) input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function setupStructuredAddresses() {
+  const roots = [...document.querySelectorAll("[data-address-input]")];
+  globalThis.SatisAddressFields = {
+    validate(id, message) {
+      const root = roots.find(item => item.dataset.addressInput === id);
+      if (root) structuredAddressNodes(root).street.setCustomValidity(message);
+    },
+    sync(id) {
+      const root = roots.find(item => item.dataset.addressInput === id);
+      if (root) syncStructuredAddress(root);
+    }
+  };
+  roots.forEach(root => {
+    const fields = structuredAddressNodes(root);
+    fields.street.title = "Możesz wkleić cały adres; rozpoznamy ulicę, kod pocztowy i miejscowość.";
+    Object.values(fields).forEach(field => {
+      field.addEventListener("input", () => commitStructuredAddress(root));
+      field.addEventListener("blur", () => commitStructuredAddress(root, true));
+    });
+    fields.street.addEventListener("paste", event => {
+      const text = event.clipboardData?.getData("text") || "";
+      const parts = postalAddressParts(text);
+      if (!parts.street || !parts.city) return;
+      event.preventDefault();
+      Object.entries(fields).forEach(([key, field]) => { field.value = parts[key] || ""; });
+      commitStructuredAddress(root, true);
+    });
+    document.getElementById(root.dataset.addressInput)?.addEventListener("invalid", event => {
+      event.preventDefault();
+      fields.street.setCustomValidity(event.target.validationMessage || "Sprawdź adres klienta.");
+      fields.street.reportValidity();
+    });
+    syncStructuredAddress(root);
+  });
+  pcprStreetInput?.addEventListener("paste", event => {
+    const parts = postalAddressParts(event.clipboardData?.getData("text") || "");
+    if (!parts.street || !parts.city) return;
+    event.preventDefault();
+    pcprStreetInput.value = parts.street;
+    pcprPostalCodeInput.value = parts.postalCode;
+    pcprCityInput.value = parts.city;
+    pcprCityInput.dataset.autoCity = "";
+    delete pcprPostalCodeInput.dataset.autoPostalCode;
+    delete pcprPostalCodeInput.dataset.autoPostalAddress;
+    [pcprStreetInput, pcprPostalCodeInput, pcprCityInput].forEach(field => {
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+}
+
 function knownPostalAddresses() {
   return [
     { postalCode: "43-300", city: "Bielsko-Biała", street: "ul. Traugutta 12" },
@@ -13135,6 +13245,7 @@ function updateLoanAddressValidity() {
   else if (!parts.city) message = "Podaj miejscowość.";
   else if (!parts.postalCode) message = "Podaj kod pocztowy w formacie 00-000.";
   loanAddressInput.setCustomValidity(message);
+  globalThis.SatisAddressFields?.validate("loanAddressInput", message);
   loanAddressInput.classList.toggle("loan-address-invalid", Boolean(message));
   loanAddressInput.title = message;
   return !message;
@@ -13807,7 +13918,7 @@ function validatePricingLoanForAction() {
   }
   if (!updateLoanAddressValidity()) {
     alert(loanAddressInput?.validationMessage || "Sprawdź adres klienta.");
-    loanAddressInput?.focus();
+    (document.querySelector("#loanAddressStreetInput") || loanAddressInput)?.focus();
     return false;
   }
   if (!updateLoanContractNumberValidity()) {
@@ -13819,6 +13930,7 @@ function validatePricingLoanForAction() {
 }
 
 function renderPricingLoan() {
+  globalThis.SatisAddressFields?.sync("loanAddressInput");
   if (!pricingLoanView) return;
   updateLoanTransferButton();
   ensurePricingLoanDefaults();
@@ -29592,4 +29704,5 @@ window.addEventListener("pagehide", () => trafficMeter?.flush());
 window.addEventListener("storage", event => {
   if (event.key?.startsWith("satis-api-traffic-v1:")) renderTrafficMeter();
 });
+setupStructuredAddresses();
 init();
