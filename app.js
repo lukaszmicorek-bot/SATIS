@@ -6880,12 +6880,15 @@ function setupLocalRowDrag(body, items, tableKey) {
       catch { return; }
       rerender();
     });
-    document.getElementById(anchorIds[tableKey])?.after(reset);
+    const anchor = document.getElementById(anchorIds[tableKey]);
+    const menu = anchor?.closest(".controls")?.querySelector(".notebook-transfer-actions");
+    if (menu) menu.append(reset);
+    else anchor?.after(reset);
   }
   if (reset) {
-    reset.hidden = !canViewPrivateModules() || (sharedRowOrdersReady && !readLocalRowOrder(tableKey).length);
+    reset.hidden = !canViewPrivateModules() || !readLocalRowOrder(tableKey).length;
     reset.disabled = hasSupabaseConfig && (!sharedRowOrdersReady || sharedRowOrderSaving.has(tableKey));
-    reset.textContent = hasSupabaseConfig && !sharedRowOrdersReady ? "Kolejność: wymaga połączenia / SQL" : "Przywróć kolejność";
+    reset.textContent = "Przywróć kolejność";
     reset.title = hasSupabaseConfig && !sharedRowOrdersReady ? "Sprawdź połączenie. Przy pierwszym wdrożeniu uruchom supabase-row-order.sql w Supabase." : "Przywróć domyślną kolejność dla wszystkich użytkowników";
   }
   if (!canViewPrivateModules()) return;
