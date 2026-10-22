@@ -12975,6 +12975,7 @@ function setupDocumentCustomerAutofill() {
   for (const [kind, nameId] of [["loan", "loanCustomerInput"], ["order", "orderCustomerInput"], ["complaint", "complaintCustomerInput"]]) {
     const fields = customerTransferFields(nameId);
     if (!fields.name) continue;
+    fields.name.type = "search";
     fields.name.removeAttribute("list");
     const panel = document.createElement("div");
     panel.className = "customer-history-suggestions document-customer-matches";
@@ -13039,6 +13040,19 @@ function setupDocumentCustomerAutofill() {
     });
     fields.name.addEventListener("keydown", event => { if (event.key === "Escape") panel.hidden = true; });
   }
+}
+
+function setupPrivateSearchInputs() {
+  document.querySelectorAll('input[type="search"]').forEach(input => {
+    input.autocomplete = "off";
+    input.setAttribute("autocorrect", "off");
+    input.spellcheck = false;
+    input.setAttribute("data-form-type", "other");
+    input.setAttribute("data-1p-ignore", "true");
+    input.setAttribute("data-lpignore", "true");
+    if (!input.name) input.name = `satis-query-${input.id}`;
+    input.classList.add("satis-private-search");
+  });
 }
 
 function hideLoanCustomerHistorySuggestions() {
@@ -29831,4 +29845,5 @@ window.addEventListener("storage", event => {
 });
 setupStructuredAddresses();
 setupDocumentCustomerAutofill();
+setupPrivateSearchInputs();
 init();
