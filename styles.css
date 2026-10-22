@@ -7547,6 +7547,11 @@ h2 {
 .structured-address { min-width: 0; }
 .document-customer-matches { grid-column: 1 / -1; max-height: 250px; overflow-y: auto; }
 .document-customer-matches button { overflow-wrap: anywhere; }
+.satis-private-search::-webkit-contacts-auto-fill-button {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
 .structured-address-fields {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(95px, 0.55fr) minmax(0, 1fr);

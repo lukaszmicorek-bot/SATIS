@@ -10,6 +10,20 @@ function extract(name) {
   return rest.slice(0, rest.slice(1).search(/\n(?:async )?function /) + 1);
 }
 
+test('search inputs disable native contact suggestions without changing existing form field names', () => {
+  const values = [{id: 'customerRelationsInput', name: ''}, {id: 'existing', name: 'preserve-me'}];
+  values.forEach(input => { input.attributes = {}; input.setAttribute = (key, value) => { input.attributes[key] = value; }; input.classList = {add() {}}; });
+  const ctx = vm.createContext({document: {querySelectorAll: () => values}});
+  vm.runInContext(extract('setupPrivateSearchInputs'), ctx);
+  ctx.setupPrivateSearchInputs();
+  assert.equal(values[0].autocomplete, 'off');
+  assert.equal(values[0].name, 'satis-query-customerRelationsInput');
+  assert.equal(values[1].name, 'preserve-me');
+  assert.equal(values[0].attributes['data-form-type'], 'other');
+  assert.equal(values[0].attributes['data-1p-ignore'], 'true');
+  assert.ok(source.indexOf('setupPrivateSearchInputs();') < source.lastIndexOf('init();'));
+});
+
 test('document customer lookup supports first/surname fragments without treating them as exact identities', () => {
   const ctx = vm.createContext({customerNameLookupKey: value => String(value).toLowerCase().trim()});
   vm.runInContext(extract('documentCustomerNameMatches'), ctx);
