@@ -7,7 +7,7 @@
     return JSON.stringify([record.id, iso(record.returnDate), record.location]);
   }
   function pendingReturns(records, iso, location = "") {
-    return records.filter(record => iso(record.returnDate) && !iso(record.pickupDate)
+    return records.filter(record => iso(record.returnDate) >= "2025-01-01" && !iso(record.pickupDate)
       && (!location || record.location === location))
       .sort((a, b) => iso(b.returnDate).localeCompare(iso(a.returnDate)) || String(a.id).localeCompare(String(b.id)));
   }

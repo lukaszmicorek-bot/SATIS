@@ -12505,6 +12505,12 @@ tbody tr.demo-return-critical:hover {
 .devices-table td:nth-child(3) .serial-pill-number { flex: 0 0 auto; }
 .devices-table td:nth-child(3) .serial-service-marker,
 .devices-table td:nth-child(3) .serial-duplicate-marker { display: inline-block; flex: 0 0 auto; margin: 0; white-space: nowrap; font-size: 0.58rem; }
+.devices-table td:nth-child(3) .serial-service-marker {
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid #a8c6ca;
+  line-height: 1.2;
+}
 .devices-table th:nth-child(4),
 .devices-table td:nth-child(4) { width: 7%; }
 .devices-table th:nth-child(5),
