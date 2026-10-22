@@ -44,7 +44,8 @@ test('blocked storage and failed requests do not break the application', async (
 test('owner-only UI and Supabase injection preserve existing authentication storage', () => {
   const app = fs.readFileSync('app.js', 'utf8');
   assert.match(app, /const permitted = canViewPrivateModules\(\) && Boolean\(trafficMeter\)/);
-  assert.match(app, /global: \{fetch: trafficMeter.fetch\}/);
+  assert.match(app, /global: \{ fetch: fetchSupabaseWithTimeout \}/);
+  assert.match(app, /const fetcher = trafficMeter \? trafficMeter.fetch : window.fetch.bind\(window\)/);
   assert.match(app, /storage: window.sessionStorage/);
   const html = fs.readFileSync('index.html', 'utf8');
   assert.match(html, /id="trafficMeterBtn"[^>]*hidden/);
