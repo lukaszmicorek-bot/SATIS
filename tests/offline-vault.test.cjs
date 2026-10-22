@@ -3,14 +3,15 @@ const assert = require('node:assert/strict');
 const { webcrypto } = require('node:crypto');
 const { create } = require('../offline-vault.js');
 const encoder = new TextEncoder();
-test('offline launcher is placed below workstation/logout instead of floating over the page', () => {
+test('offline launcher sits to the right of customer search in its own header row', () => {
   const fs = require('node:fs');
   const html = fs.readFileSync('index.html', 'utf8');
   const offline = fs.readFileSync('offline-forms.js', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');
-  const actions = html.slice(html.indexOf('class="connection-account-actions"'), html.indexOf('<section id="trafficMeterPanel"'));
-  assert.ok(actions.indexOf('id="offlineFormsLauncherSlot"') > actions.indexOf('id="logoutBtn"'));
-  assert.ok(actions.includes('id="workstationBtn"'));
+  const row = html.slice(html.indexOf('class="header-tools-row"'), html.indexOf('<section id="devicesNotebook"'));
+  assert.ok(row.indexOf('id="offlineFormsLauncherSlot"') > row.indexOf('id="customerRelationsSummary"'));
+  assert.equal((html.match(/id="offlineFormsLauncherSlot"/g) || []).length, 1);
+  assert.match(css, /\.header-tools-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/s);
   assert.match(offline, /document.querySelector\("#offlineFormsLauncherSlot"\) \|\| document.body/);
   assert.match(css, /#offlineFormsLauncher\s*\{[^}]*position: static/);
   assert.doesNotMatch(css, /#offlineFormsLauncher\s*\{[^}]*position: fixed/);

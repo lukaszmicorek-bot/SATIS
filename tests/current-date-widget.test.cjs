@@ -7,7 +7,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
-test('Offline forms launcher has one small position below the account controls', () => {
+test('Offline forms launcher has one small position in the header tools row', () => {
   const offline = fs.readFileSync(path.join(root, 'offline-forms.js'), 'utf8');
   assert.match(offline, /launcher\.id = "offlineFormsLauncher";/);
   assert.match(offline, /document.querySelector\("#offlineFormsLauncherSlot"\) \|\| document.body/);

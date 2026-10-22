@@ -2964,6 +2964,8 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  globalThis.SatisDocumentCustomerNames = [];
+  document.querySelectorAll(".document-customer-matches").forEach(panel => { panel.replaceChildren(); panel.hidden = true; });
   submitVacationRequest.draft = null;
   customerTransferMemory = null;
   customerTransferGeneration += 1;
@@ -8211,6 +8213,7 @@ function rebuildCustomerNameSuggestions() {
     });
 
   customerNameSuggestions.replaceChildren(fragment);
+  globalThis.SatisDocumentCustomerNames = [...uniqueNames.values()];
 }
 
 function flushDeferredSuggestions() {
@@ -12908,12 +12911,134 @@ function customerHistoryContactEntries(customer) {
   pricingPcprList.forEach((entry) => add({ ...entry, address: pcprAddressLabel(entry) }, "PCPR / MOPS"));
   pricingOrderHistory.forEach((entry) => add({ customer: entry.customer, phone: entry.phone, date: entry.date, savedAt: entry.savedAt }, "Zamówienie"));
   pricingComplaintHistory.forEach((entry) => add({ customer: entry.customer, phone: entry.phone, date: entry.date, savedAt: entry.savedAt }, "Reklamacja"));
+  if (typeof pricingOfferHistory !== "undefined") pricingOfferHistory.forEach(entry => add(entry, "Oferta"));
+  if (typeof records !== "undefined") records.forEach(entry => add({ ...entry, customer: entry.customerName, date: entry.saleDate || entry.pickupDate || entry.receivedDate }, "Baza aparatów"));
+  if (typeof repairRecords !== "undefined") repairRecords.forEach(entry => add({ ...entry, customer: entry.customerName, date: entry.receivedDate }, "Serwis"));
+  if (typeof demoRecords !== "undefined") demoRecords.forEach(entry => {
+    add({ ...entry, customer: entry.currentUser, date: entry.loanDate }, "Demo");
+    (Array.isArray(entry.loanHistory) ? entry.loanHistory : []).forEach(loan => add({ ...loan, customer: loan.currentUser, date: loan.loanDate }, "Historia Demo"));
+  });
   const unique = new Map();
-  entries.sort((left, right) => right.sortTime - left.sortTime).forEach((entry) => {
+  entries.sort((left, right) => Number(right.source === "Umowa") - Number(left.source === "Umowa") || right.sortTime - left.sortTime).forEach((entry) => {
     const profileKey = JSON.stringify([entry.phone, entry.document, entry.address].map((value) => normalize(value).trim()));
     if (!unique.has(profileKey)) unique.set(profileKey, entry);
   });
   return [...unique.values()];
+}
+
+function documentCustomerNameMatches(query, names = globalThis.SatisDocumentCustomerNames || []) {
+  const key = customerNameLookupKey(query);
+  if (key.length < 2) return [];
+  const tokens = key.split(/\s+/u);
+  return names.filter(name => tokens.every(token => customerNameLookupKey(name).includes(token)))
+    .sort((a, b) => Number(customerNameLookupKey(b) === key) - Number(customerNameLookupKey(a) === key) || a.localeCompare(b, "pl"))
+    .slice(0, 8);
+}
+
+function unambiguousDocumentContact(entries) {
+  if (!entries.length) return null;
+  const contact = { ...entries[0] };
+  for (const key of ["phone", "document", "address"]) {
+    const values = entries.map(entry => entry[key]).filter(Boolean);
+    const normalized = value => key === "phone" ? String(value).replace(/\D/gu, "").replace(/^48(?=\d{9}$)/u, "")
+      : key === "document" ? normalizeLoanIdentityValue(value) : normalize(value).trim();
+    if (new Set(values.map(normalized)).size > 1) return null;
+    contact[key] = values[0] || "";
+  }
+  return contact;
+}
+
+function fillDocumentContactFields(fields, entry, kind) {
+  if (customerNameLookupKey(fields.name.value) !== entry.customerKey) return false;
+  const phoneKey = value => String(value || "").replace(/\D/gu, "").replace(/^48(?=\d{9}$)/u, "");
+  if (fields.phone?.value.trim() && entry.phone && phoneKey(fields.phone.value) !== phoneKey(entry.phone)) return false;
+  if (fields.document?.value.trim() && entry.document && normalizeLoanIdentityValue(fields.document.value) !== normalizeLoanIdentityValue(entry.document)) return false;
+  if (kind === "loan") {
+    applyLoanCustomerHistoryContact(entry);
+    return true;
+  }
+  let changed = false;
+  for (const key of ["phone", "document", "address"]) {
+    const input = fields[key];
+    if (!input || input.value.trim() || !entry[key]) continue;
+    input.value = key === "phone" ? formatRodoPhone(entry[key]) : entry[key];
+    input.dataset.documentContactCustomer = entry.customerKey;
+    input.dataset.documentContactValue = input.value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    changed = true;
+  }
+  if (changed) markAgreementDraftDirty(kind);
+  return changed;
+}
+
+function setupDocumentCustomerAutofill() {
+  for (const [kind, nameId] of [["loan", "loanCustomerInput"], ["order", "orderCustomerInput"], ["complaint", "complaintCustomerInput"]]) {
+    const fields = customerTransferFields(nameId);
+    if (!fields.name) continue;
+    fields.name.removeAttribute("list");
+    const panel = document.createElement("div");
+    panel.className = "customer-history-suggestions document-customer-matches";
+    panel.hidden = true;
+    panel.setAttribute("aria-label", "Podpowiedzi klienta z historii");
+    panel.addEventListener("pointerdown", event => { if (event.target.closest("button")) event.preventDefault(); });
+    fields.name.closest("label").after(panel);
+    const update = (autofill = false) => {
+      if (kind === "loan") hideLoanCustomerHistorySuggestions();
+      panel.replaceChildren();
+      const query = fields.name.value;
+      const entries = customerHistoryContactEntries(query);
+      const exactNames = documentCustomerNameMatches(query);
+      const exact = exactNames.some(name => customerNameLookupKey(name) === customerNameLookupKey(query));
+      const contact = unambiguousDocumentContact(entries);
+      if (autofill && contact) fillDocumentContactFields(fields, contact, kind);
+      if (exact && (contact || !entries.length)) { panel.hidden = true; return; }
+      const heading = document.createElement("p");
+      heading.textContent = exact && entries.length > 1 ? "Różne dane dla tego imienia i nazwiska. Wybierz właściwy wpis." : "Wybierz klienta, aby uzupełnić dane z historii.";
+      panel.append(heading);
+      if (exact && entries.length > 1) {
+        entries.slice(0, 8).forEach(entry => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = [entry.source, entry.date ? formatDate(entry.date) : "", entry.phone, entry.document ? `Dokument: •••• ${entry.document.slice(-4)}` : "", entry.address].filter(Boolean).join(" · ");
+          button.addEventListener("click", () => { fillDocumentContactFields(fields, entry, kind); panel.hidden = true; });
+          panel.append(button);
+        });
+      } else {
+        exactNames.forEach(name => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = name;
+          button.addEventListener("click", () => {
+            fields.name.value = name;
+            fields.name.dispatchEvent(new Event("input", { bubbles: true }));
+            fields.name.dispatchEvent(new Event("change", { bubbles: true }));
+            update(true);
+          });
+          panel.append(button);
+        });
+      }
+      panel.hidden = panel.children.length <= 1;
+    };
+    const delayed = debounce(() => update(true), SEARCH_DEBOUNCE_MS);
+    fields.name.addEventListener("input", () => {
+      panel.hidden = true;
+      const key = customerNameLookupKey(fields.name.value);
+      for (const input of Object.values(fields)) {
+        if (!input.dataset.documentContactCustomer || input.dataset.documentContactCustomer === key) continue;
+        if (input.value === input.dataset.documentContactValue) { input.value = ""; input.dispatchEvent(new Event("input", { bubbles: true })); }
+        delete input.dataset.documentContactCustomer;
+        delete input.dataset.documentContactValue;
+      }
+      delayed();
+    });
+    fields.name.addEventListener("focus", () => { flushDeferredSuggestions(); update(); });
+    fields.name.addEventListener("change", () => update(true));
+    fields.name.addEventListener("blur", event => { if (!panel.contains(event.relatedTarget)) update(true); });
+    document.addEventListener("pointerdown", event => {
+      if (!panel.contains(event.target) && event.target !== fields.name) panel.hidden = true;
+    });
+    fields.name.addEventListener("keydown", event => { if (event.key === "Escape") panel.hidden = true; });
+  }
 }
 
 function hideLoanCustomerHistorySuggestions() {
@@ -29705,4 +29830,5 @@ window.addEventListener("storage", event => {
   if (event.key?.startsWith("satis-api-traffic-v1:")) renderTrafficMeter();
 });
 setupStructuredAddresses();
+setupDocumentCustomerAutofill();
 init();
