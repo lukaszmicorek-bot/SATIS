@@ -329,7 +329,7 @@ const trafficMeter = hasSupabaseConfig && window.SatisTraffic ? window.SatisTraf
 }) : null;
 const supabaseClient = hasSupabaseConfig
   ? window.supabase.createClient(supabaseConfig.url, supabaseKey, {
-      ...(trafficMeter ? {global: {fetch: trafficMeter.fetch}} : {}),
+      global: { fetch: fetchSupabaseWithTimeout },
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -352,6 +352,28 @@ let supabaseRefreshInProgress = false;
 let supabaseInitialDataReady = false;
 let deferredSuggestionsTimer = 0;
 const loadPerformanceSamples = [];
+
+async function fetchSupabaseWithTimeout(input, options = {}) {
+  const fetcher = trafficMeter ? trafficMeter.fetch : window.fetch.bind(window);
+  const method = String(options.method || input?.method || "GET").toUpperCase();
+  if (!["GET", "HEAD"].includes(method)) return fetcher(input, options);
+  const controller = new AbortController();
+  const signal = options.signal || input?.signal;
+  const abort = () => controller.abort(signal.reason);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+  let timedOut = false;
+  const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+  try {
+    return await fetcher(input, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) throw new Error("Przekroczono czas pobierania danych (timeout). Spróbuj ponownie.");
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
+}
 
 function recordLoadTiming(stage, startedAt) {
   const sample = { stage, milliseconds: Math.round(performance.now() - startedAt) };
@@ -2452,12 +2474,32 @@ async function seedDemoRecordsIfEmpty() {
 }
 
 async function refreshRecordsFromSupabase(options = {}) {
-  if (!hasSupabaseConfig || !currentSupabaseUser || document.hidden) return;
+  if (!hasSupabaseConfig || !currentSupabaseUser) return false;
+  if (document.hidden && supabaseInitialDataReady) return false;
+  if (refreshRecordsFromSupabase.pending) {
+    try {
+      await refreshRecordsFromSupabase.pending;
+    } catch (error) {
+      if (options.throwOnError) throw error;
+      return false;
+    }
+    if (!currentSupabaseUser) return false;
+    if (supabaseInitialDataReady) return true;
+  }
+  const pending = performSupabaseRefresh(options);
+  refreshRecordsFromSupabase.pending = pending;
+  try {
+    return await pending;
+  } finally {
+    if (refreshRecordsFromSupabase.pending === pending) refreshRecordsFromSupabase.pending = null;
+  }
+}
+
+async function performSupabaseRefresh(options = {}) {
   const userId = currentSupabaseUser.id;
-  if (supabaseRefreshInProgress) return;
   if (recordDialog.open || repairDialog.open || demoDialog.open) {
     scheduleSupabaseRefresh(1000);
-    return;
+    return false;
   }
 
   supabaseRefreshInProgress = true;
@@ -2516,16 +2558,31 @@ async function refreshRecordsFromSupabase(options = {}) {
     const paymentResult = await paymentLoad;
     if (currentSupabaseUser?.id !== userId) return;
     if (paymentResult.error) throw paymentResult.error;
+    const firstLoad = !supabaseInitialDataReady;
     supabaseInitialDataReady = true;
     rebuildDerivedData({ deferSuggestions: true });
     render();
+    if (firstLoad) {
+      hideAuthDialog();
+      subscribeToSupabaseChanges();
+    }
     setConnectionStatus("online", "Supabase");
+    refreshRecordsFromSupabase.recoveryAttempts = 0;
     recordLoadTiming("pełne dane gotowe", loadStartedAt);
     void repairReturns?.load();
+    return true;
   } catch (error) {
+    if (currentSupabaseUser?.id !== userId) return false;
     console.warn(error);
     setConnectionStatus("error", "Błąd synchronizacji");
+    const attempts = refreshRecordsFromSupabase.recoveryAttempts || 0;
+    if (isTransientSupabaseError(error) && attempts < 2) {
+      refreshRecordsFromSupabase.recoveryAttempts = attempts + 1;
+      setConnectionStatus("syncing", "Ponawiam pobieranie danych...");
+      scheduleSupabaseRefresh(attempts ? 3000 : 1000);
+    }
     if (options.throwOnError) throw error;
+    return false;
   } finally {
     supabaseRefreshInProgress = false;
     satisChangeQueue?.flush();
@@ -2762,7 +2819,7 @@ function subscribeToSupabaseChanges() {
   let subscribedOnce = false;
   supabaseRealtimeChannel = channel.subscribe((status) => {
     if (status === "SUBSCRIBED") {
-      setConnectionStatus("online", "Supabase");
+      if (supabaseInitialDataReady && !supabaseRefreshInProgress) setConnectionStatus("online", "Supabase");
       if (subscribedOnce) scheduleSupabaseRefresh();
       subscribedOnce = true;
     }
@@ -2821,10 +2878,11 @@ async function activateSupabaseSession(user) {
   setConnectionStatus("syncing", "Łączenie...");
   renderCachedRecordsBeforeSupabaseSync();
   await refreshRecordsFromSupabase({ throwOnError: true });
-  await loadStockAuditHistory();
-  if (activeDeviceView === "stock") renderStockView();
-  else if (activeNotebook === "devices") renderDeviceViews();
-  await loadVacationData();
+  if (!supabaseInitialDataReady) throw new Error("Nie zakończono pobierania danych. Spróbuj ponownie.");
+  void Promise.allSettled([loadStockAuditHistory(), loadVacationData()]).then(() => {
+    if (currentSupabaseUser?.id !== user.id) return;
+    if (activeDeviceView === "stock") renderStockView();
+  });
   await seedDemoRecordsIfEmpty();
   subscribeToSupabaseChanges();
   window.setTimeout(processPendingDocumentSync, 1000);
@@ -29319,12 +29377,19 @@ window.setInterval(updateLoanReturnDeadlineHighlight, 60 * 1000);
 window.setInterval(refreshDemoReturnReminders, 60 * 1000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
+    if (currentSupabaseUser && !supabaseInitialDataReady) scheduleSupabaseRefresh();
     refreshCurrentDateWidget();
     checkForPublishedAppUpdate();
     renderPricingLoanHistory();
     updateLoanReturnDeadlineHighlight();
     refreshDemoReturnReminders();
   }
+});
+
+window.addEventListener("online", () => {
+  if (!hasSupabaseConfig || !currentSupabaseUser) return;
+  refreshRecordsFromSupabase.recoveryAttempts = 0;
+  scheduleSupabaseRefresh();
 });
 
 if (window.SatisOfflineForms && hasSupabaseSettings) {
