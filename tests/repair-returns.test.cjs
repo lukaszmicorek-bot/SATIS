@@ -4,6 +4,34 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('service/order archive uses a rolling 24-month boundary and preserves order/data', () => {
+  const source = fs.readFileSync('app.js', 'utf8');
+  const start = source.indexOf('function splitRepairArchive(');
+  const ctx = vm.createContext({isoDateForSave: iso});
+  vm.runInContext(source.slice(start, source.indexOf('\n}', start) + 2), ctx);
+  const items = [
+    {id: 'old-service', receivedDate: '2024-10-21', sourceDocumentType: 'COMPLAINT'},
+    {id: 'boundary', receivedDate: '2024-10-22'},
+    {id: 'old-order', receivedDate: '2023-01-01', sourceDocumentType: 'ORDER'},
+    {id: 'recent', receivedDate: '2026-10-22'},
+    {id: 'unknown', receivedDate: ''}
+  ];
+  const before = JSON.stringify(items);
+  const result = ctx.splitRepairArchive(items, '2026-10-22');
+  assert.deepEqual(Array.from(result.current, row => row.id), ['boundary', 'recent', 'unknown']);
+  assert.deepEqual(Array.from(result.archived, row => row.id), ['old-service', 'old-order']);
+  assert.equal(JSON.stringify(items), before);
+  const leap = ctx.splitRepairArchive([{id: 'limit', receivedDate: '2022-02-28'}, {id: 'old', receivedDate: '2022-02-27'}], '2024-02-29');
+  assert.equal(leap.current[0].id, 'limit');
+  assert.equal(leap.archived[0].id, 'old');
+  const archiveStart = source.indexOf('function renderRepairArchive(');
+  const archive = source.slice(archiveStart, source.indexOf('\n}', archiveStart) + 2);
+  assert.ok(archive.indexOf('if (!archive.open') < archive.indexOf('yearGroupedTableRows'), 'collapsed rows are not rendered');
+  assert.match(archive, /visibleTableItems\(items, "repairArchive"\)/);
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.match(html, /<details id="repairArchive"[^>]* hidden>/);
+  assert.doesNotMatch(html, /<details id="repairArchive"[^>]*\sopen(?:\s|>)/);
+});
 test('base/service toolbars share search, place, status ordering before secondary filters and actions', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   for (const ids of [
