@@ -7486,6 +7486,34 @@ h2 {
   outline-offset: 2px;
 }
 
+.notebook-transfer-menu {
+  position: relative;
+  align-self: end;
+}
+
+.notebook-transfer-menu > summary {
+  cursor: pointer;
+  padding: 7px 9px;
+  color: #53646c;
+  font-size: 12px;
+  border: 1px solid #d8e1e5;
+  border-radius: 6px;
+  background: #fafcfc;
+}
+
+.notebook-transfer-actions {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #d8e1e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
 .pcpr-tab {
   min-height: 32px;
   padding: 0 11px;
