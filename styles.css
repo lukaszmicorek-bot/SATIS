@@ -7544,6 +7544,20 @@ h2 {
   border-top: 1px solid #dce4e7;
 }
 
+.structured-address { min-width: 0; }
+.structured-address-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(95px, 0.55fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.structured-address-fields > label { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.structured-address-fields input { width: 100%; min-width: 0; box-sizing: border-box; }
+.structured-address-hint { display: block; margin-top: 5px; color: #886137; font-size: 12px; }
+@media screen and (max-width: 600px) {
+  .structured-address-fields { grid-template-columns: minmax(95px, 0.6fr) minmax(0, 1fr); }
+  .structured-address-fields > label:first-child { grid-column: 1 / -1; }
+}
+
 .repair-archive > summary {
   padding: 12px 4px;
   cursor: pointer;

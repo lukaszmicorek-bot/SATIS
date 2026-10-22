@@ -9,6 +9,72 @@ function extract(name) {
   assert.ok(match, name);
   return source.slice(match.index, source.indexOf('\n}', match.index) + 2);
 }
+
+test('structured addresses preserve old values, manual typing and canonical history/print data', () => {
+  const fields = Object.fromEntries(['street', 'postalCode', 'city'].map(key => [key, {value: '', validity: '', setCustomValidity(value) {this.validity = value;}}]));
+  const input = {value: 'ul. Testowa 7, 43-300 Bielsko-Biała', dataset: {}, dispatchEvent() {}};
+  const hint = {hidden: true, textContent: ''};
+  const root = {dataset: {addressInput: 'loanAddressInput'}, querySelector(selector) {
+    return selector === '.structured-address-hint' ? hint : fields[selector.match(/="(.+)"/)[1]];
+  }};
+  const ctx = vm.createContext({document: {getElementById: () => input}, Event,
+    normalizeLoanHistoryText: value => String(value || '').trim().replace(/\s+/g, ' '),
+    normalizePcprCity: value => value.trim(), formatLoanStreet: value => value.startsWith('ul.') ? value : `ul. ${value}`,
+    knownPostalAddresses: () => [], suggestPostalCode: () => ({code: '', codes: []})});
+  for (const name of ['formatPcprPostalCode', 'postalAddressParts', 'structuredAddressValue', 'structuredAddressNodes', 'syncStructuredAddress', 'commitStructuredAddress']) vm.runInContext(extract(name), ctx);
+  ctx.syncStructuredAddress(root);
+  assert.equal(fields.street.value, 'ul. Testowa 7');
+  assert.equal(fields.postalCode.value, '43-300');
+  assert.equal(fields.city.value, 'Bielsko-Biała');
+  fields.street.value = 'Nowa ';
+  ctx.commitStructuredAddress(root);
+  ctx.syncStructuredAddress(root);
+  assert.equal(fields.street.value, 'Nowa ', 'live typing must not reparse or move the cursor');
+  assert.equal(input.value, 'Nowa, 43-300 Bielsko-Biała');
+  fields.street.value = 'Nowa 2';
+  fields.city.value = 'Bielsko';
+  fields.postalCode.value = '43300';
+  ctx.commitStructuredAddress(root, true);
+  assert.equal(input.value, 'ul. Nowa 2, 43-300 Bielsko-Biała');
+  input.value = 'nietypowy adres ???';
+  ctx.syncStructuredAddress(root);
+  assert.equal(fields.street.value, input.value, 'unrecognized legacy address is never discarded');
+  assert.equal(hint.hidden, false);
+  input.value = '';
+  ctx.syncStructuredAddress(root);
+  assert.equal(fields.street.value, '');
+  assert.equal(fields.city.value, '');
+  assert.equal(fields.postalCode.value, '');
+  Object.values(fields).forEach(field => {
+    field.listeners = {};
+    field.addEventListener = (name, listener) => { field.listeners[name] = listener; };
+  });
+  input.addEventListener = () => {};
+  ctx.document.querySelectorAll = () => [root];
+  ctx.pcprStreetInput = null;
+  vm.runInContext(extract('setupStructuredAddresses'), ctx);
+  ctx.setupStructuredAddresses();
+  let prevented = false;
+  fields.street.listeners.paste({clipboardData: {getData: () => 'ul. Testowa 9, 43-300 Bielsko-Biała'}, preventDefault() {prevented = true;}});
+  assert.equal(prevented, true);
+  assert.equal(input.value, 'ul. Testowa 9, 43-300 Bielsko-Biała');
+  assert.equal(fields.postalCode.value, '43-300');
+  prevented = false;
+  fields.street.listeners.paste({clipboardData: {getData: () => 'Nietypowy tekst ???'}, preventDefault() {prevented = true;}});
+  assert.equal(prevented, false, 'ambiguous paste is not intercepted or silently discarded');
+});
+
+test('every customer-address form uses the same field order and unambiguous paste keeps all parts', () => {
+  for (const prefix of ['loan', 'receipt', 'rodo']) {
+    const positions = ['Street', 'Postal', 'City'].map(part => html.indexOf(`id="${prefix}Address${part}Input"`));
+    assert.ok(positions.every((position, i) => position >= 0 && (!i || position > positions[i - 1])));
+    assert.match(html, new RegExp(`id="${prefix}AddressInput"[^>]*hidden`));
+  }
+  const code = extract('setupStructuredAddresses');
+  assert.match(code, /if \(!parts.street \|\| !parts.city\) return/);
+  assert.match(code, /event.preventDefault\(\)/);
+  assert.match(code, /field.value = parts\[key\] \|\| ""/);
+});
 function setup() {
   const fields = new Map();
   for (const id of ['receiptCustomerInput', 'receiptDateInput', 'receiptAddressInput', 'receiptNfzInput',

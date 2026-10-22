@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261022-13">
+  <link rel="stylesheet" href="styles.css?v=20261022-14">
   </head>
   <body>
     <main class="app-shell">
@@ -1041,11 +1041,16 @@
                   <span>PESEL lub nr dowodu</span>
                   <input id="loanDocumentInput" type="text" maxlength="32" placeholder="PESEL albo ABC123456" autocomplete="off" autocapitalize="characters" spellcheck="false">
                 </label>
-                <label class="loan-full">
-                  <span>Adres</span>
-                  <input id="loanAddressInput" type="text" placeholder="ul. Nazwa 1, 00-000 Miejscowość" autocomplete="off" aria-describedby="loanPostalHint">
+                <div class="loan-full structured-address" data-address-input="loanAddressInput">
+                  <input id="loanAddressInput" type="text" autocomplete="off" hidden>
+                  <div class="structured-address-fields">
+                    <label><span>Ulica i numer</span><input id="loanAddressStreetInput" data-address-part="street" autocomplete="address-line1" placeholder="ul. Nazwa 1"></label>
+                    <label><span>Kod pocztowy</span><input id="loanAddressPostalInput" data-address-part="postalCode" autocomplete="postal-code" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
+                    <label><span>Miejscowość</span><input id="loanAddressCityInput" data-address-part="city" autocomplete="address-level2"></label>
+                  </div>
+                  <small class="structured-address-hint" aria-live="polite" hidden></small>
                   <small id="loanPostalHint" class="postal-code-hint" aria-live="polite" hidden></small>
-                </label>
+                </div>
 
                 <div id="loanCustomerHistorySuggestions" class="loan-full customer-history-suggestions" aria-label="Dane klienta z historii" hidden></div>
 
@@ -1314,7 +1319,15 @@
               <div class="rodo-form-grid">
                 <label class="person-name-field receipt-customer-field"><span>Imię i nazwisko</span><input id="receiptCustomerInput" autocomplete="off" aria-controls="receiptRecentCustomers" aria-expanded="false" required><span id="receiptRecentCustomers" class="receipt-recent-customers" aria-label="Ostatnie osoby odbierające aparaty" hidden></span></label>
                 <label><span>Data odbioru</span><input id="receiptDateInput" type="text" data-date-picker placeholder="DD.MM.RRRR" autocomplete="off" required></label>
-                <label class="rodo-address-field"><span>Adres zamieszkania</span><input id="receiptAddressInput" autocomplete="off"></label>
+                <div class="rodo-address-field structured-address" data-address-input="receiptAddressInput">
+                  <input id="receiptAddressInput" autocomplete="off" hidden>
+                  <div class="structured-address-fields">
+                    <label><span>Ulica i numer</span><input id="receiptAddressStreetInput" data-address-part="street" autocomplete="address-line1"></label>
+                    <label><span>Kod pocztowy</span><input id="receiptAddressPostalInput" data-address-part="postalCode" autocomplete="postal-code" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
+                    <label><span>Miejscowość</span><input id="receiptAddressCityInput" data-address-part="city" autocomplete="address-level2"></label>
+                  </div>
+                  <small class="structured-address-hint" aria-live="polite" hidden></small>
+                </div>
                 <label><span>Aparat <b class="receipt-side-P">P</b> · model</span><input id="receiptModelP" list="deviceNameSuggestions" autocomplete="off"></label>
                 <label><span>Nr seryjny <b class="receipt-side-P">P</b></span><span class="receipt-serial-control"><input id="receiptSerialP" autocomplete="off"><button type="button" data-receipt-copy="P" aria-label="Kopiuj numer seryjny P">Kopiuj</button><button type="button" data-paste-target="receiptSerialP" data-paste-format="serial" data-receipt-paste="P" aria-label="Wklej numer seryjny P">Wklej</button></span></label>
                 <div class="receipt-side-transfer"><button id="receiptTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień model i numer seryjny P / L" aria-label="Przenieś lub zamień aparaty P i L" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V4m-4 4 4-4 4 4M16 4v16m-4-4 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
@@ -1384,7 +1397,15 @@
                 <label><span>PESEL</span><input id="rodoPeselInput" type="text" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="11 cyfr (opcjonalnie)"></label>
                 <label><span>Data urodzenia</span><input id="rodoBirthDateInput" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
                 <label><span>Telefon</span><input id="rodoPhoneInput" type="tel" autocomplete="off" placeholder="Numer telefonu"></label>
-                <label class="rodo-address-field"><span>Adres</span><input id="rodoAddressInput" type="text" autocomplete="off" placeholder="Ulica, numer, kod pocztowy, miejscowość"></label>
+                <div class="rodo-address-field structured-address" data-address-input="rodoAddressInput">
+                  <input id="rodoAddressInput" type="text" autocomplete="off" hidden>
+                  <div class="structured-address-fields">
+                    <label><span>Ulica i numer</span><input id="rodoAddressStreetInput" data-address-part="street" autocomplete="address-line1"></label>
+                    <label><span>Kod pocztowy</span><input id="rodoAddressPostalInput" data-address-part="postalCode" autocomplete="postal-code" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
+                    <label><span>Miejscowość</span><input id="rodoAddressCityInput" data-address-part="city" autocomplete="address-level2"></label>
+                  </div>
+                  <small class="structured-address-hint" aria-live="polite" hidden></small>
+                </div>
                 <label><span>Miejscowość</span><input id="rodoCityInput" type="text" autocomplete="off" placeholder="Miejscowość"></label>
                 <label><span>Data</span><input id="rodoDateInput" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
               </div>
@@ -3325,13 +3346,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261022-13"></script>
-    <script src="data-layer.js?v=20261022-13"></script>
-    <script src="sync-layer.js?v=20261022-13"></script>
-    <script src="traffic-meter.js?v=20261022-13"></script>
-    <script src="repair-returns.js?v=20261022-13"></script>
-    <script src="offline-vault.js?v=20261022-13"></script>
-    <script src="offline-forms.js?v=20261022-13"></script>
-  <script src="app.js?v=20261022-13"></script>
+    <script src="supabase-config.js?v=20261022-14"></script>
+    <script src="data-layer.js?v=20261022-14"></script>
+    <script src="sync-layer.js?v=20261022-14"></script>
+    <script src="traffic-meter.js?v=20261022-14"></script>
+    <script src="repair-returns.js?v=20261022-14"></script>
+    <script src="offline-vault.js?v=20261022-14"></script>
+    <script src="offline-forms.js?v=20261022-14"></script>
+  <script src="app.js?v=20261022-14"></script>
   </body>
 </html>
