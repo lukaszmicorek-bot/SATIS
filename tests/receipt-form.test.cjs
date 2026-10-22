@@ -10,6 +10,26 @@ function extract(name) {
   return source.slice(match.index, source.indexOf('\n}', match.index) + 2);
 }
 
+test('complaint per-product requests and defects survive normalization and change snapshot identity', () => {
+  const ctx = vm.createContext({normalizeLoanHistoryText: value => String(value || '').trim(),
+    normalizePricingComplaintProductType: value => value || 'APARAT SŁUCHOWY',
+    normalizePricingComplaintRequest: value => value || 'NAPRAWA GWARANCYJNA',
+    isoDateForSave: value => value || '', normalize: value => String(value || '').toLowerCase()});
+  for (const name of ['normalizePricingComplaintItem', 'pricingComplaintSnapshotKey', 'pricingComplaintSemanticKey']) vm.runInContext(extract(name), ctx);
+  const legacy = ctx.normalizePricingComplaintItem({productName: 'Model A', serial: 'abc'});
+  assert.equal(legacy.serial, 'ABC');
+  assert.equal(Object.hasOwn(legacy, 'request'), false, 'old documents do not gain unsolicited per-item overrides');
+  const item = ctx.normalizePricingComplaintItem({...legacy, request: 'NAPRAWA POGWARANCYJNA', defect: 'Brak dźwięku'});
+  assert.equal(item.request, 'NAPRAWA POGWARANCYJNA');
+  assert.equal(item.defect, 'Brak dźwięku');
+  const before = {customer: 'Test Klient', items: [legacy]};
+  const after = {...before, items: [item]};
+  assert.notEqual(ctx.pricingComplaintSnapshotKey(before), ctx.pricingComplaintSnapshotKey(after));
+  assert.notEqual(ctx.pricingComplaintSemanticKey(before), ctx.pricingComplaintSemanticKey(after));
+  assert.match(extract('pricingComplaintRepairItemLine'), /normalizedItem\.defect/);
+  assert.match(extract('renderPricingComplaintProducts'), /complaint-product-detail/);
+});
+
 test('structured addresses preserve old values, manual typing and canonical history/print data', () => {
   const fields = Object.fromEntries(['street', 'postalCode', 'city'].map(key => [key, {value: '', validity: '', setCustomValidity(value) {this.validity = value;}}]));
   const input = {value: 'ul. Testowa 7, 43-300 Bielsko-Biała', dataset: {}, dispatchEvent() {}};

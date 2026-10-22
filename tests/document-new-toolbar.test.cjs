@@ -42,4 +42,14 @@ for (const { scope, bottom, button, copyOffer } of scopes) {
   assert.equal(bottom.children.length, 0, 'no duplicate button at bottom');
 }
 assert.equal(scopes.at(-1).button.textContent, 'Nowy');
+const unifiedStart = source.indexOf('function setupUnifiedDocumentLayout(');
+const unified = source.slice(unifiedStart, source.indexOf('\n}', unifiedStart) + 2);
+assert.ok(unified.includes('tools.append(actions)'), 'save and print share the top toolbar with New and Undo');
+assert.ok(unified.includes('event.stopImmediatePropagation()'), 'cancelled New action cannot reach existing reset handler');
+assert.ok(unified.includes('nameInput.reportValidity()'), 'all six print buttons validate customer name');
+assert.ok(unified.includes('Zakończenie umowy · zwrot'));
+assert.ok(unified.includes('Miejsce podpisania'));
+assert.ok(unified.includes('complaintEditor.before(node)'), 'purchase matching stays adjacent to complaint products');
+assert.ok(unified.includes('label("receiptModelP").before(purchase)'), 'purchase selector comes before receipt model entry');
+assert.ok(source.includes('globalThis.SatisDocumentLayout?.openReturn()'), 'service-linked return action unfolds return fields');
 console.log('OK: new-document buttons moved above forms before undo, existing controls reused without duplicates.');

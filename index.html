@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261022-18">
+  <link rel="stylesheet" href="styles.css?v=20261022-19">
   </head>
   <body>
     <main class="app-shell">
@@ -1658,11 +1658,12 @@
                   <thead>
                     <tr>
                       <th>Typ</th>
+                      <th>Pozycja / model</th>
                       <th>Strona</th>
                       <th>Ilość</th>
-                      <th>Pozycja / model</th>
-                      <th>Koszt</th>
-                      <th>Uwagi</th>
+                      <th>Cena za szt.</th>
+                      <th>Wartość</th>
+                      <th>Uwagi do pozycji</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -1680,7 +1681,7 @@
 
               <datalist id="pricingOrderModelList"></datalist>
               <label class="order-notes-field">
-                <span>Uwagi</span>
+                <span>Uwagi do zamówienia</span>
                 <textarea id="orderNotesInput" rows="2" placeholder="np. pilne, kolor, ucho prawe/lewe" autocomplete="off"></textarea>
               </label>
 
@@ -1958,7 +1959,7 @@
                   <p><span>Miejsce</span><strong data-complaint-out="location">-</strong></p>
                   <p><span>Klient</span><strong data-complaint-out="customer">-</strong></p>
                   <p><span>Telefon</span><strong data-complaint-out="phone">-</strong></p>
-                  <p><span>Żądanie klienta</span><strong data-complaint-out="request">-</strong></p>
+                  <p><span>Domyślny rodzaj naprawy</span><strong data-complaint-out="request">-</strong></p>
                   <p data-complaint-cost-output hidden><span>Koszt naprawy</span><strong data-complaint-out="repairCost">-</strong></p>
                 </div>
               </section>
@@ -3348,13 +3349,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261022-18"></script>
-    <script src="data-layer.js?v=20261022-18"></script>
-    <script src="sync-layer.js?v=20261022-18"></script>
-    <script src="traffic-meter.js?v=20261022-18"></script>
-    <script src="repair-returns.js?v=20261022-18"></script>
-    <script src="offline-vault.js?v=20261022-18"></script>
-    <script src="offline-forms.js?v=20261022-18"></script>
-  <script src="app.js?v=20261022-18"></script>
+    <script src="supabase-config.js?v=20261022-19"></script>
+    <script src="data-layer.js?v=20261022-19"></script>
+    <script src="sync-layer.js?v=20261022-19"></script>
+    <script src="traffic-meter.js?v=20261022-19"></script>
+    <script src="repair-returns.js?v=20261022-19"></script>
+    <script src="offline-vault.js?v=20261022-19"></script>
+    <script src="offline-forms.js?v=20261022-19"></script>
+  <script src="app.js?v=20261022-19"></script>
   </body>
 </html>
