@@ -7539,6 +7539,29 @@ h2 {
   white-space: nowrap;
 }
 
+.repair-archive {
+  margin-top: 20px;
+  border-top: 1px solid #dce4e7;
+}
+
+.repair-archive > summary {
+  padding: 12px 4px;
+  cursor: pointer;
+  color: #52636c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.repair-archive > summary:hover {
+  color: #003f5a;
+  background: #f5f9fa;
+}
+
+#repairArchiveCount {
+  margin-left: 6px;
+  font-weight: 400;
+}
+
 .pcpr-tab {
   min-height: 32px;
   padding: 0 11px;

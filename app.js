@@ -17722,13 +17722,53 @@ function isRepairClosed(record) {
   return repairDerived.get(record.id)?.closed ?? effectiveRepairStatus(record) === "ODEBRANE";
 }
 
+function splitRepairArchive(items, today = todayInputValue()) {
+  const [year, month, day] = today.split("-").map(Number);
+  const cutoffDay = Math.min(day, new Date(Date.UTC(year - 2, month, 0)).getUTCDate());
+  const cutoff = `${year - 2}-${String(month).padStart(2, "0")}-${String(cutoffDay).padStart(2, "0")}`;
+  const current = [], archived = [];
+  for (const record of items) {
+    const received = isoDateForSave(record.receivedDate);
+    (received && received < cutoff ? archived : current).push(record);
+  }
+  return { current, archived };
+}
+
+function renderRepairArchive(items) {
+  const archive = document.querySelector("#repairArchive");
+  const host = document.querySelector("#repairArchiveTableHost");
+  if (!archive || !host) return;
+  archive.hidden = !items.length;
+  document.querySelector("#repairArchiveCount").textContent = `(${items.length})`;
+  if (!archive.open || !items.length) {
+    host.replaceChildren();
+    document.querySelector("#repairArchiveRenderNotice").hidden = true;
+    return;
+  }
+  let body = host.querySelector("tbody");
+  if (!body) {
+    const table = document.createElement("table");
+    table.className = "repairs-table";
+    table.setAttribute("aria-label", "Starsze sprawy serwisowe i zamówienia");
+    const head = repairRecordsBody.closest("table").tHead.cloneNode(true);
+    head.querySelectorAll("[data-repair-sort]").forEach(cell => cell.removeAttribute("data-repair-sort"));
+    body = document.createElement("tbody");
+    table.append(head, body);
+    host.append(table);
+  }
+  const rendered = visibleTableItems(items, "repairArchive");
+  renderTableRows(body, yearGroupedTableRows(body, rendered, createRepairRow, record => record.receivedDate));
+  renderLimitNotice(document.querySelector("#repairArchiveRenderNotice"), document.querySelector("#repairArchiveRenderText"), items.length, rendered.length, "pozycji");
+}
+
 function renderRepairRecords() {
   document.querySelectorAll("[data-repair-kind]").forEach(button => {
     button.setAttribute("aria-pressed", String(button.dataset.repairKind === repairKindFilter));
   });
   hideRepairTimelinePreview();
   renderSearchMatchSummary(repairSearchInput, repairSearchSummary);
-  const visibleRecords = applyLocalRowOrder(filteredRepairRecords(), "repairs");
+  const { current: visibleRecords, archived } = splitRepairArchive(applyLocalRowOrder(filteredRepairRecords(), "repairs"));
+  renderRepairArchive(archived);
   const openRecords = openRepairRecords();
   const renderedRecords = visibleTableItems(visibleRecords, "repairs");
   const renderedOpenRecords = visibleTableItems(openRecords, "repairOpen");
@@ -17736,6 +17776,9 @@ function renderRepairRecords() {
   setupLocalRowDrag(repairRecordsBody, renderedRecords, "repairs");
   renderTableRows(repairOpenRecordsBody, yearGroupedTableRows(repairOpenRecordsBody, renderedOpenRecords, createRepairOpenRow, (record) => record.receivedDate));
   repairEmptyState.hidden = visibleRecords.length > 0;
+  repairEmptyState.textContent = archived.length
+    ? "Brak bieżących spraw dla wybranych filtrów. Starsze pozycje są poniżej."
+    : "Brak pozycji serwisowych dla wybranych filtrów.";
   repairOpenEmptyState.hidden = openRecords.length > 0;
   renderLimitNotice(repairRenderNotice, repairRenderText, visibleRecords.length, renderedRecords.length, "pozycji");
   renderLimitNotice(repairOpenRenderNotice, repairOpenRenderText, openRecords.length, renderedOpenRecords.length, "spraw");
@@ -27893,6 +27936,7 @@ function resetAndRenderDemoRecords() {
 }
 
 function resetAndRenderRepairRecords() {
+  resetTableRenderLimit("repairArchive");
   resetTableRenderLimit("repairs");
   resetTableRenderLimit("repairOpen");
   renderRepairRecords();
@@ -28007,6 +28051,10 @@ document.querySelector("#exportRepairBtn").addEventListener("click", () => choos
 document.querySelector("#importRepairBtn").addEventListener("click", () => importRepairInput.click());
 printRepairsBtn?.addEventListener("click", () => printWithReadyFonts());
 showMoreRepairBtn.addEventListener("click", () => showMoreTableRows("repairs", renderRepairRecords));
+document.querySelector("#repairArchive")?.addEventListener("toggle", () => {
+  renderRepairArchive(splitRepairArchive(applyLocalRowOrder(filteredRepairRecords(), "repairs")).archived);
+});
+document.querySelector("#showMoreRepairArchiveBtn")?.addEventListener("click", () => showMoreTableRows("repairArchive", renderRepairRecords));
 showMoreRepairOpenBtn.addEventListener("click", () => showMoreTableRows("repairOpen", renderRepairRecords));
 document.querySelector("#addDemoBtn").addEventListener("click", () => openDemoDialog());
 document.querySelector("#exportDemoBtn").addEventListener("click", exportDemoJson);
