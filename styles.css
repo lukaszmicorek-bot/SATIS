@@ -7462,6 +7462,30 @@ h2 {
   align-items: center;
 }
 
+.repair-location-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.repair-location-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.repair-location-tiles .pcpr-tab {
+  min-height: 32px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.repair-location-tiles .pcpr-tab:focus-visible {
+  outline: 2px solid #007d82;
+  outline-offset: 2px;
+}
+
 .pcpr-tab {
   min-height: 32px;
   padding: 0 11px;
