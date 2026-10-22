@@ -7470,12 +7470,13 @@ h2 {
 
 .repair-location-tiles {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
 }
 
 .repair-location-tiles .pcpr-tab {
+  flex: 0 0 auto;
   min-height: 32px;
   padding: 0 8px;
   white-space: nowrap;
@@ -12763,13 +12764,24 @@ tbody tr.demo-return-critical:hover {
   box-shadow: none;
 }
 
+.database-controls.compact-filters {
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(105px, 138px)) max-content repeat(3, auto);
+}
+
 .demo-controls.compact-filters {
   grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(115px, 150px)) repeat(4, auto);
 }
 
 .repairs-controls.compact-filters {
-  grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(125px, 165px)) repeat(5, auto);
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(125px, 165px)) max-content repeat(3, auto);
   margin-top: 9px;
+}
+
+@media screen and (max-width: 1100px) {
+  .database-controls.compact-filters,
+  .repairs-controls.compact-filters {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  }
 }
 
 .compact-filters label > span,

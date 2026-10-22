@@ -4,6 +4,14 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('base/service place tiles stay on one line with their own intrinsic grid column', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.repair-location-tiles\s*\{[^}]*flex-wrap:\s*nowrap/s);
+  assert.match(css, /\.repair-location-tiles \.pcpr-tab\s*\{[^}]*flex:\s*0 0 auto/s);
+  for (const kind of ['database', 'repairs']) {
+    assert.match(css, new RegExp(`\\.${kind}-controls\\.compact-filters\\s*\\{[^}]*grid-template-columns:[^;]*max-content`, 's'));
+  }
+});
 test('base/service printing is removed; transfer menus are owner-only and closed after logout', () => {
   const source = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
