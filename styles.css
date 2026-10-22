@@ -16521,6 +16521,7 @@ input.nearby-entry-match {
   overflow-wrap: anywhere;
 }
 .document-sync-notice[hidden] { display: none; }
+.document-sync-notice[data-state="waiting"] { color: #52636c; background: #f3f7f8; border-left-color: #9cb5bc; }
 .document-sync-notice button { flex-shrink: 0; }
 @media print { .document-sync-notice { display: none !important; } }
 /* Offline workspace uses the existing document builders without exposing the other notebooks. */

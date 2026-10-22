@@ -5,6 +5,68 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createQueue } = require('../sync-layer.js');
 
+function syncFunction(name) {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const match = new RegExp(`^(?:async )?function ${name}\\(`, 'm').exec(source);
+  assert.ok(match);
+  return source.slice(match.index, source.indexOf('\n}', match.index) + 2);
+}
+
+test('document sync retries read-only RPCs once without retrying writes or permission failures', async () => {
+  let calls = 0;
+  const ctx = vm.createContext({AbortController, currentSupabaseUser: {id: 'owner'},
+    window: {setTimeout() {return 1;}, clearTimeout() {}}, wait: async () => {},
+    isTransientSupabaseError: error => error.message.includes('Load failed'),
+    supabaseClient: {rpc() { calls++; return {abortSignal: async () => calls === 1
+      ? {error: {message: 'TypeError: Load failed'}} : {data: []}};}}});
+  vm.runInContext(syncFunction('readDocumentSyncRpc'), ctx);
+  assert.equal((await ctx.readDocumentSyncRpc('satis_pending_document_sync')).length, 0);
+  assert.equal(calls, 2);
+  await assert.rejects(ctx.readDocumentSyncRpc('satis_complete_document_sync'), /Niedozwolona/);
+  assert.equal(calls, 2, 'completion writes cannot enter the automatic read retry helper');
+  ctx.supabaseClient.rpc = () => { calls++; return {abortSignal: async () => ({error: {message: 'permission denied'}})}; };
+  await assert.rejects(ctx.readDocumentSyncRpc('satis_pending_document_sync'), error => error.message === 'permission denied');
+  assert.equal(calls, 3);
+});
+
+test('temporary queue load failure remains recoverable and is cleared after the next successful read', async () => {
+  let failing = true;
+  const ctx = vm.createContext({hasSupabaseConfig: true, currentSupabaseUser: {id: 'owner'},
+    supabaseInitialDataReady: true, document: {hidden: false}, documentSyncRunning: false,
+    documentSyncFailures: [], documentSyncNetworkPending: false, supabaseRefreshInProgress: false,
+    recordDialog: {}, repairDialog: {}, demoDialog: {}, satisDataStore: {undoState: () => ({})},
+    readDocumentSyncRpc: async () => { if (failing) throw new Error('TypeError: Load failed'); return []; },
+    isTransientSupabaseError: error => error.message.includes('Load failed'), renderDocumentSyncState() {}});
+  vm.runInContext(syncFunction('processPendingDocumentSync'), ctx);
+  await ctx.processPendingDocumentSync();
+  assert.equal(ctx.documentSyncNetworkPending, true);
+  assert.equal(ctx.documentSyncFailures.length, 0, 'network problems are not reported as document data conflicts');
+  assert.equal(ctx.documentSyncRunning, false);
+  failing = false;
+  await ctx.processPendingDocumentSync();
+  assert.equal(ctx.documentSyncNetworkPending, false);
+  assert.equal(ctx.documentSyncRunning, false);
+});
+
+test('document sync stops after a network failure on one task and never marks it completed', async () => {
+  let loads = 0;
+  const ctx = vm.createContext({hasSupabaseConfig: true, currentSupabaseUser: {id: 'owner'},
+    supabaseInitialDataReady: true, document: {hidden: false}, documentSyncRunning: false,
+    documentSyncFailures: [], documentSyncNetworkPending: false, supabaseRefreshInProgress: false,
+    recordDialog: {}, repairDialog: {}, demoDialog: {}, satisDataStore: {undoState: () => ({})},
+    readDocumentSyncRpc: async () => [{id: 'one'}, {id: 'two'}],
+    loadChangedSupabaseRecords: async () => { loads++; throw new Error('Load failed'); },
+    isTransientSupabaseError: error => error.message.includes('Load failed'), renderDocumentSyncState() {}});
+  vm.runInContext(syncFunction('processPendingDocumentSync'), ctx);
+  await ctx.processPendingDocumentSync();
+  assert.equal(loads, 1);
+  assert.equal(ctx.documentSyncNetworkPending, true);
+  assert.equal(ctx.documentSyncFailures.length, 0);
+  ctx.supabaseInitialDataReady = false;
+  await ctx.processPendingDocumentSync();
+  assert.equal(loads, 1, 'unfinished initial loading cannot start document writes');
+});
+
 function deferred() {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });

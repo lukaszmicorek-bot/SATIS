@@ -2656,6 +2656,32 @@ function applyChangedSupabaseRecords(table, ids, rows) {
 
 let documentSyncRunning = false;
 let documentSyncFailures = [];
+let documentSyncNetworkPending = false;
+
+async function readDocumentSyncRpc(name, args) {
+  if (!["satis_pending_document_sync", "satis_document_sync_targets"].includes(name)) {
+    throw new Error("Niedozwolona operacja odczytu synchronizacji.");
+  }
+  const userId = currentSupabaseUser?.id;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (!userId || currentSupabaseUser?.id !== userId) throw new Error("Sesja zmieniła się podczas synchronizacji.");
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+    try {
+      const { data, error } = await supabaseClient.rpc(name, args).abortSignal(controller.signal);
+      if (error) throw error;
+      if (currentSupabaseUser?.id !== userId) throw new Error("Sesja zmieniła się podczas synchronizacji.");
+      return data;
+    } catch (error) {
+      const failure = timedOut ? new Error("Timeout odczytu synchronizacji dokumentów") : error;
+      if (attempt || !isTransientSupabaseError(failure)) throw failure;
+    } finally {
+      window.clearTimeout(timer);
+    }
+    await wait(500);
+  }
+}
 
 function renderDocumentSyncState(count = 0) {
   let notice = document.querySelector("#documentSyncNotice");
@@ -2666,12 +2692,15 @@ function renderDocumentSyncState(count = 0) {
     notice.setAttribute("role", "status");
     document.querySelector(".top-panel")?.after(notice);
   }
-  notice.hidden = !currentSupabaseUser || (!count && !documentSyncFailures.length);
+  notice.hidden = !currentSupabaseUser || (!count && !documentSyncFailures.length && !documentSyncNetworkPending);
+  notice.dataset.state = documentSyncNetworkPending ? "waiting" : "error";
   notice.replaceChildren();
   const text = document.createElement("span");
   text.textContent = documentSyncFailures.length
     ? `Do sprawdzenia: ${documentSyncFailures.join("; ")}`
-    : `Dokumenty oczekujące na powiązanie z Serwisem lub Demo: ${count}.`;
+    : documentSyncNetworkPending
+      ? "Synchronizacja dokumentów czeka na połączenie. Zapisane dokumenty pozostają w bazie; ponowimy próbę automatycznie."
+      : `Dokumenty oczekujące na powiązanie z Serwisem lub Demo: ${count}.`;
   const retry = document.createElement("button");
   retry.type = "button";
   retry.className = "reset-filters-btn";
@@ -2681,28 +2710,28 @@ function renderDocumentSyncState(count = 0) {
 }
 
 async function processPendingDocumentSync() {
-  if (!hasSupabaseConfig || !currentSupabaseUser || document.hidden || documentSyncRunning ||
+  if (!hasSupabaseConfig || !currentSupabaseUser || !supabaseInitialDataReady || document.hidden || documentSyncRunning ||
     satisDataStore.undoState().busy ||
     supabaseRefreshInProgress || recordDialog.open || repairDialog.open || demoDialog.open) return;
   documentSyncRunning = true;
   const userId = currentSupabaseUser.id;
   try {
-    const { data: pending, error } = await supabaseClient.rpc("satis_pending_document_sync");
-    if (error) throw error;
+    const pending = await readDocumentSyncRpc("satis_pending_document_sync");
     if (currentSupabaseUser?.id !== userId) return;
     documentSyncFailures = [];
+    documentSyncNetworkPending = false;
     renderDocumentSyncState(pending?.length || 0);
     let remaining = pending?.length || 0;
     for (const task of (pending || []).slice(0, 20)) {
       if (currentSupabaseUser?.id !== userId || recordDialog.open || repairDialog.open || demoDialog.open) break;
       try {
         const [row] = await loadChangedSupabaseRecords(task.table, [task.id]);
+        if (currentSupabaseUser?.id !== userId) return;
         if (!row || Number(row.revision) !== Number(task.revision)) continue;
         satisDataStore.observe(task.table, row);
-        const { data: targets, error: targetError } = await supabaseClient.rpc("satis_document_sync_targets", {
+        const targets = await readDocumentSyncRpc("satis_document_sync_targets", {
           table_name: task.table, record_id: task.id
         });
-        if (targetError) throw targetError;
         if (currentSupabaseUser?.id !== userId) return;
         const targetGroups = new Map();
         for (const target of targets || []) {
@@ -2719,12 +2748,19 @@ async function processPendingDocumentSync() {
             ? pricingOrderRepairRecord(raw) : pricingComplaintRepairRecord(raw);
           if (!await upsertRepairRecordFromDocument(record, { quiet: true })) throw new Error("Sprawdź duplikat lub dane wpisu serwisowego");
         }
+        if (currentSupabaseUser?.id !== userId) return;
         const { data: completed, error: completeError } = await supabaseClient.rpc("satis_complete_document_sync", {
           table_name: task.table, record_id: task.id, expected_revision: task.revision
         });
         if (completeError) throw completeError;
+        if (currentSupabaseUser?.id !== userId) return;
         if (completed) remaining -= 1;
       } catch (error) {
+        if (currentSupabaseUser?.id !== userId) return;
+        if (isTransientSupabaseError(error)) {
+          documentSyncNetworkPending = true;
+          break;
+        }
         const entry = [...pricingLoanHistory, ...pricingOrderHistory, ...pricingComplaintHistory].find((item) => item.id === task.id);
         documentSyncFailures.push(`${entry?.number || "Dokument"}: ${error.message}`);
       }
@@ -2732,7 +2768,8 @@ async function processPendingDocumentSync() {
     renderDocumentSyncState(remaining);
   } catch (error) {
     if (currentSupabaseUser?.id !== userId) return;
-    documentSyncFailures = [`Synchronizacja dokumentów: ${error.message}`];
+    if (isTransientSupabaseError(error)) documentSyncNetworkPending = true;
+    else documentSyncFailures = [`Synchronizacja dokumentów: ${error.message}`];
     renderDocumentSyncState();
   } finally {
     documentSyncRunning = false;
@@ -2945,6 +2982,7 @@ function clearSensitiveApplicationState() {
   satisDataStore?.clear();
   satisChangeQueue?.clear();
   documentSyncFailures = [];
+  documentSyncNetworkPending = false;
   const syncNotice = document.querySelector("#documentSyncNotice");
   if (syncNotice) { syncNotice.replaceChildren(); syncNotice.hidden = true; }
   clearLoanPrintCopies();
