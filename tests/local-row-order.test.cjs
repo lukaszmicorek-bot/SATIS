@@ -26,6 +26,13 @@ function context() {
   return ctx;
 }
 const items = ['a', 'b', 'c'].map(id => ({ id, receivedDate: '2026-10-12' }));
+test('restore order is tucked into the data menu and hidden when no saved order exists', () => {
+  const setup = extract('setupLocalRowDrag');
+  assert.match(setup, /querySelector\("\.notebook-transfer-actions"\)/);
+  assert.match(setup, /if \(menu\) menu.append\(reset\)/);
+  assert.match(setup, /reset.hidden = !canViewPrivateModules\(\) \|\| !readLocalRowOrder\(tableKey\).length/);
+  assert.match(setup, /persistSharedRowOrder\(tableKey, \[\]\)/);
+});
 test('local fallback preserves filtered rows and restricts moves to the same year and owner', async () => {
   const ctx = context();
   assert.equal(await ctx.moveLocalTableRow('repairs', items, 'c', 'a'), true);

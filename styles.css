@@ -7515,6 +7515,10 @@ h2 {
   background: #fff;
 }
 
+.notebook-transfer-actions > [id^="resetRowOrder-"] {
+  white-space: nowrap;
+}
+
 .pcpr-tab {
   min-height: 32px;
   padding: 0 11px;
