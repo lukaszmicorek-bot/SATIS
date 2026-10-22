@@ -1053,6 +1053,7 @@ const repairSearchSummary = document.querySelector("#repairSearchSummary");
 const pasteInputButtons = document.querySelectorAll("[data-paste-target]");
 const repairCategoryFilter = document.querySelector("#repairCategoryFilter");
 const repairStatusFilter = document.querySelector("#repairStatusFilter");
+const repairActiveOnlyFilter = document.querySelector("#repairActiveOnlyFilter");
 const repairLocationFilter = document.querySelector("#repairLocationFilter");
 const demoSearchInput = document.querySelector("#demoSearchInput");
 const demoSearchSummary = document.querySelector("#demoSearchSummary");
@@ -17632,9 +17633,10 @@ function filteredRepairRecords() {
       const location = meta?.location ?? normalizeRepairLocation(record.location);
       const matchesCategory = !selectedCategory || category === selectedCategory;
       const matchesStatus = !selectedStatus || status === selectedStatus;
+      const matchesActive = !repairActiveOnlyFilter?.checked || status !== "ODEBRANE";
       const matchesLocation = !selectedLocation || location === selectedLocation;
       const matchesQuery = !query || meta?.searchBlob.includes(query);
-      return matchesRepairKind(record) && matchesCategory && matchesStatus && matchesLocation && matchesQuery;
+      return matchesRepairKind(record) && matchesCategory && matchesStatus && matchesActive && matchesLocation && matchesQuery;
     });
 
   return sortRepairRecords(matchingRecords);
@@ -27858,6 +27860,7 @@ function resetRepairFilters() {
   renderCustomerRelations();
   repairCategoryFilter.value = "";
   repairStatusFilter.value = "";
+  if (repairActiveOnlyFilter) repairActiveOnlyFilter.checked = false;
   repairLocationFilter.value = "";
   updateDocumentLocationAccent(repairLocationFilter);
   resetAndRenderRepairRecords();
@@ -28588,7 +28591,14 @@ repairSearchInput.addEventListener("input", () => {
   debouncedRelationsRender();
 });
 repairCategoryFilter.addEventListener("change", resetAndRenderRepairRecords);
-repairStatusFilter.addEventListener("change", resetAndRenderRepairRecords);
+repairStatusFilter.addEventListener("change", () => {
+  if (repairStatusFilter.value === "ODEBRANE" && repairActiveOnlyFilter) repairActiveOnlyFilter.checked = false;
+  resetAndRenderRepairRecords();
+});
+repairActiveOnlyFilter?.addEventListener("change", () => {
+  if (repairActiveOnlyFilter.checked && repairStatusFilter.value === "ODEBRANE") repairStatusFilter.value = "";
+  resetAndRenderRepairRecords();
+});
 repairLocationFilter.addEventListener("change", (event) => {
   updateDocumentLocationAccent(event.target);
   resetAndRenderRepairRecords();

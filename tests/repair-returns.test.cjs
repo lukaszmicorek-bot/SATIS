@@ -4,6 +4,29 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('active-only service filter hides completed records but preserves every open stage and other filters', () => {
+  const js = fs.readFileSync('app.js', 'utf8');
+  const start = js.indexOf('function filteredRepairRecords(');
+  const ctx = vm.createContext({
+    repairSearchInput: {value: ''}, repairCategoryFilter: {value: ''}, repairStatusFilter: {value: ''},
+    repairLocationFilter: {value: ''}, repairActiveOnlyFilter: {checked: false},
+    repairRecords: ['PRZYJĘTE', 'W TRAKCIE', 'GOTOWE', 'ODEBRANE'].map((status, id) => ({id, status, category: 'REPAIR', location: 'P63'})),
+    repairDerived: new Map(), normalize: value => String(value || '').toLowerCase(),
+    normalizeRepairCategory: value => value, normalizeRepairLocation: value => value,
+    effectiveRepairStatus: row => row.status, matchesRepairKind: () => true, sortRepairRecords: rows => rows
+  });
+  vm.runInContext(js.slice(start, js.indexOf('\n}', start) + 2), ctx);
+  assert.equal(ctx.filteredRepairRecords().length, 4);
+  ctx.repairActiveOnlyFilter.checked = true;
+  assert.deepEqual(Array.from(ctx.filteredRepairRecords(), row => row.status), ['PRZYJĘTE', 'W TRAKCIE', 'GOTOWE']);
+  ctx.repairStatusFilter.value = 'GOTOWE';
+  assert.equal(ctx.filteredRepairRecords().length, 1);
+  ctx.repairLocationFilter.value = 'P50';
+  assert.equal(ctx.filteredRepairRecords().length, 0);
+  const resetStart = js.indexOf('function resetRepairFilters(');
+  assert.match(js.slice(resetStart, js.indexOf('\n}', resetStart)), /repairActiveOnlyFilter.checked = false/);
+  assert.match(fs.readFileSync('index.html', 'utf8'), /id="repairActiveOnlyFilter" type="checkbox" role="switch"/);
+});
 test('pre-2025 pending returns are archived, but 2025 and recent returns on older cases stay visible', () => {
   const rows = [
     {id: 'archive', returnDate: '2024-12-31'},

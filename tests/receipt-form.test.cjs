@@ -131,8 +131,8 @@ test('receipt has two explicit pages, matching side colors and screen-only copy 
   assert.match(receipt, /1 \/ 2/);
   assert.match(receipt, /2 \/ 2/);
   const css = fs.readFileSync('styles.css', 'utf8');
-  assert.match(css, /\.receipt-side-P \{ color: #b82f43/);
-  assert.match(css, /\.receipt-side-L \{ color: #2567a8/);
+  assert.match(css, /\.receipt-side-P \{ color: var\(--ear-p-color\)/);
+  assert.match(css, /\.receipt-side-L \{ color: var\(--ear-l-color\)/);
   assert.match(css, /\.receipt-page \+ \.receipt-page \{[^}]*break-before: page/);
   assert.match(css, /\.receipt-copy-serial \{ display: none/);
   assert.match(extract('renderPricingReceipt'), /copySerialNumber\(item.serial/);
@@ -145,10 +145,25 @@ test('receipt serial paste lives inside the input wrapper; copy and paste appear
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(css, /\.receipt-serial-control button \{[^}]*position: absolute; right: 6px;[^}]*opacity: 0; pointer-events: none/);
   assert.match(css, /\.receipt-serial-control:focus-within button \{ opacity: 1; pointer-events: auto/);
-  assert.match(css, /#receiptModelP, #receiptSerialP\):focus \{[^}]*border-color: #b82f43/);
-  assert.match(css, /#receiptModelL, #receiptSerialL\):focus \{[^}]*border-color: #2567a8/);
+  assert.match(css, /#receiptModelP, #receiptSerialP\):focus,[^{]*\{[^}]*border-color: var\(--ear-p-accent\)/);
+  assert.match(css, /#receiptModelL, #receiptSerialL\):focus,[^{]*\{[^}]*border-color: var\(--ear-l-accent\)/);
   assert.match(extract('renderPricingReceipt'), /button.hidden = button.disabled/);
   assert.match(extract('renderPricingReceipt'), /data-receipt-paste/);
+});
+
+test('all P/L form markers use the shared offer palette', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /--ear-p-color: #a33d35/);
+  assert.match(css, /--ear-l-color: #24698c/);
+  for (const [side, selectors] of [
+    ['p', ['.offer-device-right > span', '.loan-side-badge.loan-side-right', '.order-side-btn.order-side-p', '.order-side-badge.order-side-p', '.pcpr-ear-P', '.receipt-side-P']],
+    ['l', ['.offer-device-left > span', '.loan-side-badge.loan-side-left', '.order-side-btn.order-side-l', '.order-side-badge.order-side-l', '.pcpr-ear-L', '.receipt-side-L']]
+  ]) {
+    for (const selector of selectors) {
+      const block = css.slice(css.indexOf(`${selector} {`)).split('}')[0];
+      assert.ok(block.includes(`color: var(--ear-${side}-color)`), selector);
+    }
+  }
 });
 
 test('receipt side transfer moves a single device and swaps both model/serial pairs with autofill metadata', () => {
