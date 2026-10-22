@@ -1,5 +1,5 @@
 {
-  "app_version": "20261022-10",
+  "app_version": "20261022-11",
   "asset_policy_sha256": "cc1206f4137eec89fab7f5d7e5e2a5500dd7cfa2114cb85f5a70e99b4ec0c7c1",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -43,8 +43,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 434086,
-      "sha256": "08ef5b2765a8a4489a04a889f64e1983313e2e579f806a95002cd5a73e4cb18a"
+      "bytes": 434284,
+      "sha256": "3435a935359e9facd7ca7f848139a75325e86faf2c53689aa8a05e0026c1545e"
     },
     "manufacturer-logos/audibel-offer.jpeg": {
       "bytes": 33002,
@@ -111,12 +111,12 @@
       "sha256": "3241d1e3f4599e3f3ca44ee554c9833970917279a8d85f8747fcaa1fdd6c19eb"
     },
     "offline-forms.js": {
-      "bytes": 18707,
-      "sha256": "856c7a31700da2f53e9c798131efe7cce6ee68f7f31d7a81c22848e2564ae72b"
+      "bytes": 18764,
+      "sha256": "e4e6fcb3417c1e3a72d006d142b186e6cb0b7297a793cbe019245ad770157eb3"
     },
     "offline-sw.js": {
       "bytes": 3196,
-      "sha256": "4d3632b400c16c40a2eb6c477f48fc6b1b2afdf2ae71367b5e7ff9480419d169"
+      "sha256": "02f4a27843ed87fa6acc974ef290a18b788f0cdf2ac74a9679c5b7dde212f1a0"
     },
     "offline-vault.js": {
       "bytes": 5614,
@@ -131,8 +131,8 @@
       "sha256": "6cb2dce8d3543aebc80b2a10c7efda40e062246dfcc2965340330e50827662f3"
     },
     "styles.css": {
-      "bytes": 360513,
-      "sha256": "015af1bfbb1a287b4666b9e1885d8aa71458a863eb70c1e55c0960bf332cfec1"
+      "bytes": 360730,
+      "sha256": "3a9ecfd13bd5a952de7125ee61f24b50d2595bcc79cb04cb923fdd3a3425156b"
     },
     "supabase-config.js": {
       "bytes": 227,
