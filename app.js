@@ -24527,6 +24527,7 @@ function setRepairSerial2Visibility(show, options = {}) {
 }
 
 function openRepairDialog(record = null) {
+  if (!record && !canViewPrivateModules()) return;
   if (!requireInitialDataReady()) return;
   flushDeferredSuggestions();
   satisDataStore?.beginEdit(SUPABASE_REPAIR_TABLE, record?.id);

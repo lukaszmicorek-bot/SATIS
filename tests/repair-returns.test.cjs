@@ -4,6 +4,20 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('gabinet cannot open a new manual service entry; add button starts hidden and disabled', () => {
+  const source = fs.readFileSync('app.js', 'utf8');
+  const start = source.indexOf('function openRepairDialog(');
+  const code = source.slice(start, source.indexOf('\n}', start) + 2);
+  let readinessChecked = false;
+  const ctx = vm.createContext({canViewPrivateModules: () => false,
+    requireInitialDataReady: () => { readinessChecked = true; return false; }});
+  vm.runInContext(code, ctx);
+  ctx.openRepairDialog();
+  assert.equal(readinessChecked, false, 'new entry is refused before touching the form');
+  ctx.openRepairDialog({id: 'existing'});
+  assert.equal(readinessChecked, true, 'existing entry still reaches normal editing flow');
+  assert.match(fs.readFileSync('index.html', 'utf8'), /id="addRepairBtn"[^>]*data-private-owner hidden disabled/);
+});
 test('base/service place tiles stay on one line with their own intrinsic grid column', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(css, /\.repair-location-tiles\s*\{[^}]*flex-wrap:\s*nowrap/s);
