@@ -27875,7 +27875,7 @@ function resetRepairFilters() {
   renderCustomerRelations();
   repairCategoryFilter.value = "";
   repairStatusFilter.value = "";
-  if (repairActiveOnlyFilter) repairActiveOnlyFilter.checked = false;
+  if (repairActiveOnlyFilter) repairActiveOnlyFilter.checked = true;
   repairLocationFilter.value = "";
   updateDocumentLocationAccent(repairLocationFilter);
   syncRepairLocationTiles(repairLocationFilter);
