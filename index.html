@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261022-7">
+  <link rel="stylesheet" href="styles.css?v=20261022-8">
   </head>
   <body>
     <main class="app-shell">
@@ -133,35 +133,6 @@
               <div id="deviceSearchSummary" class="search-match-summary" aria-live="polite" hidden></div>
               <div id="deviceSearchFilterNotice" class="device-search-filter-notice" role="status" aria-live="polite" hidden></div>
             </div>
-            <label>
-              <span>Status</span>
-              <select id="typeFilter" class="device-type-select">
-                <option value="">Wszystkie</option>
-                <option value="NA STANIE">Na stanie</option>
-                <option value="SPRZEDANY">Sprzedany</option>
-                <option value="REZERWACJA">Rezerwacja</option>
-                <option value="ZWROT">Zwrot</option>
-              </select>
-            </label>
-            <label>
-              <span>EZWM</span>
-              <select id="ezwmFilter">
-                <option value="">Wszystkie</option>
-                <option value="POBRANE">Pobrane</option>
-                <option value="REALIZACJA">Realizacja</option>
-                <option value="BEZ REFUNDACJI">Bez refundacji</option>
-                <option value="BRAK">Brak</option>
-              </select>
-            </label>
-            <label>
-              <span>FIFO</span>
-              <select id="fifoFilter">
-                <option value="">Wszystkie</option>
-                <option value="fifo">Najstarsze pierwsze</option>
-                <option value="90">90+ dni</option>
-                <option value="180">180+ dni</option>
-              </select>
-            </label>
             <div class="document-location-field location-filter-field repair-location-field">
               <span>Miejsce</span>
               <select id="locationFilter" hidden>
@@ -177,6 +148,35 @@
                 <button type="button" class="pcpr-tab" data-device-location-target="locationFilter" data-value="P50" data-location-tone="P50" aria-pressed="false">P50</button>
               </div>
             </div>
+            <label>
+              <span>Status</span>
+              <select id="typeFilter" class="device-type-select">
+                <option value="">Wszystkie</option>
+                <option value="NA STANIE">Na stanie</option>
+                <option value="SPRZEDANY">Sprzedany</option>
+                <option value="REZERWACJA">Rezerwacja</option>
+                <option value="ZWROT">Zwrot</option>
+              </select>
+            </label>
+            <label>
+              <span>FIFO</span>
+              <select id="fifoFilter">
+                <option value="">Wszystkie</option>
+                <option value="fifo">Najstarsze pierwsze</option>
+                <option value="90">90+ dni</option>
+                <option value="180">180+ dni</option>
+              </select>
+            </label>
+            <label>
+              <span>EZWM</span>
+              <select id="ezwmFilter">
+                <option value="">Wszystkie</option>
+                <option value="POBRANE">Pobrane</option>
+                <option value="REALIZACJA">Realizacja</option>
+                <option value="BEZ REFUNDACJI">Bez refundacji</option>
+                <option value="BRAK">Brak</option>
+              </select>
+            </label>
             <button id="resetDeviceFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addBtn" type="button">DODAJ</button>
             <details class="notebook-transfer-menu" data-sensitive-transfer-menu hidden>
@@ -580,27 +580,6 @@
               </label>
               <div id="repairSearchSummary" class="search-match-summary" aria-live="polite" hidden></div>
             </div>
-            <label>
-              <span>Typ</span>
-              <select id="repairCategoryFilter">
-                <option value="">Wszystkie</option>
-                <option value="WKŁADKA USZNA">Wkładka uszna</option>
-                <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
-                <option value="ZAMÓWIENIE">Zamówienie</option>
-                <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
-                <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
-              </select>
-            </label>
-            <label>
-              <span>Status</span>
-              <select id="repairStatusFilter">
-                <option value="">Wszystkie</option>
-                <option value="PRZYJĘTE">Przyjęte</option>
-                <option value="W TRAKCIE">Wysłano</option>
-                <option value="GOTOWE">Do odbioru</option>
-                <option value="ODEBRANE">Odebrane</option>
-              </select>
-            </label>
             <div class="document-location-field location-filter-field repair-location-field">
               <span>Miejsce</span>
               <select id="repairLocationFilter" hidden>
@@ -616,6 +595,27 @@
                 <button type="button" class="pcpr-tab" data-repair-location-target="repairLocationFilter" data-value="P50" data-location-tone="P50" aria-pressed="false">P50</button>
               </div>
             </div>
+            <label>
+              <span>Status</span>
+              <select id="repairStatusFilter">
+                <option value="">Wszystkie</option>
+                <option value="PRZYJĘTE">Przyjęte</option>
+                <option value="W TRAKCIE">Wysłano</option>
+                <option value="GOTOWE">Do odbioru</option>
+                <option value="ODEBRANE">Odebrane</option>
+              </select>
+            </label>
+            <label>
+              <span>Typ</span>
+              <select id="repairCategoryFilter">
+                <option value="">Wszystkie</option>
+                <option value="WKŁADKA USZNA">Wkładka uszna</option>
+                <option value="WKŁADKA PRZECIWWODNA">Wkładka przeciwwodna</option>
+                <option value="ZAMÓWIENIE">Zamówienie</option>
+                <option value="NAPRAWA GWARANCYJNA">Naprawa gwarancyjna</option>
+                <option value="NAPRAWA POGWARANCYJNA">Naprawa pogwarancyjna</option>
+              </select>
+            </label>
             <button id="resetRepairFiltersBtn" class="reset-filters-btn" type="button">Reset filtrów</button>
             <button id="addRepairBtn" type="button" data-private-owner hidden disabled>DODAJ</button>
             <details class="notebook-transfer-menu" data-sensitive-transfer-menu hidden>
@@ -3312,13 +3312,13 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261022-7"></script>
-    <script src="data-layer.js?v=20261022-7"></script>
-    <script src="sync-layer.js?v=20261022-7"></script>
-    <script src="traffic-meter.js?v=20261022-7"></script>
-    <script src="repair-returns.js?v=20261022-7"></script>
-    <script src="offline-vault.js?v=20261022-7"></script>
-    <script src="offline-forms.js?v=20261022-7"></script>
-  <script src="app.js?v=20261022-7"></script>
+    <script src="supabase-config.js?v=20261022-8"></script>
+    <script src="data-layer.js?v=20261022-8"></script>
+    <script src="sync-layer.js?v=20261022-8"></script>
+    <script src="traffic-meter.js?v=20261022-8"></script>
+    <script src="repair-returns.js?v=20261022-8"></script>
+    <script src="offline-vault.js?v=20261022-8"></script>
+    <script src="offline-forms.js?v=20261022-8"></script>
+  <script src="app.js?v=20261022-8"></script>
   </body>
 </html>

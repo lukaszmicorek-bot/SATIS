@@ -4,6 +4,17 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { eventKey, pendingReturns, create } = require('../repair-returns.js');
 const iso = value => value || '';
+test('base/service toolbars share search, place, status ordering before secondary filters and actions', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  for (const ids of [
+    ['searchInput', 'locationFilter', 'typeFilter', 'fifoFilter', 'ezwmFilter', 'resetDeviceFiltersBtn', 'addBtn'],
+    ['repairSearchInput', 'repairLocationFilter', 'repairStatusFilter', 'repairCategoryFilter', 'resetRepairFiltersBtn', 'addRepairBtn']
+  ]) {
+    const positions = ids.map(id => html.indexOf(`id="${id}"`));
+    assert.ok(positions.every((position, i) => position >= 0 && (!i || position > positions[i - 1])));
+    for (const id of ids) assert.equal(html.split(`id="${id}"`).length - 1, 1, `${id} remains unique`);
+  }
+});
 test('gabinet cannot open a new manual service entry; add button starts hidden and disabled', () => {
   const source = fs.readFileSync('app.js', 'utf8');
   const start = source.indexOf('function openRepairDialog(');
