@@ -12765,7 +12765,7 @@ tbody tr.demo-return-critical:hover {
 }
 
 .database-controls.compact-filters {
-  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(105px, 138px)) max-content repeat(3, auto);
+  grid-template-columns: minmax(240px, 1fr) max-content repeat(3, minmax(110px, 140px)) repeat(3, auto);
 }
 
 .demo-controls.compact-filters {
@@ -12773,8 +12773,33 @@ tbody tr.demo-return-critical:hover {
 }
 
 .repairs-controls.compact-filters {
-  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(125px, 165px)) max-content repeat(3, auto);
+  grid-template-columns: minmax(240px, 1fr) max-content minmax(125px, 150px) minmax(180px, 210px) repeat(3, auto);
   margin-top: 9px;
+}
+
+.database-controls.compact-filters > label,
+.repairs-controls.compact-filters > label,
+.controls.compact-filters > .search-with-summary .search-box,
+.controls.compact-filters > .repair-location-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+}
+
+.controls.compact-filters > .repair-location-field > span {
+  font-size: 0.61rem;
+  line-height: 1.25;
+}
+
+.database-controls.compact-filters > #addBtn,
+.repairs-controls.compact-filters > #addRepairBtn {
+  margin-left: 5px;
+}
+
+.database-controls.compact-filters > .reset-filters-btn,
+.repairs-controls.compact-filters > .reset-filters-btn {
+  white-space: nowrap;
 }
 
 @media screen and (max-width: 1100px) {
