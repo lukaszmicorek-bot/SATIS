@@ -39,7 +39,7 @@ const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
 const SUPABASE_CAPD_HISTORY_TABLE = "capd_history";
 const CAPD_PROFILE_ID_PREFIX = "apd-profile-";
-const CAPD_HISTORY_STATUS_LABELS = { OPIS: "Opis", DO_ODBIORU: "Do odbioru", ODEBRANO: "Odebrano" };
+const CAPD_HISTORY_STATUS_LABELS = { PRZED_BADANIEM: "Przed badaniem", OPIS: "Opis", DO_ODBIORU: "Do odbioru", ODEBRANO: "Odebrano" };
 const CAPD_PERFORMED_EXAM_LABELS = Object.freeze({
   OTOSKOPIA: "Otoskopia",
   AUDIOMETRIA_TONALNA: "Audiometria tonalna",
@@ -21730,6 +21730,10 @@ function renderCapdReport() {
 }
 
 function printCapdReport() {
+  if (!capdReportTestItems().some(item => String(item.querySelector(".capd-result-control input")?.value || "").trim())) {
+    alert("Pacjent jest zapisany przed badaniem. Wpisz wyniki przed wydrukowaniem opisu badania.");
+    return false;
+  }
   renderCapdReport();
   const cleanup = () => document.body.classList.remove("capd-report-print");
   document.body.classList.add("capd-report-print");
@@ -21739,6 +21743,7 @@ function printCapdReport() {
 
 function normalizeCapdHistoryEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
+  const registrationOnly = entry.registrationOnly === true || entry.status === "PRZED_BADANIEM";
   const ageText = normalizeLoanHistoryText(entry.age);
   const results = Array.isArray(entry.results) ? entry.results.map((result) => ({
     code: normalizeLoanHistoryText(result?.code).toLocaleUpperCase("pl-PL"),
@@ -21767,6 +21772,8 @@ function normalizeCapdHistoryEntry(entry) {
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
     normSource: entry.normSource === "table-pdf" ? "table-pdf" : "neuroflow",
     testDate: isoDateForSave(entry.testDate || entry.date) || normalizeLoanHistoryText(entry.testDate || entry.date),
+    registrationOnly,
+    plannedTestDate: isoDateForSave(entry.plannedTestDate) || "",
     location: documentLocationKey(entry.location),
     examiner: titleCaseName(entry.examiner || "").slice(0, 80),
     practitioner: normalizeCapdPractitioner(entry.practitioner, entry.examiner),
@@ -21782,7 +21789,7 @@ function normalizeCapdHistoryEntry(entry) {
     descriptionHtml: sanitizeCapdRichText(entry.descriptionHtml || capdPlainTextToHtml(entry.description || "")),
     results
   };
-  return normalizedEntry.patient && normalizedEntry.pesel && normalizedEntry.testDate ? normalizedEntry : null;
+  return normalizedEntry.patient && (registrationOnly || (normalizedEntry.pesel && normalizedEntry.testDate)) ? normalizedEntry : null;
 }
 
 function normalizeCapdHistory(entries) {
@@ -21880,37 +21887,58 @@ async function persistCapdHistoryEntry(entry) {
 
 async function saveCurrentCapdToHistory() {
   linkCapdExaminerToProfile();
+  if (saveCurrentCapdToHistory.pending) return;
+  const authUser = currentSupabaseUser;
   const parsedPesel = parseCapdPesel(capdPeselInput?.value);
-  const snapshot = normalizeCapdHistoryEntry(currentCapdSnapshot());
-  if (!snapshot || !parsedPesel) {
+  const rawSnapshot = currentCapdSnapshot();
+  const registrationOnly = !rawSnapshot.results.some(result => result.value);
+  const snapshot = normalizeCapdHistoryEntry({ ...rawSnapshot, registrationOnly,
+    testDate: registrationOnly ? "" : rawSnapshot.testDate,
+    plannedTestDate: registrationOnly ? rawSnapshot.testDate : "" });
+  if (!snapshot || !isFullPersonName(snapshot.patient)) {
+    alert("Wpisz imię i nazwisko pacjenta.");
+    capdPatientInput?.focus();
+    return;
+  }
+  if ((!registrationOnly || snapshot.pesel) && !parsedPesel) {
+    alert("Wpisz poprawny PESEL. Przy zapisie samego pacjenta możesz pozostawić to pole puste.");
+    capdPeselInput?.focus();
+    return;
+  }
+  if (!registrationOnly && !snapshot.testDate) {
     alert("Uzupełnij imię i nazwisko, poprawny PESEL oraz datę badania.");
     return;
   }
-  if (!snapshot.examiner) {
+  if (!registrationOnly && !snapshot.examiner) {
     capdPractitionerShortcutButtons[0]?.focus();
     alert("Wybierz osobę wykonującą badanie przyciskiem pod formularzem.");
     return;
   }
-  if (!snapshot.location) {
+  if (!registrationOnly && !snapshot.location) {
     capdPractitionerShortcutButtons[0]?.focus();
     alert("Wybierz protetyka i placówkę pod formularzem.");
     return;
   }
-  if (!snapshot.results.some((result) => result.value)) {
-    alert("Wpisz przynajmniej jeden wynik badania.");
-    return;
-  }
-
   const previousHistory = capdHistory.slice();
   const existing = capdHistory.find((entry) => entry.id === snapshot.id);
+  const duplicatePatient = registrationOnly && !existing && capdHistory.find(entry =>
+    entry.status === "PRZED_BADANIEM" && (snapshot.pesel ? entry.pesel === snapshot.pesel
+      : !entry.pesel && normalize(entry.patient) === normalize(snapshot.patient)));
+  if (duplicatePatient) {
+    if (confirm("Pacjent jest już zapisany przed badaniem. Wczytać istniejący wpis zamiast tworzyć drugi?")) restoreCapdHistoryEntry(duplicatePatient);
+    return;
+  }
+  if (registrationOnly && existing?.results.some(result => result.value)
+    && !confirm("Usunięto wszystkie wyniki. Zmienić zapis badania na pacjenta przed badaniem?")) return;
+  const status = registrationOnly ? "PRZED_BADANIEM" : existing?.status && existing.status !== "PRZED_BADANIEM" ? existing.status : "OPIS";
   const historyEntry = normalizeCapdHistoryEntry({
     ...snapshot,
     createdAt: existing?.createdAt || snapshot.createdAt,
-    status: existing?.status ?? "OPIS",
-    statusUpdatedAt: existing?.statusUpdatedAt || (existing ? "" : snapshot.savedAt),
-    pickedUpAt: existing?.pickedUpAt || "",
-    phoneNotifiedAt: existing?.phoneNotifiedAt || "",
-    phoneNotifiedBy: existing?.phoneNotifiedBy || "",
+    status,
+    statusUpdatedAt: existing?.status === status ? existing.statusUpdatedAt : snapshot.savedAt,
+    pickedUpAt: status === "ODEBRANO" ? existing?.pickedUpAt || "" : "",
+    phoneNotifiedAt: registrationOnly ? "" : existing?.phoneNotifiedAt || "",
+    phoneNotifiedBy: registrationOnly ? "" : existing?.phoneNotifiedBy || "",
     savedAt: new Date().toISOString()
   });
   capdHistory = normalizeCapdHistory([historyEntry, ...capdHistory.filter((entry) => entry.id !== historyEntry.id)]);
@@ -21920,24 +21948,28 @@ async function saveCurrentCapdToHistory() {
   renderCapdPractitionerProfiles();
 
   const originalText = saveCapdHistoryBtn?.textContent;
+  saveCurrentCapdToHistory.pending = true;
   if (saveCapdHistoryBtn) {
     saveCapdHistoryBtn.disabled = true;
     saveCapdHistoryBtn.textContent = "Zapisywanie...";
   }
   try {
     await persistCapdHistoryEntry(historyEntry);
-    alert(existing ? "Badanie APD zostało zaktualizowane." : "Badanie APD zostało zapisane w historii.");
+    if (currentSupabaseUser !== authUser) return;
+    alert(registrationOnly ? "Pacjent zapisany przed badaniem. Wyniki można uzupełnić później przez Wczytaj." : existing ? "Badanie APD zostało zaktualizowane." : "Badanie APD zostało zapisane w historii.");
   } catch (error) {
+    if (currentSupabaseUser !== authUser) return;
     capdHistory = previousHistory;
-    activeCapdHistoryId = existing?.id || "";
+    activeCapdHistoryId = historyEntry.id;
     saveLocalCapdHistory();
     renderCapdHistory();
     renderCapdPractitionerProfiles();
     alert(`Nie udało się zapisać historii APD: ${error.message}`);
   } finally {
+    saveCurrentCapdToHistory.pending = false;
     if (saveCapdHistoryBtn) {
       saveCapdHistoryBtn.disabled = false;
-      saveCapdHistoryBtn.textContent = originalText || "Zapisz badanie";
+      saveCapdHistoryBtn.textContent = originalText || "Zapisz";
     }
   }
 }
@@ -21949,7 +21981,7 @@ function restoreCapdHistoryEntry(entry) {
   activeCapdHistoryId = historyEntry.id;
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
-  setDateInputValue(capdDateInput, historyEntry.testDate);
+  setDateInputValue(capdDateInput, historyEntry.testDate || historyEntry.plannedTestDate || todayInputValue());
   if (capdLocationInput) capdLocationInput.value = historyEntry.location || "P63";
   updateDocumentLocationAccent(capdLocationInput);
   if (capdExaminerInput) capdExaminerInput.value = historyEntry.examiner;
@@ -22015,15 +22047,19 @@ async function deleteCapdHistoryEntry(id) {
 }
 
 function capdHistoryCountLabel(count) {
-  if (count === 1) return "1 badanie";
-  if (count >= 2 && count <= 4) return `${count} badania`;
-  return `${count} badań`;
+  return polishCountLabel(count, "wpis", "wpisy", "wpisów");
 }
 
 async function changeCapdHistoryStatus(id, status, control) {
   if (!Object.hasOwn(CAPD_HISTORY_STATUS_LABELS, status)) return;
   const entry = capdHistory.find((item) => item.id === id);
   if (!entry || entry.status === status) return;
+  const hasResults = (entry.results || []).some(result => result.value);
+  if ((status !== "PRZED_BADANIEM" && !hasResults) || (status === "PRZED_BADANIEM" && hasResults)) {
+    control.value = entry.status;
+    alert(hasResults ? "Wpis zawiera wyniki badania. Najpierw wczytaj go i popraw dane." : "Najpierw wczytaj pacjenta, uzupełnij wyniki i zapisz badanie.");
+    return;
+  }
   const changedAt = new Date().toISOString();
   const updated = normalizeCapdHistoryEntry({
     ...entry,
@@ -22115,7 +22151,8 @@ function renderCapdHistory() {
     title.textContent = entry.patient;
     const meta = document.createElement("span");
     const ageLabel = entry.age === "" ? "wiek -" : formatCapdAge(Number(entry.age));
-    meta.textContent = `Data badania: ${formatDate(entry.testDate)} · PESEL ${maskSensitiveIdentifier(entry.pesel)} · ${ageLabel}`;
+    const dateLabel = entry.registrationOnly ? entry.plannedTestDate ? `Planowany termin: ${formatDate(entry.plannedTestDate)}` : "Przed badaniem" : `Data badania: ${formatDate(entry.testDate)}`;
+    meta.textContent = `${dateLabel} · PESEL ${entry.pesel ? maskSensitiveIdentifier(entry.pesel) : "do uzupełnienia"} · ${ageLabel}`;
     const context = document.createElement("div");
     context.className = "capd-history-context";
     if (entry.location) {
@@ -22131,7 +22168,7 @@ function renderCapdHistory() {
       context.append(examiner);
     }
     const results = document.createElement("small");
-    results.textContent = entry.results.map((result) => `${result.code}: ${result.value || "-"} ${result.unit}`).join(" | ");
+    results.textContent = entry.registrationOnly ? "Pacjent zapisany — badanie do wykonania." : entry.results.map((result) => `${result.code}: ${result.value || "-"} ${result.unit}`).join(" | ");
     const audit = document.createElement("small");
     audit.className = "capd-history-audit";
     audit.textContent = [entry.savedBy, entry.workstation].filter(Boolean).join(" · ");
