@@ -7561,6 +7561,21 @@ h2 {
 }
 .document-section-title:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
 .unified-document-editor > .form-undo-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.unified-document-editor { --document-control-height: 40px; }
+.unified-document-editor :is(.document-location-field select, input[data-date-picker]) {
+  height: var(--document-control-height);
+  min-height: var(--document-control-height);
+  box-sizing: border-box;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.unified-document-editor .document-location-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  align-self: end;
+}
+.unified-document-editor .document-location-field > span { line-height: 1.3; }
 .unified-document-editor .form-undo-tools > .offer-actions { margin-left: auto; flex-wrap: wrap; }
 .unified-document-editor .offer-form-grid > * { grid-row: auto; }
 .unified-document-editor .offer-date-field,

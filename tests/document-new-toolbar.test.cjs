@@ -52,4 +52,7 @@ assert.ok(unified.includes('Miejsce podpisania'));
 assert.ok(unified.includes('complaintEditor.before(node)'), 'purchase matching stays adjacent to complaint products');
 assert.ok(unified.includes('label("receiptModelP").before(purchase)'), 'purchase selector comes before receipt model entry');
 assert.ok(source.includes('globalThis.SatisDocumentLayout?.openReturn()'), 'service-linked return action unfolds return fields');
+const css = fs.readFileSync('styles.css', 'utf8');
+assert.match(css, /\.unified-document-editor\s*\{\s*--document-control-height: 40px;/);
+assert.match(css, /\.unified-document-editor :is\(\.document-location-field select, input\[data-date-picker\]\)\s*\{[^}]*height: var\(--document-control-height\);[^}]*box-sizing: border-box;/s);
 console.log('OK: new-document buttons moved above forms before undo, existing controls reused without duplicates.');
