@@ -15,6 +15,12 @@
 }
 
 :root {
+  --repair-service-ink: #3f706a;
+  --repair-service-background: #f1faf8;
+  --repair-service-border: #c6e2dd;
+  --repair-order-ink: #675f78;
+  --repair-order-background: #f8f6fc;
+  --repair-order-border: #ddd5ed;
   --document-tab-ink: #276d70;
   --document-tab-border: #c6dddb;
   --document-tab-background: #f0f8f7;
@@ -10792,8 +10798,8 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .type-pill.REPAIR {
-  color: #3f706a;
-  background: #f1faf8;
+  color: var(--repair-service-ink);
+  background: var(--repair-service-background);
   box-shadow:
     inset 0 0 0 1px #c6e2dd,
     inset 3px 0 0 #8dc7bd;
@@ -10816,8 +10822,8 @@ tbody tr.device-sold-row .serial-pill.service {
 }
 
 .type-pill.ORDER {
-  color: #675f78;
-  background: #f8f6fc;
+  color: var(--repair-order-ink);
+  background: var(--repair-order-background);
   box-shadow:
     inset 0 0 0 1px #ddd5ed,
     inset 3px 0 0 #bcaed8;
@@ -16041,8 +16047,8 @@ textarea {
 .repair-return-item strong { flex-basis: 100%; color: #003f5a; font-size: 0.85rem; }
 .repair-return-item span { font-size: 0.8rem; }
 .repair-return-item .repair-return-kind { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 5px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
-.repair-return-kind-service { color: #006e73; background: #eaf5f5; }
-.repair-return-kind-order { color: #915d21; background: #fff3e4; }
+.repair-return-kind-service { color: var(--repair-service-ink); background: var(--repair-service-background); }
+.repair-return-kind-order { color: var(--repair-order-ink); background: var(--repair-order-background); }
 .repair-return-item small { color: #627a86; font-size: 0.72rem; }
 .repair-return-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .repair-return-places { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -16079,8 +16085,31 @@ textarea {
 .repair-order-item > small { color: #62737a; font-size: 0.75rem; }
 .repair-kind-tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
 .repair-kind-tiles button { border: 1px solid #d7e2e5; border-radius: 6px; padding: 7px 12px; background: #f7fafb; color: #536c79; font-size: 0.8rem; }
-.repair-kind-tiles button[aria-pressed="true"] { border-color: #91bdbf; color: #006e73; background: #eaf5f5; font-weight: 700; }
-.repair-kind-tiles [data-repair-kind="order"][aria-pressed="true"] { border-color: #dab98e; background: #fff3e4; color: #915d21; }
+.repair-kind-tiles button[aria-pressed="true"] { border-color: #a9bbc2; color: #003f5a; background: #edf2f4; font-weight: 700; }
+.repair-kind-tiles [data-repair-kind="service"][aria-pressed="true"] { border-color: var(--repair-service-border); color: var(--repair-service-ink); background: var(--repair-service-background); }
+.repair-kind-tiles [data-repair-kind="order"][aria-pressed="true"] { border-color: var(--repair-order-border); background: var(--repair-order-background); color: var(--repair-order-ink); }
+.repair-kind-tiles button:hover { filter: brightness(0.98); }
+.repair-kind-tiles button:focus-visible { outline: 2px solid #007c80; outline-offset: 2px; }
+.repair-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 16px;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.repair-navigation > .tabs { margin: 0; border-bottom: 0; }
+.repair-navigation > .repair-header-filters {
+  align-items: center;
+  margin: 0 0 5px auto;
+}
+.repair-header-filters button { padding: 6px 10px; font-weight: 700; white-space: nowrap; }
+.repair-navigation .repair-header-filters .repair-active-filter { margin-left: 6px; padding-left: 6px; white-space: nowrap; }
+#repairsNotebook:not(:has(> #repairDatabaseView:not([hidden]))) .repair-header-filters { display: none; }
+@media (max-width: 640px) {
+  .repair-navigation > .tabs { flex: 1 1 100%; }
+  .repair-navigation > .repair-header-filters { justify-content: flex-end; flex: 1 1 100%; }
+}
 .repair-kind-tiles .repair-active-filter {
   display: inline-flex; align-items: center; gap: 8px; margin-left: auto;
   padding: 4px 0 4px 12px; color: #536c79; font-size: 13px; cursor: pointer;
