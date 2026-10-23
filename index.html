@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261023-3">
+  <link rel="stylesheet" href="styles.css?v=20261023-4">
   </head>
   <body>
     <main class="app-shell">
@@ -358,11 +358,20 @@
               <input id="stockAuditDate" type="text" inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR" data-date-picker>
             </label>
             <div class="stock-audit-actions">
-              <button id="saveStockAuditBtn" type="button">Zapisz remanent</button>
+              <button id="startStockAuditBtn" type="button">Nowy remanent</button>
+              <button id="pauseStockAuditBtn" type="button" hidden>Wstrzymaj</button>
+              <button id="saveStockAuditBtn" type="button">Zakończ remanent</button>
               <button id="exportStockAuditPdfBtn" type="button">Eksport PDF</button>
               <button id="clearStockAuditBtn" type="button">Wyczyść zaznaczenia</button>
               <button id="deleteLatestStockAuditBtn" type="button" hidden>Usuń ostatni remanent</button>
             </div>
+            <div id="stockAuditLocations" class="stock-audit-locations" role="group" aria-label="Miejsce remanentu">
+              <button type="button" data-audit-location="T12" aria-pressed="false">T12</button>
+              <button type="button" data-audit-location="P50" aria-pressed="false">P50</button>
+              <button type="button" data-audit-location="P63" aria-pressed="true">P63</button>
+              <button type="button" data-audit-location="all" aria-pressed="false">Wszystkie miejsca</button>
+            </div>
+            <p id="stockAuditDraftStatus" class="stock-audit-draft-status" role="status"></p>
             <div id="stockAuditPreview" class="stock-audit-preview" hidden></div>
             <details id="stockAuditHistory" class="stock-audit-history">
               <summary>
@@ -378,6 +387,30 @@
               </div>
             </details>
           </section>
+          <section id="stockAuditWorkspace" class="stock-audit-workspace" aria-label="Sprawdzanie aparatów" hidden>
+            <div class="stock-audit-workbar">
+              <div id="stockAuditProgress" role="status"></div>
+              <progress id="stockAuditProgressBar" max="1" value="0" aria-label="Postęp remanentu"></progress>
+              <form id="stockAuditScanForm" class="stock-audit-scan-form">
+                <label><span>Sprawdź numer seryjny</span><input id="stockAuditScan" type="search" autocomplete="off" placeholder="Wklej lub zeskanuj numer i naciśnij Enter"></label>
+                <button type="submit">Potwierdź</button>
+              </form>
+              <p id="stockAuditScanResult" role="status" aria-live="polite"></p>
+              <div id="stockAuditFilters" class="stock-audit-filters" role="group" aria-label="Wynik sprawdzenia">
+                <button type="button" data-audit-filter="pending" aria-pressed="true">Do sprawdzenia</button>
+                <button type="button" data-audit-filter="present" aria-pressed="false">Potwierdzone</button>
+                <button type="button" data-audit-filter="missing" aria-pressed="false">Braki</button>
+                <button type="button" data-audit-filter="all" aria-pressed="false">Wszystkie</button>
+                <input id="stockAuditSearch" type="search" aria-label="Szukaj w remanencie" autocomplete="off" placeholder="Model lub numer seryjny">
+                <select id="stockAuditSource" aria-label="Rodzaj magazynu"><option value="all">Magazyn i Demo</option><option value="stock">Magazyn</option><option value="demo">Demo</option></select>
+              </div>
+            </div>
+            <details id="stockAuditChanges" class="stock-audit-changes" hidden><summary id="stockAuditChangesSummary">Zmiany stanu od rozpoczęcia</summary><ul id="stockAuditChangesList"></ul></details>
+            <section class="table-zone stock-audit-worktable"><table><thead><tr><th>Aparat</th><th>Numer seryjny</th><th>Miejsce</th><th>Wynik</th><th>Sprawdzenie</th></tr></thead><tbody id="stockAuditWorkBody"></tbody></table></section>
+            <p id="stockAuditWorkEmpty" hidden>Brak pozycji dla wybranych filtrów.</p>
+            <button id="stockAuditShowMore" type="button" hidden>Pokaż kolejne pozycje</button>
+          </section>
+          <details id="stockGroupedSummary" class="stock-grouped-summary" open><summary>Podsumowanie według modeli</summary>
           <section class="table-zone stock-zone" aria-label="Aktualna ilość aparatów na stanie">
             <table class="stock-table">
               <thead>
@@ -417,6 +450,7 @@
               <p id="stockDemoEmptyState" class="empty-state" hidden>Brak dostępnych aparatów Demo.</p>
             </section>
           </section>
+          </details>
           <section id="stockChecklist" class="stock-checklist" aria-label="Checklista stanu magazynowego">
             <header class="stock-checklist-head">
               <div>
@@ -453,6 +487,7 @@
               <img src="satis-monogram.png" alt="SATIS">
             </header>
             <div id="stockAuditReportSummary" class="stock-audit-report-summary"></div>
+            <div id="stockAuditReportChanges" class="stock-audit-report-changes" hidden></div>
             <table class="stock-audit-report-table">
               <thead>
                 <tr>
@@ -3351,13 +3386,14 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261023-3"></script>
-    <script src="data-layer.js?v=20261023-3"></script>
-    <script src="sync-layer.js?v=20261023-3"></script>
-    <script src="traffic-meter.js?v=20261023-3"></script>
-    <script src="repair-returns.js?v=20261023-3"></script>
-    <script src="offline-vault.js?v=20261023-3"></script>
-    <script src="offline-forms.js?v=20261023-3"></script>
-  <script src="app.js?v=20261023-3"></script>
+    <script src="supabase-config.js?v=20261023-4"></script>
+    <script src="data-layer.js?v=20261023-4"></script>
+    <script src="sync-layer.js?v=20261023-4"></script>
+    <script src="traffic-meter.js?v=20261023-4"></script>
+    <script src="repair-returns.js?v=20261023-4"></script>
+    <script src="offline-vault.js?v=20261023-4"></script>
+    <script src="offline-forms.js?v=20261023-4"></script>
+    <script src="stock-audit.js?v=20261023-4"></script>
+  <script src="app.js?v=20261023-4"></script>
   </body>
 </html>

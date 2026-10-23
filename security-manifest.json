@@ -1,6 +1,6 @@
 {
-  "app_version": "20261023-3",
-  "asset_policy_sha256": "cc1206f4137eec89fab7f5d7e5e2a5500dd7cfa2114cb85f5a70e99b4ec0c7c1",
+  "app_version": "20261023-4",
+  "asset_policy_sha256": "d43512263176071a46d99114e093d60b27f0b076b5a9e2454734204cbd852a4d",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1742025,
-      "sha256": "b4af87cfb937f6a23ace555f194b61affe83a076f61dc49221658b33c350a37b"
+      "bytes": 1748352,
+      "sha256": "925937ffd87b178546f93de93eb8941f0a8f6b3670e85c04176b4574f3cf04a1"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -43,8 +43,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 437140,
-      "sha256": "b92c4afc3afffdf878d7264f117a0bf7b5d3a06b0feacaf99f1e980c36343ca1"
+      "bytes": 440570,
+      "sha256": "e32d4d6d733291ff96331c6db559d7b0210038b613adbc74f1945cc37983aa53"
     },
     "manufacturer-logos/audibel-offer.jpeg": {
       "bytes": 33002,
@@ -115,12 +115,12 @@
       "sha256": "7adbf30c029ac6df938f8a4619d38d308e8b37eebdb336ce6b6abecdfd4ec2f1"
     },
     "offline-sw.js": {
-      "bytes": 3195,
-      "sha256": "5f18dfb7dcfd8d975d2e7bacf631608636fe659e72c3a6061075487ff580147e"
+      "bytes": 3213,
+      "sha256": "6d502dd93bc2f4ba582f8f48fc8e9b6ce00431ec46eeccd534963d415c49d613"
     },
     "offline-vault.js": {
-      "bytes": 5614,
-      "sha256": "c28ca8cd78085ae9ae2c6c229bc998e17d3bbbb3360c330678f87751eaeb2d3a"
+      "bytes": 5688,
+      "sha256": "0ef877054958c384495c0d4a2277a16233b64b2c0a83e3e68d0adecbcdfe4939"
     },
     "repair-returns.js": {
       "bytes": 9784,
@@ -130,9 +130,13 @@
       "bytes": 40413,
       "sha256": "6cb2dce8d3543aebc80b2a10c7efda40e062246dfcc2965340330e50827662f3"
     },
+    "stock-audit.js": {
+      "bytes": 20311,
+      "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
+    },
     "styles.css": {
-      "bytes": 369776,
-      "sha256": "b3cd980bf890471546fa6e99f8c7ceb3b3c89e132799e7e918026b004bd61e38"
+      "bytes": 375096,
+      "sha256": "f45aa357927f03cf2ebc4a9690ee839df3a6d27f919e65cf57c0dc3ee0937370"
     },
     "supabase-config.js": {
       "bytes": 227,
