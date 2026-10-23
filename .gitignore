@@ -11,6 +11,7 @@
 !/traffic-meter.js
 !/supabase-traffic-meter.sql
 !/repair-returns.js
+!/stock-audit.js
 !/supabase-repair-returns.sql
 !/offline-vault.js
 !/offline-forms.js
@@ -55,6 +56,7 @@
 !/scripts/
 /scripts/*
 !/scripts/release_satis.py
+!/scripts/public_assets.py
 !/scripts/recovery_backup.py
 !/.github/
 /.github/*
@@ -87,6 +89,7 @@
 !/tests/document-new-toolbar.test.cjs
 !/tests/loan-transfer-sides.test.cjs
 !/tests/repair-order-items.test.cjs
+!/tests/stock-audit-workflow.test.cjs
 !/tests/pricing-create.test.cjs
 !/tests/pricing-discounts.test.cjs
 !/tests/offer-charger-price.test.cjs

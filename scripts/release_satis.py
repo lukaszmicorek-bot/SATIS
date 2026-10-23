@@ -33,6 +33,7 @@ MIGRATIONS = [
     "supabase-audit-vacation.sql",
 ]
 EXTRA_PUBLIC_FILES = {
+    "scripts/public_assets.py", "tests/stock-audit-workflow.test.cjs",
     "supabase-vacation-read-submitted.sql",
     "supabase-vacation-weekend-range.sql", "tests/vacation-weekend-range.test.cjs",
     "tests/vacation-balance-visibility.test.cjs",
@@ -84,7 +85,7 @@ def node_binary():
 
 def check_source():
     node = node_binary()
-    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js"):
+    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js", "stock-audit.js"):
         run(node, "--check", str(ROOT / name))
     tests = sorted((ROOT / "tests").glob("*.test.cjs"))
     if not tests:

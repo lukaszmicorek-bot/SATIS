@@ -9,9 +9,9 @@
   const legacyContext = encoder.encode("SATIS offline drafts v1");
   const context = encoder.encode("SATIS offline drafts v2");
   const iterations = 600000;
-  function storage() {
+  function storage(databaseName = "satis-offline-v1") {
     const ready = new Promise((resolve, reject) => {
-      const request = indexedDB.open("satis-offline-v1", 1);
+      const request = indexedDB.open(databaseName, 1);
       request.onupgradeneeded = () => request.result.createObjectStore("vault");
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -37,7 +37,7 @@
       }
     };
   }
-  function create({ disk = storage(), crypto = globalThis.crypto } = {}) {
+  function create({ databaseName = "satis-offline-v1", disk = storage(databaseName), crypto = globalThis.crypto } = {}) {
     let key = null, value = null, queue = Promise.resolve(), generation = 0;
     async function derive(password, bytes) {
       const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveKey"]);
