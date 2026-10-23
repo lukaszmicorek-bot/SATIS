@@ -1,5 +1,6 @@
 -- Keep shared-account submissions visible after refresh, without revealing private details.
 -- Run after supabase-audit-vacation.sql. No request data or write permissions change.
+-- Also excludes legacy L4 notes from annual leave balances; safe to run again.
 begin;
 
 create or replace function public.vacation_read_authorized()
@@ -28,6 +29,12 @@ begin
           from public.vacation_requests r where r.data->>'employeeId' = e.id
             and r.data->>'year' = e.data->>'year' and r.data->>'status' = 'ZATWIERDZONY'
             and r.data->>'type' in ('WYPOCZYNKOWY', 'NA ŻĄDANIE')
+            and not (
+              regexp_replace(upper(coalesce(r.data->>'notes', '')), '\s+', ' ', 'g')
+                ~ '\mL[ -]?4\M|\mZWOLNIENIE LEKARSKIE\M|\mCHOROBOWE\M'
+              and regexp_replace(upper(coalesce(r.data->>'notes', '')), '\s+', ' ', 'g')
+                !~ '\m(BEZ|BRAK|NIE) (L[ -]?4\M|ZWOLNIENIE LEKARSKIE\M|CHOROBOWE\M)'
+            )
             and coalesce(r.data->>'ownerLeave','false') not in ('true','1')), 0))
     ) end) order by e.id), '[]') into employees from public.vacation_employees e
     where is_owner or not exists (select 1 from public.vacation_requests r where r.data->>'employeeId' = e.id

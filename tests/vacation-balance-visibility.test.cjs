@@ -70,3 +70,51 @@ test('SATIS keeps all balances; personal mapping overrides workplace; unknown, a
   ctx.currentSupabaseUser = null;
   assert.equal(ctx.vacationCanViewBalance(employees[0]), false);
 });
+
+test('L4 does not use annual allowance, including legacy annual-leave entries', () => {
+  const {ctx} = setup();
+  for (const name of ['vacationIsSickLeave', 'vacationShowSickLeave', 'vacationUsesAnnualAllowance']) {
+    vm.runInContext(extract(name), ctx);
+  }
+  for (const notes of ['L4', 'l-4 od lekarza', 'Zwolnienie lekarskie', 'chorobowe', 'L 4']) {
+    for (const type of ['WYPOCZYNKOWY', 'NA ŻĄDANIE', 'INNY']) {
+      const request = {type, notes};
+      assert.equal(ctx.vacationUsesAnnualAllowance(request), false, `${type}: ${notes}`);
+      ctx.owner = true;
+      assert.equal(ctx.vacationShowSickLeave(request), true);
+      ctx.owner = false;
+      assert.equal(ctx.vacationShowSickLeave(request), false);
+    }
+  }
+  for (const notes of ['', 'Urlop rodzinny', 'bez L4', 'brak L4', 'nie L4', 'XL4A']) {
+    assert.equal(ctx.vacationUsesAnnualAllowance({type: 'WYPOCZYNKOWY', notes}), true, notes);
+  }
+  ctx.owner = true;
+  assert.equal(ctx.vacationShowSickLeave({type: 'INNY', notes: 'L4', redacted: true}), false);
+  assert.equal(ctx.vacationUsesAnnualAllowance({type: 'INNY', notes: ''}), false);
+  assert.match(extract('submitVacationRequest'), /vacationIsSickLeave\(\{ notes: vacationNotesInput\?\.value \}\) \? "INNY"/);
+  assert.match(fs.readFileSync('supabase-vacation-read-submitted.sql', 'utf8'), /and not \([\s\S]*?CHOROBOWE/);
+});
+
+test('L4 stays out of used and pending totals for days and hours', () => {
+  const {ctx, employees} = setup();
+  vm.runInContext(extract('vacationIsSickLeave'), ctx);
+  vm.runInContext(extract('vacationUsesAnnualAllowance'), ctx);
+  ctx.owner = true;
+  employees[0].redacted = false;
+  ctx.vacationEmployeeInput.value = '0';
+  ctx.vacationRequests = [
+    {employeeId: '0', year: 2026, type: 'WYPOCZYNKOWY', status: 'ZATWIERDZONY', days: 3, hours: 24},
+    {employeeId: '0', year: 2026, type: 'WYPOCZYNKOWY', notes: 'L4', status: 'ZATWIERDZONY', days: 5, hours: 40},
+    {employeeId: '0', year: 2026, type: 'NA ŻĄDANIE', notes: 'L4', status: 'OCZEKUJE', days: 2, hours: 16}
+  ];
+  ctx.renderVacationSummary();
+  assert.equal(String(ctx.vacationUsedTotal.textContent), '3');
+  assert.equal(String(ctx.vacationRemainingTotal.textContent), '23');
+  assert.equal(String(ctx.vacationPendingTotal.textContent), '0');
+  employees[0].unit = 'HOURS';
+  employees[0].allowance = 40;
+  ctx.renderVacationSummary();
+  assert.equal(String(ctx.vacationUsedTotal.textContent), '24');
+  assert.equal(String(ctx.vacationRemainingTotal.textContent), '16');
+});

@@ -520,7 +520,7 @@ test('weekend work uses the shared calendar and rejected leave days have a separ
 test('Saturday and weekend compensation share a day tone, while pending requests differ from approved', () => {
   const history = extract('renderVacationHistory');
   assert.match(history, /request\.type === "ZA SOBOTĘ" \|\| request\.type === "ZA WEEKEND"/);
-  assert.match(history, /"vacation-days-not-deducted", isCompensatoryTime \|\| vacationTypeUsesHours/);
+  assert.match(history, /"vacation-days-not-deducted", isCompensatoryTime \|\| showSickLeave \|\| vacationTypeUsesHours/);
   const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
   assert.match(css, /tr\[data-vacation-status="OCZEKUJE"\] \.vacation-history-days strong/);
   assert.match(css, /tr\[data-vacation-status="ODRZUCONY"\] \.vacation-history-days strong/);

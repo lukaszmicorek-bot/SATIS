@@ -3737,6 +3737,30 @@ h2 {
   box-shadow: inset 3px 0 #cb91a0;
 }
 
+.vacation-history-table tr.vacation-sick-leave {
+  background: #fff4f5;
+}
+
+.vacation-history-table tr.vacation-sick-leave td:first-child {
+  box-shadow: inset 3px 0 #cf8291;
+}
+
+.vacation-history-table tr.vacation-sick-leave td:nth-child(2) {
+  color: #9b3f53;
+  font-weight: 700;
+}
+
+.vacation-preview-day.in-period.period-sick,
+.date-picker-day.vacation-own-leave.vacation-sick-leave:not(.public-holiday) {
+  background: #fce8ec;
+  color: #923c50;
+}
+
+.vacation-preview-day.period-edge.period-sick {
+  background: #f3cdd5;
+  color: #7d3043;
+}
+
 .vacation-history-table th:nth-child(3),
 .vacation-history-table td:nth-child(3) {
   white-space: nowrap;

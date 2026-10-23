@@ -22591,8 +22591,20 @@ function vacationCompensatesWeekend(request) {
   return request?.type === "ZA WEEKEND" && Boolean(request.compensationDate) && request.compensationAmount > 0;
 }
 
+function vacationIsSickLeave(request) {
+  if (!request || request.redacted) return false;
+  const notes = String(request.notes || "").toLocaleUpperCase("pl-PL").replace(/\s+/gu, " ");
+  const marker = /\bL[ -]?4\b|\bZWOLNIENIE LEKARSKIE\b|\bCHOROBOWE\b/u;
+  const negated = /\b(?:BEZ|BRAK|NIE) (?:L[ -]?4\b|ZWOLNIENIE LEKARSKIE\b|CHOROBOWE\b)/u;
+  return marker.test(notes) && !negated.test(notes);
+}
+
+function vacationShowSickLeave(request) {
+  return canViewPrivateModules() && vacationIsSickLeave(request);
+}
+
 function vacationUsesAnnualAllowance(request) {
-  return ["WYPOCZYNKOWY", "NA ŻĄDANIE"].includes(request.type);
+  return ["WYPOCZYNKOWY", "NA ŻĄDANIE"].includes(request?.type) && !vacationIsSickLeave(request);
 }
 
 function vacationLegacyWeekendNeedsReview(request) {
@@ -22965,6 +22977,7 @@ function vacationPeriodPreviewMonths(from, to) {
 }
 
 function vacationPeriodTone(request) {
+  if (vacationShowSickLeave(request)) return "sick";
   if (request?.ownerLeave) return "owner";
   const employee = vacationEmployees.find((item) => item.id === request?.employeeId);
   const workstation = normalizeRepairLocation(employee?.workstation || request?.workstation || "");
@@ -23110,13 +23123,15 @@ function renderVacationHistory() {
     const requestEmployee = vacationEmployees.find((employee) => employee.id === request.employeeId);
     const usesHours = vacationRequestUsesHours(request, requestEmployee);
     const row = document.createElement("tr");
+    const showSickLeave = vacationShowSickLeave(request);
+    row.classList.toggle("vacation-sick-leave", showSickLeave);
     row.dataset.vacationType = request.type;
     row.dataset.vacationStatus = request.status;
     const employeeCell = document.createElement("td");
     employeeCell.className = "vacation-history-employee";
     employeeCell.textContent = request.employeeName;
     const typeCell = document.createElement("td");
-    typeCell.textContent = canViewDetails ? compensatesWeekend ? "Wolne za weekend" : vacationTypeLabel(request.type) : "Prywatne";
+    typeCell.textContent = showSickLeave ? "L4 · Zwolnienie lekarskie" : canViewDetails ? compensatesWeekend ? "Wolne za weekend" : vacationTypeLabel(request.type) : "Prywatne";
     typeCell.classList.toggle("vacation-private-detail", !canViewDetails);
     const termCell = document.createElement("td");
     termCell.className = "vacation-history-term";
@@ -23144,11 +23159,11 @@ function renderVacationHistory() {
     const amountLabel = `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
     days.title = request.status === "ODRZUCONY"
       ? "Wniosek odrzucony; nie wpływa na saldo urlopu."
-      : isCompensatoryTime
+      : isCompensatoryTime || showSickLeave
         ? `${amountLabel}; nie pomniejsza urlopu rocznego`
         : amountLabel;
     daysCell.append(days);
-    daysCell.classList.toggle("vacation-days-not-deducted", isCompensatoryTime || vacationTypeUsesHours(request.type));
+    daysCell.classList.toggle("vacation-days-not-deducted", isCompensatoryTime || showSickLeave || vacationTypeUsesHours(request.type));
     row.append(employeeCell, typeCell, termCell, daysCell);
     const statusCell = document.createElement("td");
     statusCell.className = "vacation-history-status";
@@ -23431,7 +23446,10 @@ async function submitVacationRequest(event) {
     alert("Termin musi dotyczyć roku wybranego u góry zakładki.");
     return;
   }
-  const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  const selectedType = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  // Keep the existing database type; medical absence never consumes annual leave.
+  const type = ["WYPOCZYNKOWY", "NA ŻĄDANIE", "INNY"].includes(selectedType)
+    && vacationIsSickLeave({ notes: vacationNotesInput?.value }) ? "INNY" : selectedType;
   if (["ZAJĘTOŚĆ", "TERMIN GODZINOWY"].includes(type)) return;
   if (vacationTypeUsesHours(type) && dateFrom !== dateTo) {
     alert(`${vacationTypeLabel(type)}: zgłoszenie dotyczy jednego dnia. Ustaw tę samą datę od i do.`);
@@ -28340,6 +28358,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     }
     if (ownLeave) {
       button.classList.add("vacation-own-leave");
+      button.classList.toggle("vacation-sick-leave", vacationShowSickLeave(ownLeave));
       if (ownLeave.ownerLeave) button.classList.add("vacation-owner-leave");
       const ownEmployee = vacationEmployees.find((employee) => employee.id === ownLeave.employeeId);
       const employeeTone = ownEmployee?.workstation?.toLocaleLowerCase("pl-PL") || "default";
