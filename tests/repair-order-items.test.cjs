@@ -100,3 +100,21 @@ ctx.repairRecords[0].sourceDocumentType = 'COMPLAINT';
 ctx.syncRepairDialogHeaderMeta();
 assert.equal(ctx.repairDialogTitle.textContent, 'Serwis · Aparat', 'complaint keeps service title');
 console.log('OK: clean order header, client subtitle, location/status and separate serials.');
+
+const html = fs.readFileSync('index.html', 'utf8');
+const css = fs.readFileSync('styles.css', 'utf8');
+const repairNavigation = html.slice(html.indexOf('<div class="repair-navigation">'), html.indexOf('<details class="repair-color-legend">'));
+assert.ok(repairNavigation.indexOf('id="complaintTab"') < repairNavigation.indexOf('repair-header-filters'));
+assert.match(repairNavigation, /<\/section>\s*<div class="repair-kind-tiles repair-header-filters" role="group"/,
+  'filters are next to, not inside, the tablist');
+for (const kind of ['all', 'service', 'order']) assert.ok(repairNavigation.includes(`data-repair-kind="${kind}"`));
+assert.equal((html.match(/id="repairActiveOnlyFilter"/g) || []).length, 1, 'reuse the existing active-only switch');
+assert.match(repairNavigation, /id="repairActiveOnlyFilter"[^>]* checked/);
+assert.match(css, /#repairsNotebook:not\(:has\(> #repairDatabaseView:not\(\[hidden\]\)\)\) \.repair-header-filters \{ display: none; \}/,
+  'list filters do not appear in order or complaint forms');
+assert.match(css, /\.repair-navigation > \.repair-header-filters\s*\{[^}]*margin: 0 0 5px auto;/);
+for (const kind of ['service', 'order']) {
+  assert.match(css, new RegExp(`\\.repair-return-kind-${kind} \\{[^}]*var\\(--repair-${kind}-ink\\)`));
+  assert.match(css, new RegExp(`\\[data-repair-kind="${kind}"\\]\\[aria-pressed="true"\\] \\{[^}]*var\\(--repair-${kind}-ink\\)`));
+}
+console.log('OK: compact right-aligned header filters, single active switch, view-specific visibility and shared kind colors.');
