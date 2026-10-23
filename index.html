@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261023-4">
+  <link rel="stylesheet" href="styles.css?v=20261023-5">
   </head>
   <body>
     <main class="app-shell">
@@ -2480,7 +2480,7 @@
             </section>
             <div class="private-form-actions private-form-wide">
               <button id="resetCapdFormBtn" class="ghost" type="button">Wyczyść formularz</button>
-              <button id="saveCapdHistoryBtn" type="button">Zapisz badanie</button>
+              <button id="saveCapdHistoryBtn" type="button">Zapisz</button>
               <button id="printCapdReportBtn" type="button">Drukuj / PDF</button>
             </div>
           </form>
@@ -2523,13 +2523,13 @@
             <p class="capd-report-disclaimer">Wyniki należy oceniać łącznie, biorąc pod uwagę wiek dziecka, jego funkcjonowanie, wywiad oraz pozostałe badania słuchu. Nieprawidłowy wynik jednego testu nie oznacza konkretnego rozpoznania.</p>
           </section>
           
-          <section class="capd-history-panel" aria-label="Historia badań APD">
+          <section class="capd-history-panel" aria-label="Pacjenci i badania APD">
             <header class="capd-history-head">
               <div>
-                <p class="eyebrow">Zapisane badania</p>
+                <p class="eyebrow">Pacjenci i badania</p>
                 <h3>Historia APD</h3>
               </div>
-              <span id="capdHistoryCount">0 badań</span>
+              <span id="capdHistoryCount">0 wpisów</span>
             </header>
             <div class="capd-history-filters">
               <label class="capd-history-search">
@@ -2540,6 +2540,7 @@
                 <span>Etap</span>
                 <div id="capdHistoryStatusFilter" class="capd-stage-tiles" role="group" aria-label="Filtr etapu APD" data-value="">
                   <button type="button" data-stage="" aria-pressed="true">Wszystkie</button>
+                  <button type="button" data-stage="PRZED_BADANIEM" aria-pressed="false">Przed badaniem</button>
                   <button type="button" data-stage="OPIS" aria-pressed="false">Opis</button>
                   <button type="button" data-stage="DO_ODBIORU" aria-pressed="false">Do odbioru</button>
                   <button type="button" data-stage="ODEBRANO" aria-pressed="false">Odebrano</button>
@@ -2547,7 +2548,7 @@
               </div>
             </div>
             <div id="capdHistoryList" class="capd-history-list"></div>
-            <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych badań APD.</p>
+            <p id="capdHistoryEmpty" class="empty-state">Brak zapisanych pacjentów i badań APD.</p>
           </section>
         </section>
       </section>
@@ -3386,14 +3387,14 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261023-4"></script>
-    <script src="data-layer.js?v=20261023-4"></script>
-    <script src="sync-layer.js?v=20261023-4"></script>
-    <script src="traffic-meter.js?v=20261023-4"></script>
-    <script src="repair-returns.js?v=20261023-4"></script>
-    <script src="offline-vault.js?v=20261023-4"></script>
-    <script src="offline-forms.js?v=20261023-4"></script>
-    <script src="stock-audit.js?v=20261023-4"></script>
-  <script src="app.js?v=20261023-4"></script>
+    <script src="supabase-config.js?v=20261023-5"></script>
+    <script src="data-layer.js?v=20261023-5"></script>
+    <script src="sync-layer.js?v=20261023-5"></script>
+    <script src="traffic-meter.js?v=20261023-5"></script>
+    <script src="repair-returns.js?v=20261023-5"></script>
+    <script src="offline-vault.js?v=20261023-5"></script>
+    <script src="offline-forms.js?v=20261023-5"></script>
+    <script src="stock-audit.js?v=20261023-5"></script>
+  <script src="app.js?v=20261023-5"></script>
   </body>
 </html>

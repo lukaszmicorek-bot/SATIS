@@ -7,6 +7,93 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+function patientSaveContext() {
+  const functionSource = name => {
+    const start = app.search(new RegExp(`^(?:async )?function ${name}\\(`, 'm'));
+    const rest = app.slice(start);
+    return rest.slice(0, rest.slice(1).search(/\n(?:async )?function /) + 1);
+  };
+  const writes = [], alerts = [];
+  const scope = vm.createContext({
+    CAPD_PERFORMED_EXAM_LABELS: {}, CAPD_HISTORY_STATUS_LABELS: {PRZED_BADANIEM: 'Przed badaniem', OPIS: 'Opis', DO_ODBIORU: 'Do odbioru', ODEBRANO: 'Odebrano'},
+    normalizeLoanHistoryText: value => String(value || ''), titleCaseName: value => String(value || '').trim(),
+    normalize: value => String(value || '').toLowerCase(), isoDateForSave: value => String(value || ''),
+    documentLocationKey: value => String(value || ''), normalizeCapdPractitioner: () => ({}),
+    capdRichTextPlainText: value => String(value || ''), capdPlainTextToHtml: value => String(value || ''), sanitizeCapdRichText: value => String(value || ''),
+    makeId: () => 'test-id', capdHistory: [], activeCapdHistoryId: '', currentSupabaseUser: {id: 'test-user'},
+    capdPatientInput: {focus() {}}, capdPeselInput: {value: '', focus() {}}, capdPractitionerShortcutButtons: [],
+    saveCapdHistoryBtn: {textContent: 'Zapisz', disabled: false}, linkCapdExaminerToProfile() {},
+    parseCapdPesel: value => value === 'VALID' ? {birthDate: '2020-01-01'} : null,
+    isFullPersonName: value => String(value).trim().split(/\s+/).length >= 2,
+    saveLocalCapdHistory() {}, renderCapdHistory() {}, renderCapdPractitionerProfiles() {},
+    restoreCapdHistoryEntry: entry => {scope.restored = entry;},
+    confirm: () => true, alert: message => alerts.push(message),
+    currentCapdSnapshot: () => structuredClone(scope.raw),
+    persistCapdHistoryEntry: async entry => writes.push(structuredClone(entry)),
+    raw: {id: 'patient-1', patient: 'Jan Testowy', pesel: '', testDate: '', results: [], examiner: '', location: ''}
+  });
+  for (const name of ['normalizeCapdHistoryEntry', 'normalizeCapdHistory', 'saveCurrentCapdToHistory', 'changeCapdHistoryStatus']) vm.runInContext(functionSource(name), scope);
+  return {scope, writes, alerts};
+}
+
+test('APD saves only patient name without PESEL, date, examiner or results and retains it on reload', async () => {
+  const {scope, writes} = patientSaveContext();
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(writes.length, 1);
+  const patient = writes[0];
+  assert.equal(patient.registrationOnly, true);
+  assert.equal(patient.status, 'PRZED_BADANIEM');
+  assert.equal(patient.testDate, '');
+  assert.equal(patient.pesel, '');
+  assert.equal(patient.examiner, '');
+  const reloaded = scope.normalizeCapdHistory([patient]);
+  assert.equal(reloaded.length, 1);
+  assert.equal(reloaded[0].patient, 'Jan Testowy');
+});
+
+test('patient registration preserves planned date separately and turns into study on same ID', async () => {
+  const {scope, writes} = patientSaveContext();
+  scope.raw.testDate = '2026-11-01';
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(writes[0].plannedTestDate, '2026-11-01');
+  assert.equal(writes[0].testDate, '');
+  scope.raw.results = [{code: 'TRW', value: '450', unit: 'ms'}];
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(writes.length, 1, 'actual results still require valid identity');
+  scope.capdPeselInput.value = 'VALID'; scope.raw.pesel = '12345678901';
+  scope.raw.examiner = 'Osoba Testowa'; scope.raw.location = 'P63';
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(writes.length, 2);
+  assert.equal(writes[1].id, writes[0].id);
+  assert.equal(writes[1].registrationOnly, false);
+  assert.equal(writes[1].status, 'OPIS');
+  assert.equal(writes[1].testDate, '2026-11-01');
+  assert.equal(scope.capdHistory.length, 1);
+});
+
+test('incomplete name, invalid optional PESEL and premature ready stage are rejected', async () => {
+  const {scope, writes} = patientSaveContext();
+  scope.raw.patient = 'Jan'; await scope.saveCurrentCapdToHistory(); assert.equal(writes.length, 0);
+  scope.raw.patient = 'Jan Testowy'; scope.raw.pesel = '123'; scope.capdPeselInput.value = '123';
+  await scope.saveCurrentCapdToHistory(); assert.equal(writes.length, 0);
+  scope.raw.pesel = ''; scope.capdPeselInput.value = '';
+  await scope.saveCurrentCapdToHistory(); assert.equal(writes.length, 1);
+  const control = {value: 'DO_ODBIORU'};
+  await scope.changeCapdHistoryStatus('patient-1', 'DO_ODBIORU', control);
+  assert.equal(writes.length, 1);
+  assert.equal(control.value, 'PRZED_BADANIEM');
+});
+
+test('APD double click cannot send a second save while first is pending', async () => {
+  const {scope} = patientSaveContext(); let release, count = 0;
+  scope.persistCapdHistoryEntry = () => {count++; return new Promise(resolve => {release = resolve;});};
+  const first = scope.saveCurrentCapdToHistory();
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(count, 1);
+  release(); await first;
+  assert.equal(scope.saveCurrentCapdToHistory.pending, false);
+});
 const values = app.slice(app.indexOf('const CAPD_NORMATIVE_VALUES ='), app.indexOf('const CAPD_NORM_CODES ='));
 const lookup = app.slice(app.indexOf('function capdNormSourceAge('), app.indexOf('function capdNumberValues('));
 const evaluation = app.slice(app.indexOf('function capdNumberValues('), app.indexOf('function ensureCapdNormEditors('));
@@ -125,8 +212,8 @@ test('APD keeps examination location and examiner in the form, history, and repo
   assert.match(app, /location: documentLocationKey\(entry\.location\)/);
   assert.match(app, /examiner: titleCaseName\(entry\.examiner \|\| ""\)/);
   assert.match(app, /capdLocationInput\.value = historyEntry\.location \|\| "P63"/);
-  assert.match(app, /if \(!snapshot\.location\)/);
-  assert.match(app, /if \(!snapshot\.examiner\)/);
+  assert.match(app, /if \(!registrationOnly && !snapshot\.location\)/);
+  assert.match(app, /if \(!registrationOnly && !snapshot\.examiner\)/);
 });
 
 test('APD records only confirmed preliminary examinations', () => {
@@ -168,10 +255,10 @@ test('APD records only confirmed preliminary examinations', () => {
   assert.match(app, /Wstaw opis wyniku w normie|Próg słyszenia w normie/);
 });
 
-test('APD stage filter has four accessible colored tiles', () => {
+test('APD stage filter includes registration before testing', () => {
   const filter = html.slice(html.indexOf('id="capdHistoryStatusFilter"'), html.indexOf('id="capdHistoryList"'));
-  assert.equal((filter.match(/data-stage=/g) || []).length, 4);
-  for (const value of ['', 'OPIS', 'DO_ODBIORU', 'ODEBRANO']) assert.ok(filter.includes(`data-stage="${value}"`));
+  assert.equal((filter.match(/data-stage=/g) || []).length, 5);
+  for (const value of ['', 'PRZED_BADANIEM', 'OPIS', 'DO_ODBIORU', 'ODEBRANO']) assert.ok(filter.includes(`data-stage="${value}"`));
   assert.match(filter, /aria-pressed="true">Wszystkie/);
   assert.match(app, /capdHistoryStatusFilter\?\.dataset.value/);
 });
@@ -180,7 +267,7 @@ test('APD records pickup time and clears it when reopening the study', async () 
   const source = app.slice(app.indexOf('async function changeCapdHistoryStatus('), app.indexOf('function capdPhoneNotifiedForPickup('));
   const scope = vm.createContext({
     CAPD_HISTORY_STATUS_LABELS: { OPIS: 'Opis', ODEBRANO: 'Odebrano' },
-    capdHistory: [{ id: 'study', status: 'OPIS' }],
+    capdHistory: [{ id: 'study', status: 'OPIS', results: [{code: 'TRW', value: '400'}] }],
     currentSupabaseUser: { email: 'test' }, currentWorkstationName: () => 'P63',
     normalizeCapdHistoryEntry: entry => entry, normalizeCapdHistory: entries => entries,
     persistCapdHistoryEntry: async () => {}, saveLocalCapdHistory() {}, renderCapdHistory() {}, alert() {}
@@ -191,7 +278,7 @@ test('APD records pickup time and clears it when reopening the study', async () 
   assert.ok(Number.isFinite(Date.parse(scope.capdHistory[0].pickedUpAt)));
   await scope.changeCapdHistoryStatus('study', 'OPIS', {});
   assert.equal(scope.capdHistory[0].pickedUpAt, '');
-  assert.match(app, /pickedUpAt: existing\?\.pickedUpAt \|\| ""/);
+  assert.match(app, /pickedUpAt: status === "ODEBRANO" \? existing\?\.pickedUpAt \|\| "" : ""/);
   assert.match(app, /stage\.append\(pickup\)/);
   assert.match(app, /const pickedUpAt = entry\.pickedUpAt \|\| entry\.statusUpdatedAt/);
   assert.match(app, /Data badania: \$\{formatDate\(entry\.testDate\)\}/);
@@ -217,7 +304,7 @@ test('APD phone notification applies only to the current ready-for-pickup stage'
   assert.equal(scope.notified(saved[0]), true);
   assert.equal(scope.notified({ ...saved[0], status: 'ODEBRANO' }), false);
   assert.equal(scope.notified({ ...saved[0], statusUpdatedAt: '2099-01-01T00:00:00.000Z' }), false);
-  assert.match(app, /phoneNotifiedAt: existing\?\.phoneNotifiedAt \|\| ""/);
+  assert.match(app, /phoneNotifiedAt: registrationOnly \? "" : existing\?\.phoneNotifiedAt \|\| ""/);
   assert.match(app, /if \(entry\.status === "DO_ODBIORU"\) \{\s*const notifiedControl/);
   assert.match(app, /if \(notifiedInput\.checked\) \{\s*const notifiedDate = document\.createElement\("time"\)/);
   assert.match(app, /notifiedDate\.textContent = formatAuditDateTime\(entry\.phoneNotifiedAt\)/);

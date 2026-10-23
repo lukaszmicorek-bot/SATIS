@@ -2699,6 +2699,11 @@ h2 {
   --capd-stage-wash: #fff0e3;
 }
 
+.capd-history-item[data-status="PRZED_BADANIEM"] {
+  --capd-stage-color: #78939f;
+  --capd-stage-wash: #edf4f7;
+}
+
 .capd-history-item[data-status="DO_ODBIORU"] {
   --capd-stage-color: #003f5a;
   --capd-stage-wash: #eaf1f4;
@@ -2710,6 +2715,7 @@ h2 {
   --capd-stage-wash: #e6f4f2;
 }
 
+.capd-history-item[data-status="PRZED_BADANIEM"],
 .capd-history-item[data-status="OPIS"],
 .capd-history-item[data-status="DO_ODBIORU"],
 .capd-history-item[data-status="ODEBRANO"] {
@@ -2873,6 +2879,7 @@ h2 {
 }
 
 .capd-stage-tiles button[data-stage="OPIS"] { --stage-text: #9d4a00; --stage-bg: #fff0e3; }
+.capd-stage-tiles button[data-stage="PRZED_BADANIEM"] { --stage-text: #4e7181; --stage-bg: #edf4f7; }
 .capd-stage-tiles button[data-stage="DO_ODBIORU"] { --stage-text: #003f5a; --stage-bg: #eaf1f4; }
 .capd-stage-tiles button[data-stage="ODEBRANO"] { --stage-text: #006767; --stage-bg: #e6f4f2; }
 .capd-stage-tiles button[aria-pressed="true"] { border-color: var(--stage-text); }
@@ -2895,6 +2902,12 @@ h2 {
   border-color: #e9c9ab;
   background: #fff3e9;
   color: #9d4a00;
+}
+
+.capd-history-stage select[data-status="PRZED_BADANIEM"] {
+  color: #4e7181;
+  background: #edf4f7;
+  border-color: #bed0d8;
 }
 
 .capd-history-stage select[data-status="DO_ODBIORU"] {
