@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261028-3">
+  <link rel="stylesheet" href="styles.css?v=20261028-4">
   </head>
   <body>
     <main class="app-shell">
@@ -809,7 +809,8 @@
                   <input id="clientActivityKind" type="hidden">
                   <label>Temat<input id="clientActivityTitle" type="text" maxlength="160" required autocomplete="off"></label>
                   <div id="clientVisitFields" class="client-visit-fields">
-                    <label>Termin<input id="clientVisitDate" type="datetime-local"></label>
+                    <label>Data wizyty<input id="clientVisitDate" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
+                    <label>Godzina<input id="clientVisitTime" type="time" step="60" autocomplete="off"></label>
                     <label>Czas wizyty<select id="clientVisitDuration"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option></select></label>
                     <label class="document-location-field">Miejsce<select id="clientVisitLocation"><option value="T12">T12</option><option value="P63">P63</option><option value="P50">P50</option></select></label>
                     <label>Status<select id="clientVisitStatus"><option value="PLANNED">Zaplanowana</option><option value="COMPLETED">Odbyta</option><option value="CANCELLED">Anulowana</option><option value="MISSED">Nieobecność</option></select></label>
@@ -3466,15 +3467,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261028-3"></script>
-    <script src="data-layer.js?v=20261028-3"></script>
-    <script src="sync-layer.js?v=20261028-3"></script>
-    <script src="traffic-meter.js?v=20261028-3"></script>
-    <script src="repair-returns.js?v=20261028-3"></script>
-    <script src="offline-vault.js?v=20261028-3"></script>
-    <script src="offline-forms.js?v=20261028-3"></script>
-    <script src="stock-audit.js?v=20261028-3"></script>
-    <script src="clients.js?v=20261028-3"></script>
-  <script src="app.js?v=20261028-3"></script>
+    <script src="supabase-config.js?v=20261028-4"></script>
+    <script src="data-layer.js?v=20261028-4"></script>
+    <script src="sync-layer.js?v=20261028-4"></script>
+    <script src="traffic-meter.js?v=20261028-4"></script>
+    <script src="repair-returns.js?v=20261028-4"></script>
+    <script src="offline-vault.js?v=20261028-4"></script>
+    <script src="offline-forms.js?v=20261028-4"></script>
+    <script src="stock-audit.js?v=20261028-4"></script>
+    <script src="clients.js?v=20261028-4"></script>
+  <script src="app.js?v=20261028-4"></script>
   </body>
 </html>

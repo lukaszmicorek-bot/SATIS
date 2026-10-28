@@ -59,6 +59,12 @@
     if (!Number.isFinite(date.getTime())) return "";
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   }
+  function visitStart(day, time) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error("Podaj prawidłowy dzień i godzinę wizyty.");
+    const value = `${day}T${time}`, date = new Date(value);
+    if (!Number.isFinite(date.getTime()) || localInput(date) !== value) throw new Error("Podaj prawidłowy dzień i godzinę wizyty.");
+    return date.toISOString();
+  }
   function profilePayload(form, person, street, city) {
     const name = person(form.name.trim()), phone = phoneKey(form.phone);
     if (name.split(/\s+/).length < 2 || name.length > 160) throw new Error("Wpisz imię i nazwisko klienta.");
@@ -134,7 +140,9 @@
       list.replaceChildren(...filtered.map(profile => {
         const b = button("", () => {void guarded(() => select(profile.id));}, "clients-person");
         b.setAttribute("aria-pressed", String(detail?.profile.id === profile.id));
-        b.append(node("strong", profile.full_name), node("span", `${a.phone(profile.phone) || "Brak telefonu"} · ${profile.location}`));
+        const heading = node("div", "", "clients-person-heading");
+        heading.append(node("strong", profile.full_name), a.locationPill(profile.location));
+        b.append(heading, node("span", a.phone(profile.phone) || "Brak telefonu"));
         return b;
       }));
       q("clientsCount").textContent = `${filtered.length} na liście · razem ${total}`;
@@ -146,7 +154,10 @@
       if (query.length >= 2 && !q("clientsArchived").checked) {
         for (const candidate of suggestions(getIndex(), query).filter(item => !location || item.rows.some(row => row.location === location)).slice(0, 30)) {
           const b = button("", () => newCard(candidate), "clients-person clients-proposed");
-          b.append(node("strong", candidate.name), node("span", `${candidate.rows.length} wpisów źródłowych · wymaga potwierdzenia osoby`));
+          const heading = node("div", "", "clients-person-heading"), places = node("span", "", "clients-person-places");
+          for (const place of [...new Set(candidate.rows.map(row=>row.location))].filter(place=>["T12","P63","P50"].includes(place))) places.append(a.locationPill(place));
+          heading.append(node("strong", candidate.name), places);
+          b.append(heading, node("span", `${candidate.rows.length} wpisów źródłowych · wymaga potwierdzenia osoby`));
           if (candidate.ambiguous) b.append(node("small", "Różne dane kontaktowe — możliwe różne osoby", "clients-warning"));
           proposed.append(b);
         }
@@ -299,7 +310,11 @@
       q("clientActivityEditor").hidden = false; q("clientActivityKind").value = kind;
       q("clientActivityTitle").value = event?.title || (kind === "VISIT" ? "Wizyta kontrolna" : "Ustalenia");
       q("clientActivityNote").value = event?.note || "";
-      q("clientVisitDate").value = event ? localInput(event.starts_at) : "";
+      const localDate = event?.starts_at ? localInput(event.starts_at) : "";
+      a.setDate(q("clientVisitDate"), localDate.slice(0, 10));
+      q("clientVisitTime").value = localDate.slice(11, 16);
+      q("clientVisitDate").required = kind === "VISIT";
+      q("clientVisitTime").required = kind === "VISIT";
       q("clientVisitDuration").value = String(event?.duration_minutes || 30);
       q("clientVisitLocation").value = event?.location || detail.profile.location;
       a.locationAccent(q("clientVisitLocation"));
@@ -312,9 +327,8 @@
       const kind = q("clientActivityKind").value, title = q("clientActivityTitle").value.trim(), note = q("clientActivityNote").value.trim();
       if (!title || title.length > 160 || note.length > 2000) throw new Error("Podaj krótki tytuł; notatka może mieć maksymalnie 2000 znaków.");
       if (/(?:^|\D)\d{11}(?!\d)/.test(`${title} ${note}`)) throw new Error("Nie wpisuj numeru PESEL w temacie ani notatce.");
-      const date = new Date(q("clientVisitDate").value);
-      if (kind === "VISIT" && !Number.isFinite(date.getTime())) throw new Error("Podaj dzień i godzinę wizyty.");
-      const data = {customer_id:detail.profile.id,kind,title,note,starts_at:kind === "VISIT" ? date.toISOString() : null,
+      const startsAt = kind === "VISIT" ? visitStart(a.isoDate(q("clientVisitDate").value), q("clientVisitTime").value) : null;
+      const data = {customer_id:detail.profile.id,kind,title,note,starts_at:startsAt,
         duration_minutes:Number(q("clientVisitDuration").value),location:q("clientVisitLocation").value,
         status:kind === "VISIT" ? q("clientVisitStatus").value : "COMPLETED"};
       try { await write("ACTIVITY",activityId,data,editingActivity?.revision); }
@@ -342,7 +356,9 @@
       q("clientsVisitList").replaceChildren(...visits.filter(visit => !clientLocation || visit.location === clientLocation).slice(0,100).map(visit => {
         const b = button("", () => {void guarded(() => select(visit.customer_id));},"client-visit");
         b.dataset.overdue = String(new Date(visit.starts_at).getTime() < now);
-        b.append(node("strong",`${a.dateTime(visit.starts_at)} · ${visit.location}`),node("span",visit.full_name),node("small",visit.title)); return b;
+        const heading = node("div", "", "clients-person-heading");
+        heading.append(node("strong",a.dateTime(visit.starts_at)),a.locationPill(visit.location));
+        b.append(heading,node("span",visit.full_name),node("small",visit.title)); return b;
       }));
       q("clientsVisitsEmpty").hidden = visits.some(visit => !clientLocation || visit.location === clientLocation);
     }
@@ -447,5 +463,5 @@
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};
   }
-  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,profilePayload,create};
+  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,profilePayload,create};
 });
