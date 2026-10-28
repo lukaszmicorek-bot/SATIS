@@ -79,6 +79,15 @@ test('schedule splits midnight spans without inventing a booking on the exclusiv
   assert.equal(next.length,1);assert.equal(next[0].startMinute,0);assert.equal(next[0].endMinute,15);
   assert.equal(clients.scheduleDayVisits([{starts_at:'bad',duration_minutes:30}],'2026-10-28').length,0);
 });
+test('opening hours follow ISO weekdays and resize snaps to 5 minutes with safe bounds',()=>{
+  const days=Array.from({length:7},(_,i)=>({closed:i>4,from:'09:00',to:'17:00'}));
+  assert.equal(clients.openingForDay([{location:'P63',days}],'P63','2026-11-02').closed,false);
+  assert.equal(clients.openingForDay([{location:'P63',days}],'P63','2026-11-08').closed,true);
+  assert.equal(clients.openingForDay([],'P50','2026-11-02'),null);
+  assert.equal(clients.resizedDuration(30,15),40);
+  assert.equal(clients.resizedDuration(30,-1000),5);
+  assert.equal(clients.resizedDuration(30,1000),240);
+});
 
 function fakeDOM() {
   const nodes=new Map();
@@ -134,7 +143,7 @@ test('schedule switches four views without additional API traffic and clears on 
 test('schedule slot fills date and time for the selected client and chosen clinic without saving', async () => {
   const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_clients_upcoming'?[]:detail}));
   await f.module.open();await f.module.select('client-1');
-  f.nodes.get('clientsScheduleLocation').value='P50';f.nodes.get('clientsScheduleLocation').emit('change');
+  f.nodes.get('clientsSchedulePlaces').emit('click',{target:{closest:()=>({dataset:{schedulePlace:'P50'}})}});
   const grid=f.nodes.get('clientsSchedule').children[0];
   const column=grid.children.find(node=>node.className==='clients-schedule-day');
   column.children[0].emit('click');
@@ -142,6 +151,48 @@ test('schedule slot fills date and time for the selected client and chosen clini
   assert.equal(f.nodes.get('clientVisitTime').value,'07:00');
   assert.equal(f.nodes.get('clientVisitLocation').value,'P50');
   assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
+});
+const descendants=node=>[node,...node.children.flatMap(descendants)];
+for(const failed of [false,true])test(`calendar resize ${failed?'restores the old block after rejection':'saves without losing service or notes'}`,async()=>{
+  const visit={...scheduled('visit','2026-10-28','09:00',30),revision:1},row={...visit,kind:'VISIT',note:'Ustalenia organizacyjne',service_id:null};
+  let saved;
+  const f=fixture(async(name,args)=>{
+    if(name==='satis_clients_overview')return {data:{profiles:[profile],total:1}};
+    if(name==='satis_client_schedule_read')return {data:{hours:[],services:[]}};
+    if(name==='satis_clients_upcoming')return {data:[saved&&!failed?{...visit,duration_minutes:saved.duration_minutes,revision:2}:visit]};
+    if(name==='satis_client_detail')return {data:{...detail,activities:[row]}};
+    if(name==='satis_clients_write'){saved=args.p_data;return failed?{error:{code:'PT427'}}:{data:{id:'visit',revision:2}};}
+  });
+  await f.module.open();
+  const handle=descendants(f.nodes.get('clientsSchedule')).find(node=>node.className==='clients-schedule-resize');
+  assert.ok(handle);
+  handle.emit('pointerdown',{clientY:100,pointerId:1,button:0});handle.emit('pointermove',{clientY:130,pointerId:1});handle.emit('pointerup',{pointerId:1});
+  await tick();await tick();
+  assert.equal(saved.duration_minutes,50);assert.equal(saved.note,'Ustalenia organizacyjne');assert.equal(saved.service_id,null);
+  if(failed) {
+    assert.match(f.nodes.get('clientsMessage').textContent,/godziny otwarcia/);
+    const event=descendants(f.nodes.get('clientsSchedule')).find(node=>node.className==='clients-schedule-event');
+    assert.equal(event.style.height,'43px');
+  } else assert.match(f.nodes.get('clientsMessage').textContent,/50 min/);
+});
+test('missing schedule migration disables new controls but leaves customer cards usable',async()=>{
+  const f=fixture(async(name)=>name==='satis_client_schedule_read'?{error:{code:'PGRST202'}}
+    :{data:name==='satis_clients_overview'?{profiles:[profile],total:1}:[]});
+  await f.module.open();
+  assert.equal(f.nodes.get('clientsList').children.length,1);
+  assert.match(f.nodes.get('clientsScheduleSettingsNotice').textContent,/supabase-client-schedule.sql/);
+  assert.equal(f.nodes.get('clientVisitService').disabled,true);
+  assert.doesNotMatch(f.nodes.get('clientsMessage').textContent,/supabase-clients.sql/);
+});
+test('configured opening hours disable closed-day slots, while services suggest duration',async()=>{
+  const days=Array.from({length:7},(_,i)=>({closed:i>4,from:'09:00',to:'17:00'}));
+  const f=fixture(async(name)=>({data:name==='satis_client_schedule_read'?{hours:[{location:'P63',days,revision:1}],services:[{id:'service',name:'Kontrola',duration_minutes:45,enabled:true}]}
+    :name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_detail'?detail:[]}));
+  await f.module.open();await f.module.select('client-1');
+  const grid=f.nodes.get('clientsSchedule').children[0],columns=grid.children.filter(node=>node.className==='clients-schedule-day');
+  assert.ok(columns[5].children.filter(node=>node.className==='clients-schedule-slot').every(slot=>slot.disabled));
+  f.nodes.get('clientAddVisit').emit('click');f.nodes.get('clientVisitService').value='service';f.nodes.get('clientVisitService').emit('change');
+  assert.equal(f.nodes.get('clientVisitDuration').value,'45');assert.equal(f.nodes.get('clientActivityTitle').value,'Kontrola');
 });
 test('appointment uses the shared date picker plus an independent time field', () => {
   assert.match(html,/<input id="clientVisitDate" type="text" data-date-picker/);

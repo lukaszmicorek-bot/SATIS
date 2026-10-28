@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const migration = fs.readFileSync(path.join(__dirname, '../supabase-clients.sql'), 'utf8');
+const scheduleMigration = fs.readFileSync(path.join(__dirname, '../supabase-client-schedule.sql'), 'utf8');
 
 test('clients RPCs fail closed and expose no direct table access', () => {
   assert.equal((migration.match(/security definer set search_path = ''/g) || []).length, 4);
@@ -52,6 +53,7 @@ test('isolated PostgreSQL: roles, writes, retry, conflict, links, visits, erasur
     sql(migration);
     // Repeat migration must preserve schema/data and remain idempotent.
     sql(migration);
+    sql(scheduleMigration);sql(scheduleMigration);
     const owner = `set role authenticated; select set_config('test.uid','00000000-0000-0000-0000-000000000001',false);`;
     sql(`${owner} do $$ declare r jsonb; begin
       r:=public.satis_clients_write('10000000-0000-0000-0000-000000000001','PROFILE','20000000-0000-0000-0000-000000000001',null,
@@ -87,6 +89,54 @@ test('isolated PostgreSQL: roles, writes, retry, conflict, links, visits, erasur
         raise exception 'Delete with planned visit accepted';
       exception when sqlstate '22023' then null; end;
     end $$;`);
+    sql(`${owner} do $$ declare r jsonb; days jsonb:='[{"closed":false,"from":"09:00","to":"17:00"},{"closed":false,"from":"09:00","to":"17:00"},{"closed":false,"from":"09:00","to":"17:00"},{"closed":false,"from":"09:00","to":"17:00"},{"closed":false,"from":"09:00","to":"17:00"},{"closed":true,"from":"09:00","to":"17:00"},{"closed":true,"from":"09:00","to":"17:00"}]';
+      base jsonb:='{"customer_id":"50000000-0000-0000-0000-000000000001","kind":"VISIT","title":"Kontrola","note":"Ustalenia organizacyjne","starts_at":"2026-11-02T09:00:00+01:00","location":"P63","status":"PLANNED","duration_minutes":30,"service_id":"40000000-0000-0000-0000-000000000001"}';
+      begin
+      begin
+      perform public.satis_clients_write_base('60000000-0000-0000-0000-000000000099','DELETE','50000000-0000-0000-0000-000000000001',1,'{}');
+      raise exception 'Base writer bypass allowed'; exception when insufficient_privilege then null; end;
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000001','PROFILE','50000000-0000-0000-0000-000000000001',null,'{"full_name":"Druga Osoba","location":"P63"}');
+      perform public.satis_client_schedule_settings_write('60000000-0000-0000-0000-000000000002','SERVICE','40000000-0000-0000-0000-000000000001',null,
+        '{"name":"Kontrola","duration_minutes":30,"max_day":1,"max_week":2,"max_month":2,"max_year":2,"enabled":true}');
+      perform public.satis_client_schedule_settings_write('60000000-0000-0000-0000-000000000003','HOURS','P63',null,jsonb_build_object('days',days));
+      r:=public.satis_client_schedule_read();if jsonb_array_length(r->'services')<>1 then raise exception 'Missing service'; end if;
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000004','ACTIVITY','70000000-0000-0000-0000-000000000001',null,base);
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000004','ACTIVITY','70000000-0000-0000-0000-000000000001',null,base);
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000005','ACTIVITY','70000000-0000-0000-0000-000000000002',null,base||'{"starts_at":"2026-11-03T09:00:00+01:00"}');
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000006','ACTIVITY','70000000-0000-0000-0000-000000000003',null,base||'{"starts_at":"2026-11-04T09:00:00+01:00"}');
+        raise exception 'Weekly cap ignored';exception when sqlstate 'PT429' then null;end;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000007','ACTIVITY','70000000-0000-0000-0000-000000000004',null,base||'{"starts_at":"2026-11-02T16:30:00+01:00","duration_minutes":60}');
+        raise exception 'Opening hours ignored';exception when sqlstate 'PT427' then null;end;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000008','ACTIVITY','70000000-0000-0000-0000-000000000005',null,base||'{"starts_at":"2026-11-07T09:00:00+01:00"}');
+        raise exception 'Closed weekend ignored';exception when sqlstate 'PT427' then null;end;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000009','ACTIVITY','70000000-0000-0000-0000-000000000006',null,(base-'service_id')||'{"starts_at":"2026-11-05T10:00:00+01:00"}');
+        raise exception 'Service-less bypass allowed';exception when sqlstate 'PT426' then null;end;
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000010','ACTIVITY','70000000-0000-0000-0000-000000000001',1,base||'{"duration_minutes":60}');
+      r:=public.satis_client_detail('50000000-0000-0000-0000-000000000001');
+      if not exists(select 1 from jsonb_array_elements(r->'activities') x where x->>'id'='70000000-0000-0000-0000-000000000001' and x->>'note'='Ustalenia organizacyjne' and x->>'duration_minutes'='60' and x->>'service_id'='40000000-0000-0000-0000-000000000001') then raise exception 'Resize lost fields';end if;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000011','ACTIVITY','70000000-0000-0000-0000-000000000001',1,base);
+        raise exception 'Stale resize accepted';exception when sqlstate 'PT409' then null;end;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000012','ACTIVITY','70000000-0000-0000-0000-000000000007',null,base||'{"location":"P50"}');
+        raise exception 'Daily cap across clinics ignored';exception when sqlstate 'PT429' then null;end;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000013','ACTIVITY','70000000-0000-0000-0000-000000000008',null,base||'{"starts_at":"2026-11-09T09:00:00+01:00"}');
+        raise exception 'Monthly cap ignored';exception when sqlstate 'PT429' then null;end;
+      begin
+        perform public.satis_clients_write('60000000-0000-0000-0000-000000000014','ACTIVITY','70000000-0000-0000-0000-000000000009',null,base||'{"starts_at":"2026-12-07T09:00:00+01:00"}');
+        raise exception 'Yearly cap ignored';exception when sqlstate 'PT429' then null;end;
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000015','ACTIVITY','70000000-0000-0000-0000-000000000002',1,base||'{"starts_at":"2026-11-03T09:00:00+01:00","status":"CANCELLED"}');
+      perform public.satis_clients_write('60000000-0000-0000-0000-000000000016','ACTIVITY','70000000-0000-0000-0000-000000000010',null,base||'{"starts_at":"2026-11-04T09:00:00+01:00"}');
+    end $$;`);
+    sql(`set role authenticated;select set_config('test.uid','00000000-0000-0000-0000-000000000002',false);do $$ begin
+      begin perform public.satis_client_schedule_read();raise exception 'Gabinet read settings';exception when insufficient_privilege then null;end;
+      begin perform 1 from public.customer_services;raise exception 'Direct services leaked';exception when insufficient_privilege then null;end;
+    end $$;`);
     for (const [role, uid] of [['anon',''], ['authenticated','00000000-0000-0000-0000-000000000002']]) {
       sql(`set role ${role}; select set_config('test.uid','${uid}',false); do $$ begin
         begin perform public.satis_clients_overview(); raise exception 'Read leaked'; exception when insufficient_privilege then null; end;
@@ -101,11 +151,11 @@ test('isolated PostgreSQL: roles, writes, retry, conflict, links, visits, erasur
         jsonb_build_object('customer_id','20000000-0000-0000-0000-000000000001','kind','VISIT','title','Wizyta','starts_at',now()+interval '1 day','location','P63','status','COMPLETED','duration_minutes',30));
       perform public.satis_clients_write('10000000-0000-0000-0000-000000000008','DELETE','20000000-0000-0000-0000-000000000001',2,'{}');
       r:=public.satis_clients_overview();
-      if (r->>'total')::integer<>0 then raise exception 'Delete failed'; end if;
+      if (r->>'total')::integer<>1 then raise exception 'Delete failed'; end if;
     end $$;
     reset role; do $$ begin
       if not exists(select 1 from public.device_records where id='synthetic-device') then raise exception 'Source deleted'; end if;
-      if exists(select 1 from public.customer_activities) then raise exception 'Activity retained'; end if;
+      if exists(select 1 from public.customer_activities where customer_id='20000000-0000-0000-0000-000000000001') then raise exception 'Activity retained'; end if;
       if exists(select 1 from public.customer_write_requests where result ? 'full_name' or result ? 'note') then raise exception 'PII in retry ledger'; end if;
     end $$;`);
   } finally {

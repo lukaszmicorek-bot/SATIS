@@ -104,6 +104,11 @@
     }
     finish();return parts;
   }
+  function openingForDay(hours,location,day) {
+    const entry=hours.find(item=>item.location===location);
+    return entry?.days?.[(new Date(`${day}T12:00:00`).getDay()+6)%7] || null;
+  }
+  function resizedDuration(duration,delta,scale=1.5) {return Math.max(5,Math.min(240,Math.round((duration+delta/scale)/5)*5));}
   function profilePayload(form, person, street, city) {
     const name = person(form.name.trim()), phone = phoneKey(form.phone);
     if (name.split(/\s+/).length < 2 || name.length > 160) throw new Error("Wpisz imię i nazwisko klienta.");
@@ -120,13 +125,16 @@
       "clientVisitDuration","clientVisitLocation","clientVisitStatus","clientAddVisit","clientAddNote","clientCancelActivity","clientSourceSection",
       "clientCandidates","clientCandidatesEmpty","clientCandidatesCount","clientHistory","clientTimelineFilters","clientOperations",
       "clientsReminderBtn","clientsPlaceFilter","clientsVisitList","clientsVisitsEmpty","clientAddressHint","clientCitySuggestions"];
-    requiredIds.push("clientsSchedule","clientsScheduleViews","clientsScheduleDate","clientsScheduleLocation","clientsSchedulePrev","clientsScheduleToday","clientsScheduleNext","clientsScheduleTitle","clientsScheduleNotice");
+    requiredIds.push("clientsSchedule","clientsScheduleViews","clientsScheduleDate","clientsSchedulePlaces","clientsSchedulePrev","clientsScheduleToday","clientsScheduleNext","clientsScheduleTitle","clientsScheduleNotice",
+      "clientVisitService","clientsScheduleSettingsNotice","clientsOpeningForm","clientsOpeningPlace","clientsOpeningRows","clientsOpeningHint",
+      "clientsServiceForm","clientsServiceName","clientsServiceDuration","clientsServiceDay","clientsServiceWeek","clientsServiceMonth","clientsServiceYear","clientsServiceEnabled","clientsServiceNew","clientsServiceList");
     if (requiredIds.some(id=>!q(id))) throw new Error("Widok Klientów wymaga odświeżenia strony.");
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
     let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
     let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
+    let scheduleConfig={hours:[],services:[]},scheduleReady=false,editingService=null,newServiceId="",resizeDrag=null,hoursDirty=false,serviceDirty=false,hoursRevision=null,hoursPlace=a.station();
     const discard = () => !(profileDirty || activityDirty) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
     function unsaved() {
       if (!profileDirty && !activityDirty) return false;
@@ -158,13 +166,19 @@
           : result.error.code === "PT423" ? "Karta z tym nazwiskiem i telefonem już istnieje. Wyszukaj ją również w archiwum."
           : result.error.code === "PT422" ? "Termin nakłada się na inną wizytę w tym gabinecie."
           : result.error.code === "42501" ? "Baza nie przyznała dostępu do kartoteki temu kontu."
-          : /PGRST202|42883|42P01/.test(result.error.code || "") ? "Kartoteka wymaga uruchomienia supabase-clients.sql w SQL Editor."
+          : result.error.code === "PT426" ? "Wybierz aktywną usługę przed zapisaniem wizyty."
+          : result.error.code === "PT427" ? "Termin wykracza poza godziny otwarcia wybranego gabinetu."
+          : result.error.code === "PT429" ? "Osiągnięto limit tej usługi w danym dniu, tygodniu, miesiącu lub roku. Wybierz inny termin."
+          : result.error.code === "23505" ? "Taka nazwa usługi już istnieje. Edytuj istniejącą usługę."
+          : /PGRST202|42883|42P01/.test(result.error.code || "") ? name.startsWith("satis_client_schedule_")
+            ? "Godziny i limity wymagają uruchomienia supabase-client-schedule.sql w SQL Editor."
+            : "Kartoteka wymaga uruchomienia supabase-clients.sql w SQL Editor."
           : "Nie udało się wykonać operacji. Sprawdź połączenie; niezapisane dane pozostają w formularzu.");
         e.code = result.error.code;
-        if (/PGRST202|42883|42P01/.test(e.code || "")) missingSchema = true;
+        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_")) missingSchema = true;
         throw e;
       }
-      missingSchema = false;
+      if(!name.startsWith("satis_client_schedule_"))missingSchema = false;
       return result.data;
     }
     async function write(action, id, data, revision) {
@@ -183,8 +197,10 @@
       finally { if (epoch === generation && allowed()) { busy = false; setBusy(false); } }
     }
     function setBusy(value) {
-      q("clientsNotebook").querySelectorAll("input,select,textarea,button").forEach(control => {control.disabled = value;});
+      q("clientsNotebook").querySelectorAll("input,select,textarea,button").forEach(control => {control.disabled = value || control.dataset.closed==="true";});
       q("clientsNotebook").querySelectorAll("[data-client-write]").forEach(control => {control.disabled = value || !loaded || missingSchema;});
+      q("clientsNotebook").querySelectorAll("[data-schedule-write]").forEach(control=>{control.disabled=value || !scheduleReady;});
+      q("clientVisitService").disabled=value || !scheduleReady;
     }
     function renderList() {
       if (!allowed()) return clear();
@@ -370,13 +386,14 @@
       q("clientVisitDate").required = kind === "VISIT";
       q("clientVisitTime").required = kind === "VISIT";
       q("clientVisitDuration").value = String(event?.duration_minutes || 30);
+      renderServiceOptions(event?.service_id||"");
       q("clientVisitLocation").value = event?.location || detail.profile.location;
       a.locationAccent(q("clientVisitLocation"));
       q("clientVisitStatus").value = event?.status || "PLANNED";
       q("clientVisitFields").hidden = kind !== "VISIT";
       q("clientActivityTitle").focus();
       if(kind === "VISIT") {
-        scheduleLocation=q("clientVisitLocation").value;q("clientsScheduleLocation").value=scheduleLocation;
+        scheduleLocation=q("clientVisitLocation").value;
         if(localDate)scheduleAnchor=localDate.slice(0,10);
         renderSchedule();
       }
@@ -391,6 +408,7 @@
       const data = {customer_id:detail.profile.id,kind,title,note,starts_at:startsAt,
         duration_minutes:Number(q("clientVisitDuration").value),location:q("clientVisitLocation").value,
         status:kind === "VISIT" ? q("clientVisitStatus").value : "COMPLETED"};
+      if(scheduleReady)data.service_id=kind==="VISIT"?(q("clientVisitService").value||null):null;
       try { await write("ACTIVITY",activityId,data,editingActivity?.revision); }
       catch (e) {
         if (e.code !== "PT422" || !a.confirm("W tym gabinecie jest już wizyta w tym czasie. Zapisać mimo nakładania terminów?")) throw e;
@@ -431,19 +449,20 @@
       if(!detail || detail.profile.archived){notify("Wybierz najpierw zapisanego klienta, aby umówić wizytę.",true);return;}
       if(!scheduleLocation){notify("Wybierz gabinet w harmonogramie przed wskazaniem godziny.",true);return;}
       const location=scheduleLocation;
-      if(!editActivity("VISIT"))return;
+      if(profileDirty){notify("Zapisz najpierw zmienione dane kontaktowe.",true);return;}
+      if((q("clientActivityEditor").hidden || q("clientActivityKind").value!=="VISIT") && !editActivity("VISIT"))return;
       a.setDate(q("clientVisitDate"),day);q("clientVisitTime").value=clock(minutes);
       q("clientVisitLocation").value=location;scheduleLocation=location;scheduleAnchor=day;
-      q("clientsScheduleLocation").value=location;a.locationAccent(q("clientVisitLocation"));renderSchedule();
+      a.locationAccent(q("clientVisitLocation"));renderSchedule();
       activityDirty=true;q("clientActivityEditor").scrollIntoView?.({block:"nearest",behavior:"smooth"});
     }
     function renderSchedule() {
-      if(!allowed())return;
+      if(!allowed() || resizeDrag)return;
       const host=q("clientsSchedule"),range=scheduleRange(scheduleView,scheduleAnchor);
       const today=a.today?.()||localInput(new Date()).slice(0,10),coverageStart=shiftDay(visitsFetchedAt||today,-30),coverageEnd=shiftDay(visitsFetchedAt||today,90);
       const covered=day=>visitsLoaded && day>coverageStart && day<coverageEnd;
       if(d.activeElement!==q("clientsScheduleDate"))a.setDate(q("clientsScheduleDate"),scheduleAnchor);
-      a.locationAccent(q("clientsScheduleLocation"));
+      q("clientsSchedulePlaces").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.schedulePlace===scheduleLocation)));
       q("clientsScheduleViews").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.scheduleView===scheduleView)));
       const format=(day,options)=>new Intl.DateTimeFormat("pl-PL",options).format(new Date(`${day}T12:00:00`));
       q("clientsScheduleTitle").textContent=scheduleView==="month"?format(scheduleAnchor,{month:"long",year:"numeric"})
@@ -474,8 +493,11 @@
         host.append(grid);return;
       }
       const perDay=range.days.map(day=>scheduleDayVisits(visits,day,scheduleLocation)),items=perDay.flat();
-      const from=Math.min(7*60,...items.map(item=>Math.floor(item.startMinute/60)*60));
-      const to=Math.max(19*60,...items.map(item=>Math.ceil(item.endMinute/60)*60)),scale=1.5,height=(to-from)*scale;
+      const openingDays=range.days.flatMap(day=>scheduleLocation?[openingForDay(scheduleConfig.hours,scheduleLocation,day)]
+        :["T12","P63","P50"].map(location=>openingForDay(scheduleConfig.hours,location,day))).filter(entry=>entry && !entry.closed);
+      const minutes=value=>Number(value.slice(0,2))*60+Number(value.slice(3));
+      const from=Math.min(openingDays.length?Math.min(...openingDays.map(entry=>Math.floor(minutes(entry.from)/60)*60)):7*60,...items.map(item=>Math.floor(item.startMinute/60)*60));
+      const to=Math.max(openingDays.length?Math.max(...openingDays.map(entry=>Math.ceil(minutes(entry.to)/60)*60)):19*60,...items.map(item=>Math.ceil(item.endMinute/60)*60)),scale=1.5,height=(to-from)*scale;
       const grid=node("div","","clients-schedule-timeline");grid.style.gridTemplateColumns=`52px repeat(${range.days.length}, minmax(${range.days.length===7?130:180}px, 1fr))`;
       grid.append(node("span","","clients-schedule-day-heading"));
       for(const day of range.days) {
@@ -487,31 +509,129 @@
       grid.append(axis);
       range.days.forEach((day,i)=>{
         const column=node("div","","clients-schedule-day");column.style.height=`${height}px`;
+        const opening=openingForDay(scheduleConfig.hours,scheduleLocation,day);
         column.dataset.weekend=String([0,6].includes(new Date(`${day}T12:00:00`).getDay()));
         if(!covered(day)){column.append(node("p",visitsLoaded?"Poza zakresem danych":"Brak danych"));grid.append(column);return;}
-        for(let minute=from;minute<to;minute+=30){
+        for(let minute=from;minute<to;minute+=15){
           const slot=button("",()=>bookSlot(day,minute),"clients-schedule-slot");
-          slot.style.top=`${(minute-from)*scale}px`;slot.style.height=`${30*scale}px`;
-          const occupied=perDay[i].some(item=>item.startMinute<minute+30 && item.endMinute>minute);
+          const length=Number(q("clientVisitDuration").value)||30;
+          const closed=opening && (opening.closed || minute<minutes(opening.from) || minute+length>minutes(opening.to));
+          slot.disabled=Boolean(closed);slot.dataset.closed=String(Boolean(closed));
+          slot.style.top=`${(minute-from)*scale}px`;slot.style.height=`${15*scale}px`;
+          const occupied=perDay[i].some(item=>item.startMinute<minute+length && item.endMinute>minute);
           slot.setAttribute("aria-label",`${a.date(day)}, ${clock(minute)}${scheduleLocation?`, ${scheduleLocation}`:" — wybierz gabinet"}${occupied?" · zajęty termin":""}`);slot.title=`${a.date(day)} · ${clock(minute)}${occupied?" · zajęty termin":""}`;
           column.append(slot);
         }
         for(const item of perDay[i]) {
-          const event=button("",()=>openVisit(item.visit),"clients-schedule-event");event.dataset.locationTone=item.visit.location;
+          const event=node("div","","clients-schedule-event");event.dataset.locationTone=item.visit.location;
           event.style.top=`${(item.startMinute-from)*scale}px`;event.style.height=`${Math.max(24,(item.endMinute-item.startMinute)*scale-2)}px`;
           event.style.left=`calc(${item.lane*100/item.lanes}% + 2px)`;event.style.width=`calc(${100/item.lanes}% - 4px)`;
           event.title=`${clock(item.startMinute)}–${clock(item.endMinute)} · ${item.visit.full_name} · ${item.visit.location} · ${item.visit.title}`;
-          event.append(node("strong",`${clock(item.startMinute)}–${clock(item.endMinute)}`),node("span",item.visit.full_name),node("small",item.visit.location));column.append(event);
+          const main=button("",()=>openVisit(item.visit),"clients-schedule-event-main"),time=node("strong",`${clock(item.startMinute)}–${clock(item.endMinute)}`);
+          main.append(time,node("span",item.visit.full_name),node("small",item.visit.location));event.append(main);
+          if(scheduleReady && localInput(item.visit.starts_at).slice(0,10)===day && item.endMinute<1440) {
+            const handle=button("",()=>{},"clients-schedule-resize");handle.title="Przeciągnij, aby zmienić czas. Klawiatura: strzałka w górę / w dół.";
+            handle.setAttribute("aria-label",`Zmień czas wizyty: ${item.visit.full_name}`);
+            handle.addEventListener("pointerdown",pointer=>{
+              if(!allowed() || busy || (pointer.button!==undefined && pointer.button!==0))return;
+              pointer.preventDefault();pointer.stopPropagation?.();
+              resizeDrag={visit:item.visit,startY:pointer.clientY,duration:Number(item.visit.duration_minutes),next:Number(item.visit.duration_minutes)};
+              handle.setPointerCapture?.(pointer.pointerId);
+            });
+            handle.addEventListener("pointermove",pointer=>{
+              if(!resizeDrag || resizeDrag.visit.id!==item.visit.id)return;
+              resizeDrag.next=Math.min(resizedDuration(resizeDrag.duration,pointer.clientY-resizeDrag.startY,scale),Math.floor((1440-item.startMinute)/5)*5);
+              event.style.height=`${Math.max(24,resizeDrag.next*scale-2)}px`;time.textContent=`${clock(item.startMinute)}–${clock(item.startMinute+resizeDrag.next)}`;
+            });
+            handle.addEventListener("pointerup",pointer=>{
+              if(!resizeDrag || resizeDrag.visit.id!==item.visit.id)return;
+              const drag=resizeDrag;resizeDrag=null;handle.releasePointerCapture?.(pointer.pointerId);
+              if(drag.next!==drag.duration)void guarded(()=>resizeVisit(drag.visit,drag.next));else renderSchedule();
+            });
+            handle.addEventListener("pointercancel",()=>{resizeDrag=null;renderSchedule();});
+            handle.addEventListener("lostpointercapture",()=>{if(resizeDrag?.visit.id===item.visit.id){resizeDrag=null;renderSchedule();}});
+            handle.addEventListener("keydown",key=>{
+              if(!["ArrowUp","ArrowDown"].includes(key.key))return;key.preventDefault();
+              const duration=resizedDuration(Number(item.visit.duration_minutes),key.key==="ArrowDown"?5:-5,1);
+              void guarded(()=>resizeVisit(item.visit,duration));
+            });
+            event.append(handle);
+          }
+          column.append(event);
         }
         grid.append(column);
       });
       host.append(grid);
     }
+    async function resizeVisit(visit,duration) {
+      try {
+        if(!scheduleReady || profileDirty || activityDirty)throw new Error("Zapisz lub anuluj edycję formularza przed zmianą czasu wizyty.");
+        const card=await rpc("satis_client_detail",{p_id:visit.customer_id}),row=card.activities.find(item=>item.id===visit.id);
+        if(!row || String(row.revision)!==String(visit.revision))throw new Error("Wizyta zmieniła się na innym komputerze. Odśwież harmonogram.");
+        const data={customer_id:row.customer_id,kind:"VISIT",title:row.title,note:row.note,starts_at:row.starts_at,
+          duration_minutes:duration,location:row.location,status:row.status,service_id:row.service_id||null};
+        try {await write("ACTIVITY",row.id,data,row.revision);}
+        catch(e){if(e.code!=="PT422" || !a.confirm("Wydłużona wizyta nakłada się na inny termin. Zapisać mimo nakładania?"))throw e;await write("ACTIVITY",row.id,{...data,allow_overlap:true},row.revision);}
+        await upcoming();if(detail?.profile.id===visit.customer_id)await select(visit.customer_id);
+        notify(`Czas wizyty zapisany: ${duration} min.`);
+      } finally {renderSchedule();}
+    }
+    function renderServiceOptions(value=q("clientVisitService").value) {
+      const select=q("clientVisitService"),empty=node("option","Wybierz usługę");empty.value="";
+      const options=scheduleConfig.services.filter(service=>service.enabled || service.id===value).map(service=>{
+        const option=node("option",`${service.name}${service.enabled?"":" (nieaktywna)"}`);option.value=service.id;return option;
+      });
+      select.replaceChildren(empty,...options);select.value=value;select.required=scheduleReady && options.some(option=>scheduleConfig.services.some(s=>s.id===option.value && s.enabled)) && q("clientActivityKind").value==="VISIT";
+      select.disabled=!scheduleReady || busy;
+    }
+    function fillHours() {
+      const place=q("clientsOpeningPlace").value||a.station(),saved=scheduleConfig.hours.find(item=>item.location===place);
+      hoursRevision=saved?.revision??null;hoursPlace=place;hoursDirty=false;
+      q("clientsOpeningHint").textContent=saved?"Zapisane godziny są wspólne dla wszystkich komputerów.":"Godziny nieustawione. Poniżej propozycja — zacznie obowiązywać dopiero po zapisie.";
+      q("clientsOpeningRows").replaceChildren(...["Poniedziałek","Wtorek","Środa","Czwartek","Piątek","Sobota","Niedziela"].map((label,i)=>{
+        const day=saved?.days[i]||{closed:i>4,from:"09:00",to:"17:00"},row=node("div","","clients-opening-row"),closed=node("input"),from=node("input"),to=node("input");
+        closed.type="checkbox";closed.checked=day.closed;closed.dataset.hoursClosed=String(i);
+        const closedLabel=node("label");closedLabel.append(closed,node("span","Zamknięte"));
+        from.type="time";from.value=day.from;from.dataset.hoursFrom=String(i);from.required=true;from.setAttribute("aria-label",`${label}: od`);
+        to.type="time";to.value=day.to;to.dataset.hoursTo=String(i);to.required=true;to.setAttribute("aria-label",`${label}: do`);
+        row.append(node("strong",label),from,to,closedLabel);return row;
+      }));a.locationAccent(q("clientsOpeningPlace"));
+    }
+    function fillService(service=null) {
+      serviceDirty=false;
+      editingService=service;newServiceId=service?.id||a.id();
+      for(const [id,key] of [["clientsServiceName","name"],["clientsServiceDuration","duration_minutes"],["clientsServiceDay","max_day"],["clientsServiceWeek","max_week"],["clientsServiceMonth","max_month"],["clientsServiceYear","max_year"]])q(id).value=service?.[key]|| (key==="duration_minutes"?30:"");
+      q("clientsServiceEnabled").checked=service?.enabled!==false;
+    }
+    function renderSettings() {
+      q("clientsServiceList").replaceChildren(...scheduleConfig.services.map(service=>{
+        const b=button("",()=>{if(!busy && (!serviceDirty || a.confirm("Porzucić niezapisane ustawienia usługi?")))fillService(service);},"clients-service-item");
+        b.append(node("strong",service.name),node("span",`${service.duration_minutes} min · dzień ${service.max_day||"bez limitu"} · tydzień ${service.max_week||"bez limitu"} · miesiąc ${service.max_month||"bez limitu"} · rok ${service.max_year||"bez limitu"}${service.enabled?"":" · nieaktywna"}`));return b;
+      }));renderServiceOptions();if(!hoursDirty)fillHours();setBusy(busy);
+    }
+    async function loadSettings() {
+      const epoch=generation;
+      try {
+        const data=await rpc("satis_client_schedule_read");scheduleConfig={hours:data.hours||[],services:data.services||[]};scheduleReady=true;
+        q("clientsScheduleSettingsNotice").textContent="";renderSettings();return true;
+      } catch(e) {
+        if(epoch!==generation)return false;
+        scheduleReady=false;if(allowed()) {q("clientsScheduleSettingsNotice").textContent=e.message;setBusy(busy);}
+        return false;
+      }
+    }
+    async function writeSettings(kind,key,data,revision) {
+      const fingerprint=JSON.stringify(["settings",kind,key,data,revision??null]);
+      if(!operations.has(fingerprint))operations.set(fingerprint,a.id());
+      await rpc("satis_client_schedule_settings_write",{p_request_id:operations.get(fingerprint),p_kind:kind,p_key:key,p_expected_revision:revision??null,p_data:data});
+      operations.delete(fingerprint);const refreshed=await loadSettings();renderSchedule();
+      notify(refreshed?"Ustawienia zapisane w bazie.":"Ustawienia zapisane, ale nie udało się odświeżyć ich widoku. Użyj Odśwież.",!refreshed);return refreshed;
+    }
     async function open() {
       if (!allowed()) return clear();
       notify("Wczytywanie klientów…");
       try {
-        setBusy(busy); await list(); getIndex(); renderList(); await upcoming();
+        setBusy(busy); await list(); getIndex(); renderList(); await loadSettings();await upcoming();
         notify(sourcesUnavailable ? "Karty klientów zostały wczytane, ale nie udało się odczytać powiązanych dokumentów. Odśwież dane aplikacji." : "", sourcesUnavailable);
       }
       catch (e) { if (allowed()) { notify(e.message,true); setBusy(false); } }
@@ -532,6 +652,10 @@
       q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";sourcesUnavailable=false;
       q("clientsSchedule").replaceChildren();q("clientsScheduleTitle").textContent="";q("clientsScheduleNotice").textContent="";q("clientsScheduleDate").value="";
       visitsLoaded=false;visitsFetchedAt="";scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);
+      resizeDrag=null;scheduleReady=false;scheduleConfig={hours:[],services:[]};editingService=null;newServiceId="";
+      hoursDirty=false;serviceDirty=false;hoursRevision=null;
+      q("clientsServiceForm").reset();q("clientsServiceList").replaceChildren();q("clientsOpeningRows").replaceChildren();
+      q("clientVisitService").replaceChildren();q("clientsScheduleSettingsNotice").textContent="";
     }
     function startReminders() {
       clearTimeout(pollTimer);
@@ -603,13 +727,13 @@
     q("clientLocation").addEventListener("change", () => a.locationAccent(q("clientLocation")));
     q("clientVisitLocation").addEventListener("change", () => {
       a.locationAccent(q("clientVisitLocation"));scheduleLocation=q("clientVisitLocation").value;
-      q("clientsScheduleLocation").value=scheduleLocation;renderSchedule();
+      renderSchedule();
     });
     q("clientPhone").addEventListener("blur", () => {const phone=phoneKey(q("clientPhone").value);if(!phone || /^\d{9}$/.test(phone))q("clientPhone").value=a.phone(phone);});
     q("clientsPlaceFilter").addEventListener("click", event => {
       const b=event.target.closest("[data-client-place]");if(!b)return;clientLocation=b.dataset.clientPlace;
       q("clientsPlaceFilter").querySelectorAll("button").forEach(button=>button.setAttribute("aria-pressed",String(button===b)));renderList();renderVisits();void list().catch(e=>{if(allowed())notify(e.message,true);});
-      scheduleLocation=clientLocation;q("clientsScheduleLocation").value=scheduleLocation;renderSchedule();
+      scheduleLocation=clientLocation;renderSchedule();
     });
     q("clientTimelineFilters").addEventListener("click", event => {
       const b=event.target.closest("[data-client-timeline]");if(!b)return;timelineKind=b.dataset.clientTimeline;
@@ -620,8 +744,38 @@
       const b=event.target.closest("[data-schedule-view]");if(!b || !allowed())return;
       scheduleView=b.dataset.scheduleView;renderSchedule();
     });
-    q("clientsScheduleLocation").value=scheduleLocation;
-    q("clientsScheduleLocation").addEventListener("change",()=>{if(!allowed())return;scheduleLocation=q("clientsScheduleLocation").value;renderSchedule();});
+    q("clientsSchedulePlaces").addEventListener("click",event=>{
+      const tile=event.target.closest("[data-schedule-place]");if(!tile || !allowed())return;scheduleLocation=tile.dataset.schedulePlace;renderSchedule();
+    });
+    q("clientsOpeningPlace").value=a.station();
+    q("clientsOpeningPlace").addEventListener("change",()=>{
+      if(hoursDirty && !a.confirm("Porzucić niezapisane godziny otwarcia?")){q("clientsOpeningPlace").value=hoursPlace;return;}fillHours();
+    });
+    q("clientsOpeningForm").addEventListener("input",()=>{hoursDirty=true;});
+    q("clientsServiceForm").addEventListener("input",()=>{serviceDirty=true;});
+    q("clientsOpeningForm").addEventListener("submit",event=>{event.preventDefault();void guarded(async()=>{
+      if(!scheduleReady)return;
+      const location=q("clientsOpeningPlace").value,days=Array.from({length:7},(_,i)=>({
+        closed:q("clientsOpeningRows").querySelector(`[data-hours-closed="${i}"]`).checked,
+        from:q("clientsOpeningRows").querySelector(`[data-hours-from="${i}"]`).value,
+        to:q("clientsOpeningRows").querySelector(`[data-hours-to="${i}"]`).value}));
+      if(days.some(day=>!day.closed && (!day.from || !day.to || day.from>=day.to)))throw new Error("Godzina otwarcia musi być wcześniejsza od zamknięcia.");
+      if(await writeSettings("HOURS",location,{days},hoursRevision)){hoursDirty=false;fillHours();}
+    });});
+    q("clientsServiceNew").addEventListener("click",()=>{if(!busy && (!serviceDirty || a.confirm("Porzucić niezapisane ustawienia usługi?")))fillService();});
+    q("clientsServiceForm").addEventListener("submit",event=>{event.preventDefault();void guarded(async()=>{
+      if(!scheduleReady)return;
+      const data={name:q("clientsServiceName").value.trim(),duration_minutes:Number(q("clientsServiceDuration").value),enabled:q("clientsServiceEnabled").checked};
+      for(const [id,key]of [["clientsServiceDay","max_day"],["clientsServiceWeek","max_week"],["clientsServiceMonth","max_month"],["clientsServiceYear","max_year"]])data[key]=Number(q(id).value)||0;
+      if(!data.name || data.duration_minutes<5 || data.duration_minutes>240)throw new Error("Podaj nazwę i czas usługi od 5 do 240 minut.");
+      const id=editingService?.id||newServiceId||(newServiceId=a.id());
+      if(await writeSettings("SERVICE",id,data,editingService?.revision))fillService(scheduleConfig.services.find(service=>service.id===id));
+    });});
+    q("clientVisitService").addEventListener("change",()=>{
+      const service=scheduleConfig.services.find(item=>item.id===q("clientVisitService").value);
+      if(service){q("clientVisitDuration").value=String(service.duration_minutes);q("clientActivityTitle").value=service.name;activityDirty=true;renderSchedule();}
+    });
+    q("clientVisitDuration").addEventListener("change",renderSchedule);
     q("clientsScheduleDate").addEventListener("change",()=>{
       if(!allowed())return;const day=a.isoDate(q("clientsScheduleDate").value);
       try{scheduleRange(scheduleView,day);scheduleAnchor=day;renderSchedule();}catch{notify("Wybierz prawidłową datę harmonogramu.",true);}
@@ -636,10 +790,10 @@
     q("clientsSchedulePrev").addEventListener("click",()=>moveSchedule(-1));
     q("clientsScheduleNext").addEventListener("click",()=>moveSchedule(1));
     q("clientsScheduleToday").addEventListener("click",()=>{if(allowed()){scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);renderSchedule();}});
-    a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty)){event.preventDefault();event.returnValue="";}});
+    a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty || hoursDirty || serviceDirty)){event.preventDefault();event.returnValue="";}});
     setBusy(false);
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};
   }
-  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,profilePayload,create};
+  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,openingForDay,resizedDuration,profilePayload,create};
 });
