@@ -30286,6 +30286,8 @@ function initializeClientsModule() {
   addressParts: postalAddressParts, station: () => documentLocationKey(documentLocationForWorkstation()) || "P63",
   date: formatDate, dateTime: formatAuditDateTime, locationAccent: updateDocumentLocationAccent,
   setDate: setDateInputValue, isoDate: isoDateForSave, locationPill: createLocationPill,
+  today: todayInputValue,
+  holiday: polishPublicHolidayOnDate,
   confirm: message => confirm(message), refreshCalendar: refreshCurrentDateWidget, navigate: () => switchNotebook("clients"),
   onBeforeUnload: handler => window.addEventListener("beforeunload", handler)
     });

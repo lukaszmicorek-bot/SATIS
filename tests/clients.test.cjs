@@ -52,11 +52,38 @@ test('calendar derives local day and excludes invalid and out-of-window dates', 
   assert.equal(found[0].localDate,'2026-10-28');
   assert.equal(clients.localInput(local),'2026-10-28T23:45');
 });
+test('schedule ranges start weeks on Monday and keep month grids stable across years', () => {
+  assert.equal(clients.scheduleRange('day','2026-10-28').days.length,1);
+  assert.deepEqual(clients.scheduleRange('three','2026-12-31').days,['2026-12-31','2027-01-01','2027-01-02']);
+  assert.equal(clients.scheduleRange('week','2026-11-01').start,'2026-10-26');
+  assert.equal(clients.scheduleRange('week','2026-11-01').end,'2026-11-01');
+  const feb=clients.scheduleRange('month','2028-02-29');
+  assert.equal(feb.days.length,42);assert.equal(feb.start,'2028-01-31');assert.ok(feb.days.includes('2028-02-29'));
+  assert.equal(clients.shiftDay('2026-12-31',1),'2027-01-01');
+});
+function scheduled(id,day,time,duration,location='P63',status='PLANNED') {
+  return {id,customer_id:'client-1',full_name:'Test Osoba',starts_at:clients.visitStart(day,time),duration_minutes:duration,location,status,title:'Kontrola'};
+}
+test('schedule packs overlaps in separate lanes and does not count adjacent appointments as overlapping', () => {
+  const visits=[scheduled('a','2026-10-28','09:00',60),scheduled('b','2026-10-28','09:30',30),
+    scheduled('c','2026-10-28','10:00',30),scheduled('elsewhere','2026-10-28','09:30',30,'P50'),
+    scheduled('cancelled','2026-10-28','10:30',30,'P63','CANCELLED')];
+  const parts=clients.scheduleDayVisits(visits,'2026-10-28','P63');
+  assert.deepEqual(parts.map(item=>[item.visit.id,item.lane,item.lanes]),[['a',0,2],['b',1,2],['c',0,1]]);
+  assert.equal(parts[0].startMinute,540);assert.equal(parts[0].endMinute,600);
+  assert.equal(clients.scheduleDayVisits(visits,'2026-10-28','P50').length,1);
+});
+test('schedule splits midnight spans without inventing a booking on the exclusive end day', () => {
+  const visits=[scheduled('overnight','2026-10-28','23:45',30),scheduled('ends','2026-10-28','23:00',60)];
+  const next=clients.scheduleDayVisits(visits,'2026-10-29');
+  assert.equal(next.length,1);assert.equal(next[0].startMinute,0);assert.equal(next[0].endMinute,15);
+  assert.equal(clients.scheduleDayVisits([{starts_at:'bad',duration_minutes:30}],'2026-10-28').length,0);
+});
 
 function fakeDOM() {
   const nodes=new Map();
   function element(tag='div') {
-    return {tagName:tag.toUpperCase(),textContent:'',value:'',hidden:false,disabled:false,checked:false,dataset:{},children:[],handlers:{},attributes:{},
+    return {tagName:tag.toUpperCase(),textContent:'',value:'',hidden:false,disabled:false,checked:false,dataset:{},style:{},children:[],handlers:{},attributes:{},
       addEventListener(type, fn){(this.handlers[type] ||= []).push(fn);},
       emit(type,event={}){for(const fn of this.handlers[type]||[])fn({preventDefault(){},...event});},
       append(...items){this.children.push(...items);},replaceChildren(...items){this.children=items;},
@@ -76,7 +103,7 @@ function fixture(rpc, extra = {}) {
   const module=clients.create({document:dom.document,owner:()=>state.owner,user:()=>state.user,active:()=>true,
     sources:()=>[],rpc:async(name,args)=>{calls.push({name,args});return rpc(name,args);},id:()=>`request-${++sequence}`,
     person:x=>x,phone:x=>x||'',street:x=>x,city:x=>x,addressParts:()=>({}),station:()=> 'P63',date:x=>x,dateTime:x=>x,
-    setDate:(input,value)=>{input.value=value;},isoDate:value=>value,
+    setDate:(input,value)=>{input.value=value;},isoDate:value=>value,today:()=> '2026-10-28',
     locationPill:location=>{const pill=dom.document.createElement('span');pill.textContent=location;pill.className=`location-pill ${location}`;return pill;},
     locationAccent(){},confirm:()=>true,refreshCalendar(){},navigate(){},...extra});
   return {...dom,state,calls,module};
@@ -92,6 +119,29 @@ test('client rows use the shared location badge instead of plain place text', as
   assert.equal(heading.children[1].className,'location-pill P63');
   assert.equal(heading.children[1].textContent,'P63');
   assert.equal(row.children[1].textContent,'500600800');
+});
+test('schedule switches four views without additional API traffic and clears on logout', async () => {
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}
+    :name==='satis_clients_upcoming'?[scheduled('visit','2026-10-28','09:00',60)]:detail}));
+  await f.module.open();const count=f.calls.length;
+  for(const view of ['day','three','week','month']) {
+    f.nodes.get('clientsScheduleViews').emit('click',{target:{closest:()=>({dataset:{scheduleView:view}})}});
+    assert.equal(f.nodes.get('clientsSchedule').children[0].className,view==='month'?'clients-schedule-month':'clients-schedule-timeline');
+  }
+  assert.equal(f.calls.length,count,'view changes reuse the in-memory visit snapshot');
+  f.module.clear();assert.equal(f.nodes.get('clientsSchedule').children.length,0);assert.equal(f.nodes.get('clientsScheduleTitle').textContent,'');
+});
+test('schedule slot fills date and time for the selected client and chosen clinic without saving', async () => {
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_clients_upcoming'?[]:detail}));
+  await f.module.open();await f.module.select('client-1');
+  f.nodes.get('clientsScheduleLocation').value='P50';f.nodes.get('clientsScheduleLocation').emit('change');
+  const grid=f.nodes.get('clientsSchedule').children[0];
+  const column=grid.children.find(node=>node.className==='clients-schedule-day');
+  column.children[0].emit('click');
+  assert.equal(f.nodes.get('clientVisitDate').value,'2026-10-26');
+  assert.equal(f.nodes.get('clientVisitTime').value,'07:00');
+  assert.equal(f.nodes.get('clientVisitLocation').value,'P50');
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
 });
 test('appointment uses the shared date picker plus an independent time field', () => {
   assert.match(html,/<input id="clientVisitDate" type="text" data-date-picker/);
@@ -221,7 +271,7 @@ test('missing or broken Clients script cannot prevent the main application from 
     const context={clientsModule:null,window:{SatisClients:factory?{create:factory}:undefined},
       document:{getElementById:()=>message,querySelectorAll:()=>[write]},init:()=>{initialized++;}};
     for(const name of ['canViewPrivateModules','clientsCurrentSources','makeId','titleCaseName','formatPcprPhone','knownPostalAddresses',
-      'postalAddressParts','formatDate','formatAuditDateTime','updateDocumentLocationAccent','setDateInputValue','isoDateForSave','createLocationPill','refreshCurrentDateWidget'])context[name]=()=>{};
+      'postalAddressParts','formatDate','formatAuditDateTime','updateDocumentLocationAccent','setDateInputValue','isoDateForSave','createLocationPill','refreshCurrentDateWidget','todayInputValue','polishPublicHolidayOnDate'])context[name]=()=>{};
     vm.createContext(context);
     vm.runInContext(`${bootstrap}\ninitializeClientsModule();\ninit();`,context);
     assert.equal(initialized,1);
