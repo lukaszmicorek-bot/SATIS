@@ -55,6 +55,8 @@ test('Calendar keeps known workstation with loan, Demo and vacation events', () 
     hasLoanDeviceData: device => Boolean(device?.model),
     normalizeDemoPurpose: value => value,
     vacationTypeUsesHours: () => false,
+    canViewPrivateModules: () => false,
+    clientsModule: null,
     formatDate: value => value,
     pricingLoanHistory: [
       { id: 'loan', customer: 'Jan Kowalski', city: 'Traugutta 12', periodTo: '2026-09-30', rightDevice: { side: 'prawe', model: 'Model P' }, leftDevice: {} },

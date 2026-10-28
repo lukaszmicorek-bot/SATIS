@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261028-1">
+  <link rel="stylesheet" href="styles.css?v=20261028-2">
   </head>
   <body>
     <main class="app-shell">
@@ -53,6 +53,7 @@
           <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
             <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
             <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia <span id="repairReturnsCount" class="repair-return-count" hidden></span></button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="clients" data-private-owner hidden>Klienci</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>APD</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="pcpr" data-private-shared hidden>PCPR</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="history" data-private-shared hidden>Historia</button>
@@ -72,6 +73,7 @@
           <span id="connectionStatus" class="connection-status" data-state="local">Tryb lokalny</span>
           <span id="connectionUser" class="connection-user" hidden></span>
           <button id="repairReturnsBtn" class="repair-returns-button" type="button" hidden>Powroty</button>
+          <button id="clientsReminderBtn" class="repair-returns-button" type="button" hidden>Wizyty</button>
           <button id="trafficMeterBtn" class="repair-returns-button" type="button" aria-expanded="false" aria-controls="trafficMeterPanel" hidden>Transfer · MB</button>
           <div class="connection-account-actions">
             <div class="connection-account-row">
@@ -759,6 +761,73 @@
         </section>
       </section>
 
+      <section id="clientsNotebook" class="notebook-section clients-notebook" aria-label="Klienci i wizyty" hidden>
+        <div class="clients-toolbar">
+          <label class="clients-search">Szukaj klienta<input id="clientsSearch" type="search" maxlength="160" autocomplete="off" placeholder="Imię, nazwisko, telefon lub model w źródłach"></label>
+          <div id="clientsPlaceFilter" class="pcpr-tab-group" role="group" aria-label="Miejsce klienta">
+            <button type="button" class="pcpr-tab" data-client-place="" aria-pressed="true">Wszystkie</button>
+            <button type="button" class="pcpr-tab" data-client-place="T12" data-location-tone="T12" aria-pressed="false">T12</button>
+            <button type="button" class="pcpr-tab" data-client-place="P63" data-location-tone="P63" aria-pressed="false">P63</button>
+            <button type="button" class="pcpr-tab" data-client-place="P50" data-location-tone="P50" aria-pressed="false">P50</button>
+          </div>
+          <label class="clients-archive-toggle"><input id="clientsArchived" type="checkbox">Archiwum</label>
+          <button id="clientsRefresh" type="button" class="reset-filters-btn">Odśwież</button>
+          <button id="clientsNew" type="button" class="primary" data-client-write>Dodaj klienta</button>
+        </div>
+        <p id="clientsMessage" class="clients-message" role="status" aria-live="polite"></p>
+        <div class="clients-layout">
+          <aside class="clients-directory" aria-label="Lista klientów">
+            <h2>Klienci <small id="clientsCount"></small></h2>
+            <div id="clientsList"></div>
+            <p id="clientsListEmpty">Brak zapisanych kart. Wyszukaj osobę w dokumentach lub dodaj klienta.</p>
+            <button id="clientsMore" type="button" class="reset-filters-btn" hidden>Pokaż kolejne</button>
+            <section id="clientsSuggestionsSection" hidden>
+              <h3>Propozycje z dokumentów</h3>
+              <div id="clientsSuggestions"></div>
+            </section>
+          </aside>
+          <div class="clients-workspace">
+            <section id="clientsCard" hidden>
+              <header class="clients-card-heading"><h2 id="clientsCardTitle">Nowy klient</h2><div class="clients-actions"><button id="clientArchive" class="reset-filters-btn" type="button" data-client-write hidden>Archiwizuj</button><button id="clientDelete" class="reset-filters-btn clients-delete" type="button" data-client-write hidden>Usuń kartę</button></div></header>
+              <p id="clientIdentityWarning" class="clients-warning" hidden></p>
+              <form id="clientsForm" autocomplete="off">
+                <div class="clients-contact-grid">
+                  <label class="clients-name">Imię i nazwisko<input id="clientName" type="text" maxlength="160" required autocomplete="off" spellcheck="false"></label>
+                  <label>Telefon<input id="clientPhone" type="tel" maxlength="20" autocomplete="off"></label>
+                  <label class="document-location-field">Miejsce<select id="clientLocation"><option value="T12">T12 · Bielsko-Biała, Traugutta 12</option><option value="P63">P63 · Bielsko-Biała, Partyzantów 63</option><option value="P50">P50 · Żywiec, Piłsudskiego 50</option></select></label>
+                  <label>Ulica i numer<input id="clientStreet" type="text" maxlength="240" autocomplete="off"></label>
+                  <label>Kod pocztowy<input id="clientPostal" type="text" maxlength="6" inputmode="numeric" placeholder="00-000" pattern="[0-9]{2}-[0-9]{3}" autocomplete="off"></label>
+                  <label>Miejscowość<input id="clientCity" type="text" maxlength="120" autocomplete="off"></label>
+                </div>
+                <div class="clients-actions"><button type="submit" class="primary" data-client-write>Zapisz</button></div>
+              </form>
+              <section id="clientActivitySection" hidden>
+                <header class="clients-section-heading"><h3>Historia i działania</h3><div class="clients-actions"><button id="clientAddVisit" class="reset-filters-btn" type="button" data-client-write>Umów wizytę</button><button id="clientAddNote" class="reset-filters-btn" type="button" data-client-write>Dodaj notatkę</button></div></header>
+                <form id="clientActivityEditor" class="client-activity-editor" autocomplete="off" hidden>
+                  <input id="clientActivityKind" type="hidden">
+                  <label>Temat<input id="clientActivityTitle" type="text" maxlength="160" required autocomplete="off"></label>
+                  <div id="clientVisitFields" class="client-visit-fields">
+                    <label>Termin<input id="clientVisitDate" type="datetime-local"></label>
+                    <label>Czas wizyty<select id="clientVisitDuration"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option></select></label>
+                    <label class="document-location-field">Miejsce<select id="clientVisitLocation"><option value="T12">T12</option><option value="P63">P63</option><option value="P50">P50</option></select></label>
+                    <label>Status<select id="clientVisitStatus"><option value="PLANNED">Zaplanowana</option><option value="COMPLETED">Odbyta</option><option value="CANCELLED">Anulowana</option><option value="MISSED">Nieobecność</option></select></label>
+                  </div>
+                  <label>Ustalenia organizacyjne<textarea id="clientActivityNote" maxlength="2000" rows="3"></textarea></label>
+                  <p class="clients-hint">Bez numeru PESEL, dokumentu tożsamości i opisu stanu zdrowia. Dane badań i serwisu pozostają w dokumentach źródłowych.</p>
+                  <div class="clients-actions"><button type="submit" class="primary" data-client-write>Zapisz</button><button id="clientCancelActivity" type="button" class="reset-filters-btn">Anuluj</button></div>
+                </form>
+              </section>
+              <section id="clientSourceSection" hidden>
+                <details class="client-sources"><summary>Dokumenty do potwierdzenia <span id="clientCandidatesCount"></span></summary><p class="clients-hint">Potwierdź osobę przed przypisaniem. Zbieżność imienia i nazwiska nie oznacza tej samej osoby.</p><div id="clientCandidates"></div><p id="clientCandidatesEmpty">Brak kolejnych propozycji.</p></details>
+              </section>
+              <div id="clientTimelineFilters" class="pcpr-tab-group" role="group" aria-label="Historia klienta"><button class="pcpr-tab" type="button" data-client-timeline="all" aria-pressed="true">Wszystko</button><button class="pcpr-tab" type="button" data-client-timeline="source" aria-pressed="false">Dokumenty</button><button class="pcpr-tab" type="button" data-client-timeline="activity" aria-pressed="false">Działania</button></div>
+              <div id="clientHistory" class="client-history"></div>
+              <details class="clients-access"><summary>Rejestr dostępu i zmian</summary><div id="clientOperations"></div></details>
+            </section>
+            <section class="clients-agenda"><h2>Zaplanowane wizyty</h2><p class="clients-hint">Przypomnienia w aplikacji podczas jej używania. Terminy z ostatnich 30 dni i najbliższych 90 dni, maksymalnie 500 wizyt.</p><div id="clientsVisitList"></div><p id="clientsVisitsEmpty">Brak zaplanowanych wizyt.</p></section>
+          </div>
+        </div>
+      </section>
       <section id="pricingNotebook" class="notebook-section" hidden>
         <section class="pricing-panel" aria-label="Cennik">
           <section id="pricingListView" class="pricing-view-section">
@@ -3395,14 +3464,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261028-1"></script>
-    <script src="data-layer.js?v=20261028-1"></script>
-    <script src="sync-layer.js?v=20261028-1"></script>
-    <script src="traffic-meter.js?v=20261028-1"></script>
-    <script src="repair-returns.js?v=20261028-1"></script>
-    <script src="offline-vault.js?v=20261028-1"></script>
-    <script src="offline-forms.js?v=20261028-1"></script>
-    <script src="stock-audit.js?v=20261028-1"></script>
-  <script src="app.js?v=20261028-1"></script>
+    <script src="supabase-config.js?v=20261028-2"></script>
+    <script src="data-layer.js?v=20261028-2"></script>
+    <script src="sync-layer.js?v=20261028-2"></script>
+    <script src="traffic-meter.js?v=20261028-2"></script>
+    <script src="repair-returns.js?v=20261028-2"></script>
+    <script src="offline-vault.js?v=20261028-2"></script>
+    <script src="offline-forms.js?v=20261028-2"></script>
+    <script src="stock-audit.js?v=20261028-2"></script>
+    <script src="clients.js?v=20261028-2"></script>
+  <script src="app.js?v=20261028-2"></script>
   </body>
 </html>

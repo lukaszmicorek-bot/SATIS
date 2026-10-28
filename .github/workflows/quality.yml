@@ -20,7 +20,7 @@ jobs:
           node-version: '24'
       - name: Check JavaScript syntax
         run: |
-          for file in app.js data-layer.js sync-layer.js offline-vault.js offline-forms.js offline-sw.js stock-audit.js; do
+          for file in app.js data-layer.js sync-layer.js offline-vault.js offline-forms.js offline-sw.js stock-audit.js clients.js; do
             node --check "$file"
           done
       - name: Run synthetic regression tests
