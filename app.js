@@ -460,6 +460,8 @@ let serialCopyToastTimeout = 0;
 let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
 let stockAuditWorkflow = null;
+let clientsModule = null;
+let clientsSourceCache = { refs: [], rows: [] };
 let stockAuditCheckedIndex = new Set(stockAudit.checkedItems || []);
 let stockAuditItemIndex = new Set((stockAudit.items || []).map((item) => item.id));
 let deviceNameCorrectionCandidates = [];
@@ -1340,6 +1342,7 @@ function setCurrentYearTitle() {
     pricing: pricingTitle,
     pcpr: "PCPR",
     history: "Historia",
+    clients: "Klienci",
     capd: capdTitle,
     vacation: vacationTitle
   };
@@ -1618,6 +1621,8 @@ function updatePrivateModulesVisibility() {
     if (activeLoanSection) activeLoanSection.hidden = true;
   }
   if (!ownerVisible) {
+    clientsModule?.clear();
+    clientsSourceCache = { refs: [], rows: [] };
     workTimeRecords = [];
     workTimeMonthRecords = null;
     workTimeLoadedMonth = "";
@@ -1630,7 +1635,7 @@ function updatePrivateModulesVisibility() {
     if (workTimeNewPinInput) workTimeNewPinInput.value = "";
     workTimeBody?.replaceChildren();
     workTimeEmployeeButtons?.replaceChildren();
-    if (activeNotebook === "workTime") switchNotebook("devices");
+    if (["workTime", "clients"].includes(activeNotebook)) switchNotebook("devices");
   }
   if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
 }
@@ -2922,6 +2927,7 @@ async function activateSupabaseSession(user) {
     if (activeDeviceView === "stock") renderStockView();
   });
   await seedDemoRecordsIfEmpty();
+  clientsModule?.startReminders();
   subscribeToSupabaseChanges();
   window.setTimeout(processPendingDocumentSync, 1000);
   window.setTimeout(() => {
@@ -2965,6 +2971,8 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  clientsModule?.clear();
+  clientsSourceCache = { refs: [], rows: [] };
   stockAuditWorkflow?.reset();
   stockAudit = { checkedItems: [], items: [], history: [] };
   stockAuditCheckedIndex = new Set();
@@ -8522,6 +8530,7 @@ function compareByAge(left, right) {
 }
 
 function render() {
+  if (activeNotebook === "clients") { clientsModule?.refreshSources(); return; }
   repairReturns?.render();
   updateDeviceTypeSelectStyles();
   updateDocumentLocationAccents();
@@ -25006,14 +25015,14 @@ function returnToPreviousTab() {
 }
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime"].includes(notebookName)) return;
-  if (notebookName === "workTime" && !canViewPrivateModules()) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients"].includes(notebookName)) return;
+  if (["workTime", "clients"].includes(notebookName) && !canViewPrivateModules()) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideWorkTimeHourlyPreview();
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
-  if (statsPanel) statsPanel.hidden = ["capd", "vacation", "workTime"].includes(activeNotebook);
+  if (statsPanel) statsPanel.hidden = ["capd", "vacation", "workTime", "clients"].includes(activeNotebook);
   updateCustomerRelationsPanelVisibility();
   if (["devices", "repairs"].includes(activeNotebook)) renderCustomerRelations();
   notebookSwitchButtons.forEach((button) => {
@@ -25046,6 +25055,8 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
 
   activePricingView = "";
   syncNotebookPanels();
+
+  if (activeNotebook === "clients") { void clientsModule?.open(); return; }
 
   if (activeNotebook === "capd") {
     updateCapdScope();
@@ -27462,6 +27473,12 @@ function currentDateUpcomingEvents(date = new Date(), rangeDays = 45, referenceD
     add(dateTo, "vacation", "Koniec urlopu", firstName, employee, `${request.id}:to`, workstation);
   });
 
+  if (canViewPrivateModules()) {
+    for (const visit of clientsModule?.events(start, end) || []) {
+      add(visit.localDate, "client-visit", "Wizyta", visit.full_name,
+        `${formatAuditDateTime(visit.starts_at)}\n${visit.title}\n${visit.location}`, visit.id, visit.location);
+    }
+  }
   return new Map([...events]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([isoDate, entries]) => [isoDate, [...entries.values()]]));
@@ -30207,6 +30224,56 @@ stockAuditWorkflow = SatisStockAudit.create({
   person: titleCaseName, date: isoDateForSave, today: todayInputValue, setDate: setDateInputValue,
   id: makeId, confirm: message => confirm(message), alert: message => alert(message),
   locationPill: createLocationPill,
+  onBeforeUnload: handler => window.addEventListener("beforeunload", handler)
+});
+function clientsCurrentSources() {
+  if (!canViewPrivateModules() || !currentSupabaseUser) return [];
+  const refs = [records, repairRecords, pricingLoanHistory, pricingOfferHistory, pricingOrderHistory, pricingComplaintHistory];
+  if (refs.every((ref, i) => ref === clientsSourceCache.refs[i])) return clientsSourceCache.rows;
+  const rows = [], add = row => { if (row.id && String(row.name || "").trim()) rows.push(row); };
+  records.forEach(record => add({type: "device", id: record.id, name: record.customerName, phone: record.phone || "",
+    date: isoDateForSave(record.pickupDate || record.receivedDate), location: record.location, kind: "Aparat",
+    model: record.deviceName, serial: record.serialNumber, number: record.salesInvoice, status: deviceStatusDisplayLabel(displayType(record)),
+    open: () => { switchNotebook("devices", {documentView: "database"}); openDialog(record); }}));
+  repairRecords.forEach(record => add({type: "service", id: record.id, name: record.customerName, phone: record.phone || "",
+    date: isoDateForSave(record.pickupDate || record.returnDate || record.sentDate || record.receivedDate), location: record.location,
+    kind: "Serwis / zamówienie", model: record.deviceName, serial: repairSerialNumbers(record).join(" · "), number: repairDocumentInfo(record)?.number || "",
+    status: record.status, open: () => { switchNotebook("repairs"); openRepairDialog(record); }}));
+  normalizePricingLoanHistory(pricingLoanHistory).forEach(entry => add({type: "loan", id: entry.id, name: entry.customer,
+    phone: entry.phone, address: entry.address, date: isoDateForSave(entry.date), location: currentDateLocationKey(entry.city) || currentDateLocationKey(entry.workstation),
+    kind: "Umowa wypożyczenia", model: [entry.rightDevice?.model, entry.leftDevice?.model, entry.charger].filter(Boolean).join(" · "),
+    serial: [entry.rightDevice?.serial, entry.leftDevice?.serial, entry.chargerSerial].filter(Boolean).join(" · "), number: entry.number,
+    status: entry.returnDate ? "Zakończona" : "Aktywna", open: () => { switchPricingView("loan"); restorePricingLoanFromHistory(entry); }}));
+  normalizePricingOfferHistory(pricingOfferHistory).forEach(entry => add({type: "offer", id: entry.id, name: entry.customer,
+    phone: entry.phone, address: entry.address, date: isoDateForSave(entry.offerDate), location: currentDateLocationKey(entry.location),
+    kind: "Oferta", model: entry.items.map(item => item.model || item.tradeName).filter(Boolean).join(" · "), number: entry.number,
+    open: () => restorePricingOfferFromHistory(entry)}));
+  normalizePricingOrderHistory(pricingOrderHistory).forEach(entry => add({type: "order", id: entry.id, name: entry.customer,
+    phone: entry.phone, address: entry.address, date: isoDateForSave(entry.date), location: currentDateLocationKey(entry.location),
+    kind: "Zamówienie", model: entry.items.map(item => item.description).filter(Boolean).join(" · "), number: entry.number,
+    open: () => restorePricingOrderFromHistory(entry)}));
+  normalizePricingComplaintHistory(pricingComplaintHistory).forEach(entry => add({type: "complaint", id: entry.id, name: entry.customer,
+    phone: entry.phone, address: entry.address, date: isoDateForSave(entry.date), location: currentDateLocationKey(entry.location),
+    kind: "Reklamacja", model: entry.items.map(item => item.productName).filter(Boolean).join(" · "),
+    serial: entry.items.map(item => item.serial).filter(Boolean).join(" · "), number: entry.number,
+    open: () => restorePricingComplaintFromHistory(entry)}));
+  clientsSourceCache = {refs, rows};
+  return rows;
+}
+clientsModule = SatisClients.create({
+  document, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
+  active: () => activeNotebook === "clients", sources: clientsCurrentSources,
+  rpc: async (name, args) => {
+    if (!currentSupabaseUser || !canViewPrivateModules() || !supabaseClient) throw new Error("Zaloguj się na konto SATIS.");
+    const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 15000);
+    try { return await supabaseClient.rpc(name, args).abortSignal(controller.signal); }
+    catch { throw new Error("Brak potwierdzenia z bazy. Sprawdź połączenie i ponów zapis; nie zamykaj niezapisanego formularza."); }
+    finally { window.clearTimeout(timer); }
+  },
+  id: makeId, person: titleCaseName, phone: formatPcprPhone, street: normalizePcprStreet, city: normalizePcprCity,
+  addressParts: postalAddressParts, station: () => documentLocationKey(documentLocationForWorkstation()) || "P63",
+  date: formatDate, dateTime: formatAuditDateTime, locationAccent: updateDocumentLocationAccent,
+  confirm: message => confirm(message), refreshCalendar: refreshCurrentDateWidget, navigate: () => switchNotebook("clients"),
   onBeforeUnload: handler => window.addEventListener("beforeunload", handler)
 });
 init();

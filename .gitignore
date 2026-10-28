@@ -105,3 +105,8 @@
 !/tests/traffic-meter.sqltest.cjs
 !/tests/vacation-balance-visibility.test.cjs
 !/tests/vacation-weekend-range.test.cjs
+!/clients.js
+!/supabase-clients.sql
+!/KLIENCI-BEZPIECZENSTWO.md
+!/tests/clients.test.cjs
+!/tests/clients.sqltest.cjs
