@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261028-8">
+  <link rel="stylesheet" href="styles.css?v=20261028-9">
   </head>
   <body>
     <main class="app-shell">
@@ -812,7 +812,7 @@
                     <label>Data wizyty<input id="clientVisitDate" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
                     <label>Godzina<input id="clientVisitTime" type="time" step="60" autocomplete="off"></label>
                     <label>Czas wizyty · min<input id="clientVisitDuration" type="number" min="5" max="240" step="5" value="30" required></label>
-                    <label>Usługa<select id="clientVisitService"><option value="">Wybierz usługę</option></select></label>
+                    <label>Usługa<select id="clientVisitService"><option value="">Wybierz usługę</option></select><small id="clientVisitPrice" aria-live="polite"></small></label>
                     <label class="document-location-field">Miejsce<select id="clientVisitLocation"><option value="T12">T12</option><option value="P63">P63</option><option value="P50">P50</option></select></label>
                     <label>Status<select id="clientVisitStatus"><option value="PLANNED">Zaplanowana</option><option value="COMPLETED">Odbyta</option><option value="CANCELLED">Anulowana</option><option value="MISSED">Nieobecność</option></select></label>
                   </div>
@@ -869,6 +869,7 @@
                 <form id="clientsServiceForm">
                   <h3>Usługi i limity</h3>
                   <div class="clients-service-fields"><label>Nazwa usługi<input id="clientsServiceName" type="text" maxlength="120" required autocomplete="off"></label><label>Czas · min<input id="clientsServiceDuration" type="number" min="5" max="240" step="5" value="30" required></label></div>
+                  <label>Cena brutto · zł<input id="clientsServicePrice" type="text" inputmode="decimal" maxlength="14" placeholder="np. 150,00" required autocomplete="off"></label>
                   <div class="clients-service-limits">
                     <label>Na dzień<input id="clientsServiceDay" type="number" min="1" max="100000" step="1" placeholder="Bez limitu"></label>
                     <label>Na tydzień<input id="clientsServiceWeek" type="number" min="1" max="100000" step="1" placeholder="Bez limitu"></label>
@@ -3522,15 +3523,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261028-8"></script>
-    <script src="data-layer.js?v=20261028-8"></script>
-    <script src="sync-layer.js?v=20261028-8"></script>
-    <script src="traffic-meter.js?v=20261028-8"></script>
-    <script src="repair-returns.js?v=20261028-8"></script>
-    <script src="offline-vault.js?v=20261028-8"></script>
-    <script src="offline-forms.js?v=20261028-8"></script>
-    <script src="stock-audit.js?v=20261028-8"></script>
-    <script src="clients.js?v=20261028-8"></script>
-  <script src="app.js?v=20261028-8"></script>
+    <script src="supabase-config.js?v=20261028-9"></script>
+    <script src="data-layer.js?v=20261028-9"></script>
+    <script src="sync-layer.js?v=20261028-9"></script>
+    <script src="traffic-meter.js?v=20261028-9"></script>
+    <script src="repair-returns.js?v=20261028-9"></script>
+    <script src="offline-vault.js?v=20261028-9"></script>
+    <script src="offline-forms.js?v=20261028-9"></script>
+    <script src="stock-audit.js?v=20261028-9"></script>
+    <script src="clients.js?v=20261028-9"></script>
+  <script src="app.js?v=20261028-9"></script>
   </body>
 </html>

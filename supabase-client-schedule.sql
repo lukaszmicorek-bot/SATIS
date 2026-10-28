@@ -14,6 +14,7 @@ create table if not exists public.customer_services (
   updated_by uuid not null
 );
 create unique index if not exists customer_services_name_idx on public.customer_services(lower(btrim(name)));
+alter table public.customer_services add column if not exists price numeric(12,2) check(price>=0 and price<10000000000);
 create table if not exists public.customer_opening_hours (
   location text primary key check(location in ('T12','P50','P63')),
   days jsonb not null check(jsonb_typeof(days)='array' and jsonb_array_length(days)=7),
@@ -22,6 +23,7 @@ create table if not exists public.customer_opening_hours (
   updated_by uuid not null
 );
 alter table public.customer_activities add column if not exists service_id uuid references public.customer_services(id);
+alter table public.customer_activities add column if not exists service_price numeric(12,2) check(service_price>=0 and service_price<10000000000);
 create index if not exists customer_service_capacity_idx on public.customer_activities(service_id,starts_at)
   where kind='VISIT' and status in ('PLANNED','COMPLETED');
 create table if not exists public.customer_schedule_requests (
@@ -39,6 +41,21 @@ do $$ declare t text; begin
 end $$;
 revoke all on function public.satis_clients_write_base(uuid,text,uuid,bigint,jsonb) from public,anon,authenticated;
 
+-- Gregorian Easter; statutory holidays, including Christmas Eve since 2025.
+create or replace function public.satis_schedule_nonworking_day(day date)
+returns boolean language plpgsql immutable strict set search_path='' as $$
+declare y integer:=extract(year from day); a integer; b integer; c integer; d integer; e integer;
+  f integer; g integer; h integer; i integer; k integer; l integer; m integer; n integer; easter date;
+begin
+  if extract(isodow from day)>5 or to_char(day,'MM-DD') in ('01-01','01-06','05-01','05-03','08-15','11-01','11-11','12-25','12-26')
+    or (y>=2025 and to_char(day,'MM-DD')='12-24') then return true; end if;
+  a:=y%19; b:=y/100; c:=y%100; d:=b/4; e:=b%4; f:=(b+8)/25; g:=(b-f+1)/3;
+  h:=(19*a+b-d-g+15)%30; i:=c/4; k:=c%4; l:=(32+2*e+2*i-h-k)%7; m:=(a+11*h+22*l)/451;
+  n:=h+l-7*m+114; easter:=make_date(y,n/31,n%31+1);
+  return day in (easter,easter+1,easter+49,easter+60);
+end $$;
+revoke all on function public.satis_schedule_nonworking_day(date) from public,anon,authenticated;
+
 create or replace function public.satis_clients_write(p_request_id uuid,p_action text,p_id uuid,p_expected_revision bigint,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path='' as $$
 <<schedule_write>>
@@ -46,7 +63,7 @@ declare
   actor uuid:=auth.uid(); fp text; req public.customer_schedule_requests%rowtype;
   activity public.customer_activities%rowtype; service public.customer_services%rowtype;
   result jsonb; chosen uuid; opening jsonb; local_start timestamp; local_end timestamp;
-  unit text; cap integer; used bigint;
+  unit text; cap integer; used bigint; previous_service uuid; previous_price numeric; existed boolean;
 begin
   if actor is null or public.is_satis_app_user() is not true or public.is_satis_owner() is not true
     or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true then
@@ -64,6 +81,8 @@ begin
   select * into strict req from public.customer_schedule_requests where id=p_request_id for update;
   if req.actor_id is distinct from actor or req.fingerprint is distinct from fp then raise exception 'Request already used' using errcode='22023'; end if;
   if req.result is not null then return req.result; end if;
+  select a.service_id,a.service_price into previous_service,previous_price from public.customer_activities a where a.id=p_id;
+  existed:=found;
   if p_data ? 'service_id' then chosen:=nullif(p_data->>'service_id','')::uuid;
   else select a.service_id into chosen from public.customer_activities a where a.id=p_id; end if;
   result:=public.satis_clients_write_base(p_request_id,p_action,p_id,p_expected_revision,p_data-'service_id');
@@ -78,6 +97,10 @@ begin
   local_start:=activity.starts_at at time zone 'Europe/Warsaw';
   local_end:=(activity.starts_at+make_interval(mins=>activity.duration_minutes)) at time zone 'Europe/Warsaw';
   if activity.kind='VISIT' and activity.status='PLANNED' then
+    if public.satis_schedule_nonworking_day(local_start::date)
+      or public.satis_schedule_nonworking_day((local_end-interval '1 microsecond')::date) then
+      raise exception 'Nie mozna planowac wizyt w weekendy ani swieta.' using errcode='PT428';
+    end if;
     select h.days->(extract(isodow from local_start)::integer-1) into opening from public.customer_opening_hours h where h.location=activity.location;
     if opening is not null and ((opening->>'closed')::boolean or local_start::date<>local_end::date
       or local_start::time<(opening->>'from')::time or local_end::time>(opening->>'to')::time) then
@@ -95,7 +118,8 @@ begin
       end if;
     end loop;
   end if;
-  update public.customer_activities set service_id=chosen where id=p_id;
+  update public.customer_activities set service_id=chosen,
+    service_price=case when chosen is null then null when existed and previous_service=chosen then previous_price else service.price end where id=p_id;
   update public.customer_schedule_requests r set result=schedule_write.result where r.id=p_request_id;
   return result;
 end $$;
@@ -138,16 +162,23 @@ begin
       on conflict(location) do update set days=excluded.days,revision=customer_opening_hours.revision+1,updated_at=clock_timestamp(),updated_by=actor
       returning jsonb_build_object('revision',revision) into result;
   else
-    if p_data-array['name','duration_minutes','max_day','max_week','max_month','max_year','enabled']<>'{}'::jsonb
+    if p_data-array['name','duration_minutes','price','max_day','max_week','max_month','max_year','enabled']<>'{}'::jsonb
       or length(btrim(coalesce(p_data->>'name',''))) not between 1 and 120 or (p_data->>'duration_minutes')::integer not between 5 and 240
       or (p_data->>'enabled')::boolean is null then raise exception 'Invalid service' using errcode='22023'; end if;
+    if p_data ? 'price' and p_data->'price'<>'null'::jsonb and
+      (jsonb_typeof(p_data->'price')<>'number' or (p_data->>'price')::numeric<0 or (p_data->>'price')::numeric>=10000000000
+        or (p_data->>'price')::numeric<>round((p_data->>'price')::numeric,2)) then
+      raise exception 'Podaj cene w PLN z maksymalnie dwoma miejscami po przecinku.' using errcode='22023';
+    end if;
     select revision into current_revision from public.customer_services where id=p_key::uuid for update;
     if current_revision is distinct from p_expected_revision then raise exception 'Settings changed' using errcode='PT409'; end if;
-    insert into public.customer_services(id,name,duration_minutes,max_day,max_week,max_month,max_year,enabled,updated_by)
+    insert into public.customer_services(id,name,duration_minutes,max_day,max_week,max_month,max_year,enabled,updated_by,price)
       values(p_key::uuid,btrim(p_data->>'name'),(p_data->>'duration_minutes')::integer,coalesce((p_data->>'max_day')::integer,0),coalesce((p_data->>'max_week')::integer,0),
-        coalesce((p_data->>'max_month')::integer,0),coalesce((p_data->>'max_year')::integer,0),(p_data->>'enabled')::boolean,actor)
+        coalesce((p_data->>'max_month')::integer,0),coalesce((p_data->>'max_year')::integer,0),(p_data->>'enabled')::boolean,actor,(p_data->>'price')::numeric)
       on conflict(id) do update set name=excluded.name,duration_minutes=excluded.duration_minutes,max_day=excluded.max_day,max_week=excluded.max_week,
-        max_month=excluded.max_month,max_year=excluded.max_year,enabled=excluded.enabled,revision=customer_services.revision+1,updated_at=clock_timestamp(),updated_by=actor
+        max_month=excluded.max_month,max_year=excluded.max_year,enabled=excluded.enabled,
+        price=case when p_data ? 'price' then excluded.price else customer_services.price end,
+        revision=customer_services.revision+1,updated_at=clock_timestamp(),updated_by=actor
       returning jsonb_build_object('revision',revision) into result;
   end if;
   insert into public.customer_access_log(actor_id,operation,target_id) values(actor,'SCHEDULE_'||p_kind,p_key);
@@ -161,7 +192,7 @@ begin
   if auth.uid() is null or public.is_satis_app_user() is not true or public.is_satis_owner() is not true
     or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true then raise exception 'Clients access denied' using errcode='42501'; end if;
   return (select coalesce(jsonb_agg(to_jsonb(s)),'[]') from (
-    select a.id,a.customer_id,p.full_name,a.starts_at,a.duration_minutes,a.location,a.title,a.revision,a.service_id
+    select a.id,a.customer_id,p.full_name,a.starts_at,a.duration_minutes,a.location,a.title,a.revision,a.service_id,a.service_price
     from public.customer_activities a join public.customer_profiles p on p.id=a.customer_id
     where a.kind='VISIT' and a.status='PLANNED' and not p.archived and a.starts_at>=now()-interval '30 days' and a.starts_at<now()+interval '90 days'
     order by a.starts_at,a.id limit 500

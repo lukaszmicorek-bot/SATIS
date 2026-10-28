@@ -19,6 +19,15 @@
   }
   const sourceKey = row => `${row.type}:${row.id}`;
   const visitLabels = { PLANNED: "Zaplanowana", COMPLETED: "Odbyta", CANCELLED: "Anulowana", MISSED: "Nieobecność" };
+  function parsePrice(value) {
+    const text=String(value??"").replace(/\s/g,"").replace(",",".");
+    if(!/^\d{1,10}(?:\.\d{1,2})?$/.test(text) || Number(text)>=10000000000)throw new Error("Podaj cenę brutto w zł, np. 150,00. Usługa bezpłatna: 0.");
+    return Math.round(Number(text)*100)/100;
+  }
+  const priceLabel=value=>value===null || value===undefined?"Cena nieustalona":new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN"}).format(Number(value));
+  function nonworkingDay(day, holiday) {
+    return Boolean(holiday?.(day) || [0,6].includes(new Date(`${day}T12:00:00`).getDay()));
+  }
   function sourceIndex(rows) {
     const byName = new Map(), byKey = new Map();
     for (const row of rows) {
@@ -126,7 +135,7 @@
       "clientCandidates","clientCandidatesEmpty","clientCandidatesCount","clientHistory","clientTimelineFilters","clientOperations",
       "clientsReminderBtn","clientsPlaceFilter","clientsVisitList","clientsVisitsEmpty","clientAddressHint","clientCitySuggestions"];
     requiredIds.push("clientsSchedule","clientsScheduleViews","clientsScheduleDate","clientsSchedulePlaces","clientsSchedulePrev","clientsScheduleToday","clientsScheduleNext","clientsScheduleTitle","clientsScheduleNotice",
-      "clientVisitService","clientsScheduleSettingsNotice","clientsOpeningForm","clientsOpeningPlace","clientsOpeningRows","clientsOpeningHint",
+      "clientVisitService","clientVisitPrice","clientsServicePrice","clientsScheduleSettingsNotice","clientsOpeningForm","clientsOpeningPlace","clientsOpeningRows","clientsOpeningHint",
       "clientsServiceForm","clientsServiceName","clientsServiceDuration","clientsServiceDay","clientsServiceWeek","clientsServiceMonth","clientsServiceYear","clientsServiceEnabled","clientsServiceNew","clientsServiceList");
     if (requiredIds.some(id=>!q(id))) throw new Error("Widok Klientów wymaga odświeżenia strony.");
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
@@ -168,6 +177,7 @@
           : result.error.code === "42501" ? "Baza nie przyznała dostępu do kartoteki temu kontu."
           : result.error.code === "PT426" ? "Wybierz aktywną usługę przed zapisaniem wizyty."
           : result.error.code === "PT427" ? "Termin wykracza poza godziny otwarcia wybranego gabinetu."
+          : result.error.code === "PT428" ? "Nie można planować wizyt w soboty, niedziele ani święta. Wybierz dzień roboczy."
           : result.error.code === "PT429" ? "Osiągnięto limit tej usługi w danym dniu, tygodniu, miesiącu lub roku. Wybierz inny termin."
           : result.error.code === "23505" ? "Taka nazwa usługi już istnieje. Edytuj istniejącą usługę."
           : /PGRST202|42883|42P01/.test(result.error.code || "") ? name.startsWith("satis_client_schedule_")
@@ -351,6 +361,7 @@
           });}));
         } else {
           content.append(node("strong", row.kind === "VISIT" ? `${a.dateTime(row.starts_at)} · ${visitLabels[row.status]}` : `${a.dateTime(row.created_at)} · Notatka`), node("span",row.title),node("p",row.note,"client-note"));
+          if(row.kind==="VISIT" && row.service_id)content.append(node("small",`Cena wizyty: ${priceLabel(row.service_price)}`));
           item.dataset.visitStatus = row.status;
           item.append(content,button("Edytuj", () => editActivity(row.kind,row)));
         }
@@ -405,6 +416,7 @@
       if (!title || title.length > 160 || note.length > 2000) throw new Error("Podaj krótki tytuł; notatka może mieć maksymalnie 2000 znaków.");
       if (/(?:^|\D)\d{11}(?!\d)/.test(`${title} ${note}`)) throw new Error("Nie wpisuj numeru PESEL w temacie ani notatce.");
       const startsAt = kind === "VISIT" ? visitStart(a.isoDate(q("clientVisitDate").value), q("clientVisitTime").value) : null;
+      if(kind==="VISIT" && q("clientVisitStatus").value==="PLANNED")checkVisitDay(a.isoDate(q("clientVisitDate").value),startsAt,Number(q("clientVisitDuration").value));
       const data = {customer_id:detail.profile.id,kind,title,note,starts_at:startsAt,
         duration_minutes:Number(q("clientVisitDuration").value),location:q("clientVisitLocation").value,
         status:kind === "VISIT" ? q("clientVisitStatus").value : "COMPLETED"};
@@ -443,9 +455,14 @@
       renderSchedule();
     }
     const clock = minutes => `${String(Math.floor(minutes/60)).padStart(2,"0")}:${String(minutes%60).padStart(2,"0")}`;
+    function checkVisitDay(day, startsAt, duration=0) {
+      const last=duration>0?localInput(new Date(new Date(startsAt).getTime()+duration*60000-1)).slice(0,10):day;
+      if(nonworkingDay(day,a.holiday) || nonworkingDay(last,a.holiday))throw new Error("Nie można planować wizyt w soboty, niedziele ani święta. Wybierz dzień roboczy.");
+    }
     function openVisit(visit) {void guarded(()=>select(visit.customer_id));}
     function bookSlot(day, minutes) {
       if(!allowed() || busy)return;
+      if(nonworkingDay(day,a.holiday)){notify("Weekend lub święto — wybierz dzień roboczy.",true);return;}
       if(!detail || detail.profile.archived){notify("Wybierz najpierw zapisanego klienta, aby umówić wizytę.",true);return;}
       if(!scheduleLocation){notify("Wybierz gabinet w harmonogramie przed wskazaniem godziny.",true);return;}
       const location=scheduleLocation;
@@ -515,11 +532,11 @@
         for(let minute=from;minute<to;minute+=15){
           const slot=button("",()=>bookSlot(day,minute),"clients-schedule-slot");
           const length=Number(q("clientVisitDuration").value)||30;
-          const closed=opening && (opening.closed || minute<minutes(opening.from) || minute+length>minutes(opening.to));
+          const closed=nonworkingDay(day,a.holiday) || (opening && (opening.closed || minute<minutes(opening.from) || minute+length>minutes(opening.to)));
           slot.disabled=Boolean(closed);slot.dataset.closed=String(Boolean(closed));
           slot.style.top=`${(minute-from)*scale}px`;slot.style.height=`${15*scale}px`;
           const occupied=perDay[i].some(item=>item.startMinute<minute+length && item.endMinute>minute);
-          slot.setAttribute("aria-label",`${a.date(day)}, ${clock(minute)}${scheduleLocation?`, ${scheduleLocation}`:" — wybierz gabinet"}${occupied?" · zajęty termin":""}`);slot.title=`${a.date(day)} · ${clock(minute)}${occupied?" · zajęty termin":""}`;
+          slot.setAttribute("aria-label",`${a.date(day)}, ${clock(minute)}${closed?" · brak zapisów":""}${scheduleLocation?`, ${scheduleLocation}`:" — wybierz gabinet"}${occupied?" · zajęty termin":""}`);slot.title=`${a.date(day)} · ${clock(minute)}${closed?" · brak zapisów":""}${occupied?" · zajęty termin":""}`;
           column.append(slot);
         }
         for(const item of perDay[i]) {
@@ -568,6 +585,7 @@
         if(!scheduleReady || profileDirty || activityDirty)throw new Error("Zapisz lub anuluj edycję formularza przed zmianą czasu wizyty.");
         const card=await rpc("satis_client_detail",{p_id:visit.customer_id}),row=card.activities.find(item=>item.id===visit.id);
         if(!row || String(row.revision)!==String(visit.revision))throw new Error("Wizyta zmieniła się na innym komputerze. Odśwież harmonogram.");
+        if(row.status==="PLANNED")checkVisitDay(localInput(row.starts_at).slice(0,10),row.starts_at,duration);
         const data={customer_id:row.customer_id,kind:"VISIT",title:row.title,note:row.note,starts_at:row.starts_at,
           duration_minutes:duration,location:row.location,status:row.status,service_id:row.service_id||null};
         try {await write("ACTIVITY",row.id,data,row.revision);}
@@ -579,10 +597,16 @@
     function renderServiceOptions(value=q("clientVisitService").value) {
       const select=q("clientVisitService"),empty=node("option","Wybierz usługę");empty.value="";
       const options=scheduleConfig.services.filter(service=>service.enabled || service.id===value).map(service=>{
-        const option=node("option",`${service.name}${service.enabled?"":" (nieaktywna)"}`);option.value=service.id;return option;
+        const option=node("option",`${service.name} · ${priceLabel(service.price)} · ${service.duration_minutes} min${service.enabled?"":" (nieaktywna)"}`);option.value=service.id;return option;
       });
       select.replaceChildren(empty,...options);select.value=value;select.required=scheduleReady && options.some(option=>scheduleConfig.services.some(s=>s.id===option.value && s.enabled)) && q("clientActivityKind").value==="VISIT";
       select.disabled=!scheduleReady || busy;
+      renderVisitPrice();
+    }
+    function renderVisitPrice() {
+      const id=q("clientVisitService").value,service=scheduleConfig.services.find(item=>item.id===id);
+      const saved=editingActivity?.service_id===id;
+      q("clientVisitPrice").textContent=service?`${saved?"Cena wizyty":"Cena brutto"}: ${priceLabel(saved?editingActivity.service_price:service.price)}`:"";
     }
     function fillHours() {
       const place=q("clientsOpeningPlace").value||a.station(),saved=scheduleConfig.hours.find(item=>item.location===place);
@@ -602,11 +626,12 @@
       editingService=service;newServiceId=service?.id||a.id();
       for(const [id,key] of [["clientsServiceName","name"],["clientsServiceDuration","duration_minutes"],["clientsServiceDay","max_day"],["clientsServiceWeek","max_week"],["clientsServiceMonth","max_month"],["clientsServiceYear","max_year"]])q(id).value=service?.[key]|| (key==="duration_minutes"?30:"");
       q("clientsServiceEnabled").checked=service?.enabled!==false;
+      q("clientsServicePrice").value=service?.price===null || service?.price===undefined?"":String(service.price).replace(".",",");
     }
     function renderSettings() {
       q("clientsServiceList").replaceChildren(...scheduleConfig.services.map(service=>{
         const b=button("",()=>{if(!busy && (!serviceDirty || a.confirm("Porzucić niezapisane ustawienia usługi?")))fillService(service);},"clients-service-item");
-        b.append(node("strong",service.name),node("span",`${service.duration_minutes} min · dzień ${service.max_day||"bez limitu"} · tydzień ${service.max_week||"bez limitu"} · miesiąc ${service.max_month||"bez limitu"} · rok ${service.max_year||"bez limitu"}${service.enabled?"":" · nieaktywna"}`));return b;
+        b.append(node("strong",`${service.name} · ${priceLabel(service.price)}`),node("span",`${service.duration_minutes} min · dzień ${service.max_day||"bez limitu"} · tydzień ${service.max_week||"bez limitu"} · miesiąc ${service.max_month||"bez limitu"} · rok ${service.max_year||"bez limitu"}${service.enabled?"":" · nieaktywna"}`));return b;
       }));renderServiceOptions();if(!hoursDirty)fillHours();setBusy(busy);
     }
     async function loadSettings() {
@@ -655,7 +680,7 @@
       resizeDrag=null;scheduleReady=false;scheduleConfig={hours:[],services:[]};editingService=null;newServiceId="";
       hoursDirty=false;serviceDirty=false;hoursRevision=null;
       q("clientsServiceForm").reset();q("clientsServiceList").replaceChildren();q("clientsOpeningRows").replaceChildren();
-      q("clientVisitService").replaceChildren();q("clientsScheduleSettingsNotice").textContent="";
+      q("clientVisitService").replaceChildren();q("clientVisitPrice").textContent="";q("clientsScheduleSettingsNotice").textContent="";
     }
     function startReminders() {
       clearTimeout(pollTimer);
@@ -765,7 +790,7 @@
     q("clientsServiceNew").addEventListener("click",()=>{if(!busy && (!serviceDirty || a.confirm("Porzucić niezapisane ustawienia usługi?")))fillService();});
     q("clientsServiceForm").addEventListener("submit",event=>{event.preventDefault();void guarded(async()=>{
       if(!scheduleReady)return;
-      const data={name:q("clientsServiceName").value.trim(),duration_minutes:Number(q("clientsServiceDuration").value),enabled:q("clientsServiceEnabled").checked};
+      const data={name:q("clientsServiceName").value.trim(),price:parsePrice(q("clientsServicePrice").value),duration_minutes:Number(q("clientsServiceDuration").value),enabled:q("clientsServiceEnabled").checked};
       for(const [id,key]of [["clientsServiceDay","max_day"],["clientsServiceWeek","max_week"],["clientsServiceMonth","max_month"],["clientsServiceYear","max_year"]])data[key]=Number(q(id).value)||0;
       if(!data.name || data.duration_minutes<5 || data.duration_minutes>240)throw new Error("Podaj nazwę i czas usługi od 5 do 240 minut.");
       const id=editingService?.id||newServiceId||(newServiceId=a.id());
@@ -773,6 +798,7 @@
     });});
     q("clientVisitService").addEventListener("change",()=>{
       const service=scheduleConfig.services.find(item=>item.id===q("clientVisitService").value);
+      renderVisitPrice();
       if(service){q("clientVisitDuration").value=String(service.duration_minutes);q("clientActivityTitle").value=service.name;activityDirty=true;renderSchedule();}
     });
     q("clientVisitDuration").addEventListener("change",renderSchedule);
@@ -795,5 +821,5 @@
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};
   }
-  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,openingForDay,resizedDuration,profilePayload,create};
+  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,openingForDay,resizedDuration,parsePrice,priceLabel,nonworkingDay,profilePayload,create};
 });

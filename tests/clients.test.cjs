@@ -120,6 +120,46 @@ function fixture(rpc, extra = {}) {
 const profile={id:'client-1',full_name:'Test Osoba',phone:'500600800',location:'P63',revision:1};
 const detail={profile,links:[],activities:[],operations:[]};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('service prices accept Polish decimals, distinguish free from unknown and reject invalid amounts',()=>{
+  assert.equal(clients.parsePrice('1 250,50'),1250.5);assert.equal(clients.parsePrice('0'),0);
+  for(const bad of ['', '-1', 'NaN', '1,234', '10000000000','1e2'])assert.throws(()=>clients.parsePrice(bad));
+  assert.match(clients.priceLabel(null),/nieustalona/);assert.match(clients.priceLabel(0),/0,00/);
+});
+test('weekends and supplied public holidays are blocked independently of opening hours',()=>{
+  assert.equal(clients.nonworkingDay('2026-11-07'),true);assert.equal(clients.nonworkingDay('2026-11-08'),true);
+  assert.equal(clients.nonworkingDay('2026-11-09'),false);
+  assert.equal(clients.nonworkingDay('2026-11-11',day=>day==='2026-11-11'?{name:'Święto'}:null),true);
+  assert.match(app,/activeDateInput\?\.id === "clientVisitDate"/);
+  assert.match(app,/invalidWeekendWorkDay \|\| clientVisitBlocked/);
+});
+test('booking form rejects typed weekend and holiday without issuing a write',async()=>{
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}
+    :name==='satis_client_detail'?detail:[]}),{holiday:day=>day==='2026-11-11'?{name:'Święto'}:null});
+  await f.module.open();await f.module.select('client-1');
+  for(const day of ['2026-11-07','2026-11-08','2026-11-11']) {
+    f.nodes.get('clientAddVisit').emit('click');
+    f.nodes.get('clientVisitDate').value=day;f.nodes.get('clientVisitTime').value='10:00';
+    f.nodes.get('clientActivityEditor').emit('submit');await tick();
+    assert.match(f.nodes.get('clientsMessage').textContent,/soboty, niedziele ani święta/);
+  }
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
+});
+test('service selection displays price and stores a normalized price through settings RPC',async()=>{
+  let service={id:'service',name:'Kontrola',price:150.5,duration_minutes:30,enabled:true,revision:1};
+  const f=fixture(async(name,args)=>{
+    if(name==='satis_client_schedule_read')return {data:{hours:[],services:[service]}};
+    if(name==='satis_client_schedule_settings_write'){service={...service,...args.p_data,revision:2};return {data:{revision:2}};}
+    return {data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_detail'?detail:[]};
+  });
+  await f.module.open();await f.module.select('client-1');f.nodes.get('clientAddVisit').emit('click');
+  assert.match(f.nodes.get('clientVisitService').children[1].textContent,/150,50/);
+  f.nodes.get('clientVisitService').value='service';f.nodes.get('clientVisitService').emit('change');
+  assert.match(f.nodes.get('clientVisitPrice').textContent,/150,50/);
+  f.nodes.get('clientsServiceList').children[0].emit('click');
+  assert.equal(f.nodes.get('clientsServicePrice').value,'150,5');
+  f.nodes.get('clientsServicePrice').value='175,99';f.nodes.get('clientsServiceForm').emit('submit');await tick();await tick();
+  assert.equal(f.calls.find(call=>call.name==='satis_client_schedule_settings_write').args.p_data.price,175.99);
+});
 test('client rows use the shared location badge instead of plain place text', async () => {
   const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:[]}));
   await f.module.open();
