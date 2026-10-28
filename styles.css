@@ -4844,7 +4844,7 @@ h2 {
 .offer-device-field {
   grid-column: span 2;
 }
-.offer-side-devices { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
+.offer-side-devices { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
 .offer-side-devices > .offer-device-field { grid-column: auto; grid-row: auto; min-width: 0; }
 
 .offer-device-field {
@@ -7627,7 +7627,7 @@ h2 {
 .document-full-field { grid-column: 1 / -1; }
 .document-form-note { color: #526b76; font-size: 12px; margin: 10px 0; }
 .document-return-section { margin-top: 12px; border-top: 1px solid #dce6e8; padding-top: 10px; }
-.document-return-section > summary { cursor: pointer; padding: 8px 0; color: #003f5a; font-size: 13px; font-weight: 700; }
+.document-return-section > h4 { margin: 0; padding: 8px 0; color: #003f5a; font-size: 13px; font-weight: 700; }
 .document-return-section > .loan-form-grid { margin-top: 10px; }
 .complaint-item-details > summary { cursor: pointer; color: #506a74; padding: 5px 0; font-size: 12px; }
 .complaint-item-detail-fields { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr); gap: 10px; padding: 8px 0; }
@@ -14040,7 +14040,7 @@ textarea {
     grid-row: auto;
   }
   .offer-side-devices { grid-row: auto; grid-template-columns: minmax(0, 1fr); }
-  .offer-side-devices > .loan-side-transfer-btn { justify-self: center; transform: rotate(90deg); }
+  .offer-side-devices > .loan-side-transfer-btn { justify-self: start; transform: none; }
 
   .pcpr-form-row {
     grid-template-columns: 1fr;
@@ -16913,6 +16913,61 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .receipt-device-table th:first-child { width: 12%; }
 .receipt-device-table th:last-child { width: 30%; }
 .receipt-device-table td:last-child { white-space: nowrap; overflow-wrap: normal; }
+
+/* Keep ear, model and serial positions consistent across document editors. */
+.document-device-block[data-ear="P"] { --device-ear-ink: var(--ear-p-color); --device-ear-accent: var(--ear-p-accent); --device-ear-wash: var(--ear-p-background); }
+.document-device-block[data-ear="L"] { --device-ear-ink: var(--ear-l-color); --device-ear-accent: var(--ear-l-accent); --device-ear-wash: var(--ear-l-background); }
+.document-device-block {
+  min-width: 0; padding: 8px 10px; border: 0; border-left: 3px solid var(--device-ear-accent);
+  border-radius: 0; background: transparent;
+}
+.document-ear-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 28px; width: 28px; height: 30px; min-height: 30px;
+  color: var(--device-ear-ink); background: var(--device-ear-wash);
+  border-radius: 5px; font-size: 0.9rem; font-weight: 750;
+}
+.offer-device-field.document-device-block {
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 160px); align-items: center;
+}
+.offer-device-field.document-device-block > span { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; }
+.offer-device-field.document-device-block > input { grid-column: 1; min-width: 0; }
+.document-device-price { grid-column: 2; text-align: right; color: #003f5a; font-size: 0.9rem; font-weight: 650; white-space: nowrap; }
+.offer-side-devices > .loan-side-transfer-btn { justify-self: start; margin-left: 11px; }
+.loan-device-row.document-device-block {
+  grid-template-columns: 34px minmax(0, 2fr) minmax(140px, 0.8fr);
+  grid-template-areas: "side model value" "side serial maker" "side purpose purpose";
+  gap: 8px 12px; align-items: end;
+}
+.loan-device-row.document-device-block:not(:has(> .loan-demo-purpose-field:not([hidden]))) {
+  grid-template-areas: "side model value" "side serial maker";
+}
+.loan-device-row.document-device-block > .loan-side-badge { grid-area: side; align-self: start; }
+.loan-device-row.document-device-block > .loan-device-model-field { grid-area: model; }
+.loan-device-row.document-device-block > .loan-value-field { grid-area: value; }
+.loan-device-row.document-device-block > .loan-serial-field { grid-area: serial; }
+.loan-device-row.document-device-block > .loan-device-manufacturer-field { grid-area: maker; }
+.loan-device-row.document-device-block > .loan-demo-purpose-field { grid-area: purpose; }
+.loan-side-transfer-row { padding-left: 11px; }
+.receipt-device-block.document-device-block {
+  grid-column: 1 / -1; display: grid; grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas: "side model" "side serial"; gap: 8px 12px;
+}
+.receipt-device-block > .document-ear-badge { grid-area: side; align-self: start; }
+.receipt-device-block > .document-model-field { grid-area: model; }
+.receipt-device-block > .document-serial-field { grid-area: serial; }
+.receipt-device-block > label { min-width: 0; }
+.receipt-side-transfer { justify-content: flex-start; padding-left: 11px; }
+.document-device-block :is(input, .receipt-serial-control) { min-width: 0; width: 100%; }
+@media (max-width: 640px) {
+  .offer-device-field.document-device-block { grid-template-columns: minmax(0, 1fr); }
+  .document-device-price { grid-column: 1; text-align: left; }
+  .loan-device-row.document-device-block,
+  .loan-device-row.document-device-block:not(:has(> .loan-demo-purpose-field:not([hidden]))) {
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-areas: "side model" "side serial" "side value" "side maker" "side purpose";
+  }
+}
 .receipt-check-list { list-style: none; padding: 0; margin: 0 0 9px; }
 .receipt-check-list li { margin: 3px 0; }
 [data-receipt-check] {

@@ -252,6 +252,48 @@ test('all P/L form markers use the shared offer palette', () => {
   }
 });
 
+test('offer, loan and receipt editors use stacked P then L blocks with serial beneath model', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  for (const [startId, endId] of [['pricingOfferView', 'pricingOfferPrint'], ['pricingLoanView', 'pricingLoanPrint'], ['pricingReceiptView', 'pricingReceiptPrint']]) {
+    const start = html.indexOf(`id="${startId}"`);
+    const end = html.indexOf(`id="${endId}"`, start);
+    assert.ok(start >= 0 && end > start, startId);
+    const form = html.slice(start, end);
+    assert.equal((form.match(/data-ear="P"/g) || []).length, 1, startId);
+    assert.equal((form.match(/data-ear="L"/g) || []).length, 1, startId);
+    assert.ok(form.indexOf('data-ear="P"') < form.indexOf('data-ear="L"'), startId);
+  }
+  for (const id of ['offerDeviceInput1', 'offerDeviceInput2', 'loanRightDeviceInput', 'loanRightSerialInput',
+    'loanRightValueInput', 'loanLeftDeviceInput', 'loanLeftSerialInput', 'loanLeftValueInput',
+    'receiptModelP', 'receiptSerialP', 'receiptModelL', 'receiptSerialL']) {
+    assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1, `${id} is reused, never cloned`);
+  }
+  assert.match(css, /\.offer-side-devices\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(css, /grid-template-areas: "side model value" "side serial maker"/);
+  assert.match(css, /grid-template-areas: "side model" "side serial";/);
+  assert.match(css, /grid-template-areas: "side model" "side serial" "side value" "side maker" "side purpose";/);
+  assert.match(css, /\.document-device-block\[data-ear="P"\] \{[^}]*var\(--ear-p-color\)/);
+  assert.match(css, /\.document-device-block\[data-ear="L"\] \{[^}]*var\(--ear-l-color\)/);
+});
+
+test('offer per-side prices follow selected slots and clear after removal', () => {
+  const nodes = {offerDevicePrice1: {textContent: ''}, offerDevicePrice2: {textContent: ''}};
+  const ctx = vm.createContext({document: {getElementById: id => nodes[id]},
+    normalizePricingPrice: value => value === '' || value == null ? '' : Number(value),
+    formatPricingAmount: value => String(value)});
+  vm.runInContext(extract('updateOfferDevicePriceLabels'), ctx);
+  ctx.updateOfferDevicePriceLabels([{slot: 2, record: {grossPrice: 6500}}]);
+  assert.equal(nodes.offerDevicePrice1.textContent, '');
+  assert.equal(nodes.offerDevicePrice2.textContent, '6500 zł');
+  ctx.updateOfferDevicePriceLabels([{slot: 1, record: {grossPrice: 4200}}, {slot: 2, record: {grossPrice: 0}}]);
+  assert.equal(nodes.offerDevicePrice1.textContent, '4200 zł');
+  assert.equal(nodes.offerDevicePrice2.textContent, '0 zł');
+  ctx.updateOfferDevicePriceLabels([]);
+  assert.equal(nodes.offerDevicePrice1.textContent, '');
+  assert.equal(nodes.offerDevicePrice2.textContent, '');
+});
+
 test('receipt side transfer moves a single device and swaps both model/serial pairs with autofill metadata', () => {
   const t = setup();
   t.set('receiptModelP', 'Model P'); t.set('receiptSerialP', 'P123');
