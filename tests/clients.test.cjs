@@ -75,12 +75,52 @@ function fixture(rpc, extra = {}) {
   const module=clients.create({document:dom.document,owner:()=>state.owner,user:()=>state.user,active:()=>true,
     sources:()=>[],rpc:async(name,args)=>{calls.push({name,args});return rpc(name,args);},id:()=>`request-${++sequence}`,
     person:x=>x,phone:x=>x||'',street:x=>x,city:x=>x,addressParts:()=>({}),station:()=> 'P63',date:x=>x,dateTime:x=>x,
+    setDate:(input,value)=>{input.value=value;},isoDate:value=>value,
+    locationPill:location=>{const pill=dom.document.createElement('span');pill.textContent=location;pill.className=`location-pill ${location}`;return pill;},
     locationAccent(){},confirm:()=>true,refreshCalendar(){},navigate(){},...extra});
   return {...dom,state,calls,module};
 }
 const profile={id:'client-1',full_name:'Test Osoba',phone:'500600800',location:'P63',revision:1};
 const detail={profile,links:[],activities:[],operations:[]};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('client rows use the shared location badge instead of plain place text', async () => {
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:[]}));
+  await f.module.open();
+  const row=f.nodes.get('clientsList').children[0], heading=row.children[0];
+  assert.equal(heading.className,'clients-person-heading');
+  assert.equal(heading.children[1].className,'location-pill P63');
+  assert.equal(heading.children[1].textContent,'P63');
+  assert.equal(row.children[1].textContent,'500600800');
+});
+test('appointment uses the shared date picker plus an independent time field', () => {
+  assert.match(html,/<input id="clientVisitDate" type="text" data-date-picker/);
+  assert.match(html,/<input id="clientVisitTime" type="time" step="60"/);
+  assert.doesNotMatch(html,/<input id="clientVisitDate"[^>]*datetime-local/);
+  assert.match(app,/setDate: setDateInputValue, isoDate: isoDateForSave, locationPill: createLocationPill/);
+  const instant=clients.visitStart('2026-11-09','12:30');
+  assert.equal(clients.localInput(instant),'2026-11-09T12:30');
+  for(const [day,time] of [['2026-02-31','12:30'],['2026-11-09','24:00'],['','12:30'],['2026-11-09','']])
+    assert.throws(()=>clients.visitStart(day,time),/dzień i godzinę/);
+});
+test('saving a visit joins displayed calendar date and time without losing the local hour', async () => {
+  let saved;
+  const f=fixture(async(name,args)=> {
+    if(name==='satis_clients_overview')return {data:{profiles:[profile],total:1}};
+    if(name==='satis_client_detail')return {data:detail};
+    if(name==='satis_clients_upcoming')return {data:[]};
+    if(name==='satis_clients_write'){saved=args.p_data;return {data:{id:args.p_id}};}
+  },{isoDate:value=>value==='09.11.2026'?'2026-11-09':value});
+  await f.module.open();await f.module.select('client-1');
+  f.nodes.get('clientAddVisit').emit('click');
+  assert.equal(f.nodes.get('clientVisitDate').required,true);
+  assert.equal(f.nodes.get('clientVisitTime').required,true);
+  f.nodes.get('clientVisitDate').value='09.11.2026';f.nodes.get('clientVisitTime').value='12:30';
+  f.nodes.get('clientActivityEditor').emit('submit');await tick();await tick();
+  assert.equal(saved.kind,'VISIT');assert.equal(clients.localInput(saved.starts_at),'2026-11-09T12:30');
+  f.nodes.get('clientAddNote').emit('click');
+  assert.equal(f.nodes.get('clientVisitDate').required,false);
+  assert.equal(f.nodes.get('clientVisitTime').required,false);
+});
 test('client editor completes city after postcode, preserves manual city and keeps invalid phone intact', async () => {
   const f=fixture(async()=>({data:detail}),{
     cityForPostal:code=>({'43-300':'Bielsko-Biała','34-300':'Żywiec'})[code]||'',
