@@ -31,6 +31,7 @@ function setup() {
     notebookSections: sections, tabButtons: tabs, viewSections: views, statsPanel: node('stats'),
     notebookSwitchButtons: ['devices', 'repairs', 'clients', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'workTime'].map(name => node(name, {notebook: name})),
     clientsModule: {open: () => {}},
+    initializeClientsModule: () => ({open: () => {}}),
     canViewPrivateModules: () => context.owner,
     canViewDocumentHistory: () => Boolean(context.currentSupabaseUser),
     document: {querySelector: () => null},

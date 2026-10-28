@@ -25056,7 +25056,11 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   activePricingView = "";
   syncNotebookPanels();
 
-  if (activeNotebook === "clients") { void clientsModule?.open(); return; }
+  if (activeNotebook === "clients") {
+    const module = initializeClientsModule();
+    if (module) void module.open();
+    return;
+  }
 
   if (activeNotebook === "capd") {
     updateCapdScope();
@@ -30260,7 +30264,11 @@ function clientsCurrentSources() {
   clientsSourceCache = {refs, rows};
   return rows;
 }
-clientsModule = SatisClients.create({
+function initializeClientsModule() {
+  if (clientsModule) return clientsModule;
+  try {
+    if (!window.SatisClients?.create) throw new Error("Clients module unavailable");
+    clientsModule = window.SatisClients.create({
   document, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
   active: () => activeNotebook === "clients", sources: clientsCurrentSources,
   rpc: async (name, args) => {
@@ -30280,5 +30288,17 @@ clientsModule = SatisClients.create({
   setDate: setDateInputValue, isoDate: isoDateForSave, locationPill: createLocationPill,
   confirm: message => confirm(message), refreshCalendar: refreshCurrentDateWidget, navigate: () => switchNotebook("clients"),
   onBeforeUnload: handler => window.addEventListener("beforeunload", handler)
-});
+    });
+    return clientsModule;
+  } catch {
+    const message = document.getElementById("clientsMessage");
+    if (message) {
+      message.textContent = "Nie udało się uruchomić kartoteki Klientów. Odśwież stronę. Pozostałe zakładki są dostępne.";
+      message.dataset.error = "true";
+    }
+    document.querySelectorAll("#clientsNotebook [data-client-write]").forEach(control => { control.disabled = true; });
+    return null;
+  }
+}
+initializeClientsModule();
 init();
