@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const {test} = require('node:test');
 const fs = require('node:fs');
+const vm = require('node:vm');
 const clients = require('../clients.js');
 const source = fs.readFileSync(require.resolve('../clients.js'),'utf8');
 const html = fs.readFileSync(require.resolve('../index.html'),'utf8');
@@ -208,4 +209,35 @@ test('client navigation is guarded and static assets include the isolated module
   assert.match(app,/\["workTime", "clients"\]\.includes\(notebookName\) && !canViewPrivateModules\(\)/);
   assert.ok(html.indexOf('src="clients.js')<html.indexOf('src="app.js'));
   assert.match(fs.readFileSync(require.resolve('../offline-sw.js'),'utf8'),/"clients.js"/);
+});
+test('missing or broken Clients script cannot prevent the main application from starting', () => {
+  const start=app.indexOf('function initializeClientsModule() {');
+  const end=app.indexOf('\ninitializeClientsModule();',start);
+  assert.ok(start>0 && end>start);
+  const bootstrap=app.slice(start,end);
+  for(const factory of [undefined,()=>{throw Error('synthetic startup failure');},()=>({open(){}})]) {
+    let initialized=0;
+    const message={textContent:'',dataset:{}},write={disabled:false};
+    const context={clientsModule:null,window:{SatisClients:factory?{create:factory}:undefined},
+      document:{getElementById:()=>message,querySelectorAll:()=>[write]},init:()=>{initialized++;}};
+    for(const name of ['canViewPrivateModules','clientsCurrentSources','makeId','titleCaseName','formatPcprPhone','knownPostalAddresses',
+      'postalAddressParts','formatDate','formatAuditDateTime','updateDocumentLocationAccent','setDateInputValue','isoDateForSave','createLocationPill','refreshCurrentDateWidget'])context[name]=()=>{};
+    vm.createContext(context);
+    vm.runInContext(`${bootstrap}\ninitializeClientsModule();\ninit();`,context);
+    assert.equal(initialized,1);
+    if(!context.clientsModule){assert.equal(write.disabled,true);assert.match(message.textContent,/Pozostałe zakładki/);}
+    else assert.equal(write.disabled,false);
+  }
+});
+test('incomplete Clients markup fails before registering partial handlers', () => {
+  const f=fakeDOM();f.nodes.delete('clientVisitTime');
+  assert.throws(()=>clients.create({document:f.document}),/odświeżenia/);
+  assert.equal((f.nodes.get('clientsSearch').handlers.input||[]).length,0);
+});
+test('source-index failure is reported without rejecting navigation or refresh', async () => {
+  const f=fixture(async()=>{throw Error('unexpected RPC');},{sources:()=>{throw Error('synthetic missing source');}});
+  await assert.doesNotReject(f.module.open());
+  assert.equal(f.nodes.get('clientsMessage').dataset.error,'true');
+  assert.doesNotThrow(()=>f.module.refreshSources());
+  assert.match(f.nodes.get('clientsMessage').textContent,/powiązanych dokumentów/);
 });

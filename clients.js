@@ -74,6 +74,14 @@
   }
   function create(a) {
     const d = a.document, q = id => d.getElementById(id);
+    const requiredIds = ["clientsNotebook","clientsMessage","clientsSearch","clientsArchived","clientsRefresh","clientsMore","clientsNew","clientsForm",
+      "clientsList","clientsCount","clientsListEmpty","clientsSuggestions","clientsSuggestionsSection","clientsCard","clientsCardTitle",
+      "clientName","clientPhone","clientStreet","clientPostal","clientCity","clientLocation","clientArchive","clientDelete","clientIdentityWarning",
+      "clientActivitySection","clientActivityEditor","clientActivityKind","clientActivityTitle","clientActivityNote","clientVisitFields","clientVisitDate","clientVisitTime",
+      "clientVisitDuration","clientVisitLocation","clientVisitStatus","clientAddVisit","clientAddNote","clientCancelActivity","clientSourceSection",
+      "clientCandidates","clientCandidatesEmpty","clientCandidatesCount","clientHistory","clientTimelineFilters","clientOperations",
+      "clientsReminderBtn","clientsPlaceFilter","clientsVisitList","clientsVisitsEmpty","clientAddressHint","clientCitySuggestions"];
+    if (requiredIds.some(id=>!q(id))) throw new Error("Widok Klientów wymaga odświeżenia strony.");
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
@@ -364,12 +372,14 @@
     }
     async function open() {
       if (!allowed()) return clear();
-      setBusy(busy);
-      getIndex(); renderList();
-      try { await list(); await upcoming(); notify(""); }
-      catch (e) { if (allowed()) { notify(e.message,true); renderList(); setBusy(false); } }
+      try { setBusy(busy); getIndex(); renderList(); await list(); await upcoming(); notify(""); }
+      catch (e) { if (allowed()) { notify(e.message,true); setBusy(false); } }
     }
-    function refreshSources() { if (allowed() && a.active()) { getIndex(); renderList(); renderLinks(); renderHistory(); } }
+    function refreshSources() {
+      if (!allowed() || !a.active()) return;
+      try { getIndex(); renderList(); renderLinks(); renderHistory(); }
+      catch { notify("Nie udało się odczytać powiązanych dokumentów. Odśwież dane; zapisane karty nie zostały usunięte.",true); }
+    }
     function clear() {
       generation++; listSequence++; detailSequence++; visitSequence++; clearTimeout(searchTimer); clearTimeout(pollTimer);
       profiles=[];visits=[];detail=null;operations.clear();sourceRows=null;index=sourceIndex([]);loaded=false;busy=false;missingSchema=false;newProfileId="";editingActivity=null;activityId="";profileDirty=false;activityDirty=false;
