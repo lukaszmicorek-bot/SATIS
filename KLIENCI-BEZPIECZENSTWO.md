@@ -22,6 +22,10 @@ Migracja tworzy nowe tabele i funkcje. Nie importuje, nie usuwa ani nie zmienia 
 
 ## Obsluga
 
+- Uslugi i ceny: w ustawieniach harmonogramu SATIS dodaje nazwe, cene brutto w PLN, czas i opcjonalne limity. Nie dodano fikcyjnego cennika. Przy planowaniu lista pokazuje cene i czas, a wybrana usluga uzupelnia czas wizyty. Zero oznacza usluge bezplatna; stare uslugi bez ceny maja komunikat Cena nieustalona. Cena jest zapamietywana przy zapisie wizyty; zmiana cennika nie zmienia cen juz zapisanych wizyt. Starych kwot nie odtwarzamy wstecz.
+- Planowane wizyty nie moga przypadać na sobote, niedziele ani polskie swieta ustawowe (Wigilia od 2025). Ograniczenie obejmuje wpisanie daty recznie, kalendarz, harmonogram, zmiane czasu i zapis RPC w bazie. Nie usuwa starych wizyt i pozwala je anulowac lub oznaczyc jako odbyte. Nie blokuje przegladania kalendarza w dni wolne. Zrodlo swiat: https://api.sejm.gov.pl/eli/acts/DU/2025/296/text.pdf.
+- Wdrozenie cen i blokad: uruchom ponownie aktualny `supabase-client-schedule.sql` w SQL Editor, po wczesniejszym `supabase-clients.sql`. Skrypt jest powtarzalny, nie kasuje kart ani wizyt. Publikacja plikow na GitHub nie wykonuje migracji Supabase.
+
 - Wyszukanie nazwiska, telefonu, modelu lub numeru seryjnego pokazuje propozycje z aktualnie zaladowanych danych Aparatow, Serwisu i formularzy. Zapisane karty przeszukiwane sa po nazwisku i telefonie; propozycje dokumentow rowniez po modelach i numerach.
 - Zapisz karte kontaktowa, a nastepnie potwierdz powiazania z jej dokumentami. Zbieznosc nazwiska nie jest potwierdzeniem tozsamosci. Przy roznych telefonach/adresach nie wybieramy automatycznie jednego z nich.
 - Historia dokumentow odczytuje aktualne rekordy zrodlowe przez potwierdzone identyfikatory. Nie kopiuje opisow medycznych ani dokumentow do nowej tabeli. Historia wypozyczen jest oparta na umowach, nie na zmiennym polu aktualnego uzytkownika Demo.

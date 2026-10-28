@@ -28497,6 +28497,13 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     }
     const publicHoliday = polishPublicHolidayOnDate(isoDate);
     const vacationHolidayBlocked = Boolean(publicHoliday && isVacationCalendarInput());
+    const clientVisitBlocked = activeDateInput?.id === "clientVisitDate" && Boolean(publicHoliday || weekday === 0 || weekday === 6);
+    if (clientVisitBlocked) {
+      button.disabled = true;
+      button.classList.add("client-visit-blocked");
+      button.setAttribute("aria-disabled", "true");
+      appendDatePickerTitle(button, publicHoliday ? `${publicHoliday.name}. Brak zapisów na wizyty.` : "Weekend — brak zapisów na wizyty.");
+    }
     const occupiedPeople = workTimeCalendar ? [] : vacationOccupiedPeopleOnDate(isoDate);
     const ownLeave = workTimeCalendar ? null : vacationOwnLeaveOnDate(isoDate);
     if (publicHoliday) {
@@ -28546,7 +28553,7 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
     }
 
     button.addEventListener("click", () => {
-      if (!activeDateInput || vacationHolidayBlocked || invalidWeekendWorkDay) return;
+      if (!activeDateInput || vacationHolidayBlocked || invalidWeekendWorkDay || clientVisitBlocked) return;
       if (dateMinimum && isoDate < dateMinimum.date) return;
       activeDateInput.value = displayDateForInput(isoDate);
       activeDateInput.dispatchEvent(new Event("input", { bubbles: true }));
