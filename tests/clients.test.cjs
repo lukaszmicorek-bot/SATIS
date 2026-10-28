@@ -235,9 +235,11 @@ test('incomplete Clients markup fails before registering partial handlers', () =
   assert.equal((f.nodes.get('clientsSearch').handlers.input||[]).length,0);
 });
 test('source-index failure is reported without rejecting navigation or refresh', async () => {
-  const f=fixture(async()=>{throw Error('unexpected RPC');},{sources:()=>{throw Error('synthetic missing source');}});
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:[]}),{sources:()=>{throw Error('synthetic missing source');}});
   await assert.doesNotReject(f.module.open());
   assert.equal(f.nodes.get('clientsMessage').dataset.error,'true');
+  assert.equal(f.nodes.get('clientsList').children.length,1,'source failure must not block saved profile loading');
+  assert.ok(f.calls.some(call=>call.name==='satis_clients_upcoming'));
   assert.doesNotThrow(()=>f.module.refreshSources());
   assert.match(f.nodes.get('clientsMessage').textContent,/powiązanych dokumentów/);
 });
