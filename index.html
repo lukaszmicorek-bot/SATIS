@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261028-2">
+  <link rel="stylesheet" href="styles.css?v=20261028-3">
   </head>
   <body>
     <main class="app-shell">
@@ -793,12 +793,14 @@
               <form id="clientsForm" autocomplete="off">
                 <div class="clients-contact-grid">
                   <label class="clients-name">Imię i nazwisko<input id="clientName" type="text" maxlength="160" required autocomplete="off" spellcheck="false"></label>
-                  <label>Telefon<input id="clientPhone" type="tel" maxlength="20" autocomplete="off"></label>
+                  <label>Telefon<input id="clientPhone" type="tel" maxlength="24" autocomplete="off" placeholder="500 600 800"></label>
                   <label class="document-location-field">Miejsce<select id="clientLocation"><option value="T12">T12 · Bielsko-Biała, Traugutta 12</option><option value="P63">P63 · Bielsko-Biała, Partyzantów 63</option><option value="P50">P50 · Żywiec, Piłsudskiego 50</option></select></label>
-                  <label>Ulica i numer<input id="clientStreet" type="text" maxlength="240" autocomplete="off"></label>
+                  <label>Ulica i numer<input id="clientStreet" type="text" maxlength="240" autocomplete="off" placeholder="ul. Traugutta 12" title="Możesz wkleić cały adres — ulica, kod pocztowy i miejscowość." aria-describedby="clientAddressHint"></label>
                   <label>Kod pocztowy<input id="clientPostal" type="text" maxlength="6" inputmode="numeric" placeholder="00-000" pattern="[0-9]{2}-[0-9]{3}" autocomplete="off"></label>
-                  <label>Miejscowość<input id="clientCity" type="text" maxlength="120" autocomplete="off"></label>
+                  <label>Miejscowość<input id="clientCity" type="text" maxlength="120" autocomplete="off" list="clientCitySuggestions" aria-describedby="clientAddressHint"></label>
                 </div>
+                <datalist id="clientCitySuggestions"></datalist>
+                <p id="clientAddressHint" class="clients-hint" role="status" aria-live="polite"></p>
                 <div class="clients-actions"><button type="submit" class="primary" data-client-write>Zapisz</button></div>
               </form>
               <section id="clientActivitySection" hidden>
@@ -3464,15 +3466,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261028-2"></script>
-    <script src="data-layer.js?v=20261028-2"></script>
-    <script src="sync-layer.js?v=20261028-2"></script>
-    <script src="traffic-meter.js?v=20261028-2"></script>
-    <script src="repair-returns.js?v=20261028-2"></script>
-    <script src="offline-vault.js?v=20261028-2"></script>
-    <script src="offline-forms.js?v=20261028-2"></script>
-    <script src="stock-audit.js?v=20261028-2"></script>
-    <script src="clients.js?v=20261028-2"></script>
-  <script src="app.js?v=20261028-2"></script>
+    <script src="supabase-config.js?v=20261028-3"></script>
+    <script src="data-layer.js?v=20261028-3"></script>
+    <script src="sync-layer.js?v=20261028-3"></script>
+    <script src="traffic-meter.js?v=20261028-3"></script>
+    <script src="repair-returns.js?v=20261028-3"></script>
+    <script src="offline-vault.js?v=20261028-3"></script>
+    <script src="offline-forms.js?v=20261028-3"></script>
+    <script src="stock-audit.js?v=20261028-3"></script>
+    <script src="clients.js?v=20261028-3"></script>
+  <script src="app.js?v=20261028-3"></script>
   </body>
 </html>
