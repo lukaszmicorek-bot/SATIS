@@ -30,9 +30,18 @@ test('contact validation canonicalizes phone, rejects missing surname and invali
   const base={name:'Jan Testowy',phone:'+48 500 600 800',street:'Testowa 1',postal:'43-300',city:'Bielsko-Biała',location:'P63'};
   const identity=x=>x;
   assert.equal(clients.profilePayload(base,identity,identity,identity).phone,'500600800');
+  assert.equal(clients.phoneKey('0048 500 600 800'),'500600800');
   assert.throws(()=>clients.profilePayload({...base,name:'Jan'},identity,identity,identity),/nazwisko/);
   assert.throws(()=>clients.profilePayload({...base,phone:'123'},identity,identity,identity),/telefonu/);
   assert.throws(()=>clients.profilePayload({...base,postal:'43300'},identity,identity,identity),/pocztowy/);
+});
+test('postcode suggestions are unique, tolerate accents and never choose between different cities', () => {
+  const entries=[{postalCode:'12-345',city:'Żywiec'},{postalCode:'12-345',city:'zywiec'},
+    {postalCode:'12-345',city:'Inna Miejscowość'},{postalCode:'12-346',city:'Trzecia'}];
+  assert.equal(clients.postalCities('12-345',entries).length,2);
+  assert.deepEqual(clients.postalCities('12-34',entries),[]);
+  assert.deepEqual(clients.postalCities('12-346',entries),['Trzecia']);
+  assert.deepEqual(clients.postalCities('43-300',entries,'Bielsko-Biała'),['Bielsko-Biała']);
 });
 test('calendar derives local day and excludes invalid and out-of-window dates', () => {
   const local = new Date(2026,9,28,23,45);
@@ -60,18 +69,55 @@ function fakeDOM() {
   const document={getElementById:id=>nodes.get(id),createElement:element,hidden:false};
   return {document,nodes};
 }
-function fixture(rpc) {
+function fixture(rpc, extra = {}) {
   const dom=fakeDOM(), state={owner:true,user:'owner-1'}, calls=[];
   let sequence=0;
   const module=clients.create({document:dom.document,owner:()=>state.owner,user:()=>state.user,active:()=>true,
     sources:()=>[],rpc:async(name,args)=>{calls.push({name,args});return rpc(name,args);},id:()=>`request-${++sequence}`,
     person:x=>x,phone:x=>x||'',street:x=>x,city:x=>x,addressParts:()=>({}),station:()=> 'P63',date:x=>x,dateTime:x=>x,
-    locationAccent(){},confirm:()=>true,refreshCalendar(){},navigate(){}});
+    locationAccent(){},confirm:()=>true,refreshCalendar(){},navigate(){},...extra});
   return {...dom,state,calls,module};
 }
 const profile={id:'client-1',full_name:'Test Osoba',phone:'500600800',location:'P63',revision:1};
 const detail={profile,links:[],activities:[],operations:[]};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('client editor completes city after postcode, preserves manual city and keeps invalid phone intact', async () => {
+  const f=fixture(async()=>({data:detail}),{
+    cityForPostal:code=>({'43-300':'Bielsko-Biała','34-300':'Żywiec'})[code]||'',
+    phone:value=>String(value||'').replace(/(\d{3})(?=\d)/g,'$1 '),
+  });
+  await f.module.select('client-1');
+  const postcode=f.nodes.get('clientPostal'), city=f.nodes.get('clientCity'), phone=f.nodes.get('clientPhone');
+  postcode.value='43300';postcode.emit('input');
+  assert.equal(postcode.value,'43-300');assert.equal(city.value,'Bielsko-Biała');
+  postcode.value='34300';postcode.emit('input');assert.equal(city.value,'Żywiec');
+  city.value='Ręcznie wpisana';city.emit('input');postcode.value='43300';postcode.emit('input');
+  assert.equal(city.value,'Ręcznie wpisana');assert.match(f.nodes.get('clientAddressHint').textContent,/Sprawdź/);
+  phone.value='0048 500600800';phone.emit('blur');assert.equal(phone.value,'500 600 800');
+  phone.value='500600800123';phone.emit('blur');assert.equal(phone.value,'500600800123','invalid input must not silently lose digits');
+  f.module.clear();assert.equal(f.nodes.get('clientAddressHint').textContent,'');
+  assert.equal(f.nodes.get('clientCitySuggestions').children.length,0);
+});
+test('pasting a complete address splits fields and normalizes without altering existing history', async () => {
+  const f=fixture(async()=>({data:detail}),{
+    addressParts:()=>({street:'traugutta12',postalCode:'43-300',city:'bielsko'}),
+    street:value=>value ? 'ul. Traugutta 12' : '',city:value=>value==='bielsko'?'Bielsko-Biała':value,
+    cityForPostal:code=>code==='43-300'?'Bielsko-Biała':'',
+  });
+  await f.module.select('client-1');
+  let prevented=false;
+  f.nodes.get('clientStreet').emit('paste',{clipboardData:{getData:()=> 'ul. Traugutta 12, 43-300 Bielsko-Biała'},preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);assert.equal(f.nodes.get('clientStreet').value,'ul. Traugutta 12');
+  assert.equal(f.nodes.get('clientPostal').value,'43-300');assert.equal(f.nodes.get('clientCity').value,'Bielsko-Biała');
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
+});
+test('client location retains shared pastel accents and the document control height', () => {
+  const css=fs.readFileSync(require.resolve('../styles.css'),'utf8');
+  assert.match(css,/\.clients-notebook \.document-location-field select \{[^}]*height: 40px;[^}]*border-left: 5px solid var\(--document-location-accent\);[^}]*background-color: var\(--document-location-bg\)/);
+  assert.match(app,/postalEntries: knownPostalAddresses/);
+  assert.match(app,/street: value => formatLoanStreet/);
+  assert.match(html,/id="clientCity"[^>]*list="clientCitySuggestions"/);
+});
 test('gabinet and anonymous navigation never request client data', async () => {
   const f=fixture(async()=>{throw Error('must not call');});
   f.state.owner=false;await f.module.open();await f.module.select('client-1');

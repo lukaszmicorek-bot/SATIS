@@ -17168,6 +17168,10 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-search { flex: 1 1 300px; }
 .clients-toolbar .clients-archive-toggle { flex-direction: row; align-items: center; padding-bottom: 9px; }
 .clients-notebook input:not([type="checkbox"]), .clients-notebook select, .clients-notebook textarea { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; padding: 9px 10px; border: 1px solid #cbd7d9; border-radius: 5px; background: #fff; color: #243b43; }
+.clients-notebook input:not([type="checkbox"]), .clients-notebook select { height: 40px; }
+.clients-notebook .document-location-field select { height: 40px; padding-left: 11px; border-color: color-mix(in srgb, var(--document-location-accent) 34%, var(--line)); border-left: 5px solid var(--document-location-accent); background-color: var(--document-location-bg); }
+.clients-notebook .document-location-field select:focus { border-left-color: var(--document-location-accent); }
+#clientAddressHint:empty { display: none; }
 .clients-notebook input:focus-visible, .clients-notebook select:focus-visible, .clients-notebook textarea:focus-visible { outline: 2px solid #007d80; outline-offset: 2px; }
 .clients-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 28px; }
 .clients-directory { min-width: 0; border-right: 1px solid #dce4e5; padding-right: 18px; }

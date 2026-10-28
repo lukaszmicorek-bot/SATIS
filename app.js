@@ -30270,7 +30270,11 @@ clientsModule = SatisClients.create({
     catch { throw new Error("Brak potwierdzenia z bazy. Sprawdź połączenie i ponów zapis; nie zamykaj niezapisanego formularza."); }
     finally { window.clearTimeout(timer); }
   },
-  id: makeId, person: titleCaseName, phone: formatPcprPhone, street: normalizePcprStreet, city: normalizePcprCity,
+  id: makeId, person: titleCaseName, phone: formatPcprPhone,
+  street: value => formatLoanStreet(String(value || "").replace(/([\p{L}])(?=\d)/gu, "$1 ")),
+  city: value => /^bielsko$/iu.test(String(value || "").trim()) ? "Bielsko-Biała" : normalizePcprCity(value),
+  postalEntries: knownPostalAddresses, cityForPostal: code => PCPR_POSTAL_CODE_CITY_MAP[code] || "",
+  postalCode: (city, street) => suggestPostalCode(city, street).code,
   addressParts: postalAddressParts, station: () => documentLocationKey(documentLocationForWorkstation()) || "P63",
   date: formatDate, dateTime: formatAuditDateTime, locationAccent: updateDocumentLocationAccent,
   confirm: message => confirm(message), refreshCalendar: refreshCurrentDateWidget, navigate: () => switchNotebook("clients"),

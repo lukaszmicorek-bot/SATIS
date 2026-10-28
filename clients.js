@@ -7,8 +7,16 @@
   const normalized = value => String(value || "").toLocaleLowerCase("pl-PL").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l").replace(/\s+/g, " ").trim();
   const phoneKey = value => {
     const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 13 && digits.startsWith("0048")) return digits.slice(4);
     return digits.length === 11 && digits.startsWith("48") ? digits.slice(2) : digits;
   };
+  function postalCities(code, entries, knownCity = "") {
+    if (!/^\d{2}-\d{3}$/.test(code)) return [];
+    if (knownCity) return [knownCity];
+    const cities = new Map();
+    for (const entry of entries) if (entry.postalCode === code && entry.city) cities.set(normalized(entry.city), entry.city);
+    return [...cities.values()].sort((x, y) => x.localeCompare(y, "pl"));
+  }
   const sourceKey = row => `${row.type}:${row.id}`;
   const visitLabels = { PLANNED: "Zaplanowana", COMPLETED: "Odbyta", CANCELLED: "Anulowana", MISSED: "Nieobecność" };
   function sourceIndex(rows) {
@@ -63,7 +71,7 @@
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
-    let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false;
+    let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "";
     const discard = () => !(profileDirty || activityDirty) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
     function unsaved() {
       if (!profileDirty && !activityDirty) return false;
@@ -157,6 +165,8 @@
     }
     function fillProfile(profile) {
       profileDirty = false; activityDirty = false;
+      autoCity = ""; autoPostal = "";
+      q("clientAddressHint").textContent = ""; q("clientCitySuggestions").replaceChildren();
       for (const [id, field] of [["clientName","full_name"],["clientPhone","phone"],["clientStreet","street"],
         ["clientPostal","postal_code"],["clientCity","city"],["clientLocation","location"]]) q(id).value = profile[field] || (field === "location" ? a.station() : "");
       q("clientPhone").value = a.phone(profile.phone);
@@ -192,6 +202,7 @@
       renderHistory(); renderLinks(); renderList();
     }
     async function saveProfile() {
+      normalizeContact();
       const data = profilePayload({name:q("clientName").value,phone:q("clientPhone").value,street:q("clientStreet").value,
         postal:q("clientPostal").value.trim(),city:q("clientCity").value,location:q("clientLocation").value,archived:detail?.profile.archived}, a.person, a.street, a.city);
       const id = detail?.profile.id || newProfileId || (newProfileId = a.id());
@@ -349,7 +360,8 @@
       for (const id of ["clientsList","clientsSuggestions","clientCandidates","clientHistory","clientOperations","clientsVisitList"]) q(id)?.replaceChildren();
       q("clientsForm")?.reset(); q("clientActivityEditor")?.reset();
       q("clientsSearch").value="";q("clientsCard").hidden=true;q("clientsReminderBtn").hidden=true;notify("");
-      for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount"]) q(id).textContent="";
+      for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount","clientAddressHint"]) q(id).textContent="";
+      q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";
     }
     function startReminders() {
       clearTimeout(pollTimer);
@@ -361,6 +373,36 @@
         if (!d.hidden) void upcoming().catch(() => {});
         pollTimer=setTimeout(poll,300000);
       },300000);
+    }
+    function syncPostalCity() {
+      const code = q("clientPostal").value, city = q("clientCity");
+      const candidates = postalCities(code, a.postalEntries?.() || [], a.cityForPostal?.(code) || "");
+      q("clientCitySuggestions").replaceChildren(...candidates.map(value => {const option=node("option");option.value=value;return option;}));
+      if (!city.value || city.value === autoCity) {
+        const value = candidates.length === 1 ? a.city(candidates[0]) : "";
+        if (city.value !== value) { city.value = value; profileDirty = true; }
+        autoCity = value;
+      }
+      q("clientAddressHint").textContent = candidates.length > 1 ? "Ten kod ma kilka miejscowości. Wybierz właściwą lub wpisz ją ręcznie."
+        : candidates.length === 1 && city.value && normalized(city.value) !== normalized(candidates[0])
+          ? `Sprawdź miejscowość: zapisane adresy dla ${code} wskazują ${candidates[0]}.`
+          : /^\d{2}-\d{3}$/.test(code) && !candidates.length && !city.value ? "Nie znamy miejscowości dla tego kodu. Wpisz ją ręcznie." : "";
+    }
+    function normalizeContact() {
+      const before = ["clientName","clientStreet","clientCity","clientPostal","clientPhone"].map(id=>q(id).value);
+      q("clientName").value = a.person(q("clientName").value.trim());
+      q("clientStreet").value = a.street(q("clientStreet").value);
+      q("clientCity").value = a.city(q("clientCity").value);
+      const phone = phoneKey(q("clientPhone").value);
+      if (!phone || /^\d{9}$/.test(phone)) q("clientPhone").value = a.phone(phone);
+      syncPostalCity();
+      const postal = q("clientPostal");
+      if ((!postal.value || postal.value === autoPostal) && q("clientCity").value) {
+        const suggested = a.postalCode?.(q("clientCity").value, q("clientStreet").value) || "";
+        if (suggested) { postal.value = suggested; autoPostal = suggested; syncPostalCity(); }
+        else if (autoPostal) {postal.value="";autoPostal="";syncPostalCity();}
+      }
+      if (before.some((value,i)=>value!==q(["clientName","clientStreet","clientCity","clientPostal","clientPhone"][i]).value)) profileDirty=true;
     }
     q("clientsSearch").addEventListener("input", () => {
       clearTimeout(searchTimer); renderList(); searchTimer=setTimeout(() => {void list().catch(e => {if(allowed())notify(e.message,true);});},250);
@@ -378,10 +420,19 @@
     q("clientCancelActivity").addEventListener("click", () => {if(!activityDirty || a.confirm("Porzucić niezapisany wpis?")){activityDirty=false;q("clientActivityEditor").hidden=true;q("clientActivityEditor").reset();}});
     q("clientsForm").addEventListener("input", () => {profileDirty=true;});
     q("clientActivityEditor").addEventListener("input", () => {activityDirty=true;});
-    q("clientPostal").addEventListener("input", () => {const digits=q("clientPostal").value.replace(/\D/g,"").slice(0,5);q("clientPostal").value=digits.length>2?`${digits.slice(0,2)}-${digits.slice(2)}`:digits;});
+    q("clientPostal").addEventListener("input", () => {const digits=q("clientPostal").value.replace(/\D/g,"").slice(0,5);q("clientPostal").value=digits.length>2?`${digits.slice(0,2)}-${digits.slice(2)}`:digits;autoPostal="";syncPostalCity();});
+    for (const id of ["clientName","clientStreet","clientCity","clientPostal"]) q(id).addEventListener("blur", normalizeContact);
+    q("clientCity").addEventListener("input", () => {autoCity="";});
+    q("clientStreet").addEventListener("paste", event => {
+      const parts = a.addressParts(event.clipboardData?.getData("text") || "");
+      if (!parts.street || !parts.city) return;
+      event.preventDefault();
+      q("clientStreet").value=parts.street;q("clientPostal").value=parts.postalCode||"";q("clientCity").value=parts.city;
+      autoCity="";autoPostal="";profileDirty=true;normalizeContact();
+    });
     q("clientLocation").addEventListener("change", () => a.locationAccent(q("clientLocation")));
     q("clientVisitLocation").addEventListener("change", () => a.locationAccent(q("clientVisitLocation")));
-    q("clientPhone").addEventListener("blur", () => {q("clientPhone").value=a.phone(q("clientPhone").value);});
+    q("clientPhone").addEventListener("blur", () => {const phone=phoneKey(q("clientPhone").value);if(!phone || /^\d{9}$/.test(phone))q("clientPhone").value=a.phone(phone);});
     q("clientsPlaceFilter").addEventListener("click", event => {
       const b=event.target.closest("[data-client-place]");if(!b)return;clientLocation=b.dataset.clientPlace;
       q("clientsPlaceFilter").querySelectorAll("button").forEach(button=>button.setAttribute("aria-pressed",String(button===b)));renderList();renderVisits();void list().catch(e=>{if(allowed())notify(e.message,true);});
@@ -396,5 +447,5 @@
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};
   }
-  return {normalized,phoneKey,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,profilePayload,create};
+  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,profilePayload,create};
 });
