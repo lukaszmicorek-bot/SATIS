@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261028-6">
+  <link rel="stylesheet" href="styles.css?v=20261028-7">
   </head>
   <body>
     <main class="app-shell">
@@ -827,9 +827,29 @@
               <div id="clientHistory" class="client-history"></div>
               <details class="clients-access"><summary>Rejestr dostępu i zmian</summary><div id="clientOperations"></div></details>
             </section>
-            <section class="clients-agenda"><h2>Zaplanowane wizyty</h2><p class="clients-hint">Przypomnienia w aplikacji podczas jej używania. Terminy z ostatnich 30 dni i najbliższych 90 dni, maksymalnie 500 wizyt.</p><div id="clientsVisitList"></div><p id="clientsVisitsEmpty">Brak zaplanowanych wizyt.</p></section>
           </div>
         </div>
+        <section class="clients-agenda" aria-label="Harmonogram wizyt">
+          <header class="clients-section-heading"><h2>Harmonogram wizyt</h2>
+            <div id="clientsScheduleViews" class="pcpr-tab-group" role="group" aria-label="Widok harmonogramu">
+              <button class="pcpr-tab" type="button" data-schedule-view="day" aria-pressed="false">Dzień</button>
+              <button class="pcpr-tab" type="button" data-schedule-view="three" aria-pressed="false">3 dni</button>
+              <button class="pcpr-tab" type="button" data-schedule-view="week" aria-pressed="true">Tydzień</button>
+              <button class="pcpr-tab" type="button" data-schedule-view="month" aria-pressed="false">Miesiąc</button>
+            </div>
+          </header>
+          <div class="clients-schedule-toolbar">
+            <button id="clientsSchedulePrev" type="button" class="reset-filters-btn" aria-label="Poprzedni okres">←</button>
+            <button id="clientsScheduleToday" type="button" class="reset-filters-btn">Dzisiaj</button>
+            <button id="clientsScheduleNext" type="button" class="reset-filters-btn" aria-label="Następny okres">→</button>
+            <label>Data<input id="clientsScheduleDate" type="text" data-date-picker inputmode="numeric" autocomplete="off" placeholder="DD.MM.RRRR"></label>
+            <label class="document-location-field">Miejsce<select id="clientsScheduleLocation"><option value="">Wszystkie</option><option value="T12">T12</option><option value="P63">P63</option><option value="P50">P50</option></select></label>
+            <strong id="clientsScheduleTitle"></strong>
+          </div>
+          <p id="clientsScheduleNotice" class="clients-hint" role="status"></p>
+          <div id="clientsSchedule" class="clients-schedule-scroll" tabindex="0" aria-label="Daty i zajęte godziny wizyt"></div>
+          <details class="clients-visit-list"><summary>Lista zaplanowanych wizyt</summary><p class="clients-hint">Przypomnienia w aplikacji podczas jej używania. Terminy z ostatnich 30 dni i najbliższych 90 dni, maksymalnie 500 wizyt.</p><div id="clientsVisitList"></div><p id="clientsVisitsEmpty">Brak zaplanowanych wizyt.</p></details>
+        </section>
       </section>
       <section id="pricingNotebook" class="notebook-section" hidden>
         <section class="pricing-panel" aria-label="Cennik">
@@ -3467,15 +3487,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261028-6"></script>
-    <script src="data-layer.js?v=20261028-6"></script>
-    <script src="sync-layer.js?v=20261028-6"></script>
-    <script src="traffic-meter.js?v=20261028-6"></script>
-    <script src="repair-returns.js?v=20261028-6"></script>
-    <script src="offline-vault.js?v=20261028-6"></script>
-    <script src="offline-forms.js?v=20261028-6"></script>
-    <script src="stock-audit.js?v=20261028-6"></script>
-    <script src="clients.js?v=20261028-6"></script>
-  <script src="app.js?v=20261028-6"></script>
+    <script src="supabase-config.js?v=20261028-7"></script>
+    <script src="data-layer.js?v=20261028-7"></script>
+    <script src="sync-layer.js?v=20261028-7"></script>
+    <script src="traffic-meter.js?v=20261028-7"></script>
+    <script src="repair-returns.js?v=20261028-7"></script>
+    <script src="offline-vault.js?v=20261028-7"></script>
+    <script src="offline-forms.js?v=20261028-7"></script>
+    <script src="stock-audit.js?v=20261028-7"></script>
+    <script src="clients.js?v=20261028-7"></script>
+  <script src="app.js?v=20261028-7"></script>
   </body>
 </html>

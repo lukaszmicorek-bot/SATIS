@@ -65,6 +65,45 @@
     if (!Number.isFinite(date.getTime()) || localInput(date) !== value) throw new Error("Podaj prawidłowy dzień i godzinę wizyty.");
     return date.toISOString();
   }
+  function shiftDay(day, amount) {
+    const date = new Date(`${day}T12:00:00`);
+    date.setDate(date.getDate() + amount);
+    return localInput(date).slice(0, 10);
+  }
+  function scheduleRange(view, anchor) {
+    const date = new Date(`${anchor}T12:00:00`);
+    if (!Number.isFinite(date.getTime()) || localInput(date).slice(0,10)!==anchor) throw new Error("Nieprawidłowa data harmonogramu.");
+    let start = anchor, count = view === "three" ? 3 : view === "week" ? 7 : 1;
+    if (view === "week") start = shiftDay(anchor, -((date.getDay() + 6) % 7));
+    if (view === "month") {
+      const first = `${anchor.slice(0,7)}-01`, firstDate = new Date(`${first}T12:00:00`);
+      start = shiftDay(first, -((firstDate.getDay() + 6) % 7)); count = 42;
+    }
+    return {start, end:shiftDay(start,count-1), days:Array.from({length:count},(_,i)=>shiftDay(start,i))};
+  }
+  function scheduleDayVisits(visits, day, location = "") {
+    const midnight = new Date(`${day}T00:00:00`), next = new Date(`${shiftDay(day,1)}T00:00:00`);
+    const parts = [];
+    for (const visit of visits) {
+      if ((location && visit.location !== location) || (visit.status && visit.status !== "PLANNED")) continue;
+      const start = new Date(visit.starts_at), duration = Number(visit.duration_minutes), end = new Date(start.getTime()+duration*60000);
+      if (!Number.isFinite(start.getTime()) || !Number.isFinite(duration) || duration <= 0 || end <= midnight || start >= next) continue;
+      const startMinute = start < midnight ? 0 : start.getHours()*60+start.getMinutes();
+      const endMinute = end >= next ? 1440 : end.getHours()*60+end.getMinutes();
+      if (endMinute <= startMinute) continue;
+      parts.push({visit,startMinute,endMinute,lane:0,lanes:1});
+    }
+    parts.sort((x,y)=>x.startMinute-y.startMinute || x.endMinute-y.endMinute || String(x.visit.id).localeCompare(String(y.visit.id)));
+    let ends=[],group=[],groupEnd=-1;
+    const finish = () => {for(const item of group)item.lanes=ends.length;};
+    for(const item of parts) {
+      if(item.startMinute>=groupEnd){finish();ends=[];group=[];groupEnd=-1;}
+      let lane=ends.findIndex(end=>end<=item.startMinute);
+      if(lane<0)lane=ends.length;
+      ends[lane]=item.endMinute;item.lane=lane;group.push(item);groupEnd=Math.max(groupEnd,item.endMinute);
+    }
+    finish();return parts;
+  }
   function profilePayload(form, person, street, city) {
     const name = person(form.name.trim()), phone = phoneKey(form.phone);
     if (name.split(/\s+/).length < 2 || name.length > 160) throw new Error("Wpisz imię i nazwisko klienta.");
@@ -81,11 +120,13 @@
       "clientVisitDuration","clientVisitLocation","clientVisitStatus","clientAddVisit","clientAddNote","clientCancelActivity","clientSourceSection",
       "clientCandidates","clientCandidatesEmpty","clientCandidatesCount","clientHistory","clientTimelineFilters","clientOperations",
       "clientsReminderBtn","clientsPlaceFilter","clientsVisitList","clientsVisitsEmpty","clientAddressHint","clientCitySuggestions"];
+    requiredIds.push("clientsSchedule","clientsScheduleViews","clientsScheduleDate","clientsScheduleLocation","clientsSchedulePrev","clientsScheduleToday","clientsScheduleNext","clientsScheduleTitle","clientsScheduleNotice");
     if (requiredIds.some(id=>!q(id))) throw new Error("Widok Klientów wymaga odświeżenia strony.");
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
     let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
+    let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
     const discard = () => !(profileDirty || activityDirty) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
     function unsaved() {
       if (!profileDirty && !activityDirty) return false;
@@ -334,6 +375,12 @@
       q("clientVisitStatus").value = event?.status || "PLANNED";
       q("clientVisitFields").hidden = kind !== "VISIT";
       q("clientActivityTitle").focus();
+      if(kind === "VISIT") {
+        scheduleLocation=q("clientVisitLocation").value;q("clientsScheduleLocation").value=scheduleLocation;
+        if(localDate)scheduleAnchor=localDate.slice(0,10);
+        renderSchedule();
+      }
+      return true;
     }
     async function saveActivity() {
       if (!detail) return;
@@ -358,6 +405,7 @@
       const data = await rpc("satis_clients_upcoming");
       if (sequence !== visitSequence) return;
       visits = Array.isArray(data) ? data : [];
+      visitsLoaded=true;visitsFetchedAt=a.today?.()||localInput(new Date()).slice(0,10);
       renderVisits(); a.refreshCalendar();
     }
     function renderVisits() {
@@ -374,6 +422,90 @@
         b.append(heading,node("span",visit.full_name),node("small",visit.title)); return b;
       }));
       q("clientsVisitsEmpty").hidden = visits.some(visit => !clientLocation || visit.location === clientLocation);
+      renderSchedule();
+    }
+    const clock = minutes => `${String(Math.floor(minutes/60)).padStart(2,"0")}:${String(minutes%60).padStart(2,"0")}`;
+    function openVisit(visit) {void guarded(()=>select(visit.customer_id));}
+    function bookSlot(day, minutes) {
+      if(!allowed() || busy)return;
+      if(!detail || detail.profile.archived){notify("Wybierz najpierw zapisanego klienta, aby umówić wizytę.",true);return;}
+      if(!scheduleLocation){notify("Wybierz gabinet w harmonogramie przed wskazaniem godziny.",true);return;}
+      const location=scheduleLocation;
+      if(!editActivity("VISIT"))return;
+      a.setDate(q("clientVisitDate"),day);q("clientVisitTime").value=clock(minutes);
+      q("clientVisitLocation").value=location;scheduleLocation=location;scheduleAnchor=day;
+      q("clientsScheduleLocation").value=location;a.locationAccent(q("clientVisitLocation"));renderSchedule();
+      activityDirty=true;q("clientActivityEditor").scrollIntoView?.({block:"nearest",behavior:"smooth"});
+    }
+    function renderSchedule() {
+      if(!allowed())return;
+      const host=q("clientsSchedule"),range=scheduleRange(scheduleView,scheduleAnchor);
+      const today=a.today?.()||localInput(new Date()).slice(0,10),coverageStart=shiftDay(visitsFetchedAt||today,-30),coverageEnd=shiftDay(visitsFetchedAt||today,90);
+      const covered=day=>visitsLoaded && day>coverageStart && day<coverageEnd;
+      if(d.activeElement!==q("clientsScheduleDate"))a.setDate(q("clientsScheduleDate"),scheduleAnchor);
+      a.locationAccent(q("clientsScheduleLocation"));
+      q("clientsScheduleViews").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.scheduleView===scheduleView)));
+      const format=(day,options)=>new Intl.DateTimeFormat("pl-PL",options).format(new Date(`${day}T12:00:00`));
+      q("clientsScheduleTitle").textContent=scheduleView==="month"?format(scheduleAnchor,{month:"long",year:"numeric"})
+        : range.start===range.end?a.date(range.start):`${a.date(range.start)} – ${a.date(range.end)}`;
+      q("clientsScheduleNotice").textContent=!visitsLoaded?"Harmonogram nie został jeszcze pobrany. Użyj Odśwież."
+        : `Dane wizyt: ${a.date(shiftDay(coverageStart,1))} – ${a.date(shiftDay(coverageEnd,-1))}.${visits.length>=500?" Osiągnięto limit 500 wizyt — zestawienie może być niepełne.":""}`;
+      host.replaceChildren();
+      if(scheduleView==="month") {
+        const grid=node("div","","clients-schedule-month");
+        for(const label of ["Pon","Wt","Śr","Czw","Pt","Sob","Niedz"])grid.append(node("strong",label,"clients-schedule-weekday"));
+        for(const day of range.days) {
+          const cell=node("div","","clients-schedule-month-day"),header=button(format(day,{day:"numeric"}),()=>{scheduleAnchor=day;scheduleView="day";renderSchedule();},"clients-schedule-day-number");
+          const holiday=a.holiday?.(day);if(holiday){cell.dataset.holiday="true";header.title=holiday.name;}
+          cell.dataset.today=String(day===today);cell.dataset.outside=String(day.slice(0,7)!==scheduleAnchor.slice(0,7));
+          cell.dataset.weekend=String([0,6].includes(new Date(`${day}T12:00:00`).getDay()));
+          cell.append(header);
+          if(!covered(day))cell.append(node("small",visitsLoaded?"Poza zakresem danych":"Brak danych"));
+          else {
+            const entries=scheduleDayVisits(visits,day,scheduleLocation);
+            for(const item of entries.slice(0,3)) {
+              const event=button(`${clock(item.startMinute)} ${item.visit.full_name}`,()=>openVisit(item.visit),"clients-schedule-month-event");
+              event.dataset.locationTone=item.visit.location;event.title=`${clock(item.startMinute)}–${clock(item.endMinute)} · ${item.visit.full_name} · ${item.visit.location}`;cell.append(event);
+            }
+            if(entries.length>3)cell.append(button(`Jeszcze ${entries.length-3}`,()=>{scheduleAnchor=day;scheduleView="day";renderSchedule();},"reset-filters-btn"));
+          }
+          grid.append(cell);
+        }
+        host.append(grid);return;
+      }
+      const perDay=range.days.map(day=>scheduleDayVisits(visits,day,scheduleLocation)),items=perDay.flat();
+      const from=Math.min(7*60,...items.map(item=>Math.floor(item.startMinute/60)*60));
+      const to=Math.max(19*60,...items.map(item=>Math.ceil(item.endMinute/60)*60)),scale=1.5,height=(to-from)*scale;
+      const grid=node("div","","clients-schedule-timeline");grid.style.gridTemplateColumns=`52px repeat(${range.days.length}, minmax(${range.days.length===7?130:180}px, 1fr))`;
+      grid.append(node("span","","clients-schedule-day-heading"));
+      for(const day of range.days) {
+        const heading=node("div",format(day,{weekday:"short",day:"numeric",month:"short"}),"clients-schedule-day-heading");heading.dataset.today=String(day===today);grid.append(heading);
+        const holiday=a.holiday?.(day);if(holiday){heading.dataset.holiday="true";heading.title=holiday.name;}
+      }
+      const axis=node("div","","clients-schedule-axis");axis.style.height=`${height}px`;
+      for(let minute=from;minute<to;minute+=60){const label=node("span",clock(minute));label.style.top=`${(minute-from)*scale}px`;axis.append(label);}
+      grid.append(axis);
+      range.days.forEach((day,i)=>{
+        const column=node("div","","clients-schedule-day");column.style.height=`${height}px`;
+        column.dataset.weekend=String([0,6].includes(new Date(`${day}T12:00:00`).getDay()));
+        if(!covered(day)){column.append(node("p",visitsLoaded?"Poza zakresem danych":"Brak danych"));grid.append(column);return;}
+        for(let minute=from;minute<to;minute+=30){
+          const slot=button("",()=>bookSlot(day,minute),"clients-schedule-slot");
+          slot.style.top=`${(minute-from)*scale}px`;slot.style.height=`${30*scale}px`;
+          const occupied=perDay[i].some(item=>item.startMinute<minute+30 && item.endMinute>minute);
+          slot.setAttribute("aria-label",`${a.date(day)}, ${clock(minute)}${scheduleLocation?`, ${scheduleLocation}`:" — wybierz gabinet"}${occupied?" · zajęty termin":""}`);slot.title=`${a.date(day)} · ${clock(minute)}${occupied?" · zajęty termin":""}`;
+          column.append(slot);
+        }
+        for(const item of perDay[i]) {
+          const event=button("",()=>openVisit(item.visit),"clients-schedule-event");event.dataset.locationTone=item.visit.location;
+          event.style.top=`${(item.startMinute-from)*scale}px`;event.style.height=`${Math.max(24,(item.endMinute-item.startMinute)*scale-2)}px`;
+          event.style.left=`calc(${item.lane*100/item.lanes}% + 2px)`;event.style.width=`calc(${100/item.lanes}% - 4px)`;
+          event.title=`${clock(item.startMinute)}–${clock(item.endMinute)} · ${item.visit.full_name} · ${item.visit.location} · ${item.visit.title}`;
+          event.append(node("strong",`${clock(item.startMinute)}–${clock(item.endMinute)}`),node("span",item.visit.full_name),node("small",item.visit.location));column.append(event);
+        }
+        grid.append(column);
+      });
+      host.append(grid);
     }
     async function open() {
       if (!allowed()) return clear();
@@ -398,6 +530,8 @@
       q("clientsSearch").value="";q("clientsCard").hidden=true;q("clientsReminderBtn").hidden=true;notify("");
       for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount","clientAddressHint"]) q(id).textContent="";
       q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";sourcesUnavailable=false;
+      q("clientsSchedule").replaceChildren();q("clientsScheduleTitle").textContent="";q("clientsScheduleNotice").textContent="";q("clientsScheduleDate").value="";
+      visitsLoaded=false;visitsFetchedAt="";scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);
     }
     function startReminders() {
       clearTimeout(pollTimer);
@@ -467,21 +601,45 @@
       autoCity="";autoPostal="";profileDirty=true;normalizeContact();
     });
     q("clientLocation").addEventListener("change", () => a.locationAccent(q("clientLocation")));
-    q("clientVisitLocation").addEventListener("change", () => a.locationAccent(q("clientVisitLocation")));
+    q("clientVisitLocation").addEventListener("change", () => {
+      a.locationAccent(q("clientVisitLocation"));scheduleLocation=q("clientVisitLocation").value;
+      q("clientsScheduleLocation").value=scheduleLocation;renderSchedule();
+    });
     q("clientPhone").addEventListener("blur", () => {const phone=phoneKey(q("clientPhone").value);if(!phone || /^\d{9}$/.test(phone))q("clientPhone").value=a.phone(phone);});
     q("clientsPlaceFilter").addEventListener("click", event => {
       const b=event.target.closest("[data-client-place]");if(!b)return;clientLocation=b.dataset.clientPlace;
       q("clientsPlaceFilter").querySelectorAll("button").forEach(button=>button.setAttribute("aria-pressed",String(button===b)));renderList();renderVisits();void list().catch(e=>{if(allowed())notify(e.message,true);});
+      scheduleLocation=clientLocation;q("clientsScheduleLocation").value=scheduleLocation;renderSchedule();
     });
     q("clientTimelineFilters").addEventListener("click", event => {
       const b=event.target.closest("[data-client-timeline]");if(!b)return;timelineKind=b.dataset.clientTimeline;
       q("clientTimelineFilters").querySelectorAll("button").forEach(button=>button.setAttribute("aria-pressed",String(button===b)));renderHistory();
     });
     q("clientsReminderBtn").addEventListener("click", () => {if(allowed())a.navigate();});
+    q("clientsScheduleViews").addEventListener("click",event=>{
+      const b=event.target.closest("[data-schedule-view]");if(!b || !allowed())return;
+      scheduleView=b.dataset.scheduleView;renderSchedule();
+    });
+    q("clientsScheduleLocation").value=scheduleLocation;
+    q("clientsScheduleLocation").addEventListener("change",()=>{if(!allowed())return;scheduleLocation=q("clientsScheduleLocation").value;renderSchedule();});
+    q("clientsScheduleDate").addEventListener("change",()=>{
+      if(!allowed())return;const day=a.isoDate(q("clientsScheduleDate").value);
+      try{scheduleRange(scheduleView,day);scheduleAnchor=day;renderSchedule();}catch{notify("Wybierz prawidłową datę harmonogramu.",true);}
+    });
+    function moveSchedule(direction) {
+      if(!allowed())return;
+      if(scheduleView==="month") {
+        const date=new Date(`${scheduleAnchor.slice(0,7)}-01T12:00:00`);date.setMonth(date.getMonth()+direction);scheduleAnchor=localInput(date).slice(0,10);
+      } else scheduleAnchor=shiftDay(scheduleAnchor,direction*(scheduleView==="week"?7:scheduleView==="three"?3:1));
+      renderSchedule();
+    }
+    q("clientsSchedulePrev").addEventListener("click",()=>moveSchedule(-1));
+    q("clientsScheduleNext").addEventListener("click",()=>moveSchedule(1));
+    q("clientsScheduleToday").addEventListener("click",()=>{if(allowed()){scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);renderSchedule();}});
     a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty)){event.preventDefault();event.returnValue="";}});
     setBusy(false);
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};
   }
-  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,profilePayload,create};
+  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,profilePayload,create};
 });
