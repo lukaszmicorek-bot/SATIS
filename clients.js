@@ -85,7 +85,7 @@
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
-    let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "";
+    let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
     const discard = () => !(profileDirty || activityDirty) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
     function unsaved() {
       if (!profileDirty && !activityDirty) return false;
@@ -98,8 +98,13 @@
     }
     function notify(text, error = false) { q("clientsMessage").textContent = text; q("clientsMessage").dataset.error = String(error); }
     function getIndex() {
-      const rows = a.sources();
-      if (rows !== sourceRows) { sourceRows = rows; index = sourceIndex(rows); }
+      try {
+        const rows = a.sources();
+        if (rows !== sourceRows) { index = sourceIndex(rows); sourceRows = rows; }
+        sourcesUnavailable = false;
+      } catch {
+        index = sourceIndex([]); sourceRows = null; sourcesUnavailable = true;
+      }
       return index;
     }
     async function rpc(name, args = {}) {
@@ -372,13 +377,18 @@
     }
     async function open() {
       if (!allowed()) return clear();
-      try { setBusy(busy); getIndex(); renderList(); await list(); await upcoming(); notify(""); }
+      notify("Wczytywanie klientów…");
+      try {
+        setBusy(busy); await list(); getIndex(); renderList(); await upcoming();
+        notify(sourcesUnavailable ? "Karty klientów zostały wczytane, ale nie udało się odczytać powiązanych dokumentów. Odśwież dane aplikacji." : "", sourcesUnavailable);
+      }
       catch (e) { if (allowed()) { notify(e.message,true); setBusy(false); } }
     }
     function refreshSources() {
       if (!allowed() || !a.active()) return;
       try { getIndex(); renderList(); renderLinks(); renderHistory(); }
       catch { notify("Nie udało się odczytać powiązanych dokumentów. Odśwież dane; zapisane karty nie zostały usunięte.",true); }
+      if (sourcesUnavailable) notify("Nie udało się odczytać powiązanych dokumentów. Zapisane karty klientów pozostają dostępne.",true);
     }
     function clear() {
       generation++; listSequence++; detailSequence++; visitSequence++; clearTimeout(searchTimer); clearTimeout(pollTimer);
@@ -387,7 +397,7 @@
       q("clientsForm")?.reset(); q("clientActivityEditor")?.reset();
       q("clientsSearch").value="";q("clientsCard").hidden=true;q("clientsReminderBtn").hidden=true;notify("");
       for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount","clientAddressHint"]) q(id).textContent="";
-      q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";
+      q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";sourcesUnavailable=false;
     }
     function startReminders() {
       clearTimeout(pollTimer);
