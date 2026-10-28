@@ -107,6 +107,7 @@
 !/tests/vacation-weekend-range.test.cjs
 !/clients.js
 !/supabase-clients.sql
+!/supabase-client-schedule.sql
 !/KLIENCI-BEZPIECZENSTWO.md
 !/tests/clients.test.cjs
 !/tests/clients.sqltest.cjs

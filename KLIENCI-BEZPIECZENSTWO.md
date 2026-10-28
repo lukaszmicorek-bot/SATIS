@@ -2,6 +2,17 @@
 
 ## Wdrozenie
 
+### Godziny otwarcia, uslugi i zmiana czasu myszka
+
+Po podstawowym `supabase-clients.sql` uruchom **`supabase-client-schedule.sql`**. Ta dodatkowa migracja tworzy wspolne godziny otwarcia i katalog uslug, dodaje wskazanie uslugi przy wizycie oraz obejmuje zapisy kontrola limitow. Nie uruchamiaj ponownie samej starszej migracji podstawowej bez ponownego uruchomienia migracji harmonogramu, poniewaz podstawowa wersja funkcji zapisu nie zna nowych zasad.
+
+- Miejsce harmonogramu to kafelki Wszystkie/T12/P63/P50 we wspolnych kolorach.
+- Godziny otwarcia ustawia sie dla kazdego gabinetu i dnia tygodnia. Brak zapisanych godzin oznacza brak ograniczenia; pokazana propozycja 09:00-17:00 nie obowiazuje do zapisu. Dni oznaczone Zamkniete nie przyjmuja nowych planowanych wizyt. Zmiana godzin nie zmienia ani nie usuwa starszych wizyt.
+- Usluga ma nazwe, domyslny czas i opcjonalne maksima dzienne, tygodniowe, miesieczne oraz roczne. Limity sa **wspolne dla wszystkich gabinetow**, liczone wedlug kalendarza w strefie Europe/Warsaw; tydzien zaczyna sie w poniedzialek. Wliczane sa wizyty zaplanowane i odbyte, nie anulowane lub oznaczone Nieobecnosc. Puste pole/zero w bazie oznacza brak limitu. Starsze nieprzypisane wizyty nie sa automatycznie zaliczane do uslugi.
+- Po utworzeniu aktywnych uslug zapis nowej planowanej wizyty wymaga wyboru uslugi. Usluge mozna dezaktywowac, nie usuwa to historii. Limity sa sprawdzane po stronie PostgreSQL dla wszystkich terminow, nie tylko 500 pobranych do widoku. Transakcyjna blokada serializuje wspolne zmiany limitow i zapis wizyt, zeby dwa komputery nie zajely ostatniego miejsca rownoczesnie.
+- Dolna krawedz bloku wizyty pozwala zmienic czas co 5 minut (5-240 minut). Puszczenie myszy zapisuje zmiane, strzalki klawiatury na uchwycie zmieniaja czas o 5 minut. Zachowywane sa notatki, usluga i pozostale dane. Konflikt rewizji, przekroczenie godzin albo limitu odrzuca zapis; blok wraca do czasu potwierdzonego w bazie. Nakladanie wizyt nadal wymaga dodatkowego potwierdzenia.
+- Stara wewnetrzna funkcja zapisu jest niedostepna bezposrednio dla rol aplikacji. Wszystkie zapisy przechodza przez autoryzowany wrapper. RLS i dostep tylko SATIS pozostaja bez zmian. Bez nowej migracji karty klientow i zwykly harmonogram dzialaja, a nowe ustawienia/uslugi i uchwyty zmiany czasu pozostaja niedostepne z komunikatem o potrzebnym SQL.
+
 1. Zachowaj aktualna, zaszyfrowana kopie bazy. Dotychczasowy pelny `pg_dump` obejmuje tez nowe tabele po ich utworzeniu; nie ma nowego magazynu zalacznikow.
 2. W SQL Editor tego samego projektu Supabase, z ktorego korzysta SATIS, uruchom caly plik `supabase-clients.sql`. Wymaga on istniejacych migracji audytu i funkcji `is_satis_app_user()` oraz `is_satis_owner()`.
 3. Opublikuj kod zwyklym procesem wydania SATIS. Nowy plik `clients.js` jest uwzgledniony w liscie dozwolonych zasobow i paczce offline.

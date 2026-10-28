@@ -33,7 +33,7 @@ MIGRATIONS = [
     "supabase-audit-vacation.sql",
 ]
 EXTRA_PUBLIC_FILES = {
-    "supabase-clients.sql", "KLIENCI-BEZPIECZENSTWO.md", "tests/clients.test.cjs", "tests/clients.sqltest.cjs",
+    "supabase-clients.sql", "supabase-client-schedule.sql", "KLIENCI-BEZPIECZENSTWO.md", "tests/clients.test.cjs", "tests/clients.sqltest.cjs",
     "scripts/public_assets.py", "tests/stock-audit-workflow.test.cjs",
     "supabase-vacation-read-submitted.sql",
     "supabase-vacation-weekend-range.sql", "tests/vacation-weekend-range.test.cjs",
