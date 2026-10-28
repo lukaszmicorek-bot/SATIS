@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261023-5">
+  <link rel="stylesheet" href="styles.css?v=20261028-1">
   </head>
   <body>
     <main class="app-shell">
@@ -874,16 +874,18 @@
                   </select>
                 </label>
                 <div class="offer-side-devices">
-                <label class="offer-device-field offer-device-right">
-                  <span>Aparat P</span>
+                <label class="offer-device-field offer-device-right document-device-block" data-ear="P">
+                  <span><b class="document-ear-badge" aria-hidden="true">P</b> Prawy aparat</span>
                   <input id="offerDeviceInput1" type="text" list="pricingOfferDeviceList" placeholder="Model lub nazwa z cennika" autocomplete="off">
+                  <output id="offerDevicePrice1" class="document-device-price" aria-label="Cena prawego aparatu" aria-live="polite"></output>
                 </label>
                 <button id="offerTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień aparaty P i L" aria-label="Przenieś lub zamień aparaty P i L" disabled>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h16m-4-4 4 4-4 4M21 16H5m4-4-4 4 4 4"/></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V4m-4 4 4-4 4 4M16 4v16m-4-4 4 4 4-4"/></svg>
                 </button>
-                <label class="offer-device-field offer-device-left">
-                  <span>Aparat L</span>
+                <label class="offer-device-field offer-device-left document-device-block" data-ear="L">
+                  <span><b class="document-ear-badge" aria-hidden="true">L</b> Lewy aparat</span>
                   <input id="offerDeviceInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi aparat albo puste" autocomplete="off">
+                  <output id="offerDevicePrice2" class="document-device-price" aria-label="Cena lewego aparatu" aria-live="polite"></output>
                 </label>
                 </div>
                 <div class="offer-accessory-field offer-charger-field">
@@ -1094,20 +1096,11 @@
                 <div id="loanCustomerHistorySuggestions" class="loan-full customer-history-suggestions" aria-label="Dane klienta z historii" hidden></div>
 
                 <p id="loanFormEquipmentTitle" class="loan-form-title loan-full">Aparat słuchowy</p>
-                <div class="loan-device-row loan-full">
-                  <span class="loan-side-badge loan-side-right">P</span>
+                <div class="loan-device-row loan-full document-device-block" data-ear="P" role="group" aria-label="Prawy aparat">
+                  <span class="loan-side-badge loan-side-right document-ear-badge">P</span>
                   <label class="loan-device-model-field">
                     <span>Model</span>
                     <input id="loanRightDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
-                  </label>
-                  <label class="loan-serial-field" data-loan-serial-field="right">
-                    <span>Nr seryjny / UDI</span>
-                    <input id="loanRightSerialInput" type="text" autocomplete="off">
-                    <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="right" hidden>Wklej</button>
-                  </label>
-                  <label>
-                    <span>Producent</span>
-                    <input id="loanRightManufacturerInput" type="text" autocomplete="off">
                   </label>
                   <div class="loan-value-field">
                     <label for="loanRightValueInput"><span>Wartość brutto</span></label>
@@ -1116,6 +1109,15 @@
                       <button class="loan-clear-device-btn" type="button" data-clear-loan-device="right" aria-label="Usuń prawy aparat">×</button>
                     </div>
                   </div>
+                  <label class="loan-serial-field" data-loan-serial-field="right">
+                    <span>Nr seryjny / UDI</span>
+                    <input id="loanRightSerialInput" type="text" autocomplete="off">
+                    <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="right" hidden>Wklej</button>
+                  </label>
+                  <label class="loan-device-manufacturer-field">
+                    <span>Producent</span>
+                    <input id="loanRightManufacturerInput" type="text" autocomplete="off">
+                  </label>
                   <div id="loanRightPurposeField" class="loan-demo-purpose-field" data-loan-demo-purpose-field="right" hidden>
                     <span>Charakter aparatu</span>
                     <input id="loanRightPurposeInput" type="hidden">
@@ -1131,20 +1133,11 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v16m-4-4 4 4 4-4M16 21V5m-4 4 4-4 4 4"/></svg>
                   </button>
                 </div>
-                <div class="loan-device-row loan-full">
-                  <span class="loan-side-badge loan-side-left">L</span>
+                <div class="loan-device-row loan-full document-device-block" data-ear="L" role="group" aria-label="Lewy aparat">
+                  <span class="loan-side-badge loan-side-left document-ear-badge">L</span>
                   <label class="loan-device-model-field">
                     <span>Model</span>
                     <input id="loanLeftDeviceInput" type="text" list="pricingOfferDeviceList" autocomplete="off">
-                  </label>
-                  <label class="loan-serial-field" data-loan-serial-field="left">
-                    <span>Nr seryjny / UDI</span>
-                    <input id="loanLeftSerialInput" type="text" autocomplete="off">
-                    <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="left" hidden>Wklej</button>
-                  </label>
-                  <label>
-                    <span>Producent</span>
-                    <input id="loanLeftManufacturerInput" type="text" autocomplete="off">
                   </label>
                   <div class="loan-value-field">
                     <label for="loanLeftValueInput"><span>Wartość brutto</span></label>
@@ -1153,6 +1146,15 @@
                       <button class="loan-clear-device-btn" type="button" data-clear-loan-device="left" aria-label="Usuń lewy aparat">×</button>
                     </div>
                   </div>
+                  <label class="loan-serial-field" data-loan-serial-field="left">
+                    <span>Nr seryjny / UDI</span>
+                    <input id="loanLeftSerialInput" type="text" autocomplete="off">
+                    <button class="loan-paste-serial-btn" type="button" data-paste-loan-serial="left" hidden>Wklej</button>
+                  </label>
+                  <label class="loan-device-manufacturer-field">
+                    <span>Producent</span>
+                    <input id="loanLeftManufacturerInput" type="text" autocomplete="off">
+                  </label>
                   <div id="loanLeftPurposeField" class="loan-demo-purpose-field" data-loan-demo-purpose-field="left" hidden>
                     <span>Charakter aparatu</span>
                     <input id="loanLeftPurposeInput" type="hidden">
@@ -1367,11 +1369,17 @@
                   </div>
                   <small class="structured-address-hint" aria-live="polite" hidden></small>
                 </div>
-                <label><span>Aparat <b class="receipt-side-P">P</b> · model</span><input id="receiptModelP" list="deviceNameSuggestions" autocomplete="off"></label>
-                <label><span>Nr seryjny <b class="receipt-side-P">P</b></span><span class="receipt-serial-control"><input id="receiptSerialP" autocomplete="off"><button type="button" data-receipt-copy="P" aria-label="Kopiuj numer seryjny P">Kopiuj</button><button type="button" data-paste-target="receiptSerialP" data-paste-format="serial" data-receipt-paste="P" aria-label="Wklej numer seryjny P">Wklej</button></span></label>
+                <div class="receipt-device-block document-device-block" data-ear="P" role="group" aria-label="Prawy aparat">
+                  <span class="document-ear-badge receipt-side-P">P</span>
+                  <label class="document-model-field"><span>Prawy aparat · model</span><input id="receiptModelP" list="deviceNameSuggestions" autocomplete="off"></label>
+                  <label class="document-serial-field"><span>Nr seryjny</span><span class="receipt-serial-control"><input id="receiptSerialP" autocomplete="off"><button type="button" data-receipt-copy="P" aria-label="Kopiuj numer seryjny P">Kopiuj</button><button type="button" data-paste-target="receiptSerialP" data-paste-format="serial" data-receipt-paste="P" aria-label="Wklej numer seryjny P">Wklej</button></span></label>
+                </div>
                 <div class="receipt-side-transfer"><button id="receiptTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień model i numer seryjny P / L" aria-label="Przenieś lub zamień aparaty P i L" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V4m-4 4 4-4 4 4M16 4v16m-4-4 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
-                <label><span>Aparat <b class="receipt-side-L">L</b> · model</span><input id="receiptModelL" list="deviceNameSuggestions" autocomplete="off"></label>
-                <label><span>Nr seryjny <b class="receipt-side-L">L</b></span><span class="receipt-serial-control"><input id="receiptSerialL" autocomplete="off"><button type="button" data-receipt-copy="L" aria-label="Kopiuj numer seryjny L">Kopiuj</button><button type="button" data-paste-target="receiptSerialL" data-paste-format="serial" data-receipt-paste="L" aria-label="Wklej numer seryjny L">Wklej</button></span></label>
+                <div class="receipt-device-block document-device-block" data-ear="L" role="group" aria-label="Lewy aparat">
+                  <span class="document-ear-badge receipt-side-L">L</span>
+                  <label class="document-model-field"><span>Lewy aparat · model</span><input id="receiptModelL" list="deviceNameSuggestions" autocomplete="off"></label>
+                  <label class="document-serial-field"><span>Nr seryjny</span><span class="receipt-serial-control"><input id="receiptSerialL" autocomplete="off"><button type="button" data-receipt-copy="L" aria-label="Kopiuj numer seryjny L">Kopiuj</button><button type="button" data-paste-target="receiptSerialL" data-paste-format="serial" data-receipt-paste="L" aria-label="Wklej numer seryjny L">Wklej</button></span></label>
+                </div>
                 <label><span>Refundacja NFZ · łącznie (zł)</span><input id="receiptNfzInput" type="number" min="0" step="0.01" placeholder="0,00"></label>
                 <fieldset class="receipt-tested"><legend>Testowanie w domu</legend>
                   <label><input type="radio" name="receiptTested" value="yes"> Tak</label>
@@ -3387,14 +3395,14 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261023-5"></script>
-    <script src="data-layer.js?v=20261023-5"></script>
-    <script src="sync-layer.js?v=20261023-5"></script>
-    <script src="traffic-meter.js?v=20261023-5"></script>
-    <script src="repair-returns.js?v=20261023-5"></script>
-    <script src="offline-vault.js?v=20261023-5"></script>
-    <script src="offline-forms.js?v=20261023-5"></script>
-    <script src="stock-audit.js?v=20261023-5"></script>
-  <script src="app.js?v=20261023-5"></script>
+    <script src="supabase-config.js?v=20261028-1"></script>
+    <script src="data-layer.js?v=20261028-1"></script>
+    <script src="sync-layer.js?v=20261028-1"></script>
+    <script src="traffic-meter.js?v=20261028-1"></script>
+    <script src="repair-returns.js?v=20261028-1"></script>
+    <script src="offline-vault.js?v=20261028-1"></script>
+    <script src="offline-forms.js?v=20261028-1"></script>
+    <script src="stock-audit.js?v=20261028-1"></script>
+  <script src="app.js?v=20261028-1"></script>
   </body>
 </html>

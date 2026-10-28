@@ -48,9 +48,14 @@ assert.ok(unified.includes('tools.append(actions)'), 'save and print share the t
 assert.ok(unified.includes('event.stopImmediatePropagation()'), 'cancelled New action cannot reach existing reset handler');
 assert.ok(unified.includes('nameInput.reportValidity()'), 'all six print buttons validate customer name');
 assert.ok(unified.includes('Zakończenie umowy · zwrot'));
+assert.ok(unified.includes('const returnSection = document.createElement("section")'), 'return fields are permanently visible, not a disclosure');
+assert.ok(unified.includes('returnSection.append(returnTitle, returnFields)'));
+assert.ok(!unified.includes('returnSection.open'), 'return visibility does not depend on expanding a details element');
+const restoreLoan = source.slice(source.indexOf('function restorePricingLoanFromHistory('), source.indexOf('async function deletePricingLoanHistoryEntry('));
+assert.ok(restoreLoan.includes('updateLoanReturnDeadlineHighlight()'), 'loading an active contract immediately refreshes return-date highlighting');
 assert.ok(unified.includes('Miejsce podpisania'));
 assert.ok(unified.includes('complaintEditor.before(node)'), 'purchase matching stays adjacent to complaint products');
-assert.ok(unified.includes('label("receiptModelP").before(purchase)'), 'purchase selector comes before receipt model entry');
+assert.ok(unified.includes('label("receiptModelP").closest(".document-device-block").before(purchase)'), 'purchase selector comes before the complete P device block, not inside it');
 assert.ok(source.includes('globalThis.SatisDocumentLayout?.openReturn()'), 'service-linked return action unfolds return fields');
 const css = fs.readFileSync('styles.css', 'utf8');
 assert.match(css, /\.unified-document-editor\s*\{\s*--document-control-height: 40px;/);

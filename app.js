@@ -9292,6 +9292,16 @@ function startNewPricingOffer() {
   offerCustomerInput?.focus();
 }
 
+function updateOfferDevicePriceLabels(items) {
+  for (const slot of [1, 2]) {
+    const output = document.getElementById(`offerDevicePrice${slot}`);
+    if (!output) continue;
+    const item = items.find(entry => entry.slot === slot);
+    const price = item ? normalizePricingPrice(item.record.grossPrice) : "";
+    output.textContent = price === "" ? "" : `${formatPricingAmount(price)} zł`;
+  }
+}
+
 function renderPricingOffer() {
   if (!pricingOfferView) return;
   const offerDate = ensurePricingOfferDate();
@@ -9314,6 +9324,7 @@ function renderPricingOffer() {
     offerTransferSidesBtn.setAttribute("aria-label", label);
   }
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
+  updateOfferDevicePriceLabels(deviceItems);
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
   const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
   const deviceTotal = deviceItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
@@ -10211,16 +10222,18 @@ function setupUnifiedDocumentLayout() {
   [loanGrid.querySelector(".loan-period-fields"), loanGrid.querySelector(".loan-testing-fee-field"),
     loanGrid.querySelector(".loan-deposit-toggle"), label("loanDepositInput")].filter(Boolean).forEach(node => loanGrid.insertBefore(node, issueTitle));
   issueTitle.textContent = "Wydanie";
-  const returnSection = document.createElement("details");
+  const returnSection = document.createElement("section");
   returnSection.id = "loanReturnSection";
   returnSection.className = "loan-full document-return-section";
-  const summary = document.createElement("summary");
-  summary.textContent = "Zakończenie umowy · zwrot";
+  const returnTitle = document.createElement("h4");
+  returnTitle.id = "loanReturnTitle";
+  returnTitle.textContent = "Zakończenie umowy · zwrot";
+  returnSection.setAttribute("aria-labelledby", returnTitle.id);
   const returnFields = document.createElement("div");
   returnFields.className = "loan-form-grid";
   [label("loanReturnDateInput"), label("loanDepositReturnDateInput"), document.getElementById("loanReturnDeadlineHint")]
     .filter(Boolean).forEach(node => returnFields.append(node));
-  returnSection.append(summary, returnFields);
+  returnSection.append(returnTitle, returnFields);
   loanGrid.append(returnSection);
   for (const [view, placeId, nameId, phoneId] of [
     [pricingOrderView, "orderLocationInput", "orderCustomerInput", "orderPhoneInput"],
@@ -10279,7 +10292,7 @@ function setupUnifiedDocumentLayout() {
   });
   const purchase = document.getElementById("receiptPurchaseField");
   purchase.classList.add("document-full-field");
-  label("receiptModelP").before(purchase);
+  label("receiptModelP").closest(".document-device-block").before(purchase);
   const receiptNote = document.createElement("p");
   receiptNote.className = "document-form-note";
   receiptNote.textContent = "Wydruk potwierdzenia nie zmienia daty odbioru ani statusu aparatu w Bazie.";
@@ -10340,7 +10353,7 @@ function setupUnifiedDocumentLayout() {
     savedStatus(kind) {
       this.status(kind, offlineForms?.active() ? "Zapisano na tym komputerze" : documentDraftIdentities.get(kind)?.saved ? "Zapisano dokument" : "Nowy formularz");
     },
-    openReturn() { returnSection.open = true; },
+    openReturn() { returnSection.hidden = false; },
     orderTotals() {
       orderItemsFormBody.querySelectorAll("[data-order-row]").forEach(row => {
         const cost = normalizeServiceCost(row.querySelector('[data-order-field="cost"]').value);
@@ -11662,6 +11675,7 @@ function restorePricingLoanFromHistory(entry) {
   switchPricingView("loan");
   renderPricingLoan();
   markAgreementDraftSaved("loan");
+  updateLoanReturnDeadlineHighlight();
   pricingLoanView?.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
