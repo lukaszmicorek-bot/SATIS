@@ -384,3 +384,99 @@ test('source-index failure is reported without rejecting navigation or refresh',
   assert.doesNotThrow(()=>f.module.refreshSources());
   assert.match(f.nodes.get('clientsMessage').textContent,/powiązanych dokumentów/);
 });
+
+const relationSources = () => [
+  {id:'loan-a',type:'loan',name:'Test Osoba',phone:'500600800',date:'2026-10-01',kind:'Umowa',number:'1/10/2026'},
+  {id:'order-a',type:'order',name:'Test Osoba',phone:'500600800',date:'2026-10-02',kind:'Zamówienie',number:'2/10/2026'},
+  {id:'service-a',type:'service',name:'Test Osoba',phone:'500600800',date:'2026-10-03',kind:'Serwis',serial:'TEST123'}
+];
+function relationFixture({confirmed=[],accept=true,failLink=false,existing=false}={}) {
+  let saved=existing || confirmed.length ? {...profile,revision:1} : null,links=confirmed.map(row=>({source_type:row.type,source_id:row.id})),linkAttempts=0;
+  const prompts=[],rows=relationSources();
+  const f=fixture(async(name,args)=>{
+    if(name==='satis_clients_overview')return {data:{profiles:saved?[saved]:[],total:saved?1:0}};
+    if(name==='satis_client_detail')return {data:{profile:{...saved},links:links.map(link=>({...link})),activities:[],operations:[]}};
+    if(name==='satis_clients_write') {
+      if(args.p_action==='PROFILE') {
+        saved={...args.p_data,id:args.p_id,revision:(saved?.revision||0)+1};
+        return {data:{id:saved.id,revision:saved.revision}};
+      }
+      if(args.p_action==='LINK') {
+        linkAttempts++;
+        assert.equal(args.p_expected_revision,saved.revision,'every link uses the current profile revision');
+        if(failLink && linkAttempts===2) {
+          if(failLink==='uncertain'){links.push({...args.p_data});saved={...saved,revision:saved.revision+1};}
+          return {error:{code:failLink==='uncertain'?'NETWORK':'PT409'}};
+        }
+        assert.ok(!links.some(link=>link.source_type===args.p_data.source_type && link.source_id===args.p_data.source_id),'do not re-link a confirmed document');
+        links.push({...args.p_data});saved={...saved,revision:saved.revision+1};
+        return {data:{id:saved.id}};
+      }
+    }
+    return {data:[]};
+  },{sources:()=>rows,confirm:message=>{prompts.push(message);return accept;}});
+  f.nodes.get('clientsSearch').value='Test Osoba';
+  return {...f,prompts,links,rows,saved:()=>saved};
+}
+async function saveProposedClient(f) {
+  await f.module.open();
+  if(f.saved())await f.module.select(f.saved().id);
+  else f.nodes.get('clientsSuggestions').children[0].emit('click');
+  f.nodes.get('clientsForm').emit('submit');
+  for(let i=0;i<12;i++)await tick();
+}
+test('saving a selected source client confirms and persists all three documents with current revisions',async()=>{
+  const f=relationFixture();await saveProposedClient(f);
+  assert.equal(f.links.length,3);
+  assert.equal(f.prompts.length,1);
+  assert.match(f.prompts[0],/Test Osoba/);
+  for(const label of ['1/10/2026','2/10/2026','TEST123'])assert.ok(f.prompts[0].includes(label));
+  assert.equal(f.nodes.get('clientCandidatesCount').textContent,'0');
+  assert.equal(f.nodes.get('clientHistory').children.length,3);
+  assert.match(f.nodes.get('clientsMessage').textContent,/3/);
+});
+test('declining document confirmation keeps the saved card and explains the three pending links',async()=>{
+  const f=relationFixture({accept:false});await saveProposedClient(f);
+  assert.ok(f.saved());assert.equal(f.links.length,0);
+  const text=descendants(f.nodes.get('clientHistory')).map(node=>node.textContent).join(' ');
+  assert.match(text,/3/);assert.match(text,/potwierdz/);
+  assert.doesNotMatch(text,/Brak potwierdzonych powiązań i działań/);
+});
+test('saving a card preserves already confirmed documents and does not ask to confirm them again',async()=>{
+  const f=relationFixture({confirmed:relationSources()});await saveProposedClient(f);
+  assert.equal(f.links.length,3);assert.equal(f.prompts.length,0);
+  assert.equal(f.nodes.get('clientHistory').children.length,3);
+  f.nodes.get('clientsForm').emit('submit');for(let i=0;i<8;i++)await tick();
+  assert.equal(f.links.length,3);assert.equal(f.prompts.length,0);
+});
+test('partial link failure retains saved links, reports the failure and retry confirms only the missing documents',async()=>{
+  const f=relationFixture({failLink:true});await saveProposedClient(f);
+  assert.equal(f.links.length,1);
+  assert.equal(f.nodes.get('clientsMessage').dataset.error,'true');
+  assert.match(f.nodes.get('clientsMessage').textContent,/powiąza|powiąz/);
+  f.nodes.get('clientsForm').emit('submit');for(let i=0;i<12;i++)await tick();
+  assert.equal(f.links.length,3);
+  assert.equal(f.nodes.get('clientHistory').children.length,3);
+});
+test('unavailable confirmed documents show a load warning without claiming that no links exist',async()=>{
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}
+    :name==='satis_client_detail'?{...detail,links:[{source_type:'loan',source_id:'missing'}]}:[]}));
+  await f.module.open();await f.module.select(profile.id);
+  const text=descendants(f.nodes.get('clientHistory')).map(node=>node.textContent).join(' ');
+  assert.match(text,/Nie załadowano 1/);
+  assert.doesNotMatch(text,/Brak potwierdzonych powiązań i działań/);
+});
+
+test('an existing client with three source documents gains all three confirmed links on save',async()=>{
+  const f=relationFixture({existing:true});await saveProposedClient(f);
+  assert.equal(f.saved().id,profile.id);assert.equal(f.links.length,3);
+  assert.equal(f.nodes.get('clientHistory').children.length,3);
+});
+test('lost link acknowledgment refreshes confirmed server state and retry skips that document',async()=>{
+  const f=relationFixture({failLink:'uncertain'});await saveProposedClient(f);
+  assert.equal(f.links.length,2);
+  assert.equal(f.nodes.get('clientsMessage').dataset.error,'true');
+  assert.equal(f.nodes.get('clientHistory').children.length,2);
+  f.nodes.get('clientsForm').emit('submit');for(let i=0;i<12;i++)await tick();
+  assert.equal(f.links.length,3);assert.equal(f.nodes.get('clientHistory').children.length,3);
+});

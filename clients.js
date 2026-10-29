@@ -302,7 +302,30 @@
       }
       await write("PROFILE", id, data, detail?.profile.revision);
       profileDirty = false; activityDirty = false;
-      await select(id); await list(); notify("Karta zapisana. Dane źródłowe nie zostały zmienione.");
+      await select(id);
+      const candidates = detail.profile.archived ? [] : sourceCandidates().slice(0, 100);
+      let linkedCount = 0;
+      if (candidates.length && a.confirm(`Karta ${detail.profile.full_name} została zapisana. Potwierdzić powiązanie dokumentów (${candidates.length}) z tą osobą?\n\n${candidates.map((row, i) =>
+        `${i + 1}. ${row.kind} · ${[row.number,row.serial,row.model].filter(Boolean).join(" · ") || "bez numeru"} · ${row.date ? a.date(row.date) : "bez daty"} · ${row.phone ? a.phone(row.phone) : "brak telefonu"}${row.address ? ` · ${row.address}` : ""}`
+      ).join("\n")}\n\nSprawdź osobę i dane kontaktowe. Zgodne nazwisko nie wystarcza. Anuluj pozostawi dokumenty do indywidualnego potwierdzenia, a zapisana karta pozostanie zachowana.`)) {
+        try {
+          for (const row of candidates) {
+            if (detail.links.some(link => link.source_type === row.type && link.source_id === row.id)) continue;
+            await write("LINK",id,{source_type:row.type,source_id:row.id},detail.profile.revision);
+            linkedCount++;
+            await select(id);
+          }
+        } catch (error) {
+          // Refresh confirmed links after a partial or uncertain write before the next retry.
+          try { await select(id); } catch { /* Keep the last confirmed card if refresh also fails. */ }
+          throw new Error(`Karta została zapisana, ale nie udało się zakończyć potwierdzania dokumentów. Wcześniej zapisane powiązania pozostają zachowane. ${error.message}`);
+        }
+      }
+      await list();
+      const remaining = detail.profile.archived ? 0 : sourceCandidates().length;
+      notify(linkedCount ? `Karta zapisana. Potwierdzono powiązania: ${linkedCount}.${remaining ? ` Do potwierdzenia pozostało: ${remaining}.` : ""}`
+        : remaining ? `Karta zapisana. Dokumenty do potwierdzenia: ${remaining}. Wybierz właściwe powiązania poniżej lub potwierdź je przy kolejnym zapisie.`
+        : "Karta zapisana. Dane źródłowe nie zostały zmienione.");
     }
     async function archive() {
       if (!detail || !discard() || !a.confirm(detail.profile.archived ? "Przywrócić kartę klienta?" : "Zarchiwizować kartę? Dane pozostaną w archiwum; najpierw zakończ lub anuluj zaplanowane wizyty.")) return;
@@ -320,11 +343,15 @@
       q("clientHistory").replaceChildren(); q("clientOperations").replaceChildren();
       await list(); await upcoming(); notify("Karta usunięta. Dokumenty źródłowe pozostały bez zmian.");
     }
-    function renderLinks() {
-      if (!detail || !allowed()) return;
+    function sourceCandidates() {
+      if (!detail || !allowed()) return [];
       const idx = getIndex(), linked = new Set(detail.links.map(link => `${link.source_type}:${link.source_id}`));
       const rows = idx.byName.get(normalized(detail.profile.full_name)) || [];
-      const candidates = rows.filter(row => !linked.has(sourceKey(row)));
+      return rows.filter(row => !linked.has(sourceKey(row)));
+    }
+    function renderLinks() {
+      if (!detail || !allowed()) return;
+      const candidates = sourceCandidates();
       q("clientCandidates").replaceChildren(...candidates.slice(0, 100).map(row => {
         const line = node("div", "", "client-source-row");
         const content = node("div");
@@ -378,7 +405,16 @@
         q("clientHistory").append(warning);
       }
       if (unavailable.length) q("clientHistory").append(node("p",`Nie załadowano ${unavailable.length} powiązanych rekordów źródłowych. Odśwież dane aplikacji; powiązania nie zostały usunięte.`));
-      if (!lines.length) q("clientHistory").append(node("p","Brak potwierdzonych powiązań i działań."));
+      if (!lines.length && !unavailable.length && !changedPerson.length) {
+        const pending = sourceCandidates().length;
+        q("clientHistory").append(node("p", sourcesUnavailable
+          ? "Nie udało się odczytać dokumentów. Odśwież dane aplikacji."
+          : pending ? `Dokumenty do potwierdzenia: ${pending}. Potwierdź powiązania przy zapisie karty lub przy wybranym dokumencie poniżej.`
+          : "Brak dokumentów i działań dla tej karty."));
+      }
+      if (lines.length && !lines.some(row => timelineKind === "all" || (timelineKind === "source") === row.source)) {
+        q("clientHistory").append(node("p","Brak wpisów w wybranym filtrze historii."));
+      }
       if (detail.activities.length >= 200) q("clientHistory").append(node("p","Pokazano 200 ostatnich działań na karcie."));
       q("clientOperations").replaceChildren(...detail.operations.map(event => node("p",`${a.dateTime(event.created_at)} · ${event.operation} · ${event.actor_id}`)));
     }
