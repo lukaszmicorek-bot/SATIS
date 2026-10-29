@@ -5682,6 +5682,18 @@ function deviceEzwmStatus(record) {
   return isDeviceCharger(record) ? "BEZ REFUNDACJI" : normalizeEzwmStatus(record?.ezwm);
 }
 
+function deviceEzwmRealizationDelay(record, today = todayInputValue()) {
+  if (String(record?.type ?? "").trim().toLocaleUpperCase("pl-PL") === "ZWROT"
+    || !String(record?.salesInvoice ?? "").trim()
+    || ["REALIZACJA", "BEZ REFUNDACJI"].includes(deviceEzwmStatus(record))) return null;
+  const soldOn = isoDateForSave(record?.pickupDate);
+  const currentDay = isoDateForSave(today);
+  if (!soldOn || !currentDay || soldOn > currentDay) return null;
+  // UTC midnights count calendar days without daylight-saving offsets.
+  const days = Math.round((Date.parse(`${currentDay}T00:00:00Z`) - Date.parse(`${soldOn}T00:00:00Z`)) / 86400000);
+  return { days, level: days >= 5 ? "critical" : days >= 2 ? "warning" : "pending" };
+}
+
 function normalizeRepairCategory(category) {
   const normalizedCategory = String(category ?? "").trim().toLocaleUpperCase("pl-PL");
   if (normalizedCategory === "NAPRAWA") return "NAPRAWA GWARANCYJNA";
@@ -17935,7 +17947,7 @@ function buildDataControlIssues() {
     const type = displayType(record);
     const hasCustomer = Boolean(String(record.customerName ?? "").trim());
     const hasInvoice = Boolean(String(record.salesInvoice ?? "").trim());
-    const ezwm = deviceEzwmStatus(record);
+    const ezwmDelay = deviceEzwmRealizationDelay(record);
     const invoiceIssue = suspiciousSalesInvoiceReason(record.salesInvoice);
 
     if (!String(record.deviceName ?? "").trim()) {
@@ -17953,8 +17965,8 @@ function buildDataControlIssues() {
     if (type === "SPRZEDANY" && !hasCustomer) {
       addDataControlIssue(issues, record, "devices", "warning", "status", "Sprzedany bez klienta", "Status wskazuje sprzedaż, ale imię i nazwisko jest puste.");
     }
-    if (type === "SPRZEDANY" && !["REALIZACJA", "BEZ REFUNDACJI"].includes(ezwm)) {
-      addDataControlIssue(issues, record, "devices", "warning", "ezwm", "Sprzedany bez EZWM realizacja", "Dla sprzedanego aparatu EZWM nie ma statusu realizacja.");
+    if (ezwmDelay && ezwmDelay.level !== "pending") {
+      addDataControlIssue(issues, record, "devices", ezwmDelay.level === "critical" ? "critical" : "warning", "ezwm", "Brak realizacji EZWM", `Od sprzedaży upłynęło: ${formatDaysLabel(ezwmDelay.days)}. Faktura jest wpisana, ale EZWM nie ma statusu realizacja.`);
     }
     if (type === "NA STANIE" && (hasCustomer || hasInvoice)) {
       addDataControlIssue(issues, record, "devices", "warning", "status", "Na stanie z klientem lub fakturą", "Rekord wygląda na rezerwację albo sprzedaż, ale status to na stanie.");
@@ -19613,21 +19625,23 @@ function createEzwmCell(record) {
   if (displayType(record) === "ZWROT") return "";
   const normalizedValue = deviceEzwmStatus(record);
   const soldWithoutRealization = displayType(record) === "SPRZEDANY" && !["REALIZACJA", "BEZ REFUNDACJI"].includes(normalizedValue);
+  const delay = deviceEzwmRealizationDelay(record);
+  const awaitingRealization = soldWithoutRealization || Boolean(delay);
 
-  if (!normalizedValue && !soldWithoutRealization) return "";
+  if (!normalizedValue && !awaitingRealization) return "";
 
   const wrap = document.createElement("span");
   wrap.className = `ezwm-cell ${
-    soldWithoutRealization
-      ? "ezwm-alert"
+    awaitingRealization
+      ? delay?.level === "critical" ? "ezwm-alert" : delay?.level === "warning" ? "ezwm-warning" : "ezwm-pending"
       : normalizedValue === "POBRANE"
         ? "ezwm-progress"
         : normalizedValue === "BEZ REFUNDACJI"
           ? "ezwm-none"
           : "ezwm-picked"
   }`;
-  wrap.title = soldWithoutRealization
-    ? "Sprzedany bez EZWM realizacja"
+  wrap.title = awaitingRealization
+    ? delay ? `Brak realizacji EZWM · od sprzedaży: ${formatDaysLabel(delay.days)}` : "Brak realizacji EZWM — do ustalenia terminu potrzebne są data sprzedaży/odbioru i faktura."
     : normalizedValue === "POBRANE"
       ? "EZWM pobrane"
       : normalizedValue === "BEZ REFUNDACJI"
@@ -19641,7 +19655,7 @@ function createEzwmCell(record) {
   icon.setAttribute("aria-hidden", "true");
 
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  if (soldWithoutRealization) {
+  if (awaitingRealization) {
     path.setAttribute("d", "M10 3.5 17 16.5H3zM10 7.2v4.6M10 14.3h.01");
   } else if (normalizedValue === "POBRANE") {
     path.setAttribute("d", "M10 4.5a5.5 5.5 0 1 1-4.1 1.8M10 2.5v3.2M10 10l2.2 2.2");
