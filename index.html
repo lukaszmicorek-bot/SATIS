@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261029-2">
+  <link rel="stylesheet" href="styles.css?v=20261029-3">
   </head>
   <body>
     <main class="app-shell">
@@ -583,38 +583,37 @@
             </div>
           </section>
           <div class="repair-kind-tiles repair-header-filters" role="group" aria-label="Rodzaj spraw">
+            <details class="repair-color-legend">
+              <summary>Legenda kolorów</summary>
+              <div class="repair-color-legend-content">
+                <div class="repair-legend-group">
+                  <small>Status</small>
+                  <span class="status-pill PRZYJĘTE">Przyjęte</span>
+                  <span class="status-pill W-TRAKCIE">Wysłano</span>
+                  <span class="status-pill GOTOWE">Do odbioru</span>
+                  <span class="status-pill ODEBRANE">Odebrane</span>
+                </div>
+                <div class="repair-legend-group">
+                  <small>Typ</small>
+                  <span class="type-pill INSERT">Wkładka uszna</span>
+                  <span class="type-pill WATER-INSERT">Wkładka przeciwwodna</span>
+                  <span class="type-pill REPAIR">Naprawa gwarancyjna</span>
+                  <span class="type-pill OUT-OF-WARRANTY">Naprawa pogwarancyjna</span>
+                  <span class="type-pill ORDER">Zamówienie</span>
+                </div>
+                <div class="repair-legend-group repair-legend-deadlines">
+                  <small>Czas na obecnym etapie</small>
+                  <span class="repair-legend-warning">ponad 7 dni</span>
+                  <span class="repair-legend-critical">ponad 15 dni</span>
+                </div>
+              </div>
+            </details>
             <button type="button" data-repair-kind="all" aria-pressed="true">Wszystkie</button>
             <button type="button" data-repair-kind="service" aria-pressed="false">Serwis</button>
             <button type="button" data-repair-kind="order" aria-pressed="false">Zamówienia</button>
             <label class="repair-active-filter"><input id="repairActiveOnlyFilter" type="checkbox" role="switch" checked><span>Tylko aktywne</span></label>
           </div>
         </div>
-
-        <details class="repair-color-legend">
-          <summary>Legenda kolorów</summary>
-          <div class="repair-color-legend-content">
-            <div class="repair-legend-group">
-              <small>Status</small>
-              <span class="status-pill PRZYJĘTE">Przyjęte</span>
-              <span class="status-pill W-TRAKCIE">Wysłano</span>
-              <span class="status-pill GOTOWE">Do odbioru</span>
-              <span class="status-pill ODEBRANE">Odebrane</span>
-            </div>
-            <div class="repair-legend-group">
-              <small>Typ</small>
-              <span class="type-pill INSERT">Wkładka uszna</span>
-              <span class="type-pill WATER-INSERT">Wkładka przeciwwodna</span>
-              <span class="type-pill REPAIR">Naprawa gwarancyjna</span>
-              <span class="type-pill OUT-OF-WARRANTY">Naprawa pogwarancyjna</span>
-              <span class="type-pill ORDER">Zamówienie</span>
-            </div>
-            <div class="repair-legend-group repair-legend-deadlines">
-              <small>Czas na obecnym etapie</small>
-              <span class="repair-legend-warning">ponad 7 dni</span>
-              <span class="repair-legend-critical">ponad 15 dni</span>
-            </div>
-          </div>
-        </details>
 
         <section id="repairDatabaseView" class="view-section" data-view-group="repairs" role="tabpanel" aria-labelledby="repairDatabaseTab">
           <section class="controls repairs-controls compact-filters" aria-label="Narzędzia zeszytu serwisu i zamówień">
@@ -3523,15 +3522,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261029-2"></script>
-    <script src="data-layer.js?v=20261029-2"></script>
-    <script src="sync-layer.js?v=20261029-2"></script>
-    <script src="traffic-meter.js?v=20261029-2"></script>
-    <script src="repair-returns.js?v=20261029-2"></script>
-    <script src="offline-vault.js?v=20261029-2"></script>
-    <script src="offline-forms.js?v=20261029-2"></script>
-    <script src="stock-audit.js?v=20261029-2"></script>
-    <script src="clients.js?v=20261029-2"></script>
-  <script src="app.js?v=20261029-2"></script>
+    <script src="supabase-config.js?v=20261029-3"></script>
+    <script src="data-layer.js?v=20261029-3"></script>
+    <script src="sync-layer.js?v=20261029-3"></script>
+    <script src="traffic-meter.js?v=20261029-3"></script>
+    <script src="repair-returns.js?v=20261029-3"></script>
+    <script src="offline-vault.js?v=20261029-3"></script>
+    <script src="offline-forms.js?v=20261029-3"></script>
+    <script src="stock-audit.js?v=20261029-3"></script>
+    <script src="clients.js?v=20261029-3"></script>
+  <script src="app.js?v=20261029-3"></script>
   </body>
 </html>

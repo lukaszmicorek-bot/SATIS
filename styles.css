@@ -7638,9 +7638,9 @@ h2 {
 .unified-document-editor .order-editor-table :is(th, td):nth-child(1) { width: 190px; }
 .unified-document-editor .order-editor-table :is(th, td):nth-child(2) { width: auto; text-align: left; }
 .unified-document-editor .order-editor-table :is(th, td):nth-child(3) { width: 90px; }
-.unified-document-editor .order-editor-table :is(th, td):nth-child(4) { width: 60px; text-align: center; }
-.unified-document-editor .order-editor-table :is(th, td):nth-child(5),
-.unified-document-editor .order-editor-table :is(th, td):nth-child(6) { width: 100px; }
+.unified-document-editor .order-editor-table :is(th, td):nth-child(4) { width: 88px; text-align: center; }
+.unified-document-editor .order-editor-table :is(th, td):nth-child(5) { width: 132px; }
+.unified-document-editor .order-editor-table :is(th, td):nth-child(6) { width: 112px; }
 .unified-document-editor .order-editor-table :is(th, td):nth-child(7) { width: 140px; text-align: left; }
 .unified-document-editor .order-editor-table :is(th, td):nth-child(8) { width: 42px; text-align: center; }
 .unified-document-editor [data-order-total] { display: block; font-size: 12px; font-weight: 600; white-space: nowrap; padding-top: 8px; }
@@ -8101,7 +8101,7 @@ input.pcpr-done-input,
 
 .repair-color-legend {
   min-width: 0;
-  margin-top: 7px;
+  margin: 0;
 }
 
 .repair-color-legend > summary {
@@ -16193,6 +16193,19 @@ textarea {
 .repair-navigation > .repair-header-filters {
   align-items: center;
   margin: 0 0 5px auto;
+}
+.repair-header-filters { position: relative; }
+.repair-header-filters .repair-color-legend > summary { min-height: 32px; }
+.repair-header-filters .repair-color-legend-content {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  right: 0;
+  width: min(760px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid #dce5e7;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(28, 31, 36, 0.12);
 }
 .repair-header-filters button { padding: 6px 10px; font-weight: 700; white-space: nowrap; }
 .repair-navigation .repair-header-filters .repair-active-filter { margin-left: 6px; padding-left: 6px; white-space: nowrap; }
