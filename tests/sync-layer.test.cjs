@@ -300,3 +300,151 @@ test('app logout clears both shared stores before any old-session data can be re
   assert.match(body, /satisDataStore\?\.clear\(\)/);
   assert.match(body, /satisChangeQueue\?\.clear\(\)/);
 });
+
+function demoDocumentSyncFixture(customer = 'Klient B', overrides = {}) {
+  let nextId = 0;
+  const writes = [];
+  const record = {
+    id: 'demo-test', serialNumber: 'TEST123', currentUser: customer, phone: '500600700',
+    loanDate: '2026-10-27', returnDate: '', status: 'WYPOŻYCZONY', location: 'P63',
+    purpose: 'DO TESTOWANIA', currentAttachments: [{ id: 'current', path: 'current.pdf' }],
+    loanHistory: [{ id: 'older', currentUser: 'Klient C', loanDate: '2026-09-01', returnDate: '2026-09-14', attachments: [] }],
+    ...overrides
+  };
+  const entry = {
+    id: 'loan-test', number: '26/10/2026', customer: 'Klient A', phone: '500100200',
+    date: '2026-10-20', periodFrom: '2026-10-20', returnDate: '2026-10-25',
+    rightDevice: { serial: 'TEST123' }, leftDevice: {}, city: 'T12'
+  };
+  const ctx = vm.createContext({
+    demoRecords: [record], pricingLoanHistory: [entry], hasSupabaseConfig: true,
+    SUPABASE_DEVICE_TABLE: 'devices', DEMO_STORAGE_KEY: 'demo',
+    normalizePricingLoanHistory: entries => entries,
+    normalizeSerialNumber: value => String(value || '').toUpperCase(),
+    serialDuplicateKey: value => String(value || '').toUpperCase(),
+    customerNameLookupKey: value => String(value || '').trim().toLowerCase(),
+    titleCaseName: value => String(value || '').trim(),
+    isoDateForSave: value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : '',
+    todayInputValue: () => '2026-10-29', documentLocationKey: value => value,
+    normalizeLoanDemoPurpose: value => value || '', normalizeDemoPurpose: value => value,
+    normalizeDemoRecordForUse: value => value, normalizeDemoLoanHistory: value => value || [],
+    effectiveDemoLoanHistory: record => record.loanHistory || [],
+    normalizeDemoAttachments: value => value || [], makeId: () => `history-${++nextId}`,
+    auditCompareValue: value => JSON.stringify(value), auditSnapshot: value => JSON.parse(JSON.stringify(value)),
+    satisDataStore: {
+      prepare: (table, record) => ({table, record}),
+      commit: async changes => writes.push(...changes), observe() {}, undoState: () => ({})
+    },
+    writeSensitiveStorage() {}, rebuildAfterDemoChange() {}, renderDemoRecords() {}, updateStats() {}, logAuditEvent() {},
+    formatDate: value => value ? value.split('-').reverse().join('.') : '-'
+  });
+  for (const name of ['pricingLoanHistoryDevices', 'latestPricingLoanBySerial', 'completedDemoLoanEntry',
+    'completedDemoLoanMatches', 'normalizeDemoLoanHistory', 'completeDemoLoan', 'demoRecordFromPricingLoan', 'demoLoanSyncChanged', 'pricingLoanDemoConflictMessage',
+    'syncPricingLoansToDemo']) vm.runInContext(appFunction(name), ctx);
+  return { ctx, record, entry, writes };
+}
+
+for (const customer of ['Klient B', 'Klient A']) test(`returned contract backfills history without changing a later loan for ${customer}`, async () => {
+  const {ctx, record, entry, writes} = demoDocumentSyncFixture(customer);
+  const result = await ctx.syncPricingLoansToDemo({entries: [entry], renderChanges: false});
+  assert.equal(result.conflicts.length, 0);
+  assert.equal(result.updated, 1);
+  const {loanHistory, loanHistoryManaged, ...current} = ctx.demoRecords[0];
+  const {loanHistory: previousHistory, ...previous} = record;
+  assert.deepEqual(JSON.parse(JSON.stringify(current)), previous, 'keep current borrower, dates, phone, location and attachments');
+  assert.equal(loanHistoryManaged, true);
+  assert.equal(loanHistory.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(loanHistory.at(-1))), {
+    id: 'history-1', currentUser: 'Klient A', phone: '500100200',
+    loanDate: '2026-10-20', returnDate: '2026-10-25', attachments: []
+  });
+  assert.equal(writes.length, 1);
+  const repeated = await ctx.syncPricingLoansToDemo({entries: [entry], renderChanges: false});
+  assert.equal(repeated.updated, 0);
+  assert.equal(repeated.conflicts.length, 0);
+  assert.equal(writes.length, 1, 'queue retries do not duplicate the history or write again');
+});
+
+test('a historical return and the next handover may occur on the same day', async () => {
+  const {ctx, entry} = demoDocumentSyncFixture('Klient B', {loanDate: '2026-10-25'});
+  const result = await ctx.syncPricingLoansToDemo({entries: [entry]});
+  assert.equal(result.conflicts.length, 0);
+  assert.equal(ctx.demoRecords[0].currentUser, 'Klient B');
+});
+
+test('overlap, open contracts, missing dates and invalid return periods remain conflicts without writes', async () => {
+  for (const [recordPatch, entryPatch] of [
+    [{}, {returnDate: '2026-10-28'}], [{}, {returnDate: ''}],
+    [{loanDate: ''}, {}], [{}, {returnDate: '2026-10-19'}], [{loanDate: '2026-11-02'}, {returnDate: '2026-10-30'}]
+  ]) {
+    const {ctx, record, entry, writes} = demoDocumentSyncFixture('Klient B', recordPatch);
+    const before = JSON.stringify(record);
+    const result = await ctx.syncPricingLoansToDemo({entries: [{...entry, ...entryPatch}]});
+    assert.equal(result.conflicts.length, 1);
+    assert.equal(result.updated, 0);
+    assert.equal(writes.length, 0);
+    assert.equal(JSON.stringify(ctx.demoRecords[0]), before);
+  }
+});
+
+test('a return for the actual current loan still closes it normally', async () => {
+  const {ctx, entry} = demoDocumentSyncFixture('Klient A', {loanDate: '2026-10-20'});
+  const result = await ctx.syncPricingLoansToDemo({entries: [entry]});
+  assert.equal(result.conflicts.length, 0);
+  assert.equal(ctx.demoRecords[0].status, 'NA STANIE');
+  assert.equal(ctx.demoRecords[0].currentUser, '');
+  assert.equal(ctx.demoRecords[0].returnDate, '2026-10-25');
+});
+
+test('pending returned contract is completed only after its history has been saved', async () => {
+  for (const fail of [false, true]) {
+    const {ctx, entry, record, writes} = demoDocumentSyncFixture();
+    let completed = 0;
+    Object.assign(ctx, {
+      currentSupabaseUser: {id: 'owner'}, supabaseInitialDataReady: true,
+      document: {hidden: false}, documentSyncRunning: false, documentSyncFailures: [], documentSyncNetworkPending: false,
+      supabaseRefreshInProgress: false, recordDialog: {}, repairDialog: {}, demoDialog: {},
+      SUPABASE_LOAN_CONTRACT_TABLE: 'loans', SUPABASE_ORDER_HISTORY_TABLE: 'orders',
+      pricingOrderHistory: [], pricingComplaintHistory: [],
+      readDocumentSyncRpc: async name => name === 'satis_pending_document_sync'
+        ? [{id: entry.id, table: 'loans', revision: 3}]
+        : [{id: record.id, table: 'devices', data: record, revision: 5}],
+      loadChangedSupabaseRecords: async () => [{id: entry.id, data: entry, revision: 3}],
+      applyChangedSupabaseRecords() {}, normalizePricingLoanHistoryEntry: value => value,
+      isTransientSupabaseError: () => false, renderDocumentSyncState() {},
+      supabaseClient: {rpc: async name => {
+        assert.equal(name, 'satis_complete_document_sync');
+        assert.equal(writes.length, 1, 'persist Demo history before acknowledging the document');
+        completed++; return {data: true};
+      }}
+    });
+    if (fail) ctx.satisDataStore.commit = async () => { throw Error('Write rejected'); };
+    vm.runInContext(appFunction('processPendingDocumentSync'), ctx);
+    await ctx.processPendingDocumentSync();
+    assert.equal(completed, fail ? 0 : 1);
+    assert.equal(ctx.documentSyncFailures.length, fail ? 1 : 0);
+    if (fail) assert.equal(ctx.demoRecords[0].loanHistory.length, record.loanHistory.length, 'failed write restores previous history');
+  }
+});
+
+for (const part of ['leftDevice', 'charger']) test(`delayed return backfill also works for ${part}`, async () => {
+  const {ctx, entry} = demoDocumentSyncFixture();
+  entry.rightDevice = {};
+  if (part === 'charger') entry.chargerSerial = 'TEST123';
+  else entry.leftDevice = {serial: 'TEST123'};
+  const result = await ctx.syncPricingLoansToDemo({entries: [entry]});
+  assert.equal(result.conflicts.length, 0);
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.demoRecords[0].currentUser, 'Klient B');
+});
+
+test('real conflict explains serial, both borrowers and loan dates, including the recorded return', async () => {
+  const {ctx, entry} = demoDocumentSyncFixture();
+  const result = await ctx.syncPricingLoansToDemo({entries: [{...entry, returnDate: '2026-10-28'}]});
+  const message = ctx.pricingLoanDemoConflictMessage(result.conflicts[0]);
+  for (const text of ['TEST123', 'Klient B', '27.10.2026', 'Klient A', '20.10.2026', '28.10.2026', 'historii umów']) {
+    assert.ok(message.includes(text), message);
+  }
+  const open = await ctx.syncPricingLoansToDemo({entries: [{...entry, returnDate: ''}]});
+  assert.match(ctx.pricingLoanDemoConflictMessage(open.conflicts[0]), /bez zapisanego zwrotu/);
+});
