@@ -103,11 +103,13 @@ console.log('OK: clean order header, client subtitle, location/status and separa
 
 const html = fs.readFileSync('index.html', 'utf8');
 const css = fs.readFileSync('styles.css', 'utf8');
-const repairNavigation = html.slice(html.indexOf('<div class="repair-navigation">'), html.indexOf('<details class="repair-color-legend">'));
+const repairNavigation = html.slice(html.indexOf('<div class="repair-navigation">'), html.indexOf('<section id="repairDatabaseView"'));
 assert.ok(repairNavigation.indexOf('id="complaintTab"') < repairNavigation.indexOf('repair-header-filters'));
 assert.match(repairNavigation, /<\/section>\s*<div class="repair-kind-tiles repair-header-filters" role="group"/,
   'filters are next to, not inside, the tablist');
 for (const kind of ['all', 'service', 'order']) assert.ok(repairNavigation.includes(`data-repair-kind="${kind}"`));
+assert.ok(repairNavigation.indexOf('repair-color-legend') < repairNavigation.indexOf('data-repair-kind="all"'),
+  'color legend precedes the All filter in the navigation row');
 assert.equal((html.match(/id="repairActiveOnlyFilter"/g) || []).length, 1, 'reuse the existing active-only switch');
 assert.match(repairNavigation, /id="repairActiveOnlyFilter"[^>]* checked/);
 assert.match(css, /#repairsNotebook:not\(:has\(> #repairDatabaseView:not\(\[hidden\]\)\)\) \.repair-header-filters \{ display: none; \}/,
