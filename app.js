@@ -5540,6 +5540,15 @@ function normalizeEzwmStatus(value) {
   return "";
 }
 
+function isDeviceCharger(record) {
+  return /ładowar|ladowar|charger/iu.test(String(record?.deviceName ?? ""));
+}
+
+function deviceEzwmStatus(record) {
+  if (String(record?.type ?? "").trim().toLocaleUpperCase("pl-PL") === "ZWROT") return "";
+  return isDeviceCharger(record) ? "BEZ REFUNDACJI" : normalizeEzwmStatus(record?.ezwm);
+}
+
 function normalizeRepairCategory(category) {
   const normalizedCategory = String(category ?? "").trim().toLocaleUpperCase("pl-PL");
   if (normalizedCategory === "NAPRAWA") return "NAPRAWA GWARANCYJNA";
@@ -5643,7 +5652,7 @@ function normalizeDeviceRecordForUse(record) {
   normalizedRecord.salesInvoice = normalizeSalesInvoice(normalizedRecord.salesInvoice);
   normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   normalizedRecord.type = effectiveDeviceType(normalizedRecord, normalizedRecord.type || "NA STANIE");
-  normalizedRecord.ezwm = normalizedRecord.type === "ZWROT" ? "" : normalizeEzwmStatus(normalizedRecord.ezwm);
+  normalizedRecord.ezwm = deviceEzwmStatus(normalizedRecord);
   return normalizedRecord;
 }
 
@@ -8364,7 +8373,7 @@ function filteredRecords() {
       const recordType = meta?.displayType ?? displayType(record);
       const matchesType = !selectedType || recordType === selectedType;
       const matchesLocation = !selectedLocation || (meta?.location ?? normalizeRepairLocation(record.location)) === selectedLocation;
-      const ezwm = recordType === "ZWROT" ? "" : normalizeEzwmStatus(record.ezwm);
+      const ezwm = recordType === "ZWROT" ? "" : deviceEzwmStatus(record);
       const matchesEzwm = !selectedEzwm || (selectedEzwm === "BRAK" ? !ezwm : ezwm === selectedEzwm);
       const age = meta?.age ?? null;
       const matchesFifo =
@@ -17793,7 +17802,7 @@ function buildDataControlIssues() {
     const type = displayType(record);
     const hasCustomer = Boolean(String(record.customerName ?? "").trim());
     const hasInvoice = Boolean(String(record.salesInvoice ?? "").trim());
-    const ezwm = normalizeEzwmStatus(record.ezwm);
+    const ezwm = deviceEzwmStatus(record);
     const invoiceIssue = suspiciousSalesInvoiceReason(record.salesInvoice);
 
     if (!String(record.deviceName ?? "").trim()) {
@@ -19469,7 +19478,7 @@ function createWaybillCell(waybillNumber) {
 
 function createEzwmCell(record) {
   if (displayType(record) === "ZWROT") return "";
-  const normalizedValue = normalizeEzwmStatus(record?.ezwm);
+  const normalizedValue = deviceEzwmStatus(record);
   const soldWithoutRealization = displayType(record) === "SPRZEDANY" && !["REALIZACJA", "BEZ REFUNDACJI"].includes(normalizedValue);
 
   if (!normalizedValue && !soldWithoutRealization) return "";
@@ -25565,7 +25574,7 @@ function formRecord() {
   data.salesInvoice = normalizeSalesInvoice(data.salesInvoice);
   data.location = normalizeRepairLocation(data.location);
   data.type = effectiveDeviceType(data, data.type || "NA STANIE");
-  data.ezwm = data.type === "ZWROT" ? "" : normalizeEzwmStatus(data.ezwm);
+  data.ezwm = deviceEzwmStatus(data);
   data.notes = correctPolishNotes(data.notes);
   return data;
 }
@@ -25574,9 +25583,11 @@ function syncDeviceEzwmForType() {
   const ezwmInput = document.querySelector("#ezwm");
   if (!ezwmInput || !typeSelect) return;
   const isReturn = normalizeDeviceType(typeSelect.value) === "ZWROT";
+  const isCharger = isDeviceCharger({ deviceName: document.querySelector("#deviceName")?.value });
   if (isReturn) ezwmInput.value = "";
-  ezwmInput.disabled = isReturn;
-  ezwmInput.title = isReturn ? "EZWM nie dotyczy zwrotu" : "";
+  else if (isCharger) ezwmInput.value = "BEZ REFUNDACJI";
+  ezwmInput.disabled = isReturn || isCharger;
+  ezwmInput.title = isReturn ? "EZWM nie dotyczy zwrotu" : isCharger ? "Ładowarka — bez refundacji" : "";
 }
 
 function syncDeviceTypeFromFields() {
@@ -27131,7 +27142,7 @@ function exportCsv() {
     record.pickupDate ?? "",
     record.customerName ?? "",
     normalizeSalesInvoice(record.salesInvoice),
-    normalizeEzwmStatus(record.ezwm),
+    deviceEzwmStatus(record),
     record.waybillNumber ?? "",
     record.notes ?? ""
   ]);
@@ -28037,7 +28048,7 @@ function normalizeImportedRecordFields(record, allowedFields) {
     normalizedRecord.location = normalizeRepairLocation(normalizedRecord.location);
   }
   if ("ezwm" in normalizedRecord) {
-    normalizedRecord.ezwm = normalizeEzwmStatus(normalizedRecord.ezwm);
+    normalizedRecord.ezwm = deviceEzwmStatus(normalizedRecord);
   }
   if ("category" in normalizedRecord) {
     normalizedRecord.category = normalizeRepairCategory(normalizedRecord.category);
@@ -29181,9 +29192,12 @@ const debouncedDeviceModelSuggestions = debounce(refreshDeviceModelSuggestions, 
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
 deviceModelInput.addEventListener("input", debouncedDeviceModelSuggestions);
+deviceModelInput.addEventListener("input", syncDeviceEzwmForType);
+deviceModelInput.addEventListener("change", syncDeviceEzwmForType);
 deviceModelInput.addEventListener("input", () => syncDeviceManufacturerFromDeviceName());
 deviceModelInput.addEventListener("blur", () => {
   correctDeviceNameInput();
+  syncDeviceEzwmForType();
   syncDeviceManufacturerFromDeviceName({ allowPrefix: true });
   window.setTimeout(() => {
     if (deviceModelQuickSuggestions) deviceModelQuickSuggestions.hidden = true;
