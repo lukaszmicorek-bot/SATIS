@@ -10202,6 +10202,14 @@ td {
   color: #c3392a;
 }
 
+.ezwm-warning {
+  color: #bd6900;
+}
+
+.ezwm-pending {
+  color: #77818b;
+}
+
 .pickup-customer {
   display: inline-block;
   color: #064f3f;
