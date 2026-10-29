@@ -2748,7 +2748,7 @@ async function processPendingDocumentSync() {
         const raw = { ...row.data, id: row.id };
         if (task.table === SUPABASE_LOAN_CONTRACT_TABLE) {
           const result = await syncPricingLoansToDemo({ entries: [normalizePricingLoanHistoryEntry(raw)], renderChanges: false });
-          if (result.conflicts.length) throw new Error("Konflikt bieżącego wypożyczenia w Demo");
+          if (result.conflicts.length) throw new Error(result.conflicts.map(pricingLoanDemoConflictMessage).join(" "));
         } else {
           const record = task.table === SUPABASE_ORDER_HISTORY_TABLE
             ? pricingOrderRepairRecord(raw) : pricingComplaintRepairRecord(raw);
@@ -2768,7 +2768,9 @@ async function processPendingDocumentSync() {
           break;
         }
         const entry = [...pricingLoanHistory, ...pricingOrderHistory, ...pricingComplaintHistory].find((item) => item.id === task.id);
-        documentSyncFailures.push(`${entry?.number || "Dokument"}: ${error.message}`);
+        const label = task.table === SUPABASE_LOAN_CONTRACT_TABLE
+          ? `Umowa ${entry?.number || "bez numeru"}` : entry?.number || "Dokument";
+        documentSyncFailures.push(`${label}: ${error.message}`);
       }
     }
     renderDocumentSyncState(remaining);
@@ -11035,6 +11037,31 @@ function demoRecordFromPricingLoan(record, assignment) {
         reason: "returned"
       };
     }
+    const currentLoanDate = isoDateForSave(record.loanDate);
+    const contractLoanDate = isoDateForSave(loanDate);
+    const contractReturnDate = isoDateForSave(entry.returnDate);
+    const differentLoan = currentCustomerKey !== customerKey || record.loanDate !== loanDate;
+    if (differentLoan && currentLoanDate && contractLoanDate && contractReturnDate &&
+      contractReturnDate >= contractLoanDate && contractReturnDate <= currentLoanDate &&
+      contractReturnDate <= todayInputValue()) {
+      // A delayed return belongs in history, never in the fields of a later active loan.
+      const completed = completeDemoLoan(null, {
+        currentUser: customer,
+        phone: entry.phone || "",
+        loanDate: contractLoanDate,
+        returnDate: contractReturnDate,
+        currentAttachments: [],
+        loanHistory: effectiveDemoLoanHistory(record)
+      });
+      return {
+        record: normalizeDemoRecordForUse({
+          ...record,
+          loanHistory: completed.loanHistory,
+          loanHistoryManaged: true
+        }),
+        reason: "history-updated"
+      };
+    }
     if (currentCustomerKey !== customerKey) return { record, reason: "conflict" };
     if (record.loanDate && record.loanDate !== loanDate) return { record, reason: "conflict" };
     return {
@@ -11068,6 +11095,13 @@ function demoRecordFromPricingLoan(record, assignment) {
   };
 }
 
+function pricingLoanDemoConflictMessage(conflict) {
+  const currentDate = conflict.loanDate ? ` od ${formatDate(conflict.loanDate)}` : " (brak daty wydania)";
+  const contractDate = conflict.contractLoanDate ? ` od ${formatDate(conflict.contractLoanDate)}` : " (brak daty wydania)";
+  const returned = conflict.contractReturnDate ? `, zwrot ${formatDate(conflict.contractReturnDate)}` : ", bez zapisanego zwrotu";
+  return `Aparat ${conflict.serial}: w Demo ${conflict.currentUser}${currentDate}; na umowie ${conflict.contractUser}${contractDate}${returned}. Sprawdź daty wydania i zwrotu w historii umów oraz w Demo.`;
+}
+
 function demoLoanSyncChanged(beforeRecord, afterRecord) {
   return ["currentUser", "loanDate", "returnDate", "status", "location", "purpose", "loanHistory"]
     .some((field) => auditCompareValue(beforeRecord?.[field]) !== auditCompareValue(afterRecord?.[field]));
@@ -11089,7 +11123,10 @@ async function syncPricingLoansToDemo({ entries = pricingLoanHistory, persist = 
       conflicts.push({
         serial: normalizeSerialNumber(record.serialNumber),
         currentUser: titleCaseName(record.currentUser),
-        contractUser: titleCaseName(assignment.entry.customer)
+        loanDate: record.loanDate || "",
+        contractUser: titleCaseName(assignment.entry.customer),
+        contractLoanDate: assignment.entry.periodFrom || assignment.entry.date || "",
+        contractReturnDate: assignment.entry.returnDate || ""
       });
       return record;
     }
@@ -11603,8 +11640,7 @@ async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
       if (demoSyncError) {
         alert("Umowa zapisana w historii, ale nie udało się zaktualizować aparatu Demo. Sprawdź połączenie i odśwież aplikację.");
       } else if (demoSyncResult.conflicts.length) {
-        const conflict = demoSyncResult.conflicts[0];
-        alert(`Umowa zapisana. Aparat ${conflict.serial} jest już przypisany w Demo do: ${conflict.currentUser}. Sprawdź wypożyczenie ręcznie.`);
+        alert(`Umowa zapisana. ${demoSyncResult.conflicts.map(pricingLoanDemoConflictMessage).join(" ")}`);
       } else if (demoSyncResult.updated) {
         alert("Umowa zapisana w historii. Wypożyczenie zostało również zapisane w Demo.");
       } else {
