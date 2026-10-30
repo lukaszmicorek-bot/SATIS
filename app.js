@@ -9239,17 +9239,17 @@ function renderPricingOfferAgeWarning(items) {
   offerAgeWarning.hidden = false;
 }
 
-function renderPricingOfferPayments(items, deviceItems, totals) {
-  if (!offerPaymentsBody) return;
-  const itemsLabel = items.map(pricingOfferItemDescription).join(", ");
-  const customer = titleCaseName(offerCustomerInput?.value || "");
-  const nfzDescription = totals.withoutNfz
-    ? `Zakup bez refundacji NFZ: ${itemsLabel}`
-    : `Dofinansowanie NFZ: ${pricingOfferNfzDescription(deviceItems.map((item) => item.record))}`;
+function pricingOfferPaymentRows(items, deviceItems, totals, customer = "") {
+  const summary = items.map(pricingOfferItemKindLabel).join(" · ");
   const rows = [
     {
       payer: "NFZ",
-      description: nfzDescription,
+      title: totals.withoutNfz ? "Zakup bez refundacji NFZ" : "Refundacja aparatów słuchowych",
+      products: totals.withoutNfz ? [] : deviceItems.map((item) => ({
+        label: pricingOfferItemKindLabel(item),
+        model: pricingOfferDeviceName(item.record),
+        detail: [normalizePricingNfzCode(item.record.nfzCode), `Limit NFZ: ${formatPricingPrice(pricingOfferNfzAmount(item.record))}`].filter(Boolean).join(" · ")
+      })),
       amount: totals.nfz
     }
   ];
@@ -9257,21 +9257,67 @@ function renderPricingOfferPayments(items, deviceItems, totals) {
   if (totals.pfronEnabled) {
     rows.push({
       payer: "PFRON",
-      description: `Dofinansowanie PFRON: ${itemsLabel}`,
+      title: "Dofinansowanie zakupu",
+      summary,
       amount: totals.pfron
     });
   }
 
   rows.push({
-    payer: customer ? `Pacjent - ${customer}` : "Pacjent",
-    description: `Pozostała kwota za: ${itemsLabel}`,
+    payer: "Pacjent",
+    customer,
+    title: totals.nfz > 0 || totals.pfron > 0 ? "Dopłata po dofinansowaniu" : "Pełna wartość zakupu",
+    summary,
     amount: totals.patient
   });
 
+  return rows;
+}
+
+function renderPricingOfferPayments(items, deviceItems, totals) {
+  if (!offerPaymentsBody) return;
+  const rows = pricingOfferPaymentRows(items, deviceItems, totals, titleCaseName(offerCustomerInput?.value || ""));
   offerPaymentsBody.replaceChildren(...rows.map((entry) => {
     const row = document.createElement("tr");
-    appendOfferCell(row, entry.payer, "payer-cell");
-    appendOfferCell(row, entry.description);
+    const payerCell = appendOfferCell(row, entry.payer, "payer-cell");
+    if (entry.customer) {
+      const name = document.createElement("span");
+      name.className = "offer-payer-name";
+      name.textContent = entry.customer;
+      payerCell.append(name);
+    }
+    const description = document.createElement("td");
+    description.className = "offer-payment-description";
+    const title = document.createElement("strong");
+    title.className = "offer-payment-title";
+    title.textContent = entry.title;
+    description.append(title);
+    if (entry.products?.length) {
+      const list = document.createElement("ul");
+      list.className = "offer-payment-products";
+      for (const product of entry.products) {
+        const item = document.createElement("li");
+        const label = document.createElement("span");
+        label.className = "offer-payment-label";
+        label.textContent = product.label;
+        const model = document.createElement("span");
+        model.className = "offer-payment-model";
+        model.textContent = product.model;
+        const detail = document.createElement("small");
+        detail.className = "offer-payment-detail";
+        detail.textContent = product.detail;
+        item.append(label, model, detail);
+        list.append(item);
+      }
+      description.append(list);
+    }
+    if (entry.summary) {
+      const summary = document.createElement("span");
+      summary.className = "offer-payment-summary";
+      summary.textContent = entry.summary;
+      description.append(summary);
+    }
+    row.append(description);
     appendOfferPriceCell(row, entry.amount);
     return row;
   }));

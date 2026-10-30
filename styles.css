@@ -5320,9 +5320,7 @@ h2 {
 }
 
 .offer-items-table th:nth-child(4),
-.offer-items-table td:nth-child(4),
-.offer-payments-table th:nth-child(3),
-.offer-payments-table td:nth-child(3) {
+.offer-items-table td:nth-child(4) {
   width: 130px;
   text-align: right;
   white-space: nowrap;
@@ -5353,6 +5351,34 @@ h2 {
 .offer-payments-table .payer-cell {
   color: #164f46;
   font-weight: 850;
+}
+
+.offer-payments-table .offer-payer-col { width: 20%; }
+.offer-payments-table .offer-description-col { width: 64%; }
+.offer-payments-table .offer-amount-col { width: 16%; }
+.offer-payments-table th:nth-child(3),
+.offer-payments-table td:nth-child(3) {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.offer-payments-table .payer-cell { overflow-wrap: anywhere; }
+.offer-payer-name { display: block; margin-top: 4px; color: #42545c; font-weight: 400; line-height: 1.35; }
+.offer-payment-description { overflow-wrap: anywhere; }
+.offer-payment-title { display: block; color: #243f49; font-weight: 600; }
+.offer-payment-products { display: grid; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.offer-payment-products li { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 8px; row-gap: 1px; }
+.offer-payment-label { color: #435a64; font-weight: 600; }
+.offer-payment-model { min-width: 0; }
+.offer-payment-detail { grid-column: 2; color: #586b73; font-size: 0.9em; line-height: 1.35; }
+.offer-payment-summary { display: block; margin-top: 4px; color: #586b73; font-size: 0.95em; line-height: 1.35; }
+
+@media screen and (max-width: 600px) {
+  .offer-payments-table .offer-payer-col { width: 22%; }
+  .offer-payments-table .offer-description-col { width: 56%; }
+  .offer-payments-table .offer-amount-col { width: 22%; }
+  .offer-payment-products li { grid-template-columns: minmax(0, 1fr); }
+  .offer-payment-detail { grid-column: 1; }
 }
 
 .amount-cell {
@@ -14454,6 +14480,11 @@ textarea {
   body.pricing-offer-print .offer-action-column {
     display: none !important;
   }
+
+  body.pricing-offer-print .offer-payment-products { gap: 1mm; margin-top: 1mm; }
+  body.pricing-offer-print .offer-payment-products li { break-inside: avoid; }
+  body.pricing-offer-print .offer-payment-detail,
+  body.pricing-offer-print .offer-payment-summary { color: #333; }
 
   body.pricing-offer-print .offer-items-table strong {
     font-size: 9.5pt;
