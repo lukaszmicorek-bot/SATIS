@@ -143,4 +143,7 @@ test('offer subtotal includes every product, remains before funding and resets a
   assert.match(html,/<tbody id="offerItemsBody"><\/tbody>\s*<tfoot>[\s\S]*?Razem przed dofinansowaniem[\s\S]*?id="offerGrossTotal"/);
   assert.ok(html.indexOf('id="offerGrossTotal"')<html.indexOf('id="offerPaymentsBody"'));
   assert.match(css,/\.offer-items-table \.offer-subtotal-amount \{[^}]*text-align: right;[^}]*white-space: nowrap;/);
+  assert.match(css,/\.offer-items-table \.offer-subtotal-row > :is\(th, td\) \{[^}]*padding: 5px 10px;/);
+  assert.match(css,/\.offer-items-table \.offer-subtotal-amount strong \{ font-size: 0.8rem;/);
+  assert.match(css,/body\.pricing-offer-print #pricingOfferPrint \.offer-subtotal-amount strong \{[^}]*font-size: 8.3pt;/);
 });
