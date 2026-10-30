@@ -247,8 +247,8 @@
           const cell = node("th", "", text);cell.scope = "col";gradeHeader.append(cell);
         });
         gradeHead.append(gradeHeader);const gradeBody = node("tbody");
-        definition.grades.forEach((grade, index) => {
-          const row = node("tr", `tinnitus-grade-row tinnitus-grade-${index + 1}`), label = node("td", "", grade.label);
+        definition.grades.forEach(grade => {
+          const row = node("tr", "tinnitus-grade-row"), label = node("td", "", grade.label);
           const marker = node("span", "tinnitus-grade-marker", "Twój wynik");marker.hidden = true;label.append(marker);
           row.append(node("td", "", grade.range), label, node("td", "", grade.description));
           gradeBody.append(row);gradeRows.push({row, grade, marker});

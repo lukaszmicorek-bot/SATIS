@@ -4843,15 +4843,7 @@ h2 {
 .tinnitus-grade-table th { background: #f1f6f7; font-weight: 600; }
 .tinnitus-grade-table th:first-child { width: 15%; }
 .tinnitus-grade-table th:nth-child(2) { width: 25%; }
-.tinnitus-grade-1 { --grade-background: #f0f8f1; --grade-selected: #e1f1e4; --grade-ink: #286039; --grade-accent: #6eaa7a; }
-.tinnitus-grade-2 { --grade-background: #f5f9ea; --grade-selected: #eaf1d5; --grade-ink: #526629; --grade-accent: #9bab62; }
-.tinnitus-grade-3 { --grade-background: #fff9e8; --grade-selected: #fff0c7; --grade-ink: #82651f; --grade-accent: #d4b659; }
-.tinnitus-grade-4 { --grade-background: #fff1e8; --grade-selected: #ffe1cc; --grade-ink: #97582b; --grade-accent: #d8966b; }
-.tinnitus-grade-5 { --grade-background: #fdf0f1; --grade-selected: #f8dce0; --grade-ink: #963d4b; --grade-accent: #d58d99; }
-.tinnitus-grade-row > td { background: var(--grade-background); }
-.tinnitus-grade-row > td:first-child { border-left: 2px solid var(--grade-accent); }
-.tinnitus-grade-row > td:nth-child(-n+2) { color: var(--grade-ink); }
-.tinnitus-grade-current > td { background: var(--grade-selected); }
+.tinnitus-grade-current > td { background: #eef4f8; color: #003f5a; }
 .tinnitus-grade-marker { display: block; margin-top: 2px; font-size: 11px; font-weight: 750; }
 .tinnitus-source { font-size: 11px; margin: 10px 0 0; color: #62747b; }
 .tinnitus-status { color: #a43449; font-size: 13px; margin: 0; }
@@ -4892,7 +4884,7 @@ h2 {
   .tinnitus-progress { font-size: 8pt; }
   .tinnitus-interpretation { min-height: 0; margin: 2mm 0; font-size: 8pt; line-height: 1.3; break-inside: avoid; }
   .tinnitus-grade-section { break-inside: avoid; }
-  .tinnitus-grade-table { font-size: 7.3pt; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .tinnitus-grade-table { font-size: 7.3pt; line-height: 1.2; }
   .tinnitus-grade-table caption { padding: 1mm 0; font-size: 8pt; }
   .tinnitus-grade-table :is(th, td) { padding: 0.75mm 1.2mm; border-width: 0.25mm; }
   .tinnitus-grade-table tr { break-inside: avoid; }

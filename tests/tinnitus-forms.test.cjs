@@ -125,7 +125,6 @@ test('THI interpretation table shows all ranges and marks only a complete curren
   const rows = paper.querySelectorAll('.tinnitus-grade-row');
   assert.equal(rows.length, 5);
   for (const [index, grade] of definitions.thi.grades.entries()) {
-    assert.ok(rows[index].className.split(' ').includes(`tinnitus-grade-${index + 1}`));
     assert.ok(rows[index].textContent.includes(grade.range));
     assert.ok(rows[index].textContent.includes(grade.description));
     assert.equal(rows[index].querySelector('.tinnitus-grade-marker').hidden, true);
@@ -169,10 +168,7 @@ test('navigation, offline caching, signout cleanup and print layouts include bot
   assert.match(fs.readFileSync('scripts/public_assets.py','utf8'), /"tinnitus-forms.js"/);
   assert.match(css, /@page tinnitus \{ size: A4 portrait; margin: 10mm; \}/);
   assert.match(css, /\.tinnitus-table tr \{ break-inside: avoid;/);
-  for (let stage = 1; stage <= 5; stage++) {
-    assert.match(css, new RegExp(`\\.tinnitus-grade-${stage} \\{[^}]*--grade-background: #[0-9a-f]{6};[^}]*--grade-selected: #[0-9a-f]{6};[^}]*--grade-ink: #[0-9a-f]{6};`));
-  }
-  assert.match(css, /\.tinnitus-grade-current > td \{ background: var\(--grade-selected\); \}/);
-  assert.match(css, /\.tinnitus-grade-table \{[^}]*print-color-adjust: exact;/);
+  assert.match(css, /\.tinnitus-grade-current > td \{ background: #eef4f8; color: #003f5a; \}/);
+  assert.doesNotMatch(css, /--grade-(?:background|selected|ink|accent)/);
   assert.doesNotMatch(fs.readFileSync('tinnitus-forms.js','utf8'), /innerHTML|localStorage|sessionStorage|fetch\(|supabase/);
 });
