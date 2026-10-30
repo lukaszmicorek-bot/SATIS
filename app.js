@@ -842,6 +842,7 @@ const offerAgeWarning = document.querySelector("#offerAgeWarning");
 const offerContent = document.querySelector("#offerContent");
 const offerItemsBody = document.querySelector("#offerItemsBody");
 const offerPaymentsBody = document.querySelector("#offerPaymentsBody");
+const offerGrossTotal = document.querySelector("#offerGrossTotal");
 const offerPatientTotal = document.querySelector("#offerPatientTotal");
 const offerNotesPrint = document.querySelector("#offerNotesPrint");
 const offerNotesText = document.querySelector("#offerNotesText");
@@ -872,6 +873,7 @@ const loanLeftPurposeInput = document.querySelector("#loanLeftPurposeInput");
 const loanChargerInput = document.querySelector("#loanChargerInput");
 const loanChargerSerialInput = document.querySelector("#loanChargerSerialInput");
 const loanChargerStateInput = document.querySelector("#loanChargerStateInput");
+const loanPrintTestingRulesInput = document.querySelector("#loanPrintTestingRulesInput");
 const loanChargerMissingValueInput = document.querySelector("#loanChargerMissingValueInput");
 const loanIssueNotesInput = document.querySelector("#loanIssueNotesInput");
 const loanReturnDateInput = document.querySelector("#loanReturnDateInput");
@@ -9436,6 +9438,7 @@ function renderPricingOffer() {
   if (offerEmptyState) offerEmptyState.hidden = hasItems;
   if (offerContent) offerContent.hidden = !hasItems;
   if (printPricingOfferBtn) printPricingOfferBtn.disabled = ageRequired || !hasValidDevice;
+  if (offerGrossTotal) offerGrossTotal.replaceChildren(createPricingPriceElement(total));
   if (!hasItems) {
     if (offerItemsBody) offerItemsBody.replaceChildren();
     if (offerPaymentsBody) offerPaymentsBody.replaceChildren();
@@ -10985,6 +10988,7 @@ function normalizePricingLoanHistoryEntry(entry) {
     deposit: normalizeLoanHistoryText(entry.deposit),
     depositEnabled: entry.depositEnabled === true || (entry.depositEnabled == null && /[1-9]/u.test(String(entry.deposit || ""))),
     testingFee: normalizeLoanTestingFee(entry.testingFee),
+    printTestingRules: typeof entry.printTestingRules === "boolean" ? entry.printTestingRules : null,
     periodFrom: isoDateForSave(entry.periodFrom) || normalizeLoanHistoryText(entry.periodFrom),
     periodTo: isoDateForSave(entry.periodTo) || normalizeLoanHistoryText(entry.periodTo),
     customer: titleCaseName(entry.customer || ""),
@@ -11539,6 +11543,7 @@ function currentPricingLoanSnapshot() {
     depositEnabled: Boolean(loanDepositEnabledInput?.checked),
     deposit: loanDepositEnabledInput?.checked ? loanInputValue(loanDepositInput) : "",
     testingFee: pricingLoanTestingFee(),
+    printTestingRules: loanPrintTestingRulesInput?.checked !== false,
     periodFrom: isoDateForSave(loanPeriodFromInput?.value) || loanInputValue(loanPeriodFromInput),
     periodTo: isoDateForSave(loanPeriodToInput?.value) || loanInputValue(loanPeriodToInput),
     customer: titleCaseName(loanInputValue(loanCustomerInput)),
@@ -11769,6 +11774,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanAddressInput, historyEntry.address);
   setLoanSnapshotInput(loanDocumentInput, normalizeLoanIdentityValue(historyEntry.document));
   setLoanSnapshotInput(loanPhoneInput, historyEntry.phone);
+  restoreLoanTestingRulesChoice(historyEntry.printTestingRules);
   setLoanSnapshotInput(loanRightDeviceInput, historyEntry.rightDevice.model);
   setLoanSnapshotInput(loanRightSerialInput, historyEntry.rightDevice.serial, { upper: true });
   setLoanSnapshotInput(loanRightManufacturerInput, historyEntry.rightDevice.manufacturer);
@@ -14279,6 +14285,53 @@ function ensurePricingLoanDefaults() {
     pricingLoanAutofilledFromOffer = true;
   }
   ensureLoanContractNumber();
+  updateLoanTestingRulesChoice();
+}
+
+function defaultLoanTestingRules(customer, identity, phone, history, ignoredId = "") {
+  const nameKey = customerNameLookupKey(customer);
+  if (!nameKey) return true;
+  const documentKey = normalizeLoanIdentityValue(identity);
+  const phoneKey = value => String(value || "").replace(/\D/gu, "").replace(/^48(?=\d{9}$)/u, "");
+  const currentPhone = phoneKey(phone);
+  return !history.some(entry => {
+    if (entry.id === ignoredId || customerNameLookupKey(entry.customer) !== nameKey) return false;
+    const previousDocument = normalizeLoanIdentityValue(entry.document);
+    if (documentKey && previousDocument) return documentKey === previousDocument;
+    const previousPhone = phoneKey(entry.phone);
+    if (currentPhone && previousPhone) return currentPhone === previousPhone;
+    return true;
+  });
+}
+
+function updateLoanTestingRulesChoice() {
+  if (!loanPrintTestingRulesInput) return;
+  const nameKey = customerNameLookupKey(loanInputValue(loanCustomerInput));
+  if (loanPrintTestingRulesInput.dataset.customer !== nameKey) {
+    loanPrintTestingRulesInput.dataset.customer = nameKey;
+    delete loanPrintTestingRulesInput.dataset.manual;
+  }
+  if (loanPrintTestingRulesInput.dataset.manual !== "1") {
+    loanPrintTestingRulesInput.checked = defaultLoanTestingRules(
+      loanInputValue(loanCustomerInput), loanInputValue(loanDocumentInput), loanInputValue(loanPhoneInput),
+      pricingLoanHistory, activePricingLoanHistoryId
+    );
+  }
+  pricingLoanView?.querySelectorAll(".loan-testing-information").forEach(section => {
+    section.hidden = !loanPrintTestingRulesInput.checked;
+  });
+}
+
+function restoreLoanTestingRulesChoice(value) {
+  if (!loanPrintTestingRulesInput) return;
+  loanPrintTestingRulesInput.dataset.customer = customerNameLookupKey(loanInputValue(loanCustomerInput));
+  if (typeof value === "boolean") {
+    loanPrintTestingRulesInput.checked = value;
+    loanPrintTestingRulesInput.dataset.manual = "1";
+  } else {
+    delete loanPrintTestingRulesInput.dataset.manual;
+  }
+  updateLoanTestingRulesChoice();
 }
 
 function startNewPricingLoan() {
@@ -14329,6 +14382,7 @@ function startNewPricingLoan() {
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
   if (loanIssueNotesInput) loanIssueNotesInput.value = "bez zastrzeżeń";
   if (loanChargerStateInput) loanChargerStateInput.value = "";
+  restoreLoanTestingRulesChoice(null);
   const today = todayInputValue();
   setDateInputValue(loanDateInput, today);
   setDateInputValue(loanPeriodFromInput, today);
@@ -14544,7 +14598,7 @@ function prepareLoanPrintCopies() {
   const template = source.cloneNode(true);
   const copies = [
     { label: "Egzemplarz dla SATIS", testingRules: false },
-    { label: "Egzemplarz dla klienta", testingRules: true }
+    { label: "Egzemplarz dla klienta", testingRules: loanPrintTestingRulesInput?.checked !== false }
   ].map(({ label, testingRules }) => {
     const copy = document.createElement("article");
     copy.className = "loan-print-copy";
@@ -29025,6 +29079,11 @@ loanDateInput?.addEventListener("change", () => {
 loanPeriod7Btn?.addEventListener("click", () => setPricingLoanPeriod(7));
 loanPeriod14Btn?.addEventListener("click", () => setPricingLoanPeriod(14));
 loanTestingFeeInputs.forEach(input => input.addEventListener("change", renderPricingLoan));
+["input", "change"].forEach(eventName => loanPrintTestingRulesInput?.addEventListener(eventName, () => {
+  loanPrintTestingRulesInput.dataset.customer = customerNameLookupKey(loanInputValue(loanCustomerInput));
+  loanPrintTestingRulesInput.dataset.manual = "1";
+  renderPricingLoan();
+}));
 [
   loanContractNumberInput,
   loanDateInput,

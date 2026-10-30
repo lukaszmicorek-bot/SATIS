@@ -5367,6 +5367,23 @@ h2 {
   line-height: 1.22;
 }
 
+.offer-items-table .offer-subtotal-row > :is(th, td) {
+  vertical-align: middle;
+  background: #f4f8f8;
+  font-weight: 700;
+}
+.offer-items-table .offer-subtotal-row > th {
+  width: auto;
+  text-align: left;
+  text-transform: none;
+}
+.offer-items-table .offer-subtotal-amount {
+  width: auto;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .offer-age-mismatch td {
   background: #fff8f5;
 }
@@ -16408,6 +16425,8 @@ textarea {
 .loan-active-equipment-line .serial-pill.copied { background: #f2faf5; box-shadow: inset 0 0 0 1px #dfede5; }
 .loan-deposit-toggle { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 36px; }
 .loan-deposit-toggle input { width: 18px; height: 18px; min-height: 0; }
+.loan-testing-rules-toggle { display: flex; align-items: center; gap: 8px; min-height: 32px; color: #48616d; font-size: 12px; }
+.loan-testing-rules-toggle input { width: 17px; height: 17px; min-height: 0; margin: 0; accent-color: #2b8a78; }
 .loan-signatures.signature-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .loan-signatures.signature-tiles p { grid-column: auto; display: block; min-height: 82px; padding: 12px; border: 1px solid #d6e0e4; border-radius: 8px; background: #fbfdfd; }
 .loan-signatures.signature-tiles p span { font-size: 0.72rem; font-weight: 800; }

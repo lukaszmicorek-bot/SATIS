@@ -109,3 +109,38 @@ test('without refund hides all product codes and mismatch warnings, restoring th
   assert.match(css,/\.offer-items-table\.offer-without-nfz \.offer-nfz-column\s*\{\s*display: none;/);
   assert.match(extract('renderPricingOfferAgeWarning'),/offerNoNfzInput\?\.checked/);
 });
+
+test('offer subtotal includes every product, remains before funding and resets after clearing',()=>{
+  let devices=[{slot:1,record:{grossPrice:4000}},{slot:2,record:{grossPrice:5000}}];
+  let extras=[{kind:'charger',record:{grossPrice:500}},{kind:'earmold',record:{grossPrice:200}}];
+  const gross=element('strong'),patient=element('strong');
+  const ctx=vm.createContext({
+    pricingOfferView:{},ensurePricingOfferDate:()=> '2026-10-30',ensurePricingOfferLocation:()=> 'P63',
+    updateDocumentLocationAccent(){},offerLocationInput:{},addDaysToIsoDate:()=> '2026-11-29',PRICING_OFFER_VALID_DAYS:30,
+    offerCustomerInput:{value:'Anna Testowa'},titleCaseName:value=>value,pricingOfferPatientGroup:()=> 'adult',
+    offerDeviceInput1:{value:'P'},offerDeviceInput2:{value:'L'},offerTransferSidesBtn:null,
+    selectedPricingOfferItems:()=>devices,selectedPricingOfferAccessoryItems:()=>extras,
+    updateOfferDevicePriceLabels(){},normalizePricingPrice:value=>value ?? '',
+    offerChargerPriceInput:null,savePricingOfferBtn:{},offerNoNfzInput:{checked:false},pricingOfferNfzAmount:()=>1050,
+    offerPfronEnabledInput:{checked:true},offerPfronInput:{value:'1000'},pricingOfferPfronAmount:()=>1000,
+    offerTitle:null,offerMeta:null,offerNotesInput:null,offerNotesText:null,offerNotesPrint:null,
+    offerEmptyState:{},offerContent:{},printPricingOfferBtn:{},offerGrossTotal:gross,offerPatientTotal:patient,
+    offerItemsBody:element('tbody'),offerPaymentsBody:element('tbody'),formatDate:value=>value,
+    renderPricingOfferAgeWarning(){},renderPricingOfferItems(){},renderPricingOfferPayments(){},
+    createPricingPriceElement:value=>{const node=element('span');node.textContent=String(value);return node;}
+  });
+  vm.runInContext(extract('renderPricingOffer'),ctx);
+  ctx.renderPricingOffer();
+  assert.equal(gross.textContent,'9700');assert.equal(patient.textContent,'6600');
+  ctx.offerNoNfzInput.checked=true;ctx.offerPfronEnabledInput.checked=false;
+  ctx.renderPricingOffer();
+  assert.equal(gross.textContent,'9700');assert.equal(patient.textContent,'9700');
+  extras[0].record.grossPrice=700;
+  ctx.renderPricingOffer();assert.equal(gross.textContent,'9900');
+  devices=[];extras=[];
+  ctx.renderPricingOffer();
+  assert.equal(gross.textContent,'0');assert.equal(patient.textContent,'0');
+  assert.match(html,/<tbody id="offerItemsBody"><\/tbody>\s*<tfoot>[\s\S]*?Razem przed dofinansowaniem[\s\S]*?id="offerGrossTotal"/);
+  assert.ok(html.indexOf('id="offerGrossTotal"')<html.indexOf('id="offerPaymentsBody"'));
+  assert.match(css,/\.offer-items-table \.offer-subtotal-amount \{[^}]*text-align: right;[^}]*white-space: nowrap;/);
+});
