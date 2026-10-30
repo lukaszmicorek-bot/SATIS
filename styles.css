@@ -5109,18 +5109,24 @@ h2 {
   display: none;
 }
 
-.offer-actions button.document-save-btn.has-unsaved-changes,
-.offer-actions button.document-save-btn.has-unsaved-changes:hover,
-.offer-actions button.document-save-btn.has-unsaved-changes:focus-visible {
+:is(.offer-actions button.document-save-btn, .offline-controls [data-offline="save"]).has-unsaved-changes {
+  border-color: #e3b37a;
+  background: #fff0dc;
+  color: #814716;
+  box-shadow: none;
+}
+:is(.offer-actions button.document-save-btn, .offline-controls [data-offline="save"]).save-reminder-active {
+  border-color: #d3954c;
+  background: #ffe3ba;
+  color: #753f11;
+}
+:is(.offer-actions button.document-save-btn, .offline-controls [data-offline="save"]).has-unsaved-changes.is-writing {
   border-color: #ac2941;
   background: #bd354f;
   color: #fff;
-  box-shadow: 0 0 0 3px rgba(189, 53, 79, 0.13);
 }
-.offer-actions button.document-save-btn.save-reminder-active {
-  border-color: #8e2035;
-  background: #a92842;
-  box-shadow: 0 0 0 3px rgba(189, 53, 79, 0.2);
+:is(.offer-actions button.document-save-btn, .offline-controls [data-offline="save"]):hover:not(:disabled) {
+  filter: brightness(0.97);
 }
 
 #printPricingOfferBtn,
@@ -5128,13 +5134,14 @@ h2 {
 #printPricingOrderBtn,
 #printPricingComplaintBtn,
 #printRodoBtn {
-  min-height: 30px;
+  height: 32px;
+  min-height: 32px;
   padding: 0 12px;
   color: #fff;
   background: #2b8a78;
   border-color: #2b8a78;
-  font-size: 0.76rem;
-  font-weight: 820;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 #printPricingOfferBtn:hover,
@@ -7667,6 +7674,39 @@ h2 {
 }
 .unified-document-editor .document-location-field > span { line-height: 1.3; }
 .unified-document-editor .form-undo-tools > .offer-actions { margin-left: auto; flex-wrap: wrap; }
+.unified-document-editor :is(.form-undo-tools > button, .offer-actions > button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  align-self: center;
+  flex-shrink: 0;
+}
+.unified-document-editor :is(.form-undo-tools > button, .offer-actions > button):not(.document-save-btn):not([id^="print"]) {
+  color: #48616d;
+  background: #f3f7f8;
+  border-color: #cbd8de;
+}
+.unified-document-editor :is(.form-undo-tools > button, .offer-actions > button):not(.document-save-btn):not([id^="print"]):hover:not(:disabled) {
+  color: #003f5a;
+  background: #e7f0f3;
+  border-color: #aebfc8;
+  transform: none;
+}
+.unified-document-editor button.document-save-btn {
+  width: 112px;
+  min-width: 112px;
+}
+.unified-document-editor #savePricingLoanBtn { width: auto; }
 .unified-document-editor .offer-form-grid > * { grid-row: auto; }
 .unified-document-editor .offer-date-field,
 .unified-document-editor .offer-location-field { grid-column: span 2; }
@@ -16854,6 +16894,7 @@ input.nearby-entry-match {
 body.offline-form-mode #offlineFormsLauncher { display: none !important; }
 .offline-controls, .offline-tabs, .offline-drafts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .offline-controls button, .offline-tabs button, .offline-drafts button { border-radius: 6px; padding: 8px 12px; border: 1px solid #bdcdcd; background: #f4f8f7; color: #003f5a; }
+.offline-controls > button { height: 32px; min-height: 32px; padding: 0 12px; font-family: inherit; font-size: 12px; font-weight: 650; line-height: 1; white-space: nowrap; }
 .offline-controls strong { margin-right: auto; }
 .offline-controls button[hidden] { display: none; }
 .offline-tabs { margin: 16px 0 12px; }
@@ -16871,8 +16912,7 @@ body.offline-form-mode #offlineFormsLauncher { display: none !important; }
 }
 .offline-tabs button:hover { background: var(--document-tab-selected); }
 .offline-controls [data-offline="save"] { background: #fff; border-color: #aebfc9; color: #003f5a; }
-.offline-controls [data-offline="save"].has-unsaved-changes { background: #bd354f; border-color: #ac2941; color: #fff; box-shadow: 0 0 0 3px rgba(189, 53, 79, 0.13); }
-.offline-controls [data-offline="print"] { background: #003f5a; border-color: #003f5a; color: #fff; }
+.offline-controls [data-offline="print"] { background: #2b8a78; border-color: #2b8a78; color: #fff; }
 .offline-controls [data-offline="sync"] { background: #f3f5f8; border-color: #a9b9c8; color: #264760; }
 .offline-controls [data-offline="exit"] { background: #f1f5f6; border-color: #bbcbd1; color: #425b66; }
 .offline-controls [data-offline="lock"] { background: #f9edf0; border-color: #d6b4bf; color: #8a485b; }

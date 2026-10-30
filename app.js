@@ -10238,12 +10238,19 @@ async function printPricingRodo() {
   return printWithReadyFonts(cleanup);
 }
 
-function markAgreementDraftDirty(key) {
+function markAgreementDraftDirty(key, writing) {
   const state = agreementDraftStates.get(key);
   if (!state) return;
+  const isWriting = writing ?? Boolean(state.writingTimer);
   state.dirty = true;
   globalThis.SatisDocumentLayout?.status(key, "Niezapisane zmiany");
   setPrimarySaveHighlight(state.saveButton, true);
+  window.clearTimeout(state.writingTimer);
+  state.saveButton.classList.toggle("is-writing", isWriting);
+  state.writingTimer = isWriting ? window.setTimeout(() => {
+    state.saveButton.classList.remove("is-writing");
+    state.writingTimer = 0;
+  }, 1500) : 0;
   state.saveButton.classList.remove("save-reminder-active");
   state.saveButton.title = "Formularz zawiera niezapisane zmiany";
   state.reminder.hidden = true;
@@ -10261,9 +10268,11 @@ function markAgreementDraftSaved(key) {
   state.dirty = false;
   globalThis.SatisDocumentLayout?.savedStatus(key);
   window.clearTimeout(state.timer);
+  window.clearTimeout(state.writingTimer);
   state.timer = 0;
+  state.writingTimer = 0;
   setPrimarySaveHighlight(state.saveButton, false);
-  state.saveButton.classList.remove("save-reminder-active");
+  state.saveButton.classList.remove("save-reminder-active", "is-writing");
   state.saveButton.title = "";
   state.reminder.hidden = true;
 }
@@ -10460,11 +10469,11 @@ function setupAgreementDraftTracking() {
     reminder.setAttribute("aria-live", "polite");
     reminder.hidden = true;
     saveButton.after(reminder);
-    agreementDraftStates.set(key, { dirty: false, editor, saveButton, reminder, timer: 0 });
+    agreementDraftStates.set(key, { dirty: false, editor, saveButton, reminder, timer: 0, writingTimer: 0 });
     ["input", "change"].forEach((eventName) => {
       editor.addEventListener(eventName, (event) => {
         if (!event.target.matches("input, select, textarea")) return;
-        markAgreementDraftDirty(key);
+        markAgreementDraftDirty(key, eventName === "input");
       }, { capture: true });
     });
   });
