@@ -15611,7 +15611,7 @@ textarea {
 }
 
 /* Optical sizes follow the lettering, not the full artwork or canvas. */
-.manufacturer-logo-image.logo-audio-service { --logo-width: 80; }
+.manufacturer-logo-image.logo-audio-service { --logo-width: 76; }
 .manufacturer-logo-image.logo-beltone { --logo-width: 82; }
 .manufacturer-logo-image.logo-bernafon { --logo-width: 96; }
 .manufacturer-logo-image.logo-oticon { --logo-width: 66; }
@@ -15620,7 +15620,7 @@ textarea {
 .manufacturer-logo-image.logo-resound { --logo-width: 86; }
 .manufacturer-logo-image.logo-signia { --logo-width: 48.6; }
 .manufacturer-logo-image.logo-sonic { --logo-width: 82; }
-.manufacturer-logo-image.logo-starkey { --logo-width: 90; }
+.manufacturer-logo-image.logo-starkey { --logo-width: 81; }
 
 .manufacturer-logo-frame {
   position: relative;
