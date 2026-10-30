@@ -38,6 +38,11 @@ for (const side of ['right', 'left']) {
   assert.match(html, new RegExp(`data-loan-serial-field="${side}">\\s*<span>Nr seryjny</span>`));
 }
 assert.match(html, /<table class="loan-equipment-table">[\s\S]*?<th>Nr seryjny<\/th>/);
+assert.match(html, /id="loanChargerStateInput" type="hidden"/);
+assert.match(html, /<p data-loan-charger-state hidden>/);
+assert.doesNotMatch(extract('ensurePricingLoanDefaults'), /setLoanInputValue\(loanChargerStateInput/);
+assert.match(extract('startNewPricingLoan'), /loanChargerStateInput\.value = ""/);
+assert.match(extract('restorePricingLoanFromHistory'), /setLoanSnapshotInput\(loanChargerStateInput, historyEntry\.chargerState\)/);
 assert.ok(html.indexOf('id="loanTransferSidesBtn"') > html.indexOf('id="loanRightDeviceInput"'));
 assert.ok(html.indexOf('id="loanTransferSidesBtn"') < html.indexOf('id="loanLeftDeviceInput"'));
 for (const id of ['loanMoveRightToLeftBtn', 'loanMoveLeftToRightBtn', 'loanDuplicateRightBtn']) assert.ok(!html.includes(`id="${id}"`));

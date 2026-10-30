@@ -14273,7 +14273,6 @@ function ensurePricingLoanDefaults() {
   }
   if (!loanInputValue(loanCityInput)) setLoanInputValue(loanCityInput, suggestedDocumentLocation());
   else setLoanInputValue(loanCityInput, normalizeDocumentLocationValue(loanCityInput.value));
-  setLoanInputValue(loanChargerStateInput, "sprawna");
   setLoanInputValue(loanIssueNotesInput, "bez zastrzeżeń");
   if (!pricingLoanAutofilledFromOffer) {
     syncLoanFormFromOffer(false);
@@ -14329,7 +14328,7 @@ function startNewPricingLoan() {
   updateLoanDemoPurposeField("left");
   if (loanContractNumberInput) loanContractNumberInput.dataset.autoNumber = "1";
   if (loanIssueNotesInput) loanIssueNotesInput.value = "bez zastrzeżeń";
-  if (loanChargerStateInput) loanChargerStateInput.value = "sprawna";
+  if (loanChargerStateInput) loanChargerStateInput.value = "";
   const today = todayInputValue();
   setDateInputValue(loanDateInput, today);
   setDateInputValue(loanPeriodFromInput, today);
@@ -14515,7 +14514,9 @@ function renderPricingLoan() {
   setLoanOutput("charger", loanInputValue(loanChargerInput));
   setLoanOutput("chargerSerial", loanInputValue(loanChargerSerialInput).toLocaleUpperCase("pl-PL"));
   const hasCharger = Boolean(loanInputValue(loanChargerInput) || loanInputValue(loanChargerSerialInput));
-  setLoanOutput("chargerState", hasCharger ? normalizeLoanChargerState(loanInputValue(loanChargerStateInput)) : "");
+  const chargerState = hasCharger ? normalizeLoanChargerState(loanInputValue(loanChargerStateInput)) : "";
+  setLoanOutput("chargerState", chargerState);
+  pricingLoanView?.querySelectorAll("[data-loan-charger-state]").forEach(row => { row.hidden = !chargerState; });
   setLoanMoneyOutput("chargerMissingValue", loanInputValue(loanChargerMissingValueInput));
   setLoanOutput("issueNotes", issueNotes);
   setLoanOutput("issueProtocol", `${issueNotes}; instrukcja${hasCharger ? ", ładowarka" : ""}`);
