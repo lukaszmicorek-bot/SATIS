@@ -108,6 +108,13 @@
       state.interpretation.textContent = result.grade ? `${result.grade.label} (${result.grade.range} pkt). ${result.grade.description}`
         : result.complete ? "" : "Uzupełnij wszystkie odpowiedzi, aby otrzymać pełny wynik.";
       state.interpretation.hidden = !state.interpretation.textContent;
+      state.gradeRows.forEach(({row, grade, marker}) => {
+        const current = result.grade === grade;
+        row.classList.toggle("tinnitus-grade-current", current);
+        marker.hidden = !current;
+        if (current) row.setAttribute("aria-current", "true");
+        else row.removeAttribute("aria-current");
+      });
       state.review.hidden = !result.review;
       state.rows.forEach(row => row.querySelectorAll(".tinnitus-answer").forEach(label => {
         label.querySelector(".tinnitus-print-mark").textContent = label.querySelector("input").checked ? "X" : "";
@@ -232,13 +239,31 @@
       const total = node("strong"), progress = node("span", "tinnitus-progress"), summary = node("div", "tinnitus-summary");
       summary.setAttribute("role", "status");summary.setAttribute("aria-live", "polite");summary.append(total, progress);
       const interpretation = node("p", "tinnitus-interpretation");
+      const gradeRows = [], gradeSection = node("section", "tinnitus-grade-section");
+      if (definition.grades) {
+        const gradeTable = node("table", "tinnitus-grade-table"), gradeHead = node("thead"), gradeHeader = node("tr");
+        gradeTable.append(node("caption", "", "Interpretacja wyniku THI"));
+        ["Wynik (pkt)", "Stopień", "Opis"].forEach(text => {
+          const cell = node("th", "", text);cell.scope = "col";gradeHeader.append(cell);
+        });
+        gradeHead.append(gradeHeader);const gradeBody = node("tbody");
+        definition.grades.forEach(grade => {
+          const row = node("tr", "tinnitus-grade-row"), label = node("td", "", grade.label);
+          const marker = node("span", "tinnitus-grade-marker", "Twój wynik");marker.hidden = true;label.append(marker);
+          row.append(node("td", "", grade.range), label, node("td", "", grade.description));
+          gradeBody.append(row);gradeRows.push({row, grade, marker});
+        });
+        gradeTable.append(gradeHead, gradeBody);gradeSection.append(gradeTable);
+      } else {
+        gradeSection.hidden = true;
+      }
       const review = node("p", "tinnitus-review", "Odpowiedź w pytaniu 24 wymaga bezpośredniego omówienia z pacjentem.");review.hidden = true;
-      paper.append(header, patient, node("p", "tinnitus-instruction", definition.instruction), scroll, summary, interpretation,
+      paper.append(header, patient, node("p", "tinnitus-instruction", definition.instruction), scroll, summary, interpretation, gradeSection,
         node("p", "tinnitus-source", definition.source));
       editor.append(metadata, actions, status, review, paper,
         node("p", "document-form-note tinnitus-privacy", "Dane i wyniki tego formularza nie są zapisywane ani synchronizowane. Po wydrukowaniu przechowuj dokument bezpiecznie."));
       view.append(editor);
-      states.set(kind, {view, editor, paper, customer, date, rows, nameOut, dateOut, total, progress, interpretation, review, status, actions, newButton, dirty: false});
+      states.set(kind, {view, editor, paper, customer, date, rows, gradeRows, nameOut, dateOut, total, progress, interpretation, review, status, actions, newButton, dirty: false});
       editor.addEventListener("input", () => {states.get(kind).dirty = true;render(kind);});
       editor.addEventListener("change", () => {states.get(kind).dirty = true;render(kind);});
       customer.addEventListener("blur", () => {customer.value = api.name(customer.value);render(kind);});
