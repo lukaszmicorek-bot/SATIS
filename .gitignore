@@ -112,4 +112,5 @@
 !/tests/clients.test.cjs
 !/tests/clients.sqltest.cjs
 !/tests/device-ezwm.test.cjs
+!/tests/offer-manufacturer-logos.test.cjs
 !/tests/device-search-history.test.cjs

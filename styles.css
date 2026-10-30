@@ -15588,39 +15588,56 @@ textarea {
 }
 
 .manufacturer-brand-logos {
+  --logo-unit: 1px;
   display: grid;
-  grid-template-columns: repeat(6, minmax(82px, 1fr));
-  grid-auto-rows: 46px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: 48px 80px;
   align-items: center;
   justify-items: center;
-  gap: 6px 9px;
-  padding: 8px 10px;
-  border: 1px solid #d9e3e6;
+  gap: 2px 8px;
+  padding: 10px 8px;
+  border: 1px solid #e3e9eb;
   background: #fff;
+  break-inside: avoid;
 }
 
 .manufacturer-logo-image {
   display: block;
-  width: 100%;
-  max-width: 112px;
-  height: 30px;
+  width: min(100%, calc(var(--logo-width, 96) * var(--logo-unit)));
+  height: auto;
+  max-height: calc(78 * var(--logo-unit));
   object-fit: contain;
   object-position: center;
 }
 
-.manufacturer-logo-image.logo-signia {
-  height: 44px;
-}
-
-.manufacturer-logo-image.logo-starkey {
-  height: 42px;
-}
+/* Optical sizes follow the lettering, not the full artwork or canvas. */
+.manufacturer-logo-image.logo-audio-service { --logo-width: 80; }
+.manufacturer-logo-image.logo-beltone { --logo-width: 82; }
+.manufacturer-logo-image.logo-bernafon { --logo-width: 96; }
+.manufacturer-logo-image.logo-oticon { --logo-width: 66; }
+.manufacturer-logo-image.logo-philips { --logo-width: 78; }
+.manufacturer-logo-image.logo-phonak { --logo-width: 82; }
+.manufacturer-logo-image.logo-resound { --logo-width: 86; }
+.manufacturer-logo-image.logo-signia { --logo-width: 48.6; }
+.manufacturer-logo-image.logo-sonic { --logo-width: 82; }
+.manufacturer-logo-image.logo-starkey { --logo-width: 90; }
 
 .manufacturer-logo-frame {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: span 2;
   width: 100%;
-  max-width: 112px;
+  height: 100%;
+  min-width: 0;
+}
+
+.manufacturer-logo-frame:nth-child(7) { grid-column: 2 / span 2; }
+
+.manufacturer-logo-frame.logo-audibel-frame {
+  width: min(100%, calc(108 * var(--logo-unit)));
+  height: auto;
   aspect-ratio: 1130 / 425;
   overflow: hidden;
 }
@@ -15633,13 +15650,17 @@ textarea {
   width: 106.2%;
   max-width: none;
   height: auto;
+  max-height: none;
 }
 
-@media screen and (max-width: 980px) {
+@media screen and (max-width: 600px) {
   .manufacturer-brand-logos {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: 46px;
+    grid-template-rows: none;
+    grid-auto-rows: 80px;
   }
+  .manufacturer-logo-frame:nth-child(7) { grid-column: span 2; }
+  .manufacturer-logo-frame:nth-child(10) { grid-column: 2 / span 2; }
 }
 
 .document-description-page {
@@ -15770,30 +15791,16 @@ textarea {
   }
 
   body.pricing-offer-print .manufacturer-brand-logos {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: 7.4mm;
-    gap: 0.8mm 4mm;
+    --logo-unit: 0.16mm;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: 7mm 12.5mm;
+    gap: 0.5mm 1.2mm;
     padding: 1.2mm 2mm;
     border: 0.25mm solid #d5e0e3;
   }
 
   body.pricing-offer-print .manufacturer-logo-image {
-    width: 100%;
-    max-width: 27mm;
-    height: 4.8mm;
     image-rendering: auto;
-  }
-
-  body.pricing-offer-print .manufacturer-logo-image.logo-signia {
-    height: 7.2mm;
-  }
-
-  body.pricing-offer-print .manufacturer-logo-image.logo-starkey {
-    height: 7mm;
-  }
-
-  body.pricing-offer-print .manufacturer-logo-frame {
-    max-width: 19.5mm;
   }
 
   body.pricing-offer-print .manufacturer-logo-frame .logo-audibel {
