@@ -99,14 +99,25 @@ function setup() {
   const fields = new Map();
   for (const id of ['receiptCustomerInput', 'receiptDateInput', 'receiptAddressInput', 'receiptNfzInput',
     'receiptModelP', 'receiptSerialP', 'receiptModelL', 'receiptSerialL', 'receiptInstructions', 'receiptWarranty', 'receiptBattery', 'receiptStatus',
-    'receiptPurchaseChoice', 'receiptPurchaseField']) {
+    'receiptPurchaseChoice', 'receiptPurchaseField', 'receiptTestedYes', 'receiptTestedNo', 'receiptTestedField']) {
+    const classes = new Set(), attributes = {};
     fields.set(id, { value: '', checked: false, textContent: '', validity: '', dataset: {},
+      classes, attributes, classList: {
+        toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); },
+        remove(name) { classes.delete(name); }
+      },
+      setAttribute(name, value) { attributes[name] = value; }, removeAttribute(name) { delete attributes[name]; },
+      closest() { return null; }, scrollIntoView() {}, focus() { this.focused = true; },
       replaceChildren(...children) { this.children = children; this.value = ''; },
-      setCustomValidity(value) { this.validity = value; }, reportValidity() { return !this.validity; } });
+      setCustomValidity(value) { this.validity = value; },
+      checkValidity() { return !this.validity && !(id === 'receiptNfzInput' && this.value !== '' && (!Number.isFinite(Number(this.value)) || Number(this.value) < 0)); },
+      reportValidity() { return this.checkValidity(); } });
   }
+  fields.get('receiptTestedYes').value = 'yes';
+  fields.get('receiptTestedNo').value = 'no';
   const ctx = vm.createContext({
     document: { getElementById: id => fields.get(id) },
-    pricingReceiptView: { dataset: {}, querySelector: () => null,
+    pricingReceiptView: { dataset: {}, querySelector: () => ['receiptTestedYes', 'receiptTestedNo'].map(id => fields.get(id)).find(input => input.checked) || null,
       querySelectorAll: () => [...fields.values()].filter(input => input.dataset.receiptAuto !== undefined) },
     Option: function (text, value) { this.text = text; this.value = value; },
     records: [], customerHistoryContactEntries: () => [], renderPricingReceipt() {}, formatDate: value => value,
@@ -121,7 +132,7 @@ function setup() {
     'receiptAutofillField', 'applyReceiptPurchase', 'completeReceiptCustomer', 'completeReceiptSerial', 'transferReceiptSides']) vm.runInContext(extract(name), ctx);
   return { ctx, fields, set(id, value) { fields.get(id).value = value; } };
 }
-test('receipt needs a customer, valid date and model; duplicate serials block printing', () => {
+test('receipt needs a customer, date, complete device and explicit confirmations; duplicate serials block printing', () => {
   const t = setup();
   assert.equal(t.ctx.validatePricingReceipt(), false);
   t.set('receiptCustomerInput', 'Jan Testowy');
@@ -129,6 +140,15 @@ test('receipt needs a customer, valid date and model; duplicate serials block pr
   t.set('receiptDateInput', '2026-10-21');
   assert.equal(t.ctx.validatePricingReceipt(), false);
   t.set('receiptModelP', 'Model P');
+  assert.equal(t.ctx.validatePricingReceipt(), false);
+  t.set('receiptSerialP', 'ABC123');
+  assert.equal(t.ctx.receiptSnapshot().tested, '', 'testing is never confirmed automatically');
+  assert.equal(t.ctx.receiptSnapshot().warranty, false);
+  assert.equal(t.ctx.validatePricingReceipt(), false);
+  t.fields.get('receiptTestedNo').checked = true;
+  t.fields.get('receiptInstructions').checked = true;
+  assert.equal(t.ctx.validatePricingReceipt(), false, 'warranty must be confirmed separately');
+  t.fields.get('receiptWarranty').checked = true;
   assert.equal(t.ctx.validatePricingReceipt(), true);
   t.set('receiptSerialL', 'abc123');
   assert.equal(t.ctx.validatePricingReceipt(), false);
@@ -139,8 +159,66 @@ test('receipt needs a customer, valid date and model; duplicate serials block pr
   t.set('receiptSerialL', 'DEF456');
   assert.equal(t.ctx.validatePricingReceipt(), true);
   assert.equal(t.ctx.receiptSnapshot().items.length, 2);
-  assert.equal(t.ctx.receiptSnapshot().tested, '', 'testing is never confirmed automatically');
-  assert.equal(t.ctx.receiptSnapshot().warranty, false);
+  assert.equal(t.ctx.receiptSnapshot().tested, 'no');
+  assert.equal(t.ctx.receiptSnapshot().warranty, true);
+});
+
+test('receipt reports all gaps together and clears reminders as fields are completed without moving focus', () => {
+  const t = setup(), status = t.fields.get('receiptStatus');
+  assert.equal(t.ctx.validatePricingReceipt(), false);
+  for (const text of ['imię i nazwisko', 'datę odbioru', 'model aparatu P', 'numer seryjny aparatu P', 'Tak lub Nie', 'instrukcji', 'karty gwarancyjnej']) {
+    assert.ok(status.textContent.includes(text), text);
+  }
+  assert.equal((status.textContent.match(/Testowanie w domu/g) || []).length, 1);
+  assert.equal(t.fields.get('receiptCustomerInput').attributes['aria-invalid'], 'true');
+  assert.equal(t.fields.get('receiptCustomerInput').focused, true);
+  assert.equal(t.fields.get('receiptTestedField').classes.has('receipt-field-invalid'), true);
+  t.set('receiptCustomerInput', 'Jan Testowy');t.set('receiptDateInput', '2026-10-30');
+  t.set('receiptModelL', 'Model L');t.set('receiptSerialL', 'L123');
+  t.fields.get('receiptTestedYes').checked = true;
+  t.fields.get('receiptInstructions').checked = true;t.fields.get('receiptWarranty').checked = true;
+  t.fields.get('receiptCustomerInput').focused = false;
+  assert.equal(t.ctx.validatePricingReceipt({report: false}), true, 'one left device is sufficient');
+  assert.equal(t.fields.get('receiptCustomerInput').focused, false);
+  assert.equal(t.fields.get('receiptCustomerInput').attributes['aria-invalid'], 'false');
+  assert.equal(t.fields.get('receiptTestedField').classes.has('receipt-field-invalid'), false);
+  assert.equal(status.textContent, '');assert.equal(status.dataset.validation, undefined);
+  assert.equal(t.fields.get('receiptBattery').checked, false, 'battery protection remains optional');
+  t.set('receiptNfzInput', '-1');
+  assert.equal(t.ctx.validatePricingReceipt({report: false}), false);
+  assert.match(status.textContent, /nieujemną/);
+  t.set('receiptNfzInput', '0');
+  assert.equal(t.ctx.validatePricingReceipt({report: false}), true);
+  t.set('receiptModelP', 'Drugi model');
+  assert.equal(t.ctx.validatePricingReceipt({report: false}), false);
+  assert.match(status.textContent, /numer seryjny aparatu P/);
+  t.set('receiptModelP', '');
+  assert.equal(t.ctx.validatePricingReceipt({report: false}), true);
+});
+
+test('receipt blocks online and offline printing until every mandatory confirmation is complete', async () => {
+  const t = setup();let prints = 0, offlinePrints = 0, mode = false;
+  Object.assign(t.ctx, {document: {...t.ctx.document, body: {classList: {add() {}, remove() {}}}},
+    window: {addEventListener() {}}, printWithReadyFonts: async () => { prints++; },
+    offlineForms: {active: () => mode, print: async kind => {assert.equal(kind, 'receipt');offlinePrints++;}}});
+  vm.runInContext(extract('printPricingReceipt'), t.ctx);
+  await t.ctx.printPricingReceipt();assert.equal(prints, 0);
+  mode = true;await t.ctx.printPricingReceipt();assert.equal(offlinePrints, 0);
+  t.set('receiptCustomerInput', 'Jan Testowy');t.set('receiptDateInput', '2026-10-30');
+  t.set('receiptModelP', 'Model P');t.set('receiptSerialP', 'P123');
+  t.fields.get('receiptTestedNo').checked = true;
+  t.fields.get('receiptInstructions').checked = true;t.fields.get('receiptWarranty').checked = true;
+  await t.ctx.printPricingReceipt();assert.equal(offlinePrints, 1);
+  mode = false;await t.ctx.printPricingReceipt();assert.equal(prints, 1);
+  for (const id of ['receiptInstructions', 'receiptWarranty', 'receiptTestedNo']) {
+    t.fields.get(id).checked = false;
+    await t.ctx.printPricingReceipt();assert.equal(prints, 1, id);
+    t.fields.get(id).checked = true;
+  }
+  assert.match(extract('renderPricingReceipt'), /validatePricingReceipt\(\{ report: false \}\)/);
+  assert.match(extract('resetPricingReceipt'), /delete pricingReceiptView\.dataset\.receiptValidationRequested/);
+  assert.match(html, /id="receiptInstructions" type="checkbox" required/);
+  assert.match(html, /id="receiptWarranty" type="checkbox" required/);
 });
 test('serial completion requires an unambiguous customer and model, even in historical records', () => {
   const { ctx } = setup();

@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261030-12">
+  <link rel="stylesheet" href="styles.css?v=20261030-13">
   </head>
   <body>
     <main class="app-shell">
@@ -1523,18 +1523,19 @@
                   <label class="document-serial-field"><span>Nr seryjny</span><span class="receipt-serial-control"><input id="receiptSerialL" autocomplete="off"><button type="button" data-receipt-copy="L" aria-label="Kopiuj numer seryjny L">Kopiuj</button><button type="button" data-paste-target="receiptSerialL" data-paste-format="serial" data-receipt-paste="L" aria-label="Wklej numer seryjny L">Wklej</button></span></label>
                 </div>
                 <label><span>Refundacja NFZ · łącznie (zł)</span><input id="receiptNfzInput" type="number" min="0" step="0.01" placeholder="0,00"></label>
-                <fieldset class="receipt-tested"><legend>Testowanie w domu</legend>
-                  <label><input type="radio" name="receiptTested" value="yes"> Tak</label>
-                  <label><input type="radio" name="receiptTested" value="no"> Nie</label>
+                <fieldset id="receiptTestedField" class="receipt-tested"><legend>Testowanie w domu *</legend>
+                  <label><input id="receiptTestedYes" type="radio" name="receiptTested" value="yes" required> Tak</label>
+                  <label><input id="receiptTestedNo" type="radio" name="receiptTested" value="no" required> Nie</label>
                 </fieldset>
               </div>
               <label id="receiptPurchaseField" hidden><span>Wybierz zakup klienta</span><select id="receiptPurchaseChoice" aria-label="Zakup do potwierdzenia odbioru"></select></label>
               <fieldset class="receipt-documents"><legend>Wydane dokumenty i zabezpieczenia</legend>
-                <label><input id="receiptInstructions" type="checkbox"> Instrukcja użytkowania</label>
-                <label><input id="receiptWarranty" type="checkbox"> Karta gwarancyjna</label>
+                <label><input id="receiptInstructions" type="checkbox" required> Instrukcja użytkowania *</label>
+                <label><input id="receiptWarranty" type="checkbox" required> Karta gwarancyjna *</label>
                 <label><input id="receiptBattery" type="checkbox"> Zabezpieczenie komory baterii dostosowane do wieku dziecka</label>
               </fieldset>
-              <p id="receiptStatus" role="status"></p>
+              <p class="document-form-note">Wprowadź co najmniej jeden aparat: model i numer seryjny. Pola oznaczone * są wymagane.</p>
+              <p id="receiptStatus" role="status" aria-live="polite" aria-atomic="true"></p>
               <div class="pricing-document-actions offer-actions">
                 <button id="newReceiptBtn" class="reset-filters-btn" type="button">Nowe</button>
                 <button id="printReceiptBtn" type="button">Drukuj / PDF</button>
@@ -3537,15 +3538,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261030-12"></script>
-    <script src="data-layer.js?v=20261030-12"></script>
-    <script src="sync-layer.js?v=20261030-12"></script>
-    <script src="traffic-meter.js?v=20261030-12"></script>
-    <script src="repair-returns.js?v=20261030-12"></script>
-    <script src="offline-vault.js?v=20261030-12"></script>
-    <script src="offline-forms.js?v=20261030-12"></script>
-    <script src="stock-audit.js?v=20261030-12"></script>
-    <script src="clients.js?v=20261030-12"></script>
-  <script src="app.js?v=20261030-12"></script>
+    <script src="supabase-config.js?v=20261030-13"></script>
+    <script src="data-layer.js?v=20261030-13"></script>
+    <script src="sync-layer.js?v=20261030-13"></script>
+    <script src="traffic-meter.js?v=20261030-13"></script>
+    <script src="repair-returns.js?v=20261030-13"></script>
+    <script src="offline-vault.js?v=20261030-13"></script>
+    <script src="offline-forms.js?v=20261030-13"></script>
+    <script src="stock-audit.js?v=20261030-13"></script>
+    <script src="clients.js?v=20261030-13"></script>
+  <script src="app.js?v=20261030-13"></script>
   </body>
 </html>
