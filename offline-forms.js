@@ -1,8 +1,8 @@
 /* Local drafts are encrypted for this browser profile; this workspace never grants a Supabase session. */
 window.SatisOfflineForms = {
   mount(api) {
-    const kinds = { offer: "Oferta", loan: "Umowa", order: "Zamówienie", complaint: "Reklamacja", rodo: "RODO", receipt: "Odbiór aparatu" };
-    const printOnly = kind => kind === "rodo" || kind === "receipt";
+    const kinds = { offer: "Oferta", loan: "Umowa", order: "Zamówienie", complaint: "Reklamacja", rodo: "RODO", receipt: "Odbiór aparatu", thi: "THI", trq: "TRQ" };
+    const printOnly = kind => kind === "rodo" || kind === "receipt" || kind === "thi" || kind === "trq";
     const vault = window.SatisOfflineVault.create();
     let workspace = false, syncing = false, current = "offer", timer = 0, idle = 0, release = null, writingTimer = 0;
     let writing = Promise.resolve(), selected = new Map(), dirty = false;
@@ -91,6 +91,7 @@ window.SatisOfflineForms = {
       panel.querySelector(".offline-warning").textContent = kind === "rodo"
         ? "RODO nie zapisuje danych ani zgód na tym komputerze i nie synchronizuje ich z serwerem. Po wydrukowaniu przechowuj dokument bezpiecznie."
         : kind === "receipt" ? "Potwierdzenie odbioru jest przeznaczone do wydruku. Dane tego formularza nie są zapisywane ani synchronizowane."
+        : ["thi", "trq"].includes(kind) ? "Kwestionariusz służy do wypełnienia i wydruku. Dane pacjenta i wyniki nie są zapisywane ani synchronizowane."
         : "Wersja robocza. Numeracja i dostępność aparatu wymagają sprawdzenia online. Dostęp do szkiców ma każdy, kto używa tego profilu przeglądarki. Blokuj komputer; pliki PDF przechowuj bezpiecznie.";
       list(); touch();
     }
@@ -144,7 +145,7 @@ window.SatisOfflineForms = {
         const output = document.createElement("section"); output.id = "offlinePrint";
         const copy = api.printSource(kind).cloneNode(true);
         copy.querySelectorAll("[id]").forEach(node => node.removeAttribute("id")); copy.removeAttribute("id");
-        const printClass = kind === "rodo" ? "offline-rodo-print" : "offline-receipt-print";
+        const printClass = ["thi", "trq"].includes(kind) ? "offline-tinnitus-print" : kind === "rodo" ? "offline-rodo-print" : "offline-receipt-print";
         output.append(copy); document.body.append(output); document.body.classList.add("offline-printing", printClass);
         const cleanup = () => { output.remove(); document.body.classList.remove("offline-printing", printClass); };
         window.addEventListener("afterprint", cleanup, { once: true });
@@ -199,6 +200,8 @@ window.SatisOfflineForms = {
     function leave() {
       api.reset("rodo");
       api.reset("receipt");
+      api.reset("thi");
+      api.reset("trq");
       workspace = false; panel.hidden = true; document.body.classList.remove("offline-form-mode");
       for (const [kind, placeholder] of places) { placeholder.replaceWith(api.views[kind]); }
       places.clear(); api.renderApp();

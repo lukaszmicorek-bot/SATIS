@@ -1,6 +1,6 @@
 {
-  "app_version": "20261030-13",
-  "asset_policy_sha256": "53e4e8f88c0e0374f31ab53a6f0d704b23f45b9fe0ca9e33c21dc7b480396ba6",
+  "app_version": "20261030-14",
+  "asset_policy_sha256": "e21823cbe328b067e02373238231cfc21b0c99fbbb2aad8bd11c3787a6364c08",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1770703,
-      "sha256": "0dbd6f3b14fdaee825bd3c79e106e28efd233ef1e7c332b2b60498a87e68a021"
+      "bytes": 1771994,
+      "sha256": "6873dd267e5e9c4f47c4fe909a83e5936a5606c1746502b8715c64a730dde7ad"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -47,8 +47,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 457180,
-      "sha256": "544e84d6c48c1448545cc2f5e9a9b575ca42a1b013bfc80664b26fc69fb1a47c"
+      "bytes": 457863,
+      "sha256": "f807819df9100263fbdccc93058d125c596275eb0b3c2a2a4e3cc0e0d4e07ce7"
     },
     "manufacturer-logos/audibel-offer.jpeg": {
       "bytes": 33002,
@@ -115,12 +115,12 @@
       "sha256": "3241d1e3f4599e3f3ca44ee554c9833970917279a8d85f8747fcaa1fdd6c19eb"
     },
     "offline-forms.js": {
-      "bytes": 19346,
-      "sha256": "fb6865e721469a8b19a03c52a0cd14a701a3919e803f64117a41614cbdb860c5"
+      "bytes": 19670,
+      "sha256": "06cc39f940d43b6447bd3d041cf278d31d1d164632f88301cdb277cfc0409797"
     },
     "offline-sw.js": {
-      "bytes": 3228,
-      "sha256": "e941bea7a229b8fd2ffb489fade8e023436d2e96a973790ebfb6fbf4fd79304c"
+      "bytes": 3249,
+      "sha256": "f9e9c0ce431d8e71bc2e7c4496bc2c54b451dd560c78c2284a9a832c8261dc71"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -139,8 +139,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 400118,
-      "sha256": "669b2a3cf14d2b9f68952d32d38512c1ab8540989df1885c6cd15049ca3f4086"
+      "bytes": 405532,
+      "sha256": "9f178c1cb07cfcad4e75e0fb5500344d86ad47f7cfe4f13ae27954f4b4fae3e9"
     },
     "supabase-config.js": {
       "bytes": 227,
@@ -149,6 +149,10 @@
     "sync-layer.js": {
       "bytes": 2248,
       "sha256": "07ca08034f593f21dd3b34e23fb8789a4253910e4d15bed7cc3002487b12b361"
+    },
+    "tinnitus-forms.js": {
+      "bytes": 17664,
+      "sha256": "0dba984bfe3814524845bfa2f21bca070bc4834c43806dc5ceaaf81378cb7798"
     },
     "traffic-meter.js": {
       "bytes": 7412,
