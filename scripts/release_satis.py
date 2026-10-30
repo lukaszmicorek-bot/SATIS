@@ -55,6 +55,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/customer-transfer.test.cjs",
     "tests/document-new-toolbar.test.cjs",
     "tests/loan-transfer-sides.test.cjs",
+    "tests/loan-print-copies.test.cjs",
     "tests/repair-order-items.test.cjs",
     "tests/pricing-create.test.cjs",
     "tests/pricing-discounts.test.cjs",

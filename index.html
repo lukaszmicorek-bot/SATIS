@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261030-10">
+  <link rel="stylesheet" href="styles.css?v=20261030-11">
   </head>
   <body>
     <main class="app-shell">
@@ -1080,6 +1080,14 @@
                     </tr>
                   </thead>
                   <tbody id="offerItemsBody"></tbody>
+                  <tfoot>
+                    <tr class="offer-subtotal-row">
+                      <th colspan="2" scope="row">Razem przed dofinansowaniem</th>
+                      <td class="offer-nfz-column"></td>
+                      <td class="offer-subtotal-amount"><strong id="offerGrossTotal">0 zł</strong></td>
+                      <td class="offer-action-column"></td>
+                    </tr>
+                  </tfoot>
                 </table>
 
                 <table class="offer-payments-table">
@@ -1321,6 +1329,10 @@
                 <label class="loan-wide">
                   <span>Uwagi przy wydaniu</span>
                   <input id="loanIssueNotesInput" type="text" placeholder="np. Ładowarka: zarysowana obudowa, bez przewodu USB" autocomplete="off">
+                </label>
+                <label class="loan-full loan-testing-rules-toggle">
+                  <input id="loanPrintTestingRulesInput" type="checkbox" checked>
+                  <span>Drukuj zasady testowania AS</span>
                 </label>
                 <label>
                   <span>Data zwrotu</span>
@@ -3525,15 +3537,15 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261030-10"></script>
-    <script src="data-layer.js?v=20261030-10"></script>
-    <script src="sync-layer.js?v=20261030-10"></script>
-    <script src="traffic-meter.js?v=20261030-10"></script>
-    <script src="repair-returns.js?v=20261030-10"></script>
-    <script src="offline-vault.js?v=20261030-10"></script>
-    <script src="offline-forms.js?v=20261030-10"></script>
-    <script src="stock-audit.js?v=20261030-10"></script>
-    <script src="clients.js?v=20261030-10"></script>
-  <script src="app.js?v=20261030-10"></script>
+    <script src="supabase-config.js?v=20261030-11"></script>
+    <script src="data-layer.js?v=20261030-11"></script>
+    <script src="sync-layer.js?v=20261030-11"></script>
+    <script src="traffic-meter.js?v=20261030-11"></script>
+    <script src="repair-returns.js?v=20261030-11"></script>
+    <script src="offline-vault.js?v=20261030-11"></script>
+    <script src="offline-forms.js?v=20261030-11"></script>
+    <script src="stock-audit.js?v=20261030-11"></script>
+    <script src="clients.js?v=20261030-11"></script>
+  <script src="app.js?v=20261030-11"></script>
   </body>
 </html>
