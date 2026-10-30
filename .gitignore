@@ -107,6 +107,8 @@
 !/tests/vacation-balance-visibility.test.cjs
 !/tests/vacation-weekend-range.test.cjs
 !/clients.js
+!/tinnitus-forms.js
+!/tests/tinnitus-forms.test.cjs
 !/supabase-clients.sql
 !/supabase-client-schedule.sql
 !/KLIENCI-BEZPIECZENSTWO.md

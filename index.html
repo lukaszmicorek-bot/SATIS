@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261030-13">
+  <link rel="stylesheet" href="styles.css?v=20261030-14">
   </head>
   <body>
     <main class="app-shell">
@@ -128,6 +128,8 @@
             <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
             <button id="receiptTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingReceiptView" data-view-group="devices" data-view="receipt">Odbiór aparatu</button>
             <button id="rodoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingRodoView" data-view-group="devices" data-view="rodo">RODO</button>
+            <button id="thiTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingThiView" data-view-group="devices" data-view="thi">THI</button>
+            <button id="trqTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingTrqView" data-view-group="devices" data-view="trq">TRQ</button>
           </div>
         </section>
 
@@ -1579,6 +1581,9 @@
               </section>
             </article>
           </section>
+
+          <section id="pricingThiView" class="pricing-view-section" role="tabpanel" aria-labelledby="thiTab" hidden></section>
+          <section id="pricingTrqView" class="pricing-view-section" role="tabpanel" aria-labelledby="trqTab" hidden></section>
 
           <section id="pricingRodoView" class="pricing-view-section pricing-rodo-section" role="tabpanel" aria-labelledby="rodoTab" hidden>
             <section class="offer-builder rodo-builder" aria-label="Dane do formularza RODO">
@@ -3538,15 +3543,16 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261030-13"></script>
-    <script src="data-layer.js?v=20261030-13"></script>
-    <script src="sync-layer.js?v=20261030-13"></script>
-    <script src="traffic-meter.js?v=20261030-13"></script>
-    <script src="repair-returns.js?v=20261030-13"></script>
-    <script src="offline-vault.js?v=20261030-13"></script>
-    <script src="offline-forms.js?v=20261030-13"></script>
-    <script src="stock-audit.js?v=20261030-13"></script>
-    <script src="clients.js?v=20261030-13"></script>
-  <script src="app.js?v=20261030-13"></script>
+    <script src="supabase-config.js?v=20261030-14"></script>
+    <script src="data-layer.js?v=20261030-14"></script>
+    <script src="sync-layer.js?v=20261030-14"></script>
+    <script src="traffic-meter.js?v=20261030-14"></script>
+    <script src="repair-returns.js?v=20261030-14"></script>
+    <script src="offline-vault.js?v=20261030-14"></script>
+    <script src="offline-forms.js?v=20261030-14"></script>
+    <script src="stock-audit.js?v=20261030-14"></script>
+    <script src="clients.js?v=20261030-14"></script>
+    <script src="tinnitus-forms.js?v=20261030-14"></script>
+  <script src="app.js?v=20261030-14"></script>
   </body>
 </html>

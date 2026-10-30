@@ -811,6 +811,8 @@ const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingLoanView = document.querySelector("#pricingLoanView");
 const pricingRodoView = document.querySelector("#pricingRodoView");
 const pricingReceiptView = document.querySelector("#pricingReceiptView");
+const pricingTinnitusViews = {thi: document.querySelector("#pricingThiView"), trq: document.querySelector("#pricingTrqView")};
+let tinnitusForms = null;
 const pricingPcprView = document.querySelector("#pricingPcprView");
 const pricingOrderView = document.querySelector("#pricingOrderView");
 const pricingComplaintView = document.querySelector("#pricingComplaintView");
@@ -2804,7 +2806,7 @@ async function refreshPricingFromSupabase() {
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
   if (sharedPcprList) pricingPcprList = sharedPcprList;
   renderPricingRecords();
-  if (activeNotebook === "devices" && !["offer", "loan", "rodo", "receipt"].includes(activeDeviceView)) renderDeviceViews();
+  if (activeNotebook === "devices" && !["offer", "loan", "rodo", "receipt", "thi", "trq"].includes(activeDeviceView)) renderDeviceViews();
   setCurrentYearTitle();
 }
 
@@ -3035,6 +3037,7 @@ function clearSensitiveApplicationState() {
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
   resetPricingReceipt();
+  tinnitusForms?.clear();
   if (capdExaminerInput) capdExaminerInput.hidden = true;
   renderCapdPractitionerProfiles();
   clearSensitiveBrowserData();
@@ -9699,7 +9702,7 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "devices", trq: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
@@ -9737,6 +9740,7 @@ function switchPricingView(viewName) {
   if (pricingLoanView) pricingLoanView.hidden = activePricingView !== "loan";
   if (pricingRodoView) pricingRodoView.hidden = activePricingView !== "rodo";
   if (pricingReceiptView) pricingReceiptView.hidden = activePricingView !== "receipt";
+  Object.entries(pricingTinnitusViews).forEach(([kind, view]) => { if (view) view.hidden = activePricingView !== kind; });
   if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
@@ -9747,6 +9751,7 @@ function switchPricingView(viewName) {
   if (activePricingView === "loan") renderPricingLoan();
   if (activePricingView === "rodo") renderPricingRodo();
   if (activePricingView === "receipt") renderPricingReceipt();
+  if (["thi", "trq"].includes(activePricingView)) tinnitusForms?.render(activePricingView);
   if (activePricingView === "pcpr") renderPricingPcprList();
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
@@ -29726,8 +29731,17 @@ document.querySelector("#openDemoReturnRecordsBtn")?.addEventListener("click", (
   switchView("demo", "devices");
 });
 
+tinnitusForms = window.SatisTinnitusForms?.create({
+  document, window, views: pricingTinnitusViews,
+  name: titleCaseName, fullName: isFullPersonName, iso: isoDateForSave, formatDate,
+  today: () => displayDateForInput(todayInputValue()),
+  confirm: message => confirm(message), clearUndo: clearFormUndo,
+  offlineActive: () => Boolean(offlineForms?.active()), offlinePrint: kind => offlineForms.print(kind),
+  print: cleanup => printWithReadyFonts(cleanup)
+}) || null;
 setupDatePickers();
 setupFormUndo();
+tinnitusForms?.alignToolbars();
 fillStockAuditForm();
 updateScrollTopButton();
 
@@ -30324,7 +30338,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
   const saves = { offer: saveCurrentPricingOfferToHistory, loan: saveCurrentPricingLoanToHistory,
     order: saveCurrentPricingOrderToHistory, complaint: saveCurrentPricingComplaintToHistory };
   offlineForms = window.SatisOfflineForms.mount({
-    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView, receipt: pricingReceiptView },
+    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView, receipt: pricingReceiptView, ...pricingTinnitusViews },
     user: () => currentSupabaseUser,
     pricing: () => pricingRecords,
     setPricing(value) { pricingRecords = normalizePricingRecordsForUse(value); resetPricingPriceLookup(); renderPricingOfferDeviceList(); },
@@ -30358,9 +30372,10 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Uzupełnij grupę pacjenta i wybierz aparat z cennika przed synchronizacją oferty.");
       return saves[kind]({ silent: false });
     },
-    render: kind => kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
-    reset: kind => kind === "receipt" ? resetPricingReceipt() : kind === "rodo" ? resetPricingRodo() : resets[kind](),
+    render: kind => ["thi", "trq"].includes(kind) ? tinnitusForms?.render(kind) : kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
+    reset: kind => ["thi", "trq"].includes(kind) ? tinnitusForms?.reset(kind) : kind === "receipt" ? resetPricingReceipt() : kind === "rodo" ? resetPricingRodo() : resets[kind](),
     validate: kind => {
+      if (["thi", "trq"].includes(kind)) return tinnitusForms?.validate(kind) || false;
       if (kind === "receipt") return validatePricingReceipt();
       const names = {offer: "offerCustomerInput", loan: "loanCustomerInput", order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
       if (!requireDocumentCustomerName(document.getElementById(names[kind]))) return false;
@@ -30375,11 +30390,13 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       clearPricingOrderRows(); addPricingOrderItemRow();
       resetPricingRodo();
       resetPricingReceipt();
+      tinnitusForms?.clear();
       documentDraftIdentities.clear(); activePricingLoanHistoryId = "";
       for (const kind of Object.keys(renderers)) renderers[kind]();
     },
     localSaved: kind => markAgreementDraftSaved(kind),
     printSource(kind) {
+      if (["thi", "trq"].includes(kind)) return tinnitusForms?.printSource(kind);
       if (kind === "rodo") return document.querySelector("#pricingRodoPrint");
       if (kind === "receipt") return document.querySelector("#pricingReceiptPrint");
       const selector = { offer: "#pricingOfferPrint", loan: "#pricingLoanPrint", order: "#pricingOrderPrint", complaint: "#pricingComplaintPrint" }[kind];

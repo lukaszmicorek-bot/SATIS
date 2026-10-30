@@ -56,6 +56,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/document-new-toolbar.test.cjs",
     "tests/loan-transfer-sides.test.cjs",
     "tests/loan-print-copies.test.cjs",
+    "tests/tinnitus-forms.test.cjs",
     "tests/repair-order-items.test.cjs",
     "tests/pricing-create.test.cjs",
     "tests/pricing-discounts.test.cjs",
@@ -90,7 +91,7 @@ def node_binary():
 
 def check_source():
     node = node_binary()
-    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js", "stock-audit.js", "clients.js"):
+    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js", "stock-audit.js", "clients.js", "tinnitus-forms.js"):
         run(node, "--check", str(ROOT / name))
     tests = sorted((ROOT / "tests").glob("*.test.cjs"))
     if not tests:
