@@ -33,6 +33,11 @@ fields.left.device.value = 'Model L'; fields.left.serial.value = 'L123';
 context.updateLoanTransferButton(); assert.match(button.title, /Zamień/);
 context.transferLoanSides(); assert.equal(fields.right.serial.value, 'L123'); assert.equal(fields.left.serial.value, 'P123');
 const html = fs.readFileSync('index.html', 'utf8');
+assert.doesNotMatch(html, /Nr seryjny\s*\/\s*UDI/);
+for (const side of ['right', 'left']) {
+  assert.match(html, new RegExp(`data-loan-serial-field="${side}">\\s*<span>Nr seryjny</span>`));
+}
+assert.match(html, /<table class="loan-equipment-table">[\s\S]*?<th>Nr seryjny<\/th>/);
 assert.ok(html.indexOf('id="loanTransferSidesBtn"') > html.indexOf('id="loanRightDeviceInput"'));
 assert.ok(html.indexOf('id="loanTransferSidesBtn"') < html.indexOf('id="loanLeftDeviceInput"'));
 for (const id of ['loanMoveRightToLeftBtn', 'loanMoveLeftToRightBtn', 'loanDuplicateRightBtn']) assert.ok(!html.includes(`id="${id}"`));
