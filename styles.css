@@ -5319,6 +5319,10 @@ h2 {
   width: 112px;
 }
 
+.offer-items-table.offer-without-nfz .offer-nfz-column {
+  display: none;
+}
+
 .offer-items-table th:nth-child(4),
 .offer-items-table td:nth-child(4) {
   width: 130px;
