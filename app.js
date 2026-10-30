@@ -9038,12 +9038,13 @@ function appendOfferPriceCell(row, value, className = "amount-cell") {
   return cell;
 }
 
-function renderPricingOfferItems(items) {
+function renderPricingOfferItems(items, withoutNfz = false) {
   if (!offerItemsBody) return;
+  offerItemsBody.closest("table")?.classList.toggle("offer-without-nfz", withoutNfz);
   const rows = items.map((item, index) => {
     const record = item.record;
     const row = document.createElement("tr");
-    if (item.kind === "device" && !pricingOfferNfzCodeMatchesAge(record)) {
+    if (!withoutNfz && item.kind === "device" && !pricingOfferNfzCodeMatchesAge(record)) {
       row.classList.add("offer-age-mismatch");
       row.title = "Kod NFZ tej pozycji nie pasuje do wybranej grupy pacjenta.";
     }
@@ -9055,7 +9056,7 @@ function renderPricingOfferItems(items) {
     nameCell.append(model);
     row.append(nameCell);
 
-    appendOfferCell(row, record.nfzCode);
+    appendOfferCell(row, withoutNfz ? "" : record.nfzCode, "offer-nfz-column");
     appendOfferPriceCell(row, record.grossPrice);
 
     const removeCell = document.createElement("td");
@@ -9083,7 +9084,7 @@ function renderPricingOfferAgeWarning(items) {
     offerAgeWarning.hidden = false;
     return;
   }
-  if (!suffix || !items.length) {
+  if (!suffix || !items.length || offerNoNfzInput?.checked) {
     offerAgeWarning.hidden = true;
     offerAgeWarning.textContent = "";
     return;
@@ -9310,7 +9311,7 @@ function renderPricingOffer() {
     return;
   }
 
-  renderPricingOfferItems(offerItems);
+  renderPricingOfferItems(offerItems, withoutNfz);
   renderPricingOfferAgeWarning(deviceItems);
   renderPricingOfferPayments(offerItems, deviceItems, { total, nfz, pfron, patient, withoutNfz, pfronEnabled });
   if (offerPatientTotal) offerPatientTotal.replaceChildren(createPricingPriceElement(patient));

@@ -11,20 +11,24 @@ function extract(name){
 }
 function element(tag){
   return {tagName:tag,children:[],className:'',_text:'',append(...children){this.children.push(...children);},
+    classList:{names:new Set(),add(name){this.names.add(name);},toggle(name,on){if(on)this.names.add(name);else this.names.delete(name);}},
+    setAttribute(){},addEventListener(){},
     replaceChildren(...children){this.children=children;this._text='';},
     set textContent(value){this._text=String(value);this.children=[];},
     get textContent(){return this._text+this.children.map(child=>child.textContent).join('');}};
 }
 function setup(){
   const body=element('tbody');
-  const ctx=vm.createContext({offerPaymentsBody:body,offerCustomerInput:{value:'Anna Testowa'},titleCaseName:value=>value,
+  const table=element('table'),itemsBody=element('tbody');itemsBody.closest=()=>table;
+  const ctx=vm.createContext({offerPaymentsBody:body,offerItemsBody:itemsBody,offerCustomerInput:{value:'Anna Testowa'},titleCaseName:value=>value,
+    pricingOfferNfzCodeMatchesAge:()=>false,
     document:{createElement:element},PRICING_OFFER_NFZ_PER_DEVICE:1050,
     createPricingPriceElement:value=>{const cell=element('span');cell.textContent=`${value} zł`;return cell;},
     formatPricingPrice:value=>`${value} zł`});
   vm.runInContext(source.match(/const PRICING_OFFER_NFZ_BY_CODE = \{[\s\S]*?\};/)[0],ctx);
   for(const name of ['normalizePricingNfzCode','pricingOfferDeviceName','pricingOfferNfzAmount','pricingOfferItemKindLabel',
-    'pricingOfferPaymentRows','appendOfferCell','appendOfferPriceCell','renderPricingOfferPayments'])vm.runInContext(extract(name),ctx);
-  return {ctx,body};
+    'pricingOfferItemDescription','renderPricingOfferItems','pricingOfferPaymentRows','appendOfferCell','appendOfferPriceCell','renderPricingOfferPayments'])vm.runInContext(extract(name),ctx);
+  return {ctx,body,table,itemsBody};
 }
 const devices=[{kind:'device',slot:1,record:{model:'Długi model aparatu P',nfzCode:'P.01.01.00'}},
   {kind:'device',slot:2,record:{model:'Inny model aparatu L',nfzCode:'P.01.01.01'}}];
@@ -81,4 +85,20 @@ test('description takes most table width on screen and print, long text wraps an
   assert.match(css,/\.offer-payment-products li \{[^}]*grid-template-columns: max-content minmax\(0, 1fr\)/);
   assert.match(css,/body\.pricing-offer-print \.offer-payment-products li \{ break-inside: avoid; \}/);
   assert.match(css,/\.offer-payments-table td:nth-child\(3\) \{[^}]*text-align: right;[^}]*white-space: nowrap;/);
+});
+
+test('without refund hides all product codes and mismatch warnings, restoring them when enabled',()=>{
+  const {ctx,table,itemsBody}=setup();
+  ctx.renderPricingOfferItems(items,true);
+  assert.equal(table.classList.names.has('offer-without-nfz'),true);
+  assert.ok(itemsBody.children.every(row=>!row.classList.names.has('offer-age-mismatch')));
+  assert.doesNotMatch(itemsBody.textContent,/P\.01\.01\./);
+  assert.ok(itemsBody.children.every(row=>row.children[2].className==='offer-nfz-column'));
+  ctx.renderPricingOfferItems(items,false);
+  assert.equal(table.classList.names.has('offer-without-nfz'),false);
+  assert.match(itemsBody.textContent,/P\.01\.01\.00/);
+  assert.equal(itemsBody.children[0].classList.names.has('offer-age-mismatch'),true);
+  assert.match(html,/<th class="offer-nfz-column">Kod NFZ<\/th>/);
+  assert.match(css,/\.offer-items-table\.offer-without-nfz \.offer-nfz-column\s*\{\s*display: none;/);
+  assert.match(extract('renderPricingOfferAgeWarning'),/offerNoNfzInput\?\.checked/);
 });
