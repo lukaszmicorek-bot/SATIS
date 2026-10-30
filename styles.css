@@ -15591,7 +15591,7 @@ textarea {
   --logo-unit: 1px;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: 48px 80px;
+  grid-template-rows: 48px 64px;
   align-items: center;
   justify-items: center;
   gap: 2px 8px;
@@ -15793,7 +15793,7 @@ textarea {
   body.pricing-offer-print .manufacturer-brand-logos {
     --logo-unit: 0.16mm;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-template-rows: 7mm 12.5mm;
+    grid-template-rows: 7mm 10mm;
     gap: 0.5mm 1.2mm;
     padding: 1.2mm 2mm;
     border: 0.25mm solid #d5e0e3;

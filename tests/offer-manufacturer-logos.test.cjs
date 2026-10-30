@@ -52,7 +52,8 @@ test('eleven logos have matching cells, the five-logo second row is centered and
   const css=fs.readFileSync(path.join(root,'styles.css'),'utf8');
   assert.match(css,/grid-template-columns: repeat\(12, minmax\(0, 1fr\)\);/);
   assert.match(css,/\.manufacturer-logo-frame:nth-child\(7\) \{ grid-column: 2 \/ span 2; \}/);
-  assert.match(css,/grid-template-rows: 7mm 12\.5mm;/);
+  assert.match(css,/grid-template-rows: 48px 64px;/);
+  assert.match(css,/grid-template-rows: 7mm 10mm;/);
   assert.match(css,/@media screen and \(max-width: 600px\)/);
   assert.match(css,/\.manufacturer-logo-frame\.logo-audibel-frame\s*\{[^}]*aspect-ratio: 1130 \/ 425;/);
 });
