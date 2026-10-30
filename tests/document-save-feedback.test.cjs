@@ -47,6 +47,18 @@ test('all four documents use the same save label, dirty state, reminder and rese
       assert.equal(state.dirty, true);
       assert.ok(buttons[key].classes.has('has-unsaved-changes'));
       assert.equal(buttons[key].attributes['aria-label'], 'Zapisz wprowadzone zmiany');
+      assert.equal(buttons[key].classes.has('is-writing'), eventName === 'input');
+      if (eventName === 'input') {
+        const firstTimer = state.writingTimer;
+        state.editor.events.input({target: {matches: () => true}});
+        assert.equal(timers.has(firstTimer), false, 'continued typing replaces the previous idle timer');
+        ctx.markAgreementDraftDirty(key);
+        assert.ok(buttons[key].classes.has('is-writing'), 'autocomplete triggered during input retains typing feedback');
+        timers.get(state.writingTimer)();
+        assert.equal(buttons[key].classes.has('is-writing'), false);
+        assert.equal(state.dirty, true, 'idle color does not mark unsaved changes as saved');
+        assert.ok(buttons[key].classes.has('has-unsaved-changes'));
+      }
     }
     timers.get(state.timer)();
     assert.ok(buttons[key].classes.has('save-reminder-active'));
@@ -56,6 +68,46 @@ test('all four documents use the same save label, dirty state, reminder and rese
     assert.equal(buttons[key].classes.size, 0);
     assert.equal(state.reminder.hidden, true);
     assert.equal(buttons[key].attributes['aria-label'], undefined);
+    state.editor.events.input({target: {matches: () => true}});
+    const writingTimer = state.writingTimer, reminderTimer = state.timer;
+    ctx.markAgreementDraftSaved(key);
+    assert.equal(timers.has(writingTimer), false);
+    assert.equal(timers.has(reminderTimer), false);
+    assert.equal(buttons[key].classes.size, 0, 'saving while typing clears both feedback states');
+    ctx.markAgreementDraftDirty(key);
+    assert.equal(buttons[key].classes.has('is-writing'), false, 'programmatic changes start as unsaved, not typing');
+    ctx.markAgreementDraftSaved(key);
   }
-  assert.match(css, /\.offer-actions button\.document-save-btn\.has-unsaved-changes[\s\S]*?background: #bd354f;[\s\S]*?color: #fff/);
+  assert.match(css, /:is\(\.offer-actions button\.document-save-btn, \.offline-controls \[data-offline="save"\]\)\.has-unsaved-changes \{[^}]*background: #fff0dc;/);
+  assert.match(css, /\.has-unsaved-changes\.is-writing \{[^}]*background: #bd354f;[^}]*color: #fff/);
+  assert.match(css, /\.save-reminder-active \{[^}]*background: #ffe3ba;/);
+  assert.match(css, /\.unified-document-editor button\.document-save-btn \{[^}]*width: 112px;[^}]*min-width: 112px;/);
+  assert.match(css, /\.unified-document-editor #savePricingLoanBtn \{ width: auto; \}/);
+  assert.match(css, /\.unified-document-editor :is\(\.form-undo-tools > button, \.offer-actions > button\) \{[^}]*height: 32px;[^}]*font-size: 12px;/);
+});
+
+test('offline save uses the same typing and unsaved states and clears them after local save', () => {
+  const offline = fs.readFileSync('offline-forms.js', 'utf8');
+  const classes = new Set(), timers = new Map(); let next = 0;
+  const button = {classList: {
+    toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); },
+    remove(name) { classes.delete(name); }
+  }};
+  const ctx = vm.createContext({dirty: true, writingTimer: 0, panel: {querySelector: () => button},
+    setTimeout(fn) {timers.set(++next, fn); return next;}, clearTimeout(id) {timers.delete(id);}});
+  const start = offline.indexOf('    function updateSaveState(');
+  vm.runInContext(offline.slice(start, offline.indexOf('    function touch(', start)), ctx);
+  ctx.updateSaveState(true);
+  assert.ok(classes.has('is-writing'));
+  assert.ok(classes.has('has-unsaved-changes'));
+  timers.get(ctx.writingTimer)();
+  assert.equal(classes.has('is-writing'), false);
+  assert.ok(classes.has('has-unsaved-changes'));
+  ctx.updateSaveState(true);
+  const pending = ctx.writingTimer;
+  ctx.dirty = false;
+  ctx.updateSaveState();
+  assert.equal(timers.has(pending), false);
+  assert.equal(classes.size, 0);
+  assert.match(offline, /updateSaveState\(event.type === "input"\)/);
 });

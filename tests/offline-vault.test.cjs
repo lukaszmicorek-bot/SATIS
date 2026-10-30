@@ -13,8 +13,9 @@ test('offline tabs share app document colors while actions use a separate palett
   }
   for (const action of ['save', 'print', 'sync', 'exit', 'lock']) assert.ok(css.includes(`.offline-controls [data-offline="${action}"]`));
   assert.match(css, /\.offline-tabs button\[aria-pressed="true"\]\s*\{[^}]*background: var\(--document-tab-selected\)/s);
-  assert.match(css, /\.offline-controls \[data-offline="save"\]\.has-unsaved-changes\s*\{[^}]*background: #bd354f/);
-  assert.match(css, /\.offline-controls \[data-offline="print"\]\s*\{[^}]*background: #003f5a/);
+  assert.match(css, /\.offline-controls \[data-offline="save"\]\)\.has-unsaved-changes\s*\{[^}]*background: #fff0dc/);
+  assert.match(css, /\.offline-controls \[data-offline="save"\]\)\.has-unsaved-changes\.is-writing\s*\{[^}]*background: #bd354f/);
+  assert.match(css, /\.offline-controls \[data-offline="print"\]\s*\{[^}]*background: #2b8a78/);
   const source = require('node:fs').readFileSync('offline-forms.js', 'utf8');
   assert.match(source, /classList.toggle\("has-unsaved-changes", dirty\)/);
   assert.match(source, /selected.set\(kind, entry\); dirty = false;\s*updateSaveState\(\)/);

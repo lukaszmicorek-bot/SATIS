@@ -4,7 +4,7 @@ window.SatisOfflineForms = {
     const kinds = { offer: "Oferta", loan: "Umowa", order: "Zamówienie", complaint: "Reklamacja", rodo: "RODO", receipt: "Odbiór aparatu" };
     const printOnly = kind => kind === "rodo" || kind === "receipt";
     const vault = window.SatisOfflineVault.create();
-    let workspace = false, syncing = false, current = "offer", timer = 0, idle = 0, release = null;
+    let workspace = false, syncing = false, current = "offer", timer = 0, idle = 0, release = null, writingTimer = 0;
     let writing = Promise.resolve(), selected = new Map(), dirty = false;
     const places = new Map();
     const panel = document.createElement("section");
@@ -28,8 +28,15 @@ window.SatisOfflineForms = {
     authLauncher.classList.add("offline-auth-launch");
     document.querySelector("#authForm")?.append(authLauncher);
     function message(text) { status.textContent = text; }
-    function updateSaveState() {
-      panel.querySelector('[data-offline="save"]').classList.toggle("has-unsaved-changes", dirty);
+    function updateSaveState(isWriting = false) {
+      const button = panel.querySelector('[data-offline="save"]');
+      button.classList.toggle("has-unsaved-changes", dirty);
+      button.classList.toggle("is-writing", dirty && isWriting);
+      clearTimeout(writingTimer);
+      writingTimer = dirty && isWriting ? setTimeout(() => {
+        button.classList.remove("is-writing");
+        writingTimer = 0;
+      }, 1500) : 0;
     }
     function touch() {
       clearTimeout(idle);
@@ -261,11 +268,11 @@ window.SatisOfflineForms = {
       const button = document.createElement("button"); button.type = "button"; button.textContent = title; button.dataset.kind = kind;
       button.onclick = () => run(async () => { if (dirty) await save(current); show(kind); });
       panel.querySelector("nav").append(button);
-      const changed = () => {
+      const changed = event => {
         if (printOnly(kind)) { touch(); return; }
         if (!vault.unlocked() || syncing) return;
         dirty = true; touch(); clearTimeout(timer);
-        updateSaveState();
+        updateSaveState(event.type === "input");
         message("Niezapisane zmiany lokalne…");
         timer = setTimeout(() => run(() => save(kind)), 800);
       };
