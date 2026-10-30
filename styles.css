@@ -5195,6 +5195,23 @@ h2 {
   object-fit: contain;
 }
 
+#pricingOfferPrint .offer-document-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 18px;
+}
+
+#pricingOfferPrint #offerMeta {
+  grid-column: 1 / -1;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 .offer-locations {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -14414,6 +14431,15 @@ textarea {
 
   body.pricing-offer-print .offer-document-head span {
     font-size: 8.5pt;
+  }
+
+  body.pricing-offer-print #pricingOfferPrint .offer-document-head {
+    gap: 1.5mm 3mm;
+  }
+
+  body.pricing-offer-print #pricingOfferPrint #offerMeta {
+    overflow: visible;
+    font-size: 8pt;
   }
 
   body.pricing-offer-print .offer-document-head img {

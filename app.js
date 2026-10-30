@@ -9426,7 +9426,7 @@ function renderPricingOffer() {
   const offerHeading = deviceItems.length === 1 ? "Oferta aparatu słuchowego" : "Oferta aparatów słuchowych";
   if (offerTitle) offerTitle.textContent = customer ? `${offerHeading} dla ${customer}` : offerHeading;
   if (offerMeta) {
-    offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} | Okres obowiązywania: ${PRICING_OFFER_VALID_DAYS} dni`;
+    offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} (${PRICING_OFFER_VALID_DAYS} dni)`;
   }
   const notes = offerNotesInput?.value.trim() || "";
   if (offerNotesText) offerNotesText.textContent = notes;
