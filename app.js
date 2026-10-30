@@ -5881,7 +5881,7 @@ function normalizePricingRecordForUse(record) {
   });
   normalizedRecord.tradeName = normalizeAudibelTradeName(normalizedRecord);
   normalizedRecord.manufacturer = normalizePricingManufacturerName(normalizedRecord.manufacturer);
-  if (["A", "CH"].includes(normalizedRecord.nfzCode.toUpperCase())) normalizedRecord.nfzCode = "Ch";
+  if (["A", "CH", "C+"].includes(normalizedRecord.nfzCode.toUpperCase())) normalizedRecord.nfzCode = "C+";
   normalizedRecord.grossPrice = normalizePricingPrice(repairedRecord?.grossPrice);
   normalizedRecord.discountOne = normalizePricingPrice(record?.discountOne) || 0;
   normalizedRecord.discountPair = normalizePricingPrice(record?.discountPair) || 0;
@@ -9456,7 +9456,7 @@ function pricingRecordFingerprint(record) {
 }
 
 function pricingChargerBundlePrices(record) {
-  if (!["A", "CH"].includes(String(record.nfzCode || "").trim().toUpperCase()) || pricingOfferAccessoryKind(record) !== "charger") return null;
+  if (!["A", "CH", "C+"].includes(String(record.nfzCode || "").trim().toUpperCase()) || pricingOfferAccessoryKind(record) !== "charger") return null;
   const one = normalizePricingPrice(record.chargerPriceOne);
   const two = normalizePricingPrice(record.chargerPriceTwo);
   return { one: one === "" || one < 0 ? 700 : Math.round(one * 100) / 100, two: two === "" || two < 0 ? 500 : Math.round(two * 100) / 100 };
@@ -9466,20 +9466,20 @@ function pricingDiscountPrices(record) {
   const price = normalizePricingPrice(record.grossPrice);
   if (price === "" || price < 0) return null;
   const base = Math.round(price * 100);
-  const active = ["A", "CH"].includes(String(record.nfzCode || "").trim().toUpperCase());
+  const active = ["A", "CH", "C+"].includes(String(record.nfzCode || "").trim().toUpperCase());
   const discount = (value, maximum) => active ? Math.min(maximum, Math.max(0, Math.round((normalizePricingPrice(value) || 0) * 100))) : 0;
   return { one: (base - discount(record.discountOne, base)) / 100, pair: (base * 2 - discount(record.discountPair, base * 2)) / 100 };
 }
 
 function updatePricingDiscountEditor() {
   const form = document.querySelector("#pricingRecordForm");
-  const active = ["A", "CH"].includes(String(form.elements.namedItem("nfzCode").value).trim().toUpperCase());
+  const active = ["A", "CH", "C+"].includes(String(form.elements.namedItem("nfzCode").value).trim().toUpperCase());
   const permitted = canCreatePricingRecord();
-  const bundle = ["A", "CH"].includes(form.elements.namedItem("nfzCode").value.trim().toUpperCase()) && pricingOfferAccessoryKind({ model: form.elements.namedItem("model").value, tradeName: form.elements.namedItem("tradeName").value }) === "charger";
+  const bundle = ["A", "CH", "C+"].includes(form.elements.namedItem("nfzCode").value.trim().toUpperCase()) && pricingOfferAccessoryKind({ model: form.elements.namedItem("model").value, tradeName: form.elements.namedItem("tradeName").value }) === "charger";
   document.querySelector("#pricingDiscountPanel").hidden = !active || !permitted || bundle;
   document.querySelector("#pricingChargerBundlePanel").hidden = !bundle || !permitted;
   const price = normalizePricingPrice(form.elements.namedItem("grossPrice").value);
-  const values = { grossPrice: price, nfzCode: active ? "A" : "" };
+  const values = { grossPrice: price, nfzCode: active ? "C+" : "" };
   for (const [field, count] of [["discountOne", 1], ["discountPair", 2]]) {
     const input = form.elements.namedItem(field);
     const raw = input.value.trim();
@@ -9664,9 +9664,9 @@ async function savePricingRecordEditor(event) {
   if (!form.reportValidity()) return;
   values.grossPrice = Math.round(price * 100) / 100;
   if (canCreatePricingRecord()) {
-    values.discountOne = ["A", "CH"].includes(values.nfzCode) ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
-    values.discountPair = ["A", "CH"].includes(values.nfzCode) ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
-    if (["A", "CH"].includes(values.nfzCode) && pricingOfferAccessoryKind(values) === "charger") {
+    values.discountOne = ["A", "CH", "C+"].includes(values.nfzCode) ? Math.round(Number(discounts.discountOne) * 100) / 100 : 0;
+    values.discountPair = ["A", "CH", "C+"].includes(values.nfzCode) ? Math.round(Number(discounts.discountPair) * 100) / 100 : 0;
+    if (["A", "CH", "C+"].includes(values.nfzCode) && pricingOfferAccessoryKind(values) === "charger") {
       values.chargerPriceOne = discounts.chargerPriceOne;
       values.chargerPriceTwo = discounts.chargerPriceTwo;
       values.discountOne = 0; values.discountPair = 0;
@@ -19046,7 +19046,7 @@ function createPricingRow(record, index) {
         }
       }
       wrap.append(text);
-      if (!chargerBundle && ["A", "CH"].includes(String(record.nfzCode || "").trim().toUpperCase())) {
+      if (!chargerBundle && ["A", "CH", "C+"].includes(String(record.nfzCode || "").trim().toUpperCase())) {
         const prices = pricingDiscountPrices(record);
         if (prices) {
           const discounted = document.createElement("small");
