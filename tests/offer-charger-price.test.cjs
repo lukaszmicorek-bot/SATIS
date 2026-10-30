@@ -46,6 +46,10 @@ assert.equal(ctx.pricingOfferChargerWithPrice(bundle).grossPrice, 0, 'explicit p
 assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, chargerPriceOne: 800, chargerPriceTwo: 600 }).two, 600);
 assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, nfzCode: 'P.01.01.00' }), null);
 assert.equal(ctx.pricingChargerBundlePrices({ ...bundle, nfzCode: 'Ch' }).two, 500);
+for(const nfzCode of ['C+',' c+ '])assert.equal(ctx.pricingChargerBundlePrices({...bundle,nfzCode}).two,500);
+delete input.dataset.manualPrice;deviceCount=1;
+assert.equal(ctx.pricingOfferChargerWithPrice({...bundle,nfzCode:'C+'}).grossPrice,700);
+deviceCount=2;assert.equal(ctx.pricingOfferChargerWithPrice({...bundle,nfzCode:'C+'}).grossPrice,500);
 Object.assign(ctx, {
   pricingFields: ['idProduct', 'nfzCode', 'tradeName', 'model', 'manufacturer', 'grossPrice'],
   repairPricingRecordColumns: record => record,
@@ -53,8 +57,12 @@ Object.assign(ctx, {
   normalizePricingManufacturerName: value => value
 });
 vm.runInContext(extract('normalizePricingRecordForUse'), ctx);
-assert.equal(ctx.normalizePricingRecordForUse(bundle).nfzCode, 'Ch', 'legacy charger code A is shown as Ch');
-assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, model: 'Aparat' }).nfzCode, 'Ch', 'all old code A products move to Ch');
+assert.equal(ctx.normalizePricingRecordForUse(bundle).nfzCode, 'C+', 'legacy charger code A is shown as C+');
+assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, model: 'Aparat' }).nfzCode, 'C+', 'all old code A products move to C+');
+for(const nfzCode of ['Ch','CH','ch','C+',' c+ '])assert.equal(ctx.normalizePricingRecordForUse({...bundle,nfzCode}).nfzCode,'C+');
+const migrated=ctx.normalizePricingRecordForUse({...bundle,nfzCode:'Ch',discountOne:20,discountPair:50,chargerPriceOne:750,chargerPriceTwo:550});
+assert.equal(migrated.grossPrice,700);assert.equal(migrated.discountOne,20);assert.equal(migrated.discountPair,50);
+assert.equal(migrated.chargerPriceOne,750);assert.equal(migrated.chargerPriceTwo,550);
 assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, nfzCode: 'P.01.01.00' }).nfzCode, 'P.01.01.00', 'real NFZ codes are untouched');
 assert.equal(ctx.normalizePricingRecordForUse({ ...bundle, grossPrice: 1200 }).grossPrice, 1200, 'catalog base charger price remains unchanged');
 assert.ok(!extract('savePricingRecordEditor').includes('values.grossPrice = discounts.chargerPriceOne'));

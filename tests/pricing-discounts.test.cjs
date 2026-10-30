@@ -18,6 +18,7 @@ const a = { nfzCode: 'A', grossPrice: 4000, discountOne: 200, discountPair: 500 
 assert.equal(ctx.pricingDiscountPrices(a).one, 3800);
 assert.equal(ctx.pricingDiscountPrices(a).pair, 7500, 'pair discount deducted once, not per device');
 assert.equal(ctx.pricingDiscountPrices({ ...a, nfzCode: ' a ' }).pair, 7500);
+for(const nfzCode of ['Ch','C+',' c+ '])assert.equal(ctx.pricingDiscountPrices({...a,nfzCode}).pair,7500);
 assert.equal(ctx.pricingDiscountPrices({ ...a, nfzCode: 'P.01.01.00' }).one, 4000);
 assert.equal(ctx.pricingDiscountPrices({ nfzCode: 'A', grossPrice: 4000 }).pair, 8000);
 assert.equal(ctx.pricingDiscountPrices({ nfzCode: 'A', grossPrice: '34,99', discountOne: '10,01', discountPair: '10,99' }).pair, 58.99);
@@ -40,6 +41,7 @@ vm.runInContext(extract('updatePricingDiscountEditor'), ctx);
 ctx.updatePricingDiscountEditor();
 assert.ok(fields.discountOne.error); assert.ok(fields.discountPair.error);
 fields.discountOne.value = '200'; fields.discountPair.value = '500';
+fields.nfzCode.value = 'C+';
 ctx.updatePricingDiscountEditor();
 assert.equal(fields.discountOne.error, ''); assert.equal(fields.discountPair.error, '');
 ctx.canCreatePricingRecord = () => false;
