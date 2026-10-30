@@ -17018,6 +17018,10 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .receipt-builder input:is([type="radio"], [type="checkbox"]) { width: 16px; height: 16px; min-height: 0; }
 .receipt-documents { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 14px !important; }
 #receiptStatus { color: #a43449; font-size: 13px; }
+#receiptStatus[data-validation] { white-space: pre-line; line-height: 1.5; padding: 8px 10px; border-left: 2px solid #ce8b99; background: #fff7f8; }
+#pricingReceiptView .receipt-builder input[aria-invalid="true"]:not([type="radio"]):not([type="checkbox"]) { border-color: #c26479; background: #fff7f8; }
+#pricingReceiptView label.receipt-field-invalid { color: #9e394d; }
+#pricingReceiptView fieldset.receipt-field-invalid { border-color: #c26479; background: #fff7f8; }
 .receipt-document {
   width: min(100%, 820px); margin: 0 auto;
   color: #111; font-family: "Inter", sans-serif; font-size: 15px; line-height: 1.55;

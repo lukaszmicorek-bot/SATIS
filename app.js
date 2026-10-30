@@ -9861,6 +9861,7 @@ function renderPricingReceipt() {
     }
     return row;
   }));
+  if (pricingReceiptView.dataset.receiptValidationRequested === "1") validatePricingReceipt({ report: false });
 }
 
 function resetPricingReceipt() {
@@ -9869,17 +9870,20 @@ function resetPricingReceipt() {
     if (["radio", "checkbox"].includes(input.type)) input.checked = false;
     else input.value = "";
     input.setCustomValidity("");
+    input.removeAttribute("aria-invalid");
     delete input.dataset.receiptAuto;
   });
   if (pricingReceiptView) delete pricingReceiptView.dataset.receiptCustomer;
   if (pricingReceiptView) delete pricingReceiptView.dataset.receiptManualSides;
+  if (pricingReceiptView) delete pricingReceiptView.dataset.receiptValidationRequested;
+  pricingReceiptView?.querySelectorAll(".receipt-field-invalid").forEach(node => node.classList.remove("receipt-field-invalid"));
   const choice = document.getElementById("receiptPurchaseChoice");
   choice?.replaceChildren();
   const purchaseField = document.getElementById("receiptPurchaseField");
   if (purchaseField) purchaseField.hidden = true;
   setDateInputValue("#receiptDateInput", todayInputValue());
   const status = document.getElementById("receiptStatus");
-  if (status) status.textContent = "";
+  if (status) { status.textContent = ""; delete status.dataset.validation; }
   renderPricingReceipt();
 }
 
@@ -10026,28 +10030,56 @@ function completeReceiptSerial(side) {
   renderPricingReceipt();
 }
 
-function validatePricingReceipt() {
+function validatePricingReceipt({ report = true } = {}) {
+  if (report) pricingReceiptView.dataset.receiptValidationRequested = "1";
   const snapshot = receiptSnapshot();
+  const issues = new Map();
+  const check = (input, message) => {
+    if (!input) return;
+    input.setCustomValidity(message);
+    input.setAttribute("aria-invalid", String(Boolean(message)));
+    input.classList.toggle("receipt-field-invalid", Boolean(message));
+    input.closest("label")?.classList.toggle("receipt-field-invalid", Boolean(message));
+    if (message) issues.set(input, message);
+    else issues.delete(input);
+  };
   const customer = document.getElementById("receiptCustomerInput");
-  customer.setCustomValidity(isFullPersonName(snapshot.customer) ? "" : "Wpisz imię i nazwisko.");
-  if (!customer.reportValidity()) return false;
+  check(customer, isFullPersonName(snapshot.customer) ? "" : "Wpisz imię i nazwisko.");
   const date = document.getElementById("receiptDateInput");
-  date.setCustomValidity(snapshot.date ? "" : "Wybierz prawidłową datę odbioru.");
-  if (!date.reportValidity()) return false;
+  check(date, snapshot.date ? "" : "Wybierz prawidłową datę odbioru.");
   const nfz = document.getElementById("receiptNfzInput");
-  if (!nfz.reportValidity()) return false;
+  nfz.setCustomValidity("");
+  check(nfz, nfz.checkValidity() ? "" : "Wpisz poprawną, nieujemną kwotę refundacji NFZ.");
   for (const side of ["P", "L"]) {
     const model = document.getElementById(`receiptModel${side}`);
     const serial = document.getElementById(`receiptSerial${side}`);
-    const needed = Boolean(serial.value.trim()) || !snapshot.items.length && side === "P";
-    model.setCustomValidity(needed && !model.value.trim() ? "Wpisz model aparatu." : "");
-    if (!model.reportValidity()) return false;
+    const needed = Boolean(model.value.trim() || serial.value.trim()) || !snapshot.items.length && side === "P";
+    check(model, needed && !model.value.trim() ? `Wpisz model aparatu ${side}.` : "");
+    check(serial, needed && !serial.value.trim() ? `Wpisz numer seryjny aparatu ${side}.` : "");
   }
   if (snapshot.items.length === 2 && snapshot.items[0].serial && snapshot.items[0].serial === snapshot.items[1].serial) {
-    document.getElementById("receiptStatus").textContent = "Obie strony mają ten sam numer seryjny. Popraw numer przed wydrukiem.";
-    return false;
+    ["P", "L"].forEach(side => check(document.getElementById(`receiptSerial${side}`), "Obie strony mają ten sam numer seryjny. Popraw numer przed wydrukiem."));
   }
-  return true;
+  const testedMissing = !["yes", "no"].includes(snapshot.tested);
+  ["receiptTestedYes", "receiptTestedNo"].forEach(id => check(document.getElementById(id), testedMissing ? "Testowanie w domu: wybierz Tak lub Nie." : ""));
+  document.getElementById("receiptTestedField")?.classList.toggle("receipt-field-invalid", testedMissing);
+  check(document.getElementById("receiptInstructions"), snapshot.instructions ? "" : "Potwierdź wydanie instrukcji użytkowania.");
+  check(document.getElementById("receiptWarranty"), snapshot.warranty ? "" : "Potwierdź wydanie karty gwarancyjnej.");
+  const status = document.getElementById("receiptStatus");
+  if (issues.size) {
+    status.textContent = `Przed wydrukiem uzupełnij:\n${[...new Set(issues.values())].map(message => `- ${message}`).join("\n")}`;
+    status.dataset.validation = "1";
+    if (report) {
+      const first = issues.keys().next().value;
+      first.scrollIntoView({ block: "center", behavior: "smooth" });
+      first.focus({ preventScroll: true });
+      first.reportValidity();
+    }
+  } else if (status.dataset.validation) {
+    status.textContent = "";
+    delete status.dataset.validation;
+  }
+  return issues.size === 0;
 }
 
 async function printPricingReceipt() {
@@ -10421,7 +10453,7 @@ function setupUnifiedDocumentLayout() {
     }
     const actions = editor.querySelector(".offer-actions");
     actions?.querySelectorAll("button").forEach(button => {
-      if (!button.id.toLowerCase().includes("print")) return;
+      if (kind === "receipt" || !button.id.toLowerCase().includes("print")) return;
       button.addEventListener("click", event => {
         if (nameInput && !isFullPersonName(nameInput.value)) {
           event.preventDefault(); event.stopImmediatePropagation();
