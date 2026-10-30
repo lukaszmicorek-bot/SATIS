@@ -115,8 +115,32 @@ test('print preparation keeps checked marks, isolates patient text and cleans up
   const copy = t.body.children[0];assert.equal(copy.querySelectorAll('[id]').length, 0);
   assert.equal(copy.querySelectorAll('.tinnitus-print-mark').filter(node => node.textContent === 'X').length, 25);
   assert.match(copy.textContent, /Jan Testowy/);assert.match(copy.textContent, /100 \/ 100/);
+  assert.equal(copy.querySelectorAll('.tinnitus-grade-row').length, 5);
+  assert.equal(copy.querySelectorAll('.tinnitus-grade-current').length, 1);
   t.events.get('afterprint')();assert.equal(t.body.children.length, 0);
   t.fail();await assert.rejects(t.api.print('thi'));assert.equal(t.body.children.length, 0);assert.equal(t.events.size, 0);
+});
+test('THI interpretation table shows all ranges and marks only a complete current result', () => {
+  const t = setup(), paper = t.api.printSource('thi');
+  const rows = paper.querySelectorAll('.tinnitus-grade-row');
+  assert.equal(rows.length, 5);
+  for (const [index, grade] of definitions.thi.grades.entries()) {
+    assert.ok(rows[index].textContent.includes(grade.range));
+    assert.ok(rows[index].textContent.includes(grade.description));
+    assert.equal(rows[index].querySelector('.tinnitus-grade-marker').hidden, true);
+  }
+  assert.equal(paper.querySelectorAll('.tinnitus-grade-current').length, 0);
+  t.fill('thi', 4);
+  assert.equal(rows[4].attributes['aria-current'], 'true');
+  assert.equal(rows[4].querySelector('.tinnitus-grade-marker').hidden, false);
+  t.fill('thi', 0);
+  assert.equal(rows[0].attributes['aria-current'], 'true');
+  assert.equal(rows[4].attributes['aria-current'], undefined);
+  assert.equal(rows[4].querySelector('.tinnitus-grade-marker').hidden, true);
+  const first = t.views.thi.querySelectorAll('input').find(input => input.type === 'radio' && input.checked);
+  first.checked = false;t.api.render('thi');
+  assert.equal(paper.querySelectorAll('.tinnitus-grade-current').length, 0, 'partial scores cannot select a severity interval');
+  assert.equal(t.api.printSource('trq').querySelectorAll('.tinnitus-grade-table').length, 0);
 });
 test('offline uses the same validation and print source without persisting data; reset clears both questionnaires', async () => {
   const t = setup();t.offline(true);
