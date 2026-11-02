@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = process.env.SATIS_ROOT || path.resolve(__dirname, '..');
 const m = require(process.env.SATIS_MODULE || path.join(root,'mail-merge.js'));
 const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surname:'Testowy',pesel:'90010112349',birthDate:'01.01.1990',
-  city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',phone:'500 600 700',email:'',
+  city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
   province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
   certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
 test('amounts use integer cents and reject invalid grants or malformed money',()=>{
@@ -30,7 +30,7 @@ test('GUS dictionary distinguishes Bielsko-Biała city county and never guesses 
 });
 test('checkbox marks fit realistic font widths without blocking valid printouts',()=>{
   const marks=m.placements({...example,gender:'female',sameAddress:true}).filter(item=>item.text==='X');
-  assert.equal(marks.length,4);
+  assert.equal(marks.length,5);
   for(const mark of marks) assert.ok(m.fitText(mark.text,mark.width,mark.height,(text,size)=>text.length*size*0.72),mark.field);
 });
 test('placements retain original blank sections and map applicant or ward fields to their own cells',()=>{
@@ -82,7 +82,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:2}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -93,14 +93,14 @@ function fixture(overrides={}) {
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
     fail(code){failure=code;},pause(promise){pauseSave=promise;},
     fill(data=example){for(const [key,value]of Object.entries(data)){const input=nodes.get('merge'+key);if(input)input.value=value;}},
-    click(text){const target=buttons().find(button=>button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
+    click(text){const target=buttons().find(button=>button.textContent===text || (!['Zapisz','Zapisz zmiany'].includes(text) && button.textContent.startsWith(text)));assert.ok(target,text);return target.emit('click');}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('persistent people accept incomplete drafts and reopen after clearing the session',async()=>{
   const t=fixture();t.api.open();await tick();
   assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);
   assert.doesNotMatch(t.nodes.get('mailMergePreviewPages').textContent,/we własnym imieniu/);
-  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz');assert.equal(t.stored.size,1);
+  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');assert.equal(t.stored.size,1);
   t.api.clear();assert.equal(t.nodes.get('mailMergePreviewPages').children.length,0);
   t.api.open();await tick();assert.equal(t.api.queue().length,1);
   await t.click('Edytuj');assert.equal(t.nodes.get('mergefirstName').value,'Jan');assert.equal(t.nodes.get('mergepesel').value,'');
@@ -124,7 +124,7 @@ test('live preview, saved-person batch printing, duplicate PESEL and owner sessi
 });
 test('save button rejects double clicks, network failure retains edits, and deletion is explicit',async()=>{
   const t=fixture();t.fill();let release;t.pause(new Promise(resolve=>{release=resolve;}));
-  const pending=t.click('Zapisz');await t.click('Zapisz');assert.equal(t.saveCalls(),1);release();await pending;
+  const pending=t.click('Zapisz');await tick();await t.click('Zapisz');assert.equal(t.saveCalls(),1);release();await pending;
   t.pause(null);t.fail('PT409');t.fill({firstName:'Adam'});await t.click('Zapisz');
   assert.equal(t.nodes.get('mergefirstName').value,'Adam');assert.match(t.nodes.get('mailMergeMessage').textContent,/innym komputerze/);
   t.fail(null);await t.click('Usuń');assert.equal(t.stored.size,0);t.api.clear();
@@ -165,7 +165,7 @@ function contactRules() {
 }
 test('PCPR contact fields normalize before save even when Enter avoids blur',async()=>{
   const t=fixture(contactRules());t.fill({firstName:'jan',middleName:'adam',surname:'testowy-kowalski',city:'bielsko',street:'traugutta',house:'12a',flat:'3b',postal:'43300',phone:'500600800',province:'śląskie'});
-  await t.click('Zapisz');const saved=[...t.stored.values()][0].data;
+  await t.click('Zapisz roboczo');const saved=[...t.stored.values()][0].data;
   assert.equal(saved.firstName,'Jan');assert.equal(saved.middleName,'Adam');assert.equal(saved.surname,'Testowy-Kowalski');
   assert.equal(saved.city,'Bielsko-Biała');assert.equal(saved.street,'ul. Traugutta');assert.equal(saved.postal,'43-300');
   assert.equal(saved.house,'12A');assert.equal(saved.phone,'500 600 800');assert.equal(saved.province,'Śląskie');t.api.clear();
@@ -190,4 +190,55 @@ test('ambiguous addresses require a choice and do not overwrite manually entered
   await t.click('Nowa osoba');t.fill({postal:'20200'});await t.nodes.get('mergepostal').emit('input');
   assert.equal(t.nodes.get('mergecity').value,'');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/Druga Wieś/);
   await t.click('20-200 · Druga Wieś');assert.equal(t.nodes.get('mergecity').value,'Druga Wieś');t.api.clear();
+});
+
+test('all applicable fields are required for a completed application but absence may be explicit',()=>{
+  for(const key of ['middleName','flat','street','postOffice','email','applicationNumber','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
+    assert.ok(m.validate({...example,[key]:''},()=>true).some(error=>error.field===key),key);
+  }
+  assert.equal(m.validate({...example,middleName:'-',street:'-',flat:'-',email:'-',applicationNumber:'-'},()=>true).length,0);
+  assert.equal(m.draftValidate({firstName:'Jan',surname:'Testowy'},()=>true).length,0);
+});
+test('GUS resolves city and rural municipality kind without guessing between namesakes',()=>{
+  const index=m.geographyIndex(JSON.parse(fs.readFileSync(path.join(root,'mail-merge/geography.json'),'utf8')));
+  assert.equal(m.geographyMatches(index,'Żywiec')[0].kind,'miasto');
+  assert.equal(m.geographyMatches(index,'Łodygowice')[0].kind,'wieś');
+  assert.equal(new Set(m.geographyMatches(index,'Cieszyn').map(item=>item.kind)).size,2);
+});
+test('gender, locality kind and invalidity group map to original applicant and ward fields',()=>{
+  const marks=m.placements({...example,gender:'female',invalidityGroup:'II'});
+  assert.equal(marks.find(item=>item.field==='invalidityGroup').y,454.1);
+  assert.equal(marks.find(item=>item.field==='localityType').text,'Miasto');
+  const ward=m.placements({...example,personRole:'ward',localityType:'village',invalidityGroup:'III'});
+  assert.equal(ward.find(item=>item.field==='localityType').page,3);
+  assert.equal(ward.find(item=>item.field==='localityType').y,195.4);
+});
+test('page selection changes blank, current and batch print count and warns about omitted sections',async()=>{
+  const t=fixture();await t.click('5 stron');
+  assert.match(t.nodes.get('mailMergePrintNotice').textContent,/oświadczenia/);
+  assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,5);
+  await t.click('Drukuj pusty');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
+  t.fill();await t.click('Drukuj wniosek');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
+  await t.click('Zapisz');const check=t.nodes.get('mailMergeQueue').querySelectorAll('input')[0];check.checked=true;await check.emit('change');
+  await t.click('Drukuj wybrane');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
+  await t.click('7 stron');assert.equal(t.nodes.get('mailMergePrintNotice').textContent,'');
+  await t.click('Drukuj pusty');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,7);t.api.clear();
+});
+test('gender follows PESEL and missing fields block regular save without blocking drafts',async()=>{
+  const t=fixture();t.fill({firstName:'Jan',surname:'Testowy',pesel:'90010112349'});
+  await t.nodes.get('mergepesel').emit('input');await t.click('Sprawdź kompletność');
+  assert.equal(t.nodes.get('mergegender').value,'female');
+  await t.click('Zapisz');assert.equal(t.stored.size,0);
+  await t.click('Zapisz roboczo');assert.equal(t.stored.size,1);t.api.clear();
+});
+test('settlement type updates from an unambiguous GUS result',async()=>{
+  const t=fixture({loadGeography:async()=>({units:{'2400002':['Gmina Testowa','Powiat Testowy','Śląskie']},places:[['Wieś Testowa','2400002','1000','']]})});
+  t.fill({city:'Wieś Testowa'});await t.nodes.get('mergecity').emit('blur');await tick();
+  assert.equal(t.nodes.get('mergelocalityType').value,'village');t.api.clear();
+});
+test('outdated SQL explicitly blocks new writes without deleting existing data',async()=>{
+  let writes=0;
+  const t=fixture({rpc:async(name)=>{if(name==='satis_mail_merge_list')return {data:{rows:[],total:0}};writes++;return {data:{}};}});
+  t.fill();await t.click('Zapisz');assert.equal(writes,0);
+  assert.match(t.nodes.get('mailMergeMessage').textContent,/aktualny plik supabase-mail-merge.sql/);t.api.clear();
 });

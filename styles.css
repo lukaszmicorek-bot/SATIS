@@ -17638,3 +17638,12 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .client-source-row, .client-timeline-item { flex-wrap: wrap; }
   .client-source-row > div, .client-timeline-item > div { flex-basis: 100%; }
 }
+
+.mail-merge-fields .mail-merge-absent { align-self: flex-end; min-height: 22px; height: 22px; padding: 0 6px; border: 0; background: transparent; color: #546f7c; font-size: 11px; }
+.mail-merge-fields .mail-merge-absent:hover { background: #eaf2f4; color: #003f5a; }
+.mail-merge-print-mode button[aria-pressed="true"] { color: #003f5a; border-color: #8eb5c2; background: #e7f1f5; }
+.mail-merge-print-mode { justify-content: flex-end; font-size: 12px; }
+@media screen and (min-width: 901px) {
+  .mail-merge-fields label:has(#mergebirthDate), .mail-merge-fields label:has(#mergepersonRole) { grid-column: span 3; }
+  .mail-merge-fields label:has(#mergegender) { grid-column: span 2; }
+}

@@ -54,7 +54,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'city',p.data->>'subject'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',2);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -101,10 +101,13 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','cost','nfz','requested','sameAddress'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','cost','nfz','requested','sameAddress'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
+      or coalesce(p_data->>'gender','') not in ('','male','female')
+      or coalesce(p_data->>'localityType','') not in ('','city','village')
+      or coalesce(p_data->>'invalidityGroup','') not in ('','I','II','III','none')
       or coalesce(p_data->>'degree','') not in ('','severe','moderate','mild','none')
       or coalesce(p_data->>'certificateValidity','') not in ('','indefinite','periodic') then
       raise exception 'Invalid fields' using errcode='22023';
@@ -124,6 +127,7 @@ begin
     digits:=coalesce(clean->>'pesel','');
     if digits<>'' then
       if digits !~ '^[0-9]{11}$' then raise exception 'Invalid PESEL' using errcode='22023';end if;
+      if coalesce(clean->>'gender','')<>'' and clean->>'gender'<>(case when substr(digits,10,1)::integer%2=1 then 'male' else 'female' end) then raise exception 'PESEL gender mismatch' using errcode='22023';end if;
       checksum:=0;for i in 1..10 loop checksum:=checksum+substr(digits,i,1)::integer*weights[i];end loop;
       if (10-checksum%10)%10<>right(digits,1)::integer then raise exception 'Invalid PESEL' using errcode='22023';end if;
       yy:=left(digits,2)::integer;mm:=substr(digits,3,2)::integer;dd:=substr(digits,5,2)::integer;
@@ -139,7 +143,7 @@ begin
     if coalesce(clean->>'postal','') !~ '^([0-9]{2}-[0-9]{3})?$' then raise exception 'Invalid postal code' using errcode='22023';end if;
     digits:=regexp_replace(coalesce(clean->>'phone',''),'[^0-9]','','g');
     if digits !~ '^((48|0048)?[0-9]{9})?$' then raise exception 'Invalid phone' using errcode='22023';end if;
-    if coalesce(clean->>'email','')<>'' and clean->>'email' !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
+    if coalesce(clean->>'email','') not in ('','-') and clean->>'email' !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
       raise exception 'Invalid email' using errcode='22023';
     end if;
     for pair in select key,value from jsonb_each_text(clean) where key in ('cost','nfz','requested') loop
