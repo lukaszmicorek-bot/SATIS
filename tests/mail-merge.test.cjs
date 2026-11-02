@@ -59,18 +59,18 @@ test('long text wraps or reduces size without silently discarding characters',()
 });
 
 function fixture() {
-  const nodes=new Map();let owner=true,prints=0;
+  const nodes=new Map(),stored=new Map();let owner=true,prints=0,sequence=0,saveCalls=0,failure=null,pauseSave=null;
   class E {
-    constructor(tag){this.tag=tag;this.children=[];this.value='';this.checked=false;this.hidden=false;this.dataset={};this.style={};this.events={};this.attributes={};this._text='';this.className='';this.classList={add:n=>this.className+=' '+n,remove:n=>{this.className=this.className.replace(n,'');}};}
+    constructor(tag){this.tag=tag;this.children=[];this.value='';this.checked=false;this.hidden=false;this.dataset={};this.style={};this.events={};this.attributes={};this._text='';this.className='';this.classList={add:n=>this.className+=' '+n,remove:n=>{this.className=this.className.replace(n,'');},toggle:(n,on)=>on?this.classList.add(n):this.classList.remove(n)};}
     set id(value){this._id=value;nodes.set(value,this);}get id(){return this._id;}
     set textContent(value){this._text=String(value);this.children=[];}get textContent(){return this._text+this.children.map(c=>c.textContent).join('');}
     append(...children){for(const child of children){child.parent=this;this.children.push(child);}}
     replaceChildren(...children){this.children=[];this.append(...children);}
     remove(){if(this.parent)this.parent.children=this.parent.children.filter(c=>c!==this);this.parent=null;}
     setAttribute(k,v){this.attributes[k]=v;}removeAttribute(k){delete this.attributes[k];}
-    addEventListener(k,fn){(this.events[k]||=[]).push(fn);}emit(k){for(const fn of this.events[k]||[])fn({preventDefault(){}});}
+    addEventListener(k,fn){(this.events[k]||=[]).push(fn);}emit(k){return Promise.all((this.events[k]||[]).map(fn=>fn({preventDefault(){}})));}
     setCustomValidity(value){this.validity=value;}reportValidity(){return !this.validity;}focus(){}
-    querySelectorAll(selector){return this.children.flatMap(c=>[...((selector==='img'&&c.tag==='img'||selector.startsWith('.')&&c.className.split(' ').includes(selector.slice(1)))?[c]:[]),...c.querySelectorAll(selector)]);}
+    querySelectorAll(selector){return this.children.flatMap(c=>[...((selector===c.tag||selector.startsWith('.')&&c.className.split(' ').includes(selector.slice(1)))?[c]:[]),...c.querySelectorAll(selector)]);}
     decode(){return Promise.resolve();}
   }
   const host=new E('section');host.id='mailMergeNotebook';const body=new E('body');body.append(host);
@@ -78,30 +78,76 @@ function fixture() {
   const api=m.create({document:{getElementById:id=>nodes.get(id),createElement:tag=>new E(tag),createDocumentFragment:()=>new E('fragment'),body,fonts:{ready:Promise.resolve()}},window,
     owner:()=>owner,user:()=>owner?'satis-test':'gabinet-test',validPesel:value=>/^\d{11}$/.test(value),age:()=>36,
     birthDate:()=> '01.01.1990',iso:value=>value,date:value=>value,name:value=>value,city:value=>value,phone:value=>value,postal:value=>value,
-    cityForPostal:()=>'',contacts:()=>[],address:()=>({}),bindDate(){},confirm:()=>true,
-    measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;}});
-  const buttons=()=>{const all=[];function visit(node){if(node.tag==='button')all.push(node);node.children.forEach(visit);}visit(host);return all;};
-  return {api,nodes,body,window,owner(value){owner=value;},prints:()=>prints,
-    fill(){for(const [key,value]of Object.entries(example)){const input=nodes.get('merge'+key);if(input)input.value=value;}},
-    click(text){const target=buttons().find(button=>button.textContent.startsWith(text));assert.ok(target,text);target.emit('click');}};
+    cityForPostal:()=>'',contacts:()=>[],address:()=>({}),bindDate(){},confirm:()=>true,id:()=>String(++sequence),
+    measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
+    rpc:async(name,args)=>{
+      if(failure)return {error:{code:failure}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size}};
+      if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
+      if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
+      saveCalls++;if(pauseSave)await pauseSave;
+      if([...stored.values()].some(entry=>entry.id!==args.p_id && entry.data.pesel && entry.data.pesel===args.p_data.pesel))return {error:{code:'PT423'}};
+      const entry={id:args.p_id,revision:(stored.get(args.p_id)?.revision||0)+1,data:{...args.p_data}};stored.set(args.p_id,entry);return {data:{id:entry.id,revision:entry.revision}};
+    }});
+  const buttons=()=>host.querySelectorAll('button');
+  return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
+    fail(code){failure=code;},pause(promise){pauseSave=promise;},
+    fill(data=example){for(const [key,value]of Object.entries(data)){const input=nodes.get('merge'+key);if(input)input.value=value;}},
+    click(text){const target=buttons().find(button=>button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
-test('owner-only queue prevents duplicate PESEL, does not persist and clears on role loss',async()=>{
-  const t=fixture();t.fill();t.click('Dodaj / aktualizuj');assert.equal(t.api.queue().length,1);
-  t.fill();t.click('Dodaj / aktualizuj');assert.equal(t.api.queue().length,1);
-  assert.match(t.nodes.get('mailMergeMessage').textContent,/ten sam PESEL/);
-  t.click('Drukuj / PDF');await new Promise(resolve=>setTimeout(resolve,0));
-  assert.equal(t.prints(),1);assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,7);
-  t.owner(false);t.click('Drukuj / PDF');assert.equal(t.prints(),1);
-  t.api.clear();assert.deepEqual(t.api.queue(),[]);assert.equal(t.nodes.get('mergepesel').value,'');
-  assert.equal(t.nodes.get('mailMergePrint').parent,null);assert.equal(t.api.open(),false);
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+test('persistent people accept incomplete drafts and reopen after clearing the session',async()=>{
+  const t=fixture();t.api.open();await tick();
+  assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);
+  assert.doesNotMatch(t.nodes.get('mailMergePreviewPages').textContent,/we własnym imieniu/);
+  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz');assert.equal(t.stored.size,1);
+  t.api.clear();assert.equal(t.nodes.get('mailMergePreviewPages').children.length,0);
+  t.api.open();await tick();assert.equal(t.api.queue().length,1);
+  await t.click('Edytuj');assert.equal(t.nodes.get('mergefirstName').value,'Jan');assert.equal(t.nodes.get('mergepesel').value,'');
+  await t.click('Drukuj wniosek');assert.equal(t.prints(),0);assert.match(t.nodes.get('mailMergeMessage').textContent,/PESEL/);
+  await t.click('Drukuj pusty');assert.equal(t.prints(),1);
+  assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,7);
+  t.api.clear();
 });
-test('integration protects the route, keeps geography lazy and never stores private mail-merge drafts',()=>{
+test('live preview, saved-person batch printing, duplicate PESEL and owner session cleanup',async()=>{
+  const t=fixture();t.fill();await t.nodes.get('mergefirstName').emit('blur');
+  assert.match(t.nodes.get('mailMergePreviewPages').textContent,/Testowy/);
+  await t.click('Zapisz');assert.equal(t.stored.size,1);
+  const row=t.api.queue()[0];assert.equal(row.data.birthDate,undefined);
+  const selected=t.nodes.get('mailMergeQueue').querySelectorAll('input')[0];selected.checked=true;await selected.emit('change');
+  await t.click('Drukuj wybrane');assert.equal(t.prints(),1);
+  t.window.events.afterprint();await t.click('Nowa osoba');t.fill();await t.click('Zapisz');assert.equal(t.stored.size,1);
+  assert.match(t.nodes.get('mailMergeMessage').textContent,/PESEL/);
+  t.owner(false);await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
+  t.api.clear();assert.deepEqual(t.api.queue(),[]);assert.equal(t.nodes.get('mergepesel').value,'');
+  assert.equal(t.nodes.get('mailMergePreviewPages').children.length,0);assert.equal(t.api.open(),false);
+});
+test('save button rejects double clicks, network failure retains edits, and deletion is explicit',async()=>{
+  const t=fixture();t.fill();let release;t.pause(new Promise(resolve=>{release=resolve;}));
+  const pending=t.click('Zapisz');await t.click('Zapisz');assert.equal(t.saveCalls(),1);release();await pending;
+  t.pause(null);t.fail('PT409');t.fill({firstName:'Adam'});await t.click('Zapisz');
+  assert.equal(t.nodes.get('mergefirstName').value,'Adam');assert.match(t.nodes.get('mailMergeMessage').textContent,/innym komputerze/);
+  t.fail(null);await t.click('Usuń');assert.equal(t.stored.size,0);t.api.clear();
+});
+test('missing database schema does not prevent a blank preview and explains the migration',async()=>{
+  const t=fixture();t.fail('PGRST202');t.api.open();await tick();
+  assert.match(t.nodes.get('mailMergeDatabaseStatus').textContent,/supabase-mail-merge.sql/);
+  assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);t.api.clear();
+});
+test('database access is SATIS-only and private data is never persisted in browser storage',()=>{
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert.match(html,/data-notebook="mailMerge" data-private-owner hidden/);
   assert.match(app,/\["workTime", "clients", "mailMerge"\]\.includes\(notebookName\) && !canViewPrivateModules/);
   assert.match(app,/mailMergeModule\?\.clear\(\)/);
-  const source=fs.readFileSync(path.join(root,'mail-merge.js'),'utf8');
+  const source=fs.readFileSync(process.env.SATIS_MODULE||path.join(root,'mail-merge.js'),'utf8');
   assert.doesNotMatch(source,/localStorage|sessionStorage|indexedDB|innerHTML|fetch\(/);
-  assert.match(source,/if \(!authorized\(\) \|\| printBusy \|\| cleanupPrint\) return/);
+  assert.match(source,/satis_mail_merge_write/);
+  const sql=fs.readFileSync(process.env.SATIS_SQL||path.join(root,'supabase-mail-merge.sql'),'utf8');
+  assert.equal((sql.match(/public\.is_satis_owner\(\) is not true/g)||[]).length,3);
+  assert.equal((sql.match(/lower\(auth.jwt\(\)->>'email'\)='satis@pracowniasluchu.pl'/g)||[]).length,3);
+  assert.match(sql,/force row level security/);assert.match(sql,/revoke all on public\.%I from public, anon, authenticated/);
+  assert.match(sql,/req\.fingerprint is distinct from fp/);assert.match(sql,/revision is distinct from p_expected_revision/);
+  assert.match(sql,/unique index if not exists mail_merge_people_pesel_idx/);
+  assert.doesNotMatch(sql,/drop table|truncate|delete from public\.(device_records|repair_records|loan_contracts)/i);
   assert.match(fs.readFileSync(path.join(root,'styles.css'),'utf8'),/@page mailMerge \{ size: A4 portrait; margin: 0; \}/);
 });

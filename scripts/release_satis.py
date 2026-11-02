@@ -57,7 +57,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/loan-transfer-sides.test.cjs",
     "tests/loan-print-copies.test.cjs",
     "tests/tinnitus-forms.test.cjs",
-    "tests/mail-merge.test.cjs", "scripts/build_mail_merge_assets.py",
+    "tests/mail-merge.test.cjs", "tests/mail-merge.sqltest.cjs", "supabase-mail-merge.sql", "scripts/build_mail_merge_assets.py",
     "tests/repair-order-items.test.cjs",
     "tests/pricing-create.test.cjs",
     "tests/pricing-discounts.test.cjs",

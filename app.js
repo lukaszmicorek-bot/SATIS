@@ -30376,6 +30376,14 @@ function initializeMailMergeModule() {
   const canvas = document.createElement("canvas"), context = canvas.getContext("2d");
   mailMergeModule = window.SatisMailMerge.create({
     document, window, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
+    id: makeId,
+    async rpc(name, args) {
+      if (!canViewPrivateModules() || !currentSupabaseUser || !supabaseClient) throw new Error("Zaloguj się na konto SATIS.");
+      const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 15000);
+      try { return await supabaseClient.rpc(name, args).abortSignal(controller.signal); }
+      catch { throw new Error("Brak potwierdzenia z bazy. Ponów zapis; nie zamykaj niezapisanego formularza."); }
+      finally { window.clearTimeout(timer); }
+    },
     contacts(query) {
       if (!canViewPrivateModules() || !currentSupabaseUser) return [];
       return documentCustomerNameMatches(query).flatMap(customer => {

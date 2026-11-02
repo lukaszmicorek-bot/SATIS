@@ -131,3 +131,6 @@
 !/tests/offer-manufacturer-logos.test.cjs
 !/tests/offer-payment-layout.test.cjs
 !/tests/device-search-history.test.cjs
+
+!/supabase-mail-merge.sql
+!/tests/mail-merge.sqltest.cjs

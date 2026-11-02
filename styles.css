@@ -4857,6 +4857,51 @@ h2 {
   .mail-merge-page:last-child { break-after: auto; }
 }
 
+.mail-merge-editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mail-merge-editor-toolbar h3 { margin: 0; font-size: 16px; color: #003f5a; }
+.mail-merge-fields { grid-template-columns: repeat(12,minmax(0,1fr)); margin: 0; padding: 14px 0 4px; border: 0; border-top: 1px solid #dce6e8; min-inline-size: 0; }
+.mail-merge-fields legend { padding: 0 10px 0 0; font-size: 13px; font-weight: 650; color: #003f5a; }
+.mail-merge-fields label { grid-column: span 4; display: flex; flex-direction: column; }
+.mail-merge-fields label:has(#mergefirstName), .mail-merge-fields label:has(#mergemiddleName) { grid-column: span 3; }
+.mail-merge-fields label:has(#mergesurname), .mail-merge-fields label:has(#mergecity) { grid-column: span 6; }
+.mail-merge-fields label:has(#mergestreet), .mail-merge-fields label:has(#mergeemail), .mail-merge-fields label:has(#mergesubject) { grid-column: span 8; }
+.mail-merge-fields label:has(#mergehouse), .mail-merge-fields label:has(#mergeflat) { grid-column: span 2; }
+.mail-merge-fields label:has(#mergepostal), .mail-merge-fields label:has(#mergepostOffice) { grid-column: span 3; }
+.mail-merge-fields label:has(#mergepersonRole), .mail-merge-fields label:has(#mergecounty), .mail-merge-fields label:has(#mergeorderNumber) { grid-column: span 4; }
+.mail-merge-full { grid-column: 1 / -1; }
+.mail-merge-main-actions { justify-content: flex-end; padding: 10px 0; border-top: 1px solid #e0e8eb; }
+.mail-merge-save { color: #fff; background: #007b7d; border-color: #007b7d; min-width: 110px; }
+.mail-merge-save.mail-merge-unsaved { color: #fff; background: #ad3655; border-color: #ad3655; }
+.mail-merge-save.mail-merge-unsaved:hover { background: #922b47; border-color: #922b47; }
+.mail-merge-list-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 8px; }
+.mail-merge-list-tools input { flex: 1 1 360px; min-width: 0; height: 36px; font-size: 13px; }
+.mail-merge-list-tools button { min-height: 32px; padding: 0 10px; font-size: 12px; }
+.mail-merge-table-scroll { overflow-x: auto; }
+.mail-merge-table { min-width: 980px; font-size: 12px; }
+.mail-merge-table th:first-child { width: 58px; }
+.mail-merge-table th:nth-child(2) { width: 20%; }
+.mail-merge-table th:nth-child(3) { width: 12%; }
+.mail-merge-table th:last-child { width: 132px; }
+.mail-merge-table td:nth-child(3) { white-space: nowrap; }
+.mail-merge-table .mail-merge-actions { display: table-cell; white-space: nowrap; }
+.mail-merge-table .mail-merge-actions button { display: inline-flex; align-items: center; min-height: 30px; padding: 0 7px; font-size: 12px; }
+.mail-merge-table .mail-merge-actions button + button { margin-left: 5px; }
+.mail-merge-delete { color: #9d4055; }
+.mail-merge-pesel { display: block; margin-top: 3px; color: #72838b; font-size: 10px; }
+.mail-merge-selected { background: #f0f7f8; }
+.mail-merge-preview { margin-top: 24px; padding-top: 16px; border-top: 1px solid #dce6e8; }
+.mail-merge-preview > h3 { margin: 0 0 14px; font-size: 16px; color: #003f5a; }
+.mail-merge-preview-pages { display: grid; gap: 20px; justify-items: center; background: #eef2f3; padding: 16px 0; }
+@media screen and (max-width: 900px) {
+  .mail-merge-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .mail-merge-fields label:has(input), .mail-merge-fields label:has(select) { grid-column: span 1; }
+  .mail-merge-fields label:has(#mergestreet), .mail-merge-fields label:has(#mergesubject) { grid-column: 1 / -1; }
+}
+@media screen and (max-width: 540px) {
+  .mail-merge-fields { grid-template-columns: minmax(0,1fr); }
+  .mail-merge-editor-toolbar { align-items: flex-start; }
+}
+
 .tinnitus-editor { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .tinnitus-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 220px); gap: 12px; }
 .tinnitus-fields label { min-width: 0; }

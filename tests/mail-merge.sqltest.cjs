@@ -1,0 +1,54 @@
+// Isolated PostgreSQL (WASM), synthetic people only. No production connection.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+(async()=>{
+  const db=new PGlite(),owner='00000000-0000-0000-0000-000000000001',staff='00000000-0000-0000-0000-000000000002';
+  const person='10000000-0000-0000-0000-000000000001',other='10000000-0000-0000-0000-000000000002';let count=0;
+  const id=()=>`20000000-0000-0000-0000-${String(++count).padStart(12,'0')}`;
+  const login=async(user,email)=>{await db.exec('reset role');await db.query("select set_config('test.uid',$1,false),set_config('test.email',$2,false)",[user,email]);await db.exec('set role authenticated');};
+  const write=(req,action,pid,rev,data)=>db.query('select public.satis_mail_merge_write($1,$2,$3,$4,$5) result',[req,action,pid,rev,data]);
+  const denied=(promise,code)=>assert.rejects(promise,error=>error.code===code);
+  try{
+    await db.exec(`create role anon;create role authenticated;create schema auth;
+      create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
+      create function auth.jwt() returns jsonb language sql stable as $$select jsonb_build_object('email',current_setting('test.email',true))$$;
+      grant usage on schema auth,public to anon,authenticated;
+      create function public.is_satis_app_user() returns boolean language sql stable as $$select auth.uid() is not null$$;
+      create function public.is_satis_owner() returns boolean language sql stable as $$select auth.uid()='${owner}'::uuid$$;`);
+    const migration=fs.readFileSync(process.env.SATIS_SQL||'supabase-mail-merge.sql','utf8');await db.exec(migration);await db.exec(migration);
+    await login(owner,'satis@pracowniasluchu.pl');
+    const basic={firstName:'Jan',surname:'Testowy',personRole:'applicant'},complete={...basic,pesel:'90010112349',cost:'8 000,00',nfz:'2100',requested:'3000',sameAddress:true};
+    const request=id();assert.equal((await write(request,'SAVE',person,null,basic)).rows[0].result.revision,1);
+    assert.equal((await write(request,'SAVE',person,null,basic)).rows[0].result.revision,1);
+    await denied(write(request,'SAVE',person,null,{...basic,surname:'Changed'}),'22023');
+    assert.equal((await write(id(),'SAVE',person,1,complete)).rows[0].result.revision,2);
+    await denied(write(id(),'SAVE',person,1,basic),'PT409');
+    await denied(write(id(),'SAVE',other,null,complete),'PT423');
+    await denied(write(id(),'SAVE',other,null,{...basic,pesel:'90010112348'}),'22023');
+    await denied(write(id(),'SAVE',other,null,{...basic,pesel:'90223112343'}),'22023');
+    await denied(write(id(),'SAVE',other,null,{...basic,phone:'1234'}),'22023');
+    await denied(write(id(),'SAVE',other,null,{...basic,cost:'500',nfz:'600',requested:'0'}),'22023');
+    await denied(write(id(),'SAVE',other,null,{...basic,unknown:'field'}),'22023');
+    await denied(write(id(),'SAVE',other,null,{...basic,sameAddress:'true'}),'22023');
+    await denied(write(id(),'SAVE',other,null,{...basic,phone:123456789}),'22023');
+    const detail=(await db.query('select satis_mail_merge_detail($1) result',[person])).rows[0].result;
+    assert.equal(detail.data.pesel,complete.pesel);assert.equal(detail.data.cost,'8000.00');
+    const list=(await db.query("select satis_mail_merge_list('Testowy',0) result")).rows[0].result;
+    assert.equal(list.total,1);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);
+    await denied(db.query('select * from public.mail_merge_people'),'42501');
+    await denied(db.query('delete from public.mail_merge_people'),'42501');
+    await login(staff,'gabinet@pracowniasluchu.pl');
+    await denied(db.query("select satis_mail_merge_list('',0)"),'42501');
+    await denied(db.query('select satis_mail_merge_detail($1)',[person]),'42501');
+    await denied(write(id(),'SAVE',other,null,basic),'42501');
+    await denied(write(id(),'DELETE',person,2,{}),'42501');
+    await login(owner,'gabinet@pracowniasluchu.pl');await denied(db.query("select satis_mail_merge_list('',0)"),'42501');
+    await login('','');await db.exec('reset role;set role anon');await denied(db.query("select satis_mail_merge_list('',0)"),'42501');
+    await login(owner,'satis@pracowniasluchu.pl');
+    await denied(write(id(),'DELETE',person,1,{}),'PT409');
+    const remove=id();await write(remove,'DELETE',person,2,{});await write(remove,'DELETE',person,2,{});
+    assert.equal((await db.query("select satis_mail_merge_list('',0) result")).rows[0].result.total,0);
+    console.log('PASS: owner-only list/detail/save/delete, incomplete drafts, idempotency, duplicate PESEL, optimistic revisions and field validation.');
+  }finally{await db.close();}
+})().catch(error=>{console.error(error.message,error.code||'', 'position',error.position||error.internalPosition||'');process.exitCode=1;});
