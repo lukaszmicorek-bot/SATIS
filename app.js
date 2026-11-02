@@ -1215,7 +1215,7 @@ function setCurrentYearTitle() {
     pcpr: "PCPR",
     history: "Historia",
     clients: "Klienci",
-    mailMerge: "Korespondencja seryjna",
+    mailMerge: "PCPR Żywiec",
     capd: capdTitle,
     vacation: vacationTitle
   };

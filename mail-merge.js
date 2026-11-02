@@ -133,7 +133,7 @@
       if(!authorized() || account!==a.user() || epoch!==session)throw new Error("Sesja została zakończona.");
       if(result.error){
         const code=result.error.code;
-        if(["PGRST202","PGRST205","42P01","42883"].includes(code)){ready=false;throw new Error("Baza korespondencji nie jest jeszcze uruchomiona. W SQL Editor Supabase uruchom plik supabase-mail-merge.sql, a następnie kliknij Odśwież listę.");}
+        if(["PGRST202","PGRST205","42P01","42883"].includes(code)){ready=false;throw new Error("Baza PCPR Żywiec nie jest jeszcze uruchomiona. W SQL Editor Supabase uruchom plik supabase-mail-merge.sql, a następnie kliknij Odśwież listę.");}
         throw new Error(code==="PT409"?"Dane zmieniły się na innym komputerze. Wczytaj osobę ponownie przed zapisem."
           :["PT423","23505"].includes(code)?"Osoba z tym numerem PESEL już istnieje. Wyszukaj i otwórz jej wpis."
           :code==="42501"?"Baza nie przyznała dostępu kontu SATIS. Sprawdź uprawnienia."
@@ -276,7 +276,7 @@
     }
     async function deleteEntry(entry) {
       if(dirty && editingId===entry.id){message("Najpierw zapisz zmiany lub wybierz Nowa osoba, aby odrzucić edycję.");return;}
-      if(!a.confirm("Trwale usunąć dane tej osoby z bazy korespondencji?"))return;
+      if(!a.confirm("Trwale usunąć dane tej osoby z bazy PCPR Żywiec?"))return;
       lock(true);const epoch=session;
       try{await write("DELETE",entry.id,entry.revision,{});writeRequest=null;if(editingId===entry.id)reset();offset=0;await refresh();if(authorized())message("Osoba usunięta z bazy.");}
       catch(error){if(authorized()&&epoch===session)message(error.message);}finally{if(authorized()&&epoch===session)lock(false);}
@@ -309,7 +309,7 @@
         cleanupPrint=cleanup;a.window.addEventListener("afterprint",cleanup,{once:true});await a.print(cleanup);
       }catch(error){pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();if(authorized()&&epoch===session)message(error.message||"Nie udało się przygotować wydruku.");}finally{if(epoch===session)printBusy=false;}
     }
-    const header=node("header","mail-merge-header");header.append(node("h2","","Korespondencja seryjna"),node("p","document-form-note","Wniosek PCPR Żywiec · 7 stron. Dane opiekuna, pozostałe sekcje i podpisy uzupełnij osobno. Sprawdź właściwość urzędu dla miejsca zamieszkania."));
+    const header=node("header","mail-merge-header");header.append(node("h2","","PCPR Żywiec"),node("p","document-form-note","Wniosek PCPR Żywiec · 7 stron. Dane opiekuna, pozostałe sekcje i podpisy uzupełnij osobno. Sprawdź właściwość urzędu dla miejsca zamieszkania."));
     const editor=node("form","mail-merge-editor");editor.noValidate=true;
     const toolbar=node("div","mail-merge-editor-toolbar"),editorTitle=node("h3");editorTitle.id="mailMergeEditorTitle";
     toolbar.append(editorTitle,button("Nowa osoba",()=>{if(!dirty||a.confirm("Porzucić niezapisane zmiany?"))reset();}));editor.append(toolbar);
