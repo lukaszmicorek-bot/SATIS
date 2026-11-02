@@ -461,6 +461,7 @@ let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
 let stockAuditWorkflow = null;
 let clientsModule = null;
+let mailMergeModule = null;
 let clientsSourceCache = { refs: [], rows: [] };
 let stockAuditCheckedIndex = new Set(stockAudit.checkedItems || []);
 let stockAuditItemIndex = new Set((stockAudit.items || []).map((item) => item.id));
@@ -1214,6 +1215,7 @@ function setCurrentYearTitle() {
     pcpr: "PCPR",
     history: "Historia",
     clients: "Klienci",
+    mailMerge: "Korespondencja seryjna",
     capd: capdTitle,
     vacation: vacationTitle
   };
@@ -1493,6 +1495,7 @@ function updatePrivateModulesVisibility() {
   }
   if (!ownerVisible) {
     clientsModule?.clear();
+    mailMergeModule?.clear();
     clientsSourceCache = { refs: [], rows: [] };
     workTimeRecords = [];
     workTimeMonthRecords = null;
@@ -1506,7 +1509,7 @@ function updatePrivateModulesVisibility() {
     if (workTimeNewPinInput) workTimeNewPinInput.value = "";
     workTimeBody?.replaceChildren();
     workTimeEmployeeButtons?.replaceChildren();
-    if (["workTime", "clients"].includes(activeNotebook)) switchNotebook("devices");
+    if (["workTime", "clients", "mailMerge"].includes(activeNotebook)) switchNotebook("devices");
   }
   if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
 }
@@ -2845,6 +2848,7 @@ function resetInactivityLogoutTimer() {
 function clearSensitiveApplicationState() {
   clearFormUndo();
   clientsModule?.clear();
+  mailMergeModule?.clear();
   clientsSourceCache = { refs: [], rows: [] };
   stockAuditWorkflow?.reset();
   stockAudit = { checkedItems: [], items: [], history: [] };
@@ -8425,6 +8429,7 @@ function compareByAge(left, right) {
 }
 
 function render() {
+  if (activeNotebook === "mailMerge") return;
   if (activeNotebook === "clients") { clientsModule?.refreshSources(); return; }
   repairReturns?.render();
   updateDeviceTypeSelectStyles();
@@ -25081,8 +25086,8 @@ function returnToPreviousTab() {
 }
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients"].includes(notebookName)) return;
-  if (["workTime", "clients"].includes(notebookName) && !canViewPrivateModules()) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge"].includes(notebookName)) return;
+  if (["workTime", "clients", "mailMerge"].includes(notebookName) && !canViewPrivateModules()) return;
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideWorkTimeHourlyPreview();
@@ -25121,6 +25126,11 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
 
   activePricingView = "";
   syncNotebookPanels();
+
+  if (activeNotebook === "mailMerge") {
+    initializeMailMergeModule()?.open();
+    return;
+  }
 
   if (activeNotebook === "clients") {
     const module = initializeClientsModule();
@@ -30359,6 +30369,41 @@ function clientsCurrentSources() {
   clientsSourceCache = {refs, rows};
   return rows;
 }
+function initializeMailMergeModule() {
+  if (!canViewPrivateModules() || !currentSupabaseUser) return null;
+  if (mailMergeModule) return mailMergeModule;
+  if (!window.SatisMailMerge?.create) return null;
+  const canvas = document.createElement("canvas"), context = canvas.getContext("2d");
+  mailMergeModule = window.SatisMailMerge.create({
+    document, window, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
+    contacts(query) {
+      if (!canViewPrivateModules() || !currentSupabaseUser) return [];
+      return documentCustomerNameMatches(query).flatMap(customer => {
+        const matches = customerHistoryContactEntries(customer);
+        return matches.length ? matches.map(entry => ({...entry, customer})) : [{customer}];
+      });
+    },
+    validPesel: isValidPesel,
+    birthDate: value => {const date = peselBirthDate(value);return date ? formatDate(date.toISOString().slice(0,10)) : "";},
+    age: value => {const birth = peselBirthDate(value), now = new Date();return birth ? now.getFullYear()-birth.getUTCFullYear()-Number(now.getMonth()<birth.getUTCMonth() || now.getMonth()===birth.getUTCMonth() && now.getDate()<birth.getUTCDate()) : 0;},
+    name: titleCaseName, city: normalizePcprCity, phone: formatPcprPhone, postal: formatPcprPostalCode,
+    address: postalAddressParts, iso: isoDateForSave, date: formatDate,
+    cityForPostal(code) {
+      const cities = new Map(knownPostalAddresses().filter(entry => entry.postalCode === code).map(entry => [normalize(entry.city),entry.city]));
+      return cities.size === 1 ? [...cities.values()][0] : "";
+    },
+    bindDate: bindDatePickerInput, confirm: message => confirm(message), print: cleanup => printWithReadyFonts(cleanup),
+    measure(text, size) {context.font = `400 ${size}px Inter`;return context.measureText(text).width;},
+    async loadGeography() {
+      if (!canViewPrivateModules()) throw new Error("Zaloguj się na konto SATIS.");
+      const response = await fetch("mail-merge/geography.json", {credentials:"omit",cache:"no-cache",signal:AbortSignal.timeout(20000)});
+      if (!response.ok) throw new Error("Nie udało się pobrać słownika GUS.");
+      return response.json();
+    }
+  });
+  return mailMergeModule;
+}
+
 function initializeClientsModule() {
   if (clientsModule) return clientsModule;
   try {

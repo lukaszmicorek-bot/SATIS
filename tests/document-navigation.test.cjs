@@ -21,7 +21,7 @@ function node(id, dataset = {}, active = false) {
   };
 }
 function setup() {
-  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients'].map(name => node(`${name}Notebook`));
+  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients', 'mailMerge'].map(name => node(`${name}Notebook`));
   const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo', 'thi', 'trq'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
@@ -29,9 +29,10 @@ function setup() {
   const context = { activeNotebook: 'devices', activePricingView: '', activeDeviceView: 'database',
     currentSupabaseUser: {email: 'satis@pracowniasluchu.pl'}, owner: true,
     notebookSections: sections, tabButtons: tabs, viewSections: views, statsPanel: node('stats'),
-    notebookSwitchButtons: ['devices', 'repairs', 'clients', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'workTime'].map(name => node(name, {notebook: name})),
+    notebookSwitchButtons: ['devices', 'repairs', 'clients', 'pricing', 'capd', 'pcpr', 'mailMerge', 'history', 'vacation', 'workTime'].map(name => node(name, {notebook: name})),
     clientsModule: {open: () => {}},
     initializeClientsModule: () => ({open: () => {}}),
+    initializeMailMergeModule: () => ({open: () => {context.mailMergeOpened = true;}}),
     canViewPrivateModules: () => context.owner,
     canViewDocumentHistory: () => Boolean(context.currentSupabaseUser),
     document: {querySelector: () => null},
@@ -74,6 +75,15 @@ test('document views route to the correct notebook, preserve form nodes, and ret
     assert.equal(ctx.notebookSections.find(n => n.id === 'pricingNotebook').hidden, true);
     assert.equal(ctx.statsPanel.hidden, group !== 'devices');
   }
+});
+test('mail merge is owner-only and keeps the dedicated notebook isolated', () => {
+  const ctx = setup();
+  ctx.owner = false;ctx.switchNotebook('mailMerge');assert.equal(ctx.activeNotebook,'devices');
+  ctx.owner = true;ctx.switchNotebook('mailMerge');assert.equal(ctx.activeNotebook,'mailMerge');
+  assert.equal(ctx.mailMergeOpened,true);
+  assert.equal(ctx.notebookSections.find(section=>section.id==='mailMergeNotebook').hidden,false);
+  ctx.switchNotebook('devices');
+  assert.equal(ctx.notebookSections.find(section=>section.id==='mailMergeNotebook').hidden,true);
 });
 test('work time month boundaries and owner policy are explicit', () => {
   const ctx = vm.createContext({Date, String});
@@ -326,7 +336,7 @@ test('history renderers and previews refuse anonymous access but permit authenti
 });
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(top, ['devices', 'repairs', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime']);
+  assert.deepEqual(top, ['devices', 'repairs', 'clients', 'capd', 'pcpr', 'mailMerge', 'history', 'pricing', 'vacation', 'workTime']);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {
     assert.match(html, new RegExp(`id="${view}Tab"[^>]*aria-controls="pricing${view[0].toUpperCase() + view.slice(1)}View"`));

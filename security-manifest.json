@@ -1,6 +1,6 @@
 {
-  "app_version": "20261030-17",
-  "asset_policy_sha256": "e21823cbe328b067e02373238231cfc21b0c99fbbb2aad8bd11c3787a6364c08",
+  "app_version": "20261102-1",
+  "asset_policy_sha256": "e51dabf0b45ff72b849c7fe958f933fc222734d15e0919a508df9f988e79bed4",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1771994,
-      "sha256": "6873dd267e5e9c4f47c4fe909a83e5936a5606c1746502b8715c64a730dde7ad"
+      "bytes": 1774538,
+      "sha256": "b03f6302d2e02bf811fca439d419173132f748f7924bf33cfdb9a08bcfe7e1dd"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -47,8 +47,44 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 457863,
-      "sha256": "d1ed259f9bc549da71e32c2b8fb604320e0b1cbce6bfaa020cad16ca3b512d69"
+      "bytes": 458248,
+      "sha256": "289cb59bfbc3ee79374a9713154044512995e9c4eb5b3c947d404530969c77ef"
+    },
+    "mail-merge.js": {
+      "bytes": 26155,
+      "sha256": "d8746dabe2e628cfbf218d4b5a304a0ae0e67b72b76786f32c387bfb29982c70"
+    },
+    "mail-merge/geography.json": {
+      "bytes": 2277035,
+      "sha256": "f7b09a266dc009a40820133ff0838d8b7a177af1c898e46ed4f4e0da3f07330c"
+    },
+    "mail-merge/page-1.svg": {
+      "bytes": 318831,
+      "sha256": "4338784705f9d19174f70b02dbc2c8443a607e87b3e410de4366231a05597c65"
+    },
+    "mail-merge/page-2.svg": {
+      "bytes": 292870,
+      "sha256": "00c8775eedb90f7c81daa7baab78fb0a44bc2607d7bdeb5e6a03fc70462a155f"
+    },
+    "mail-merge/page-3.svg": {
+      "bytes": 281251,
+      "sha256": "99a82ce78beaf58d6a952b841c44c4f175f9bf6e80d27a51500b58e007cbe515"
+    },
+    "mail-merge/page-4.svg": {
+      "bytes": 303722,
+      "sha256": "6c215b12c5e75c0699d54e990461107b6b757ad9236d81a2b6e23b7495fcdb49"
+    },
+    "mail-merge/page-5.svg": {
+      "bytes": 369348,
+      "sha256": "7c15cf66291635e3edadc393eff1150d9c26c31ecc6ad03553beec075f0f5554"
+    },
+    "mail-merge/page-6.svg": {
+      "bytes": 397714,
+      "sha256": "7e96a46e44e77ea4c01b1ee60df35af5118bb0ec2618c134a38a0c5341c4e413"
+    },
+    "mail-merge/page-7.svg": {
+      "bytes": 367573,
+      "sha256": "e1f3ba3e321ec553d1b7239d9ecae5984a2ea1e00c761d4f12f8d00722e49086"
     },
     "manufacturer-logos/audibel-offer.jpeg": {
       "bytes": 33002,
@@ -119,8 +155,8 @@
       "sha256": "06cc39f940d43b6447bd3d041cf278d31d1d164632f88301cdb277cfc0409797"
     },
     "offline-sw.js": {
-      "bytes": 3249,
-      "sha256": "9226e5894651faa8ef145747160f22bbf777651796487c7cace84ffbf5386fb8"
+      "bytes": 3265,
+      "sha256": "299c29d952ef52ebf22e4cb07b7139d581f68cdc878e348c5126b83c7d06bf17"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -139,8 +175,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 406728,
-      "sha256": "f06ac8904d541f5b42e80e1a3811386192dc9476b11966d37a99206f6cbe1a84"
+      "bytes": 410553,
+      "sha256": "7a10203f96531d1b225674186068adeba3e42f233c3a47c9853a0ab3cdfbaf87"
     },
     "supabase-config.js": {
       "bytes": 227,
