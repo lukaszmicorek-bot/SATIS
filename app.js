@@ -1510,6 +1510,7 @@ function updatePrivateModulesVisibility() {
     workTimeBody?.replaceChildren();
     workTimeEmployeeButtons?.replaceChildren();
     if (["workTime", "clients", "mailMerge"].includes(activeNotebook)) switchNotebook("devices");
+    if (activeNotebook === "pcpr" && activePricingView === "mailMerge") switchPricingView("pcpr");
   }
   if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
 }
@@ -8429,7 +8430,7 @@ function compareByAge(left, right) {
 }
 
 function render() {
-  if (activeNotebook === "mailMerge") return;
+  if (activeNotebook === "pcpr" && activePricingView === "mailMerge") return;
   if (activeNotebook === "clients") { clientsModule?.refreshSources(); return; }
   repairReturns?.render();
   updateDeviceTypeSelectStyles();
@@ -9574,12 +9575,16 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "devices", trq: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "devices", trq: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
   // Keep the shared document host intact so form values and print layouts survive navigation.
   const documentVisible = pricingViewNotebook(activePricingView) === activeNotebook;
+  const pcprTabs = document.querySelector("#pcprViews");
+  if (pcprTabs) pcprTabs.hidden = activeNotebook !== "pcpr";
+  const mailMergeView = document.querySelector("#mailMergeNotebook");
+  if (mailMergeView) mailMergeView.hidden = activeNotebook !== "pcpr" || activePricingView !== "mailMerge";
   notebookSections.forEach((section) => {
     section.hidden = section.id === "pricingNotebook"
       ? !documentVisible
@@ -9591,6 +9596,7 @@ function syncNotebookPanels() {
 function switchPricingView(viewName) {
   const nextView = pricingViewNotebook(viewName) ? viewName : "list";
   const notebook = pricingViewNotebook(nextView);
+  if (nextView === "mailMerge" && !canViewPrivateModules()) return;
   if ((nextView === "history" && !canViewDocumentHistory()) || (nextView === "pcpr" && !currentSupabaseUser)) return;
   if (activeNotebook !== notebook) {
     switchNotebook(notebook, { documentView: nextView });
@@ -9618,6 +9624,10 @@ function switchPricingView(viewName) {
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
   if (pricingHistoryView) pricingHistoryView.hidden = activePricingView !== "history";
   syncNotebookPanels();
+  if (activePricingView === "mailMerge") {
+    initializeMailMergeModule()?.open();
+    return;
+  }
   renderPricingOfferDeviceList();
   if (activePricingView === "offer") renderPricingOffer();
   if (activePricingView === "loan") renderPricingLoan();
@@ -25088,6 +25098,10 @@ function returnToPreviousTab() {
 function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge"].includes(notebookName)) return;
   if (["workTime", "clients", "mailMerge"].includes(notebookName) && !canViewPrivateModules()) return;
+  if (notebookName === "mailMerge") {
+    switchNotebook("pcpr", { documentView: "mailMerge" });
+    return;
+  }
   if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideWorkTimeHourlyPreview();
@@ -25120,17 +25134,14 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   }
 
   if (["pcpr", "history"].includes(activeNotebook)) {
-    switchPricingView(activeNotebook);
+    const selected = [...tabButtons].find((button) => button.dataset.viewGroup === "pcpr" && button.classList.contains("active"));
+    const view = documentView || selected?.dataset.view || "pcpr";
+    switchPricingView(activeNotebook === "history" ? "history" : view === "mailMerge" && !canViewPrivateModules() ? "pcpr" : view);
     return;
   }
 
   activePricingView = "";
   syncNotebookPanels();
-
-  if (activeNotebook === "mailMerge") {
-    initializeMailMergeModule()?.open();
-    return;
-  }
 
   if (activeNotebook === "clients") {
     const module = initializeClientsModule();

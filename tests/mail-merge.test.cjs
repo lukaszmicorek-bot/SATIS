@@ -136,7 +136,7 @@ test('missing database schema does not prevent a blank preview and explains the 
 });
 test('database access is SATIS-only and private data is never persisted in browser storage',()=>{
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.match(html,/data-notebook="mailMerge" data-private-owner hidden/);
+  assert.match(html,/data-view="mailMerge" data-view-group="pcpr" data-private-owner hidden/);
   assert.match(app,/\["workTime", "clients", "mailMerge"\]\.includes\(notebookName\) && !canViewPrivateModules/);
   assert.match(app,/mailMergeModule\?\.clear\(\)/);
   const source=fs.readFileSync(process.env.SATIS_MODULE||path.join(root,'mail-merge.js'),'utf8');
