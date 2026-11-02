@@ -30405,12 +30405,13 @@ function initializeMailMergeModule() {
     validPesel: isValidPesel,
     birthDate: value => {const date = peselBirthDate(value);return date ? formatDate(date.toISOString().slice(0,10)) : "";},
     age: value => {const birth = peselBirthDate(value), now = new Date();return birth ? now.getFullYear()-birth.getUTCFullYear()-Number(now.getMonth()<birth.getUTCMonth() || now.getMonth()===birth.getUTCMonth() && now.getDate()<birth.getUTCDate()) : 0;},
-    name: titleCaseName, city: normalizePcprCity, phone: formatPcprPhone, postal: formatPcprPostalCode,
+    name: value => titleCaseName(String(value || "").replace(/\s+/gu, " ")),
+    city: value => /^bielsko$/iu.test(String(value || "").trim()) ? "Bielsko-Biała" : normalizePcprCity(value),
+    street: value => formatLoanStreet(String(value || "").replace(/([\p{L}])(?=\d)/gu, "$1 ")),
+    phone: formatPcprPhone, postal: formatPcprPostalCode,
     address: postalAddressParts, iso: isoDateForSave, date: formatDate,
-    cityForPostal(code) {
-      const cities = new Map(knownPostalAddresses().filter(entry => entry.postalCode === code).map(entry => [normalize(entry.city),entry.city]));
-      return cities.size === 1 ? [...cities.values()][0] : "";
-    },
+    postalEntries: knownPostalAddresses, postalSuggestion: suggestPostalCode,
+    cityForPostal(code) { return PCPR_POSTAL_CODE_CITY_MAP[code] || ""; },
     bindDate: bindDatePickerInput, confirm: message => confirm(message), print: cleanup => printWithReadyFonts(cleanup),
     measure(text, size) {context.font = `400 ${size}px Inter`;return context.measureText(text).width;},
     async loadGeography() {

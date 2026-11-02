@@ -58,7 +58,7 @@ test('long text wraps or reduces size without silently discarding characters',()
   assert.equal(m.fitText('X',1,20,measure),null);
 });
 
-function fixture() {
+function fixture(overrides={}) {
   const nodes=new Map(),stored=new Map();let owner=true,prints=0,sequence=0,saveCalls=0,failure=null,pauseSave=null;
   class E {
     constructor(tag){this.tag=tag;this.children=[];this.value='';this.checked=false;this.hidden=false;this.dataset={};this.style={};this.events={};this.attributes={};this._text='';this.className='';this.classList={add:n=>this.className+=' '+n,remove:n=>{this.className=this.className.replace(n,'');},toggle:(n,on)=>on?this.classList.add(n):this.classList.remove(n)};}
@@ -88,7 +88,7 @@ function fixture() {
       saveCalls++;if(pauseSave)await pauseSave;
       if([...stored.values()].some(entry=>entry.id!==args.p_id && entry.data.pesel && entry.data.pesel===args.p_data.pesel))return {error:{code:'PT423'}};
       const entry={id:args.p_id,revision:(stored.get(args.p_id)?.revision||0)+1,data:{...args.p_data}};stored.set(args.p_id,entry);return {data:{id:entry.id,revision:entry.revision}};
-    }});
+    },...overrides});
   const buttons=()=>host.querySelectorAll('button');
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
     fail(code){failure=code;},pause(promise){pauseSave=promise;},
@@ -152,4 +152,42 @@ test('database access is SATIS-only and private data is never persisted in brows
   assert.match(sql,/unique index if not exists mail_merge_people_pesel_idx/);
   assert.doesNotMatch(sql,/drop table|truncate|delete from public\.(device_records|repair_records|loan_contracts)/i);
   assert.match(fs.readFileSync(path.join(root,'styles.css'),'utf8'),/@page mailMerge \{ size: A4 portrait; margin: 0; \}/);
+});
+
+function contactRules() {
+  const source=fs.readFileSync(path.join(root,'app.js'),'utf8'),vm=require('node:vm');
+  function extract(name){const start=source.indexOf(`function ${name}(`),rest=source.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);}
+  const ctx={normalize:value=>String(value||'').toLocaleLowerCase('pl-PL'),normalizeLoanHistoryText:value=>String(value||'').trim().replace(/\s+/gu,' '),pcprPhoneDigits:value=>String(value||'').replace(/\D/gu,''),pcprDigitGroups:(value,groups)=>{let i=0;return groups.map(size=>{const part=value.slice(i,i+size);i+=size;return part;}).filter(Boolean).join(' ');},postalStreetKey:value=>String(value||'').toLowerCase().replace(/^ul\.\s*/u,'').trim()};
+  vm.createContext(ctx);for(const name of ['titleCaseName','formatLoanStreet','formatPcprPostalCode','formatPcprPhone','normalizePcprCity','suggestPostalCode'])vm.runInContext(extract(name),ctx);
+  const entries=[{city:'Żywiec',postalCode:'34-300',street:'ul. Przykładowa'},{city:'Bielsko-Biała',postalCode:'43-300',street:'ul. Traugutta'},{city:'Testowo',postalCode:'10-100',street:'ul. Pierwsza'},{city:'Testowo',postalCode:'10-101',street:'ul. Druga'},{city:'Druga Wieś',postalCode:'20-200',street:''},{city:'Trzecia Wieś',postalCode:'20-200',street:''}];
+  return {name:ctx.titleCaseName,street:ctx.formatLoanStreet,city:value=>/^bielsko$/iu.test(value.trim())?'Bielsko-Biała':ctx.normalizePcprCity(value),phone:ctx.formatPcprPhone,postal:ctx.formatPcprPostalCode,
+    postalEntries:()=>entries,postalSuggestion:ctx.suggestPostalCode,cityForPostal:()=>'',loadGeography:async()=>({units:{},places:[]})};
+}
+test('PCPR contact fields normalize before save even when Enter avoids blur',async()=>{
+  const t=fixture(contactRules());t.fill({firstName:'jan',middleName:'adam',surname:'testowy-kowalski',city:'bielsko',street:'traugutta',house:'12a',flat:'3b',postal:'43300',phone:'500600800',province:'śląskie'});
+  await t.click('Zapisz');const saved=[...t.stored.values()][0].data;
+  assert.equal(saved.firstName,'Jan');assert.equal(saved.middleName,'Adam');assert.equal(saved.surname,'Testowy-Kowalski');
+  assert.equal(saved.city,'Bielsko-Biała');assert.equal(saved.street,'ul. Traugutta');assert.equal(saved.postal,'43-300');
+  assert.equal(saved.house,'12A');assert.equal(saved.phone,'500 600 800');assert.equal(saved.province,'Śląskie');t.api.clear();
+});
+test('postal code fills a unique city, city fills a known code and changing city clears only automatic codes',async()=>{
+  const t=fixture(contactRules());t.fill({postal:'34300'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(t.nodes.get('mergepostal').value,'34-300');assert.equal(t.nodes.get('mergecity').value,'Żywiec');
+  assert.equal(t.nodes.get('mergepostOffice').value,'Żywiec');
+  t.fill({postal:'99999'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(t.nodes.get('mergecity').value,'');assert.equal(t.nodes.get('mergepostOffice').value,'');
+  await t.click('Nowa osoba');t.fill({city:'bielsko'});await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergecity').value,'Bielsko-Biała');assert.equal(t.nodes.get('mergepostal').value,'43-300');
+  t.fill({city:'Żywiec'});await t.nodes.get('mergecity').emit('input');await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergepostal').value,'34-300');assert.equal(t.nodes.get('mergepostOffice').value,'Żywiec');t.api.clear();
+});
+test('ambiguous addresses require a choice and do not overwrite manually entered postal codes',async()=>{
+  const t=fixture(contactRules());t.fill({city:'Testowo'});await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergepostal').value,'');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/10-100/);
+  await t.click('10-101');assert.equal(t.nodes.get('mergepostal').value,'10-101');
+  await t.click('Nowa osoba');t.fill({city:'Żywiec',postal:'99-999'});await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergepostal').value,'99-999');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/34-300/);
+  await t.click('Nowa osoba');t.fill({postal:'20200'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(t.nodes.get('mergecity').value,'');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/Druga Wieś/);
+  await t.click('20-200 · Druga Wieś');assert.equal(t.nodes.get('mergecity').value,'Druga Wieś');t.api.clear();
 });
