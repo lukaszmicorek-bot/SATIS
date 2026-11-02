@@ -1,6 +1,6 @@
 {
-  "app_version": "20261102-6",
-  "asset_policy_sha256": "e51dabf0b45ff72b849c7fe958f933fc222734d15e0919a508df9f988e79bed4",
+  "app_version": "20261102-8",
+  "asset_policy_sha256": "263d9abf77adfc8c5a72361a2d7e54b2409e75da9d7751a8889c5431e93f756c",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1776137,
-      "sha256": "5fb740d3220c9fe5a846dae7eac9dd2db9d746b24dd7dd9dd6cbae89731bcf37"
+      "bytes": 1776459,
+      "sha256": "690b333c32b7ee5078fca8e2e7382dea3ff61973def3f93dcb3bfc05344f4d6e"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -48,11 +48,15 @@
     },
     "index.html": {
       "bytes": 458642,
-      "sha256": "9462c1876fd40614a1ab33f6f7a4ba0fea79277d26118a6b3a3bb8d7d5972350"
+      "sha256": "f19dbe4eba83f67804628082310223d843fc7481c122c2557d006cf6493a5f68"
+    },
+    "mail-merge-pdf.mjs": {
+      "bytes": 5697,
+      "sha256": "1db6950e17306cc8dba95b6a81c47cea81190f8af61e48aa2186d1ba1cc1cdf8"
     },
     "mail-merge.js": {
-      "bytes": 46274,
-      "sha256": "d719c49fa6cb0fe319fda34d39c1b4c313b0ad583ebf51dbdc8ea09ea7510b2c"
+      "bytes": 56197,
+      "sha256": "5cb25bb29e9de8b3d5393f1feb09a56f34c97084581872f779f61fe5ece6a1e6"
     },
     "mail-merge/geography.json": {
       "bytes": 2277035,
@@ -156,7 +160,7 @@
     },
     "offline-sw.js": {
       "bytes": 3265,
-      "sha256": "c897fca2e250c58b3d6e4ea7ba278763fc8d3093dd1cf718bf06b77ca685eed0"
+      "sha256": "e01d3ea1177dacf9ca5d3cc08edc1d4facd36bd1fae86be3f8664fc33b330dfb"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -175,8 +179,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 414900,
-      "sha256": "95e59ba49bfd3abd59ffac8491dd4b9e3082960e1e4258aa6d3c26172ce6ccdc"
+      "bytes": 415976,
+      "sha256": "a967e026c0ea4a2af27ca04c5a84e5493a3fef8c0f4680530a6a75d5ea0c5519"
     },
     "supabase-config.js": {
       "bytes": 227,
@@ -193,6 +197,18 @@
     "traffic-meter.js": {
       "bytes": 7412,
       "sha256": "247dae2ad6fecb5e3563ede1a2dc40617aaadf5feaa115945b598f77d4663d26"
+    },
+    "vendor/pdfjs-6.5.438/LICENSE": {
+      "bytes": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    "vendor/pdfjs-6.5.438/pdf.mjs": {
+      "bytes": 1098932,
+      "sha256": "937a1d428492c02d934199e8f2e19874f29b696f8b29c911c85b5036acd89494"
+    },
+    "vendor/pdfjs-6.5.438/pdf.worker.mjs": {
+      "bytes": 2436157,
+      "sha256": "fba3516f747d297d41b02a93d8c4cf3e4779d33b21e3bc597c1c46c516a900de"
     }
   },
   "format": 1,

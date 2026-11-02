@@ -17647,3 +17647,16 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .mail-merge-fields label:has(#mergebirthDate), .mail-merge-fields label:has(#mergepersonRole) { grid-column: span 3; }
   .mail-merge-fields label:has(#mergegender) { grid-column: span 2; }
 }
+
+.mail-merge-fields label.mail-merge-muted { color: #819096; }
+.mail-merge-fields label.mail-merge-muted input { background: #f2f4f4; border-color: #dce2e4; color: #7a898f; box-shadow: none; cursor: default; }
+.mail-merge-group-subject label:has(#mergeitemCount) { grid-column: 1 / -1; max-width: 250px; }
+.mail-merge-group-subject label:has(#mergesubject2) { grid-column: span 8; }
+.mail-merge-group-subject label:has(#mergeorderNumber2) { grid-column: span 4; }
+.mail-merge-template-settings { border-top: 1px solid #dce6e8; border-bottom: 1px solid #dce6e8; padding: 10px 0; margin: 12px 0 18px; }
+.mail-merge-template-settings summary { cursor: pointer; color: #315b6c; font-size: 13px; font-weight: 600; }
+.mail-merge-template-settings input[type="file"] { max-width: 100%; margin: 5px 0; font-size: 13px; }
+.mail-merge-template-settings .mail-merge-check { margin: 10px 0; line-height: 1.4; }
+@media screen and (max-width: 900px) {
+  .mail-merge-group-subject label:has(#mergesubject2), .mail-merge-group-subject label:has(#mergeorderNumber2) { grid-column: 1 / -1; }
+}

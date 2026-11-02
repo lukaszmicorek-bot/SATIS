@@ -6,7 +6,7 @@
   "use strict";
   const PAGE = {width: 595.32, height: 841.92};
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "applicationNumber", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "cost", "nfz", "requested"];
+  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "applicationNumber", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested"];
   function parseMoney(value) {
     const text = String(value ?? "").replace(/[\s\u00a0\u202f]/gu, "").replace(/zł$/iu, "").replace(",", ".");
     if (!/^\d+(?:\.\d{1,2})?$/u.test(text)) return null;
@@ -50,7 +50,13 @@
     if (!["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Wybierz płeć albo wpisz poprawny PESEL."});
     if (!["city","village"].includes(data.localityType)) errors.push({field:"localityType",text:"Wybierz miasto lub wieś."});
     if (!["I","II","III","none"].includes(data.invalidityGroup)) errors.push({field:"invalidityGroup",text:"Wybierz grupę inwalidzką albo Nie dotyczy."});
+    if(applicationItems(data).length===2)for(const [field,label]of [["subject2","Przedmiot 2"],["orderNumber2","Numer zlecenia 2"]])if(!String(data[field]||"").trim())errors.push({field,text:`Uzupełnij: ${label}.`});
     return errors;
+  }
+  function applicationItems(data){
+    const items=[{subject:data.subject||"",orderNumber:data.orderNumber||""}];
+    if(data.itemCount==="2" || (!data.itemCount && (data.subject2 || data.orderNumber2)))items.push({subject:data.subject2||"",orderNumber:data.orderNumber2||""});
+    return items;
   }
   function placements(data) {
     const result = [];
@@ -84,8 +90,14 @@
     if (degreeY[data.degree]) tick(3,"degree",201.8,degreeY[data.degree]);
     if (data.certificateValidity === "indefinite") tick(3,"certificateValidity",201.8,373.6);
     if (data.certificateValidity === "periodic") {tick(3,"certificateValidity",201.8,387.4);add(3,"certificateUntil",352,387,185,13);}
-    cell(3,"certificateNumber",415.8,435.3);
-    cell(5,"subject",224.6,244.2,185,563);cell(5,"orderNumber",244.2,264,185,563);
+    cell(3,"certificateNumber",415.8,435.3,203.5,563);
+    const certificate=result.find(item=>item.field==="certificateNumber");if(certificate)certificate.text=certificate.text.toLocaleUpperCase("pl-PL");
+    const items=applicationItems(data);
+    if(items.length===1){cell(5,"subject",224.6,244.2,185,563);cell(5,"orderNumber",244.2,264,185,563);}
+    else{
+      add(5,"subject",185,225.0,378,19.2,items.map((item,index)=>`${index+1}. ${item.subject}`).join("\n"));
+      add(5,"orderNumber",185,244.5,378,19.2,items.map((item,index)=>`${index+1}. ${item.orderNumber}`).join("\n"));
+    }
     const sums = amounts(data);
     for (const [key, y, bottom, totalY, totalBottom] of [["cost",264,283.7,420.9,440.7],["nfz",283.7,303.4,440.7,460.4],["own",303.4,336.7,460.4,480.1],["requested",336.7,368.9,480.1,512.5]]) {
       if (sums[key] !== null) {add(5,key,185,y+3,378,bottom-y-6,money(sums[key]));add(5,`${key}Total`,240,totalY+3,323,totalBottom-totalY-6,money(sums[key]));}
@@ -116,16 +128,18 @@
     if (data.postal && !/^\d{2}-\d{3}$/u.test(data.postal)) errors.push({field:"postal",text:"Kod pocztowy: 00-000."});
     if (data.phone && !/^(?:(?:48|0048))?\d{9}$/u.test(data.phone.replace(/\D/gu,""))) errors.push({field:"phone",text:"Wpisz prawidłowy numer telefonu."});
     if (data.email && data.email !== "-" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(data.email)) errors.push({field:"email",text:"Sprawdź adres e-mail."});
+    if(data.itemCount && !["1","2"].includes(data.itemCount))errors.push({field:"itemCount",text:"Wybierz jeden lub dwa przedmioty."});
     for (const key of ["cost","nfz","requested"]) if (data[key] && parseMoney(data[key]) === null) errors.push({field:key,text:"Sprawdź kwotę: użyj cyfr i maksymalnie dwóch miejsc po przecinku."});
     if (amounts(data).own < 0) errors.push({field:"requested",text:"Suma dofinansowań przekracza koszt zakupu."});
     return errors;
   }
   function create(a) {
-    const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map();
+    const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map();
     let geoPromise = null, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
     let autoCity="", autoPostal="", autoPostOffice="", autoGender="", printPages=7, schemaVersion=0;
+    let periodicDate="", activeTemplate=null, candidateTemplate=null, templateImportController=null;
     const addressHistory=new Map();
     const q = id => document.getElementById(id), authorized = () => a.owner() && Boolean(a.user());
     const node = (tag, cls, text) => {const value=document.createElement(tag);if(cls)value.className=cls;if(text!==undefined)value.textContent=text;return value;};
@@ -139,6 +153,7 @@
       fields.forEach(input=>{input.disabled=value;});
       for(const control of host.querySelectorAll("button"))control.disabled=value;
       if(!value){q("mailMergePrevious").disabled=offset===0;q("mailMergeNext").disabled=offset+rows.length>=total;}
+      updateConditionalFields();updateTemplateControls();updatePrintMode();
     }
     async function rpc(name,args={}) {
       if(!authorized())throw new Error("Zaloguj się na konto SATIS.");
@@ -156,7 +171,7 @@
       return result.data;
     }
     function enrich(data) {
-      return {...data,birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
+      return {...data,itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateNumber:String(data.certificateNumber||"").toLocaleUpperCase("pl-PL"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
         role:data.firstName && data.personRole!=="ward"?"we własnym imieniu":"",
         gender:a.validPesel(data.pesel)?Number(data.pesel[9])%2?"male":"female":data.gender||""};
     }
@@ -164,7 +179,17 @@
       const data=Object.fromEntries(personal.map(key=>[key,fields.get(key).value.trim()]));
       data.sameAddress=fields.get("sameAddress").checked;
       if(a.iso(data.certificateUntil))data.certificateUntil=a.date(a.iso(data.certificateUntil));
+      if(data.itemCount!=="2"){data.subject2="";data.orderNumber2="";}
       return enrich(data);
+    }
+    function updateConditionalFields(restore=false){
+      const indefinite=fields.get("certificateValidity").value==="indefinite",until=fields.get("certificateUntil"),second=fields.get("itemCount").value==="2";
+      if(indefinite){if(until.value)periodicDate=until.value;until.value="";until.setCustomValidity("");until.removeAttribute("aria-invalid");}
+      else if(restore&&!until.value&&periodicDate)until.value=periodicDate;
+      until.disabled=busy||indefinite;until.placeholder=indefinite?"Nie dotyczy":"";
+      labels.get("certificateUntil").classList.toggle("mail-merge-muted",indefinite);
+      for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
+      q("mailMergeFundingNote").textContent=second?"Kwoty poniżej dotyczą łącznie obu przedmiotów.":"Kwoty poniżej dotyczą jednego przedmiotu.";
     }
     function normalizeFields() {
       let updated=false;
@@ -177,6 +202,8 @@
       put("city",a.city(fields.get("city").value));
       put("street",fields.get("street").value.trim() === "-" ? "-" : a.street?a.street(fields.get("street").value):a.name(fields.get("street").value));
       for(const key of ["house","flat"])put(key,fields.get(key).value.trim().toLocaleUpperCase("pl-PL"));
+      put("certificateNumber",fields.get("certificateNumber").value.toLocaleUpperCase("pl-PL"));
+      if(fields.get("certificateValidity").value==="indefinite")put("certificateUntil","");
       put("postal",a.postal(fields.get("postal").value));put("phone",a.phone(fields.get("phone").value));
       return updated;
     }
@@ -240,7 +267,7 @@
     function issues(data, full=false) {
       const errors=full?[...draftValidate(data,a.validPesel),...validate(data,a.validPesel)]:draftValidate(data,a.validPesel);
       if(data.pesel && a.validPesel(data.pesel) && a.age(data.pesel)<0)errors.push({field:"pesel",text:"Data urodzenia z PESEL-u nie może być w przyszłości."});
-      if(data.certificateUntil && !a.iso(data.certificateUntil))errors.push({field:"certificateUntil",text:"Wybierz prawidłową datę ważności orzeczenia."});
+      if(data.certificateValidity!=="indefinite" && data.certificateUntil && !a.iso(data.certificateUntil))errors.push({field:"certificateUntil",text:"Wybierz prawidłową datę ważności orzeczenia."});
       if(full && data.personRole==="applicant" && a.validPesel(data.pesel) && a.age(data.pesel)<18)errors.push({field:"personRole",text:"Dla osoby niepełnoletniej wybierz dane podopiecznego. Dane opiekuna uzupełnij osobno."});
       if(full)for(const item of placements(data))if(!fitText(item.text,item.width,item.height,a.measure))errors.push({field:item.field,text:"Tekst nie mieści się w polu oryginalnego wniosku. Skróć go przed wydrukiem."});
       return errors;
@@ -258,7 +285,8 @@
       const fragment=document.createDocumentFragment(),marks=placements(data);let oversized=false;
       for(let page=1;page<=count;page++){
         const sheet=node("article","mail-merge-page"),background=node("img","mail-merge-template");
-        background.src=`mail-merge/page-${page}.svg`;background.alt=`Wniosek PCPR Żywiec · strona ${page} z 7`;
+        const template=candidateTemplate||activeTemplate;
+        background.src=template?.images[page-1]||`mail-merge/page-${page}.svg`;background.alt=`Wniosek PCPR Żywiec · strona ${page} z ${template?.count||7}`;
         if(preview)background.loading="lazy";sheet.append(background);
         for(const item of marks.filter(item=>item.page===page)){
           const fit=fitText(item.text,item.width,item.height,a.measure);
@@ -277,11 +305,11 @@
       q("mailMergeCompleteness").textContent=`Kompletność do wydruku: ${new Set(issues(read(),true).map(error=>error.field)).size} pól wymaga sprawdzenia.`;
       q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
     }
-    function changed() {if(!authorized() || busy)return;dirtyState();updateBirth();updateAmounts();clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,180);}
+    function changed() {if(!authorized() || busy)return;dirtyState();updateBirth();updateConditionalFields();updateAmounts();clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,180);}
     function reset() {
-      generation++;geoSequence++;editingId="";editingRevision=null;newId="";writeRequest=null;autoCity="";autoPostal="";autoPostOffice="";autoGender="";
+      generation++;geoSequence++;editingId="";editingRevision=null;newId="";writeRequest=null;autoCity="";autoPostal="";autoPostOffice="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
-      fields.get("personRole").value="applicant";
+      fields.get("personRole").value="applicant";fields.get("itemCount").value="1";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
       dirtyState(false);message("");updateAmounts();renderPreview();
     }
@@ -289,7 +317,8 @@
       reset();editingId=entry.id;editingRevision=entry.revision;
       personal.forEach(key=>{fields.get(key).value=entry.data[key]||"";});fields.get("personRole").value||="applicant";
       fields.get("sameAddress").checked=Boolean(entry.data.sameAddress);rememberAddress(entry.data);
-      const updated=normalizeFields();updateBirth();updateAmounts();dirtyState(updated);renderPreview();
+      fields.get("itemCount").value=entry.data.itemCount||((entry.data.subject2||entry.data.orderNumber2)?"2":"1");
+      const updated=normalizeFields();updateBirth();updateConditionalFields();updateAmounts();dirtyState(updated);renderPreview();
     }
     async function resolveGeo() {
       if(!authorized())return;const city=fields.get("city").value.trim();if(!city)return;
@@ -325,7 +354,7 @@
         const name=node("td"),label=node("strong","",`${entry.data.firstName} ${entry.data.middleName||""} ${entry.data.surname}`.replace(/\s+/gu," "));
         name.append(label);if(entry.pesel_tail)name.append(node("small","mail-merge-pesel",`PESEL: •••••••${entry.pesel_tail}`));row.append(name);
         const degrees={severe:"Znaczny",moderate:"Umiarkowany",mild:"Lekki",none:"Nie dotyczy"};
-        for(const text of [entry.data.phone||"—",entry.data.city||"—",degrees[entry.data.degree]||"—",entry.data.applicationNumber||"—",entry.data.subject||"—"])row.append(node("td","",text));
+        for(const text of [entry.data.phone||"—",entry.data.city||"—",degrees[entry.data.degree]||"—",entry.data.applicationNumber||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
         const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)),button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
@@ -339,7 +368,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=2?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=3?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -359,7 +388,7 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        if(schemaVersion<2){await refresh();if(schemaVersion<2){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
+        if(schemaVersion<3){await refresh();if(schemaVersion<3){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
@@ -376,6 +405,7 @@
     }
     async function print(mode="selected") {
       if(!authorized()||busy||printBusy||cleanupPrint)return;
+      if(candidateTemplate){message("Najpierw zatwierdź albo anuluj podgląd nowego wzoru PDF.");return;}
       const epoch=session,account=a.user(),count=printPages;printBusy=true;
       try{
         let documents=[];
@@ -405,7 +435,7 @@
     const header=node("header","mail-merge-header");header.append(node("h2","","PCPR Żywiec"),node("p","document-form-note","Wniosek PCPR Żywiec · 7 stron. Dane opiekuna, pozostałe sekcje i podpisy uzupełnij osobno. Sprawdź właściwość urzędu dla miejsca zamieszkania."));
     const editor=node("form","mail-merge-editor");editor.noValidate=true;
     const toolbar=node("div","mail-merge-editor-toolbar"),editorTitle=node("h3");editorTitle.id="mailMergeEditorTitle";
-    toolbar.append(editorTitle,button("Nowa osoba",()=>{if(!dirty||a.confirm("Porzucić niezapisane zmiany?"))reset();}));editor.append(toolbar);
+    toolbar.append(editorTitle,button("Nowy wniosek",()=>{if(!dirty||a.confirm("Porzucić niezapisane zmiany?"))reset();}));editor.append(toolbar);
     const search=node("input","satis-private-search");search.id="mailMergeSearch";search.type="search";search.autocomplete="off";search.placeholder="Uzupełnij z historii · imię i nazwisko…";
     const matches=node("div","mail-merge-matches");matches.id="mailMergeMatches";editor.append(search,matches);
     const sections=[
@@ -413,20 +443,20 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail"]]],
       ["Wniosek i orzeczenie","certificate",[["applicationNumber","Nr wniosku (jeśli nadany)"],["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
-      ["Przedmiot wniosku","subject",[["subject","Przedmiot / nazwa produktu"],["orderNumber","Numer zlecenia / zleceń"]]],
+      ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["requested","Wnioskowana kwota (zł)"]]]
     ];
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
       items.forEach(([key,title,options])=>{
-        const label=node("label"),input=node(options?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=key==="subject"||key==="orderNumber"?1000:key==="firstName"?100:key==="surname"?160:240;
+        const label=node("label"),input=node(options?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
         if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
         if(key==="pesel"){input.inputMode="numeric";input.maxLength=11;}
         if(["cost","nfz","requested"].includes(key))input.inputMode="decimal";
         if(key==="certificateUntil"){input.setAttribute("data-date-picker","");a.bindDate(input);}
         if(key==="birthDate")input.readOnly=true;
-        fields.set(key,input);label.append(node("span","",title),input);
+        fields.set(key,input);labels.set(key,label);label.append(node("span","",title),input);
         const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila",applicationNumber:"Nie nadano"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
         section.append(label);
@@ -438,14 +468,19 @@
     }
     const same=node("input");same.type="checkbox";same.id="mergeSameAddress";fields.set("sameAddress",same);
     const sameLabel=node("label","mail-merge-check");sameLabel.append(same,node("span","","Adres korespondencyjny taki sam jak adres zamieszkania"));
+    const fundingNote=node("p","document-form-note");fundingNote.id="mailMergeFundingNote";editor.append(fundingNote);
     const own=node("p","document-form-note","Udział własny po dofinansowaniu: "),ownValue=node("strong");ownValue.id="mailMergeOwn";own.append(ownValue);
     const status=node("p","mail-merge-message");status.id="mailMergeMessage";status.setAttribute("role","status");status.setAttribute("aria-live","polite");
     const save=button("Zapisz",saveDraft,"mail-merge-save" );save.id="mailMergeSave";
     const completeness=node("p","document-form-note");completeness.id="mailMergeCompleteness";
     const printMode=node("div","mail-merge-actions mail-merge-print-mode");printMode.setAttribute("role","group");printMode.setAttribute("aria-label","Liczba stron wydruku");printMode.append(node("span","","Wydruk:"));
-    for(const count of [5,7]){const control=button(`${count} stron`,()=>{printPages=count;updatePrintMode();renderPreview();});control.id=`mailMergePrint${count}`;printMode.append(control);}
+    for(const count of [5,7]){const control=button(`${count} stron`,()=>{if(count>(activeTemplate?.count||7))return;printPages=count;updatePrintMode();renderPreview();});control.id=`mailMergePrint${count}`;printMode.append(control);}
     const printNotice=node("p","mail-merge-message");printNotice.id="mailMergePrintNotice";
-    function updatePrintMode(){for(const count of [5,7])q(`mailMergePrint${count}`).setAttribute("aria-pressed",String(printPages===count));q("mailMergePrintNotice").textContent=printPages===5?"Wydruk stron 1–5 z oryginału. Pomija dalszą część oświadczenia, klauzulę informacyjną i wykaz załączników. Pełny wzór ma 7 stron.":"";}
+    function updatePrintMode(){
+      const available=(candidateTemplate||activeTemplate)?.count||7;if(printPages>available)printPages=available;
+      for(const count of [5,7]){q(`mailMergePrint${count}`).setAttribute("aria-pressed",String(printPages===count));q(`mailMergePrint${count}`).disabled=busy||count>available;}
+      q("mailMergePrintNotice").textContent=printPages===5?available===7?"Wydruk stron 1–5 z oryginału. Pomija dalszą część oświadczenia, klauzulę informacyjną i wykaz załączników. Pełny wzór ma 7 stron.":"Wybrany wzór ma 5 stron. Sprawdź, czy zawiera wszystkie wymagane oświadczenia i załączniki.":"";
+    }
     const actions=node("div","mail-merge-actions mail-merge-main-actions");actions.append(button("Zapisz roboczo",()=>saveDraft(true)),save,button("Sprawdź kompletność",()=>{normalizeFields();updateBirth();markIssues(issues(read(),true));renderPreview();}),button("Drukuj wniosek / PDF",()=>print("current")),button("Drukuj pusty wzór",()=>print("blank")));
     editor.append(sameLabel,own,node("p","document-form-note","Zapisz roboczo — imię i nazwisko wystarczą. Zapisz i wydruk wypełnionego wniosku — wszystkie właściwe pola muszą być uzupełnione; przy braku danych wybierz Brak lub Nie dotyczy."),completeness,status,printMode,printNotice,actions);
     const database=node("section","mail-merge-batch"),tools=node("div","mail-merge-list-tools"),listSearch=node("input");listSearch.id="mailMergeListSearch";listSearch.type="search";listSearch.autocomplete="off";listSearch.maxLength=160;listSearch.placeholder="Szukaj w bazie · osoba, telefon, PESEL, nr wniosku, przedmiot…";
@@ -461,9 +496,61 @@
     const preview=node("section","mail-merge-preview"),previewTitle=node("h3");previewTitle.id="mailMergePreviewTitle";
     const previewNotice=node("p","mail-merge-message");previewNotice.id="mailMergePreviewNotice";
     const previewPages=node("div","mail-merge-preview-pages");previewPages.id="mailMergePreviewPages";preview.append(previewTitle,previewNotice,previewPages);
-    host.replaceChildren(header,editor,database,preview);updatePrintMode();reset();renderRows();
+    const templatePanel=node("details","mail-merge-template-settings");templatePanel.append(node("summary","","Zmień wzór PDF"));
+    templatePanel.append(node("p","document-form-note","Wybierz pusty PDF, 5 lub 7 stron A4, z takim samym układem pól. Importowany wzór działa tylko w tej sesji na tym komputerze. Plik nie jest wysyłany na serwer. Zmieniony układ wymaga osobnego dopasowania."));
+    const templateFile=node("input");templateFile.id="mailMergeTemplateFile";templateFile.type="file";templateFile.accept=".pdf,application/pdf";templateFile.setAttribute("aria-label","Nowy pusty wzór PDF PCPR Żywiec");
+    const templateStatus=node("p","document-form-note");templateStatus.id="mailMergeTemplateStatus";templateStatus.setAttribute("role","status");
+    const reviewLine=node("label","mail-merge-check");reviewLine.id="mailMergeTemplateReview";
+    const review=node("input");review.id="mailMergeTemplateConfirm";review.type="checkbox";
+    reviewLine.append(review,node("span","","PDF nie zawiera danych osoby. Sprawdzono podgląd wszystkich stron i zgodność położenia wpisanych danych z polami nowego wzoru."));
+    const templateActions=node("div","mail-merge-actions");
+    const applyTemplate=button("Zastosuj wzór",()=>{
+      if(!candidateTemplate||!review.checked)return;
+      activeTemplate?.dispose();activeTemplate=candidateTemplate;candidateTemplate=null;review.checked=false;updateTemplateControls();updatePrintMode();renderPreview();message("Nowy wzór aktywny w tej sesji. Dane osób nie zostały zmienione.");
+    });applyTemplate.id="mailMergeTemplateApply";
+    let previousPrintPages=7;
+    const cancelTemplate=button("Anuluj podgląd wzoru",()=>{candidateTemplate?.dispose();candidateTemplate=null;review.checked=false;printPages=Math.min(previousPrintPages,activeTemplate?.count||7);updateTemplateControls();updatePrintMode();renderPreview();});cancelTemplate.id="mailMergeTemplateCancel";
+    const restoreTemplate=button("Przywróć oryginalny wzór",()=>{
+      if(!a.confirm("Przywrócić oryginalny wzór? Dane wpisane do wniosku pozostaną bez zmian."))return;
+      candidateTemplate?.dispose();activeTemplate?.dispose();candidateTemplate=null;activeTemplate=null;review.checked=false;templateFile.value="";printPages=7;updateTemplateControls();updatePrintMode();renderPreview();
+    });restoreTemplate.id="mailMergeTemplateRestore";
+    templateActions.append(applyTemplate,cancelTemplate,restoreTemplate);templatePanel.append(templateFile,templateStatus,reviewLine,templateActions);
+    const cancelImport=node("button","reset-filters-btn","Anuluj import");cancelImport.type="button";
+    cancelImport.addEventListener("click",()=>{if(authorized())templateImportController?.abort();});templatePanel.append(cancelImport);
+    function updateTemplateControls(){
+      cancelImport.hidden=!templateImportController;cancelImport.disabled=!authorized()||!templateImportController;
+      reviewLine.hidden=!candidateTemplate;review.disabled=busy;
+      applyTemplate.disabled=busy||!candidateTemplate||!review.checked;cancelTemplate.disabled=busy||!candidateTemplate;restoreTemplate.disabled=busy||!(activeTemplate||candidateTemplate);templateFile.disabled=busy;
+      if(!templateImportController)templateStatus.textContent=candidateTemplate?`Podgląd do zatwierdzenia: ${candidateTemplate.name}`:activeTemplate?`Aktywny w tej sesji: ${activeTemplate.name}`:"Oryginalny wzór PCPR Żywiec · 7 stron";
+    }
+    review.addEventListener("change",updateTemplateControls);
+    templateFile.addEventListener("change",async()=>{
+      if(!authorized()||busy||!templateFile.files?.length)return;
+      const file=templateFile.files[0],epoch=session,controller=new AbortController();templateImportController=controller;lock(true);
+      try{
+        templateStatus.textContent="Sprawdzanie pustego wzoru PDF…";
+        const parsed=await a.importTemplate(file,{document,signal:controller.signal,progress:text=>{if(authorized()&&epoch===session)templateStatus.textContent=text;}});
+        if(!authorized()||epoch!==session){parsed.dispose();return;}
+        candidateTemplate?.dispose();candidateTemplate=parsed;previousPrintPages=printPages;review.checked=false;updatePrintMode();renderPreview();
+        message("Sprawdź podgląd wszystkich stron poniżej. Wydruk nowego wzoru będzie możliwy dopiero po potwierdzeniu zgodności pól.");
+      }catch(error){if(authorized()&&epoch===session)message(error.message||"Nie udało się wczytać wzoru. Poprzedni wzór pozostaje bez zmian.");}
+      finally{if(authorized()&&epoch===session){templateImportController=null;templateFile.value="";lock(false);}}
+    });
+
+    host.replaceChildren(header,templatePanel,editor,database,preview);updatePrintMode();reset();renderRows();
     editor.addEventListener("submit",event=>{event.preventDefault();if(authorized()&&!busy)void saveDraft();});
     editor.addEventListener("input",changed);editor.addEventListener("change",changed);
+    fields.get("certificateNumber").addEventListener("input",()=>{
+      const input=fields.get("certificateNumber"),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
+      if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
+    });
+    fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});
+    fields.get("itemCount").addEventListener("change",()=>{
+      if(fields.get("itemCount").value==="1" && (fields.get("subject2").value||fields.get("orderNumber2").value)){
+        if(!a.confirm("Usunąć drugi przedmiot i jego numer zlecenia z bieżącego wniosku?")){fields.get("itemCount").value="2";return;}
+        fields.get("subject2").value="";fields.get("orderNumber2").value="";
+      }changed();renderPreview();
+    });
     fields.get("city").addEventListener("input",()=>{
       clearRegion();autoCity="";q("mailMergePostalChoices").replaceChildren();
       if(autoPostal && fields.get("postal").value===autoPostal){fields.get("postal").value="";autoPostal="";}
@@ -494,8 +581,8 @@
     a.window.addEventListener("beforeunload",event=>{if(authorized()&&dirty){event.preventDefault();event.returnValue="";}});
     document.fonts?.ready.then(()=>{if(authorized())renderPreview();});
     return {open(){if(!authorized()){this.clear();return false;}host.hidden=false;if(!ready)void refresh();renderPreview();return true;},
-      clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
+      clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;templateImportController?.abort();templateImportController=null;activeTemplate?.dispose();candidateTemplate?.dispose();activeTemplate=null;candidateTemplate=null;q("mailMergeTemplateFile").value="";q("mailMergeTemplateConfirm").checked=false;updateTemplateControls();printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
       queue:()=>authorized()?rows.map(row=>({...row,data:{...row.data}})):[]};
   }
-  return {PAGE,normalize,parseMoney,amounts,splitName,geographyIndex,geographyMatches,validate,draftValidate,placements,fitText,create};
+  return {PAGE,normalize,parseMoney,amounts,splitName,geographyIndex,geographyMatches,validate,draftValidate,placements,applicationItems,fitText,create};
 });

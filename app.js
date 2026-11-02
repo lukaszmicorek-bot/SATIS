@@ -30388,6 +30388,11 @@ function initializeMailMergeModule() {
   mailMergeModule = window.SatisMailMerge.create({
     document, window, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
     id: makeId,
+    async importTemplate(file, options) {
+      if (!canViewPrivateModules() || !currentSupabaseUser) throw new Error("Zaloguj się na konto SATIS.");
+      const importer = await import(`./mail-merge-pdf.mjs?v=${encodeURIComponent(CURRENT_APP_VERSION)}`);
+      return importer.importBlankTemplate(file, options);
+    },
     async rpc(name, args) {
       if (!canViewPrivateModules() || !currentSupabaseUser || !supabaseClient) throw new Error("Zaloguj się na konto SATIS.");
       const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 15000);

@@ -45,16 +45,16 @@ begin
     raise exception 'Invalid query' using errcode='22023';
   end if;
   select count(*) into total from public.mail_merge_people p
-    where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'city',p.data->>'subject'))) > 0;
+    where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0;
   select coalesce(jsonb_agg(to_jsonb(s)),'[]') into result from (
     select p.id,p.revision,p.updated_at,right(p.data->>'pesel',4) as pesel_tail,
       jsonb_build_object('firstName',p.data->>'firstName','middleName',p.data->>'middleName','surname',p.data->>'surname',
-        'phone',p.data->>'phone','city',p.data->>'city','degree',p.data->>'degree','applicationNumber',p.data->>'applicationNumber','subject',p.data->>'subject') as data
+        'phone',p.data->>'phone','city',p.data->>'city','degree',p.data->>'degree','applicationNumber',p.data->>'applicationNumber','subject',p.data->>'subject','subject2',p.data->>'subject2') as data
     from public.mail_merge_people p
-    where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'city',p.data->>'subject'))) > 0
+    where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',2);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',3);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -101,10 +101,11 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','cost','nfz','requested','sameAddress'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','sameAddress'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
+      or coalesce(p_data->>'itemCount','1') not in ('1','2')
       or coalesce(p_data->>'gender','') not in ('','male','female')
       or coalesce(p_data->>'localityType','') not in ('','city','village')
       or coalesce(p_data->>'invalidityGroup','') not in ('','I','II','III','none')
@@ -118,12 +119,15 @@ begin
         if jsonb_typeof(pair.value)<>'boolean' then raise exception 'Invalid checkbox' using errcode='22023';end if;
         clean:=clean||jsonb_build_object(pair.key,pair.value);
       else
-        if jsonb_typeof(pair.value)<>'string' or length(pair.value#>>'{}') > (case when pair.key in ('subject','orderNumber') then 1000 else 240 end) then
+        if jsonb_typeof(pair.value)<>'string' or length(pair.value#>>'{}') > (case when pair.key in ('subject','orderNumber','subject2','orderNumber2') then 1000 else 240 end) then
           raise exception 'Invalid field type or length' using errcode='22023';
         end if;
         clean:=clean||jsonb_build_object(pair.key,btrim(pair.value#>>'{}'));
       end if;
     end loop;
+    if clean ? 'certificateNumber' then clean:=jsonb_set(clean,'{certificateNumber}',to_jsonb(upper(clean->>'certificateNumber')));end if;
+    if clean->>'certificateValidity'='indefinite' then clean:=clean||jsonb_build_object('certificateUntil','');end if;
+    if coalesce(clean->>'itemCount','1')='1' then clean:=clean-array['subject2','orderNumber2'];end if;
     digits:=coalesce(clean->>'pesel','');
     if digits<>'' then
       if digits !~ '^[0-9]{11}$' then raise exception 'Invalid PESEL' using errcode='22023';end if;

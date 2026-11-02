@@ -134,3 +134,13 @@
 
 !/supabase-mail-merge.sql
 !/tests/mail-merge.sqltest.cjs
+
+!/mail-merge-pdf.mjs
+!/vendor/
+/vendor/*
+!/vendor/pdfjs-6.5.438/
+/vendor/pdfjs-6.5.438/*
+!/vendor/pdfjs-6.5.438/pdf.mjs
+!/vendor/pdfjs-6.5.438/pdf.worker.mjs
+!/vendor/pdfjs-6.5.438/LICENSE
+!/tests/mail-merge-pdf.test.cjs

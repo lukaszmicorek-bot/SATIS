@@ -82,7 +82,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:2}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:3}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -116,7 +116,7 @@ test('live preview, saved-person batch printing, duplicate PESEL and owner sessi
   const row=t.api.queue()[0];assert.equal(row.data.birthDate,undefined);
   const selected=t.nodes.get('mailMergeQueue').querySelectorAll('input')[0];selected.checked=true;await selected.emit('change');
   await t.click('Drukuj wybrane');assert.equal(t.prints(),1);
-  t.window.events.afterprint();await t.click('Nowa osoba');t.fill();await t.click('Zapisz');assert.equal(t.stored.size,1);
+  t.window.events.afterprint();await t.click('Nowy wniosek');t.fill();await t.click('Zapisz');assert.equal(t.stored.size,1);
   assert.match(t.nodes.get('mailMergeMessage').textContent,/PESEL/);
   t.owner(false);await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   t.api.clear();assert.deepEqual(t.api.queue(),[]);assert.equal(t.nodes.get('mergepesel').value,'');
@@ -176,7 +176,7 @@ test('postal code fills a unique city, city fills a known code and changing city
   assert.equal(t.nodes.get('mergepostOffice').value,'Żywiec');
   t.fill({postal:'99999'});await t.nodes.get('mergepostal').emit('input');
   assert.equal(t.nodes.get('mergecity').value,'');assert.equal(t.nodes.get('mergepostOffice').value,'');
-  await t.click('Nowa osoba');t.fill({city:'bielsko'});await t.nodes.get('mergecity').emit('blur');
+  await t.click('Nowy wniosek');t.fill({city:'bielsko'});await t.nodes.get('mergecity').emit('blur');
   assert.equal(t.nodes.get('mergecity').value,'Bielsko-Biała');assert.equal(t.nodes.get('mergepostal').value,'43-300');
   t.fill({city:'Żywiec'});await t.nodes.get('mergecity').emit('input');await t.nodes.get('mergecity').emit('blur');
   assert.equal(t.nodes.get('mergepostal').value,'34-300');assert.equal(t.nodes.get('mergepostOffice').value,'Żywiec');t.api.clear();
@@ -185,9 +185,9 @@ test('ambiguous addresses require a choice and do not overwrite manually entered
   const t=fixture(contactRules());t.fill({city:'Testowo'});await t.nodes.get('mergecity').emit('blur');
   assert.equal(t.nodes.get('mergepostal').value,'');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/10-100/);
   await t.click('10-101');assert.equal(t.nodes.get('mergepostal').value,'10-101');
-  await t.click('Nowa osoba');t.fill({city:'Żywiec',postal:'99-999'});await t.nodes.get('mergecity').emit('blur');
+  await t.click('Nowy wniosek');t.fill({city:'Żywiec',postal:'99-999'});await t.nodes.get('mergecity').emit('blur');
   assert.equal(t.nodes.get('mergepostal').value,'99-999');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/34-300/);
-  await t.click('Nowa osoba');t.fill({postal:'20200'});await t.nodes.get('mergepostal').emit('input');
+  await t.click('Nowy wniosek');t.fill({postal:'20200'});await t.nodes.get('mergepostal').emit('input');
   assert.equal(t.nodes.get('mergecity').value,'');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/Druga Wieś/);
   await t.click('20-200 · Druga Wieś');assert.equal(t.nodes.get('mergecity').value,'Druga Wieś');t.api.clear();
 });
@@ -241,4 +241,38 @@ test('outdated SQL explicitly blocks new writes without deleting existing data',
   const t=fixture({rpc:async(name)=>{if(name==='satis_mail_merge_list')return {data:{rows:[],total:0}};writes++;return {data:{}};}});
   t.fill();await t.click('Zapisz');assert.equal(writes,0);
   assert.match(t.nodes.get('mailMergeMessage').textContent,/aktualny plik supabase-mail-merge.sql/);t.api.clear();
+});
+
+test('certificate number is uppercase on input and save; indefinite dates are dimmed, disabled and omitted',async()=>{
+  const t=fixture();t.fill({...example,certificateNumber:'pzon.ab/2026',certificateValidity:'periodic',certificateUntil:'31.12.2027'});
+  await t.nodes.get('mergecertificateNumber').emit('input');assert.equal(t.nodes.get('mergecertificateNumber').value,'PZON.AB/2026');
+  t.fill({certificateValidity:'indefinite'});await t.nodes.get('mergecertificateValidity').emit('change');
+  assert.equal(t.nodes.get('mergecertificateUntil').disabled,true);assert.equal(t.nodes.get('mergecertificateUntil').value,'');
+  assert.match(t.nodes.get('mergecertificateUntil').parent.className,/mail-merge-muted/);
+  t.fill({certificateValidity:'periodic'});await t.nodes.get('mergecertificateValidity').emit('change');
+  assert.equal(t.nodes.get('mergecertificateUntil').disabled,false);assert.equal(t.nodes.get('mergecertificateUntil').value,'31.12.2027');
+  t.fill({certificateValidity:'indefinite'});await t.nodes.get('mergecertificateValidity').emit('change');await t.click('Zapisz zmiany');
+  const saved=[...t.stored.values()][0].data;assert.equal(saved.certificateNumber,'PZON.AB/2026');assert.equal(saved.certificateUntil,'');t.api.clear();
+});
+test('one or two products keep their order numbers paired and require the second pair only when enabled',async()=>{
+  const t=fixture();t.fill();t.fill({itemCount:'2',subject2:'Aparat L',orderNumber2:''});await t.nodes.get('mergeitemCount').emit('change');
+  assert.equal(t.nodes.get('mergesubject2').parent.hidden,false);await t.click('Zapisz zmiany');assert.equal(t.stored.size,0);
+  assert.match(t.nodes.get('mailMergeMessage').textContent,/Numer zlecenia 2/);
+  t.fill({orderNumber2:'NFZ-2'});await t.click('Zapisz zmiany');const saved=[...t.stored.values()][0].data;
+  assert.equal(saved.subject2,'Aparat L');assert.equal(saved.orderNumber2,'NFZ-2');
+  const marks=m.placements(saved);assert.match(marks.find(item=>item.field==='subject').text,/2\. Aparat L/);
+  assert.match(marks.find(item=>item.field==='orderNumber').text,/2\. NFZ-2/);
+  for(const item of marks)assert.ok(m.fitText(item.text,item.width,item.height,(text,size)=>text.length*size*0.5),item.field);
+  t.fill({itemCount:'1'});await t.nodes.get('mergeitemCount').emit('change');assert.equal(t.nodes.get('mergesubject2').value,'');assert.equal(t.nodes.get('mergesubject2').parent.hidden,true);t.api.clear();
+});
+test('a locally imported blank template requires review before printing and never changes saved people',async()=>{
+  let disposed=0;
+  const t=fixture({importTemplate:async()=>({name:'Pusty wzór.pdf',count:5,images:Array(5).fill('data:image/png;base64,AA'),dispose(){disposed++;}})});
+  const input=t.nodes.get('mailMergeTemplateFile');input.files=[{name:'Pusty wzór.pdf'}];await input.emit('change');
+  assert.equal(t.nodes.get('mailMergeTemplateApply').disabled,true);assert.equal(t.nodes.get('mailMergePrint7').disabled,true);
+  await t.click('Drukuj pusty');assert.equal(t.prints(),0);
+  t.nodes.get('mailMergeTemplateConfirm').checked=true;await t.nodes.get('mailMergeTemplateConfirm').emit('change');await t.click('Zastosuj wzór');
+  await t.click('Drukuj pusty');assert.equal(t.prints(),1);assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);
+  assert.equal(t.stored.size,0);t.window.events.afterprint();await t.click('Przywróć oryginalny');assert.equal(disposed,1);
+  assert.equal(t.nodes.get('mailMergePrint7').disabled,false);assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);t.api.clear();
 });
