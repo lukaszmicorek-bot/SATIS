@@ -54,7 +54,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',3);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',4);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -101,7 +101,7 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','sameAddress'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
@@ -150,17 +150,18 @@ begin
     if coalesce(clean->>'email','') not in ('','-') and clean->>'email' !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
       raise exception 'Invalid email' using errcode='22023';
     end if;
-    for pair in select key,value from jsonb_each_text(clean) where key in ('cost','nfz','requested') loop
+    for pair in select key,value from jsonb_each_text(clean) where key in ('cost','nfz','requested','monthlyIncome') loop
       digits:=replace(regexp_replace(pair.value,'[[:space:]  ]','','g'),',','.');
       if right(digits,2)='zł' then digits:=left(digits,length(digits)-2);end if;
       if digits<>'' then
         if digits !~ '^[0-9]+(\.[0-9]{1,2})?$' or length(digits)>16 then raise exception 'Invalid amount' using errcode='22023';end if;
         amount:=digits::numeric;if amount*100>9007199254740991 then raise exception 'Amount too large' using errcode='22023';end if;
-        if pair.key='cost' then cost:=amount;elsif pair.key='nfz' then nfz:=amount;else requested:=amount;end if;
+        if pair.key='cost' then cost:=amount;elsif pair.key='nfz' then nfz:=amount;elsif pair.key='requested' then requested:=amount;end if;
         clean:=clean||jsonb_build_object(pair.key,digits);
       end if;
     end loop;
-    if nfz+requested>cost then raise exception 'Grant exceeds cost' using errcode='22023';end if;
+    if coalesce(clean->>'householdSize','')<>'' and clean->>'householdSize' !~ '^[1-9][0-9]?$' then raise exception 'Invalid household size' using errcode='22023';end if;
+    if nfz>cost or nfz+requested>cost then raise exception 'Grant exceeds cost' using errcode='22023';end if;
     begin
       insert into public.mail_merge_people(id,data,updated_by) values(p_id,clean,actor)
       on conflict(id) do update set data=excluded.data,revision=mail_merge_people.revision+1,updated_at=clock_timestamp(),updated_by=actor

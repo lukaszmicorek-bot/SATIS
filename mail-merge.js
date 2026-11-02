@@ -6,7 +6,7 @@
   "use strict";
   const PAGE = {width: 595.32, height: 841.92};
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "applicationNumber", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested"];
+  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "applicationNumber", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize"];
   function parseMoney(value) {
     const text = String(value ?? "").replace(/[\s\u00a0\u202f]/gu, "").replace(/zł$/iu, "").replace(",", ".");
     if (!/^\d+(?:\.\d{1,2})?$/u.test(text)) return null;
@@ -16,7 +16,8 @@
   function money(value) {return (value / 100).toLocaleString("pl-PL", {minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always"});}
   function amounts(data) {
     const cost = parseMoney(data.cost), nfz = parseMoney(data.nfz), requested = parseMoney(data.requested);
-    return {cost, nfz, requested, own: cost !== null && nfz !== null && requested !== null ? cost - nfz - requested : null};
+    return {cost, nfz, requested, own: cost !== null && nfz !== null ? cost - nfz : null,
+      remaining: cost !== null && nfz !== null && requested !== null ? cost - nfz - requested : null};
   }
   function splitName(value) {
     const words = String(value || "").trim().split(/\s+/u).filter(Boolean);
@@ -49,7 +50,7 @@
   }
   function validate(data, validPesel) {
     const errors = [];
-    for (const [key, label] of [["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["flat", "Nr lokalu (lub Brak)"], ["postOffice", "Poczta"], ["email", "E-mail (lub Brak)"], ["applicationNumber", "Nr wniosku (lub Nie nadano)"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
+    for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["flat", "Nr lokalu (lub Brak)"], ["postOffice", "Poczta"], ["email", "E-mail (lub Brak)"], ["applicationNumber", "Nr wniosku (lub Nie nadano)"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
     if (!validPesel(data.pesel)) errors.push({field: "pesel", text: "Wpisz poprawny PESEL (11 cyfr i prawidłowa suma kontrolna)."});
@@ -60,7 +61,10 @@
     const sums = amounts(data);
     for (const key of ["cost", "nfz", "requested"]) if (sums[key] === null) errors.push({field: key, text: "Uzupełnij prawidłowe kwoty zakupu i dofinansowania."});
     if (sums.nfz !== null && sums.nfz <= 0) errors.push({field: "nfz", text: "Ten wzór wymaga dofinansowania NFZ większego od 0."});
-    if (sums.own !== null && sums.own < 0) errors.push({field: "requested", text: "NFZ i wnioskowane dofinansowanie nie mogą przekraczać kosztu zakupu."});
+    if (sums.own !== null && sums.own < 0) errors.push({field: "nfz", text: "Dofinansowanie NFZ nie może przekraczać kosztu zakupu."});
+    if (sums.remaining !== null && sums.remaining < 0) errors.push({field: "requested", text: "NFZ i wnioskowane dofinansowanie nie mogą przekraczać kosztu zakupu."});
+    if (parseMoney(data.monthlyIncome) === null) errors.push({field:"monthlyIncome",text:"Podaj średni miesięczny dochód netto na osobę; brak dochodu wpisz jako 0."});
+    if (!/^[1-9]\d?$/u.test(data.householdSize || "")) errors.push({field:"householdSize",text:"Podaj liczbę osób w gospodarstwie: liczba całkowita od 1 do 99."});
     if (!["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Wybierz płeć albo wpisz poprawny PESEL."});
     if (!["city","village"].includes(data.localityType)) errors.push({field:"localityType",text:"Wybierz miasto lub wieś."});
     if (!["I","II","III","none"].includes(data.invalidityGroup)) errors.push({field:"invalidityGroup",text:"Wybierz grupę inwalidzką albo Nie dotyczy."});
@@ -106,6 +110,9 @@
     if (data.certificateValidity === "periodic") {tick(3,"certificateValidity",201.8,387.4);add(3,"certificateUntil",352,387,185,13);}
     cell(3,"certificateNumber",415.8,435.3,203.5,563);
     const certificate=result.find(item=>item.field==="certificateNumber");if(certificate)certificate.text=certificate.text.toLocaleUpperCase("pl-PL");
+    const income=parseMoney(data.monthlyIncome);
+    if(income!==null)add(4,"monthlyIncome",28.3,657.7,230,14,money(income));
+    if(/^[1-9]\d?$/u.test(data.householdSize||""))add(4,"householdSize",28.3,699.1,230,14);
     const items=applicationItems(data);
     if(items.length===1){cell(5,"subject",224.6,244.2,185,563);cell(5,"orderNumber",244.2,264,185,563);}
     else{
@@ -144,7 +151,10 @@
     if (data.email && data.email !== "-" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(data.email)) errors.push({field:"email",text:"Sprawdź adres e-mail."});
     if(data.itemCount && !["1","2"].includes(data.itemCount))errors.push({field:"itemCount",text:"Wybierz jeden lub dwa przedmioty."});
     for (const key of ["cost","nfz","requested"]) if (data[key] && parseMoney(data[key]) === null) errors.push({field:key,text:"Sprawdź kwotę: użyj cyfr i maksymalnie dwóch miejsc po przecinku."});
-    if (amounts(data).own < 0) errors.push({field:"requested",text:"Suma dofinansowań przekracza koszt zakupu."});
+    if(data.monthlyIncome && parseMoney(data.monthlyIncome)===null)errors.push({field:"monthlyIncome",text:"Podaj nieujemny dochód z maksymalnie dwoma miejscami po przecinku."});
+    if(data.householdSize && !/^[1-9]\d?$/u.test(data.householdSize))errors.push({field:"householdSize",text:"Liczba osób musi być liczbą całkowitą od 1 do 99."});
+    if (amounts(data).own < 0) errors.push({field:"nfz",text:"Dofinansowanie NFZ przekracza koszt zakupu."});
+    if (amounts(data).remaining < 0) errors.push({field:"requested",text:"Suma dofinansowań przekracza koszt zakupu."});
     return errors;
   }
   function create(a) {
@@ -309,7 +319,10 @@
       if(a.validPesel(input.value)){gender.value=Number(input.value[9])%2?"male":"female";autoGender=gender.value;}
       else if(autoGender && gender.value===autoGender){gender.value="";autoGender="";}
     }
-    function updateAmounts() {const own=amounts(read()).own;q("mailMergeOwn").textContent=own===null?"—":`${money(own)} zł`;}
+    function updateAmounts() {
+      const sums=amounts(read());fields.get("own").value=sums.own===null?"":money(sums.own);
+      q("mailMergeOwn").textContent=sums.remaining===null?"—":`${money(sums.remaining)} zł`;
+    }
     function issues(data, full=false) {
       const errors=full?[...draftValidate(data,a.validPesel),...validate(data,a.validPesel)]:draftValidate(data,a.validPesel);
       if(data.pesel && a.validPesel(data.pesel) && a.age(data.pesel)<0)errors.push({field:"pesel",text:"Data urodzenia z PESEL-u nie może być w przyszłości."});
@@ -341,7 +354,11 @@
           if(!fit){if(!preview)throw new Error("Tekst nie mieści się w oryginalnym polu wniosku.");oversized=true;continue;}
           const value=node("span","mail-merge-value",fit.text);
           Object.assign(value.style,{left:`${item.x/PAGE.width*100}%`,top:`${item.y/PAGE.height*100}%`,width:`${item.width/PAGE.width*100}%`,fontSize:`${fit.size/PAGE.width*100}cqw`});
-          if(item.field==="applicationNumber")value.classList.add("mail-merge-number");sheet.append(value);
+          if(item.field==="applicationNumber")value.classList.add("mail-merge-number");
+          if(["monthlyIncome","householdSize"].includes(item.field)){
+            value.classList.add("mail-merge-filled-line");value.style.height=`${item.height/PAGE.height*100}%`;
+          }
+          sheet.append(value);
         }fragment.append(sheet);
       }
       if(preview)q("mailMergePreviewNotice").textContent=oversized?"Część tekstu jest za długa do oryginalnych pól. Skróć ją przed wydrukiem; zbyt długi tekst nie jest pokazywany w podglądzie.":"";
@@ -349,6 +366,7 @@
     }
     function renderPreview() {
       clearTimeout(previewTimer);if(!authorized())return;
+      updateAmounts();
       q("mailMergePreviewPages").replaceChildren(pages(read(),true));
       q("mailMergeCompleteness").textContent=`Kompletność do wydruku: ${new Set(issues(read(),true).map(error=>error.field)).size} pól wymaga sprawdzenia.`;
       q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
@@ -416,7 +434,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=3?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=4?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -436,7 +454,7 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        if(schemaVersion<3){await refresh();if(schemaVersion<3){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
+        if(schemaVersion<4){await refresh();if(schemaVersion<4){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
@@ -491,8 +509,9 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail"]]],
       ["Wniosek i orzeczenie","certificate",[["applicationNumber","Nr wniosku (jeśli nadany)"],["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
-      ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
-      ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["requested","Wnioskowana kwota (zł)"]]]
+      ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["householdSize","Liczba osób w gospodarstwie, łącznie z wnioskodawcą"]]],
+      ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
+      ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]]
     ];
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
@@ -501,14 +520,17 @@
         if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
         if(key==="pesel"){input.inputMode="numeric";input.maxLength=11;}
-        if(["cost","nfz","requested"].includes(key))input.inputMode="decimal";
+        if(["cost","nfz","requested","monthlyIncome","own"].includes(key))input.inputMode="decimal";
+        if(key==="householdSize"){input.type="number";input.min="1";input.max="99";input.step="1";input.inputMode="numeric";}
         if(key==="certificateUntil"){input.setAttribute("data-date-picker","");a.bindDate(input);}
-        if(key==="birthDate")input.readOnly=true;
+        if(["birthDate","own"].includes(key))input.readOnly=true;
+        if(key==="own")input.title="Wyliczane automatycznie: całkowity koszt zakupu minus dofinansowanie NFZ, przed dofinansowaniem PCPR.";
         fields.set(key,input);labels.set(key,label);label.append(node("span","",title),input);
         const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila",applicationNumber:"Nie nadano"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
         section.append(label);
       });
+      if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób."));
       if(group==="address"){
         for(const id of ["mailMergePostalChoices","mailMergeGeoChoices"]){const choices=node("div","mail-merge-matches mail-merge-full");choices.id=id;choices.setAttribute("aria-live","polite");section.append(choices);}
       }
@@ -517,7 +539,7 @@
     const same=node("input");same.type="checkbox";same.id="mergeSameAddress";fields.set("sameAddress",same);
     const sameLabel=node("label","mail-merge-check");sameLabel.append(same,node("span","","Adres korespondencyjny taki sam jak adres zamieszkania"));
     const fundingNote=node("p","document-form-note");fundingNote.id="mailMergeFundingNote";editor.append(fundingNote);
-    const own=node("p","document-form-note","Udział własny po dofinansowaniu: "),ownValue=node("strong");ownValue.id="mailMergeOwn";own.append(ownValue);
+    const own=node("p","document-form-note","Pozostanie po wnioskowanym dofinansowaniu PCPR: "),ownValue=node("strong");ownValue.id="mailMergeOwn";own.append(ownValue);
     const status=node("p","mail-merge-message");status.id="mailMergeMessage";status.setAttribute("role","status");status.setAttribute("aria-live","polite");
     const save=button("Zapisz",saveDraft,"mail-merge-save" );save.id="mailMergeSave";
     const completeness=node("p","document-form-note");completeness.id="mailMergeCompleteness";

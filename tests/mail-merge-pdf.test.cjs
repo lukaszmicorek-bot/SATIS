@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.join(__dirname,'..');
 const modulePromise=import('../mail-merge-pdf.mjs');
-const anchorData={1:[['Imię:',31,581],['PESEL:',31,640],['Województwo:',31,738]],2:[['Miejscowość:',31,60],['Województwo:',31,296],['Imię:',31,525]],3:[['Numer orzeczenia:',31,418],['Grupa inwalidzka:',31,437]],5:[['Przedmiot wniosku:',31,227],['Numer zlecenia:',31,246],['Całkowity koszt zakupu:',31,266]]};
+const anchorData={1:[['Imię:',31,581],['PESEL:',31,640],['Województwo:',31,738]],2:[['Miejscowość:',31,60],['Województwo:',31,296],['Imię:',31,525]],3:[['Numer orzeczenia:',31,418],['Grupa inwalidzka:',31,437]],4:[['Średni miesięczny dochód netto na osobę w gospodarstwie Wnioskodawcy:',28,646],['Liczba osób we wspólnym gospodarstwie domowym wynosi:',28,687]],5:[['Przedmiot wniosku:',31,227],['Numer zlecenia:',31,246],['Całkowity koszt zakupu:',31,266]]};
 const pages=()=>Array.from({length:7},(_,i)=>({width:595.32,height:841.92,lines:(anchorData[i+1]||[]).map(([text,x,y])=>({text,x,y}))}));
 test('template importer accepts only small PDF files and compatible blank A4 layouts',async()=>{
   const m=await modulePromise;m.checkFile({name:'blank.pdf',size:200000});m.checkLayout(pages());m.checkLayout(pages().slice(0,5));

@@ -5,13 +5,13 @@ const path = require('node:path');
 const root = process.env.SATIS_ROOT || path.resolve(__dirname, '..');
 const m = require(process.env.SATIS_MODULE || path.join(root,'mail-merge.js'));
 const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surname:'Testowy',pesel:'90010112349',birthDate:'01.01.1990',
-  city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
+  city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',monthlyIncome:'2 500,50',householdSize:'3',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
   province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
   certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
 test('amounts use integer cents and reject invalid grants or malformed money',()=>{
   assert.equal(m.parseMoney('1 234,56 zł'),123456);assert.equal(m.parseMoney('0'),0);
   for(const value of ['',null,'-2','abc','12.345','9'.repeat(400)]) assert.equal(m.parseMoney(value),null);
-  assert.deepEqual(m.amounts(example),{cost:800000,nfz:210000,requested:300000,own:290000});
+  assert.deepEqual(m.amounts(example),{cost:800000,nfz:210000,requested:300000,own:590000,remaining:290000});
   assert.equal(m.validate(example,()=>true).length,0);
   assert.ok(m.validate({...example,nfz:'0'},()=>true).some(error=>error.field==='nfz'));
   assert.ok(m.validate({...example,requested:'7000'},()=>true).some(error=>error.field==='requested'));
@@ -42,7 +42,7 @@ test('placements retain original blank sections and map applicant or ward fields
   assert.equal(applicant.find(item=>item.field==='degree').page,3);
   assert.equal(applicant.find(item=>item.field==='requested').text,'3 000,00');
   for(const item of [...applicant,...ward]) {
-    assert.ok([1,2,3,5].includes(item.page));assert.ok(item.x>=0&&item.x+item.width<=m.PAGE.width);
+    assert.ok([1,2,3,4,5].includes(item.page));assert.ok(item.x>=0&&item.x+item.width<=m.PAGE.width);
     assert.ok(item.y>=0&&item.y+item.height<=m.PAGE.height);
   }
   for(let page=1;page<=7;page++) {
@@ -82,7 +82,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:3}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:4}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -306,4 +306,33 @@ test('common fields are filled only if all candidates agree and late lookups can
   let release;const t=fixture({...contactRules(),loadGeography:()=>new Promise(resolve=>{release=resolve;})});
   t.fill({postal:'34325'});const pending=t.nodes.get('mergepostal').emit('input');t.api.clear();release(regionalGeography());await pending;
   assert.equal(t.nodes.get('mergemunicipality').value,'');assert.equal(t.nodes.get('mergecity').value,'');
+});
+
+test('income and household size allow zero income but reject negative, fractional or missing household data',()=>{
+  assert.equal(m.validate({...example,monthlyIncome:'0',householdSize:'1'},()=>true).length,0);
+  for(const value of ['', '-1', 'abc'])assert.ok(m.validate({...example,monthlyIncome:value},()=>true).some(error=>error.field==='monthlyIncome'));
+  for(const value of ['', '0','2.5','-2','100','abc'])assert.ok(m.validate({...example,householdSize:value},()=>true).some(error=>error.field==='householdSize'));
+  assert.ok(m.draftValidate({...example,monthlyIncome:'-1'},()=>true).some(error=>error.field==='monthlyIncome'));
+});
+test('own contribution before PCPR and remaining payment after requested support are distinct',async()=>{
+  const t=fixture();t.fill();await t.click('Sprawdź kompletność');
+  assert.equal(t.nodes.get('mergeown').readOnly,true);assert.equal(t.nodes.get('mergeown').value,'5 900,00');
+  assert.equal(t.nodes.get('mailMergeOwn').textContent,'2 900,00 zł');
+  const data=m.amounts({...example,requested:'0'});assert.equal(data.own,590000);assert.equal(data.remaining,590000);
+  assert.equal(m.amounts({...example,requested:''}).own,590000);
+  t.api.clear();
+});
+test('income is printed per person as entered, household size is printed on page 4 and own contribution on page 5',()=>{
+  const marks=m.placements(example);
+  assert.equal(marks.find(item=>item.field==='monthlyIncome').text,'2 500,50');
+  assert.equal(marks.find(item=>item.field==='monthlyIncome').page,4);
+  assert.equal(marks.find(item=>item.field==='householdSize').text,'3');
+  assert.equal(marks.find(item=>item.field==='householdSize').page,4);
+  assert.equal(marks.find(item=>item.field==='own').text,'5 900,00');
+});
+test('income and household size persist while derived own contribution is not accepted from the browser',async()=>{
+  const t=fixture();t.fill();await t.click('Zapisz');const saved=[...t.stored.values()][0].data;
+  assert.equal(saved.monthlyIncome,'2 500,50');assert.equal(saved.householdSize,'3');assert.equal(saved.own,undefined);
+  await t.click('Nowy wniosek');await t.click('Edytuj');
+  assert.equal(t.nodes.get('mergemonthlyIncome').value,'2 500,50');assert.equal(t.nodes.get('mergehouseholdSize').value,'3');assert.equal(t.nodes.get('mergeown').value,'5 900,00');t.api.clear();
 });

@@ -17660,3 +17660,10 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 @media screen and (max-width: 900px) {
   .mail-merge-group-subject label:has(#mergesubject2), .mail-merge-group-subject label:has(#mergeorderNumber2) { grid-column: 1 / -1; }
 }
+
+.mail-merge-filled-line { background: #fff; }
+.mail-merge-group-funding label > span { min-height: 32px; }
+@media screen and (min-width: 901px) {
+  .mail-merge-group-income label:has(#mergemonthlyIncome) { grid-column: span 8; }
+  .mail-merge-group-funding label { grid-column: span 3; }
+}
