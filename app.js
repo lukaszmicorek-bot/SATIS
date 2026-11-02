@@ -30421,9 +30421,11 @@ function initializeMailMergeModule() {
     measure(text, size) {context.font = `400 ${size}px Inter`;return context.measureText(text).width;},
     async loadGeography() {
       if (!canViewPrivateModules()) throw new Error("Zaloguj się na konto SATIS.");
-      const response = await fetch("mail-merge/geography.json", {credentials:"omit",cache:"no-cache",signal:AbortSignal.timeout(20000)});
-      if (!response.ok) throw new Error("Nie udało się pobrać słownika GUS.");
-      return response.json();
+      const options = {credentials:"omit",cache:"no-cache",signal:AbortSignal.timeout(20000)};
+      const responses = await Promise.all([fetch("mail-merge/geography.json", options), fetch("mail-merge/postal-reference.json", options)]);
+      if (responses.some(response => !response.ok)) throw new Error("Nie udało się pobrać słownika adresowego.");
+      const [geography, postal] = await Promise.all(responses.map(response => response.json()));
+      return {...geography, postalCodes: postal.codes};
     }
   });
   return mailMergeModule;

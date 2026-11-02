@@ -144,3 +144,5 @@
 !/vendor/pdfjs-6.5.438/pdf.worker.mjs
 !/vendor/pdfjs-6.5.438/LICENSE
 !/tests/mail-merge-pdf.test.cjs
+
+!/mail-merge/postal-reference.json

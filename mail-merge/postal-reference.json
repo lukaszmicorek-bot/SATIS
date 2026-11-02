@@ -1,0 +1,13 @@
+{
+  "updated": "2026-11-02",
+  "description": "Zweryfikowane lokalne powiazania kodow pocztowych z miejscowosciami SIMC. Nie jest to kompletny krajowy spis kodow.",
+  "sources": [
+    "https://www.lodygowice.pl/!data/biuletyny/12.2011.pdf",
+    "https://www.lodygowice.pl/pietrzykowice",
+    "https://www.lodygowice.pl/ochotnicza-straz-pozarna-zarzecze"
+  ],
+  "codes": {
+    "34-325": {"places": ["0059482", "0059559"], "postOffice": "Łodygowice"},
+    "34-326": {"places": ["0059826", "0059921"], "postOffice": "Pietrzykowice"}
+  }
+}

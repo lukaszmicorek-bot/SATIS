@@ -25,13 +25,27 @@
   function geographyIndex(data) {
     const names = new Map();
     data.places.forEach(place => {const key = normalize(place[0]);if (!names.has(key)) names.set(key, []);names.get(key).push(place);});
-    return {data, names};
+    return {data, names, byId:new Map(data.places.map(place=>[place[2],place]))};
   }
   function geographyMatches(index, city) {
     return (index?.names.get(normalize(city)) || []).map(place => {
       const unit = index.data.units[place[1]];
       return {id: place[2], city: place[0], municipality: unit[0], county: unit[1], province: unit[2], kind: place[3] === "miasto" || ["1","4","8","9"].includes(place[1].slice(-1)) ? "miasto" : ["2","5"].includes(place[1].slice(-1)) ? "wieś" : ""};
     });
+  }
+  function geographyPostalMatches(index, code){
+    const entry=index?.data.postalCodes?.[code];if(!entry)return [];
+    return entry.places.flatMap(id=>{
+      const place=index.byId.get(id);if(!place)return [];
+      return geographyMatches(index,place[0]).filter(match=>match.id===id).map(match=>({...match,postOffice:entry.postOffice}));
+    });
+  }
+  function sharedGeography(matches){
+    const shared={};if(!matches.length)return shared;
+    for(const key of ["municipality","county","province","kind","postOffice"]){
+      const value=matches[0][key];if(value && matches.every(item=>normalize(item[key])===normalize(value)))shared[key]=value;
+    }
+    return shared;
   }
   function validate(data, validPesel) {
     const errors = [];
@@ -135,7 +149,7 @@
   }
   function create(a) {
     const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map();
-    let geoPromise = null, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
+    let geoPromise = null, geoIndex = null, postalSequence = 0, deferredPostal = false, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
     let autoCity="", autoPostal="", autoPostOffice="", autoGender="", printPages=7, schemaVersion=0;
@@ -154,6 +168,7 @@
       for(const control of host.querySelectorAll("button"))control.disabled=value;
       if(!value){q("mailMergePrevious").disabled=offset===0;q("mailMergeNext").disabled=offset+rows.length>=total;}
       updateConditionalFields();updateTemplateControls();updatePrintMode();
+      if(!value && deferredPostal){deferredPostal=false;void syncCityFromPostal();}
     }
     async function rpc(name,args={}) {
       if(!authorized())throw new Error("Zaloguj się na konto SATIS.");
@@ -213,7 +228,25 @@
         addressHistory.set(JSON.stringify(entry),entry);
       }
     }
-    function addressEntries(){return [...(a.postalEntries?.()||[]),...addressHistory.values()];}
+    function addressEntries(){
+      const reference=Object.keys(geoIndex?.data.postalCodes||{}).flatMap(code=>geographyPostalMatches(geoIndex,code).map(item=>({postalCode:code,city:item.city,street:""})));
+      return [...(a.postalEntries?.()||[]),...addressHistory.values(),...reference];
+    }
+    async function getGeography(){
+      if(!geoPromise)geoPromise=a.loadGeography().then(geographyIndex).catch(()=>{geoPromise=null;throw new Error("Słownik adresowy jest niedostępny. Sprawdź połączenie lub uzupełnij region ręcznie.");});
+      const index=await geoPromise;geoIndex=index;return index;
+    }
+    function applyGeography(item){
+      let updated=false;
+      for(const key of ["municipality","county","province"]){
+        if(!item[key])continue;
+        const value=key==="county"&&item[key].includes("(")?item[key]:a.name(item[key]);
+        if(fields.get(key).value!==value){fields.get(key).value=value;updated=true;}
+      }
+      if(item.kind){const value=item.kind==="miasto"?"city":"village";if(fields.get("localityType").value!==value){fields.get("localityType").value=value;updated=true;}}
+      if(item.postOffice)updated=updatePostOffice(a.city(item.postOffice))||updated;
+      addressChanged(updated);
+    }
     function addressChanged(updated){if(updated){dirtyState();updateAmounts();renderPreview();}}
     function updatePostOffice(city){
       const field=fields.get("postOffice");
@@ -221,27 +254,39 @@
       return false;
     }
     function clearRegion(){geoSequence++;for(const key of ["municipality","county","province","localityType"])fields.get(key).value="";q("mailMergeGeoChoices").replaceChildren();}
-    function syncCityFromPostal() {
+    async function syncCityFromPostal() {
       if(!authorized()||busy)return;
-      const code=fields.get("postal").value,city=fields.get("city"),choices=q("mailMergePostalChoices");choices.replaceChildren();
-      const clearAutomaticCity=()=>{
-        if(autoCity && city.value===autoCity){city.value="";autoCity="";clearRegion();updatePostOffice("");addressChanged(true);}
-      };
+      const code=fields.get("postal").value,city=fields.get("city"),choices=q("mailMergePostalChoices"),sequence=++postalSequence,epoch=session;choices.replaceChildren();
+      const clearAutomaticCity=()=>{if(autoCity && city.value===autoCity){city.value="";autoCity="";clearRegion();updatePostOffice("");addressChanged(true);}};
       if(!/^\d{2}-\d{3}$/u.test(code)){if(!code)clearAutomaticCity();return;}
-      const candidates=new Map();
-      for(const entry of addressEntries())if(entry.postalCode===code)candidates.set(normalize(entry.city),a.city(entry.city));
-      const known=a.cityForPostal(code);if(known)candidates.set(normalize(known),a.city(known));
-      const apply=value=>{
-        const updated=city.value!==value;if(updated)clearRegion();city.value=value;autoCity=value;
-        const postChanged=updatePostOffice(value);choices.replaceChildren();addressChanged(updated||postChanged);void resolveGeo();
+      let geo;
+      try{geo=await getGeography();}catch(error){if(authorized()&&epoch===session&&sequence===postalSequence)choices.append(node("span","document-form-note",error.message));return;}
+      if(!authorized()||epoch!==session||sequence!==postalSequence||code!==fields.get("postal").value)return;
+      if(busy){deferredPostal=true;return;}
+      const verified=geographyPostalMatches(geo,code),candidates=[];
+      if(verified.length)candidates.push(...verified);
+      else{
+        const names=new Map();for(const entry of addressEntries())if(entry.postalCode===code)names.set(normalize(entry.city),a.city(entry.city));
+        const known=a.cityForPostal(code);if(known)names.set(normalize(known),a.city(known));
+        for(const name of names.values()){
+          const matches=geographyMatches(geo,name);
+          if(matches.length===1)candidates.push(matches[0]);else candidates.push({city:name});
+        }
+      }
+      const apply=item=>{
+        if(city.value!==item.city)clearRegion();city.value=item.city;autoCity=item.city;
+        const postChanged=updatePostOffice(a.city(item.postOffice||item.city));
+        choices.replaceChildren();addressChanged(true);applyGeography(item);
+        if(postChanged)renderPreview();if(!item.id)void resolveGeo();
       };
-      const values=[...candidates.values()];
-      if(values.length!==1)clearAutomaticCity();
-      if(values.length===1 && (!city.value||city.value===autoCity||normalize(city.value)===normalize(values[0])))apply(values[0]);
-      else if(values.length){
-        choices.append(node("span","document-form-note",values.length>1?"Ten kod występuje przy kilku miejscowościach. Wybierz właściwą:":"Kod i miejscowość mogą się różnić. Wybierz miejscowość lub pozostaw wpisaną ręcznie:"));
-        values.forEach(value=>choices.append(button(`${code} · ${value}`,()=>apply(value))));
-      }else choices.append(node("span","document-form-note","Nie znamy miejscowości dla tego kodu. Wpisz ją ręcznie."));
+      const matching=candidates.filter(item=>normalize(item.city)===normalize(city.value));
+      if((!city.value||city.value===autoCity)&&candidates.length===1){apply(candidates[0]);return;}
+      if(matching.length===1){apply(matching[0]);return;}
+      if(!city.value||city.value===autoCity){clearAutomaticCity();applyGeography(sharedGeography(candidates));}
+      if(candidates.length){
+        choices.append(node("span","document-form-note",candidates.length>1?"Kod obejmuje kilka miejscowości. Wspólne dane administracyjne uzupełniono, jeśli są jednoznaczne. Wybierz miejscowość:":"Kod i wpisana miejscowość mogą się różnić. Wybierz właściwą miejscowość lub popraw kod:"));
+        candidates.forEach(item=>choices.append(button(`${code} · ${item.city}${item.municipality?` · gm. ${item.municipality}`:""}`,()=>apply(item))));
+      }else choices.append(node("span","document-form-note","Brak powiązania kodu w słowniku i historii. Wpisz miejscowość, aby dobrać gminę, powiat i województwo z GUS."));
     }
     function syncPostalFromCity() {
       if(!authorized()||busy)return;
@@ -254,7 +299,8 @@
         choices.append(node("span","document-form-note","Kody z zapisanych adresów — wybierz właściwy lub wpisz ręcznie:"));
         suggestion.codes.forEach(code=>choices.append(button(code,()=>{postal.value=code;autoPostal=code;choices.replaceChildren();addressChanged(true);})));
       }else if(!postal.value && !suggestion.codes.length)choices.append(node("span","document-form-note","Brak kodu w zapisanych adresach. Uzupełnij go ręcznie."));
-      addressChanged(updatePostOffice(city));
+      const verified=geographyPostalMatches(geoIndex,postal.value).find(item=>normalize(item.city)===normalize(city));
+      addressChanged(updatePostOffice(verified?.postOffice||city));
     }
     function updateBirth() {
       const input=fields.get("pesel");input.value=input.value.replace(/\D/gu,"").slice(0,11);
@@ -269,6 +315,8 @@
       if(data.pesel && a.validPesel(data.pesel) && a.age(data.pesel)<0)errors.push({field:"pesel",text:"Data urodzenia z PESEL-u nie może być w przyszłości."});
       if(data.certificateValidity!=="indefinite" && data.certificateUntil && !a.iso(data.certificateUntil))errors.push({field:"certificateUntil",text:"Wybierz prawidłową datę ważności orzeczenia."});
       if(full && data.personRole==="applicant" && a.validPesel(data.pesel) && a.age(data.pesel)<18)errors.push({field:"personRole",text:"Dla osoby niepełnoletniej wybierz dane podopiecznego. Dane opiekuna uzupełnij osobno."});
+      const postalPlaces=geographyPostalMatches(geoIndex,data.postal);
+      if(full && data.city && postalPlaces.length && !postalPlaces.some(item=>normalize(item.city)===normalize(data.city)))errors.push({field:"postal",text:"Kod pocztowy i miejscowość nie pasują do zweryfikowanego słownika. Sprawdź adres."});
       if(full)for(const item of placements(data))if(!fitText(item.text,item.width,item.height,a.measure))errors.push({field:item.field,text:"Tekst nie mieści się w polu oryginalnego wniosku. Skróć go przed wydrukiem."});
       return errors;
     }
@@ -307,7 +355,7 @@
     }
     function changed() {if(!authorized() || busy)return;dirtyState();updateBirth();updateConditionalFields();updateAmounts();clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,180);}
     function reset() {
-      generation++;geoSequence++;editingId="";editingRevision=null;newId="";writeRequest=null;autoCity="";autoPostal="";autoPostOffice="";autoGender="";periodicDate="";
+      generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoCity="";autoPostal="";autoPostOffice="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
@@ -323,10 +371,10 @@
     async function resolveGeo() {
       if(!authorized())return;const city=fields.get("city").value.trim();if(!city)return;
       const sequence=++geoSequence,epoch=session;
-      if(!geoPromise)geoPromise=a.loadGeography().then(geographyIndex).catch(()=>{geoPromise=null;throw new Error("Słownik GUS jest niedostępny. Uzupełnij region ręcznie.");});
-      let geo;try{geo=await geoPromise;}catch(error){if(authorized()&&epoch===session&&sequence===geoSequence)message(error.message);return;}
+      let geo;try{geo=await getGeography();}catch(error){if(authorized()&&epoch===session&&sequence===geoSequence)message(error.message);return;}
       if(!authorized()||busy||epoch!==session||sequence!==geoSequence||city!==fields.get("city").value.trim())return;
-      const matches=geographyMatches(geo,city),list=q("mailMergeGeoChoices");list.replaceChildren();
+      const postalMatches=geographyPostalMatches(geo,fields.get("postal").value).filter(item=>normalize(item.city)===normalize(city));
+      const matches=postalMatches.length?postalMatches:geographyMatches(geo,city),list=q("mailMergeGeoChoices");list.replaceChildren();
       const apply=item=>{
         let updated=false;
         for(const key of ["city","municipality","county","province"]){
@@ -335,7 +383,7 @@
         }
         const kind=item.kind === "miasto" ? "city" : item.kind === "wieś" ? "village" : "";
         if(fields.get("localityType").value!==kind){fields.get("localityType").value=kind;updated=true;}
-        updated=updatePostOffice(a.city(item.city))||updated;list.replaceChildren();addressChanged(updated);syncPostalFromCity();
+        updated=updatePostOffice(a.city(item.postOffice||item.city))||updated;list.replaceChildren();addressChanged(updated);syncPostalFromCity();
       };
       if(matches.length===1)apply(matches[0]);
       else if(matches.length){
@@ -557,15 +605,15 @@
     });
     const formatContact=()=>{if(!authorized()||busy)return;addressChanged(normalizeFields());renderPreview();};
     for(const key of ["firstName","middleName","surname","street","city","house","flat","postOffice","municipality","county","province","phone"])fields.get(key).addEventListener("blur",()=>{
-      formatContact();if(["street","city"].includes(key)){syncPostalFromCity();void resolveGeo();}
+      formatContact();if(["street","city"].includes(key)){syncPostalFromCity();return resolveGeo();}
     });
     fields.get("postal").addEventListener("input",()=>{
       const input=fields.get("postal"),before=input.value,caret=input.selectionStart,digits=typeof caret==="number"?before.slice(0,caret).replace(/\D/gu,"").length:null;
       input.value=a.postal(before);autoPostal="";
       if(digits!==null && input.setSelectionRange){let position=0,count=0;while(position<input.value.length && count<digits){if(/\d/u.test(input.value[position]))count++;position++;}input.setSelectionRange(position,position);}
-      syncCityFromPostal();
+      return syncCityFromPostal();
     });
-    fields.get("postal").addEventListener("blur",()=>{formatContact();syncCityFromPostal();void resolveGeo();});
+    fields.get("postal").addEventListener("blur",async()=>{formatContact();await syncCityFromPostal();await resolveGeo();});
     search.addEventListener("input",()=>{
       matches.replaceChildren();if(!authorized()||busy||search.value.trim().length<2)return;
       a.contacts(search.value).slice(0,8).forEach(entry=>matches.append(button([entry.customer,entry.phone,entry.address,entry.document?`Dokument: •••• ${entry.document.slice(-4)}`:""].filter(Boolean).join(" · "),()=>{
@@ -584,5 +632,5 @@
       clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;templateImportController?.abort();templateImportController=null;activeTemplate?.dispose();candidateTemplate?.dispose();activeTemplate=null;candidateTemplate=null;q("mailMergeTemplateFile").value="";q("mailMergeTemplateConfirm").checked=false;updateTemplateControls();printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
       queue:()=>authorized()?rows.map(row=>({...row,data:{...row.data}})):[]};
   }
-  return {PAGE,normalize,parseMoney,amounts,splitName,geographyIndex,geographyMatches,validate,draftValidate,placements,applicationItems,fitText,create};
+  return {PAGE,normalize,parseMoney,amounts,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
 });

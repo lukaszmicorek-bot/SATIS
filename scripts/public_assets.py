@@ -13,7 +13,7 @@ REQUIRED_ASSETS = frozenset({
     "offline-vault.js", "offline-forms.js", "offline-sw.js",
     "repair-returns.js", "traffic-meter.js",
     "stock-audit.js", "clients.js", "tinnitus-forms.js", "mail-merge.js",
-    "mail-merge/geography.json", "mail-merge-pdf.mjs",
+    "mail-merge/geography.json", "mail-merge/postal-reference.json", "mail-merge-pdf.mjs",
     "vendor/pdfjs-6.5.438/pdf.mjs", "vendor/pdfjs-6.5.438/pdf.worker.mjs", "vendor/pdfjs-6.5.438/LICENSE",
     "mail-merge/page-1.svg", "mail-merge/page-2.svg", "mail-merge/page-3.svg", "mail-merge/page-4.svg",
     "mail-merge/page-5.svg", "mail-merge/page-6.svg", "mail-merge/page-7.svg",

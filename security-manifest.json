@@ -1,6 +1,6 @@
 {
-  "app_version": "20261102-8",
-  "asset_policy_sha256": "263d9abf77adfc8c5a72361a2d7e54b2409e75da9d7751a8889c5431e93f756c",
+  "app_version": "20261102-9",
+  "asset_policy_sha256": "45c5d6208dd2c4760f8246eca368809f0caa37eae09a72e623e21a4bbe342a99",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1776459,
-      "sha256": "690b333c32b7ee5078fca8e2e7382dea3ff61973def3f93dcb3bfc05344f4d6e"
+      "bytes": 1776716,
+      "sha256": "6344ba8afafa5982a14e81b87a44479848c77774680ea51cf21603c7daaab45f"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -48,15 +48,15 @@
     },
     "index.html": {
       "bytes": 458642,
-      "sha256": "f19dbe4eba83f67804628082310223d843fc7481c122c2557d006cf6493a5f68"
+      "sha256": "fc71b04c0be983c62c845a3af2908dd2f5b5f22024fcac7db95baecd7716ec90"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5697,
       "sha256": "1db6950e17306cc8dba95b6a81c47cea81190f8af61e48aa2186d1ba1cc1cdf8"
     },
     "mail-merge.js": {
-      "bytes": 56197,
-      "sha256": "5cb25bb29e9de8b3d5393f1feb09a56f34c97084581872f779f61fe5ece6a1e6"
+      "bytes": 59901,
+      "sha256": "bbaaa2a5e9345f51bb8939ee0ed6fc7bacd93500ebec405f2663939a8e8855e8"
     },
     "mail-merge/geography.json": {
       "bytes": 2277035,
@@ -89,6 +89,10 @@
     "mail-merge/page-7.svg": {
       "bytes": 367573,
       "sha256": "e1f3ba3e321ec553d1b7239d9ecae5984a2ea1e00c761d4f12f8d00722e49086"
+    },
+    "mail-merge/postal-reference.json": {
+      "bytes": 537,
+      "sha256": "1996d6f1f1ca572457b61dde673722daca6c78bd5d9993bc0bdf81b281b72ff0"
     },
     "manufacturer-logos/audibel-offer.jpeg": {
       "bytes": 33002,
@@ -160,7 +164,7 @@
     },
     "offline-sw.js": {
       "bytes": 3265,
-      "sha256": "e01d3ea1177dacf9ca5d3cc08edc1d4facd36bd1fae86be3f8664fc33b330dfb"
+      "sha256": "8d827f3495ee14454049237434b5c3fc491e3782e2ee2a42858ca2639eea7223"
     },
     "offline-vault.js": {
       "bytes": 5688,

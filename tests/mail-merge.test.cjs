@@ -276,3 +276,34 @@ test('a locally imported blank template requires review before printing and neve
   assert.equal(t.stored.size,0);t.window.events.afterprint();await t.click('Przywróć oryginalny');assert.equal(disposed,1);
   assert.equal(t.nodes.get('mailMergePrint7').disabled,false);assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);t.api.clear();
 });
+
+function regionalGeography(){return {...JSON.parse(fs.readFileSync(path.join(root,'mail-merge/geography.json'),'utf8')),postalCodes:JSON.parse(fs.readFileSync(path.join(root,'mail-merge/postal-reference.json'),'utf8')).codes};}
+test('34-325 immediately fills common administrative fields but asks for Bierna or Łodygowice',async()=>{
+  const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()});
+  t.fill({postal:'34325'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(t.nodes.get('mergepostal').value,'34-325');assert.equal(t.nodes.get('mergecity').value,'');
+  assert.equal(t.nodes.get('mergemunicipality').value,'Łodygowice');assert.equal(t.nodes.get('mergecounty').value,'Żywiecki');assert.equal(t.nodes.get('mergeprovince').value,'Śląskie');
+  assert.equal(t.nodes.get('mergelocalityType').value,'village');assert.equal(t.nodes.get('mergepostOffice').value,'Łodygowice');
+  assert.match(t.nodes.get('mailMergePostalChoices').textContent,/Bierna/);assert.match(t.nodes.get('mailMergePostalChoices').textContent,/Łodygowice/);
+  await t.click('34-325 · Bierna');assert.equal(t.nodes.get('mergecity').value,'Bierna');assert.equal(t.nodes.get('mergepostOffice').value,'Łodygowice');
+  await t.nodes.get('mergecity').emit('blur');assert.equal(t.nodes.get('mergemunicipality').value,'Łodygowice');assert.equal(t.nodes.get('mergecounty').value,'Żywiecki');t.api.clear();
+});
+test('known locality plus postal code resolves region without a second choice and reverse lookup works',async()=>{
+  const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()});
+  t.fill({city:'Łodygowice',postal:'34325'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(t.nodes.get('mergecounty').value,'Żywiecki');assert.equal(t.nodes.get('mergeprovince').value,'Śląskie');assert.equal(t.nodes.get('mailMergePostalChoices').children.length,0);
+  await t.click('Nowy wniosek');t.fill({city:'Łodygowice'});await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergepostal').value,'34-325');assert.equal(t.nodes.get('mergemunicipality').value,'Łodygowice');t.api.clear();
+});
+test('34-326 does not select the wrong Zarzecze from another municipality',async()=>{
+  const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()});
+  t.fill({postal:'34326'});await t.nodes.get('mergepostal').emit('input');
+  await t.click('34-326 · Zarzecze');await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergecity').value,'Zarzecze');assert.equal(t.nodes.get('mergemunicipality').value,'Łodygowice');assert.equal(t.nodes.get('mergecounty').value,'Żywiecki');assert.equal(t.nodes.get('mergepostOffice').value,'Pietrzykowice');t.api.clear();
+});
+test('common fields are filled only if all candidates agree and late lookups cannot restore cleared data',async()=>{
+  assert.deepEqual(m.sharedGeography([{municipality:'A',county:'Wspólny',province:'Śląskie'},{municipality:'B',county:'Wspólny',province:'Śląskie'}]),{county:'Wspólny',province:'Śląskie'});
+  let release;const t=fixture({...contactRules(),loadGeography:()=>new Promise(resolve=>{release=resolve;})});
+  t.fill({postal:'34325'});const pending=t.nodes.get('mergepostal').emit('input');t.api.clear();release(regionalGeography());await pending;
+  assert.equal(t.nodes.get('mergemunicipality').value,'');assert.equal(t.nodes.get('mergecity').value,'');
+});
