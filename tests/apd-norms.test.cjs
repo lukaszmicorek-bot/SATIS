@@ -471,3 +471,23 @@ test('gabinet has only the 2026 norm set; SATIS retains both choices after an ac
   assert.match(extract('syncCapdNormsForAge'),/if \(force && capdNormSourceSelect\)/);
   assert.match(extract('updatePrivateModulesVisibility'),/updateCapdNormSourceAccess\(\)/);
 });
+
+test('APD print retains the less-or-equal placeholder in empty norm cells without inventing a threshold',()=>{
+  const start=app.indexOf('function appendCapdReportNormCell(');
+  const rest=app.slice(start);const code=rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);
+  const node=()=>({children:[],append(...items){this.children.push(...items);}});
+  const scope=vm.createContext({document:{createElement:node}});vm.runInContext(code,scope);
+  for(const value of ['',null,undefined,'   ']){
+    const row=node();scope.appendCapdReportNormCell(row,value,'ms');
+    assert.equal(row.children[0].className,'capd-report-norm');
+    assert.equal(row.children[0].children[0].textContent,'≤');
+    assert.equal(row.children[0].children[1].textContent,'');
+  }
+  for(const value of ['≤ 650','≥ 50','P ≥ 65; L ≥ 45','≤']){
+    const row=node();scope.appendCapdReportNormCell(row,value,'%');
+    assert.equal(row.children[0].children[0].textContent,value);
+  }
+  const row=node();scope.appendCapdReportNormCell(row,'','ms');scope.appendCapdReportNormCell(row,'','ms');
+  assert.ok(row.children.every(cell=>cell.children[0].textContent==='≤'),'rebuilding the print preview never drops the symbol');
+  assert.equal(context.evaluate('TRW','500',''),'');assert.equal(context.evaluate('TRW','500','≤'),'');
+});

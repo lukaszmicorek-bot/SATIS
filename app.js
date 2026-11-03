@@ -21400,9 +21400,10 @@ function appendCapdReportNormCell(row, value, unit) {
   const cell = document.createElement("td");
   cell.className = "capd-report-norm";
   const norm = document.createElement("strong");
-  norm.textContent = String(value || "").trim() || "-";
+  const normValue = String(value ?? "").trim();
+  norm.textContent = normValue || "≤";
   const normUnit = document.createElement("span");
-  normUnit.textContent = value ? unit : "";
+  normUnit.textContent = normValue ? unit : "";
   cell.append(norm, normUnit);
   row.append(cell);
 }
