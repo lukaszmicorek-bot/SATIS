@@ -21,15 +21,15 @@ function node(id, dataset = {}, active = false) {
   };
 }
 function setup() {
-  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients'].map(name => node(`${name}Notebook`));
-  const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo', 'thi', 'trq', 'procedure'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
+  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients', 'tinnitus'].map(name => node(`${name}Notebook`));
+  const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo'], tinnitus: ['thi', 'trq', 'procedure'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
     node(`${view}View`, {viewGroup: view.startsWith('repair') ? 'repairs' : 'devices'}));
   const context = { activeNotebook: 'devices', activePricingView: '', activeDeviceView: 'database',
     currentSupabaseUser: {email: 'satis@pracowniasluchu.pl'}, owner: true,
     notebookSections: sections, tabButtons: tabs, viewSections: views, statsPanel: node('stats'),
-    notebookSwitchButtons: ['devices', 'repairs', 'clients', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'workTime'].map(name => node(name, {notebook: name})),
+    notebookSwitchButtons: ['devices', 'repairs', 'clients', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'workTime', 'tinnitus'].map(name => node(name, {notebook: name})),
     clientsModule: {open: () => {}},
     initializeClientsModule: () => ({open: () => {}}),
     initializeMailMergeModule: () => ({open: () => {context.mailMergeOpened = true;}}),
@@ -56,7 +56,7 @@ function setup() {
 }
 test('document views route to the correct notebook, preserve form nodes, and return to lists', () => {
   const ctx = setup();
-  for (const [view, group] of Object.entries({offer: 'devices', loan: 'devices', receipt: 'devices', rodo: 'devices', thi: 'devices', trq: 'devices', procedure: 'devices', order: 'repairs', complaint: 'repairs'})) {
+  for (const [view, group] of Object.entries({offer: 'devices', loan: 'devices', receipt: 'devices', rodo: 'devices', thi: 'tinnitus', trq: 'tinnitus', procedure: 'tinnitus', order: 'repairs', complaint: 'repairs'})) {
     const panel = ctx[`pricing${view[0].toUpperCase() + view.slice(1)}View`];
     panel.draft = 'unsaved text';
     ctx.switchPricingView(view);
@@ -73,9 +73,10 @@ test('document views route to the correct notebook, preserve form nodes, and ret
     ctx.switchNotebook(group);
     assert.equal(ctx.activePricingView, view, 'return to the previously selected form');
     assert.equal(panel.draft, 'unsaved text');
-    ctx.switchView(group === 'devices' ? 'database' : 'repairDatabase', group);
+    if (group === 'tinnitus') ctx.switchNotebook('devices');
+    else ctx.switchView(group === 'devices' ? 'database' : 'repairDatabase', group);
     assert.equal(ctx.notebookSections.find(n => n.id === 'pricingNotebook').hidden, true);
-    assert.equal(ctx.statsPanel.hidden, group !== 'devices');
+    assert.equal(ctx.statsPanel.hidden, group === 'repairs');
   }
 });
 test('mail merge is a shared PCPR subtab and preserves drafts on navigation', () => {
@@ -341,11 +342,11 @@ test('history renderers and previews refuse anonymous access but permit authenti
   assert.doesNotThrow(() => ctx.showPricingHistoryPreview('offer', {}));
   assert.match(extract('renderPricingDocumentHistory'), /!canViewDocumentHistory\(\)/);
   assert.match(extract('showPricingHistoryPreview'), /!canViewDocumentHistory\(\)/);
-  assert.match(extract('updatePrivateModulesVisibility'), /!sharedVisible && \["capd", "vacation", "pcpr", "history"\]/);
+  assert.match(extract('updatePrivateModulesVisibility'), /!sharedVisible && \["capd", "vacation", "pcpr", "history", "tinnitus"\]/);
 });
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(top, ['devices', 'repairs', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime']);
+  assert.deepEqual(top, ['devices', 'repairs', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime', 'tinnitus']);
   assert.match(html,/id="mailMergeTab"[^>]*data-view="mailMerge" data-view-group="pcpr" data-private-shared hidden/);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {
@@ -363,8 +364,8 @@ test('document tabs form two separate styled groups without changing their roles
   const groups = [...html.matchAll(/<div class="document-tab-group" role="presentation">([\s\S]*?)<\/div>/g)];
   assert.equal(groups.length, 2);
   assert.deepEqual(groups.map(match => [...match[1].matchAll(/data-view="([^"]+)"/g)].map(tab => tab[1])),
-    [['offer', 'loan', 'receipt', 'rodo', 'thi', 'trq', 'procedure'], ['order', 'complaint']]);
-  groups.forEach((match, index) => assert.equal((match[1].match(/role="tab"/g) || []).length, index === 0 ? 7 : 2));
+    [['offer', 'loan', 'receipt', 'rodo'], ['order', 'complaint']]);
+  groups.forEach((match, index) => assert.equal((match[1].match(/role="tab"/g) || []).length, index === 0 ? 4 : 2));
   const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
   assert.match(css, /\.document-tab-group \{[^}]*border-left: 1px solid/);
   assert.match(css, /\.document-tab-group \.tab-button\.active \{/);
@@ -776,11 +777,33 @@ test('THI procedure follows TRQ and its public previews load only on first openi
   const ctx=vm.createContext({pricingProcedureView:{querySelectorAll:()=>images}});vm.runInContext(extract('renderTinnitusProcedure'),ctx);
   ctx.renderTinnitusProcedure();ctx.renderTinnitusProcedure();assert.equal(loads,2);
   assert.equal(images[0].current,'procedures/thi-page-1.jpg');
-  for(const filename of ['thi-metoda.pdf','thi-page-1.jpg','thi-page-2.jpg']){
+  for(const filename of ['thi-metoda.pdf','thi-procedure-clean.pdf','thi-page-1.jpg','thi-page-2.jpg']){
     const relative=`procedures/${filename}`;assert.ok(fs.statSync(path.join(__dirname,'..',relative)).size>0);
     assert.ok(fs.readFileSync(path.join(__dirname,'../scripts/public_assets.py'),'utf8').includes(`"${relative}"`));
     assert.ok(!fs.readFileSync(path.join(__dirname,'../offline-sw.js'),'utf8').includes(relative));
   }
   assert.equal(fs.readFileSync(path.join(__dirname,'../procedures/thi-metoda.pdf')).subarray(0,5).toString(),'%PDF-');
+  const clean=fs.readFileSync(path.join(__dirname,'../procedures/thi-procedure-clean.pdf'));
+  assert.equal(clean.subarray(0,5).toString(),'%PDF-');
+  assert.ok(clean.length < 200000, 'clean version stays small and vector-based');
+  assert.match(html,/href="procedures\/thi-procedure-clean.pdf"[^>]*rel="noopener noreferrer"/);
   assert.match(html,/href="procedures\/thi-metoda.pdf"[^>]*rel="noopener noreferrer"/);
+});
+
+test('tinnitus shortcut is below offline forms and preserves independent drafts and access guards', () => {
+  const row = html.slice(html.indexOf('class="header-tools-row"'), html.indexOf('id="tinnitusNotebook"'));
+  assert.ok(row.indexOf('id="offlineFormsLauncherSlot"') < row.indexOf('data-notebook="tinnitus"'));
+  assert.match(row, /data-notebook="tinnitus" data-private-shared hidden/);
+  assert.match(html, /aria-label="Szumy uszne"/);
+  const ctx=setup(); ctx.currentSupabaseUser=null;
+  ctx.switchNotebook('tinnitus'); assert.equal(ctx.activeNotebook,'devices');
+  ctx.switchPricingView('thi'); assert.equal(ctx.activeNotebook,'devices');
+  ctx.currentSupabaseUser={email:'gabinet@pracowniasluchu.pl'}; ctx.owner=false;
+  ctx.switchNotebook('tinnitus'); assert.equal(ctx.activePricingView,'thi');
+  ctx.pricingThiView.draft='patient draft'; ctx.switchPricingView('trq');
+  assert.equal(ctx.pricingThiView.draft,'patient draft');
+  assert.equal(ctx.pricingTrqView.hidden,false);
+  ctx.switchPricingView('procedure'); assert.equal(ctx.renderCounts.renderTinnitusProcedure,1);
+  ctx.switchNotebook('devices'); assert.equal(ctx.activeDeviceView,'database');
+  ctx.switchNotebook('tinnitus'); assert.equal(ctx.activePricingView,'procedure');
 });

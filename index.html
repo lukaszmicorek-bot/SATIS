@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261103-18">
+  <link rel="stylesheet" href="styles.css?v=20261103-19">
   </head>
   <body>
     <main class="app-shell">
@@ -114,8 +114,22 @@
         <button id="clearCustomerRelationsBtn" class="reset-filters-btn" type="button" hidden>Wyczyść</button>
         <div id="customerRelationsResults" class="customer-relations-results" hidden></div>
       </section>
-        <div id="offlineFormsLauncherSlot"></div>
+        <div class="header-forms-shortcuts">
+          <div id="offlineFormsLauncherSlot"></div>
+          <button class="notebook-switch-button notebook-shortcut tinnitus-shortcut" type="button" aria-pressed="false" data-notebook="tinnitus" data-private-shared hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4m4-7v10m4-13v16m4-13v10m4-7v4"/></svg>
+            Szumy uszne
+          </button>
+        </div>
       </div>
+
+      <section id="tinnitusNotebook" class="notebook-section" hidden>
+        <nav class="tabs tinnitus-tabs" role="tablist" aria-label="Szumy uszne">
+            <button id="thiTab" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="pricingThiView" data-view-group="tinnitus" data-view="thi">THI</button>
+            <button id="trqTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingTrqView" data-view-group="tinnitus" data-view="trq">TRQ</button>
+            <button id="procedureTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingProcedureView" data-view-group="tinnitus" data-view="procedure">Procedura</button>
+        </nav>
+      </section>
 
       <section id="devicesNotebook" class="notebook-section">
         <section class="tabs" role="tablist" aria-label="Zakładki zeszytu aparatów">
@@ -128,9 +142,6 @@
             <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
             <button id="receiptTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingReceiptView" data-view-group="devices" data-view="receipt">Odbiór aparatu</button>
             <button id="rodoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingRodoView" data-view-group="devices" data-view="rodo">RODO</button>
-            <button id="thiTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingThiView" data-view-group="devices" data-view="thi">THI</button>
-            <button id="trqTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingTrqView" data-view-group="devices" data-view="trq">TRQ</button>
-            <button id="procedureTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingProcedureView" data-view-group="devices" data-view="procedure">Procedura</button>
           </div>
         </section>
 
@@ -1591,10 +1602,11 @@
           <section id="pricingTrqView" class="pricing-view-section" role="tabpanel" aria-labelledby="trqTab" hidden></section>
           <section id="pricingProcedureView" class="pricing-view-section tinnitus-procedure" role="tabpanel" aria-labelledby="procedureTab" hidden>
             <header class="tinnitus-procedure-toolbar">
-              <div><h2>Rozpoznanie utrudnień wywołanych szumami usznymi</h2><p>Materiał źródłowy Beltone · THI</p></div>
+              <div><h2>Rozpoznanie utrudnień wywołanych szumami usznymi</h2><p>Beltone · opracowanie graficzne materiału źródłowego, nie nowe wytyczne kliniczne</p></div>
               <div class="tinnitus-procedure-actions">
-                <a class="reset-filters-btn" href="procedures/thi-metoda.pdf" target="_blank" rel="noopener noreferrer">Otwórz / drukuj PDF</a>
-                <a class="reset-filters-btn" href="procedures/thi-metoda.pdf" download="Procedura-THI.pdf">Pobierz PDF</a>
+                <a class="reset-filters-btn" href="procedures/thi-procedure-clean.pdf" target="_blank" rel="noopener noreferrer">Otwórz / drukuj PDF</a>
+                <a class="reset-filters-btn" href="procedures/thi-procedure-clean.pdf" download="Procedura-THI.pdf">Pobierz PDF</a>
+                <a class="reset-filters-btn" href="procedures/thi-metoda.pdf" target="_blank" rel="noopener noreferrer">Oryginalny skan</a>
               </div>
             </header>
             <div class="tinnitus-procedure-pages">
@@ -3563,17 +3575,17 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261103-18"></script>
-    <script src="data-layer.js?v=20261103-18"></script>
-    <script src="sync-layer.js?v=20261103-18"></script>
-    <script src="traffic-meter.js?v=20261103-18"></script>
-    <script src="repair-returns.js?v=20261103-18"></script>
-    <script src="offline-vault.js?v=20261103-18"></script>
-    <script src="offline-forms.js?v=20261103-18"></script>
-    <script src="stock-audit.js?v=20261103-18"></script>
-    <script src="clients.js?v=20261103-18"></script>
-    <script src="tinnitus-forms.js?v=20261103-18"></script>
-    <script src="mail-merge.js?v=20261103-18"></script>
-  <script src="app.js?v=20261103-18"></script>
+    <script src="supabase-config.js?v=20261103-19"></script>
+    <script src="data-layer.js?v=20261103-19"></script>
+    <script src="sync-layer.js?v=20261103-19"></script>
+    <script src="traffic-meter.js?v=20261103-19"></script>
+    <script src="repair-returns.js?v=20261103-19"></script>
+    <script src="offline-vault.js?v=20261103-19"></script>
+    <script src="offline-forms.js?v=20261103-19"></script>
+    <script src="stock-audit.js?v=20261103-19"></script>
+    <script src="clients.js?v=20261103-19"></script>
+    <script src="tinnitus-forms.js?v=20261103-19"></script>
+    <script src="mail-merge.js?v=20261103-19"></script>
+  <script src="app.js?v=20261103-19"></script>
   </body>
 </html>

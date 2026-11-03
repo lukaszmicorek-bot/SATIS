@@ -16232,7 +16232,7 @@ textarea {
   align-items: center;
   gap: 12px;
 }
-.header-tools-row > #offlineFormsLauncherSlot {
+.header-tools-row > .header-forms-shortcuts {
   grid-column: 2;
   justify-self: end;
   padding: 8px 0;
@@ -17734,3 +17734,10 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .tinnitus-procedure-pages figure { min-width: 0; margin: 0; }
 .tinnitus-procedure-pages img { display: block; width: 100%; height: auto; background: #fff; }
 .tinnitus-procedure-pages figcaption { padding-top: 6px; text-align: right; color: #657b84; font-size: 12px; }
+
+.header-forms-shortcuts { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.tinnitus-shortcut { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 32px; padding: 5px 11px; border: 1px solid #bdcfd3; border-radius: 6px; background: #f2f8f8; color: #245363; font-size: 12px; letter-spacing: 0; }
+.tinnitus-shortcut:hover { background: #e8f2f1; border-color: #71989f; }
+.tinnitus-shortcut.active { background: #e0efed; color: #005b60; border-color: #739f9e; }
+.tinnitus-shortcut:focus-visible { outline: 2px solid #007b7d; outline-offset: 2px; }
+.tinnitus-tabs { margin-bottom: 0; }

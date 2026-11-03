@@ -1216,6 +1216,7 @@ function setCurrentYearTitle() {
     pcpr: "PCPR",
     history: "Historia",
     clients: "Klienci",
+    tinnitus: "Szumy uszne",
     mailMerge: "PCPR Żywiec",
     capd: capdTitle,
     vacation: vacationTitle
@@ -1520,7 +1521,7 @@ function updatePrivateModulesVisibility() {
     mailMergeModule?.clear();
     if (activeNotebook === "pcpr" && activePricingView === "mailMerge") switchPricingView("pcpr");
   }
-  if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
+  if (!sharedVisible && ["capd", "vacation", "pcpr", "history", "tinnitus"].includes(activeNotebook)) switchNotebook("devices");
 }
 
 function updatePricingManagementVisibility() {
@@ -9583,7 +9584,7 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "devices", trq: "devices", procedure: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "tinnitus", trq: "tinnitus", procedure: "tinnitus", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
@@ -9612,6 +9613,7 @@ function switchPricingView(viewName) {
   const nextView = pricingViewNotebook(viewName) ? viewName : "list";
   const notebook = pricingViewNotebook(nextView);
   if (nextView === "mailMerge" && !canAccessMailMerge()) return;
+  if (notebook === "tinnitus" && !currentSupabaseUser) return;
   if ((nextView === "history" && !canViewDocumentHistory()) || (nextView === "pcpr" && !currentSupabaseUser)) return;
   if (activeNotebook !== notebook) {
     switchNotebook(notebook, { documentView: nextView });
@@ -25116,14 +25118,14 @@ function returnToPreviousTab() {
 }
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge"].includes(notebookName)) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge", "tinnitus"].includes(notebookName)) return;
   if (["workTime", "clients"].includes(notebookName) && !canViewPrivateModules()) return;
   if (notebookName === "mailMerge" && !canAccessMailMerge()) return;
   if (notebookName === "mailMerge") {
     switchNotebook("pcpr", { documentView: "mailMerge" });
     return;
   }
-  if (["capd", "vacation", "pcpr"].includes(notebookName) && !currentSupabaseUser) return;
+  if (["capd", "vacation", "pcpr", "tinnitus"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideWorkTimeHourlyPreview();
   hideVacationPeriodPreview();
@@ -25151,6 +25153,12 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (activeNotebook === "pricing") {
     switchPricingView("list");
     renderPricingRecords();
+    return;
+  }
+
+  if (activeNotebook === "tinnitus") {
+    const selected = [...tabButtons].find((button) => button.dataset.viewGroup === "tinnitus" && button.classList.contains("active"));
+    switchPricingView(documentView || selected?.dataset.view || "thi");
     return;
   }
 
