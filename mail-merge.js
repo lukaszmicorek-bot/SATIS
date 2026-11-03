@@ -98,7 +98,12 @@
       cell(1,"province",735.6,755.3);cell(1,"county",755.3,774.9);cell(1,"municipality",774.9,793.8);
       cell(2,"city",59.8,78.1);cell(2,"street",78.1,97.8);cell(2,"house",97.8,117.5);cell(2,"flat",117.5,137.2);
       cell(2,"postal",137.2,156.9);cell(2,"postOffice",156.9,176.7);cell(2,"phone",196.4,216);cell(2,"email",216,235);
-      if (["city","village"].includes(data.localityType)) add(2,"localityType",203.5,179.7,359.5,13.7,data.localityType === "city" ? "Miasto" : "Wieś");
+      if (["city","village"].includes(data.localityType)) {
+        tick(2,"localityType",data.localityType === "city" ? 202.6 : 286.7,181.6);
+        for(const [text,x]of [["Miasto",216.8],["Wieś",300.9]]){
+          add(2,"localityType",x,181.6,65,11.5,text);result.at(-1).checkbox=true;
+        }
+      }
       if (data.sameAddress) tick(2,"sameAddress",28.6,259.5);
       if (data.gender) tick(1,"gender",data.gender === "male" ? 201.8 : 282.4,682.2);
     }
@@ -162,7 +167,7 @@
     let geoPromise = null, geoIndex = null, postalSequence = 0, deferredPostal = false, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
-    let autoCity="", autoPostal="", autoPostOffice="", autoGender="", printPages=7, schemaVersion=0;
+    let autoPostal="", autoPostOffice="", addressPostal="", autoGender="", printPages=7, schemaVersion=0;
     let periodicDate="", activeTemplate=null, candidateTemplate=null, templateImportController=null;
     const addressHistory=new Map();
     const q = id => document.getElementById(id), authorized = () => a.owner() && Boolean(a.user());
@@ -258,17 +263,21 @@
       addressChanged(updated);
     }
     function addressChanged(updated){if(updated){dirtyState();updateAmounts();renderPreview();}}
-    function updatePostOffice(city){
+    function updatePostOffice(city,force=false){
       const field=fields.get("postOffice");
-      if(!field.value || field.value===autoPostOffice){const changed=field.value!==city;field.value=city;autoPostOffice=city;return changed;}
+      if(force || !field.value || field.value===autoPostOffice){const changed=field.value!==city;field.value=city;autoPostOffice=city;return changed;}
       return false;
     }
     function clearRegion(){geoSequence++;for(const key of ["municipality","county","province","localityType"])fields.get(key).value="";q("mailMergeGeoChoices").replaceChildren();}
     async function syncCityFromPostal() {
       if(!authorized()||busy)return;
       const code=fields.get("postal").value,city=fields.get("city"),choices=q("mailMergePostalChoices"),sequence=++postalSequence,epoch=session;choices.replaceChildren();
-      const clearAutomaticCity=()=>{if(autoCity && city.value===autoCity){city.value="";autoCity="";clearRegion();updatePostOffice("");addressChanged(true);}};
-      if(!/^\d{2}-\d{3}$/u.test(code)){if(!code)clearAutomaticCity();return;}
+      // A changed code invalidates the whole postal address, including loaded/manual values.
+      if(addressPostal && code!==addressPostal){
+        city.value="";clearRegion();updatePostOffice("",true);addressChanged(true);
+      }
+      addressPostal=code;
+      if(!/^\d{2}-\d{3}$/u.test(code))return;
       let geo;
       try{geo=await getGeography();}catch(error){if(authorized()&&epoch===session&&sequence===postalSequence)choices.append(node("span","document-form-note",error.message));return;}
       if(!authorized()||epoch!==session||sequence!==postalSequence||code!==fields.get("postal").value)return;
@@ -284,15 +293,19 @@
         }
       }
       const apply=item=>{
-        if(city.value!==item.city)clearRegion();city.value=item.city;autoCity=item.city;
-        const postChanged=updatePostOffice(a.city(item.postOffice||item.city));
+        if(!authorized()||busy||epoch!==session||sequence!==postalSequence||code!==fields.get("postal").value)return;
+        if(city.value!==item.city)clearRegion();city.value=item.city;
+        const postChanged=updatePostOffice(a.city(item.postOffice||item.city),true);
         choices.replaceChildren();addressChanged(true);applyGeography(item);
         if(postChanged)renderPreview();if(!item.id)void resolveGeo();
       };
       const matching=candidates.filter(item=>normalize(item.city)===normalize(city.value));
-      if((!city.value||city.value===autoCity)&&candidates.length===1){apply(candidates[0]);return;}
+      if(candidates.length===1){apply(candidates[0]);return;}
       if(matching.length===1){apply(matching[0]);return;}
-      if(!city.value||city.value===autoCity){clearAutomaticCity();applyGeography(sharedGeography(candidates));}
+      if(candidates.length){
+        city.value="";clearRegion();updatePostOffice("",true);
+        applyGeography(sharedGeography(candidates));addressChanged(true);
+      }
       if(candidates.length){
         choices.append(node("span","document-form-note",candidates.length>1?"Kod obejmuje kilka miejscowości. Wspólne dane administracyjne uzupełniono, jeśli są jednoznaczne. Wybierz miejscowość:":"Kod i wpisana miejscowość mogą się różnić. Wybierz właściwą miejscowość lub popraw kod:"));
         candidates.forEach(item=>choices.append(button(`${code} · ${item.city}${item.municipality?` · gm. ${item.municipality}`:""}`,()=>apply(item))));
@@ -300,6 +313,7 @@
     }
     function syncPostalFromCity() {
       if(!authorized()||busy)return;
+      postalSequence++;
       const city=fields.get("city").value,postal=fields.get("postal"),choices=q("mailMergePostalChoices");choices.replaceChildren();
       if(!city)return;
       const suggestion=a.postalSuggestion?.(city,fields.get("street").value,addressEntries())||{code:"",codes:[]};
@@ -307,8 +321,11 @@
         const updated=postal.value!==suggestion.code;postal.value=suggestion.code;autoPostal=suggestion.code;addressChanged(updated);
       }else if(suggestion.codes.length && !suggestion.codes.includes(postal.value)){
         choices.append(node("span","document-form-note","Kody z zapisanych adresów — wybierz właściwy lub wpisz ręcznie:"));
-        suggestion.codes.forEach(code=>choices.append(button(code,()=>{postal.value=code;autoPostal=code;choices.replaceChildren();addressChanged(true);})));
+        suggestion.codes.forEach(code=>choices.append(button(code,()=>{
+          postal.value=code;autoPostal=code;addressPostal="";choices.replaceChildren();addressChanged(true);return syncCityFromPostal();
+        })));
       }else if(!postal.value && !suggestion.codes.length)choices.append(node("span","document-form-note","Brak kodu w zapisanych adresach. Uzupełnij go ręcznie."));
+      addressPostal=postal.value;
       const verified=geographyPostalMatches(geoIndex,postal.value).find(item=>normalize(item.city)===normalize(city));
       addressChanged(updatePostOffice(verified?.postOffice||city));
     }
@@ -354,6 +371,7 @@
           if(!fit){if(!preview)throw new Error("Tekst nie mieści się w oryginalnym polu wniosku.");oversized=true;continue;}
           const value=node("span","mail-merge-value",fit.text);
           Object.assign(value.style,{left:`${item.x/PAGE.width*100}%`,top:`${item.y/PAGE.height*100}%`,width:`${item.width/PAGE.width*100}%`,fontSize:`${fit.size/PAGE.width*100}cqw`});
+          if(item.checkbox)value.classList.add("mail-merge-locality-choice");
           if(item.field==="applicationNumber")value.classList.add("mail-merge-number");
           if(["monthlyIncome","householdSize"].includes(item.field)){
             value.classList.add("mail-merge-filled-line");value.style.height=`${item.height/PAGE.height*100}%`;
@@ -373,7 +391,7 @@
     }
     function changed() {if(!authorized() || busy)return;dirtyState();updateBirth();updateConditionalFields();updateAmounts();clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,180);}
     function reset() {
-      generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoCity="";autoPostal="";autoPostOffice="";autoGender="";periodicDate="";
+      generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
@@ -384,13 +402,13 @@
       personal.forEach(key=>{fields.get(key).value=entry.data[key]||"";});fields.get("personRole").value||="applicant";
       fields.get("sameAddress").checked=Boolean(entry.data.sameAddress);rememberAddress(entry.data);
       fields.get("itemCount").value=entry.data.itemCount||((entry.data.subject2||entry.data.orderNumber2)?"2":"1");
-      const updated=normalizeFields();updateBirth();updateConditionalFields();updateAmounts();dirtyState(updated);renderPreview();
+      const updated=normalizeFields();addressPostal=fields.get("postal").value;updateBirth();updateConditionalFields();updateAmounts();dirtyState(updated);renderPreview();
     }
     async function resolveGeo() {
       if(!authorized())return;const city=fields.get("city").value.trim();if(!city)return;
-      const sequence=++geoSequence,epoch=session;
+      const sequence=++geoSequence,epoch=session,postal=fields.get("postal").value;
       let geo;try{geo=await getGeography();}catch(error){if(authorized()&&epoch===session&&sequence===geoSequence)message(error.message);return;}
-      if(!authorized()||busy||epoch!==session||sequence!==geoSequence||city!==fields.get("city").value.trim())return;
+      if(!authorized()||busy||epoch!==session||sequence!==geoSequence||city!==fields.get("city").value.trim()||postal!==fields.get("postal").value)return;
       const postalMatches=geographyPostalMatches(geo,fields.get("postal").value).filter(item=>normalize(item.city)===normalize(city));
       const matches=postalMatches.length?postalMatches:geographyMatches(geo,city),list=q("mailMergeGeoChoices");list.replaceChildren();
       const apply=item=>{
@@ -622,7 +640,7 @@
       }changed();renderPreview();
     });
     fields.get("city").addEventListener("input",()=>{
-      clearRegion();autoCity="";q("mailMergePostalChoices").replaceChildren();
+      postalSequence++;clearRegion();updatePostOffice("",true);q("mailMergePostalChoices").replaceChildren();
       if(autoPostal && fields.get("postal").value===autoPostal){fields.get("postal").value="";autoPostal="";}
     });
     const formatContact=()=>{if(!authorized()||busy)return;addressChanged(normalizeFields());renderPreview();};

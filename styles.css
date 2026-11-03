@@ -17667,3 +17667,5 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .mail-merge-group-income label:has(#mergemonthlyIncome) { grid-column: span 8; }
   .mail-merge-group-funding label { grid-column: span 3; }
 }
+
+.mail-merge-locality-choice::before { content: ""; position: absolute; left: -2.52cqw; top: 0; width: 1.68cqw; height: 1.85cqw; border: 0.1cqw solid #000; box-sizing: border-box; }
