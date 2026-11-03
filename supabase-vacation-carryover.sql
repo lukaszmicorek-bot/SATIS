@@ -1,10 +1,12 @@
--- Annual leave carryover, including hour-based employees.
+-- Annual leave carryover and source-year badges; holidays/weekends excluded also in hourly records.
 -- Run after supabase-vacation-read-submitted.sql. Re-runnable; no rows are changed.
 begin;
 create or replace function private.vacation_annual_balance(employee_id text)
 returns jsonb language plpgsql stable security definer set search_path = pg_catalog as $$
 declare target jsonb; person_key text; period record; factor numeric; allowance numeric;
   used numeric; pending numeric; carried numeric := 0; remaining numeric := 0; ambiguous boolean;
+  buckets jsonb := '[]'; pending_buckets jsonb; working_buckets jsonb; allocations jsonb;
+  q record; i int; needed numeric; available numeric; taken numeric; sources jsonb;
 begin
   select e.data into target from public.vacation_employees e where e.id = employee_id;
   if target is null then return null; end if;
@@ -25,17 +27,43 @@ begin
         when factor = 1 and (upper(coalesce(period.data->>'unit','')) not in ('HOURS','GODZINY','GODZ.')
           or (lower(coalesce(period.data->>'name','')) like '%justyna Testowa%'
             and coalesce((period.data->>'allowance')::numeric,0) = 10)) then 8 else 1 end) * factor;
-    select coalesce(sum(case when r.data->>'status' = 'ZATWIERDZONY' then a.amount else 0 end),0),
-      coalesce(sum(case when r.data->>'status' = 'OCZEKUJE' then a.amount else 0 end),0)
-    into used, pending from public.vacation_requests r
-    cross join lateral (select greatest(0, case when factor = 1 then coalesce((r.data->>'hours')::numeric,0)
-      else public.vacation_working_days((r.data->>'dateFrom')::date,(r.data->>'dateTo')::date) * factor end) amount) a
+    used := 0; pending := 0; pending_buckets := null; allocations := '{}';
+    buckets := buckets || jsonb_build_array(jsonb_build_object('year',(period.data->>'year')::int,'hours',allowance));
+    for q in select r.id, r.data,
+      greatest(0, case when factor = 1 then least(coalesce((r.data->>'hours')::numeric,0),
+        public.vacation_working_days((r.data->>'dateFrom')::date,(r.data->>'dateTo')::date) * 8)
+        else public.vacation_working_days((r.data->>'dateFrom')::date,(r.data->>'dateTo')::date) * factor end) amount
+    from public.vacation_requests r
     where r.data->>'employeeId' = period.id and r.data->>'year' = period.data->>'year'
       and r.data->>'type' in ('WYPOCZYNKOWY','NA ŻĄDANIE')
       and not (regexp_replace(upper(coalesce(r.data->>'notes','')), '\s+', ' ', 'g')
           ~ '\mL[ -]?4\M|\mZWOLNIENIE LEKARSKIE\M|\mCHOROBOWE\M'
         and regexp_replace(upper(coalesce(r.data->>'notes','')), '\s+', ' ', 'g')
-          !~ '\m(BEZ|BRAK|NIE) (L[ -]?4\M|ZWOLNIENIE LEKARSKIE\M|CHOROBOWE\M)');
+          !~ '\m(BEZ|BRAK|NIE) (L[ -]?4\M|ZWOLNIENIE LEKARSKIE\M|CHOROBOWE\M)')
+      and r.data->>'status' in ('ZATWIERDZONY','OCZEKUJE')
+    order by case when r.data->>'status' = 'ZATWIERDZONY' then 0 else 1 end,
+      coalesce(r.data->>'dateFrom',''), coalesce(r.data->>'requestedAt',''), r.id
+    loop
+      needed := q.amount; sources := '[]';
+      if q.data->>'status' = 'ZATWIERDZONY' then
+        used := used + q.amount; working_buckets := buckets;
+      else
+        pending := pending + q.amount; working_buckets := coalesce(pending_buckets,buckets);
+      end if;
+      for i in 0..jsonb_array_length(working_buckets)-1 loop
+        available := (working_buckets->i->>'hours')::numeric;
+        taken := least(available,needed);
+        working_buckets := jsonb_set(working_buckets,array[i::text,'hours'],to_jsonb(available-taken));
+        needed := needed-taken;
+        if taken > 0 and (working_buckets->i->>'year')::int < (period.data->>'year')::int then
+          sources := sources || jsonb_build_array(jsonb_build_object('year',(working_buckets->i->>'year')::int,'amount',taken/factor));
+        end if;
+        exit when needed <= 0;
+      end loop;
+      if q.data->>'status' = 'ZATWIERDZONY' then buckets := working_buckets;
+      else pending_buckets := working_buckets; end if;
+      allocations := allocations || jsonb_build_object(q.id,sources);
+    end loop;
     carried := remaining;
     remaining := greatest(0, carried + allowance - used);
     if period.id = employee_id then
@@ -44,7 +72,7 @@ begin
         'remaining',remaining/factor,'carryoverUsed',least(carried,used)/factor,
         'currentUsed',greatest(0,used-carried)/factor,'carryoverRemaining',greatest(0,carried-used)/factor,
         'currentRemaining',greatest(0,allowance-greatest(0,used-carried))/factor,
-        'available',greatest(0,remaining-pending)/factor);
+        'available',greatest(0,remaining-pending)/factor,'allocations',allocations);
     end if;
   end loop;
   return null;
@@ -74,6 +102,7 @@ begin
       'workstation', e.data->>'workstation', 'redacted', true,
       'remaining', b.balance->'remaining',
       'annualBalance', b.balance - array['allowance','used','pending','currentUsed','currentRemaining','available']
+        - case when employee_ids ? e.id then array[]::text[] else array['allocations'] end
     ) end) order by e.id), '[]') into employees from public.vacation_employees e join balances b on b.id = e.id;
   select coalesce(jsonb_agg(jsonb_build_object('id', r.id,
     'revision', case when is_owner or employee_ids ? (r.data->>'employeeId') then r.revision else null end,

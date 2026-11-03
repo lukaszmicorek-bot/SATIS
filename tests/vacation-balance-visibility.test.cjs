@@ -29,7 +29,7 @@ function setup() {
   });
   for (const name of ['vacationAllowanceTotal','vacationUsedTotal','vacationRemainingTotal','vacationRemainingCard',
     'vacationPendingTotal','vacationAllowanceUnitLabel','vacationExpectedTotal','vacationPlanLabel','vacationPlanCard']) ctx[name] = node();
-  for (const name of ['calculateVacationAnnualBalance','vacationAnnualBalance','normalizeVacationEmployeeWorkstation','vacationCanViewBalance','renderVacationEmployees','renderVacationSummary']) {
+  for (const name of ['vacationAnnualRequestAmount','allocateVacationRequestFromPools','calculateVacationAnnualBalance','vacationAnnualBalance','normalizeVacationEmployeeWorkstation','vacationCanViewBalance','renderVacationEmployees','renderVacationSummary']) {
     vm.runInContext(extract(name), ctx);
   }
   return {ctx, employees};

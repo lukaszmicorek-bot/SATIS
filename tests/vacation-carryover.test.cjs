@@ -10,7 +10,7 @@ function extract(name) {
 function setup(employees,requests=[]) {
   const ctx=vm.createContext({vacationEmployees:employees,vacationRequests:requests,normalize:s=>String(s||'').toLowerCase()});
   for(const name of ['normalizeVacationEmployeeUnit','vacationEmployeeUsesHours','vacationIsSickLeave','vacationUsesAnnualAllowance',
-    'calculateVacationAnnualBalance','vacationAnnualBalance','vacationEmployeeUsagePercent'])vm.runInContext(extract(name),ctx);
+    'vacationAnnualRequestAmount','allocateVacationRequestFromPools','calculateVacationAnnualBalance','vacationAnnualBalance','vacationEmployeeUsagePercent'])vm.runInContext(extract(name),ctx);
   return ctx;
 }
 const employee=(year,allowance=26,unit='DAYS',name='Pracownik Test')=>({id:`e${year}`,year,allowance,unit,name});
@@ -31,7 +31,7 @@ test('unused days carry forward across years and are spent before the current an
 });
 test('fractional hours carry forward and pending requests remain separate from approved use',()=>{
   const employees=[employee(2025,40,'HOURS'),employee(2026,40,'HOURS')];
-  const ctx=setup(employees,[request(2025,0,'ZATWIERDZONY',{hours:8.5}),request(2026,0,'ZATWIERDZONY',{hours:12.5}),request(2026,0,'OCZEKUJE',{hours:4})]);
+  const ctx=setup(employees,[request(2025,2,'ZATWIERDZONY',{hours:8.5}),request(2026,2,'ZATWIERDZONY',{hours:12.5}),request(2026,1,'OCZEKUJE',{hours:4})]);
   const a=ctx.vacationAnnualBalance(employees[1]);
   assert.equal(a.carryover,31.5);assert.equal(a.remaining,59);assert.equal(a.carryoverRemaining,19);
   assert.equal(a.currentRemaining,40);assert.equal(a.pending,4);assert.equal(a.available,55);
@@ -66,4 +66,51 @@ test('redacted balances use only trusted aggregate fields and never infer annual
   const b=ctx.vacationAnnualBalance(e);assert.equal(b.ready,true);assert.equal(b.carryover,6);assert.equal(b.remaining,31);
   assert.equal(b.used,undefined);assert.equal(b.allowance,undefined);
   e.annualBalance.carryover='bad';assert.equal(ctx.vacationAnnualBalance(e).ready,false);
+});
+
+test('working-day calculation excludes holidays and weekends from daily and hourly deductions, even for legacy entries',()=>{
+  const ctx=setup([]);
+  ctx.parseIsoDate=value=>new Date(`${value}T12:00:00`);
+  ctx.isoDateFromParts=(year,month,day)=>`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  ctx.addDaysToIsoDate=(value,days)=>{const date=ctx.parseIsoDate(value);date.setDate(date.getDate()+days);return ctx.isoDateFromParts(date.getFullYear(),date.getMonth()+1,date.getDate());};
+  for(const name of ['easterSundayIso','polishPublicHolidays','vacationWorkingDays'])vm.runInContext(extract(name),ctx);
+  const legacy=request(2025,7,'ZATWIERDZONY',{dateFrom:'2025-12-23',dateTo:'2025-12-29',hours:40});
+  assert.equal(ctx.vacationAnnualRequestAmount(legacy,employee(2025)),2);
+  assert.equal(ctx.vacationAnnualRequestAmount(legacy,employee(2025,40,'HOURS')),16);
+  for(const unit of ['DAYS','HOURS']){
+    assert.equal(ctx.vacationAnnualRequestAmount({...legacy,dateFrom:'2025-12-24',dateTo:'2025-12-28'},employee(2025,40,unit)),0);
+    for(const type of ['ZA SOBOTĘ','ZA WEEKEND','INNY','NADGODZINY','WCZEŚNIEJSZE WYJŚCIE'])
+      assert.equal(ctx.vacationAnnualRequestAmount({...legacy,type},employee(2025,40,unit)),0);
+  }
+});
+test('allocations identify the original overdue year, split across pools and project pending requests without spending them',()=>{
+  const employees=[employee(2025,6),employee(2026,10),employee(2027,26)];
+  const first=request(2026,4,'ZATWIERDZONY',{id:'first'});
+  const later=request(2027,5,'ZATWIERDZONY',{id:'later'});
+  const pending=request(2027,2,'OCZEKUJE',{id:'pending'});
+  const rejected=request(2027,2,'ODRZUCONY',{id:'rejected'});
+  const ctx=setup(employees,[pending,rejected,later,first]);
+  const b=ctx.vacationAnnualBalance(employees[2]);
+  assert.deepEqual(JSON.parse(JSON.stringify(b.allocations.later)),[{year:2025,amount:2},{year:2026,amount:3}]);
+  assert.deepEqual(JSON.parse(JSON.stringify(b.allocations.pending)),[{year:2026,amount:2}]);
+  assert.equal(b.allocations.rejected,undefined);assert.equal(b.remaining,33);
+  assert.equal(ctx.vacationAnnualBalance(employees[2]).remaining,33);
+});
+test('source-year badges show only authorized annual leave; pending badges are explicitly provisional',()=>{
+  const ctx=setup([]);let authorized=true;
+  ctx.vacationCanViewBalance=()=>authorized;ctx.formatVacationAmount=String;
+  ctx.document={createElement:()=>({dataset:{}})};
+  vm.runInContext(extract('appendVacationCarryoverBadges'),ctx);
+  const cell={children:[],append(node){this.children.push(node);}};
+  const r=request(2027,2,'ZATWIERDZONY',{id:'r'}), e=employee(2027);
+  const balance={allocations:{r:[{year:2025,amount:1},{year:2026,amount:1}]}};
+  ctx.appendVacationCarryoverBadges(cell,r,e,balance);
+  assert.deepEqual(cell.children.map(n=>n.textContent),['Zaległy 2025','Zaległy 2026']);
+  assert.match(cell.children[0].title,/Rozliczono: 1 dzień z puli 2025/);
+  cell.children=[];ctx.appendVacationCarryoverBadges(cell,{...r,status:'OCZEKUJE'},e,balance);
+  assert.equal(cell.children[0].dataset.pending,'true');assert.match(cell.children[0].title,/Planowane/);
+  for(const change of [{status:'ODRZUCONY'},{redacted:true},{type:'INNY'}]){
+    cell.children=[];ctx.appendVacationCarryoverBadges(cell,{...r,...change},e,balance);assert.equal(cell.children.length,0);
+  }
+  authorized=false;ctx.appendVacationCarryoverBadges(cell,r,e,balance);assert.equal(cell.children.length,0);
 });
