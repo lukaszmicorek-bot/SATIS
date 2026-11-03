@@ -48,7 +48,10 @@
     const days=until-now;
     if(days<0)return {level:"expired",days,text:`Termin ważności orzeczenia minął (${data.certificateUntil}). Sprawdź aktualne orzeczenie.`};
     if(days===0)return {level:"soon",days,text:"Ważność orzeczenia kończy się dzisiaj. Sprawdź aktualne orzeczenie."};
-    if(days<=30)return {level:"soon",days,text:`Ważność orzeczenia kończy się za ${days} ${days===1?"dzień":"dni"} (${data.certificateUntil}). Sprawdź aktualne orzeczenie.`};
+    const current=new Date(now*86400000),year=current.getUTCFullYear(),month=current.getUTCMonth()+6;
+    const lastDay=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+    const horizon=Date.UTC(year,month,Math.min(current.getUTCDate(),lastDay))/86400000;
+    if(until<=horizon)return {level:"soon",days,text:`Ważność orzeczenia kończy się za ${days} ${days===1?"dzień":"dni"} (${data.certificateUntil}). Sprawdź aktualne orzeczenie.`};
     return null;
   }
   function splitName(value) {

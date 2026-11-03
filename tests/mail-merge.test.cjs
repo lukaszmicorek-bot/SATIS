@@ -422,13 +422,20 @@ test('application number is removed from editor, table, required fields, save pa
   assert.equal(t.nodes.get('mailMergeQueue').children[0].children.length,7);
   assert.doesNotMatch(t.nodes.get('mailMergeListSearch').placeholder,/nr wniosku/);t.api.clear();
 });
-test('certificate expiry uses calendar days, includes today and 30 days, and ignores indefinite or invalid dates',()=>{
+test('certificate expiry uses six calendar months, includes the boundary, and ignores indefinite or invalid dates',()=>{
   const notice=value=>m.certificateExpiry({certificateValidity:'periodic',certificateUntil:value},'2026-11-03');
   assert.equal(notice('02.11.2026').level,'expired');assert.equal(notice('2026-11-03').days,0);
   assert.match(notice('04.11.26').text,/1 dzień/);assert.equal(notice('03.12.2026').days,30);
-  assert.equal(notice('04.12.2026'),null);assert.equal(notice('31.11.2026'),null);assert.equal(notice(''),null);
+  assert.equal(notice('03.05.2027').level,'soon');assert.equal(notice('04.05.2027'),null);
+  assert.equal(notice('31.11.2026'),null);assert.equal(notice(''),null);
   assert.equal(m.certificateExpiry({certificateValidity:'indefinite',certificateUntil:'01.01.2020'},'2026-11-03'),null);
   assert.equal(m.certificateExpiry({certificateValidity:'periodic',certificateUntil:'2026-03-30'},'2026-03-28').days,2);
+});
+test('six-month certificate horizon clamps month ends and respects leap years',()=>{
+  const notice=(today,until)=>m.certificateExpiry({certificateValidity:'periodic',certificateUntil:until},today);
+  assert.equal(notice('2026-08-31','2027-02-28').level,'soon');assert.equal(notice('2026-08-31','2027-03-01'),null);
+  assert.equal(notice('2023-08-31','2024-02-29').level,'soon');assert.equal(notice('2023-08-31','2024-03-01'),null);
+  assert.equal(notice('2024-02-29','2024-08-29').level,'soon');assert.equal(notice('2024-02-29','2024-08-30'),null);
 });
 test('certificate warning updates immediately on typing, selection, loading, reset and indefinite switch',async()=>{
   const t=fixture({today:()=> '2026-11-03'});t.fill({...example,certificateValidity:'periodic',certificateUntil:'02.11.2026'});
@@ -437,6 +444,9 @@ test('certificate warning updates immediately on typing, selection, loading, res
   assert.equal(warning.hidden,false);assert.match(warning.textContent,/minął/);assert.match(label.className,/mail-merge-certificate-expired/);
   t.fill({certificateUntil:'03.12.2026'});await t.nodes.get('mergecertificateUntil').emit('change');
   assert.match(warning.textContent,/30 dni/);assert.match(label.className,/mail-merge-certificate-soon/);
+  t.fill({certificateUntil:'03.05.2027'});await t.nodes.get('mergecertificateUntil').emit('input');assert.equal(warning.hidden,false);
+  t.fill({certificateUntil:'04.05.2027'});await t.nodes.get('mergecertificateUntil').emit('input');assert.equal(warning.hidden,true);
+  t.fill({certificateUntil:'03.12.2026'});await t.nodes.get('mergecertificateUntil').emit('change');
   await t.click('Zapisz');await t.click('Nowy wniosek');assert.equal(warning.hidden,true);
   await t.click('Edytuj');assert.equal(warning.hidden,false);assert.match(warning.textContent,/30 dni/);
   t.fill({certificateValidity:'indefinite'});await t.nodes.get('mergecertificateValidity').emit('change');
