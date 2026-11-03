@@ -547,3 +547,17 @@ test('gabinet can open, save, edit and print PCPR but cannot delete or replace t
   assert.equal(t.nodes.get('mergefirstName').value,'');assert.equal(t.nodes.get('mailMergePreviewPages').children.length,0);
   const rejected=fixture({access:()=>false});assert.equal(rejected.api.open(),false);assert.deepEqual(rejected.api.queue(),[]);
 });
+
+test('contractor checkbox below bank account selects one payment mode and persists with the record',async()=>{
+  const t=fixture(),check=t.nodes.get('mailMergeContractorAccount');assert.equal(check.checked,false);
+  const section=check.parent.parent,accountLabel=t.nodes.get('mergebankAccount').parent;
+  assert.equal(section.children.indexOf(check.parent),section.children.indexOf(accountLabel)+1);
+  t.fill();check.checked=true;await check.emit('change');
+  assert.equal(t.nodes.get('mergepaymentMode').value,'contractor');assert.equal(t.nodes.get('mergebankAccount').disabled,true);
+  await t.click('Zapisz');const data=[...t.stored.values()][0].data;assert.equal(data.paymentMode,'contractor');assert.equal(data.bankAccount,'');
+  const marks=m.placements(data).filter(item=>item.field==='paymentMode');assert.equal(marks.length,1);assert.equal(marks[0].y,674);
+  await t.click('Nowy wniosek');assert.equal(check.checked,false);await t.click('Edytuj');assert.equal(check.checked,true);
+  check.checked=false;await check.emit('change');assert.equal(t.nodes.get('mergepaymentMode').value,'transfer');assert.equal(t.nodes.get('mergebankAccount').disabled,false);
+  t.fill({paymentMode:'contractor'});await t.nodes.get('mergepaymentMode').emit('change');assert.equal(check.checked,true);
+  t.fill({paymentMode:'cash'});await t.nodes.get('mergepaymentMode').emit('change');assert.equal(check.checked,false);t.api.clear();
+});

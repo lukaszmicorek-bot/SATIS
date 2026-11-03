@@ -271,6 +271,8 @@
       for(const count of [1,2])q(`mailMergeItemCount${count}`).setAttribute("aria-pressed",String(count===(second?2:1)));
       q("mailMergeFundingNote").textContent=second?"Kwoty poniżej dotyczą łącznie obu przedmiotów.":"Kwoty poniżej dotyczą jednego przedmiotu.";
       const transfer=fields.get("paymentMode").value==="transfer";
+      q("mailMergeContractorAccount").checked=fields.get("paymentMode").value==="contractor";
+      q("mailMergeContractorAccount").disabled=busy;
       for(const key of ["bankOwner","bankName","bankAccount"]){
         fields.get(key).disabled=busy||!transfer;labels.get(key).classList.toggle("mail-merge-muted",!transfer);
         if(!transfer){fields.get(key).setCustomValidity("");fields.get(key).removeAttribute("aria-invalid");}
@@ -671,6 +673,15 @@
         section.append(label);
       });
       if(group==="bank"){
+        const contractorLabel=node("label","mail-merge-check mail-merge-contractor"),contractor=node("input");
+        contractor.id="mailMergeContractorAccount";contractor.type="checkbox";
+        contractor.addEventListener("change",()=>{
+          if(!authorized()||busy)return;
+          if(contractor.checked)fields.get("paymentMode").value="contractor";
+          else if(fields.get("paymentMode").value==="contractor")fields.get("paymentMode").value="transfer";
+          changed();renderPreview();
+        });
+        contractorLabel.append(contractor,node("span","","Konto wykonawcy podane na dowodzie zakupu usługi"));section.append(contractorLabel);
         const hint=node("p","document-form-note mail-merge-full","Sprawdzamy długość i sumę kontrolną polskiego rachunku. Nie potwierdza to istnienia konta ani jego właściciela. Inne formy płatności zależą od zasad PCPR.");hint.id="mailMergeBankHint";section.append(hint);
       }
       if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób."));

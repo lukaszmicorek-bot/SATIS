@@ -17695,3 +17695,6 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 @media screen and (max-width: 900px) {
   .mail-merge-group-bank label:has(#mergebankAccount) { grid-column: 1 / -1; }
 }
+
+.mail-merge-group-bank .mail-merge-contractor { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 2px; font-size: 13px; line-height: 1.4; }
+.mail-merge-group-bank .mail-merge-contractor input { width: 17px; height: 17px; flex: 0 0 17px; margin: 0; accent-color: #007b7d; }
