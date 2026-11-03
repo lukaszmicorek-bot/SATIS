@@ -21396,12 +21396,12 @@ function capdReportTestItems() {
     .filter((item) => effectiveAge >= Number(item.dataset.capdMinAge || 0));
 }
 
-function appendCapdReportNormCell(row, value, unit) {
+function appendCapdReportNormCell(row, value, unit, code = "") {
   const cell = document.createElement("td");
   cell.className = "capd-report-norm";
   const norm = document.createElement("strong");
   const normValue = String(value ?? "").trim();
-  norm.textContent = normValue || "≤";
+  norm.textContent = normValue || (["DDT", "FPT"].includes(code) ? "≥" : "≤");
   const normUnit = document.createElement("span");
   normUnit.textContent = normValue ? unit : "";
   cell.append(norm, normUnit);
@@ -21880,7 +21880,7 @@ function renderCapdReport() {
     const resultValue = item.querySelector(".capd-result-control input")?.value || "";
     const normValue = item.querySelector("[data-capd-norm-input]")?.value || "";
     const evaluation = capdResultEvaluation(item.dataset.capdCode || "", resultValue, normValue);
-    appendCapdReportNormCell(row, normValue, item.dataset.capdUnit || "");
+    appendCapdReportNormCell(row, normValue, item.dataset.capdUnit || "", item.dataset.capdCode || "");
     appendCapdReportResultCell(row, resultValue, item.dataset.capdUnit || "", evaluation);
     return row;
   });

@@ -489,5 +489,16 @@ test('APD print retains the less-or-equal placeholder in empty norm cells withou
   }
   const row=node();scope.appendCapdReportNormCell(row,'','ms');scope.appendCapdReportNormCell(row,'','ms');
   assert.ok(row.children.every(cell=>cell.children[0].textContent==='≤'),'rebuilding the print preview never drops the symbol');
+  for(const testCode of ['TRW','TRS','ASPN-S','ASPN-Z','GDT','DLF','DDT','FPT']){
+    const expected=['DDT','FPT'].includes(testCode)?'≥':'≤';
+    for(const value of ['',null,undefined,'   ']){
+      const output=node();scope.appendCapdReportNormCell(output,value,'',testCode);
+      assert.equal(output.children[0].children[0].textContent,expected,testCode);
+    }
+    const saved=node();scope.appendCapdReportNormCell(saved,'P ≥ 65; L ≥ 45','%',testCode);
+    assert.equal(saved.children[0].children[0].textContent,'P ≥ 65; L ≥ 45','entered norms are not rewritten');
+    assert.equal(context.evaluate(testCode,'50',expected),'','a sign without a threshold is not a norm');
+  }
+  assert.match(app,/appendCapdReportNormCell\(row, normValue, item\.dataset\.capdUnit \|\| "", item\.dataset\.capdCode \|\| ""\)/);
   assert.equal(context.evaluate('TRW','500',''),'');assert.equal(context.evaluate('TRW','500','≤'),'');
 });
