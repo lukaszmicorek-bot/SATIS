@@ -54,7 +54,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',4);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',5);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -101,7 +101,7 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
@@ -110,6 +110,9 @@ begin
       or coalesce(p_data->>'localityType','') not in ('','city','village')
       or coalesce(p_data->>'invalidityGroup','') not in ('','I','II','III','none')
       or coalesce(p_data->>'degree','') not in ('','severe','moderate','mild','none')
+      or coalesce(p_data->>'careHome','') not in ('','yes','no','unknown')
+      or coalesce(p_data->>'householdType','') not in ('','individual','shared')
+      or coalesce(p_data->>'paymentMode','') not in ('','transfer','cash','contractor')
       or coalesce(p_data->>'certificateValidity','') not in ('','indefinite','periodic') then
       raise exception 'Invalid fields' using errcode='22023';
     end if;
@@ -128,6 +131,17 @@ begin
     if clean ? 'certificateNumber' then clean:=jsonb_set(clean,'{certificateNumber}',to_jsonb(upper(clean->>'certificateNumber')));end if;
     if clean->>'certificateValidity'='indefinite' then clean:=clean||jsonb_build_object('certificateUntil','');end if;
     if coalesce(clean->>'itemCount','1')='1' then clean:=clean-array['subject2','orderNumber2'];end if;
+    if coalesce(clean->>'paymentMode','transfer')<>'transfer' then
+      clean:=clean-array['bankOwner','bankName','bankAccount'];
+    elsif coalesce(clean->>'bankAccount','')<>'' then
+      digits:=regexp_replace(upper(clean->>'bankAccount'),'[[:space:]  ]','','g');
+      if left(digits,2)='PL' then digits:=substr(digits,3);end if;
+      if digits !~ '^[0-9]{26}$' then raise exception 'Invalid bank account length' using errcode='22023';end if;
+      if digits ~ '^0+$' or mod((substr(digits,3)||'2521'||left(digits,2))::numeric,97)<>1 then
+        raise exception 'Invalid bank account checksum' using errcode='22023';
+      end if;
+      clean:=jsonb_set(clean,'{bankAccount}',to_jsonb(digits));
+    end if;
     digits:=coalesce(clean->>'pesel','');
     if digits<>'' then
       if digits !~ '^[0-9]{11}$' then raise exception 'Invalid PESEL' using errcode='22023';end if;

@@ -7,7 +7,16 @@
   const PAGE = {width: 595.32, height: 841.92};
   const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2"];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize"];
+  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount"];
+  function bankDigits(value){return String(value||"").replace(/\s/gu,"").toLocaleUpperCase("pl-PL").replace(/^PL/u,"");}
+  function validBankAccount(value){
+    const digits=bankDigits(value);
+    return /^\d{26}$/u.test(digits)&&!/^0+$/u.test(digits)&&BigInt(`${digits.slice(2)}2521${digits.slice(0,2)}`)%97n===1n;
+  }
+  function formatBankAccount(value){
+    const digits=bankDigits(value);
+    return /^\d{0,26}$/u.test(digits)?[digits.slice(0,2),...(digits.slice(2).match(/.{1,4}/gu)||[])].filter(Boolean).join(" "):String(value||"").trim().toLocaleUpperCase("pl-PL");
+  }
   function parseMoney(value) {
     const text = String(value ?? "").replace(/[\s\u00a0\u202f]/gu, "").replace(/zł$/iu, "").replace(",", ".");
     if (!/^\d+(?:\.\d{1,2})?$/u.test(text)) return null;
@@ -89,6 +98,13 @@
     if (!["city","village"].includes(data.localityType)) errors.push({field:"localityType",text:"Wybierz miasto lub wieś."});
     if (!["I","II","III","none"].includes(data.invalidityGroup)) errors.push({field:"invalidityGroup",text:"Wybierz grupę inwalidzką albo Nie dotyczy."});
     if(applicationItems(data).length===2)for(const [field,label]of [["subject2","Przedmiot 2"],["orderNumber2","Numer zlecenia 2"]])if(!String(data[field]||"").trim())errors.push({field,text:`Uzupełnij: ${label}.`});
+    if(!["yes","no","unknown"].includes(data.careHome))errors.push({field:"careHome",text:"Zaznacz, czy osoba przebywa w DPS, albo wybierz Brak informacji."});
+    if(!["individual","shared"].includes(data.householdType))errors.push({field:"householdType",text:"Wybierz gospodarstwo indywidualne albo wspólne."});
+    if(!["transfer","cash","contractor"].includes(data.paymentMode))errors.push({field:"paymentMode",text:"Wybierz formę przekazania środków."});
+    if(data.paymentMode==="transfer"){
+      for(const [field,label]of [["bankOwner","właściciela konta"],["bankName","nazwę banku"]])if(!String(data[field]||"").trim())errors.push({field,text:`Podaj ${label}.`});
+      if(!validBankAccount(data.bankAccount))errors.push({field:"bankAccount",text:"Podaj poprawny polski numer rachunku: 26 cyfr NRB lub PL i 26 cyfr (IBAN)."});
+    }
     return errors;
   }
   function applicationItems(data){
@@ -134,6 +150,16 @@
     if (data.certificateValidity === "indefinite") tick(3,"certificateValidity",201.8,373.6);
     if (data.certificateValidity === "periodic") {tick(3,"certificateValidity",201.8,387.4);add(3,"certificateUntil",352,387,185,13);}
     cell(3,"certificateNumber",415.8,435.3,203.5,563);
+    const careX={yes:28.3,no:64.1,unknown:99.3};
+    if(careX[data.careHome]!==undefined)tick(4,"careHome",careX[data.careHome],598.8);
+    const householdX={individual:28.3,shared:118.3};
+    if(householdX[data.householdType]!==undefined)tick(4,"householdType",householdX[data.householdType],632.1);
+    const paymentY={transfer:551.2,cash:660.2,contractor:674.0};
+    if(paymentY[data.paymentMode]!==undefined)tick(5,"paymentMode",28.3,paymentY[data.paymentMode]);
+    if(data.paymentMode==="transfer"){
+      cell(5,"bankOwner",583.6,616.8,185,563);cell(5,"bankName",616.8,636.5,185,563);
+      add(5,"bankAccount",185,639.5,378,13.7,formatBankAccount(data.bankAccount));
+    }
     const income=parseMoney(data.monthlyIncome);
     if(income!==null)add(4,"monthlyIncome",28.3,657.7,230,14,money(income));
     if(/^[1-9]\d?$/u.test(data.householdSize||""))add(4,"householdSize",28.3,699.1,230,14);
@@ -172,6 +198,8 @@
     if (data.pesel && !validPesel(data.pesel)) errors.push({field:"pesel",text:"Sprawdź PESEL: 11 cyfr i prawidłowa suma kontrolna."});
     if (data.postal && !/^\d{2}-\d{3}$/u.test(data.postal)) errors.push({field:"postal",text:"Kod pocztowy: 00-000."});
     if (data.phone && !/^(?:(?:48|0048))?\d{9}$/u.test(data.phone.replace(/\D/gu,""))) errors.push({field:"phone",text:"Wpisz prawidłowy numer telefonu."});
+    for(const [key,values]of [["careHome",["yes","no","unknown"]],["householdType",["individual","shared"]],["paymentMode",["transfer","cash","contractor"]]])if(data[key]&&!values.includes(data[key]))errors.push({field:key,text:"Sprawdź wybraną opcję."});
+    if(data.paymentMode==="transfer"&&data.bankAccount&&!validBankAccount(data.bankAccount))errors.push({field:"bankAccount",text:"Numer rachunku ma nieprawidłową długość lub sumę kontrolną."});
     if (data.email && data.email !== "-" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(data.email)) errors.push({field:"email",text:"Sprawdź adres e-mail."});
     if(data.itemCount && !["1","2"].includes(data.itemCount))errors.push({field:"itemCount",text:"Wybierz jeden lub dwa przedmioty."});
     for (const key of ["cost","nfz","requested"]) if (data[key] && parseMoney(data[key]) === null) errors.push({field:key,text:"Sprawdź kwotę: użyj cyfr i maksymalnie dwóch miejsc po przecinku."});
@@ -220,7 +248,7 @@
       return result.data;
     }
     function enrich(data) {
-      return {...data,...Object.fromEntries(uppercaseFields.map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")])),itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
+      return {...data,bankAccount:bankDigits(data.bankAccount),...Object.fromEntries(uppercaseFields.map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")])),itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
         role:data.firstName && data.personRole!=="ward"?"we własnym imieniu":"",
         gender:a.validPesel(data.pesel)?Number(data.pesel[9])%2?"male":"female":data.gender||""};
     }
@@ -229,6 +257,7 @@
       data.sameAddress=fields.get("sameAddress").checked;
       if(a.iso(data.certificateUntil))data.certificateUntil=a.date(a.iso(data.certificateUntil));
       if(data.itemCount!=="2"){data.subject2="";data.orderNumber2="";}
+      if(data.paymentMode!=="transfer")for(const key of ["bankOwner","bankName","bankAccount"])data[key]="";
       return enrich(data);
     }
     function updateConditionalFields(restore=false){
@@ -241,14 +270,25 @@
       for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
       for(const count of [1,2])q(`mailMergeItemCount${count}`).setAttribute("aria-pressed",String(count===(second?2:1)));
       q("mailMergeFundingNote").textContent=second?"Kwoty poniżej dotyczą łącznie obu przedmiotów.":"Kwoty poniżej dotyczą jednego przedmiotu.";
-      updateRequiredHints();
+      const transfer=fields.get("paymentMode").value==="transfer";
+      for(const key of ["bankOwner","bankName","bankAccount"]){
+        fields.get(key).disabled=busy||!transfer;labels.get(key).classList.toggle("mail-merge-muted",!transfer);
+        if(!transfer){fields.get(key).setCustomValidity("");fields.get(key).removeAttribute("aria-invalid");}
+      }
+      updateBankNotice();updateRequiredHints();
     }
     function updateRequiredHints(){
       const data=read(),missing=new Set(validate(data,a.validPesel).filter(error=>!String(data[error.field]??"").trim()).map(error=>error.field));
       for(const [key,label]of labels){
-        const input=fields.get(key),active=!label.hidden&&!input.readOnly&&(key!=="certificateUntil"||data.certificateValidity==="periodic");
+        const input=fields.get(key),active=!label.hidden&&!input.readOnly&&(key!=="certificateUntil"||data.certificateValidity==="periodic")&&(!["bankOwner","bankName","bankAccount"].includes(key)||data.paymentMode==="transfer");
         input.classList.toggle("mail-merge-required-empty",active&&missing.has(key));
       }
+    }
+    function updateBankNotice(){
+      const input=fields.get("bankAccount"),active=fields.get("paymentMode").value==="transfer",warning=q("mailMergeBankWarning");
+      const invalid=active&&Boolean(input.value.trim())&&!validBankAccount(input.value);
+      warning.hidden=!invalid;warning.textContent=invalid?"Nieprawidłowy numer rachunku. Wpisz 26 cyfr NRB lub PL i 26 cyfr; sprawdzana jest również suma kontrolna.":"";
+      labels.get("bankAccount").classList.toggle("mail-merge-bank-invalid",invalid);
     }
     function updateCertificateNotice(){
       const input=fields.get("certificateUntil"),label=labels.get("certificateUntil"),warning=q("mailMergeCertificateWarning");
@@ -261,7 +301,7 @@
     function normalizeFields() {
       let updated=false;
       const put=(key,value)=>{if(fields.get(key).value!==value){fields.get(key).value=value;updated=true;}};
-      for(const key of ["firstName","middleName","surname","municipality","postOffice"])put(key,a.name(fields.get(key).value));
+      for(const key of ["firstName","middleName","surname","municipality","postOffice","bankOwner"])put(key,a.name(fields.get(key).value));
       for(const key of ["county","province"]){
         const value=fields.get(key).value.trim(),bracket=value.indexOf("(");
         put(key,bracket<0?a.name(value):`${a.name(value.slice(0,bracket))} ${value.slice(bracket)}`);
@@ -271,6 +311,7 @@
       for(const key of ["house","flat"])put(key,fields.get(key).value.trim().toLocaleUpperCase("pl-PL"));
       for(const key of uppercaseFields)put(key,fields.get(key).value.toLocaleUpperCase("pl-PL"));
       if(fields.get("certificateValidity").value==="indefinite")put("certificateUntil","");
+      put("bankName",fields.get("bankName").value.trim().replace(/\s+/gu," "));put("bankAccount",formatBankAccount(fields.get("bankAccount").value));
       put("postal",a.postal(fields.get("postal").value));put("phone",a.phone(fields.get("phone").value));
       return updated;
     }
@@ -432,7 +473,7 @@
     }
     function renderPreview() {
       clearTimeout(previewTimer);if(!authorized())return;
-      updateAmounts();updateCertificateNotice();updateRequiredHints();
+      updateAmounts();updateCertificateNotice();updateBankNotice();updateRequiredHints();
       q("mailMergePreviewPages").replaceChildren(pages(read(),true));
       q("mailMergeCompleteness").textContent=`Kompletność do wydruku: ${new Set(issues(read(),true).map(error=>error.field)).size} pól wymaga sprawdzenia.`;
       q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
@@ -452,13 +493,15 @@
       generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";
-      fields.get("subject").value="Aparaty słuchowe";fields.get("sameAddress").checked=true;updateConditionalFields();
+      fields.get("subject").value="Aparaty słuchowe";fields.get("sameAddress").checked=true;fields.get("paymentMode").value="transfer";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
       dirtyState(false);message("");updateAmounts();renderPreview();
     }
     function load(entry) {
       reset();editingId=entry.id;editingRevision=entry.revision;
       personal.forEach(key=>{fields.get(key).value=entry.data[key]||"";});fields.get("personRole").value||="applicant";
+      fields.get("bankAccount").value=formatBankAccount(fields.get("bankAccount").value);
+      fields.get("paymentMode").value=entry.data.paymentMode||"transfer";
       fields.get("sameAddress").checked=Boolean(entry.data.sameAddress);rememberAddress(entry.data);
       fields.get("itemCount").value=entry.data.itemCount||((entry.data.subject2||entry.data.orderNumber2)?"2":"1");
       const updated=normalizeFields();addressPostal=fields.get("postal").value;updateBirth();updateConditionalFields();updateAmounts();dirtyState(updated);renderPreview();
@@ -511,7 +554,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=4?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=5?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -531,7 +574,7 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        if(schemaVersion<4){await refresh();if(schemaVersion<4){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
+        if(schemaVersion<5){await refresh();if(schemaVersion<5){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
@@ -586,9 +629,10 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
       ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
-      ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["householdSize","Liczba osób w gospodarstwie, łącznie z wnioskodawcą"]]],
+      ["Dochód i gospodarstwo domowe","income",[["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["householdSize","Liczba osób w gospodarstwie, łącznie z wnioskodawcą"]]],
       ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
-      ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]]
+      ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]],
+      ["Forma przekazania środków","bank",[["paymentMode","Sposób przekazania środków",[["transfer","Przelew na konto wnioskodawcy / osoby upoważnionej"],["cash","W kasie lub przekazem pocztowym"],["contractor","Konto wykonawcy z dowodu zakupu"]]],["bankOwner","Właściciel konta (imię i nazwisko)"],["bankName","Nazwa banku"],["bankAccount","Numer rachunku bankowego"]]]
     ];
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
@@ -597,6 +641,7 @@
         if(itemCount)input.type="hidden";
         else if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
+        if(key==="bankAccount"){input.inputMode="text";input.maxLength=40;input.setAttribute("aria-describedby","mailMergeBankWarning mailMergeBankHint");}
         if(key==="pesel"){input.inputMode="numeric";input.maxLength=11;}
         if(["cost","nfz","requested","monthlyIncome","own"].includes(key))input.inputMode="decimal";
         if(key==="householdSize"){input.type="number";input.min="1";input.max="99";input.step="1";input.inputMode="numeric";}
@@ -615,12 +660,18 @@
         }
         const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
+        if(key==="bankAccount"){
+          const warning=node("span","mail-merge-message");warning.id="mailMergeBankWarning";warning.hidden=true;warning.setAttribute("role","status");warning.setAttribute("aria-live","polite");label.append(warning);
+        }
         if(key==="certificateUntil"){
           const warning=node("span","mail-merge-certificate-warning");warning.id="mailMergeCertificateWarning";warning.hidden=true;
           warning.setAttribute("role","status");warning.setAttribute("aria-live","polite");input.setAttribute("aria-describedby",warning.id);label.append(warning);
         }
         section.append(label);
       });
+      if(group==="bank"){
+        const hint=node("p","document-form-note mail-merge-full","Sprawdzamy długość i sumę kontrolną polskiego rachunku. Nie potwierdza to istnienia konta ani jego właściciela. Inne formy płatności zależą od zasad PCPR.");hint.id="mailMergeBankHint";section.append(hint);
+      }
       if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób."));
       if(group==="address"){
         for(const id of ["mailMergePostalChoices","mailMergeGeoChoices"]){const choices=node("div","mail-merge-matches mail-merge-full");choices.id=id;choices.setAttribute("aria-live","polite");section.append(choices);}
@@ -708,13 +759,22 @@
     });
     for(const event of ["input","change","blur"])fields.get("certificateUntil").addEventListener(event,updateCertificateNotice);
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});
+    fields.get("paymentMode").addEventListener("change",()=>{changed();renderPreview();});
+    fields.get("bankAccount").addEventListener("input",()=>{
+      const input=fields.get("bankAccount"),before=input.value,caret=input.selectionStart;
+      const digits=typeof caret==="number"?before.slice(0,caret).replace(/\D/gu,"").length:null;
+      input.value=formatBankAccount(before);
+      if(digits!==null&&input.setSelectionRange){let position=0,count=0;while(position<input.value.length&&count<digits){if(/\d/u.test(input.value[position]))count++;position++;}input.setSelectionRange(position,position);}
+      updateBankNotice();updateRequiredHints();
+    });
+    fields.get("bankAccount").addEventListener("blur",()=>{updateBankNotice();renderPreview();});
     fields.get("itemCount").addEventListener("change",()=>setItemCount(fields.get("itemCount").value));
     fields.get("city").addEventListener("input",()=>{
       postalSequence++;clearRegion();updatePostOffice("",true);q("mailMergePostalChoices").replaceChildren();
       if(autoPostal && fields.get("postal").value===autoPostal){fields.get("postal").value="";autoPostal="";}
     });
     const formatContact=()=>{if(!authorized()||busy)return;addressChanged(normalizeFields());renderPreview();};
-    for(const key of ["firstName","middleName","surname","street","city","house","flat","postOffice","municipality","county","province","phone"])fields.get(key).addEventListener("blur",()=>{
+    for(const key of ["firstName","middleName","surname","street","city","house","flat","postOffice","municipality","county","province","phone","bankOwner","bankName"])fields.get(key).addEventListener("blur",()=>{
       formatContact();if(["street","city"].includes(key)){syncPostalFromCity();return resolveGeo();}
     });
     fields.get("postal").addEventListener("input",()=>{
@@ -742,5 +802,5 @@
       clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;templateImportController?.abort();templateImportController=null;activeTemplate?.dispose();candidateTemplate?.dispose();activeTemplate=null;candidateTemplate=null;q("mailMergeTemplateFile").value="";q("mailMergeTemplateConfirm").checked=false;updateTemplateControls();printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
       queue:()=>authorized()?rows.map(row=>({...row,data:{...row.data}})):[]};
   }
-  return {PAGE,normalize,parseMoney,amounts,certificateExpiry,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
+  return {PAGE,normalize,bankDigits,validBankAccount,formatBankAccount,parseMoney,amounts,certificateExpiry,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
 });

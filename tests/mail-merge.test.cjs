@@ -7,7 +7,7 @@ const m = require(process.env.SATIS_MODULE || path.join(root,'mail-merge.js'));
 const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surname:'Testowy',pesel:'90010112349',birthDate:'01.01.1990',
   city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',monthlyIncome:'2 500,50',householdSize:'3',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
   province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
-  certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
+  careHome:'no',householdType:'shared',paymentMode:'transfer',bankOwner:'Jan Adam Testowy',bankName:'Bank testowy',bankAccount:'61109010140000071219812874',certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
 test('amounts use integer cents and reject invalid grants or malformed money',()=>{
   assert.equal(m.parseMoney('1 234,56 zł'),123456);assert.equal(m.parseMoney('0'),0);
   for(const value of ['',null,'-2','abc','12.345','9'.repeat(400)]) assert.equal(m.parseMoney(value),null);
@@ -29,7 +29,7 @@ test('GUS dictionary is limited to Żywiec county and stays small enough for imm
 });
 test('checkbox marks fit realistic font widths without blocking valid printouts',()=>{
   const marks=m.placements({...example,gender:'female',sameAddress:true}).filter(item=>item.text==='X');
-  assert.equal(marks.length,6);
+  assert.equal(marks.length,9);
   for(const mark of marks) assert.ok(m.fitText(mark.text,mark.width,mark.height,(text,size)=>text.length*size*0.72),mark.field);
 });
 test('placements retain original blank sections and map applicant or ward fields to their own cells',()=>{
@@ -81,7 +81,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:4}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:5}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -92,7 +92,7 @@ function fixture(overrides={}) {
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
     fail(code){failure=code;},pause(promise){pauseSave=promise;},
     fill(data=example){for(const [key,value]of Object.entries(data)){const input=nodes.get('merge'+key);if(input)input.value=value;}},
-    click(text){const target=buttons().find(button=>button.textContent===text || (!['Zapisz','Zapisz zmiany'].includes(text) && button.textContent.startsWith(text)));assert.ok(target,text);return target.emit('click');}};
+    click(text){const target=['Zapisz','Zapisz zmiany'].includes(text)?nodes.get('mailMergeSave'):buttons().find(button=>button.textContent===text || button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('persistent people accept incomplete drafts and reopen after clearing the session',async()=>{
@@ -509,4 +509,31 @@ test('cancelling a reduction to one product preserves both entries and the selec
   t.fill({subject2:'Wkładka uszna',orderNumber2:'NFZ-2'});await t.nodes.get('mailMergeItemCount1').emit('click');
   assert.equal(t.nodes.get('mergeitemCount').value,'2');assert.equal(t.nodes.get('mergesubject2').value,'Wkładka uszna');
   assert.equal(t.nodes.get('mergeorderNumber2').value,'NFZ-2');assert.equal(t.nodes.get('mailMergeItemCount2').attributes['aria-pressed'],'true');t.api.clear();
+});
+
+test('Polish bank account accepts NRB and PL IBAN, formats groups and rejects wrong checksum or foreign IBAN',()=>{
+  for(const value of ['61109010140000071219812874','61 1090 1014 0000 0712 1981 2874','PL61 1090 1014 0000 0712 1981 2874'])assert.equal(m.validBankAccount(value),true);
+  for(const value of ['', '0'.repeat(26),'61109010140000071219812875','PL6110901014000007121981287','DE61109010140000071219812874','61x109010140000071219812874'])assert.equal(m.validBankAccount(value),false);
+  assert.equal(m.formatBankAccount('PL61109010140000071219812874'),'61 1090 1014 0000 0712 1981 2874');
+  assert.ok(m.validate({...example,bankAccount:''},()=>true).some(error=>error.field==='bankAccount'));
+  assert.equal(m.validate({...example,paymentMode:'cash',bankAccount:'',bankOwner:'',bankName:''},()=>true).length,0);
+});
+test('DPS, household and transfer selections map to exact original form fields without leaking bank data into cash print',()=>{
+  const marks=m.placements({...example,careHome:'yes',householdType:'individual'});
+  assert.deepEqual(marks.filter(item=>['careHome','householdType','paymentMode'].includes(item.field)).map(item=>[item.field,item.page,item.x,item.y]),[['careHome',4,28.3,598.8],['householdType',4,28.3,632.1],['paymentMode',5,28.3,551.2]]);
+  assert.equal(marks.find(item=>item.field==='bankOwner').page,5);assert.equal(marks.find(item=>item.field==='bankAccount').text,'61 1090 1014 0000 0712 1981 2874');
+  const cash=m.placements({...example,paymentMode:'cash'});assert.equal(cash.some(item=>['bankOwner','bankName','bankAccount'].includes(item.field)),false);
+  assert.equal(cash.find(item=>item.field==='paymentMode').y,660.2);
+});
+test('transfer is selected by default, account validation updates on paste, and bank data survive private record roundtrip',async()=>{
+  const t=fixture();assert.equal(t.nodes.get('mergepaymentMode').value,'transfer');
+  t.fill({...example,bankAccount:'PL61 1090 1014 0000 0712 1981 2875'});await t.nodes.get('mergebankAccount').emit('input');
+  assert.equal(t.nodes.get('mailMergeBankWarning').hidden,false);await t.click('Zapisz');assert.equal(t.stored.size,0);
+  t.fill({bankAccount:'PL61109010140000071219812874'});await t.nodes.get('mergebankAccount').emit('input');assert.equal(t.nodes.get('mailMergeBankWarning').hidden,true);
+  await t.click('Zapisz zmiany');const saved=[...t.stored.values()][0].data;assert.equal(saved.bankAccount,'61109010140000071219812874');assert.equal(saved.careHome,'no');assert.equal(saved.householdType,'shared');
+  await t.click('Nowy wniosek');await t.click('Edytuj');assert.equal(t.nodes.get('mergebankOwner').value,'Jan Adam Testowy');
+  assert.equal(t.nodes.get('mergebankAccount').value,'61 1090 1014 0000 0712 1981 2874');
+  t.fill({paymentMode:'cash'});await t.nodes.get('mergepaymentMode').emit('change');assert.equal(t.nodes.get('mergebankAccount').disabled,true);
+  assert.equal(t.nodes.get('mergebankAccount').className.includes('mail-merge-required-empty'),false);
+  await t.click('Zapisz zmiany');assert.equal([...t.stored.values()][0].data.bankAccount,'');t.api.clear();
 });

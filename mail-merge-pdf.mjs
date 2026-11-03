@@ -3,7 +3,7 @@ const anchors={
   2:[["Miejscowość:",31,60],["Województwo:",31,296],["Imię:",31,525]],
   3:[["Numer orzeczenia:",31,418],["Grupa inwalidzka:",31,437]],
   4:[["Średni miesięczny dochód netto na osobę w gospodarstwie Wnioskodawcy:",28,646],["Liczba osób we wspólnym gospodarstwie domowym wynosi:",28,687]],
-  5:[["Przedmiot wniosku:",31,227],["Numer zlecenia:",31,246],["Całkowity koszt zakupu:",31,266]]
+  5:[["Przedmiot wniosku:",31,227],["Numer zlecenia:",31,246],["Całkowity koszt zakupu:",31,266],["Nazwa banku:",31,621],["Nr rachunku bankowego:",31,641]]
 };
 const key=value=>String(value||"").normalize("NFD").replace(/\p{M}/gu,"").replace(/ł/giu,"l").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
 export function checkFile(file){

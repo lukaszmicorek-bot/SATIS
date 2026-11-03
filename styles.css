@@ -17687,3 +17687,11 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-item-option:hover { background: #eff7f6; border-color: #79aaaa; }
 .mail-merge-item-option[aria-pressed="true"] { background: #007b7d; border-color: #007b7d; color: #fff; }
 .mail-merge-item-option:focus-visible { outline: 2px solid #003f5a; outline-offset: 2px; }
+
+.mail-merge-group-bank label:has(#mergepaymentMode) { grid-column: 1 / -1; }
+.mail-merge-group-bank label:has(#mergebankAccount) { grid-column: span 8; }
+.mail-merge-fields label.mail-merge-bank-invalid input { border-color: #c56c7c; background: #fff3f5; }
+.mail-merge-group-bank label .mail-merge-message { margin-top: 4px; }
+@media screen and (max-width: 900px) {
+  .mail-merge-group-bank label:has(#mergebankAccount) { grid-column: 1 / -1; }
+}
