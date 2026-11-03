@@ -17705,3 +17705,20 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-order-index { text-align: right; }
 .mail-merge-order-text { min-width: 0; text-align: left; }
 .mail-merge-order-break { display: none; }
+
+.mail-merge-choice-field { grid-column: span 4; display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; }
+.mail-merge-choices { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.mail-merge-fields .mail-merge-choice-option { display: inline-flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 7px; grid-column: auto; min-height: 36px; max-width: 100%; padding: 6px 9px; border: 1px solid #d4e0e2; border-radius: 6px; background: #fff; color: #3c555f; font-size: 12px; line-height: 1.35; cursor: pointer; }
+.mail-merge-fields .mail-merge-choice-option input { width: 16px; height: 16px; min-height: 16px; flex: 0 0 16px; margin: 0; box-shadow: none; accent-color: #007b7d; }
+.mail-merge-choice-option span { min-width: 0; overflow-wrap: anywhere; font: inherit; color: inherit; }
+.mail-merge-choices.mail-merge-choice-missing .mail-merge-choice-option { background: #f3f9f8; border-color: #c9dfdb; }
+.mail-merge-fields .mail-merge-choice-option:has(input:checked) { background: #e9f4f2; border-color: #7aa8a3; color: #15585a; }
+.mail-merge-fields .mail-merge-choice-option:focus-within { outline: 2px solid #007b7d; outline-offset: 2px; }
+.mail-merge-fields .mail-merge-choice-option:has(input:disabled) { cursor: default; opacity: 0.6; }
+.mail-merge-choices[aria-invalid="true"] .mail-merge-choice-option { border-color: #c26479; background: #fff7f8; }
+.mail-merge-choice-field:has(#mergepersonRole), .mail-merge-choice-field:has(#mergepaymentMode) { grid-column: 1 / -1; }
+.mail-merge-choice-field:has(#mergegender) { grid-column: span 5; }
+.mail-merge-choice-field:has(#mergedegree), .mail-merge-choice-field:has(#mergeinvalidityGroup), .mail-merge-choice-field:has(#mergecareHome), .mail-merge-choice-field:has(#mergehouseholdType) { grid-column: span 6; }
+@media screen and (max-width: 900px) {
+  .mail-merge-fields .mail-merge-choice-field { grid-column: 1 / -1; }
+}

@@ -8,6 +8,10 @@
   const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName"];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
   const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount"];
+  function shortChoices(options){
+    const choices=(options||[]).filter(([value])=>value!=="");
+    return choices.length>=2&&choices.length<=4?choices:null;
+  }
   function bankDigits(value){return String(value||"").replace(/\s/gu,"").toLocaleUpperCase("pl-PL").replace(/^PL/u,"");}
   function validBankAccount(value){
     const digits=bankDigits(value);
@@ -215,7 +219,7 @@
     return errors;
   }
   function create(a) {
-    const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map();
+    const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map(), choiceGroups = new Map();
     let geoPromise = null, geoIndex = null, postalSequence = 0, deferredPostal = false, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
@@ -289,6 +293,14 @@
       for(const [key,label]of labels){
         const input=fields.get(key),active=!label.hidden&&!input.readOnly&&(key!=="certificateUntil"||data.certificateValidity==="periodic")&&(!["bankOwner","bankName","bankAccount"].includes(key)||data.paymentMode==="transfer");
         input.classList.toggle("mail-merge-required-empty",active&&missing.has(key));
+      }
+      updateChoiceControls();
+    }
+    function updateChoiceControls(){
+      for(const [key,{group,radios}]of choiceGroups){
+        const field=fields.get(key);group.classList.toggle("mail-merge-choice-missing",!field.value);
+        if(field.value){field.setCustomValidity("");field.removeAttribute("aria-invalid");group.removeAttribute("aria-invalid");}
+        for(const radio of radios){radio.checked=radio.value===field.value;radio.disabled=busy||field.disabled;if(field.value)radio.setCustomValidity("");}
       }
     }
     function updateBankNotice(){
@@ -449,7 +461,13 @@
     }
     function markIssues(errors) {
       fields.forEach((input,key)=>{const error=errors.find(item=>item.field===key);input.setCustomValidity(error?.text||"");input.setAttribute("aria-invalid",String(Boolean(error)));});
-      if(errors.length){message([...new Set(errors.map(item=>item.text))].join("\n"));fields.get(errors[0].field)?.focus();fields.get(errors[0].field)?.reportValidity();}
+      for(const [key,{group,radios}]of choiceGroups){
+        const error=errors.find(item=>item.field===key);group.setAttribute("aria-invalid",String(Boolean(error)));radios[0].setCustomValidity(error?.text||"");
+      }
+      if(errors.length){
+        message([...new Set(errors.map(item=>item.text))].join("\n"));
+        const target=choiceGroups.get(errors[0].field)?.radios[0]||fields.get(errors[0].field);target?.focus();target?.reportValidity();
+      }
     }
     function dirtyState(value=true) {
       dirty=value;q("mailMergeSave").classList.toggle("mail-merge-unsaved",value);
@@ -654,8 +672,9 @@
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
       items.forEach(([key,title,options])=>{
-        const itemCount=key==="itemCount",label=node(itemCount?"div":"label",itemCount?"mail-merge-item-count":""),input=node(options&&!itemCount?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
-        if(itemCount)input.type="hidden";
+        const itemCount=key==="itemCount",choices=!itemCount?shortChoices(options):null;
+        const label=node(itemCount||choices?"div":"label",itemCount?"mail-merge-item-count":choices?"mail-merge-choice-field":""),input=node(options&&!itemCount&&!choices?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
+        if(itemCount||choices)input.type="hidden";
         else if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
         if(key==="bankAccount"){input.inputMode="text";input.maxLength=40;input.setAttribute("aria-describedby","mailMergeBankWarning mailMergeBankHint");}
@@ -674,6 +693,21 @@
             control.setAttribute("aria-label",count===1?"1 przedmiot":"2 przedmioty");controls.append(control);
           }
           label.append(controls);
+        }
+        if(choices){
+          caption.id=`mailMergeChoiceLabel${key}`;
+          const controls=node("div","mail-merge-choices"),radios=[];controls.setAttribute("role","radiogroup");controls.setAttribute("aria-labelledby",caption.id);
+          for(const [value,text]of choices){
+            const option=node("label","mail-merge-choice-option"),radio=node("input");radio.type="radio";radio.name=`mailMerge-${key}`;radio.value=value;radio.id=`mergeChoice-${key}-${value}`;radio.autocomplete="off";
+            radio.addEventListener("input",event=>event.stopPropagation?.());
+            radio.addEventListener("change",event=>{
+              event.stopPropagation?.();if(!authorized()||busy||!radio.checked)return;
+              input.value=value;input.setCustomValidity("");input.removeAttribute("aria-invalid");
+              return input.dispatchEvent(new a.window.Event("change",{bubbles:true}));
+            });
+            option.append(radio,node("span","",text));controls.append(option);radios.push(radio);
+          }
+          choiceGroups.set(key,{group:controls,radios});label.append(controls);
         }
         const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
@@ -837,5 +871,5 @@
       clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;templateImportController?.abort();templateImportController=null;activeTemplate?.dispose();candidateTemplate?.dispose();activeTemplate=null;candidateTemplate=null;q("mailMergeTemplateFile").value="";q("mailMergeTemplateConfirm").checked=false;updateTemplateControls();printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
       queue:()=>authorized()?rows.map(row=>({...row,data:{...row.data}})):[]};
   }
-  return {PAGE,normalize,bankDigits,validBankAccount,formatBankAccount,parseMoney,amounts,certificateExpiry,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
+  return {PAGE,normalize,shortChoices,bankDigits,validBankAccount,formatBankAccount,parseMoney,amounts,certificateExpiry,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
 });

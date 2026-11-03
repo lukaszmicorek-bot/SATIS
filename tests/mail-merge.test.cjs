@@ -67,13 +67,14 @@ function fixture(overrides={}) {
     replaceChildren(...children){this.children=[];this.append(...children);}
     remove(){if(this.parent)this.parent.children=this.parent.children.filter(c=>c!==this);this.parent=null;}
     setAttribute(k,v){this.attributes[k]=v;}removeAttribute(k){delete this.attributes[k];}
+    dispatchEvent(event){return this.emit(event.type);}
     addEventListener(k,fn){(this.events[k]||=[]).push(fn);}emit(k){return Promise.all((this.events[k]||[]).map(fn=>fn({preventDefault(){}})));}
     setCustomValidity(value){this.validity=value;}reportValidity(){return !this.validity;}focus(){}
     querySelectorAll(selector){return this.children.flatMap(c=>[...((selector===c.tag||selector.startsWith('.')&&c.className.split(' ').includes(selector.slice(1)))?[c]:[]),...c.querySelectorAll(selector)]);}
     decode(){return Promise.resolve();}
   }
   const host=new E('section');host.id='mailMergeNotebook';const body=new E('body');body.append(host);
-  const window={events:{},addEventListener(k,fn){this.events[k]=fn;},removeEventListener(k){delete this.events[k];}};
+  const window={Event:class{constructor(type){this.type=type;}},events:{},addEventListener(k,fn){this.events[k]=fn;},removeEventListener(k){delete this.events[k];}};
   const api=m.create({document:{getElementById:id=>nodes.get(id),createElement:tag=>new E(tag),createDocumentFragment:()=>new E('fragment'),body,fonts:{ready:Promise.resolve()}},window,
     owner:()=>owner,user:()=>owner?'satis-test':'gabinet-test',validPesel:value=>/^\d{11}$/.test(value),age:()=>36,
     birthDate:()=> '01.01.1990',iso:value=>value,date:value=>value,name:value=>value,city:value=>value,phone:value=>value,postal:value=>value,
@@ -623,4 +624,51 @@ test('individual household immediately sets one person, updates preview and stor
   t.fill({householdType:'shared'});await t.nodes.get('mergehouseholdType').emit('change');
   t.fill({householdSize:'3'});await t.click('Zapisz zmiany');await t.click('Nowy wniosek');await t.click('Edytuj');
   assert.equal(t.nodes.get('mergehouseholdSize').value,'3');assert.equal(t.nodes.get('mergehouseholdType').value,'shared');t.api.clear();
+});
+
+test('visible choices count only real values and longer lists remain dropdowns',()=>{
+  assert.equal(m.shortChoices([['','Wybierz'],['a','A']]),null);
+  assert.equal(m.shortChoices([['','Wybierz'],['a','A'],['b','B']]).length,2);
+  assert.equal(m.shortChoices([['','Wybierz'],['a','A'],['b','B'],['c','C'],['d','D']]).length,4);
+  assert.equal(m.shortChoices([['a','A'],['b','B'],['c','C'],['d','D'],['e','E']]),null);
+});
+test('short choices are visible exclusive native radios, sync defaults and automatic fields, and preserve saved choices',async()=>{
+  const t=fixture();
+  for(const [key,count]of Object.entries({gender:2,personRole:2,localityType:2,degree:4,invalidityGroup:4,certificateValidity:2,careHome:3,householdType:2,paymentMode:3})){
+    assert.equal(t.nodes.get('merge'+key).type,'hidden',key);
+    const controls=t.nodes.get('merge'+key).parent.children.find(child=>child.attributes.role==='radiogroup');assert.equal(controls.querySelectorAll('input').length,count,key);
+  }
+  assert.equal(t.nodes.get('mergeChoice-personRole-applicant').checked,true);assert.equal(t.nodes.get('mergeChoice-paymentMode-transfer').checked,true);
+  const choose=async(key,value)=>{const radio=t.nodes.get(`mergeChoice-${key}-${value}`);radio.checked=true;await radio.emit('change');};
+  t.fill();await choose('householdType','individual');assert.equal(t.nodes.get('mergehouseholdSize').value,'1');assert.equal(t.nodes.get('mergeChoice-householdType-shared').checked,false);
+  await choose('certificateValidity','periodic');assert.equal(t.nodes.get('mergecertificateUntil').disabled,false);
+  await choose('certificateValidity','indefinite');assert.equal(t.nodes.get('mergecertificateUntil').disabled,true);
+  await choose('paymentMode','contractor');assert.equal(t.nodes.get('mailMergeContractorAccount').checked,true);assert.equal(t.nodes.get('mergebankAccount').disabled,true);
+  await t.click('Zapisz');await t.click('Nowy wniosek');assert.equal(t.nodes.get('mergeChoice-paymentMode-transfer').checked,true);
+  await t.click('Edytuj');assert.equal(t.nodes.get('mergeChoice-paymentMode-contractor').checked,true);assert.equal(t.nodes.get('mergeChoice-householdType-individual').checked,true);
+  await t.click('Drukuj wniosek');assert.equal(t.prints(),1);t.api.clear();
+  assert.equal(t.nodes.get('mergeChoice-householdType-individual').checked,false);
+});
+test('visible choices follow PESEL and postal auto-fill, retain missing hints, and are disabled during save',async()=>{
+  const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()});
+  assert.match(t.nodes.get('mergeChoice-careHome-yes').parent.parent.className,/mail-merge-choice-missing/);
+  t.fill();await t.nodes.get('mergefirstName').emit('blur');assert.equal(t.nodes.get('mergeChoice-gender-female').checked,true);
+  t.fill({postal:'34325'});await t.nodes.get('mergepostal').emit('input');assert.equal(t.nodes.get('mergeChoice-localityType-village').checked,true);
+  await t.click('34-325 · Bierna');t.fill({careHome:'no'});await t.nodes.get('mergecareHome').emit('change');
+  assert.doesNotMatch(t.nodes.get('mergeChoice-careHome-no').parent.parent.className,/mail-merge-choice-missing/);
+  let release;t.pause(new Promise(resolve=>{release=resolve;}));const pending=t.click('Zapisz');await tick();
+  assert.equal(t.nodes.get('mergeChoice-careHome-yes').disabled,true);release();await pending;assert.equal(t.nodes.get('mergeChoice-careHome-yes').disabled,false);t.api.clear();
+});
+
+test('native radio input is handled before form refresh and its change keeps the new selection',async()=>{
+  const t=fixture(),radio=t.nodes.get('mergeChoice-householdType-individual');radio.checked=true;
+  let stopped=false;for(const handler of radio.events.input||[])handler({stopPropagation(){stopped=true;}});
+  assert.equal(stopped,true);assert.equal(radio.checked,true);
+  await radio.emit('change');assert.equal(t.nodes.get('mergehouseholdType').value,'individual');assert.equal(radio.checked,true);assert.equal(t.nodes.get('mergehouseholdSize').value,'1');t.api.clear();
+});
+test('missing visible choice receives the validation focus and clears its error after a selection',async()=>{
+  const t=fixture();t.fill({...example,careHome:''});const first=t.nodes.get('mergeChoice-careHome-yes');let focused=false;first.focus=()=>{focused=true;};
+  await t.click('Zapisz');assert.equal(t.stored.size,0);assert.equal(focused,true);assert.equal(first.parent.parent.attributes['aria-invalid'],'true');
+  const no=t.nodes.get('mergeChoice-careHome-no');no.checked=true;await no.emit('change');
+  assert.equal(no.parent.parent.attributes['aria-invalid'],undefined);assert.equal(first.validity,'');t.api.clear();
 });
