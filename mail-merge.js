@@ -7,7 +7,7 @@
   const PAGE = {width: 595.32, height: 841.92};
   const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2"];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "applicationNumber", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize"];
+  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize"];
   function parseMoney(value) {
     const text = String(value ?? "").replace(/[\s\u00a0\u202f]/gu, "").replace(/zł$/iu, "").replace(",", ".");
     if (!/^\d+(?:\.\d{1,2})?$/u.test(text)) return null;
@@ -19,6 +19,24 @@
     const cost = parseMoney(data.cost), nfz = parseMoney(data.nfz), requested = parseMoney(data.requested);
     return {cost, nfz, requested, own: cost !== null && nfz !== null ? cost - nfz : null,
       remaining: cost !== null && nfz !== null && requested !== null ? cost - nfz - requested : null};
+  }
+  function certificateExpiry(data, today) {
+    if(data.certificateValidity!=="periodic")return null;
+    const day=value=>{
+      const text=String(value||"").trim(),iso=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/u),display=text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/u);
+      if(!iso&&!display)return null;
+      const [year,month,date]=iso?iso.slice(1).map(Number):[display[3].length===2?2000+Number(display[3]):Number(display[3]),Number(display[2]),Number(display[1])];
+      if(year<1900||year>9999)return null;
+      const time=Date.UTC(year,month-1,date),check=new Date(time);
+      return check.getUTCFullYear()===year&&check.getUTCMonth()===month-1&&check.getUTCDate()===date?time/86400000:null;
+    };
+    const until=day(data.certificateUntil),now=day(today);
+    if(until===null||now===null)return null;
+    const days=until-now;
+    if(days<0)return {level:"expired",days,text:`Termin ważności orzeczenia minął (${data.certificateUntil}). Sprawdź aktualne orzeczenie.`};
+    if(days===0)return {level:"soon",days,text:"Ważność orzeczenia kończy się dzisiaj. Sprawdź aktualne orzeczenie."};
+    if(days<=30)return {level:"soon",days,text:`Ważność orzeczenia kończy się za ${days} ${days===1?"dzień":"dni"} (${data.certificateUntil}). Sprawdź aktualne orzeczenie.`};
+    return null;
   }
   function splitName(value) {
     const words = String(value || "").trim().split(/\s+/u).filter(Boolean);
@@ -52,7 +70,7 @@
   }
   function validate(data, validPesel) {
     const errors = [];
-    for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["flat", "Nr lokalu (lub Brak)"], ["postOffice", "Poczta"], ["email", "E-mail (lub Brak)"], ["applicationNumber", "Nr wniosku (lub Nie nadano)"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
+    for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["flat", "Nr lokalu (lub Brak)"], ["postOffice", "Poczta"], ["email", "E-mail (lub Brak)"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
     if (!validPesel(data.pesel)) errors.push({field: "pesel", text: "Wpisz poprawny PESEL (11 cyfr i prawidłowa suma kontrolna)."});
@@ -129,7 +147,6 @@
     for (const [key, y, bottom, totalY, totalBottom] of [["cost",264,283.7,420.9,440.7],["nfz",283.7,303.4,440.7,460.4],["own",303.4,336.7,460.4,480.1],["requested",336.7,368.9,480.1,512.5]]) {
       if (sums[key] !== null) {add(5,key,185,y+3,378,bottom-y-6,money(sums[key]));add(5,`${key}Total`,240,totalY+3,323,totalBottom-totalY-6,money(sums[key]));}
     }
-    if (data.applicationNumber) add(1,"applicationNumber",98,135.9,151,15);
     for(const item of result)if(uppercaseFields.includes(item.field))item.text=item.text.toLocaleUpperCase("pl-PL");
     return result;
   }
@@ -220,8 +237,17 @@
       else if(restore&&!until.value&&periodicDate)until.value=periodicDate;
       until.disabled=busy||indefinite;until.placeholder=indefinite?"Nie dotyczy":"";
       labels.get("certificateUntil").classList.toggle("mail-merge-muted",indefinite);
+      updateCertificateNotice();
       for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
       q("mailMergeFundingNote").textContent=second?"Kwoty poniżej dotyczą łącznie obu przedmiotów.":"Kwoty poniżej dotyczą jednego przedmiotu.";
+    }
+    function updateCertificateNotice(){
+      const input=fields.get("certificateUntil"),label=labels.get("certificateUntil"),warning=q("mailMergeCertificateWarning");
+      const today=a.today?.()||new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Warsaw"}).format(new Date());
+      const notice=certificateExpiry({certificateValidity:fields.get("certificateValidity").value,certificateUntil:input.value},today);
+      warning.textContent=notice?.text||"";warning.hidden=!notice;
+      warning.className=`mail-merge-certificate-warning${notice?` mail-merge-certificate-${notice.level}`:""}`;
+      for(const level of ["soon","expired"])label.classList.toggle(`mail-merge-certificate-${level}`,notice?.level===level);
     }
     function normalizeFields() {
       let updated=false;
@@ -386,7 +412,6 @@
           const value=node("span","mail-merge-value",fit.text);
           Object.assign(value.style,{left:`${item.x/PAGE.width*100}%`,top:`${item.y/PAGE.height*100}%`,width:`${item.width/PAGE.width*100}%`,fontSize:`${fit.size/PAGE.width*100}cqw`});
           if(item.checkbox)value.classList.add("mail-merge-locality-choice");
-          if(item.field==="applicationNumber")value.classList.add("mail-merge-number");
           if(["monthlyIncome","householdSize"].includes(item.field)){
             value.classList.add("mail-merge-filled-line");value.style.height=`${item.height/PAGE.height*100}%`;
           }
@@ -398,7 +423,7 @@
     }
     function renderPreview() {
       clearTimeout(previewTimer);if(!authorized())return;
-      updateAmounts();
+      updateAmounts();updateCertificateNotice();
       q("mailMergePreviewPages").replaceChildren(pages(read(),true));
       q("mailMergeCompleteness").textContent=`Kompletność do wydruku: ${new Set(issues(read(),true).map(error=>error.field)).size} pól wymaga sprawdzenia.`;
       q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
@@ -452,7 +477,7 @@
         const name=node("td"),label=node("strong","",`${entry.data.firstName} ${entry.data.middleName||""} ${entry.data.surname}`.replace(/\s+/gu," "));
         name.append(label);if(entry.pesel_tail)name.append(node("small","mail-merge-pesel",`PESEL: •••••••${entry.pesel_tail}`));row.append(name);
         const degrees={severe:"Znaczny",moderate:"Umiarkowany",mild:"Lekki",none:"Nie dotyczy"};
-        for(const text of [entry.data.phone||"—",entry.data.city||"—",degrees[entry.data.degree]||"—",entry.data.applicationNumber||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
+        for(const text of [entry.data.phone||"—",entry.data.city||"—",degrees[entry.data.degree]||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
         const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)),button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
@@ -540,7 +565,7 @@
       ["Dane personalne","person",[["firstName","Imię *"],["middleName","Drugie imię"],["surname","Nazwisko *"],["pesel","PESEL"],["birthDate","Data urodzenia z PESEL-u"],["gender","Płeć (z PESEL-u)",[["","Wybierz…"],["male","Mężczyzna"],["female","Kobieta"]]],["personRole","Dane dotyczą",[["applicant","Wnioskodawcy"],["ward","Podopiecznego / mocodawcy"]]]]],
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail"]]],
-      ["Wniosek i orzeczenie","certificate",[["applicationNumber","Nr wniosku (jeśli nadany)"],["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
+      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
       ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["householdSize","Liczba osób w gospodarstwie, łącznie z wnioskodawcą"]]],
       ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]]
@@ -558,8 +583,12 @@
         if(["birthDate","own"].includes(key))input.readOnly=true;
         if(key==="own")input.title="Wyliczane automatycznie: całkowity koszt zakupu minus dofinansowanie NFZ, przed dofinansowaniem PCPR.";
         fields.set(key,input);labels.set(key,label);label.append(node("span","",title),input);
-        const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila",applicationNumber:"Nie nadano"}[key];
+        const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
+        if(key==="certificateUntil"){
+          const warning=node("span","mail-merge-certificate-warning");warning.id="mailMergeCertificateWarning";warning.hidden=true;
+          warning.setAttribute("role","status");warning.setAttribute("aria-live","polite");input.setAttribute("aria-describedby",warning.id);label.append(warning);
+        }
         section.append(label);
       });
       if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób."));
@@ -585,12 +614,12 @@
     }
     const actions=node("div","mail-merge-actions mail-merge-main-actions");actions.append(button("Zapisz roboczo",()=>saveDraft(true)),save,button("Sprawdź kompletność",()=>{normalizeFields();updateBirth();markIssues(issues(read(),true));renderPreview();}),button("Drukuj wniosek / PDF",()=>print("current")),button("Drukuj pusty wzór",()=>print("blank")));
     editor.append(sameLabel,own,node("p","document-form-note","Zapisz roboczo — imię i nazwisko wystarczą. Zapisz i wydruk wypełnionego wniosku — wszystkie właściwe pola muszą być uzupełnione; przy braku danych wybierz Brak lub Nie dotyczy."),completeness,status,printMode,printNotice,actions);
-    const database=node("section","mail-merge-batch"),tools=node("div","mail-merge-list-tools"),listSearch=node("input");listSearch.id="mailMergeListSearch";listSearch.type="search";listSearch.autocomplete="off";listSearch.maxLength=160;listSearch.placeholder="Szukaj w bazie · osoba, telefon, PESEL, nr wniosku, przedmiot…";
+    const database=node("section","mail-merge-batch"),tools=node("div","mail-merge-list-tools"),listSearch=node("input");listSearch.id="mailMergeListSearch";listSearch.type="search";listSearch.autocomplete="off";listSearch.maxLength=160;listSearch.placeholder="Szukaj w bazie · osoba, telefon, PESEL, nr zlecenia, przedmiot…";
     tools.append(listSearch,button("Odśwież listę",()=>refresh()),button("Drukuj wybrane / PDF",()=>print()));
     const databaseStatus=node("p","document-form-note");databaseStatus.id="mailMergeDatabaseStatus";databaseStatus.setAttribute("role","status");
     const count=node("p","document-form-note");count.id="mailMergeCount";
     const table=node("table","mail-merge-table"),thead=node("thead"),row=node("tr");
-    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Nr wniosku","Przedmiot","Akcje"].forEach(text=>row.append(node("th","",text)));thead.append(row);
+    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot","Akcje"].forEach(text=>row.append(node("th","",text)));thead.append(row);
     const body=node("tbody");body.id="mailMergeQueue";table.append(thead,body);const scroll=node("div","mail-merge-table-scroll");scroll.append(table);
     const empty=node("p","document-form-note","Brak zapisanych osób dla wybranego wyszukiwania.");empty.id="mailMergeEmpty";
     const paging=node("div","mail-merge-actions"),previous=button("Poprzednie",()=>{offset=Math.max(0,offset-50);return refresh();}),next=button("Następne",()=>{offset+=50;return refresh();});previous.id="mailMergePrevious";next.id="mailMergeNext";paging.append(previous,next);
@@ -646,6 +675,7 @@
       const input=fields.get(key),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
       if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
     });
+    for(const event of ["input","change","blur"])fields.get("certificateUntil").addEventListener(event,updateCertificateNotice);
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});
     fields.get("itemCount").addEventListener("change",()=>{
       if(fields.get("itemCount").value==="1" && (fields.get("subject2").value||fields.get("orderNumber2").value)){
@@ -686,5 +716,5 @@
       clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;templateImportController?.abort();templateImportController=null;activeTemplate?.dispose();candidateTemplate?.dispose();activeTemplate=null;candidateTemplate=null;q("mailMergeTemplateFile").value="";q("mailMergeTemplateConfirm").checked=false;updateTemplateControls();printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
       queue:()=>authorized()?rows.map(row=>({...row,data:{...row.data}})):[]};
   }
-  return {PAGE,normalize,parseMoney,amounts,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
+  return {PAGE,normalize,parseMoney,amounts,certificateExpiry,splitName,geographyIndex,geographyMatches,geographyPostalMatches,sharedGeography,validate,draftValidate,placements,applicationItems,fitText,create};
 });

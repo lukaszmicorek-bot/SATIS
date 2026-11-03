@@ -192,7 +192,7 @@ test('ambiguous addresses require a choice and do not overwrite manually entered
 });
 
 test('all applicable fields are required for a completed application but absence may be explicit',()=>{
-  for(const key of ['middleName','flat','street','postOffice','email','applicationNumber','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
+  for(const key of ['middleName','flat','street','postOffice','email','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
     assert.ok(m.validate({...example,[key]:''},()=>true).some(error=>error.field===key),key);
   }
   assert.equal(m.validate({...example,middleName:'-',street:'-',flat:'-',email:'-',applicationNumber:'-'},()=>true).length,0);
@@ -410,4 +410,37 @@ test('both order numbers become uppercase on input, paste, save without blur, re
   const one=m.placements({...example,orderNumber:'nfz ab/2026'}).find(item=>item.field==='orderNumber');assert.equal(one.text,'NFZ AB/2026');
   const two=m.placements({...example,itemCount:'2',orderNumber:'nfz ab/2026',orderNumber2:'nfz cd/2026'}).find(item=>item.field==='orderNumber');
   assert.equal(two.text,'1. NFZ AB/2026\n2. NFZ CD/2026');t.api.clear();
+});
+
+test('application number is removed from editor, table, required fields, save payload and print overlays',async()=>{
+  const t=fixture();t.fill({...example,applicationNumber:'OLD/01'});
+  assert.equal(t.nodes.has('mergeapplicationNumber'),false);
+  assert.equal(m.validate({...example,applicationNumber:''},()=>true).length,0);
+  assert.equal(m.placements({...example,applicationNumber:'OLD/01'}).some(item=>item.field==='applicationNumber'),false);
+  await t.click('Zapisz');assert.equal([...t.stored.values()][0].data.applicationNumber,undefined);
+  assert.equal(t.nodes.get('mailMergeQueue').children[0].children.length,7);
+  assert.doesNotMatch(t.nodes.get('mailMergeListSearch').placeholder,/nr wniosku/);t.api.clear();
+});
+test('certificate expiry uses calendar days, includes today and 30 days, and ignores indefinite or invalid dates',()=>{
+  const notice=value=>m.certificateExpiry({certificateValidity:'periodic',certificateUntil:value},'2026-11-03');
+  assert.equal(notice('02.11.2026').level,'expired');assert.equal(notice('2026-11-03').days,0);
+  assert.match(notice('04.11.26').text,/1 dzień/);assert.equal(notice('03.12.2026').days,30);
+  assert.equal(notice('04.12.2026'),null);assert.equal(notice('31.11.2026'),null);assert.equal(notice(''),null);
+  assert.equal(m.certificateExpiry({certificateValidity:'indefinite',certificateUntil:'01.01.2020'},'2026-11-03'),null);
+  assert.equal(m.certificateExpiry({certificateValidity:'periodic',certificateUntil:'2026-03-30'},'2026-03-28').days,2);
+});
+test('certificate warning updates immediately on typing, selection, loading, reset and indefinite switch',async()=>{
+  const t=fixture({today:()=> '2026-11-03'});t.fill({...example,certificateValidity:'periodic',certificateUntil:'02.11.2026'});
+  await t.nodes.get('mergecertificateUntil').emit('input');
+  const warning=t.nodes.get('mailMergeCertificateWarning'),label=t.nodes.get('mergecertificateUntil').parent;
+  assert.equal(warning.hidden,false);assert.match(warning.textContent,/minął/);assert.match(label.className,/mail-merge-certificate-expired/);
+  t.fill({certificateUntil:'03.12.2026'});await t.nodes.get('mergecertificateUntil').emit('change');
+  assert.match(warning.textContent,/30 dni/);assert.match(label.className,/mail-merge-certificate-soon/);
+  await t.click('Zapisz');await t.click('Nowy wniosek');assert.equal(warning.hidden,true);
+  await t.click('Edytuj');assert.equal(warning.hidden,false);assert.match(warning.textContent,/30 dni/);
+  t.fill({certificateValidity:'indefinite'});await t.nodes.get('mergecertificateValidity').emit('change');
+  assert.equal(warning.hidden,true);assert.doesNotMatch(label.className,/mail-merge-certificate-(soon|expired)/);
+  t.fill({certificateValidity:'periodic'});await t.nodes.get('mergecertificateValidity').emit('change');assert.equal(warning.hidden,false);
+  t.fill({certificateUntil:'31.12.2027'});await t.nodes.get('mergecertificateUntil').emit('input');assert.equal(warning.hidden,true);
+  t.api.clear();assert.equal(warning.textContent,'');
 });
