@@ -20,15 +20,16 @@ function setup() {
     normalizeWorkstationName: value => String(value || ''), normalize: value => String(value || '').toLowerCase(),
     loadVacationData: {access: {userId: 'shared', employeeIds: []}},
     vacationEmployeesForYear: () => employees, vacationMyEmployeeId: () => '',
+    vacationEmployees: employees,
     vacationEmployeeInput: node(), vacationEmployeeList: node(), vacationSaturdayMarkersDisabled: () => false,
     vacationEmployeeUsesHours: employee => employee?.unit === 'HOURS', formatVacationAmount: String,
     vacationEmployeeUsagePercent: () => 0, selectedVacationEmployee: () => employees.find(e => e.id === ctx.vacationEmployeeInput.value),
     selectedVacationYear: () => 2026, vacationRequests: [], vacationUsesAnnualAllowance: () => true,
-    vacationExpectedUsage: () => 10, document: {createElement: node}
+    vacationExpectedUsage: () => 10, carryoverInfo: node(), document: {createElement: node,querySelector: () => ctx.carryoverInfo}
   });
   for (const name of ['vacationAllowanceTotal','vacationUsedTotal','vacationRemainingTotal','vacationRemainingCard',
     'vacationPendingTotal','vacationAllowanceUnitLabel','vacationExpectedTotal','vacationPlanLabel','vacationPlanCard']) ctx[name] = node();
-  for (const name of ['normalizeVacationEmployeeWorkstation','vacationCanViewBalance','renderVacationEmployees','renderVacationSummary']) {
+  for (const name of ['calculateVacationAnnualBalance','vacationAnnualBalance','normalizeVacationEmployeeWorkstation','vacationCanViewBalance','renderVacationEmployees','renderVacationSummary']) {
     vm.runInContext(extract(name), ctx);
   }
   return {ctx, employees};
@@ -49,6 +50,8 @@ test('gabinet tiles expose balance only for assigned workplace; selecting anothe
   assert.equal(ctx.vacationRemainingCard.hidden, true);
   assert.equal(ctx.vacationRemainingTotal.textContent, '-');
   assert.equal(ctx.vacationAllowanceTotal.textContent, '-');
+  assert.equal(ctx.carryoverInfo.hidden, true);
+  assert.equal(ctx.carryoverInfo.textContent, '');
 });
 test('SATIS keeps all balances; personal mapping overrides workplace; unknown, ambiguous and stale access fail closed', () => {
   const {ctx, employees} = setup();

@@ -155,3 +155,7 @@
 
 !/procedures/thi-procedure-clean.pdf
 !/scripts/build_tinnitus_procedure.py
+
+!/supabase-vacation-carryover.sql
+!/tests/vacation-carryover.test.cjs
+!/tests/vacation-time-types.test.cjs

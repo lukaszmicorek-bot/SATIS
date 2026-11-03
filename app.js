@@ -22929,7 +22929,7 @@ function renderVacationEmployees() {
       const percent = document.createElement("span");
       percent.className = "vacation-employee-percent";
       percent.textContent = `${usagePercent}%`;
-      percent.title = `${usagePercent}% wykorzystanego urlopu`;
+      percent.title = `${usagePercent}% wykorzystanej puli rocznej (bez urlopu zaległego)`;
       percent.setAttribute("aria-label", `${usagePercent}% wykorzystanego urlopu`);
       item.append(percent);
     }
@@ -22956,18 +22956,54 @@ function renderVacationEmployees() {
   vacationEmployeeList.replaceChildren(...items);
 }
 
+function calculateVacationAnnualBalance(employee, employees = vacationEmployees, requests = vacationRequests) {
+  if (!employee) return null;
+  const key = String(employee.name || "").trim().replace(/\s+/gu, " ").toLocaleLowerCase("pl-PL");
+  const related = employees.filter(item => !item.redacted && item.year <= employee.year
+    && String(item.name || "").trim().replace(/\s+/gu, " ").toLocaleLowerCase("pl-PL") === key);
+  const carryoverIssue = new Set(related.map(item => item.year)).size !== related.length;
+  // Keep the configured yearly pools separate. Never invent allowances for missing years.
+  const periods = (carryoverIssue ? [employee] : related).sort((a, b) => a.year - b.year);
+  if (!periods.some(item => item.id === employee.id)) periods.push(employee);
+  let remainingHours = 0;
+  for (const period of periods) {
+    const factor = vacationEmployeeUsesHours(period) ? 1 : 8;
+    const allowance = Math.max(0, Number(period.allowance) || 0) * factor;
+    const annual = requests.filter(request => request.employeeId === period.id && request.year === period.year
+      && !request.redacted && vacationUsesAnnualAllowance(request));
+    const sum = status => annual.filter(request => request.status === status)
+      .reduce((total, request) => total + Math.max(0, Number(factor === 1 ? request.hours : request.days) || 0) * factor, 0);
+    const used = sum("ZATWIERDZONY"), pending = sum("OCZEKUJE");
+    const carryover = remainingHours;
+    remainingHours = Math.max(0, carryover + allowance - used);
+    if (period.id !== employee.id) continue;
+    const amount = hours => Math.round(hours / factor * 1000000) / 1000000;
+    return { allowance: amount(allowance), carryover: amount(carryover), used: amount(used), pending: amount(pending),
+      remaining: amount(remainingHours), carryoverUsed: amount(Math.min(carryover, used)),
+      currentUsed: amount(Math.max(0, used - carryover)), carryoverRemaining: amount(Math.max(0, carryover - used)),
+      currentRemaining: amount(Math.max(0, allowance - Math.max(0, used - carryover))),
+      available: amount(Math.max(0, remainingHours - pending)), carryoverIssue, ready: true };
+  }
+  return null;
+}
+
+function vacationAnnualBalance(employee) {
+  if (!employee) return null;
+  if (!employee.redacted) return calculateVacationAnnualBalance(employee);
+  const stored = employee.annualBalance;
+  if (!stored || stored.ready !== true) return { remaining: employee.remaining, ready: false };
+  const balance = { ready: true, carryoverIssue: stored.carryoverIssue === true };
+  for (const field of ["carryover", "remaining", "carryoverUsed", "carryoverRemaining"]) {
+    if (stored[field] == null || !Number.isFinite(Number(stored[field]))) return { remaining: employee.remaining, ready: false };
+    balance[field] = Math.max(0, Number(stored[field]));
+  }
+  return balance;
+}
+
 function vacationEmployeeUsagePercent(employee) {
   if (!employee || !Number(employee.allowance)) return 0;
-  const usesHours = vacationEmployeeUsesHours(employee);
-  const used = vacationRequests
-    .filter((request) =>
-      request.year === employee.year &&
-      request.employeeId === employee.id &&
-      request.status === "ZATWIERDZONY" &&
-      vacationUsesAnnualAllowance(request)
-    )
-    .reduce((sum, request) => sum + (usesHours ? request.hours : request.days), 0);
-  return Math.round((used / employee.allowance) * 100);
+  const balance = vacationAnnualBalance(employee);
+  return Math.round(((balance?.currentUsed || 0) / employee.allowance) * 100);
 }
 
 function updateVacationTypeChoices() {
@@ -23065,28 +23101,32 @@ function renderVacationSummary() {
   const canViewBalance = vacationCanViewBalance(employee);
   if (vacationRemainingCard) vacationRemainingCard.hidden = !canViewBalance;
   const usesHours = vacationEmployeeUsesHours(employee);
-  const requests = vacationRequests.filter((request) =>
-    request.year === selectedVacationYear() &&
-    (!employee || request.employeeId === employee.id) &&
-    (canViewPrivateModules() || !request.ownerLeave)
-  );
-  const requestAmount = (request) => usesHours ? request.hours : request.days;
-  const used = employee ? requests.filter((request) => request.status === "ZATWIERDZONY" && vacationUsesAnnualAllowance(request)).reduce((sum, request) => sum + requestAmount(request), 0) : 0;
-  const pending = employee ? requests
-    .filter((request) => request.status === "OCZEKUJE" && vacationUsesAnnualAllowance(request))
-    .reduce((sum, request) => sum + requestAmount(request), 0) : 0;
+  const balance = canViewBalance ? vacationAnnualBalance(employee) : null;
+  const used = balance?.used || 0;
+  const pending = balance?.pending || 0;
   const allowance = canViewBalance ? employee?.allowance ?? null : null;
   if (vacationAllowanceTotal) vacationAllowanceTotal.textContent = allowance === null ? "-" : formatVacationAmount(allowance);
   if (vacationUsedTotal) vacationUsedTotal.textContent = canViewBalance && employee && !employee.redacted ? formatVacationAmount(used) : "-";
-  const remaining = !canViewBalance ? null : employee?.redacted ? employee.remaining : employee ? Math.max(0, allowance - used) : null;
+  const remaining = balance?.remaining ?? null;
   if (vacationRemainingTotal) vacationRemainingTotal.textContent = remaining === null ? "-" : formatVacationAmount(remaining);
   if (vacationRemainingCard) {
     vacationRemainingCard.dataset.tone = remaining === null ? "none" : remaining <= 3 ? "critical" : remaining <= 7 ? "warning" : "good";
   }
   if (vacationPendingTotal) vacationPendingTotal.textContent = canViewBalance && employee && !employee.redacted ? formatVacationAmount(pending) : "-";
   if (vacationAllowanceUnitLabel) vacationAllowanceUnitLabel.textContent = usesHours ? "godzin w roku" : "dni w roku";
+  const carryoverInfo = document.querySelector?.("#vacationCarryoverInfo");
+  if (carryoverInfo) {
+    carryoverInfo.hidden = !canViewBalance;
+    carryoverInfo.dataset.tone = balance?.carryoverIssue ? "warning" : "normal";
+    const unit = usesHours ? "godz." : "dni";
+    carryoverInfo.textContent = !canViewBalance ? "" : !balance?.ready
+      ? "Rozliczenie zaległego urlopu oczekuje na aktualizację bazy."
+      : balance.carryoverIssue
+        ? "Sprawdź pule roczne: więcej niż jeden wpis z tym samym imieniem i nazwiskiem w jednym roku. Zaległość nie została doliczona."
+        : `Zaległe na początek ${employee.year}: ${formatVacationAmount(balance.carryover)} ${unit} · Wykorzystane z zaległych: ${formatVacationAmount(balance.carryoverUsed)} ${unit} · Pozostało zaległych: ${formatVacationAmount(balance.carryoverRemaining)} ${unit}.${balance.available == null ? "" : ` Dostępne po oczekujących: ${formatVacationAmount(balance.available)} ${unit}.`} Najpierw rozliczany jest urlop zaległy.`;
+  }
   const expected = canViewPrivateModules() && employee ? vacationExpectedUsage(allowance, employee.year, usesHours) : null;
-  const planBalance = expected === null ? null : expected - used;
+  const planBalance = expected === null ? null : expected - (balance?.currentUsed || 0);
   const unitLabel = usesHours ? "godz." : "dni";
   if (vacationExpectedTotal) vacationExpectedTotal.textContent = planBalance === null
     ? "-"

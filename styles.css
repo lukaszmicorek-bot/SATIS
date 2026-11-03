@@ -17741,3 +17741,6 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .tinnitus-shortcut.active { background: #e0efed; color: #005b60; border-color: #739f9e; }
 .tinnitus-shortcut:focus-visible { outline: 2px solid #007b7d; outline-offset: 2px; }
 .tinnitus-tabs { margin-bottom: 0; }
+
+.vacation-carryover-info { margin: 0 0 16px; padding: 9px 0 9px 12px; border-left: 3px solid #80aaa4; color: #36575f; font-size: 12px; line-height: 1.6; }
+.vacation-carryover-info[data-tone="warning"] { border-left-color: #c88552; color: #855029; }

@@ -128,6 +128,44 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     assert.equal((await one('select vacation_read_authorized() result')).result.requests
       .some(row => row.id === request.id), false);
     await db.exec('reset role');
+
+    // Carryover is derived from real yearly pools, without mutating historical records.
+    await login(owner, 'satis@pracowniasluchu.pl'); await db.exec('reset role');
+    await db.exec(read('supabase-vacation-carryover.sql'));
+    await db.exec(read('supabase-vacation-carryover.sql'));
+    const pool = async (id,name,year,allowance,unit='DAYS') => db.query('select satis_write_records($1,$2,$3)',[randomUUID(),
+      [{table:'vacation_employees',id,data:{id,name,year,allowance,unit},expectedRevision:null,delete:false}],'SATIS']);
+    await pool('oliwia-2025','Oliwia Test',2025,10);
+    await pool('oliwia-2027','Oliwia Test',2027,26);
+    await pool('hour-2025','Godzinowa Test',2025,40,'HOURS');
+    await pool('hour-2026','Godzinowa Test',2026,40,'HOURS');
+    const addLeave = async(id,employeeId,year,from,to,hours=0,notes='',status='ZATWIERDZONY') => db.query(
+      'select satis_write_records($1,$2,$3)',[randomUUID(),[{table:'vacation_requests',id,data:{id,employeeId,employeeName:'Ignored',year,dateFrom:from,dateTo:to,hours,
+        type:'WYPOCZYNKOWY',status,notes,requestedBy:'satis@pracowniasluchu.pl'},expectedRevision:null,delete:false}],'SATIS']);
+    await addLeave('past-days','oliwia-2025',2025,'2025-10-06','2025-10-10');
+    await addLeave('future-days','oliwia-2027',2027,'2027-01-04','2027-01-05');
+    await addLeave('past-hours','hour-2025',2025,'2025-10-13','2025-10-14',8.5);
+    await addLeave('current-hours','hour-2026',2026,'2026-10-14','2026-10-15',12.5);
+    await addLeave('ignored-l4','hour-2025',2025,'2025-10-15','2025-10-15',8,'L4');
+    const balance=async id=>(await one('select private.vacation_annual_balance($1) b',[id])).b;
+    let b=await balance('oliwia-2027');
+    assert.equal(b.carryover,31);assert.equal(b.remaining,55);assert.equal(b.carryoverRemaining,29);assert.equal(b.currentRemaining,26);
+    b=await balance('hour-2026');assert.equal(b.carryover,31.5);assert.equal(b.remaining,59);assert.equal(b.currentRemaining,40);
+    const originalPast=(await one("select data from vacation_requests where id='past-days'")).data;
+    await login(staff,'gabinet@example.test');
+    const carryRead=(await one('select vacation_read_authorized() result')).result;
+    const aggregated=carryRead.employees.find(e=>e.id==='oliwia-2027').data;
+    assert.equal(aggregated.remaining,55);assert.equal(aggregated.annualBalance.carryover,31);
+    assert.equal(aggregated.annualBalance.allowance,undefined);assert.equal(aggregated.annualBalance.used,undefined);
+    assert.equal(aggregated.annualBalance.pending,undefined);assert.equal(aggregated.redacted,true);
+    assert.ok(carryRead.requests.filter(r=>!carryRead.employeeIds.includes(r.data.employeeId)).every(r=>r.data.notes===undefined));
+    await denied(db.query("select private.vacation_annual_balance('oliwia-2027')"));
+    await denied(db.query('select * from vacation_change_watermark'));
+    await login(owner,'satis@pracowniasluchu.pl');await db.exec('reset role');
+    assert.deepEqual((await one("select data from vacation_requests where id='past-days'")).data,originalPast);
+    await pool('oliwia-duplicate','Oliwia Test',2025,26);
+    b=await balance('oliwia-2027');assert.equal(b.carryoverIssue,true);assert.equal(b.carryover,0);assert.equal(b.remaining,24);
+
     await db.exec("select set_config('request.jwt.claims','{}',false); set role anon;");
     await denied(submit());
     console.log('PASS: shared submission, pending/approved/rejected rereads, redaction, CAS retry, duplicates, holidays and role isolation.');
