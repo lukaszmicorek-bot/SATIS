@@ -17675,3 +17675,5 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-certificate-warning.mail-merge-certificate-expired { color: #a13e51; }
 .mail-merge-fields label.mail-merge-certificate-soon input { border-color: #c79a56; background: #fff9ed; }
 .mail-merge-fields label.mail-merge-certificate-expired input { border-color: #c56c7c; background: #fff3f5; }
+
+.mail-merge-fields :is(input, select).mail-merge-required-empty:not(:disabled):not([aria-invalid="true"]) { background-color: #f3f9f8; border-color: #c9dfdb; }

@@ -60,7 +60,7 @@ test('long text wraps or reduces size without silently discarding characters',()
 function fixture(overrides={}) {
   const nodes=new Map(),stored=new Map();let owner=true,prints=0,sequence=0,saveCalls=0,failure=null,pauseSave=null;
   class E {
-    constructor(tag){this.tag=tag;this.children=[];this.value='';this.checked=false;this.hidden=false;this.dataset={};this.style={};this.events={};this.attributes={};this._text='';this.className='';this.classList={add:n=>this.className+=' '+n,remove:n=>{this.className=this.className.replace(n,'');},toggle:(n,on)=>on?this.classList.add(n):this.classList.remove(n)};}
+    constructor(tag){this.tag=tag;this.children=[];this.value='';this.checked=false;this.hidden=false;this.dataset={};this.style={};this.events={};this.attributes={};this._text='';this.className='';this.classList={add:n=>{this.className=[...new Set([...this.className.split(/\s+/u).filter(Boolean),n])].join(' ');},remove:n=>{this.className=this.className.split(/\s+/u).filter(value=>value&&value!==n).join(' ');},toggle:(n,on)=>on?this.classList.add(n):this.classList.remove(n)};}
     set id(value){this._id=value;nodes.set(value,this);}get id(){return this._id;}
     set textContent(value){this._text=String(value);this.children=[];}get textContent(){return this._text+this.children.map(c=>c.textContent).join('');}
     append(...children){for(const child of children){child.parent=this;this.children.push(child);}}
@@ -443,4 +443,31 @@ test('certificate warning updates immediately on typing, selection, loading, res
   t.fill({certificateValidity:'periodic'});await t.nodes.get('mergecertificateValidity').emit('change');assert.equal(warning.hidden,false);
   t.fill({certificateUntil:'31.12.2027'});await t.nodes.get('mergecertificateUntil').emit('input');assert.equal(warning.hidden,true);
   t.api.clear();assert.equal(warning.textContent,'');
+});
+
+test('required empty fields have a gentle hint that disappears immediately when filled',async()=>{
+  const t=fixture(),hint=key=>t.nodes.get('merge'+key).className.includes('mail-merge-required-empty');
+  for(const key of ['firstName','middleName','surname','pesel','postal','city','phone','degree','certificateNumber','cost','monthlyIncome','householdSize'])assert.equal(hint(key),true,key);
+  for(const key of ['birthDate','own','personRole','itemCount','certificateUntil','subject2','orderNumber2'])assert.equal(hint(key),false,key);
+  t.fill({firstName:'Jan'});await t.nodes.get('mergefirstName').emit('input');assert.equal(hint('firstName'),false);
+  t.fill({firstName:'   '});await t.nodes.get('mergefirstName').emit('input');assert.equal(hint('firstName'),true);
+  t.fill({degree:'moderate'});await t.nodes.get('mergedegree').emit('change');assert.equal(hint('degree'),false);
+  t.fill({monthlyIncome:'0'});await t.nodes.get('mergemonthlyIncome').emit('input');assert.equal(hint('monthlyIncome'),false);
+  await t.click('Brak e-maila');assert.equal(hint('email'),false);
+  t.fill();await t.nodes.get('mergefirstName').emit('blur');
+  for(const key of ['firstName','surname','phone','city','certificateNumber','cost','monthlyIncome'])assert.equal(hint(key),false,key);
+  await t.click('Zapisz zmiany');await t.click('Nowy wniosek');assert.equal(hint('surname'),true);
+  await t.click('Edytuj');assert.equal(hint('surname'),false);assert.equal(hint('email'),false);t.api.clear();
+});
+test('required hints follow certificate validity, second product and automatic address completion',async()=>{
+  const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()}),hint=key=>t.nodes.get('merge'+key).className.includes('mail-merge-required-empty');
+  t.fill({certificateValidity:'periodic'});await t.nodes.get('mergecertificateValidity').emit('change');assert.equal(hint('certificateUntil'),true);
+  t.fill({certificateUntil:'31.12.2027'});await t.nodes.get('mergecertificateUntil').emit('input');assert.equal(hint('certificateUntil'),false);
+  t.fill({certificateValidity:'indefinite'});await t.nodes.get('mergecertificateValidity').emit('change');assert.equal(hint('certificateUntil'),false);
+  t.fill({itemCount:'2'});await t.nodes.get('mergeitemCount').emit('change');assert.equal(hint('subject2'),true);assert.equal(hint('orderNumber2'),true);
+  t.fill({itemCount:'1'});await t.nodes.get('mergeitemCount').emit('change');assert.equal(hint('subject2'),false);assert.equal(hint('orderNumber2'),false);
+  t.fill({postal:'34325'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(hint('city'),true);assert.equal(hint('municipality'),false);assert.equal(hint('postOffice'),false);
+  await t.click('34-325 · Bierna');assert.equal(hint('city'),false);
+  t.fill({postal:'99999'});await t.nodes.get('mergepostal').emit('input');assert.equal(hint('city'),true);assert.equal(hint('municipality'),true);t.api.clear();
 });

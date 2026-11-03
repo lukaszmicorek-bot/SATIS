@@ -240,6 +240,14 @@
       updateCertificateNotice();
       for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
       q("mailMergeFundingNote").textContent=second?"Kwoty poniżej dotyczą łącznie obu przedmiotów.":"Kwoty poniżej dotyczą jednego przedmiotu.";
+      updateRequiredHints();
+    }
+    function updateRequiredHints(){
+      const data=read(),missing=new Set(validate(data,a.validPesel).filter(error=>!String(data[error.field]??"").trim()).map(error=>error.field));
+      for(const [key,label]of labels){
+        const input=fields.get(key),active=!label.hidden&&!input.readOnly&&(key!=="certificateUntil"||data.certificateValidity==="periodic");
+        input.classList.toggle("mail-merge-required-empty",active&&missing.has(key));
+      }
     }
     function updateCertificateNotice(){
       const input=fields.get("certificateUntil"),label=labels.get("certificateUntil"),warning=q("mailMergeCertificateWarning");
@@ -423,7 +431,7 @@
     }
     function renderPreview() {
       clearTimeout(previewTimer);if(!authorized())return;
-      updateAmounts();updateCertificateNotice();
+      updateAmounts();updateCertificateNotice();updateRequiredHints();
       q("mailMergePreviewPages").replaceChildren(pages(read(),true));
       q("mailMergeCompleteness").textContent=`Kompletność do wydruku: ${new Set(issues(read(),true).map(error=>error.field)).size} pól wymaga sprawdzenia.`;
       q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
@@ -671,6 +679,7 @@
     host.replaceChildren(header,templatePanel,editor,database,preview);updatePrintMode();reset();renderRows();
     editor.addEventListener("submit",event=>{event.preventDefault();if(authorized()&&!busy)void saveDraft();});
     editor.addEventListener("input",changed);editor.addEventListener("change",changed);
+    for(const key of labels.keys())for(const event of ["input","change"])fields.get(key).addEventListener(event,updateRequiredHints);
     for(const key of uppercaseFields)fields.get(key).addEventListener("input",()=>{
       const input=fields.get(key),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
       if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
