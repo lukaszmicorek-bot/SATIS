@@ -192,7 +192,7 @@ test('ambiguous addresses require a choice and do not overwrite manually entered
 });
 
 test('all applicable fields are required for a completed application but absence may be explicit',()=>{
-  for(const key of ['middleName','flat','street','postOffice','email','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
+  for(const key of ['middleName','street','postOffice','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
     assert.ok(m.validate({...example,[key]:''},()=>true).some(error=>error.field===key),key);
   }
   assert.equal(m.validate({...example,middleName:'-',street:'-',flat:'-',email:'-',applicationNumber:'-'},()=>true).length,0);
@@ -470,4 +470,24 @@ test('required hints follow certificate validity, second product and automatic a
   assert.equal(hint('city'),true);assert.equal(hint('municipality'),false);assert.equal(hint('postOffice'),false);
   await t.click('34-325 · Bierna');assert.equal(hint('city'),false);
   t.fill({postal:'99999'});await t.nodes.get('mergepostal').emit('input');assert.equal(hint('city'),true);assert.equal(hint('municipality'),true);t.api.clear();
+});
+
+test('new applications default to hearing aids and same mailing address, while stored choices are preserved',async()=>{
+  const t=fixture();assert.equal(t.nodes.get('mergesubject').value,'Aparaty słuchowe');assert.equal(t.nodes.get('mergeSameAddress').checked,true);
+  assert.match(t.nodes.get('mailMergePreviewPages').textContent,/Aparaty słuchowe/);
+  t.fill({...example,subject:'Wkładka uszna',email:'',flat:''});t.nodes.get('mergeSameAddress').checked=false;
+  await t.click('Zapisz');assert.equal(t.stored.size,1);
+  const saved=[...t.stored.values()][0].data;assert.equal(saved.sameAddress,false);assert.equal(saved.subject,'Wkładka uszna');
+  assert.equal(saved.email,'');assert.equal(saved.flat,'');
+  await t.click('Nowy wniosek');assert.equal(t.nodes.get('mergesubject').value,'Aparaty słuchowe');assert.equal(t.nodes.get('mergeSameAddress').checked,true);
+  await t.click('Edytuj');assert.equal(t.nodes.get('mergesubject').value,'Wkładka uszna');assert.equal(t.nodes.get('mergeSameAddress').checked,false);t.api.clear();
+});
+test('email and apartment number are optional without empty-field highlighting but entered email is validated',async()=>{
+  const data={...example,email:'',flat:''};assert.equal(m.validate(data,()=>true).length,0);assert.equal(m.draftValidate(data,()=>true).length,0);
+  assert.ok(m.draftValidate({...data,email:'bledny-adres'},()=>true).some(error=>error.field==='email'));
+  const t=fixture();
+  for(const key of ['email','flat'])assert.doesNotMatch(t.nodes.get('merge'+key).className,/mail-merge-required-empty/);
+  t.fill(data);await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
+  const printed=t.nodes.get('mailMergePrint').textContent;assert.match(printed,/Testowy/);
+  assert.equal(m.placements(data).some(item=>['email','flat'].includes(item.field)),false);t.api.clear();
 });
