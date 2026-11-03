@@ -447,3 +447,27 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
   assert.equal(scope.findShortcut('dorota').name, 'Dorota Mikosz-Micorek');
   assert.equal(scope.findShortcut('justyna').name, 'Justyna Testowa');
 });
+
+test('gabinet has only the 2026 norm set; SATIS retains both choices after an account switch',()=>{
+  function extract(name){const start=app.indexOf(`function ${name}(`);const rest=app.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);}
+  const select={value:'neuroflow',dataset:{},options:[],querySelector(){return this.options.find(o=>o.value==='neuroflow')||null;},prepend(o){o.remove=()=>{this.options=this.options.filter(item=>item!==o);};this.options.unshift(o);}};
+  select.prepend({value:'table-pdf'});select.prepend({value:'neuroflow'});
+  const note={hidden:true};
+  const ctx=vm.createContext({owner:false,capdNormSourceSelect:select,canViewPrivateModules:()=>ctx.owner,
+    document:{createElement:()=>({}),querySelector:()=>note}});
+  for(const name of ['updateCapdHistoricalNormNote','updateCapdNormSourceAccess'])vm.runInContext(extract(name),ctx);
+  ctx.updateCapdNormSourceAccess();ctx.updateCapdNormSourceAccess();
+  assert.deepEqual(select.options.map(o=>o.value),['table-pdf']);assert.equal(select.value,'table-pdf');
+  assert.equal(select.dataset.previous,'table-pdf');
+  ctx.owner=true;ctx.updateCapdNormSourceAccess();ctx.updateCapdNormSourceAccess();
+  assert.deepEqual(select.options.map(o=>o.value),['neuroflow','table-pdf']);
+  select.value='neuroflow';ctx.owner=false;ctx.updateCapdNormSourceAccess();
+  assert.equal(select.value,'table-pdf');assert.deepEqual(select.options.map(o=>o.value),['table-pdf']);
+  select.dataset.savedNormSource='neuroflow';ctx.updateCapdHistoricalNormNote();assert.equal(note.hidden,false);
+  assert.match(extract('currentCapdSnapshot'),/normSource: capdNormSourceSelect\?\.dataset.savedNormSource/);
+  const restore=app.slice(app.indexOf('function restoreCapdHistoryEntry('),app.indexOf('async function deleteCapdHistoryEntry('));
+  assert.ok(restore.indexOf('normInput.value = savedResult.norm')<restore.indexOf('dataset.savedNormSource = historyEntry.normSource'));
+  assert.match(extract('resetCapdForm'),/delete capdNormSourceSelect.dataset.savedNormSource/);
+  assert.match(extract('syncCapdNormsForAge'),/if \(force && capdNormSourceSelect\)/);
+  assert.match(extract('updatePrivateModulesVisibility'),/updateCapdNormSourceAccess\(\)/);
+});

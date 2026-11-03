@@ -1481,6 +1481,7 @@ function updatePrivateModulesVisibility() {
     button.hidden = !permitted;
     button.disabled = !permitted;
   });
+  updateCapdNormSourceAccess();
   if (vacationEmployeeAdmin) vacationEmployeeAdmin.hidden = !ownerVisible;
   updateVacationOwnerLeaveField();
   if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible || !vacationCanViewBalance(selectedVacationEmployee());
@@ -21016,6 +21017,29 @@ function setCapdPeselStatus(message = "", state = "") {
   capdPeselStatus.dataset.state = state;
 }
 
+function updateCapdHistoricalNormNote() {
+  const note = document.querySelector("#capdHistoricalNormNote");
+  if (note) note.hidden = !capdNormSourceSelect?.dataset.savedNormSource;
+}
+
+function updateCapdNormSourceAccess() {
+  if (!capdNormSourceSelect) return;
+  const option = capdNormSourceSelect.querySelector('option[value="neuroflow"]');
+  if (canViewPrivateModules()) {
+    if (!option) {
+      const restored = document.createElement("option");
+      restored.value = "neuroflow";
+      restored.textContent = "Neuroflow / APD-Medical 2016–2017";
+      capdNormSourceSelect.prepend(restored);
+    }
+  } else {
+    option?.remove();
+    capdNormSourceSelect.value = "table-pdf";
+  }
+  capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
+  updateCapdHistoricalNormNote();
+}
+
 function capdNormSourceAge(age, source = "neuroflow") {
   const numericAge = Number(age);
   if (!Number.isFinite(numericAge)) return null;
@@ -21206,6 +21230,10 @@ function updateCapdTestEvaluation(item) {
 }
 
 function syncCapdNormsForAge({ force = false } = {}) {
+  if (force && capdNormSourceSelect) {
+    delete capdNormSourceSelect.dataset.savedNormSource;
+    updateCapdHistoricalNormNote();
+  }
   ensureCapdNormEditors();
   const age = capdAgeValue();
   document.querySelectorAll("#capdTestsPanel [data-capd-code]").forEach((item) => {
@@ -21986,7 +22014,7 @@ function currentCapdSnapshot() {
     pesel: String(capdPeselInput?.value || "").replace(/\D/g, ""),
     birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
     age: age ?? "",
-    normSource: capdNormSourceSelect?.value || "neuroflow",
+    normSource: capdNormSourceSelect?.dataset.savedNormSource || capdNormSourceSelect?.value || "neuroflow",
     testDate: isoDateForSave(capdDateInput?.value || ""),
     location: documentLocationKey(capdLocationInput?.value),
     examiner: titleCaseName(capdExaminerInput?.value || ""),
@@ -22136,7 +22164,8 @@ function restoreCapdHistoryEntry(entry) {
   });
   if (capdNormSourceSelect) {
     capdNormSourceSelect.value = historyEntry.normSource || "neuroflow";
-    capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
+    delete capdNormSourceSelect.dataset.savedNormSource;
+    updateCapdNormSourceAccess();
   }
   updateCapdFromPesel();
   if (historyEntry.age !== "") {
@@ -22152,6 +22181,10 @@ function restoreCapdHistoryEntry(entry) {
     normInput.dataset.manual = "1";
     updateCapdTestEvaluation(item);
   });
+  if (capdNormSourceSelect && !canViewPrivateModules() && historyEntry.normSource !== "table-pdf") {
+    capdNormSourceSelect.dataset.savedNormSource = historyEntry.normSource;
+  }
+  updateCapdHistoricalNormNote();
   renderCapdReport();
   capdForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -22379,6 +22412,8 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  if (capdNormSourceSelect) delete capdNormSourceSelect.dataset.savedNormSource;
+  updateCapdNormSourceAccess();
   if (capdNormSourceSelect) capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
   if (capdExaminerBadgeName) capdExaminerBadgeName.textContent = "Nie wybrano";
   activeCapdPractitionerProfileId = "";
