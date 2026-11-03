@@ -166,8 +166,10 @@
     const items=applicationItems(data);
     if(items.length===1){cell(5,"subject",224.6,244.2,185,563);cell(5,"orderNumber",244.2,264,185,563);}
     else{
-      add(5,"subject",185,225.0,378,19.2,items.map((item,index)=>`${index+1}. ${item.subject}`).join("\n"));
-      add(5,"orderNumber",185,244.5,378,19.2,items.map((item,index)=>`${index+1}. ${item.orderNumber}`).join("\n"));
+      for(const [field,y,height]of [["subject",226,16.8],["orderNumber",245.6,17]]){
+        add(5,field,185,y,378,height,items.map((item,index)=>`${index+1}. ${String(item[field]||"").trim().replace(/\s+/gu," ")}`).join("\n"));
+        result.at(-1).fit={maxSize:8,minSize:6.5,wrap:false};
+      }
     }
     const sums = amounts(data);
     for (const [key, y, bottom, totalY, totalBottom] of [["cost",264,283.7,420.9,440.7],["nfz",283.7,303.4,440.7,460.4],["own",303.4,336.7,460.4,480.1],["requested",336.7,368.9,480.1,512.5]]) {
@@ -176,14 +178,14 @@
     for(const item of result)if(uppercaseFields.includes(item.field))item.text=item.text.toLocaleUpperCase("pl-PL");
     return result;
   }
-  function fitText(text, width, height, measure) {
-    for (let size = 10.5; size >= 8; size -= 0.5) {
-      const lines = [];let line = "";
-      for (const character of String(text)) {
+  function fitText(text, width, height, measure, options={}) {
+    for (let size = options.maxSize??10.5; size >= (options.minSize??8); size -= options.wrap===false?0.25:0.5) {
+      const lines = options.wrap===false?String(text).split("\n"):[];let line = "";
+      if(options.wrap!==false)for (const character of String(text)) {
         if (character === "\n" || measure(line + character, size) > width - 2) {lines.push(line);line = character === "\n" ? "" : character;}
         else line += character;
       }
-      lines.push(line);
+      if(options.wrap!==false)lines.push(line);
       if (lines.length * size * 1.05 <= height && lines.every(line => measure(line,size) <= width-2)) return {text: lines.join("\n"), size};
     }
     return null;
@@ -439,7 +441,7 @@
       if(full && data.personRole==="applicant" && a.validPesel(data.pesel) && a.age(data.pesel)<18)errors.push({field:"personRole",text:"Dla osoby niepełnoletniej wybierz dane podopiecznego. Dane opiekuna uzupełnij osobno."});
       const postalPlaces=geographyPostalMatches(geoIndex,data.postal);
       if(full && data.city && postalPlaces.length && !postalPlaces.some(item=>normalize(item.city)===normalize(data.city)))errors.push({field:"postal",text:"Kod pocztowy i miejscowość nie pasują do zweryfikowanego słownika. Sprawdź adres."});
-      if(full)for(const item of placements(data))if(!fitText(item.text,item.width,item.height,a.measure))errors.push({field:item.field,text:"Tekst nie mieści się w polu oryginalnego wniosku. Skróć go przed wydrukiem."});
+      if(full)for(const item of placements(data))if(!fitText(item.text,item.width,item.height,a.measure,item.fit))errors.push({field:item.field,text:"Tekst nie mieści się w polu oryginalnego wniosku. Skróć go przed wydrukiem."});
       return errors;
     }
     function markIssues(errors) {
@@ -459,10 +461,11 @@
         background.src=template?.images[page-1]||`mail-merge/page-${page}.svg`;background.alt=`Wniosek PCPR Żywiec · strona ${page} z ${template?.count||7}`;
         if(preview)background.loading="lazy";sheet.append(background);
         for(const item of marks.filter(item=>item.page===page)){
-          const fit=fitText(item.text,item.width,item.height,a.measure);
+          const fit=fitText(item.text,item.width,item.height,a.measure,item.fit);
           if(!fit){if(!preview)throw new Error("Tekst nie mieści się w oryginalnym polu wniosku.");oversized=true;continue;}
           const value=node("span","mail-merge-value",fit.text);
           Object.assign(value.style,{left:`${item.x/PAGE.width*100}%`,top:`${item.y/PAGE.height*100}%`,width:`${item.width/PAGE.width*100}%`,fontSize:`${fit.size/PAGE.width*100}cqw`});
+          if(item.fit){value.classList.add("mail-merge-fitted-items");value.style.height=`${item.height/PAGE.height*100}%`;}
           if(item.checkbox)value.classList.add("mail-merge-locality-choice");
           if(["monthlyIncome","householdSize"].includes(item.field)){
             value.classList.add("mail-merge-filled-line");value.style.height=`${item.height/PAGE.height*100}%`;
