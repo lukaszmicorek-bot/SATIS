@@ -262,7 +262,7 @@ test('one or two products keep their order numbers paired and require the second
   assert.match(t.nodes.get('mailMergeMessage').textContent,/Numer zlecenia 2/);
   t.fill({orderNumber2:'NFZ-2'});await t.click('Zapisz zmiany');const saved=[...t.stored.values()][0].data;
   assert.equal(saved.subject2,'Aparat L');assert.equal(saved.orderNumber2,'NFZ-2');
-  const marks=m.placements(saved);assert.match(marks.find(item=>item.field==='subject').text,/2\. Aparat L/);
+  const marks=m.placements(saved);assert.equal(marks.find(item=>item.field==='subject').text,saved.subject);
   assert.match(marks.find(item=>item.field==='orderNumber').text,/2\. NFZ-2/);
   for(const item of marks)assert.ok(m.fitText(item.text,item.width,item.height,(text,size)=>text.length*size*0.5),item.field);
   t.fill({itemCount:'1'});await t.nodes.get('mergeitemCount').emit('change');assert.equal(t.nodes.get('mergesubject2').value,'');assert.equal(t.nodes.get('mergesubject2').parent.hidden,true);t.api.clear();
@@ -572,13 +572,13 @@ test('bank name is uppercase on typing, paste, save without blur, reopening and 
   assert.equal(m.placements({...example,bankName:'bank testowy'}).find(item=>item.field==='bankName').text,'BANK TESTOWY');t.api.clear();
 });
 
-test('two product lines shrink to their original cells without wrapping into extra lines',()=>{
+test('first product description and both order numbers fit their original cells without extra lines',()=>{
   const data={...example,itemCount:'2',subject:'Aparat słuchowy Phonak Audeo Lumity L90-R Trial / dłuższa nazwa modelu',subject2:'Aparat słuchowy Philips HearLink 9050 MNR T R Demo / model do testowania',orderNumber:'1/P.01.01.00/2026/1234567890',orderNumber2:'2/P.01.01.00/2026/0987654321'};
   const measure=(text,size)=>text.length*size*0.72;
   for(const item of m.placements(data).filter(item=>['subject','orderNumber'].includes(item.field))){
     const fit=m.fitText(item.text,item.width,item.height,measure,item.fit);assert.ok(fit,item.field);
-    assert.equal(fit.text,item.text);assert.equal(fit.text.split('\n').length,2);assert.ok(fit.size>=6.5&&fit.size<=8);
-    assert.ok(fit.text.split('\n').every(line=>measure(line,fit.size)<=item.width-2));assert.ok(2*fit.size*1.05<=item.height);
+    const lines=item.field==='subject'?1:2;assert.equal(fit.text,item.text);assert.equal(fit.text.split('\n').length,lines);assert.ok(fit.size>=6.5&&fit.size<=item.fit.maxSize);
+    assert.ok(fit.text.split('\n').every(line=>measure(line,fit.size)<=item.width-2));assert.ok(lines*fit.size*1.05<=item.height);
     const [top,bottom]=item.field==='subject'?[224.6,244.2]:[244.2,264];assert.ok(item.y>=top+1);assert.ok(item.y+item.height<=bottom-1);
   }
   const long=m.placements({...data,subject:'X'.repeat(1000)}).find(item=>item.field==='subject');
@@ -588,9 +588,19 @@ test('preview and printing use identical compact fitting for two products, witho
   const t=fixture();t.fill({...example,itemCount:'2',subject:'Aparat słuchowy / model testowy',subject2:'Aparat słuchowy / drugi model testowy',orderNumber2:'NFZ-2'});
   await t.nodes.get('mergefirstName').emit('blur');
   const preview=t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-fitted-items');assert.equal(preview.length,2);
-  assert.ok(preview.every(item=>item.textContent.split('\n').length===2&&item.style.height));
+  assert.deepEqual(preview.map(item=>item.textContent.split('\n').length),[1,2]);assert.ok(preview.every(item=>item.style.height));
+  assert.equal(preview[0].textContent,'Aparat słuchowy / model testowy');
   await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   const printed=t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-fitted-items');
   assert.deepEqual(printed.map(item=>[item.textContent,item.style.fontSize,item.style.height]),preview.map(item=>[item.textContent,item.style.fontSize,item.style.height]));
   assert.equal(t.nodes.get('mergesubject2').value,'Aparat słuchowy / drugi model testowy');t.api.clear();
+});
+
+test('two items print only the first description, without numbering or repeating a second description',()=>{
+  const marks=m.placements({...example,itemCount:'2',subject:'Aparaty słuchowe',subject2:'Inny opis drugiej pozycji',orderNumber:'NFZ-1',orderNumber2:'NFZ-2'});
+  assert.equal(marks.filter(item=>item.field==='subject').length,1);assert.equal(marks.find(item=>item.field==='subject').text,'Aparaty słuchowe');
+  assert.equal(marks.find(item=>item.field==='orderNumber').text,'1. NFZ-1\n2. NFZ-2');
+  assert.equal(marks.some(item=>item.text.includes('Inny opis drugiej pozycji')),false);
+  const empty=m.placements({...example,itemCount:'2',subject:'',subject2:'Nie zastępuje pierwszego'});
+  assert.equal(empty.some(item=>item.field==='subject'),false);assert.equal(empty.filter(item=>item.fit).length,1);
 });

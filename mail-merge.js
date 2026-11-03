@@ -167,8 +167,11 @@
     if(items.length===1){cell(5,"subject",224.6,244.2,185,563);cell(5,"orderNumber",244.2,264,185,563);}
     else{
       for(const [field,y,height]of [["subject",226,16.8],["orderNumber",245.6,17]]){
-        add(5,field,185,y,378,height,items.map((item,index)=>`${index+1}. ${String(item[field]||"").trim().replace(/\s+/gu," ")}`).join("\n"));
-        result.at(-1).fit={maxSize:8,minSize:6.5,wrap:false};
+        const content=field==="subject"?String(items[0].subject||"").trim().replace(/\s+/gu," ")
+          :items.map((item,index)=>`${index+1}. ${String(item.orderNumber||"").trim().replace(/\s+/gu," ")}`).join("\n");
+        if(!content)continue;
+        add(5,field,185,y,378,height,content);
+        result.at(-1).fit={maxSize:field==="subject"?10.5:8,minSize:6.5,wrap:false};
       }
     }
     const sums = amounts(data);
