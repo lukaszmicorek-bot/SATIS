@@ -171,7 +171,7 @@
           :items.map((item,index)=>`${index+1}. ${String(item.orderNumber||"").trim().replace(/\s+/gu," ")}`).join("\n");
         if(!content)continue;
         add(5,field,185,y,378,height,content);
-        result.at(-1).fit={maxSize:field==="subject"?10.5:8,minSize:6.5,wrap:false};
+        result.at(-1).fit={maxSize:field==="subject"?10.5:8,minSize:6.5,wrap:false,...(field==="orderNumber"?{numberWidth:18}:{})};
       }
     }
     const sums = amounts(data);
@@ -189,7 +189,7 @@
         else line += character;
       }
       if(options.wrap!==false)lines.push(line);
-      if (lines.length * size * 1.05 <= height && lines.every(line => measure(line,size) <= width-2)) return {text: lines.join("\n"), size};
+      if (lines.length * size * 1.05 <= height && lines.every(line => measure(options.numberWidth?line.replace(/^\d+\.\s/u,""):line,size) <= width-2-(options.numberWidth||0))) return {text: lines.join("\n"), size};
     }
     return null;
   }
@@ -466,7 +466,15 @@
         for(const item of marks.filter(item=>item.page===page)){
           const fit=fitText(item.text,item.width,item.height,a.measure,item.fit);
           if(!fit){if(!preview)throw new Error("Tekst nie mieści się w oryginalnym polu wniosku.");oversized=true;continue;}
-          const value=node("span","mail-merge-value",fit.text);
+          const value=node("span","mail-merge-value",item.fit?.numberWidth?undefined:fit.text);
+          if(item.fit?.numberWidth){
+            const lines=fit.text.split("\n");
+            lines.forEach((line,index)=>{
+              const row=node("span","mail-merge-order-line");row.style.gridTemplateColumns=`${item.fit.numberWidth/PAGE.width*100}cqw minmax(0,1fr)`;
+              row.append(node("span","mail-merge-order-index",`${index+1}. `),node("span","mail-merge-order-text",line.replace(/^\d+\.\s/u,"")));value.append(row);
+              if(index<lines.length-1)value.append(node("span","mail-merge-order-break","\n"));
+            });
+          }
           Object.assign(value.style,{left:`${item.x/PAGE.width*100}%`,top:`${item.y/PAGE.height*100}%`,width:`${item.width/PAGE.width*100}%`,fontSize:`${fit.size/PAGE.width*100}cqw`});
           if(item.fit){value.classList.add("mail-merge-fitted-items");value.style.height=`${item.height/PAGE.height*100}%`;}
           if(item.checkbox)value.classList.add("mail-merge-locality-choice");
@@ -779,6 +787,13 @@
     });
     for(const event of ["input","change","blur"])fields.get("certificateUntil").addEventListener(event,updateCertificateNotice);
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});
+    fields.get("householdType").addEventListener("change",()=>{
+      if(!authorized()||busy)return;
+      if(fields.get("householdType").value==="individual"){
+        const size=fields.get("householdSize");size.value="1";size.setCustomValidity("");size.removeAttribute("aria-invalid");
+      }
+      changed();renderPreview();
+    });
     fields.get("paymentMode").addEventListener("change",()=>{changed();renderPreview();});
     fields.get("bankAccount").addEventListener("input",()=>{
       const input=fields.get("bankAccount"),before=input.value,caret=input.selectionStart;

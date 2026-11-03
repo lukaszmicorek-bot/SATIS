@@ -604,3 +604,23 @@ test('two items print only the first description, without numbering or repeating
   const empty=m.placements({...example,itemCount:'2',subject:'',subject2:'Nie zastępuje pierwszego'});
   assert.equal(empty.some(item=>item.field==='subject'),false);assert.equal(empty.filter(item=>item.fit).length,1);
 });
+
+test('two order numbers use a fixed number column, equal font size and aligned text starts in preview and print',async()=>{
+  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparaty słuchowe',orderNumber:'111111/2026',orderNumber2:'222222/2026'});
+  await t.nodes.get('mergefirstName').emit('blur');
+  const rows=t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-order-line');assert.equal(rows.length,2);
+  assert.equal(rows[0].style.gridTemplateColumns,rows[1].style.gridTemplateColumns);
+  assert.deepEqual(rows.map(row=>row.children[0].textContent),['1. ','2. ']);
+  assert.deepEqual(rows.map(row=>row.children[1].textContent),['111111/2026','222222/2026']);
+  await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
+  assert.deepEqual(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-order-line').map(row=>row.style.gridTemplateColumns),rows.map(row=>row.style.gridTemplateColumns));t.api.clear();
+});
+test('individual household immediately sets one person, updates preview and stores it without changing shared counts on load',async()=>{
+  const t=fixture();t.fill({...example,householdSize:'4',householdType:'shared'});
+  t.fill({householdType:'individual'});await t.nodes.get('mergehouseholdType').emit('change');
+  assert.equal(t.nodes.get('mergehouseholdSize').value,'1');assert.doesNotMatch(t.nodes.get('mergehouseholdSize').className,/mail-merge-required-empty/);
+  await t.click('Zapisz');assert.equal([...t.stored.values()][0].data.householdSize,'1');
+  t.fill({householdType:'shared'});await t.nodes.get('mergehouseholdType').emit('change');
+  t.fill({householdSize:'3'});await t.click('Zapisz zmiany');await t.click('Nowy wniosek');await t.click('Edytuj');
+  assert.equal(t.nodes.get('mergehouseholdSize').value,'3');assert.equal(t.nodes.get('mergehouseholdType').value,'shared');t.api.clear();
+});

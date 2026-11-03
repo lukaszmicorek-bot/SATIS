@@ -17700,3 +17700,8 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-group-bank .mail-merge-contractor input { width: 17px; height: 17px; flex: 0 0 17px; margin: 0; accent-color: #007b7d; }
 
 .mail-merge-value.mail-merge-fitted-items { display: block; padding: 0; margin: 0; border: 0; line-height: 1.05; white-space: pre; }
+
+.mail-merge-order-line { display: grid; align-items: baseline; width: 100%; }
+.mail-merge-order-index { text-align: right; }
+.mail-merge-order-text { min-width: 0; text-align: left; }
+.mail-merge-order-break { display: none; }
