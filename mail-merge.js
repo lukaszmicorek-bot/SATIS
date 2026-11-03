@@ -5,6 +5,7 @@
 })(typeof window === "undefined" ? null : window, function () {
   "use strict";
   const PAGE = {width: 595.32, height: 841.92};
+  const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2"];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
   const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "applicationNumber", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize"];
   function parseMoney(value) {
@@ -115,7 +116,6 @@
     if (data.certificateValidity === "indefinite") tick(3,"certificateValidity",201.8,373.6);
     if (data.certificateValidity === "periodic") {tick(3,"certificateValidity",201.8,387.4);add(3,"certificateUntil",352,387,185,13);}
     cell(3,"certificateNumber",415.8,435.3,203.5,563);
-    const certificate=result.find(item=>item.field==="certificateNumber");if(certificate)certificate.text=certificate.text.toLocaleUpperCase("pl-PL");
     const income=parseMoney(data.monthlyIncome);
     if(income!==null)add(4,"monthlyIncome",28.3,657.7,230,14,money(income));
     if(/^[1-9]\d?$/u.test(data.householdSize||""))add(4,"householdSize",28.3,699.1,230,14);
@@ -130,6 +130,7 @@
       if (sums[key] !== null) {add(5,key,185,y+3,378,bottom-y-6,money(sums[key]));add(5,`${key}Total`,240,totalY+3,323,totalBottom-totalY-6,money(sums[key]));}
     }
     if (data.applicationNumber) add(1,"applicationNumber",98,135.9,151,15);
+    for(const item of result)if(uppercaseFields.includes(item.field))item.text=item.text.toLocaleUpperCase("pl-PL");
     return result;
   }
   function fitText(text, width, height, measure) {
@@ -202,7 +203,7 @@
       return result.data;
     }
     function enrich(data) {
-      return {...data,itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateNumber:String(data.certificateNumber||"").toLocaleUpperCase("pl-PL"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
+      return {...data,...Object.fromEntries(uppercaseFields.map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")])),itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
         role:data.firstName && data.personRole!=="ward"?"we własnym imieniu":"",
         gender:a.validPesel(data.pesel)?Number(data.pesel[9])%2?"male":"female":data.gender||""};
     }
@@ -233,7 +234,7 @@
       put("city",a.city(fields.get("city").value));
       put("street",fields.get("street").value.trim() === "-" ? "-" : a.street?a.street(fields.get("street").value):a.name(fields.get("street").value));
       for(const key of ["house","flat"])put(key,fields.get(key).value.trim().toLocaleUpperCase("pl-PL"));
-      put("certificateNumber",fields.get("certificateNumber").value.toLocaleUpperCase("pl-PL"));
+      for(const key of uppercaseFields)put(key,fields.get(key).value.toLocaleUpperCase("pl-PL"));
       if(fields.get("certificateValidity").value==="indefinite")put("certificateUntil","");
       put("postal",a.postal(fields.get("postal").value));put("phone",a.phone(fields.get("phone").value));
       return updated;
@@ -641,8 +642,8 @@
     host.replaceChildren(header,templatePanel,editor,database,preview);updatePrintMode();reset();renderRows();
     editor.addEventListener("submit",event=>{event.preventDefault();if(authorized()&&!busy)void saveDraft();});
     editor.addEventListener("input",changed);editor.addEventListener("change",changed);
-    fields.get("certificateNumber").addEventListener("input",()=>{
-      const input=fields.get("certificateNumber"),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
+    for(const key of uppercaseFields)fields.get(key).addEventListener("input",()=>{
+      const input=fields.get(key),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
       if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
     });
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});

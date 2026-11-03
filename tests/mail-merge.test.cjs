@@ -395,3 +395,19 @@ test('county scope filters defensive index construction, including any mixed or 
   const index=m.geographyIndex(data);
   assert.deepEqual(m.geographyMatches(index,'Bielsko-Biała'),[]);assert.deepEqual(m.geographyPostalMatches(index,'43-300'),[]);
 });
+
+test('both order numbers become uppercase on input, paste, save without blur, reopening and print',async()=>{
+  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber:'nfz ab/2026',orderNumber2:'nfz cd-2/2026'});
+  const first=t.nodes.get('mergeorderNumber');first.selectionStart=4;first.selectionEnd=6;
+  let selection;first.setSelectionRange=(start,end)=>{selection=[start,end];};
+  await first.emit('input');await t.nodes.get('mergeorderNumber2').emit('input');
+  assert.equal(first.value,'NFZ AB/2026');assert.deepEqual(selection,[4,6]);assert.equal(t.nodes.get('mergeorderNumber2').value,'NFZ CD-2/2026');
+  t.fill({orderNumber:'nfz ef/2026',orderNumber2:'nfz gh/2026'});await t.click('Zapisz');
+  const entry=[...t.stored.values()][0];assert.equal(entry.data.orderNumber,'NFZ EF/2026');assert.equal(entry.data.orderNumber2,'NFZ GH/2026');
+  entry.data.orderNumber='stare ab/2025';entry.data.orderNumber2='stare cd/2025';await t.click('Edytuj');
+  assert.equal(first.value,'STARE AB/2025');assert.equal(t.nodes.get('mergeorderNumber2').value,'STARE CD/2025');
+  assert.match(t.nodes.get('mailMergePreviewPages').textContent,/STARE AB\/2025/);
+  const one=m.placements({...example,orderNumber:'nfz ab/2026'}).find(item=>item.field==='orderNumber');assert.equal(one.text,'NFZ AB/2026');
+  const two=m.placements({...example,itemCount:'2',orderNumber:'nfz ab/2026',orderNumber2:'nfz cd/2026'}).find(item=>item.field==='orderNumber');
+  assert.equal(two.text,'1. NFZ AB/2026\n2. NFZ CD/2026');t.api.clear();
+});

@@ -1,5 +1,5 @@
 {
-  "app_version": "20261103-2",
+  "app_version": "20261103-3",
   "asset_policy_sha256": "45c5d6208dd2c4760f8246eca368809f0caa37eae09a72e623e21a4bbe342a99",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -48,15 +48,15 @@
     },
     "index.html": {
       "bytes": 458642,
-      "sha256": "6f421f9912153a13a648eaf0ba030a534a3a3a76efa2a86ea67e86dd6fba7560"
+      "sha256": "69343dc3b008522e17e897c175b714d6089257ab47410a02b5544a3f40c5f265"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5856,
       "sha256": "5a8a3189ba2dac14bb9441898ab2742ca0f13c5981938cebf635f66b019f661b"
     },
     "mail-merge.js": {
-      "bytes": 64505,
-      "sha256": "b8dce90ad1bd02da104772d2b95758f6525d02db82d1027785aef34d0ecc4829"
+      "bytes": 64577,
+      "sha256": "f28d98cb61dee0ca8a0f909f567b8b401eff2395552496a567f5bbeb6e189e4a"
     },
     "mail-merge/geography.json": {
       "bytes": 3641,
@@ -164,7 +164,7 @@
     },
     "offline-sw.js": {
       "bytes": 3265,
-      "sha256": "72d646c6c7a0b893be5eb622191d8bf0bf1a2323e0bba258201fff976775773f"
+      "sha256": "fa1948cf7357157a99bba3737de03d1b74b92fea24991253e214f00d85823840"
     },
     "offline-vault.js": {
       "bytes": 5688,
