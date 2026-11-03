@@ -27,7 +27,7 @@ def build(pdf, terc, simc, output):
             counties[row["WOJ"] + row["POW"]] = label
     administration = {row["WOJ"]+row["POW"]+row["GMI"]+row["RODZ"]:
         [row["NAZWA"], counties[row["WOJ"]+row["POW"]], provinces[row["WOJ"]]]
-        for row in units if row["GMI"]}
+        for row in units if row["GMI"] and row["WOJ"]+row["POW"] == "2417"}
     places = []
     for row in rows(simc):
         code = row["WOJ"]+row["POW"]+row["GMI"]+row["RODZ_GMI"]
@@ -35,7 +35,7 @@ def build(pdf, terc, simc, output):
             places.append([row["NAZWA"],code,row["SYM"],"miasto" if row["RM"] == "96" else ""])
     data = {"downloaded":"2026-11-02", "source":"GUS TERYT · TERC i SIMC",
         "sourceUrl":"https://eteryt.stat.gov.pl/eTeryt/rejestr_teryt/udostepnianie_danych/baza_teryt/uzytkownicy_indywidualni/pobieranie/pliki_pelne.aspx?contrast=default",
-        "units":administration,"places":places}
+        "countyScope":"2417","scopeLabel":"powiat żywiecki","units":administration,"places":places}
     (output/"geography.json").write_text(json.dumps(data,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
     for page in range(1,8):
         target = output/f"page-{page}.svg"

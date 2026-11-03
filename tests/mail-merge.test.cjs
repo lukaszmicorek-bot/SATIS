@@ -18,14 +18,13 @@ test('amounts use integer cents and reject invalid grants or malformed money',()
   assert.ok(m.validate({...example,postal:'34300'},()=>false).some(error=>error.field==='pesel'));
   assert.deepEqual(m.splitName('Jan Adam Testowy'),{firstName:'Jan',middleName:'Adam',surname:'Testowy'});
 });
-test('GUS dictionary distinguishes Bielsko-Biała city county and never guesses between namesakes',()=>{
-  const data=JSON.parse(fs.readFileSync(path.join(root,'mail-merge/geography.json'),'utf8'));
-  const index=m.geographyIndex(data);
-  assert.ok(data.places.length>50000);
-  const bielsko=m.geographyMatches(index,'bielsko-biala');assert.equal(bielsko.length,1);
-  assert.match(bielsko[0].county,/miasto na prawach powiatu/);assert.equal(bielsko[0].province,'śląskie');
+test('GUS dictionary is limited to Żywiec county and stays small enough for immediate loading',()=>{
+  const filename=path.join(root,'mail-merge/geography.json');
+  const data=JSON.parse(fs.readFileSync(filename,'utf8')),index=m.geographyIndex(data);
+  assert.equal(data.countyScope,'2417');assert.equal(data.places.length,69);assert.equal(Object.keys(data.units).length,15);
+  assert.ok(data.places.every(place=>place[1].startsWith('2417')));assert.ok(fs.statSync(filename).size<10000);
   assert.equal(m.geographyMatches(index,'zywiec')[0].county,'żywiecki');
-  assert.ok(m.geographyMatches(index,'Cieszyn').length>1);
+  assert.deepEqual(m.geographyMatches(index,'Bielsko-Biała'),[]);assert.deepEqual(m.geographyMatches(index,'Cieszyn'),[]);
   assert.deepEqual(m.geographyMatches(index,'Nieznana Testowa Miejscowość'),[]);
 });
 test('checkbox marks fit realistic font widths without blocking valid printouts',()=>{
@@ -203,7 +202,7 @@ test('GUS resolves city and rural municipality kind without guessing between nam
   const index=m.geographyIndex(JSON.parse(fs.readFileSync(path.join(root,'mail-merge/geography.json'),'utf8')));
   assert.equal(m.geographyMatches(index,'Żywiec')[0].kind,'miasto');
   assert.equal(m.geographyMatches(index,'Łodygowice')[0].kind,'wieś');
-  assert.equal(new Set(m.geographyMatches(index,'Cieszyn').map(item=>item.kind)).size,2);
+  assert.deepEqual(m.geographyMatches(index,'Cieszyn'),[]);
 });
 test('gender, locality kind and invalidity group map to original applicant and ward fields',()=>{
   const marks=m.placements({...example,gender:'female',invalidityGroup:'II'});
@@ -344,8 +343,8 @@ test('changing a loaded postal code replaces all dependent fields, including man
   const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()});
   t.fill({...example,postOffice:'Poprzednia poczta'});await t.click('Zapisz roboczo');await t.click('Edytuj');
   t.fill({postal:'43300'});await t.nodes.get('mergepostal').emit('input');
-  for(const [key,value]of Object.entries({city:'Bielsko-Biała',postOffice:'Bielsko-Biała',municipality:'Bielsko-Biała',province:'Śląskie',localityType:'city'}))assert.equal(t.nodes.get('merge'+key).value,value,key);
-  assert.match(t.nodes.get('mergecounty').value,/miasto na prawach powiatu/);
+  for(const key of ['city','postOffice','municipality','county','province','localityType'])assert.equal(t.nodes.get('merge'+key).value,'',key);
+  assert.match(t.nodes.get('mailMergePostalChoices').textContent,/powiatu żywieckiego/);
   t.fill({postal:'34325'});await t.nodes.get('mergepostal').emit('input');
   assert.equal(t.nodes.get('mergecity').value,'');assert.equal(t.nodes.get('mergepostOffice').value,'Łodygowice');assert.equal(t.nodes.get('mergemunicipality').value,'Łodygowice');
   await t.click('34-325 · Bierna');t.fill({postal:'34326'});await t.nodes.get('mergepostal').emit('input');
@@ -353,7 +352,7 @@ test('changing a loaded postal code replaces all dependent fields, including man
   await t.click('34-326 · Zarzecze');assert.equal(t.nodes.get('mergecity').value,'Zarzecze');
   t.fill({postal:'99999'});await t.nodes.get('mergepostal').emit('input');
   for(const key of ['city','postOffice','municipality','county','province','localityType'])assert.equal(t.nodes.get('merge'+key).value,'',key);
-  assert.match(t.nodes.get('mailMergePostalChoices').textContent,/Brak powiązania/);t.api.clear();
+  assert.match(t.nodes.get('mailMergePostalChoices').textContent,/nie jest potwierdzony/);t.api.clear();
 });
 test('partial or cleared postal code immediately clears the previous address; blur retains current choices',async()=>{
   const t=fixture({...contactRules(),loadGeography:async()=>regionalGeography()});
@@ -368,10 +367,31 @@ test('partial or cleared postal code immediately clears the previous address; bl
 test('older postal lookups cannot overwrite a newer code or a manual city edit',async()=>{
   let release;const t=fixture({...contactRules(),loadGeography:()=>new Promise(resolve=>{release=resolve;})});
   t.fill({postal:'34325'});const first=t.nodes.get('mergepostal').emit('input');
-  t.fill({postal:'43300'});const second=t.nodes.get('mergepostal').emit('input');release(regionalGeography());await first;await second;
-  assert.equal(t.nodes.get('mergecity').value,'Bielsko-Biała');assert.equal(t.nodes.get('mergepostOffice').value,'Bielsko-Biała');t.api.clear();
+  t.fill({postal:'34300'});const second=t.nodes.get('mergepostal').emit('input');release(regionalGeography());await first;await second;
+  assert.equal(t.nodes.get('mergecity').value,'Żywiec');assert.equal(t.nodes.get('mergepostOffice').value,'Żywiec');t.api.clear();
   let finish;const edited=fixture({...contactRules(),loadGeography:()=>new Promise(resolve=>{finish=resolve;})});
   edited.fill({postal:'43300'});const pending=edited.nodes.get('mergepostal').emit('input');
   edited.fill({city:'Żywiec'});await edited.nodes.get('mergecity').emit('input');finish(regionalGeography());await pending;
   assert.equal(edited.nodes.get('mergecity').value,'Żywiec');assert.equal(edited.nodes.get('mergepostOffice').value,'');edited.api.clear();
+});
+
+test('county-only postal lookup ignores outside history and warns without guessing for unknown codes',async()=>{
+  const rules=contactRules();
+  const t=fixture({...rules,cityForPostal:code=>code==='43-300'?'Bielsko-Biała':'',loadGeography:async()=>regionalGeography()});
+  t.fill({postal:'43300'});await t.nodes.get('mergepostal').emit('input');
+  assert.equal(t.nodes.get('mergecity').value,'');assert.match(t.nodes.get('mailMergePostalChoices').textContent,/spoza powiatu żywieckiego/);
+  assert.equal(t.nodes.get('mailMergePostalChoices').querySelectorAll('button').length,0);
+  t.fill({postal:'34325'});await t.nodes.get('mergepostal').emit('input');await t.click('34-325 · Bierna');
+  assert.equal(t.nodes.get('mergecity').value,'Bierna');assert.doesNotMatch(t.nodes.get('mailMergePostalChoices').textContent,/Uwaga/);
+  t.fill({postal:'99999'});await t.nodes.get('mergepostal').emit('input');
+  assert.match(t.nodes.get('mailMergePostalChoices').textContent,/nie jest potwierdzony/);assert.equal(t.nodes.get('mergecity').value,'');
+  t.fill({city:'Bielsko-Biała'});await t.nodes.get('mergecity').emit('blur');
+  assert.equal(t.nodes.get('mergemunicipality').value,'');assert.match(t.nodes.get('mailMergeMessage').textContent,/powiatu żywieckiego/);t.api.clear();
+});
+test('county scope filters defensive index construction, including any mixed or cached national data',()=>{
+  const data=regionalGeography();data.units['2461011']=['Bielsko-Biała','Bielsko-Biała','śląskie'];
+  data.places.push(['Bielsko-Biała','2461011','OUTSIDE','miasto']);
+  data.postalCodes['43-300']={places:['OUTSIDE'],postOffice:'Bielsko-Biała'};
+  const index=m.geographyIndex(data);
+  assert.deepEqual(m.geographyMatches(index,'Bielsko-Biała'),[]);assert.deepEqual(m.geographyPostalMatches(index,'43-300'),[]);
 });

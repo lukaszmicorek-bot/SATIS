@@ -25,8 +25,9 @@
   }
   function geographyIndex(data) {
     const names = new Map();
-    data.places.forEach(place => {const key = normalize(place[0]);if (!names.has(key)) names.set(key, []);names.get(key).push(place);});
-    return {data, names, byId:new Map(data.places.map(place=>[place[2],place]))};
+    const places=data.countyScope?data.places.filter(place=>place[1].startsWith(data.countyScope)):data.places;
+    places.forEach(place => {const key = normalize(place[0]);if (!names.has(key)) names.set(key, []);names.get(key).push(place);});
+    return {data, names, byId:new Map(places.map(place=>[place[2],place]))};
   }
   function geographyMatches(index, city) {
     return (index?.names.get(normalize(city)) || []).map(place => {
@@ -245,7 +246,8 @@
     }
     function addressEntries(){
       const reference=Object.keys(geoIndex?.data.postalCodes||{}).flatMap(code=>geographyPostalMatches(geoIndex,code).map(item=>({postalCode:code,city:item.city,street:""})));
-      return [...(a.postalEntries?.()||[]),...addressHistory.values(),...reference];
+      const entries=[...(a.postalEntries?.()||[]),...addressHistory.values(),...reference];
+      return geoIndex?.data.countyScope?entries.filter(entry=>geographyMatches(geoIndex,entry.city).length):entries;
     }
     async function getGeography(){
       if(!geoPromise)geoPromise=a.loadGeography().then(geographyIndex).catch(()=>{geoPromise=null;throw new Error("Słownik adresowy jest niedostępny. Sprawdź połączenie lub uzupełnij region ręcznie.");});
@@ -289,7 +291,9 @@
         const known=a.cityForPostal(code);if(known)names.set(normalize(known),a.city(known));
         for(const name of names.values()){
           const matches=geographyMatches(geo,name);
-          if(matches.length===1)candidates.push(matches[0]);else candidates.push({city:name});
+          if(matches.length===1)candidates.push(matches[0]);
+          else if(matches.length)candidates.push(...matches);
+          else if(!geo.data.countyScope)candidates.push({city:name});
         }
       }
       const apply=item=>{
@@ -309,6 +313,12 @@
       if(candidates.length){
         choices.append(node("span","document-form-note",candidates.length>1?"Kod obejmuje kilka miejscowości. Wspólne dane administracyjne uzupełniono, jeśli są jednoznaczne. Wybierz miejscowość:":"Kod i wpisana miejscowość mogą się różnić. Wybierz właściwą miejscowość lub popraw kod:"));
         candidates.forEach(item=>choices.append(button(`${code} · ${item.city}${item.municipality?` · gm. ${item.municipality}`:""}`,()=>apply(item))));
+      }else if(geo.data.countyScope){
+        const known=a.cityForPostal(code);
+        const text=known&&!geographyMatches(geo,known).length
+          ?`Uwaga: kod ${code} wskazuje miejscowość spoza powiatu żywieckiego. Uzupełnij adres ręcznie i sprawdź właściwy PCPR.`
+          :`Uwaga: kod ${code} nie jest potwierdzony w lokalnym wykazie powiatu żywieckiego. Może być spoza powiatu. Wpisz miejscowość i sprawdź adres.`;
+        const warning=node("span","mail-merge-message",text);warning.setAttribute("role","status");choices.append(warning);
       }else choices.append(node("span","document-form-note","Brak powiązania kodu w słowniku i historii. Wpisz miejscowość, aby dobrać gminę, powiat i województwo z GUS."));
     }
     function syncPostalFromCity() {
@@ -316,6 +326,9 @@
       postalSequence++;
       const city=fields.get("city").value,postal=fields.get("postal"),choices=q("mailMergePostalChoices");choices.replaceChildren();
       if(!city)return;
+      if(geoIndex?.data.countyScope && !geographyMatches(geoIndex,city).length){
+        choices.append(node("span","mail-merge-message","Miejscowość nie występuje w słowniku powiatu żywieckiego. Sprawdź adres i właściwy PCPR; pola możesz uzupełnić ręcznie."));return;
+      }
       const suggestion=a.postalSuggestion?.(city,fields.get("street").value,addressEntries())||{code:"",codes:[]};
       if(suggestion.code && (!postal.value||postal.value===autoPostal)){
         const updated=postal.value!==suggestion.code;postal.value=suggestion.code;autoPostal=suggestion.code;addressChanged(updated);
@@ -426,7 +439,7 @@
         for(const key of ["municipality","county","province","localityType"])fields.get(key).value="";
         matches.slice(0,30).forEach(item=>list.append(button(`${item.city} · ${item.municipality} · ${item.county} · ${item.province}`,()=>apply(item))));
         message("Wybierz właściwą gminę i powiat — nazwa miejscowości nie jest jednoznaczna.");
-      }else message("Brak dopasowania w słowniku. Uzupełnij gminę, powiat i województwo ręcznie.");
+      }else message(geo.data.countyScope?"Uwaga: miejscowość nie występuje w słowniku powiatu żywieckiego. Sprawdź właściwy PCPR; adres możesz uzupełnić ręcznie.":"Brak dopasowania w słowniku. Uzupełnij gminę, powiat i województwo ręcznie.");
     }
     function renderRows() {
       const list=q("mailMergeQueue");list.replaceChildren();
