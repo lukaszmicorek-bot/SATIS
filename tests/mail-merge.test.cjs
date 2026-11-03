@@ -561,3 +561,13 @@ test('contractor checkbox below bank account selects one payment mode and persis
   t.fill({paymentMode:'contractor'});await t.nodes.get('mergepaymentMode').emit('change');assert.equal(check.checked,true);
   t.fill({paymentMode:'cash'});await t.nodes.get('mergepaymentMode').emit('change');assert.equal(check.checked,false);t.api.clear();
 });
+
+test('bank name is uppercase on typing, paste, save without blur, reopening and print',async()=>{
+  const t=fixture(),input=t.nodes.get('mergebankName');t.fill({...example,bankName:'bank spółdzielczy'});
+  input.selectionStart=5;input.selectionEnd=8;let selection;input.setSelectionRange=(start,end)=>{selection=[start,end];};
+  await input.emit('input');assert.equal(input.value,'BANK SPÓŁDZIELCZY');assert.deepEqual(selection,[5,8]);
+  t.fill({bankName:'  mbank  s.a.  '});await t.click('Zapisz');const saved=[...t.stored.values()][0];
+  assert.equal(saved.data.bankName,'MBANK S.A.');saved.data.bankName='bank testowy';
+  await t.click('Edytuj');assert.equal(input.value,'BANK TESTOWY');
+  assert.equal(m.placements({...example,bankName:'bank testowy'}).find(item=>item.field==='bankName').text,'BANK TESTOWY');t.api.clear();
+});

@@ -5,7 +5,7 @@
 })(typeof window === "undefined" ? null : window, function () {
   "use strict";
   const PAGE = {width: 595.32, height: 841.92};
-  const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2"];
+  const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName"];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
   const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount"];
   function bankDigits(value){return String(value||"").replace(/\s/gu,"").toLocaleUpperCase("pl-PL").replace(/^PL/u,"");}
