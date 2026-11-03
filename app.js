@@ -1439,6 +1439,10 @@ function canViewPrivateModules() {
   return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
 }
 
+function canAccessMailMerge() {
+  return [PRIVATE_PAYMENT_EMAIL, "gabinet@pracowniasluchu.pl"].includes(String(currentSupabaseUser?.email || "").trim().toLowerCase());
+}
+
 function canViewDocumentHistory() {
   return Boolean(currentSupabaseUser);
 }
@@ -1471,8 +1475,9 @@ function updatePrivateModulesVisibility() {
     button.disabled = !ownerVisible;
   });
   privateSharedNotebookButtons.forEach((button) => {
-    button.hidden = !sharedVisible;
-    button.disabled = !sharedVisible;
+    const permitted = button.id === "mailMergeTab" ? canAccessMailMerge() : sharedVisible;
+    button.hidden = !permitted;
+    button.disabled = !permitted;
   });
   if (vacationEmployeeAdmin) vacationEmployeeAdmin.hidden = !ownerVisible;
   updateVacationOwnerLeaveField();
@@ -1495,7 +1500,6 @@ function updatePrivateModulesVisibility() {
   }
   if (!ownerVisible) {
     clientsModule?.clear();
-    mailMergeModule?.clear();
     clientsSourceCache = { refs: [], rows: [] };
     workTimeRecords = [];
     workTimeMonthRecords = null;
@@ -1509,7 +1513,10 @@ function updatePrivateModulesVisibility() {
     if (workTimeNewPinInput) workTimeNewPinInput.value = "";
     workTimeBody?.replaceChildren();
     workTimeEmployeeButtons?.replaceChildren();
-    if (["workTime", "clients", "mailMerge"].includes(activeNotebook)) switchNotebook("devices");
+    if (["workTime", "clients"].includes(activeNotebook)) switchNotebook("devices");
+  }
+  if (!canAccessMailMerge()) {
+    mailMergeModule?.clear();
     if (activeNotebook === "pcpr" && activePricingView === "mailMerge") switchPricingView("pcpr");
   }
   if (!sharedVisible && ["capd", "vacation", "pcpr", "history"].includes(activeNotebook)) switchNotebook("devices");
@@ -9596,7 +9603,7 @@ function syncNotebookPanels() {
 function switchPricingView(viewName) {
   const nextView = pricingViewNotebook(viewName) ? viewName : "list";
   const notebook = pricingViewNotebook(nextView);
-  if (nextView === "mailMerge" && !canViewPrivateModules()) return;
+  if (nextView === "mailMerge" && !canAccessMailMerge()) return;
   if ((nextView === "history" && !canViewDocumentHistory()) || (nextView === "pcpr" && !currentSupabaseUser)) return;
   if (activeNotebook !== notebook) {
     switchNotebook(notebook, { documentView: nextView });
@@ -25097,7 +25104,8 @@ function returnToPreviousTab() {
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge"].includes(notebookName)) return;
-  if (["workTime", "clients", "mailMerge"].includes(notebookName) && !canViewPrivateModules()) return;
+  if (["workTime", "clients"].includes(notebookName) && !canViewPrivateModules()) return;
+  if (notebookName === "mailMerge" && !canAccessMailMerge()) return;
   if (notebookName === "mailMerge") {
     switchNotebook("pcpr", { documentView: "mailMerge" });
     return;
@@ -25136,7 +25144,7 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   if (["pcpr", "history"].includes(activeNotebook)) {
     const selected = [...tabButtons].find((button) => button.dataset.viewGroup === "pcpr" && button.classList.contains("active"));
     const view = documentView || selected?.dataset.view || "pcpr";
-    switchPricingView(activeNotebook === "history" ? "history" : view === "mailMerge" && !canViewPrivateModules() ? "pcpr" : view);
+    switchPricingView(activeNotebook === "history" ? "history" : view === "mailMerge" && !canAccessMailMerge() ? "pcpr" : view);
     return;
   }
 
@@ -30381,27 +30389,27 @@ function clientsCurrentSources() {
   return rows;
 }
 function initializeMailMergeModule() {
-  if (!canViewPrivateModules() || !currentSupabaseUser) return null;
+  if (!canAccessMailMerge() || !currentSupabaseUser) return null;
   if (mailMergeModule) return mailMergeModule;
   if (!window.SatisMailMerge?.create) return null;
   const canvas = document.createElement("canvas"), context = canvas.getContext("2d");
   mailMergeModule = window.SatisMailMerge.create({
-    document, window, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
+    document, window, owner: canViewPrivateModules, access: canAccessMailMerge, user: () => currentSupabaseUser?.id || "",
     id: makeId,
     async importTemplate(file, options) {
-      if (!canViewPrivateModules() || !currentSupabaseUser) throw new Error("Zaloguj się na konto SATIS.");
+      if (!canViewPrivateModules() || !currentSupabaseUser) throw new Error("Zmiana wzoru PDF jest dostępna tylko dla SATIS.");
       const importer = await import(`./mail-merge-pdf.mjs?v=${encodeURIComponent(CURRENT_APP_VERSION)}`);
       return importer.importBlankTemplate(file, options);
     },
     async rpc(name, args) {
-      if (!canViewPrivateModules() || !currentSupabaseUser || !supabaseClient) throw new Error("Zaloguj się na konto SATIS.");
+      if (!canAccessMailMerge() || !currentSupabaseUser || !supabaseClient) throw new Error("Zaloguj się na konto SATIS lub gabinet.");
       const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 15000);
       try { return await supabaseClient.rpc(name, args).abortSignal(controller.signal); }
       catch { throw new Error("Brak potwierdzenia z bazy. Ponów zapis; nie zamykaj niezapisanego formularza."); }
       finally { window.clearTimeout(timer); }
     },
     contacts(query) {
-      if (!canViewPrivateModules() || !currentSupabaseUser) return [];
+      if (!canAccessMailMerge() || !currentSupabaseUser) return [];
       return documentCustomerNameMatches(query).flatMap(customer => {
         const matches = customerHistoryContactEntries(customer);
         return matches.length ? matches.map(entry => ({...entry, customer})) : [{customer}];
@@ -30420,7 +30428,7 @@ function initializeMailMergeModule() {
     bindDate: bindDatePickerInput, confirm: message => confirm(message), print: cleanup => printWithReadyFonts(cleanup),
     measure(text, size) {context.font = `400 ${size}px Inter`;return context.measureText(text).width;},
     async loadGeography() {
-      if (!canViewPrivateModules()) throw new Error("Zaloguj się na konto SATIS.");
+      if (!canAccessMailMerge()) throw new Error("Zaloguj się na konto SATIS lub gabinet.");
       const options = {credentials:"omit",cache:"no-cache",signal:AbortSignal.timeout(20000)};
       const responses = await Promise.all([fetch("mail-merge/geography.json", options), fetch("mail-merge/postal-reference.json", options)]);
       if (responses.some(response => !response.ok)) throw new Error("Nie udało się pobrać słownika adresowego.");

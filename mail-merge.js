@@ -217,7 +217,7 @@
     let autoPostal="", autoPostOffice="", addressPostal="", autoGender="", printPages=7, schemaVersion=0;
     let periodicDate="", activeTemplate=null, candidateTemplate=null, templateImportController=null;
     const addressHistory=new Map();
-    const q = id => document.getElementById(id), authorized = () => a.owner() && Boolean(a.user());
+    const q = id => document.getElementById(id), authorized = () => (a.access?a.access():a.owner()) && Boolean(a.user());
     const node = (tag, cls, text) => {const value=document.createElement(tag);if(cls)value.className=cls;if(text!==undefined)value.textContent=text;return value;};
     const button = (text, action, cls="reset-filters-btn") => {
       const value=node("button",cls,text);value.type="button";
@@ -233,7 +233,7 @@
       if(!value && deferredPostal){deferredPostal=false;void syncCityFromPostal();}
     }
     async function rpc(name,args={}) {
-      if(!authorized())throw new Error("Zaloguj się na konto SATIS.");
+      if(!authorized())throw new Error("Zaloguj się na konto SATIS lub gabinet.");
       const account=a.user(), epoch=session, result=await a.rpc(name,args);
       if(!authorized() || account!==a.user() || epoch!==session)throw new Error("Sesja została zakończona.");
       if(result.error){
@@ -241,7 +241,7 @@
         if(["PGRST202","PGRST205","42P01","42883"].includes(code)){ready=false;throw new Error("Baza PCPR Żywiec nie jest jeszcze uruchomiona. W SQL Editor Supabase uruchom plik supabase-mail-merge.sql, a następnie kliknij Odśwież listę.");}
         throw new Error(code==="PT409"?"Dane zmieniły się na innym komputerze. Wczytaj osobę ponownie przed zapisem."
           :["PT423","23505"].includes(code)?"Osoba z tym numerem PESEL już istnieje. Wyszukaj i otwórz jej wpis."
-          :code==="42501"?"Baza nie przyznała dostępu kontu SATIS. Sprawdź uprawnienia."
+          :code==="42501"?"Baza nie przyznała dostępu do PCPR Żywiec. Sprawdź uprawnienia."
           :code==="22023"?"Sprawdź dane osoby, PESEL i format wpisanych kwot."
           :"Baza nie potwierdziła operacji. Dane formularza pozostają bez zmian. Spróbuj ponownie.");
       }
@@ -541,7 +541,7 @@
         name.append(label);if(entry.pesel_tail)name.append(node("small","mail-merge-pesel",`PESEL: •••••••${entry.pesel_tail}`));row.append(name);
         const degrees={severe:"Znaczny",moderate:"Umiarkowany",mild:"Lekki",none:"Nie dotyczy"};
         for(const text of [entry.data.phone||"—",entry.data.city||"—",degrees[entry.data.degree]||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
-        const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)),button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
+        const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)));if(a.owner())actions.append(button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
       q("mailMergePrevious").disabled=busy||offset===0;q("mailMergeNext").disabled=busy||offset+rows.length>=total;
@@ -554,7 +554,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=5?"Zapis w bazie · dostęp tylko dla SATIS":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=6?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -574,7 +574,7 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        if(schemaVersion<5){await refresh();if(schemaVersion<5){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
+        if(schemaVersion<6){await refresh();if(schemaVersion<6){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
@@ -583,6 +583,7 @@
       }catch(error){if(authorized()&&epoch===session)message(error.message);}finally{if(authorized()&&epoch===session)lock(false);}
     }
     async function deleteEntry(entry) {
+      if(!authorized()||!a.owner())return;
       if(dirty && editingId===entry.id){message("Najpierw zapisz zmiany lub wybierz Nowa osoba, aby odrzucić edycję.");return;}
       if(!a.confirm("Trwale usunąć dane tej osoby z bazy PCPR Żywiec?"))return;
       lock(true);const epoch=session;
@@ -717,32 +718,34 @@
     reviewLine.append(review,node("span","","PDF nie zawiera danych osoby. Sprawdzono podgląd wszystkich stron i zgodność położenia wpisanych danych z polami nowego wzoru."));
     const templateActions=node("div","mail-merge-actions");
     const applyTemplate=button("Zastosuj wzór",()=>{
-      if(!candidateTemplate||!review.checked)return;
+      if(!a.owner()||!candidateTemplate||!review.checked)return;
       activeTemplate?.dispose();activeTemplate=candidateTemplate;candidateTemplate=null;review.checked=false;updateTemplateControls();updatePrintMode();renderPreview();message("Nowy wzór aktywny w tej sesji. Dane osób nie zostały zmienione.");
     });applyTemplate.id="mailMergeTemplateApply";
     let previousPrintPages=7;
-    const cancelTemplate=button("Anuluj podgląd wzoru",()=>{candidateTemplate?.dispose();candidateTemplate=null;review.checked=false;printPages=Math.min(previousPrintPages,activeTemplate?.count||7);updateTemplateControls();updatePrintMode();renderPreview();});cancelTemplate.id="mailMergeTemplateCancel";
+    const cancelTemplate=button("Anuluj podgląd wzoru",()=>{if(!a.owner())return;candidateTemplate?.dispose();candidateTemplate=null;review.checked=false;printPages=Math.min(previousPrintPages,activeTemplate?.count||7);updateTemplateControls();updatePrintMode();renderPreview();});cancelTemplate.id="mailMergeTemplateCancel";
     const restoreTemplate=button("Przywróć oryginalny wzór",()=>{
+      if(!a.owner())return;
       if(!a.confirm("Przywrócić oryginalny wzór? Dane wpisane do wniosku pozostaną bez zmian."))return;
       candidateTemplate?.dispose();activeTemplate?.dispose();candidateTemplate=null;activeTemplate=null;review.checked=false;templateFile.value="";printPages=7;updateTemplateControls();updatePrintMode();renderPreview();
     });restoreTemplate.id="mailMergeTemplateRestore";
     templateActions.append(applyTemplate,cancelTemplate,restoreTemplate);templatePanel.append(templateFile,templateStatus,reviewLine,templateActions);
     const cancelImport=node("button","reset-filters-btn","Anuluj import");cancelImport.type="button";
-    cancelImport.addEventListener("click",()=>{if(authorized())templateImportController?.abort();});templatePanel.append(cancelImport);
+    cancelImport.addEventListener("click",()=>{if(authorized()&&a.owner())templateImportController?.abort();});templatePanel.append(cancelImport);
     function updateTemplateControls(){
+      templatePanel.hidden=!a.owner();
       cancelImport.hidden=!templateImportController;cancelImport.disabled=!authorized()||!templateImportController;
-      reviewLine.hidden=!candidateTemplate;review.disabled=busy;
-      applyTemplate.disabled=busy||!candidateTemplate||!review.checked;cancelTemplate.disabled=busy||!candidateTemplate;restoreTemplate.disabled=busy||!(activeTemplate||candidateTemplate);templateFile.disabled=busy;
+      reviewLine.hidden=!candidateTemplate;review.disabled=busy||!a.owner();
+      applyTemplate.disabled=busy||!a.owner()||!candidateTemplate||!review.checked;cancelTemplate.disabled=busy||!a.owner()||!candidateTemplate;restoreTemplate.disabled=busy||!a.owner()||!(activeTemplate||candidateTemplate);templateFile.disabled=busy||!a.owner();
       if(!templateImportController)templateStatus.textContent=candidateTemplate?`Podgląd do zatwierdzenia: ${candidateTemplate.name}`:activeTemplate?`Aktywny w tej sesji: ${activeTemplate.name}`:"Oryginalny wzór PCPR Żywiec · 7 stron";
     }
     review.addEventListener("change",updateTemplateControls);
     templateFile.addEventListener("change",async()=>{
-      if(!authorized()||busy||!templateFile.files?.length)return;
+      if(!authorized()||!a.owner()||busy||!templateFile.files?.length)return;
       const file=templateFile.files[0],epoch=session,controller=new AbortController();templateImportController=controller;lock(true);
       try{
         templateStatus.textContent="Sprawdzanie pustego wzoru PDF…";
         const parsed=await a.importTemplate(file,{document,signal:controller.signal,progress:text=>{if(authorized()&&epoch===session)templateStatus.textContent=text;}});
-        if(!authorized()||epoch!==session){parsed.dispose();return;}
+        if(!authorized()||!a.owner()||epoch!==session){parsed.dispose();return;}
         candidateTemplate?.dispose();candidateTemplate=parsed;previousPrintPages=printPages;review.checked=false;updatePrintMode();renderPreview();
         message("Sprawdź podgląd wszystkich stron poniżej. Wydruk nowego wzoru będzie możliwy dopiero po potwierdzeniu zgodności pól.");
       }catch(error){if(authorized()&&epoch===session)message(error.message||"Nie udało się wczytać wzoru. Poprzedni wzór pozostaje bez zmian.");}
@@ -798,7 +801,7 @@
     listSearch.addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{offset=0;void refresh();},250);});
     a.window.addEventListener("beforeunload",event=>{if(authorized()&&dirty){event.preventDefault();event.returnValue="";}});
     document.fonts?.ready.then(()=>{if(authorized())renderPreview();});
-    return {open(){if(!authorized()){this.clear();return false;}host.hidden=false;if(!ready)void refresh();renderPreview();return true;},
+    return {open(){if(!authorized()){this.clear();return false;}host.hidden=false;updateTemplateControls();renderRows();if(!ready)void refresh();renderPreview();return true;},
       clear(){session++;generation++;readSequence++;geoSequence++;clearTimeout(searchTimer);clearTimeout(previewTimer);pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();printBusy=false;rows=[];total=0;offset=0;ready=false;schemaVersion=0;templateImportController?.abort();templateImportController=null;activeTemplate?.dispose();candidateTemplate?.dispose();activeTemplate=null;candidateTemplate=null;q("mailMergeTemplateFile").value="";q("mailMergeTemplateConfirm").checked=false;updateTemplateControls();printPages=7;updatePrintMode();addressHistory.clear();reset();q("mailMergePreviewPages").replaceChildren();q("mailMergeListSearch").value="";q("mailMergeDatabaseStatus").textContent="";renderRows();lock(false);host.hidden=true;},
       queue:()=>authorized()?rows.map(row=>({...row,data:{...row.data}})):[]};
   }

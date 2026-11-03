@@ -34,6 +34,7 @@ function setup() {
     initializeClientsModule: () => ({open: () => {}}),
     initializeMailMergeModule: () => ({open: () => {context.mailMergeOpened = true;}}),
     canViewPrivateModules: () => context.owner,
+    canAccessMailMerge: () => Boolean(context.currentSupabaseUser)&&['satis@pracowniasluchu.pl','gabinet@pracowniasluchu.pl'].includes(context.currentSupabaseUser.email),
     canViewDocumentHistory: () => Boolean(context.currentSupabaseUser),
     document: {querySelector: selector => ({'#mailMergeNotebook':context.mailMergeView,'#pcprViews':context.pcprViews}[selector] || null)},
     mailMergeView: node('mailMergeNotebook'), pcprViews: node('pcprViews'),
@@ -77,10 +78,10 @@ test('document views route to the correct notebook, preserve form nodes, and ret
     assert.equal(ctx.statsPanel.hidden, group !== 'devices');
   }
 });
-test('mail merge is an owner-only PCPR subtab and preserves drafts on navigation', () => {
+test('mail merge is a shared PCPR subtab and preserves drafts on navigation', () => {
   const ctx = setup();
-  ctx.owner = false;ctx.switchNotebook('mailMerge');assert.equal(ctx.activeNotebook,'devices');
-  ctx.owner = true;ctx.switchNotebook('mailMerge');assert.equal(ctx.activeNotebook,'pcpr');
+  ctx.currentSupabaseUser=null;ctx.switchNotebook('mailMerge');assert.equal(ctx.activeNotebook,'devices');
+  ctx.owner=false;ctx.currentSupabaseUser={email:'gabinet@pracowniasluchu.pl'};ctx.switchNotebook('mailMerge');assert.equal(ctx.activeNotebook,'pcpr');
   assert.equal(ctx.activePricingView,'mailMerge');
   assert.equal(ctx.mailMergeOpened,true);
   assert.equal(ctx.mailMergeView.hidden,false);assert.equal(ctx.pcprViews.hidden,false);
@@ -91,7 +92,7 @@ test('mail merge is an owner-only PCPR subtab and preserves drafts on navigation
   assert.equal(ctx.mailMergeView.hidden,true);assert.equal(ctx.pcprViews.hidden,true);
   ctx.switchNotebook('pcpr');assert.equal(ctx.activePricingView,'mailMerge');assert.equal(ctx.mailMergeView.draft,'unsaved');
   ctx.switchPricingView('pcpr');assert.equal(ctx.mailMergeView.hidden,true);assert.equal(ctx.pricingPcprView.hidden,false);
-  ctx.owner=false;ctx.switchPricingView('mailMerge');assert.equal(ctx.activePricingView,'pcpr');
+  ctx.currentSupabaseUser=null;ctx.switchPricingView('mailMerge');assert.equal(ctx.activePricingView,'pcpr');
 });
 test('work time month boundaries and owner policy are explicit', () => {
   const ctx = vm.createContext({Date, String});
@@ -345,7 +346,7 @@ test('history renderers and previews refuse anonymous access but permit authenti
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(top, ['devices', 'repairs', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime']);
-  assert.match(html,/id="mailMergeTab"[^>]*data-view="mailMerge" data-view-group="pcpr" data-private-owner hidden/);
+  assert.match(html,/id="mailMergeTab"[^>]*data-view="mailMerge" data-view-group="pcpr" data-private-shared hidden/);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {
     assert.match(html, new RegExp(`id="${view}Tab"[^>]*aria-controls="pricing${view[0].toUpperCase() + view.slice(1)}View"`));
@@ -757,4 +758,11 @@ test('September examples contain normal, late and extra work without creating of
   assert.ok(loader.indexOf('workTimeExamplesActive') < loader.indexOf('supabaseClient.from'));
   assert.match(extract('renderWorkTimeRecords'), /if \(record.example\)/);
   assert.match(extract('saveWorkTimeSchedule'), /if \(workTimeExamplesActive\) return/);
+});
+
+test('mail merge frontend permission accepts only SATIS and gabinet accounts',()=>{
+  const ctx=vm.createContext({PRIVATE_PAYMENT_EMAIL:'satis@pracowniasluchu.pl',currentSupabaseUser:null});vm.runInContext(extract('canAccessMailMerge'),ctx);
+  assert.equal(ctx.canAccessMailMerge(),false);
+  for(const email of ['satis@pracowniasluchu.pl',' GABINET@PRACOWNIASLUCHU.PL ']){ctx.currentSupabaseUser={email};assert.equal(ctx.canAccessMailMerge(),true);}
+  ctx.currentSupabaseUser={email:'inna@pracowniasluchu.pl'};assert.equal(ctx.canAccessMailMerge(),false);
 });

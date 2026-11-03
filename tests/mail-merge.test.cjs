@@ -81,7 +81,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:5}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:6}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -133,19 +133,19 @@ test('missing database schema does not prevent a blank preview and explains the 
   assert.match(t.nodes.get('mailMergeDatabaseStatus').textContent,/supabase-mail-merge.sql/);
   assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);t.api.clear();
 });
-test('database access is SATIS-only and private data is never persisted in browser storage',()=>{
+test('database access is restricted to SATIS and gabinet, with no personal data in browser storage',()=>{
   const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.match(html,/data-view="mailMerge" data-view-group="pcpr" data-private-owner hidden/);
+  assert.match(html,/data-view="mailMerge" data-view-group="pcpr" data-private-shared hidden/);
   assert.match(html,/id="mailMergeTab"[^>]*>PCPR Żywiec<\/button>/);
   assert.doesNotMatch(fs.readFileSync(path.join(root,'mail-merge.js'),'utf8'),/Korespondencja seryjna|bazy korespondencji/);
-  assert.match(app,/\["workTime", "clients", "mailMerge"\]\.includes\(notebookName\) && !canViewPrivateModules/);
+  assert.match(app,/\["workTime", "clients"\]\.includes\(notebookName\) && !canViewPrivateModules/);
   assert.match(app,/mailMergeModule\?\.clear\(\)/);
   const source=fs.readFileSync(process.env.SATIS_MODULE||path.join(root,'mail-merge.js'),'utf8');
   assert.doesNotMatch(source,/localStorage|sessionStorage|indexedDB|innerHTML|fetch\(/);
   assert.match(source,/satis_mail_merge_write/);
   const sql=fs.readFileSync(process.env.SATIS_SQL||path.join(root,'supabase-mail-merge.sql'),'utf8');
-  assert.equal((sql.match(/public\.is_satis_owner\(\) is not true/g)||[]).length,3);
-  assert.equal((sql.match(/lower\(auth.jwt\(\)->>'email'\)='satis@pracowniasluchu.pl'/g)||[]).length,3);
+  assert.equal((sql.match(/public\.is_satis_owner\(\) is not true/g)||[]).length,1);
+  assert.equal((sql.match(/lower\(auth.jwt\(\)->>'email'\)='gabinet@pracowniasluchu.pl'/g)||[]).length,3);assert.match(sql,/Delete requires SATIS owner/);
   assert.match(sql,/force row level security/);assert.match(sql,/revoke all on public\.%I from public, anon, authenticated/);
   assert.match(sql,/req\.fingerprint is distinct from fp/);assert.match(sql,/revision is distinct from p_expected_revision/);
   assert.match(sql,/unique index if not exists mail_merge_people_pesel_idx/);
@@ -536,4 +536,14 @@ test('transfer is selected by default, account validation updates on paste, and 
   t.fill({paymentMode:'cash'});await t.nodes.get('mergepaymentMode').emit('change');assert.equal(t.nodes.get('mergebankAccount').disabled,true);
   assert.equal(t.nodes.get('mergebankAccount').className.includes('mail-merge-required-empty'),false);
   await t.click('Zapisz zmiany');assert.equal([...t.stored.values()][0].data.bankAccount,'');t.api.clear();
+});
+
+test('gabinet can open, save, edit and print PCPR but cannot delete or replace templates',async()=>{
+  const t=fixture({access:()=>true});t.owner(false);assert.equal(t.api.open(),true);await tick();
+  t.fill();await t.click('Zapisz');assert.equal(t.stored.size,1);assert.equal(t.api.queue().length,1);
+  await t.click('Edytuj');await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
+  assert.equal(t.nodes.get('mailMergeQueue').querySelectorAll('button').some(button=>button.textContent==='Usuń'),false);
+  assert.equal(t.nodes.get('mailMergeTemplateFile').disabled,true);assert.equal(t.nodes.get('mailMergeTemplateApply').disabled,true);t.api.clear();
+  assert.equal(t.nodes.get('mergefirstName').value,'');assert.equal(t.nodes.get('mailMergePreviewPages').children.length,0);
+  const rejected=fixture({access:()=>false});assert.equal(rejected.api.open(),false);assert.deepEqual(rejected.api.queue(),[]);
 });

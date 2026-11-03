@@ -347,7 +347,8 @@ test('PII never uses browser persistence, HTML interpretation, URLs, or third-pa
   for(const match of source.matchAll(/q\("([^"]+)"\)/g)) assert.ok(html.includes(`id="${match[1]}"`),`Missing DOM ${match[1]}`);
 });
 test('client navigation is guarded and static assets include the isolated module', () => {
-  assert.match(app,/\["workTime", "clients", "mailMerge"\]\.includes\(notebookName\) && !canViewPrivateModules\(\)/);
+  assert.match(app,/\["workTime", "clients"\]\.includes\(notebookName\) && !canViewPrivateModules\(\)/);
+  assert.match(app,/notebookName === "mailMerge" && !canAccessMailMerge\(\)/);
   assert.ok(html.indexOf('src="clients.js')<html.indexOf('src="app.js'));
   assert.match(fs.readFileSync(require.resolve('../offline-sw.js'),'utf8'),/"clients.js"/);
 });

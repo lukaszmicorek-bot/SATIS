@@ -1,4 +1,4 @@
--- Korespondencja PCPR: prywatna baza osob SATIS. Bez zmiany innych tabel.
+-- PCPR Zywiec: baza osob dla SATIS i gabinetu; usuwanie tylko SATIS. Bez zmiany innych tabel.
 -- Uruchomic jednorazowo w SQL Editor, po migracjach zabezpieczen SATIS.
 begin;
 create table if not exists public.mail_merge_people (
@@ -37,8 +37,9 @@ create or replace function public.satis_mail_merge_list(p_query text default '',
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare result jsonb; total bigint;
 begin
-  if auth.uid() is null or public.is_satis_app_user() is not true or public.is_satis_owner() is not true
-    or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true then
+  if auth.uid() is null or public.is_satis_app_user() is not true
+    or not ((coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) and public.is_satis_owner() is true)
+      or coalesce(lower(auth.jwt()->>'email')='gabinet@pracowniasluchu.pl',false)) then
     raise exception 'Access denied' using errcode='42501';
   end if;
   if p_query is null or length(p_query)>160 or p_offset is null or p_offset<0 or p_offset>100000 then
@@ -54,15 +55,16 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',5);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',6);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare result jsonb;
 begin
-  if auth.uid() is null or public.is_satis_app_user() is not true or public.is_satis_owner() is not true
-    or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true then
+  if auth.uid() is null or public.is_satis_app_user() is not true
+    or not ((coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) and public.is_satis_owner() is true)
+      or coalesce(lower(auth.jwt()->>'email')='gabinet@pracowniasluchu.pl',false)) then
     raise exception 'Access denied' using errcode='42501';
   end if;
   select jsonb_build_object('id',p.id,'revision',p.revision,'data',p.data) into result from public.mail_merge_people p where p.id=p_id;
@@ -78,9 +80,14 @@ declare actor uuid:=auth.uid(); fp text; req public.mail_merge_write_requests%ro
   result jsonb; pair record; digits text; checksum integer; i integer; weights integer[]:=array[1,3,7,9,1,3,7,9,1,3];
   yy integer; mm integer; dd integer; birth date; clean jsonb; amount numeric; cost numeric; nfz numeric; requested numeric;
 begin
-  if actor is null or public.is_satis_app_user() is not true or public.is_satis_owner() is not true
-    or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true then
+  if actor is null or public.is_satis_app_user() is not true
+    or not ((coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) and public.is_satis_owner() is true)
+      or coalesce(lower(auth.jwt()->>'email')='gabinet@pracowniasluchu.pl',false)) then
     raise exception 'Access denied' using errcode='42501';
+  end if;
+  if p_action='DELETE' and (public.is_satis_owner() is not true
+    or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true) then
+    raise exception 'Delete requires SATIS owner' using errcode='42501';
   end if;
   if p_request_id is null or p_id is null or p_action is null or p_action not in ('SAVE','DELETE')
     or jsonb_typeof(p_data) is distinct from 'object' or octet_length(p_data::text)>16384 then
