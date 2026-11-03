@@ -172,3 +172,35 @@ test('navigation, offline caching, signout cleanup and print layouts include bot
   assert.doesNotMatch(css, /--grade-(?:background|selected|ink|accent)/);
   assert.doesNotMatch(fs.readFileSync('tinnitus-forms.js','utf8'), /innerHTML|localStorage|sessionStorage|fetch\(|supabase/);
 });
+
+test('THI and TRQ print blank questionnaires without names, dates, answers, results or changing the filled form',async()=>{
+  for(const kind of ['thi','trq']){
+    const t=setup();t.fill(kind,4);const original=t.api.printSource(kind).textContent;
+    assert.ok(t.views[kind].querySelectorAll('button').some(button=>button.id===`print${kind.toUpperCase()}BlankBtn`));
+    await t.api.print(kind,{blank:true});assert.equal(t.counts().printed,1);
+    const copy=t.body.children[0];assert.equal(copy.id,'tinnitusPrint');assert.equal(copy.querySelectorAll('[id]').length,0);
+    assert.doesNotMatch(copy.textContent,/Jan Testowy|2026-10-30|Wynik częściowy|100 \/ 100|104 \/ 104/);
+    assert.match(copy.querySelector('.tinnitus-summary').textContent,/Wynik: \.{8} \/ (100|104)/);
+    assert.equal(copy.querySelectorAll('input').some(input=>input.checked),false);
+    assert.equal(copy.querySelectorAll('.tinnitus-print-mark').some(mark=>mark.textContent==='X'),false);
+    assert.equal(copy.querySelectorAll('.tinnitus-grade-current').length,0);
+    assert.equal(copy.querySelectorAll('.tinnitus-grade-marker').some(marker=>!marker.hidden),false);
+    assert.equal(t.api.printSource(kind).textContent,original);assert.equal(t.field(kind,'CustomerInput').value,'Jan Testowy');
+    assert.equal(t.views[kind].querySelectorAll('input:checked').length,definitions[kind].questions.length);
+    await t.api.print(kind,{blank:true});assert.equal(t.counts().printed,1);
+    t.events.get('afterprint')();assert.equal(t.body.children.length,0);assert.equal(t.events.size,0);
+  }
+});
+test('empty questionnaires print manually without validation online and offline; failures clean up and retain entered values',async()=>{
+  for(const offline of [false,true])for(const kind of ['thi','trq']){
+    const t=setup();t.offline(offline);await t.api.print(kind,{blank:true});
+    assert.equal(t.counts().printed,1);assert.equal(t.counts().offlinePrinted,0);
+    assert.equal(t.body.children[0].id,offline?'offlinePrint':'tinnitusPrint');
+    assert.equal(t.field(kind,'CustomerInput').validityMessage,'');assert.equal(t.views[kind].querySelectorAll('.tinnitus-missing').length,0);
+    assert.ok(t.body.children[0].textContent.includes(definitions[kind].questions[0][1]));
+    t.events.get('afterprint')();assert.equal(t.body.children.length,0);
+    assert.doesNotMatch(t.body.className,/offline-printing|offline-tinnitus-print|tinnitus-print/);
+    t.fill(kind,4);t.fail();await assert.rejects(t.api.print(kind,{blank:true}));assert.equal(t.body.children.length,0);assert.equal(t.events.size,0);
+    assert.equal(t.field(kind,'CustomerInput').value,'Jan Testowy');assert.equal(t.views[kind].querySelectorAll('input:checked').length,definitions[kind].questions.length);
+  }
+});

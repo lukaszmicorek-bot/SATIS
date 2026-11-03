@@ -166,20 +166,34 @@
       state.status.textContent = "";
       render(kind);
     }
-    async function print(kind) {
-      if (printing || activePrintCleanup) return false;
-      if (!validate(kind)) return false;
+    async function print(kind, {blank = false} = {}) {
+      if (!states.has(kind) || printing || activePrintCleanup) return false;
+      if (!blank && !validate(kind)) return false;
       printing = true;
       try {
-        render(kind);
-        if (api.offlineActive()) return await api.offlinePrint(kind);
-        const output = node("section"); output.id = "tinnitusPrint";
+        if (!blank) render(kind);
+        if (!blank && api.offlineActive()) return await api.offlinePrint(kind);
+        const offlineBlank = blank && api.offlineActive();
+        const classes = offlineBlank ? ["offline-printing", "offline-tinnitus-print"] : ["tinnitus-print"];
+        const output = node("section"); output.id = offlineBlank ? "offlinePrint" : "tinnitusPrint";
         const copy = states.get(kind).paper.cloneNode(true);
         copy.removeAttribute("id");
         copy.querySelectorAll("[id]").forEach(element => element.removeAttribute("id"));
-        output.append(copy); document.body.append(output); document.body.classList.add("tinnitus-print");
+        if (blank) {
+          copy.querySelectorAll("input").forEach(input => {input.checked = false;input.removeAttribute("checked");input.removeAttribute("aria-invalid");input.setCustomValidity("");});
+          copy.querySelectorAll(".tinnitus-print-mark").forEach(mark => {mark.textContent = "";});
+          const personal = copy.querySelector(".tinnitus-patient").querySelectorAll("strong");
+          personal[0].textContent = "................................";personal[1].textContent = "................";
+          copy.querySelector(".tinnitus-summary").querySelector("strong").textContent = `Wynik: ........ / ${definitions[kind].max}`;
+          copy.querySelector(".tinnitus-progress").textContent = "";
+          const interpretation = copy.querySelector(".tinnitus-interpretation");interpretation.textContent = "";interpretation.hidden = true;
+          copy.querySelectorAll(".tinnitus-missing").forEach(row => row.classList.remove("tinnitus-missing"));
+          copy.querySelectorAll(".tinnitus-grade-current").forEach(row => {row.classList.remove("tinnitus-grade-current");row.removeAttribute("aria-current");});
+          copy.querySelectorAll(".tinnitus-grade-marker").forEach(marker => {marker.hidden = true;});
+        }
+        output.append(copy); document.body.append(output); classes.forEach(name => document.body.classList.add(name));
         const cleanup = () => {
-          output.remove(); document.body.classList.remove("tinnitus-print");
+          output.remove(); classes.forEach(name => document.body.classList.remove(name));
           api.window.removeEventListener("afterprint", cleanup);
           activePrintCleanup = null;
         };
@@ -207,7 +221,9 @@
       const newButton = node("button", "reset-filters-btn document-new-btn", "Nowy formularz");newButton.type = "button";
       const printButton = node("button", "tinnitus-print-button", "Drukuj / PDF");printButton.type = "button";
       printButton.id = `print${kind.toUpperCase()}Btn`;
-      actions.append(newButton, printButton);
+      const blankPrintButton = node("button", "reset-filters-btn tinnitus-blank-print-button", "Drukuj pusty");blankPrintButton.type = "button";
+      blankPrintButton.id = `print${kind.toUpperCase()}BlankBtn`;
+      actions.append(newButton, blankPrintButton, printButton);
       const status = node("p", "tinnitus-status");status.setAttribute("role", "status");status.setAttribute("aria-live", "polite");
       const paper = node("article", `tinnitus-document tinnitus-${kind}`);paper.id = `${kind}Print`;
       const header = node("header", "rodo-print-head");
@@ -267,6 +283,7 @@
       editor.addEventListener("input", () => {states.get(kind).dirty = true;render(kind);});
       editor.addEventListener("change", () => {states.get(kind).dirty = true;render(kind);});
       customer.addEventListener("blur", () => {customer.value = api.name(customer.value);render(kind);});
+      blankPrintButton.addEventListener("click", () => void print(kind, {blank: true}).catch(() => {status.textContent = "Nie udało się przygotować pustego wydruku. Spróbuj ponownie.";}));
       printButton.addEventListener("click", () => void print(kind).catch(() => {status.textContent = "Nie udało się przygotować wydruku. Spróbuj ponownie.";}));
       newButton.addEventListener("click", () => {
         if (states.get(kind).dirty && !api.confirm("Wyczyścić dane i odpowiedzi tego kwestionariusza?")) return;
