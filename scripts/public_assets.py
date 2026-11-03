@@ -17,6 +17,7 @@ REQUIRED_ASSETS = frozenset({
     "vendor/pdfjs-6.5.438/pdf.mjs", "vendor/pdfjs-6.5.438/pdf.worker.mjs", "vendor/pdfjs-6.5.438/LICENSE",
     "mail-merge/page-1.svg", "mail-merge/page-2.svg", "mail-merge/page-3.svg", "mail-merge/page-4.svg",
     "mail-merge/page-5.svg", "mail-merge/page-6.svg", "mail-merge/page-7.svg",
+    "procedures/thi-metoda.pdf", "procedures/thi-page-1.jpg", "procedures/thi-page-2.jpg",
     "InterVariable.woff2", "InterVariable-Italic.woff2", "Inter-LICENSE.txt",
     "satis-monogram.png", "favicon-32.png", "favicon.png", "favicon.svg",
     "apple-touch-icon.png",

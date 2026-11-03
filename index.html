@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261103-17">
+  <link rel="stylesheet" href="styles.css?v=20261103-18">
   </head>
   <body>
     <main class="app-shell">
@@ -130,6 +130,7 @@
             <button id="rodoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingRodoView" data-view-group="devices" data-view="rodo">RODO</button>
             <button id="thiTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingThiView" data-view-group="devices" data-view="thi">THI</button>
             <button id="trqTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingTrqView" data-view-group="devices" data-view="trq">TRQ</button>
+            <button id="procedureTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingProcedureView" data-view-group="devices" data-view="procedure">Procedura</button>
           </div>
         </section>
 
@@ -1588,6 +1589,19 @@
 
           <section id="pricingThiView" class="pricing-view-section" role="tabpanel" aria-labelledby="thiTab" hidden></section>
           <section id="pricingTrqView" class="pricing-view-section" role="tabpanel" aria-labelledby="trqTab" hidden></section>
+          <section id="pricingProcedureView" class="pricing-view-section tinnitus-procedure" role="tabpanel" aria-labelledby="procedureTab" hidden>
+            <header class="tinnitus-procedure-toolbar">
+              <div><h2>Rozpoznanie utrudnień wywołanych szumami usznymi</h2><p>Materiał źródłowy Beltone · THI</p></div>
+              <div class="tinnitus-procedure-actions">
+                <a class="reset-filters-btn" href="procedures/thi-metoda.pdf" target="_blank" rel="noopener noreferrer">Otwórz / drukuj PDF</a>
+                <a class="reset-filters-btn" href="procedures/thi-metoda.pdf" download="Procedura-THI.pdf">Pobierz PDF</a>
+              </div>
+            </header>
+            <div class="tinnitus-procedure-pages">
+              <figure><img data-procedure-src="procedures/thi-page-1.jpg" width="1323" height="1872" loading="lazy" decoding="async" alt="Procedura THI: schemat rozpoznawania utrudnień wywołanych szumami usznymi"><figcaption>Strona 1 / 2</figcaption></figure>
+              <figure><img data-procedure-src="procedures/thi-page-2.jpg" width="1323" height="1872" loading="lazy" decoding="async" alt="Procedura THI: emocje związane z szumami usznymi i postępowanie"><figcaption>Strona 2 / 2</figcaption></figure>
+            </div>
+          </section>
 
           <section id="pricingRodoView" class="pricing-view-section pricing-rodo-section" role="tabpanel" aria-labelledby="rodoTab" hidden>
             <section class="offer-builder rodo-builder" aria-label="Dane do formularza RODO">
@@ -3549,17 +3563,17 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261103-17"></script>
-    <script src="data-layer.js?v=20261103-17"></script>
-    <script src="sync-layer.js?v=20261103-17"></script>
-    <script src="traffic-meter.js?v=20261103-17"></script>
-    <script src="repair-returns.js?v=20261103-17"></script>
-    <script src="offline-vault.js?v=20261103-17"></script>
-    <script src="offline-forms.js?v=20261103-17"></script>
-    <script src="stock-audit.js?v=20261103-17"></script>
-    <script src="clients.js?v=20261103-17"></script>
-    <script src="tinnitus-forms.js?v=20261103-17"></script>
-    <script src="mail-merge.js?v=20261103-17"></script>
-  <script src="app.js?v=20261103-17"></script>
+    <script src="supabase-config.js?v=20261103-18"></script>
+    <script src="data-layer.js?v=20261103-18"></script>
+    <script src="sync-layer.js?v=20261103-18"></script>
+    <script src="traffic-meter.js?v=20261103-18"></script>
+    <script src="repair-returns.js?v=20261103-18"></script>
+    <script src="offline-vault.js?v=20261103-18"></script>
+    <script src="offline-forms.js?v=20261103-18"></script>
+    <script src="stock-audit.js?v=20261103-18"></script>
+    <script src="clients.js?v=20261103-18"></script>
+    <script src="tinnitus-forms.js?v=20261103-18"></script>
+    <script src="mail-merge.js?v=20261103-18"></script>
+  <script src="app.js?v=20261103-18"></script>
   </body>
 </html>

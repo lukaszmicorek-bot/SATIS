@@ -22,7 +22,7 @@ function node(id, dataset = {}, active = false) {
 }
 function setup() {
   const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients'].map(name => node(`${name}Notebook`));
-  const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo', 'thi', 'trq'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
+  const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo', 'thi', 'trq', 'procedure'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
     node(`${view}View`, {viewGroup: view.startsWith('repair') ? 'repairs' : 'devices'}));
@@ -40,11 +40,11 @@ function setup() {
     mailMergeView: node('mailMergeNotebook'), pcprViews: node('pcprViews'),
     renderCounts: {}
   };
-  for (const name of ['List', 'Offer', 'Loan', 'Receipt', 'Rodo', 'Thi', 'Trq', 'Pcpr', 'Order', 'Complaint', 'History']) context[`pricing${name}View`] = node(name);
+  for (const name of ['List', 'Offer', 'Loan', 'Receipt', 'Rodo', 'Thi', 'Trq', 'Procedure', 'Pcpr', 'Order', 'Complaint', 'History']) context[`pricing${name}View`] = node(name);
   context.pricingTinnitusViews = {thi: context.pricingThiView, trq: context.pricingTrqView};
   context.tinnitusForms = {render: kind => {context.renderCounts[kind] = (context.renderCounts[kind] || 0) + 1;}};
   for (const name of ['hideWorkTimeHourlyPreview', 'hideVacationPeriodPreview', 'updateCustomerRelationsPanelVisibility', 'renderCustomerRelations', 'setCurrentYearTitle',
-    'renderPricingOfferDeviceList', 'renderPricingOffer', 'renderPricingLoan', 'renderPricingReceipt', 'renderPricingRodo', 'renderPricingPcprList', 'renderPricingOrder', 'renderPricingComplaint',
+    'renderTinnitusProcedure', 'renderPricingOfferDeviceList', 'renderPricingOffer', 'renderPricingLoan', 'renderPricingReceipt', 'renderPricingRodo', 'renderPricingPcprList', 'renderPricingOrder', 'renderPricingComplaint',
     'renderPricingDocumentHistory', 'renderPricingRecords', 'updateStats', 'renderRepairRecords', 'renderDataControlView', 'renderDemoRecords',
     'renderStockView', 'renderDeviceViews', 'updateCapdScope', 'renderCapdHistory', 'renderVacationModule',
     'renderWorkTimeModule', 'loadWorkTimeRecords']) {
@@ -56,7 +56,7 @@ function setup() {
 }
 test('document views route to the correct notebook, preserve form nodes, and return to lists', () => {
   const ctx = setup();
-  for (const [view, group] of Object.entries({offer: 'devices', loan: 'devices', receipt: 'devices', rodo: 'devices', thi: 'devices', trq: 'devices', order: 'repairs', complaint: 'repairs'})) {
+  for (const [view, group] of Object.entries({offer: 'devices', loan: 'devices', receipt: 'devices', rodo: 'devices', thi: 'devices', trq: 'devices', procedure: 'devices', order: 'repairs', complaint: 'repairs'})) {
     const panel = ctx[`pricing${view[0].toUpperCase() + view.slice(1)}View`];
     panel.draft = 'unsaved text';
     ctx.switchPricingView(view);
@@ -363,8 +363,8 @@ test('document tabs form two separate styled groups without changing their roles
   const groups = [...html.matchAll(/<div class="document-tab-group" role="presentation">([\s\S]*?)<\/div>/g)];
   assert.equal(groups.length, 2);
   assert.deepEqual(groups.map(match => [...match[1].matchAll(/data-view="([^"]+)"/g)].map(tab => tab[1])),
-    [['offer', 'loan', 'receipt', 'rodo', 'thi', 'trq'], ['order', 'complaint']]);
-  groups.forEach((match, index) => assert.equal((match[1].match(/role="tab"/g) || []).length, index === 0 ? 6 : 2));
+    [['offer', 'loan', 'receipt', 'rodo', 'thi', 'trq', 'procedure'], ['order', 'complaint']]);
+  groups.forEach((match, index) => assert.equal((match[1].match(/role="tab"/g) || []).length, index === 0 ? 7 : 2));
   const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
   assert.match(css, /\.document-tab-group \{[^}]*border-left: 1px solid/);
   assert.match(css, /\.document-tab-group \.tab-button\.active \{/);
@@ -765,4 +765,22 @@ test('mail merge frontend permission accepts only SATIS and gabinet accounts',()
   assert.equal(ctx.canAccessMailMerge(),false);
   for(const email of ['satis@pracowniasluchu.pl',' GABINET@PRACOWNIASLUCHU.PL ']){ctx.currentSupabaseUser={email};assert.equal(ctx.canAccessMailMerge(),true);}
   ctx.currentSupabaseUser={email:'inna@pracowniasluchu.pl'};assert.equal(ctx.canAccessMailMerge(),false);
+});
+
+test('THI procedure follows TRQ and its public previews load only on first opening',()=>{
+  assert.match(html,/id="trqTab"[^\n]+\n\s*<button id="procedureTab"/);
+  assert.match(html,/id="procedureTab"[^>]*aria-controls="pricingProcedureView"/);
+  assert.equal((html.match(/data-procedure-src="procedures\/thi-page-[12]\.jpg"/g)||[]).length,2);
+  assert.doesNotMatch(html,/<img[^>]+\ssrc="procedures\//);
+  let loads=0;const images=[1,2].map(index=>({dataset:{procedureSrc:`procedures/thi-page-${index}.jpg`},getAttribute(){return this.current||null;},set src(value){this.current=value;loads++;}}));
+  const ctx=vm.createContext({pricingProcedureView:{querySelectorAll:()=>images}});vm.runInContext(extract('renderTinnitusProcedure'),ctx);
+  ctx.renderTinnitusProcedure();ctx.renderTinnitusProcedure();assert.equal(loads,2);
+  assert.equal(images[0].current,'procedures/thi-page-1.jpg');
+  for(const filename of ['thi-metoda.pdf','thi-page-1.jpg','thi-page-2.jpg']){
+    const relative=`procedures/${filename}`;assert.ok(fs.statSync(path.join(__dirname,'..',relative)).size>0);
+    assert.ok(fs.readFileSync(path.join(__dirname,'../scripts/public_assets.py'),'utf8').includes(`"${relative}"`));
+    assert.ok(!fs.readFileSync(path.join(__dirname,'../offline-sw.js'),'utf8').includes(relative));
+  }
+  assert.equal(fs.readFileSync(path.join(__dirname,'../procedures/thi-metoda.pdf')).subarray(0,5).toString(),'%PDF-');
+  assert.match(html,/href="procedures\/thi-metoda.pdf"[^>]*rel="noopener noreferrer"/);
 });

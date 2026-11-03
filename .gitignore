@@ -146,3 +146,9 @@
 !/tests/mail-merge-pdf.test.cjs
 
 !/mail-merge/postal-reference.json
+
+!/procedures/
+/procedures/*
+!/procedures/thi-metoda.pdf
+!/procedures/thi-page-1.jpg
+!/procedures/thi-page-2.jpg

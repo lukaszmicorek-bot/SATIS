@@ -680,6 +680,7 @@ const pricingLoanView = document.querySelector("#pricingLoanView");
 const pricingRodoView = document.querySelector("#pricingRodoView");
 const pricingReceiptView = document.querySelector("#pricingReceiptView");
 const pricingTinnitusViews = {thi: document.querySelector("#pricingThiView"), trq: document.querySelector("#pricingTrqView")};
+const pricingProcedureView = document.querySelector("#pricingProcedureView");
 let tinnitusForms = null;
 const pricingPcprView = document.querySelector("#pricingPcprView");
 const pricingOrderView = document.querySelector("#pricingOrderView");
@@ -2684,7 +2685,7 @@ async function refreshPricingFromSupabase() {
   if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
   if (sharedPcprList) pricingPcprList = sharedPcprList;
   renderPricingRecords();
-  if (activeNotebook === "devices" && !["offer", "loan", "rodo", "receipt", "thi", "trq"].includes(activeDeviceView)) renderDeviceViews();
+  if (activeNotebook === "devices" && !["offer", "loan", "rodo", "receipt", "thi", "trq", "procedure"].includes(activeDeviceView)) renderDeviceViews();
   setCurrentYearTitle();
 }
 
@@ -9582,7 +9583,7 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "devices", trq: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "devices", trq: "devices", procedure: "devices", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
@@ -9598,6 +9599,13 @@ function syncNotebookPanels() {
       : section.id !== `${activeNotebook}Notebook`;
   });
   if (statsPanel) statsPanel.hidden = activeNotebook !== "devices" || !["database", "stock"].includes(activeDeviceView) || documentVisible;
+}
+
+function renderTinnitusProcedure() {
+  if (!pricingProcedureView) return;
+  pricingProcedureView.querySelectorAll("img[data-procedure-src]").forEach(image => {
+    if (!image.getAttribute("src")) image.src = image.dataset.procedureSrc;
+  });
 }
 
 function switchPricingView(viewName) {
@@ -9626,6 +9634,7 @@ function switchPricingView(viewName) {
   if (pricingRodoView) pricingRodoView.hidden = activePricingView !== "rodo";
   if (pricingReceiptView) pricingReceiptView.hidden = activePricingView !== "receipt";
   Object.entries(pricingTinnitusViews).forEach(([kind, view]) => { if (view) view.hidden = activePricingView !== kind; });
+  if (pricingProcedureView) pricingProcedureView.hidden = activePricingView !== "procedure";
   if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
   if (pricingOrderView) pricingOrderView.hidden = activePricingView !== "order";
   if (pricingComplaintView) pricingComplaintView.hidden = activePricingView !== "complaint";
@@ -9633,6 +9642,10 @@ function switchPricingView(viewName) {
   syncNotebookPanels();
   if (activePricingView === "mailMerge") {
     initializeMailMergeModule()?.open();
+    return;
+  }
+  if (activePricingView === "procedure") {
+    renderTinnitusProcedure();
     return;
   }
   renderPricingOfferDeviceList();

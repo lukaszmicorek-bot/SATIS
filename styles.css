@@ -17722,3 +17722,15 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 @media screen and (max-width: 900px) {
   .mail-merge-fields .mail-merge-choice-field { grid-column: 1 / -1; }
 }
+
+.tinnitus-procedure-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 16px; border-bottom: 1px solid #d6e2e5; }
+.tinnitus-procedure-toolbar h2 { margin: 0; color: #003f5a; font-size: 18px; line-height: 1.4; }
+.tinnitus-procedure-toolbar p { margin: 4px 0 0; color: #657b84; font-size: 12px; }
+.tinnitus-procedure-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tinnitus-procedure-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 6px 10px; border: 1px solid #bfd4d6; border-radius: 6px; color: #155b60; background: #f5f9f9; font-size: 12px; text-decoration: none; }
+.tinnitus-procedure-actions a:hover { background: #e8f3f1; border-color: #7ea7a6; }
+.tinnitus-procedure-actions a:focus-visible { outline: 2px solid #007b7d; outline-offset: 2px; }
+.tinnitus-procedure-pages { display: grid; gap: 22px; width: min(100%, 960px); margin: 18px auto 0; }
+.tinnitus-procedure-pages figure { min-width: 0; margin: 0; }
+.tinnitus-procedure-pages img { display: block; width: 100%; height: auto; background: #fff; }
+.tinnitus-procedure-pages figcaption { padding-top: 6px; text-align: right; color: #657b84; font-size: 12px; }
