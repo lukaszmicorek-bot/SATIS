@@ -239,6 +239,7 @@
       labels.get("certificateUntil").classList.toggle("mail-merge-muted",indefinite);
       updateCertificateNotice();
       for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
+      for(const count of [1,2])q(`mailMergeItemCount${count}`).setAttribute("aria-pressed",String(count===(second?2:1)));
       q("mailMergeFundingNote").textContent=second?"Kwoty poniżej dotyczą łącznie obu przedmiotów.":"Kwoty poniżej dotyczą jednego przedmiotu.";
       updateRequiredHints();
     }
@@ -437,6 +438,16 @@
       q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
     }
     function changed() {if(!authorized() || busy)return;dirtyState();updateBirth();updateConditionalFields();updateAmounts();clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,180);}
+    function setItemCount(value){
+      if(!["1","2"].includes(value))return;
+      if(value==="1"&&(fields.get("subject2").value||fields.get("orderNumber2").value)){
+        if(!a.confirm("Usunąć drugi przedmiot i jego numer zlecenia z bieżącego wniosku?")){
+          fields.get("itemCount").value="2";updateConditionalFields();return;
+        }
+        fields.get("subject2").value="";fields.get("orderNumber2").value="";
+      }
+      fields.get("itemCount").value=value;changed();renderPreview();
+    }
     function reset() {
       generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
@@ -582,8 +593,9 @@
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
       items.forEach(([key,title,options])=>{
-        const label=node("label"),input=node(options?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
-        if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
+        const itemCount=key==="itemCount",label=node(itemCount?"div":"label",itemCount?"mail-merge-item-count":""),input=node(options&&!itemCount?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
+        if(itemCount)input.type="hidden";
+        else if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
         if(key==="pesel"){input.inputMode="numeric";input.maxLength=11;}
         if(["cost","nfz","requested","monthlyIncome","own"].includes(key))input.inputMode="decimal";
@@ -591,7 +603,16 @@
         if(key==="certificateUntil"){input.setAttribute("data-date-picker","");a.bindDate(input);}
         if(["birthDate","own"].includes(key))input.readOnly=true;
         if(key==="own")input.title="Wyliczane automatycznie: całkowity koszt zakupu minus dofinansowanie NFZ, przed dofinansowaniem PCPR.";
-        fields.set(key,input);labels.set(key,label);label.append(node("span","",title),input);
+        fields.set(key,input);labels.set(key,label);const caption=node("span","",title);label.append(caption,input);
+        if(itemCount){
+          caption.id="mailMergeItemCountLabel";
+          const controls=node("div","mail-merge-item-switch");controls.setAttribute("role","group");controls.setAttribute("aria-labelledby",caption.id);
+          for(const count of [1,2]){
+            const control=button(String(count),()=>setItemCount(String(count)),"mail-merge-item-option");control.id=`mailMergeItemCount${count}`;
+            control.setAttribute("aria-label",count===1?"1 przedmiot":"2 przedmioty");controls.append(control);
+          }
+          label.append(controls);
+        }
         const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
         if(key==="certificateUntil"){
@@ -687,12 +708,7 @@
     });
     for(const event of ["input","change","blur"])fields.get("certificateUntil").addEventListener(event,updateCertificateNotice);
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});
-    fields.get("itemCount").addEventListener("change",()=>{
-      if(fields.get("itemCount").value==="1" && (fields.get("subject2").value||fields.get("orderNumber2").value)){
-        if(!a.confirm("Usunąć drugi przedmiot i jego numer zlecenia z bieżącego wniosku?")){fields.get("itemCount").value="2";return;}
-        fields.get("subject2").value="";fields.get("orderNumber2").value="";
-      }changed();renderPreview();
-    });
+    fields.get("itemCount").addEventListener("change",()=>setItemCount(fields.get("itemCount").value));
     fields.get("city").addEventListener("input",()=>{
       postalSequence++;clearRegion();updatePostOffice("",true);q("mailMergePostalChoices").replaceChildren();
       if(autoPostal && fields.get("postal").value===autoPostal){fields.get("postal").value="";autoPostal="";}

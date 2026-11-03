@@ -491,3 +491,22 @@ test('email and apartment number are optional without empty-field highlighting b
   const printed=t.nodes.get('mailMergePrint').textContent;assert.match(printed,/Testowy/);
   assert.equal(m.placements(data).some(item=>['email','flat'].includes(item.field)),false);t.api.clear();
 });
+
+test('item count is a two-button switch with synchronized reset, saved state and second item fields',async()=>{
+  const t=fixture(),one=t.nodes.get('mailMergeItemCount1'),two=t.nodes.get('mailMergeItemCount2');
+  assert.equal(t.nodes.get('mergeitemCount').type,'hidden');assert.equal(t.nodes.get('mergeitemCount').tag,'input');
+  assert.equal(one.attributes['aria-pressed'],'true');assert.equal(two.attributes['aria-pressed'],'false');
+  await two.emit('click');assert.equal(t.nodes.get('mergeitemCount').value,'2');assert.equal(two.attributes['aria-pressed'],'true');
+  assert.equal(t.nodes.get('mergesubject2').parent.hidden,false);
+  t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber2:'NFZ-2'});await t.click('Zapisz zmiany');
+  await t.click('Nowy wniosek');assert.equal(one.attributes['aria-pressed'],'true');
+  await t.click('Edytuj');assert.equal(two.attributes['aria-pressed'],'true');
+  await one.emit('click');assert.equal(t.nodes.get('mergesubject2').value,'');assert.equal(t.nodes.get('mergesubject2').parent.hidden,true);
+  assert.equal(one.attributes['aria-pressed'],'true');assert.equal(two.attributes['aria-pressed'],'false');t.api.clear();
+});
+test('cancelling a reduction to one product preserves both entries and the selected switch',async()=>{
+  const t=fixture({confirm:()=>false});await t.nodes.get('mailMergeItemCount2').emit('click');
+  t.fill({subject2:'Wkładka uszna',orderNumber2:'NFZ-2'});await t.nodes.get('mailMergeItemCount1').emit('click');
+  assert.equal(t.nodes.get('mergeitemCount').value,'2');assert.equal(t.nodes.get('mergesubject2').value,'Wkładka uszna');
+  assert.equal(t.nodes.get('mergeorderNumber2').value,'NFZ-2');assert.equal(t.nodes.get('mailMergeItemCount2').attributes['aria-pressed'],'true');t.api.clear();
+});

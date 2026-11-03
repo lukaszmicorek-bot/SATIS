@@ -17649,7 +17649,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 
 .mail-merge-fields label.mail-merge-muted { color: #819096; }
 .mail-merge-fields label.mail-merge-muted input { background: #f2f4f4; border-color: #dce2e4; color: #7a898f; box-shadow: none; cursor: default; }
-.mail-merge-group-subject label:has(#mergeitemCount) { grid-column: 1 / -1; max-width: 250px; }
+.mail-merge-group-subject .mail-merge-item-count { grid-column: 1 / -1; max-width: 250px; }
 .mail-merge-group-subject label:has(#mergesubject2) { grid-column: span 8; }
 .mail-merge-group-subject label:has(#mergeorderNumber2) { grid-column: span 4; }
 .mail-merge-template-settings { border-top: 1px solid #dce6e8; border-bottom: 1px solid #dce6e8; padding: 10px 0; margin: 12px 0 18px; }
@@ -17677,3 +17677,13 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-fields label.mail-merge-certificate-expired input { border-color: #c56c7c; background: #fff3f5; }
 
 .mail-merge-fields :is(input, select).mail-merge-required-empty:not(:disabled):not([aria-invalid="true"]) { background-color: #f3f9f8; border-color: #c9dfdb; }
+
+.mail-merge-editor > .mail-merge-fields { margin-top: 10px; padding: 16px 0 20px; border-top: 2px solid #a4c4c5; border-bottom: 1px solid #e0e9ea; }
+.mail-merge-editor > .mail-merge-fields legend { padding: 0 12px 0 0; font-size: 14px; line-height: 1.4; font-weight: 700; color: #003f5a; }
+.mail-merge-editor > .mail-merge-fields legend::before { content: ""; display: inline-block; width: 4px; height: 14px; margin-right: 8px; background: #007b7d; vertical-align: -2px; }
+.mail-merge-item-count { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; }
+.mail-merge-item-switch { display: inline-flex; gap: 4px; width: max-content; max-width: 100%; }
+.mail-merge-item-option { display: inline-flex; align-items: center; justify-content: center; width: 54px; min-height: 36px; padding: 0 12px; border: 1px solid #c7dadd; border-radius: 6px; background: #fff; color: #31545d; font-size: 14px; font-weight: 650; }
+.mail-merge-item-option:hover { background: #eff7f6; border-color: #79aaaa; }
+.mail-merge-item-option[aria-pressed="true"] { background: #007b7d; border-color: #007b7d; color: #fff; }
+.mail-merge-item-option:focus-visible { outline: 2px solid #003f5a; outline-offset: 2px; }
