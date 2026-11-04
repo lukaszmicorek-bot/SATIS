@@ -777,6 +777,9 @@ const pcprPhoneInput = document.querySelector("#pcprPhoneInput");
 const pcprPostalCodeInput = document.querySelector("#pcprPostalCodeInput");
 const pcprCityInput = document.querySelector("#pcprCityInput");
 const pcprStreetInput = document.querySelector("#pcprStreetInput");
+const pcprStreetNameInput = document.querySelector("#pcprStreetNameInput");
+const pcprHouseNumberInput = document.querySelector("#pcprHouseNumberInput");
+const pcprFlatNumberInput = document.querySelector("#pcprFlatNumberInput");
 const pcprModelInput = document.querySelector("#pcprModelInput");
 const pcprModelInput2 = document.querySelector("#pcprModelInput2");
 const pcprNotesInput = document.querySelector("#pcprNotesInput");
@@ -13640,11 +13643,11 @@ function setupStructuredAddresses() {
     });
     syncStructuredAddress(root);
   });
-  pcprStreetInput?.addEventListener("paste", event => {
+  pcprStreetNameInput?.addEventListener("paste", event => {
     const parts = postalAddressParts(event.clipboardData?.getData("text") || "");
     if (!parts.street || !parts.city) return;
     event.preventDefault();
-    pcprStreetInput.value = parts.street;
+    fillPcprStreetForm({ street: parts.street });
     pcprPostalCodeInput.value = parts.postalCode;
     pcprCityInput.value = parts.city;
     pcprCityInput.dataset.autoCity = "";
@@ -14754,6 +14757,50 @@ function pcprCityForPostalCode(postalCode, knownEntries = []) {
   return match ? normalizePcprCity(match.city) : "";
 }
 
+function pcprStreetAddressParts(entry = {}) {
+  const explicit = typeof entry.streetName === "string";
+  const original = normalizeLoanHistoryText(entry.street || "");
+  let streetName = explicit ? entry.streetName : original;
+  let houseNumber = explicit ? normalizeLoanHistoryText(entry.houseNumber) : "";
+  let flatNumber = explicit ? normalizeLoanHistoryText(entry.flatNumber) : "";
+  if (!explicit) {
+    const match = original.match(/^(.+?)\s+(\d+[\p{L}]?)(?:\s*\/\s*(\d+[\p{L}]?))?$/u);
+    if (match && !/^(?:ul\.?|al\.?|os\.?|ulica|aleja|osiedle|(?:(?:ul|al|os)\.\s*)?dywizjonu)$/iu.test(match[1].trim())) {
+      [, streetName, houseNumber, flatNumber = ""] = match;
+    }
+  }
+  streetName = titleCaseName(normalizeLoanHistoryText(streetName))
+    .replace(/^Ul\./u, "ul.").replace(/^Al\./u, "al.").replace(/^Os\./u, "os.");
+  houseNumber = houseNumber.toLocaleUpperCase("pl-PL");
+  flatNumber = flatNumber.toLocaleUpperCase("pl-PL");
+  const number = [houseNumber, flatNumber].filter(Boolean).join("/");
+  return { streetName, houseNumber, flatNumber,
+    street: [streetName, number].filter(Boolean).join(" "),
+    streetNeedsReview: !houseNumber && /\d/u.test(streetName) };
+}
+
+function fillPcprStreetForm(entry) {
+  const parts = pcprStreetAddressParts(entry);
+  if (pcprStreetNameInput) pcprStreetNameInput.value = parts.streetName;
+  if (pcprHouseNumberInput) pcprHouseNumberInput.value = parts.houseNumber;
+  if (pcprHouseNumberInput) pcprHouseNumberInput.required = Boolean(parts.flatNumber);
+  if (pcprFlatNumberInput) pcprFlatNumberInput.value = parts.flatNumber;
+  if (pcprStreetInput) pcprStreetInput.value = parts.street;
+  const hint = document.querySelector("#pcprAddressReview");
+  if (hint) hint.hidden = !parts.streetNeedsReview;
+  return parts;
+}
+
+function syncPcprStreetForm({ split = false, format = true } = {}) {
+  const entry = { streetName: pcprStreetNameInput?.value || "", houseNumber: pcprHouseNumberInput?.value || "", flatNumber: pcprFlatNumberInput?.value || "" };
+  if (pcprHouseNumberInput) pcprHouseNumberInput.required = Boolean(entry.flatNumber);
+  const source = split && !entry.houseNumber && !entry.flatNumber ? { street: entry.streetName } : entry;
+  if (format) return fillPcprStreetForm(source);
+  const parts = pcprStreetAddressParts(source);
+  if (pcprStreetInput) pcprStreetInput.value = parts.street;
+  return parts;
+}
+
 function pcprAddressLabel(entry) {
   const location = [formatPcprPostalCode(entry?.postalCode), normalizePcprCity(entry?.city)].filter(Boolean).join(" ");
   return [location, normalizeLoanHistoryText(entry?.street)].filter(Boolean).join(", ") || normalizeLoanHistoryText(entry?.address);
@@ -14799,7 +14846,7 @@ function normalizePricingPcprItem(item) {
   const parsedAddress = parsePcprAddress(item.address);
   const postalCode = formatPcprPostalCode(item.postalCode || item.zipCode || parsedAddress.postalCode);
   const city = normalizePcprCity(item.city || parsedAddress.city || pcprCityForPostalCode(postalCode));
-  const street = normalizePcprStreet(item.street || parsedAddress.street);
+  const streetParts = pcprStreetAddressParts({ ...item, street: item.street || parsedAddress.street });
   const normalizedItem = {
     id: normalizeLoanHistoryText(item.id || makeId()),
     createdAt: normalizeLoanHistoryText(item.createdAt || savedAt),
@@ -14814,7 +14861,7 @@ function normalizePricingPcprItem(item) {
     notes: String(item.notes ?? "").trim(),
     postalCode,
     city,
-    street,
+    ...streetParts,
     model: record ? pricingOfferDeviceName(record) : normalizeLoanHistoryText(item.model),
     model2: secondRecord ? pricingOfferDeviceName(secondRecord) : normalizeLoanHistoryText(item.model2 || item.secondModel || item.model_2),
     ear: normalizePricingPcprEar(item.ear || item.side)
@@ -14946,6 +14993,7 @@ function syncPcprSecondModelForEar() {
 }
 
 function currentPricingPcprItemSnapshot() {
+  const streetParts = syncPcprStreetForm({ split: true });
   syncPcprModelFromPricing();
   syncPcprSecondModelFromPricing();
   syncPcprPostalCodeFromAddress();
@@ -14954,7 +15002,7 @@ function currentPricingPcprItemSnapshot() {
   const existingEntry = activePricingPcprEditId ? pricingPcprList.find((entry) => entry.id === activePricingPcprEditId) : null;
   const postalCode = formatPcprPostalCode(pcprPostalCodeInput?.value);
   const city = normalizePcprCity(pcprCityInput?.value);
-  const street = normalizePcprStreet(pcprStreetInput?.value);
+  const street = streetParts.street;
   return {
     id: existingEntry?.id || makeId(),
     createdAt: existingEntry?.createdAt || now,
@@ -14968,7 +15016,7 @@ function currentPricingPcprItemSnapshot() {
     notes: pcprNotesInput?.value || "",
     postalCode,
     city,
-    street,
+    ...streetParts,
     address: pcprAddressLabel({ postalCode, city, street }),
     model: normalizeLoanHistoryText(pcprModelInput?.value),
     model2: selectedPcprEar() === "B"
@@ -14991,9 +15039,10 @@ function updatePcprFormMode() {
 
 function resetPricingPcprForm() {
   clearPostalAutofill(pcprPostalCodeInput, "pcprPostalHint");
-  [pcprOfficeInput, pcprPlaceInput, pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprModelInput, pcprModelInput2, pcprNotesInput].forEach((input) => {
+  [pcprOfficeInput, pcprPlaceInput, pcprCustomerInput, pcprPhoneInput, pcprPostalCodeInput, pcprCityInput, pcprStreetInput, pcprStreetNameInput, pcprHouseNumberInput, pcprFlatNumberInput, pcprModelInput, pcprModelInput2, pcprNotesInput].forEach((input) => {
     if (input) input.value = "";
   });
+  fillPcprStreetForm({ street: "" });
   activePricingPcprEditId = "";
   if (pcprCityInput) pcprCityInput.dataset.autoCity = "";
   if (pcprPlaceInput) {
@@ -15027,7 +15076,7 @@ function editPricingPcprItem(id) {
     pcprCityInput.value = entry.city || "";
     pcprCityInput.dataset.autoCity = "";
   }
-  if (pcprStreetInput) pcprStreetInput.value = entry.street || "";
+  fillPcprStreetForm(entry);
   if (pcprModelInput) pcprModelInput.value = entry.model || "";
   if (pcprModelInput2) pcprModelInput2.value = entry.model2 || "";
   setPcprSecondModelVisible(Boolean(entry.model2));
@@ -29066,9 +29115,12 @@ pcprCityInput?.addEventListener("blur", (event) => {
   event.target.value = normalizePcprCity(event.target.value);
   syncPcprPostalCodeFromAddress();
 });
-pcprStreetInput?.addEventListener("blur", (event) => {
-  event.target.value = normalizePcprStreet(event.target.value);
-  syncPcprPostalCodeFromAddress();
+[pcprStreetNameInput, pcprHouseNumberInput, pcprFlatNumberInput].forEach(input => {
+  input?.addEventListener("input", () => syncPcprStreetForm({ format: false }));
+  input?.addEventListener("blur", () => {
+    syncPcprStreetForm({ split: true });
+    syncPcprPostalCodeFromAddress();
+  });
 });
 pcprModelInput?.addEventListener("input", syncPcprSecondModelForEar);
 pcprModelInput?.addEventListener("change", () => {

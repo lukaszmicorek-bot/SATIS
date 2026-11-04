@@ -17747,3 +17747,10 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 
 .vacation-carryover-badge { display: inline-flex; align-items: center; min-height: 20px; margin: 3px 0 3px 5px; padding: 2px 6px; border-radius: 5px; color: #5a526b; background: #eeebf4; font-size: 10px; font-weight: 700; line-height: 1.3; white-space: nowrap; vertical-align: middle; }
 .vacation-carryover-badge[data-pending="true"] { color: #796342; background: #f6f0e3; }
+
+.pcpr-address-fields { display: grid; grid-template-columns: minmax(0, 1fr) 68px 68px; align-items: end; gap: 8px; }
+.pcpr-address-fields > label { display: grid; gap: 6px; min-width: 0; }
+.pcpr-address-fields input { width: 100%; min-width: 0; box-sizing: border-box; }
+.pcpr-address-fields label > span { white-space: nowrap; }
+.pcpr-address-review { padding: 0 0 0 10px; border-left: 2px solid #d4a373; color: #805d37; font-size: 12px; line-height: 1.5; }
+@media (max-width: 420px) { .pcpr-address-fields { grid-template-columns: minmax(0, 1fr) 62px 62px; gap: 6px; } }

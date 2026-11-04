@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261104-1">
+  <link rel="stylesheet" href="styles.css?v=20261104-2">
   </head>
   <body>
     <main class="app-shell">
@@ -1723,10 +1723,12 @@
                     <span>Telefon</span>
                     <input id="pcprPhoneInput" type="text" inputmode="tel" autocomplete="off">
                   </label>
-                  <label class="pcpr-street-field">
-                    <span>Ulica i numer</span>
-                    <input id="pcprStreetInput" type="text" autocomplete="address-line1">
-                  </label>
+                  <div class="pcpr-street-field pcpr-address-fields" role="group" aria-label="Ulica i numer domu oraz lokalu">
+                    <input id="pcprStreetInput" type="hidden">
+                    <label><span>Ulica</span><input id="pcprStreetNameInput" type="text" autocomplete="address-line1"></label>
+                    <label><span>Nr domu</span><input id="pcprHouseNumberInput" type="text" autocomplete="off" maxlength="20"></label>
+                    <label><span>Nr lokalu</span><input id="pcprFlatNumberInput" type="text" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
+                  </div>
                   <label class="pcpr-postal-field">
                     <span>Kod pocztowy</span>
                     <input id="pcprPostalCodeInput" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="43-300" aria-describedby="pcprPostalHint">
@@ -1737,6 +1739,7 @@
                     <input id="pcprCityInput" type="text" autocomplete="address-level2">
                   </label>
                 </div>
+                <small id="pcprAddressReview" class="pcpr-address-review" role="status" hidden>Adres ma niestandardowy zapis. Zachowano go bez rozdzielania — sprawdź ulicę i numery.</small>
                 <div class="pcpr-form-row pcpr-form-row-bottom">
                   <label class="pcpr-place-field document-location-field" data-location-tone="T12">
                     <span>Miejsce</span>
@@ -3578,17 +3581,17 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261104-1"></script>
-    <script src="data-layer.js?v=20261104-1"></script>
-    <script src="sync-layer.js?v=20261104-1"></script>
-    <script src="traffic-meter.js?v=20261104-1"></script>
-    <script src="repair-returns.js?v=20261104-1"></script>
-    <script src="offline-vault.js?v=20261104-1"></script>
-    <script src="offline-forms.js?v=20261104-1"></script>
-    <script src="stock-audit.js?v=20261104-1"></script>
-    <script src="clients.js?v=20261104-1"></script>
-    <script src="tinnitus-forms.js?v=20261104-1"></script>
-    <script src="mail-merge.js?v=20261104-1"></script>
-  <script src="app.js?v=20261104-1"></script>
+    <script src="supabase-config.js?v=20261104-2"></script>
+    <script src="data-layer.js?v=20261104-2"></script>
+    <script src="sync-layer.js?v=20261104-2"></script>
+    <script src="traffic-meter.js?v=20261104-2"></script>
+    <script src="repair-returns.js?v=20261104-2"></script>
+    <script src="offline-vault.js?v=20261104-2"></script>
+    <script src="offline-forms.js?v=20261104-2"></script>
+    <script src="stock-audit.js?v=20261104-2"></script>
+    <script src="clients.js?v=20261104-2"></script>
+    <script src="tinnitus-forms.js?v=20261104-2"></script>
+    <script src="mail-merge.js?v=20261104-2"></script>
+  <script src="app.js?v=20261104-2"></script>
   </body>
 </html>

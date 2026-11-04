@@ -72,6 +72,7 @@ test('structured addresses preserve old values, manual typing and canonical hist
   input.addEventListener = () => {};
   ctx.document.querySelectorAll = () => [root];
   ctx.pcprStreetInput = null;
+  ctx.pcprStreetNameInput = null;
   vm.runInContext(extract('setupStructuredAddresses'), ctx);
   ctx.setupStructuredAddresses();
   let prevented = false;
