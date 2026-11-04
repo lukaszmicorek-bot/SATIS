@@ -13226,7 +13226,7 @@ function formatLoanAddress(value, { final = false } = {}) {
   return `${formatLoanStreet(parts.street)}, ${cityWithCode}`;
 }
 
-function customerHistoryContactEntries(customer) {
+function customerHistoryContactEntries(customer, { pcprPlace = "", includeEmpty = false } = {}) {
   const key = customerNameLookupKey(customer);
   if (!key || key.split(/\s+/u).length < 2) return [];
   const entries = [];
@@ -13241,10 +13241,15 @@ function customerHistoryContactEntries(customer) {
       date: isoDateForSave(entry.date) || isoDateForSave(entry.savedAt) || isoDateForSave(entry.createdAt),
       sortTime: customerRelationTimeValue(entry.date || entry.savedAt || entry.createdAt)
     };
-    if (contact.phone || contact.document || contact.address) entries.push(contact);
+    if (source === "PCPR / MOPS" && pcprPlace) {
+      contact.place = entry.place;
+      contact.addressParts = { postalCode: entry.postalCode || "", city: entry.city || "", street: entry.street || "" };
+    }
+    if (includeEmpty || contact.phone || contact.document || contact.address) entries.push(contact);
   };
   pricingLoanHistory.forEach((entry) => add(entry, "Umowa"));
-  pricingPcprList.forEach((entry) => add({ ...entry, address: pcprAddressLabel(entry) }, "PCPR / MOPS"));
+  const pcprEntries = pcprPlace ? normalizePricingPcprList(pricingPcprList).filter(entry => entry.place === pcprPlace) : pricingPcprList;
+  pcprEntries.forEach((entry) => add({ ...entry, address: pcprAddressLabel(entry) }, "PCPR / MOPS"));
   pricingOrderHistory.forEach((entry) => add({ customer: entry.customer, phone: entry.phone, date: entry.date, savedAt: entry.savedAt }, "Zamówienie"));
   pricingComplaintHistory.forEach((entry) => add({ customer: entry.customer, phone: entry.phone, date: entry.date, savedAt: entry.savedAt }, "Reklamacja"));
   if (typeof pricingOfferHistory !== "undefined") pricingOfferHistory.forEach(entry => add(entry, "Oferta"));
@@ -13262,13 +13267,13 @@ function customerHistoryContactEntries(customer) {
   return [...unique.values()];
 }
 
-function documentCustomerNameMatches(query, names = globalThis.SatisDocumentCustomerNames || []) {
+function documentCustomerNameMatches(query, names = globalThis.SatisDocumentCustomerNames || [], limit = 8) {
   const key = customerNameLookupKey(query);
   if (key.length < 2) return [];
   const tokens = key.split(/\s+/u);
   return names.filter(name => tokens.every(token => customerNameLookupKey(name).includes(token)))
     .sort((a, b) => Number(customerNameLookupKey(b) === key) - Number(customerNameLookupKey(a) === key) || a.localeCompare(b, "pl"))
-    .slice(0, 8);
+    .slice(0, limit);
 }
 
 function unambiguousDocumentContact(entries) {
@@ -30539,6 +30544,20 @@ function clientsCurrentSources() {
   clientsSourceCache = {refs, rows};
   return rows;
 }
+function mailMergeContactMatches(query) {
+  if (!canAccessMailMerge() || !currentSupabaseUser) return [];
+  const pcprNames = normalizePricingPcprList(pricingPcprList).filter(entry => entry.place === "P50").map(entry => entry.customer);
+  const names = [...new Set([...(globalThis.SatisDocumentCustomerNames || []), ...pcprNames])];
+  const matches = [];
+  // Filter ineligible PCPR-only profiles before applying the visible result limit.
+  for (const customer of documentCustomerNameMatches(query, names, Infinity)) {
+    const entries = customerHistoryContactEntries(customer, { pcprPlace: "P50", includeEmpty: true });
+    matches.push(...entries.map(entry => ({ ...entry, customer })));
+    if (matches.length >= 8) break;
+  }
+  return matches.slice(0, 8);
+}
+
 function initializeMailMergeModule() {
   if (!canAccessMailMerge() || !currentSupabaseUser) return null;
   if (mailMergeModule) return mailMergeModule;
@@ -30560,11 +30579,7 @@ function initializeMailMergeModule() {
       finally { window.clearTimeout(timer); }
     },
     contacts(query) {
-      if (!canAccessMailMerge() || !currentSupabaseUser) return [];
-      return documentCustomerNameMatches(query).flatMap(customer => {
-        const matches = customerHistoryContactEntries(customer);
-        return matches.length ? matches.map(entry => ({...entry, customer})) : [{customer}];
-      });
+      return mailMergeContactMatches(query);
     },
     validPesel: isValidPesel,
     birthDate: value => {const date = peselBirthDate(value);return date ? formatDate(date.toISOString().slice(0,10)) : "";},

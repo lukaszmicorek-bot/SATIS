@@ -682,3 +682,43 @@ test('missing visible choice receives the validation focus and clears its error 
   const no=t.nodes.get('mergeChoice-careHome-no');no.checked=true;await no.emit('change');
   assert.equal(no.parent.parent.attributes['aria-invalid'],undefined);assert.equal(first.validity,'');t.api.clear();
 });
+
+test('PCPR P50 contacts fill structured name, phone and address without guessing missing identity data',async()=>{
+  const t=fixture({contacts:()=>[{customer:'Anna Maria Testowa',phone:'500 600 700',source:'PCPR / MOPS',place:'P50',
+    address:'34-300 Żywiec, ul. Testowa 12/3',addressParts:{postalCode:'34-300',city:'Żywiec',street:'ul. Testowa 12/3'}}]});
+  t.api.open();await tick();const search=t.nodes.get('mailMergeSearch');search.value='Anna';await search.emit('input');
+  const matches=t.nodes.get('mailMergeMatches');assert.equal(matches.children.length,1);
+  assert.match(matches.children[0].textContent,/PCPR · P50/);await matches.children[0].emit('click');
+  for(const [key,value]of Object.entries({firstName:'Anna',middleName:'Maria',surname:'Testowa',phone:'500 600 700',postal:'34-300',city:'Żywiec',street:'Testowa',house:'12',flat:'3',pesel:''}))
+    assert.equal(t.nodes.get(`merge${key}`).value,value,key);
+  assert.equal(t.stored.size,0,'selection does not automatically save or send an application');t.api.clear();
+});
+
+test('PCPR Żywiec uses only P50 PCPR profiles but retains existing document history from other locations',()=>{
+  const source=fs.readFileSync(path.join(root,'app.js'),'utf8'),vm=require('node:vm');
+  function extract(name){const start=source.indexOf(`function ${name}(`);assert.ok(start>=0,name);const rest=source.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);}
+  const pcpr=[{customer:'Anna Testowa',place:'P50',phone:'500 600 700',postalCode:'34-300',city:'Żywiec',street:'ul. Testowa 12/3'},
+    {customer:'Anna Testowa',place:'P63',phone:'999 999 999',postalCode:'43-300',city:'Bielsko-Biała',street:'ul. Inna 1'},
+    {customer:'Adam Testowy',place:'T12',phone:'111 111 111'},{customer:'Ewa Testowa',place:'P50'},
+    ...Array.from({length:10},(_,i)=>({customer:`Aaa Testowy${i}`,place:'T12'}))];
+  const ctx=vm.createContext({currentSupabaseUser:{id:'user'},access:true,canAccessMailMerge:()=>ctx.access,
+    pricingPcprList:pcpr,normalizePricingPcprList:rows=>rows,
+    customerNameLookupKey:value=>String(value||'').trim().toLowerCase(),normalize:value=>String(value||'').trim().toLowerCase(),
+    normalizeLoanHistoryText:value=>String(value||'').trim(),normalizeLoanIdentityValue:value=>String(value||'').trim(),
+    formatLoanAddress:value=>String(value||''),customerRelationTimeValue:()=>0,isoDateForSave:value=>String(value||''),
+    normalizePcprPlace:value=>value,pcprAddressLabel:entry=>[entry.postalCode,entry.city,entry.street].filter(Boolean).join(' '),
+    pricingLoanHistory:[{customer:'Irena Testowa',phone:'123 123 123',address:'Adres z umowy'}],pricingOrderHistory:[],pricingComplaintHistory:[],pricingOfferHistory:[],
+    records:[{customerName:'Jan Testowy'}],repairRecords:[],demoRecords:[]});
+  ctx.SatisDocumentCustomerNames=[...pcpr.map(e=>e.customer),'Irena Testowa','Jan Testowy'];
+  for(const name of ['documentCustomerNameMatches','customerHistoryContactEntries','mailMergeContactMatches'])vm.runInContext(extract(name),ctx);
+  const anna=ctx.mailMergeContactMatches('Anna');assert.equal(anna.length,1);assert.equal(anna[0].place,'P50');assert.equal(anna[0].phone,'500 600 700');
+  assert.equal(anna[0].addressParts.postalCode,'34-300');
+  assert.equal(ctx.mailMergeContactMatches('Adam').length,0);
+  assert.equal(ctx.mailMergeContactMatches('Ewa')[0].customer,'Ewa Testowa','name-only PCPR P50 entries are still offered');
+  assert.equal(ctx.mailMergeContactMatches('Irena')[0].source,'Umowa');
+  assert.equal(ctx.mailMergeContactMatches('Jan')[0].customer,'Jan Testowy','keep name-only profiles from the existing database');
+  assert.ok(ctx.mailMergeContactMatches('Testowy').some(entry=>entry.customer==='Jan Testowy'),'excluded PCPR rows do not consume the result limit');
+  assert.equal(ctx.customerHistoryContactEntries('Anna Testowa').length,2,'other forms keep all their PCPR contacts');
+  ctx.currentSupabaseUser=null;assert.equal(ctx.mailMergeContactMatches('Anna').length,0);
+  ctx.currentSupabaseUser={id:'other'};ctx.access=false;assert.equal(ctx.mailMergeContactMatches('Anna').length,0);
+});

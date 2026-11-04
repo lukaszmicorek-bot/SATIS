@@ -660,7 +660,7 @@
     const editor=node("form","mail-merge-editor");editor.noValidate=true;
     const toolbar=node("div","mail-merge-editor-toolbar"),editorTitle=node("h3");editorTitle.id="mailMergeEditorTitle";
     toolbar.append(editorTitle,button("Nowy wniosek",()=>{if(!dirty||a.confirm("Porzucić niezapisane zmiany?"))reset();}));editor.append(toolbar);
-    const search=node("input","satis-private-search");search.id="mailMergeSearch";search.type="search";search.autocomplete="off";search.placeholder="Uzupełnij z historii · imię i nazwisko…";
+    const search=node("input","satis-private-search");search.id="mailMergeSearch";search.type="search";search.autocomplete="off";search.placeholder="Uzupełnij z historii lub PCPR P50 · imię i nazwisko…";
     const matches=node("div","mail-merge-matches");matches.id="mailMergeMatches";editor.append(search,matches);
     const sections=[
       ["Dane personalne","person",[["firstName","Imię *"],["middleName","Drugie imię"],["surname","Nazwisko *"],["pesel","PESEL"],["birthDate","Data urodzenia z PESEL-u"],["gender","Płeć (z PESEL-u)",[["","Wybierz…"],["male","Mężczyzna"],["female","Kobieta"]]],["personRole","Dane dotyczą",[["applicant","Wnioskodawcy"],["ward","Podopiecznego / mocodawcy"]]]]],
@@ -858,9 +858,9 @@
     fields.get("postal").addEventListener("blur",async()=>{formatContact();await syncCityFromPostal();await resolveGeo();});
     search.addEventListener("input",()=>{
       matches.replaceChildren();if(!authorized()||busy||search.value.trim().length<2)return;
-      a.contacts(search.value).slice(0,8).forEach(entry=>matches.append(button([entry.customer,entry.phone,entry.address,entry.document?`Dokument: •••• ${entry.document.slice(-4)}`:""].filter(Boolean).join(" · "),()=>{
+      a.contacts(search.value).slice(0,8).forEach(entry=>matches.append(button([entry.customer,entry.source==="PCPR / MOPS"&&entry.place?`PCPR · ${entry.place}`:"",entry.phone,entry.address,entry.document?`Dokument: •••• ${entry.document.slice(-4)}`:""].filter(Boolean).join(" · "),()=>{
         if(dirty&&!a.confirm("Wczytać osobę z historii i odrzucić niezapisane dane?"))return;
-        reset();search.value=entry.customer;const parts=a.address(entry.address||"");
+        reset();search.value=entry.customer;const parts=entry.addressParts||a.address(entry.address||"");
         for(const [key,value]of Object.entries({...splitName(entry.customer),phone:entry.phone||"",city:parts.city||"",postal:parts.postalCode||""}))fields.get(key).value=value;
         const street=String(parts.street||"").replace(/^(?:ul\.|al\.)\s*/iu,""),parsed=street.match(/^(.*?)\s+(\d+[\p{L}]?)(?:\/(\d+[\p{L}]?))?$/u);
         fields.get("street").value=parsed?.[1]||street;fields.get("house").value=parsed?.[2]||"";fields.get("flat").value=parsed?.[3]||"";
