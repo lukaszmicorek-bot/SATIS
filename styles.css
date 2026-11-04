@@ -2753,6 +2753,11 @@ h2 {
   white-space: nowrap;
 }
 
+.capd-history-test-date[data-overdue="true"] {
+  color: #b13246;
+  font-weight: 700;
+}
+
 .capd-history-stage .capd-history-pickup {
   color: #007b78;
   font-size: 12px;

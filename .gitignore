@@ -164,3 +164,5 @@
 !/tests/pcpr-notes.test.cjs
 
 !/tests/loan-document-correctness.test.cjs
+
+!/tests/audit-history-render-delete.test.cjs

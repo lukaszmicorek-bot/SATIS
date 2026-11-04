@@ -22401,6 +22401,12 @@ function maskSensitiveIdentifier(value, visibleDigits = 4) {
   return `${"•".repeat(normalized.length - visibleDigits)}${normalized.slice(-visibleDigits)}`;
 }
 
+function capdHistoryPickupOverdue(entry, today = todayInputValue()) {
+  if (entry.status !== "DO_ODBIORU" || entry.registrationOnly) return false;
+  const elapsedDays = isoDateDistanceDays(entry.testDate, today);
+  return elapsedDays !== null && elapsedDays >= 60;
+}
+
 function renderCapdHistory() {
   if (!capdHistoryList) return;
   const query = normalize(capdHistorySearchInput?.value || "");
@@ -22433,7 +22439,12 @@ function renderCapdHistory() {
     const meta = document.createElement("span");
     const ageLabel = entry.age === "" ? "wiek -" : formatCapdAge(Number(entry.age));
     const dateLabel = entry.registrationOnly ? entry.plannedTestDate ? `Planowany termin: ${formatDate(entry.plannedTestDate)}` : "Przed badaniem" : `Data badania: ${formatDate(entry.testDate)}`;
-    meta.textContent = `${dateLabel} · PESEL ${entry.pesel ? maskSensitiveIdentifier(entry.pesel) : "do uzupełnienia"} · ${ageLabel}`;
+    const testDate = document.createElement("span");
+    testDate.className = "capd-history-test-date";
+    testDate.textContent = dateLabel;
+    testDate.dataset.overdue = String(capdHistoryPickupOverdue(entry));
+    if (testDate.dataset.overdue === "true") testDate.title = "Wynik do odbioru — od badania minęło co najmniej 60 dni.";
+    meta.append(testDate, ` · PESEL ${entry.pesel ? maskSensitiveIdentifier(entry.pesel) : "do uzupełnienia"} · ${ageLabel}`);
     const context = document.createElement("div");
     context.className = "capd-history-context";
     if (entry.location) {

@@ -502,3 +502,24 @@ test('APD print retains the less-or-equal placeholder in empty norm cells withou
   assert.match(app,/appendCapdReportNormCell\(row, normValue, item\.dataset\.capdUnit \|\| "", item\.dataset\.capdCode \|\| ""\)/);
   assert.equal(context.evaluate('TRW','500',''),'');assert.equal(context.evaluate('TRW','500','≤'),'');
 });
+
+test('APD ready for pickup highlights the study date from 60 calendar days, not other stages or planned studies',()=>{
+  const extract=name=>{const start=app.indexOf(`function ${name}(`);assert.ok(start>=0,name);const rest=app.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);};
+  const scope=vm.createContext({todayInputValue:()=> '2026-11-04'});
+  for(const name of ['isoDateFromParts','isoDateForSave','parseIsoDate','isoDateDistanceDays','capdHistoryPickupOverdue'])vm.runInContext(extract(name),scope);
+  const entry={status:'DO_ODBIORU',testDate:'2026-09-05'};
+  assert.equal(scope.capdHistoryPickupOverdue(entry),true,'exactly 60 days');
+  assert.equal(scope.capdHistoryPickupOverdue({...entry,testDate:'2026-09-06'}),false,'59 days');
+  assert.equal(scope.capdHistoryPickupOverdue({...entry,testDate:'2026-09-04'}),true,'61 days');
+  assert.equal(scope.capdHistoryPickupOverdue({...entry,testDate:'05.09.26'}),true);
+  for(const status of ['OPIS','ODEBRANO','PRZED_BADANIEM',''])assert.equal(scope.capdHistoryPickupOverdue({...entry,status}),false,status);
+  for(const testDate of ['',null,'bad date','2026-02-30','2026-11-05'])assert.equal(scope.capdHistoryPickupOverdue({...entry,testDate}),false,String(testDate));
+  assert.equal(scope.capdHistoryPickupOverdue({...entry,registrationOnly:true}),false);
+  assert.equal(scope.capdHistoryPickupOverdue({...entry,testDate:'2026-10-01'},'2026-11-30'),true,'autumn DST boundary');
+  assert.equal(scope.capdHistoryPickupOverdue({...entry,testDate:'2026-03-01'},'2026-04-30'),true,'spring DST boundary');
+  const render=extract('renderCapdHistory');
+  assert.match(render,/testDate\.dataset.overdue = String\(capdHistoryPickupOverdue\(entry\)\)/);
+  assert.match(render,/meta\.append\(testDate,/);
+  const css=fs.readFileSync(path.join(root,'styles.css'),'utf8');
+  assert.match(css,/\.capd-history-test-date\[data-overdue="true"\] \{[^}]*color: #b13246;[^}]*font-weight: 700;/);
+});
