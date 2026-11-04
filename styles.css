@@ -17803,3 +17803,6 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-fields > label.mail-merge-check input { width: 17px; height: 17px; flex: 0 0 17px; min-height: 0; }
 .mail-merge-fields > label.mail-merge-check > span { min-height: 0; }
 .mail-merge-fields > .document-form-note { margin: 0; line-height: 1.5; }
+
+input.personal-phone-invalid { border-color: #c56c7c; background-color: #fff3f5; }
+input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset: 1px; }

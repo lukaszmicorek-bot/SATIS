@@ -482,3 +482,35 @@ test('five-part shared addresses retain canonical strings, history completion, m
   for(const prefix of ['loan','receipt','rodo','capd'])assert.ok(html.includes(`id="${prefix}AddressHouseInput"`)&&html.includes(`id="${prefix}AddressFlatInput"`));
   assert.match(html,/id="clientStreet" type="hidden"/);assert.match(html,/id="clientHouseNumber"/);assert.match(html,/id="clientFlatNumber"/);
 });
+
+test('personal form phones require nine Polish digits, preserve prefixes, landlines and the loan email option',()=>{
+  const ctx=vm.createContext({});vm.runInContext(extract('personalFormPhoneMessage'),ctx);
+  for(const phone of ['', '500600800','500 600 800','33 815 33 55','+48 500600800','0048500600800','48500600800','+44 7700 900123'])assert.equal(ctx.personalFormPhoneMessage(phone),'',phone);
+  for(const phone of ['50060080','5006008000','500600800123','+48 50060080','+48 5006008000','123abc456789','500+600800','++48500600800','+48500+600800','---'])assert.match(ctx.personalFormPhoneMessage(phone),/9 cyfr/,phone);
+  assert.equal(ctx.personalFormPhoneMessage('jan@example.test',true),'');
+  assert.match(ctx.personalFormPhoneMessage('jan@example.test'),/9 cyfr/);
+  assert.match(ctx.personalFormPhoneMessage('jan@',true),/e-mail/);
+});
+
+test('form phone validation blocks save and print without truncating the number and recovers after correction',()=>{
+  let reports=0,focuses=0;
+  const input={id:'orderPhoneInput',type:'text',value:'500600800123',classList:{toggle(){}},setCustomValidity(message){this.message=message;},setAttribute(){},removeAttribute(){},focus(){focuses++;},reportValidity(){reports++;}};
+  const ctx=vm.createContext({document:{getElementById:()=>input}});
+  for(const name of ['personalFormPhoneMessage','validatePersonalFormPhone','guardPersonalFormPhoneAction'])vm.runInContext(extract(name),ctx);
+  for(const id of ['savePricingLoanBtn','printPricingLoanBtn','savePricingOrderBtn','printPricingOrderBtn','savePricingComplaintBtn','printPricingComplaintBtn','printRodoBtn','saveRepairBtn','savePcprBtn']){
+    let prevented=false,stopped=false;
+    ctx.guardPersonalFormPhoneAction({type:'click',target:{closest:()=>({id})},preventDefault(){prevented=true;},stopImmediatePropagation(){stopped=true;}});
+    assert.equal(prevented,true,id);assert.equal(stopped,true,id);assert.equal(input.value,'500600800123');
+  }
+  for(const id of ['repairForm','pcprForm','clientsForm']){
+    let prevented=false;
+    ctx.guardPersonalFormPhoneAction({type:'submit',target:{id},preventDefault(){prevented=true;},stopImmediatePropagation(){}});
+    assert.equal(prevented,true,id);
+  }
+  assert.ok(reports>0);assert.equal(reports,focuses);
+  input.value='500 600 800';assert.equal(ctx.validatePersonalFormPhone(input,true),true);assert.equal(input.message,'');
+  input.value='';assert.equal(ctx.validatePersonalFormPhone(input,true),true);
+  input.value='jan@example.test';input.id='loanPhoneInput';assert.equal(ctx.validatePersonalFormPhone(input,true),true);
+  const offline=source.slice(source.indexOf('validate: kind => {'),source.indexOf('renderApp: () => render()',source.indexOf('validate: kind => {')));
+  assert.match(offline,/validatePersonalFormPhone/);
+});

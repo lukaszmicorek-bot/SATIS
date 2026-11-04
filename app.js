@@ -13595,8 +13595,52 @@ function formatPersonalFormInput(event) {
   if (event.type === "compositionend") input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function personalFormPhoneMessage(value, allowEmail = false) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (allowEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(text)) return "";
+  const error = allowEmail ? "Wpisz numer telefonu: 9 cyfr (np. 500 600 800) albo poprawny adres e-mail." : "Wpisz numer telefonu: 9 cyfr (np. 500 600 800).";
+  if (!/^\+?[\d\s().-]+$/u.test(text)) return error;
+  const digits = text.replace(/\D/gu, "");
+  if (text.startsWith("+") && !text.startsWith("+48")) return /^\+\d[\d\s().-]*$/u.test(text) && /^[1-9]\d{6,14}$/u.test(digits) ? "" : error;
+  if (text.includes("+") && !/^\+48/u.test(text)) return error;
+  return /^(?:(?:48|0048))?\d{9}$/u.test(digits) ? "" : error;
+}
+
+function validatePersonalFormPhone(input, report = false) {
+  if (!input || input.disabled || input.type === "hidden") return true;
+  const message = personalFormPhoneMessage(input.value, input.id === "loanPhoneInput");
+  input.setCustomValidity(message);
+  input.classList.toggle("personal-phone-invalid", Boolean(message));
+  if (message) input.setAttribute("aria-invalid", "true");
+  else input.removeAttribute("aria-invalid");
+  if (message && report) { input.focus(); input.reportValidity(); }
+  return !message;
+}
+
+function guardPersonalFormPhoneAction(event) {
+  const button = event.type === "click" ? event.target.closest?.("button") : null;
+  const phoneByAction = {
+    savePricingLoanBtn: "loanPhoneInput", printPricingLoanBtn: "loanPhoneInput",
+    savePricingOrderBtn: "orderPhoneInput", printPricingOrderBtn: "orderPhoneInput",
+    savePricingComplaintBtn: "complaintPhoneInput", printPricingComplaintBtn: "complaintPhoneInput",
+    printRodoBtn: "rodoPhoneInput", saveRepairBtn: "repairPhone", savePcprBtn: "pcprPhoneInput",
+    repairForm: "repairPhone", pcprForm: "pcprPhoneInput", clientsForm: "clientPhone"
+  };
+  const phoneId = phoneByAction[button?.id || (event.type === "submit" ? event.target.id : "")];
+  if (!phoneId || button?.disabled || validatePersonalFormPhone(document.getElementById(phoneId), true)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
 function setupPersonalFormFormatting() {
   for (const type of ["input", "blur", "compositionend"]) document.addEventListener(type, formatPersonalFormInput, true);
+  for (const type of ["input", "blur", "compositionend"]) document.addEventListener(type, event => {
+    if (event.isComposing || !["loanPhoneInput", "orderPhoneInput", "complaintPhoneInput", "rodoPhoneInput", "pcprPhoneInput", "repairPhone", "clientPhone"].includes(event.target?.id)) return;
+    validatePersonalFormPhone(event.target);
+  }, true);
+  document.addEventListener("click", guardPersonalFormPhoneAction, true);
+  document.addEventListener("submit", guardPersonalFormPhoneAction, true);
 }
 
 function structuredAddressValue(parts) {
@@ -30549,6 +30593,8 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "receipt") return validatePricingReceipt();
       const names = {offer: "offerCustomerInput", loan: "loanCustomerInput", order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
       if (!requireDocumentCustomerName(document.getElementById(names[kind]))) return false;
+      const phoneId = {loan: "loanPhoneInput", order: "orderPhoneInput", complaint: "complaintPhoneInput", rodo: "rodoPhoneInput"}[kind];
+      if (phoneId && !validatePersonalFormPhone(document.getElementById(phoneId), true)) return false;
       if (kind === "rodo") { updateRodoFromPesel(); return document.getElementById("rodoPeselInput").reportValidity(); }
       return true;
     },
