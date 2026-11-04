@@ -18,7 +18,7 @@ test('offline tabs share app document colors while actions use a separate palett
   assert.match(css, /\.offline-controls \[data-offline="print"\]\s*\{[^}]*background: #2b8a78/);
   const source = require('node:fs').readFileSync('offline-forms.js', 'utf8');
   assert.match(source, /classList.toggle\("has-unsaved-changes", dirty\)/);
-  assert.match(source, /selected.set\(kind, entry\); dirty = false;\s*updateSaveState\(\)/);
+  assert.match(source, /if \(\(editVersions.get\(kind\) \|\| 0\) !== version\) return save\(kind\);\s*dirty = false;\s*updateSaveState\(\)/);
   assert.ok(css.includes('.offline-tabs button:focus-visible'));
 });
 test('offline launcher sits to the right of customer search in its own header row', () => {

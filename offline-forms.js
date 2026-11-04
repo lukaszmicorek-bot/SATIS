@@ -6,6 +6,8 @@ window.SatisOfflineForms = {
     const vault = window.SatisOfflineVault.create();
     let workspace = false, syncing = false, current = "offer", timer = 0, idle = 0, release = null, writingTimer = 0;
     let writing = Promise.resolve(), selected = new Map(), dirty = false;
+    let workspaceGeneration = 0;
+    const editVersions = new Map();
     const places = new Map();
     const panel = document.createElement("section");
     panel.id = "offlineWorkspace";
@@ -96,6 +98,7 @@ window.SatisOfflineForms = {
       list(); touch();
     }
     function load(entry) {
+      workspaceGeneration += 1;
       api.restore(entry.kind, entry.snapshot);
       for (const field of entry.raw || []) {
         const input = document.getElementById(field.id);
@@ -128,11 +131,15 @@ window.SatisOfflineForms = {
       if (!vault.unlocked()) throw new Error("Najpierw otwórz formularze offline.");
       if (!dirty && selected.get(kind)?.id === api.identity(kind).id) return selected.get(kind);
       clearTimeout(timer);
+      const generation = workspaceGeneration, version = editVersions.get(kind) || 0;
       const entry = take(kind);
       if (!entry.snapshot.customer && !entry.snapshot.items?.length && !entry.snapshot.rightDevice?.model && !entry.snapshot.leftDevice?.model) return null;
       writing = vault.change(data => ({ ...data, drafts: [entry, ...data.drafts.filter(item => item.id !== entry.id)] }));
       await writing;
-      selected.set(kind, entry); dirty = false;
+      if (generation !== workspaceGeneration || !vault.unlocked()) return entry;
+      selected.set(kind, entry);
+      if ((editVersions.get(kind) || 0) !== version) return save(kind);
+      dirty = false;
       updateSaveState();
       api.localSaved(kind);
       message("Zapisano na tym komputerze — oczekuje na synchronizację.");
@@ -186,6 +193,7 @@ window.SatisOfflineForms = {
           if (!entry.snapshot.customer?.trim()) continue;
           if (!vault.unlocked() || api.user()?.id !== owner) break;
           load(entry);
+          if (api.validate && !api.validate(entry.kind)) { message("Synchronizacja zatrzymana. Popraw dane formularza; szkic pozostaje na komputerze."); return; }
           await api.prepareSync(entry);
           const result = await api.save(entry.kind);
           if (!result) { message("Synchronizacja zatrzymana. Sprawdź formularz i komunikat walidacji; szkic pozostaje na komputerze."); return; }
@@ -207,6 +215,8 @@ window.SatisOfflineForms = {
       places.clear(); api.renderApp();
     }
     function lock() {
+      workspaceGeneration += 1;
+      editVersions.clear();
       clearTimeout(timer); clearTimeout(idle); vault.lock(); selected.clear(); dirty = false;
       updateSaveState();
       if (workspace) leave();
@@ -274,6 +284,7 @@ window.SatisOfflineForms = {
       const changed = event => {
         if (printOnly(kind)) { touch(); return; }
         if (!vault.unlocked() || syncing) return;
+        editVersions.set(kind, (editVersions.get(kind) || 0) + 1);
         dirty = true; touch(); clearTimeout(timer);
         updateSaveState(event.type === "input");
         message("Niezapisane zmiany lokalne…");

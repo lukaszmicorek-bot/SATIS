@@ -171,3 +171,6 @@
 !/supabase-tasks.sql
 !/tests/tasks.test.cjs
 !/tests/tasks.sqltest.cjs
+
+!/tests/audit-save-regressions.test.cjs
+!/tests/loan-handover.test.cjs

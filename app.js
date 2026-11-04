@@ -460,6 +460,7 @@ let serialCopyToastTimeout = 0;
 let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
 let stockAuditWorkflow = null;
+let sensitiveStateGeneration = 0;
 let tasksModule = null;
 let clientsModule = null;
 let mailMergeModule = null;
@@ -2864,6 +2865,9 @@ function resetInactivityLogoutTimer() {
 
 function clearSensitiveApplicationState() {
   clearFormUndo();
+  sensitiveStateGeneration += 1;
+  [recordForm, repairForm, demoForm].forEach(form => { if (form) form.dataset.saving = ""; });
+  [saveRecordBtn, saveRepairBtn, saveDemoBtn].forEach(button => { if (button) { button.disabled = false; button.textContent = "Zapisz"; } });
   clientsModule?.clear();
   tasksModule?.clear();
   mailMergeModule?.clear();
@@ -10180,6 +10184,7 @@ function resetPricingRodo() {
 }
 
 async function printPricingRodo() {
+  if (!validateDocumentPhoneForAction("rodo")) return false;
   updateRodoFromPesel();
   if (!document.querySelector("#rodoPeselInput")?.reportValidity()) return false;
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("rodo");
@@ -11535,6 +11540,7 @@ async function persistPricingLoanHistoryEntry(entry, { silent = false } = {}) {
 
 async function saveCurrentPricingLoanToHistory({ silent = false } = {}) {
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("loan");
+  if (!validateDocumentPhoneForAction("loan")) return null;
   if (pricingLoanSaveInProgress || !beginDocumentSave("loan")) return null;
   pricingLoanSaveInProgress = true;
   if (savePricingLoanBtn) savePricingLoanBtn.disabled = true;
@@ -13611,6 +13617,11 @@ function personalFormPhoneMessage(value, allowEmail = false) {
   return /^(?:(?:48|0048))?\d{9}$/u.test(digits) ? "" : error;
 }
 
+function validateDocumentPhoneForAction(kind) {
+  const phoneId = { loan: "loanPhoneInput", order: "orderPhoneInput", complaint: "complaintPhoneInput", rodo: "rodoPhoneInput", pcpr: "pcprPhoneInput" }[kind];
+  return !phoneId || validatePersonalFormPhone(document.getElementById(phoneId), true);
+}
+
 function validatePersonalFormPhone(input, report = false) {
   if (!input || input.disabled || input.type === "hidden") return true;
   const message = personalFormPhoneMessage(input.value, input.id === "loanPhoneInput");
@@ -14541,6 +14552,7 @@ function updatePricingLoanRequiredHighlights() {
 }
 
 function validatePricingLoanForAction() {
+  if (!validateDocumentPhoneForAction("loan")) return false;
   syncLoanPostalCode();
   pricingLoanValidationRequested = true;
   const missingInputs = updatePricingLoanRequiredHighlights();
@@ -15198,6 +15210,7 @@ function editPricingPcprItem(id) {
 
 async function addPricingPcprItem(event) {
   event?.preventDefault();
+  if (!validateDocumentPhoneForAction("pcpr")) return;
   const entry = normalizePricingPcprItem(currentPricingPcprItemSnapshot());
   if (!entry?.customer) {
     alert("Wpisz imię i nazwisko do listy PCPR.");
@@ -15858,6 +15871,7 @@ async function persistPricingOrderHistoryEntry(entry) {
 
 async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("order");
+  if (!validateDocumentPhoneForAction("order")) return null;
   if (!requireDocumentCustomerName(orderCustomerInput)) return null;
   if (!beginDocumentSave("order")) return null;
   try {
@@ -16901,6 +16915,7 @@ async function savePricingOrderAndRepairNotebook() {
 }
 
 async function printPricingOrder() {
+  if (!validateDocumentPhoneForAction("order")) return false;
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("order");
   if (printPricingOrderBtn?.disabled) return;
   if (!requireDocumentCustomerName(orderCustomerInput)) return;
@@ -17419,6 +17434,7 @@ function pricingComplaintsShareIntake(left, right) {
 
 async function saveCurrentPricingComplaintToHistory({ silent = false } = {}) {
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("complaint");
+  if (!validateDocumentPhoneForAction("complaint")) return null;
   if (!requireDocumentCustomerName(complaintCustomerInput)) return null;
   if (!beginDocumentSave("complaint")) return null;
   try {
@@ -17987,6 +18003,7 @@ async function savePricingComplaintAndRepairNotebook() {
 }
 
 async function printPricingComplaint() {
+  if (!validateDocumentPhoneForAction("complaint")) return false;
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("complaint");
   renderPricingComplaint();
   const historyEntry = await saveCurrentPricingComplaintToHistory({ silent: false });
@@ -27182,9 +27199,17 @@ function handleClearDateClick(event) {
   syncDeviceTypeFromFields();
 }
 
+function rollbackRecordMutation(current, id, previous, optimistic = null) {
+  const live = current.find(record => record.id === id);
+  if (optimistic ? live !== optimistic : Boolean(live)) return current;
+  if (!previous) return current.filter(record => record.id !== id);
+  return live ? current.map(record => record.id === id ? previous : record) : [previous, ...current];
+}
+
 async function saveFormRecord(event) {
   event.preventDefault();
   const savingUserId = currentSupabaseUser?.id;
+  const savingGeneration = sensitiveStateGeneration;
   if (recordForm.dataset.saving === "1") return;
   const id = document.querySelector("#recordId").value;
   const data = formRecord();
@@ -27196,6 +27221,7 @@ async function saveFormRecord(event) {
   const previousRecords = records;
   const previousPrivatePayments = { ...privatePayments };
   let privatePaymentUpdates = [];
+  const optimisticPayments = new Map();
 
   if (id) {
     records = records.map((record) => {
@@ -27210,6 +27236,7 @@ async function saveFormRecord(event) {
   if (canViewPrivatePayments()) {
     privatePaymentUpdates = privatePaymentUpdatesForRecord(savedRecord, privatePaymentValue);
     applyPrivatePaymentUpdates(privatePaymentUpdates);
+    privatePaymentUpdates.forEach(({ recordId }) => optimisticPayments.set(recordId, privatePayments[recordId]));
   }
 
   recordForm.dataset.saving = "1";
@@ -27221,7 +27248,7 @@ async function saveFormRecord(event) {
     rebuildAfterDeviceChange();
     render();
     await persistPromise;
-    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     closeDialog();
     logAuditEvent({
       notebook: "devices",
@@ -27231,22 +27258,28 @@ async function saveFormRecord(event) {
       afterRecord: savedRecord
     });
   } catch (error) {
-    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
-    records = id ? records.map((item) => item.id === id ? previousRecords.find((old) => old.id === id) : item)
-      : records.filter((item) => item.id !== savedRecord.id);
-    privatePayments = previousPrivatePayments;
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    records = rollbackRecordMutation(records, savedRecord.id, previousRecords.find(record => record.id === savedRecord.id), savedRecord);
+    privatePaymentUpdates.forEach(({ recordId }) => {
+      if (privatePayments[recordId] !== optimisticPayments.get(recordId)) return;
+      if (Object.hasOwn(previousPrivatePayments, recordId)) privatePayments[recordId] = previousPrivatePayments[recordId];
+      else delete privatePayments[recordId];
+    });
     writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
     saveLocalPrivatePayments();
     rebuildAfterDeviceChange();
     render();
     alert(error.message);
   } finally {
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     recordForm.dataset.saving = "";
     saveRecordBtn.disabled = false;
   }
 }
 
 async function deleteCurrentRecord() {
+  const deletingUserId = currentSupabaseUser?.id;
+  const deletingGeneration = sensitiveStateGeneration;
   const id = document.querySelector("#recordId").value;
   if (!id) return;
   const record = records.find((item) => item.id === id);
@@ -27262,13 +27295,15 @@ async function deleteCurrentRecord() {
     }
     try {
       await persistDeletedDeviceRecord(id); // The payment is deleted by the same FK transaction.
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
       if (!hasSupabaseConfig && canViewPrivatePayments()) await deletePrivatePayment(id);
       rebuildDerivedData();
       render();
       closeDialog();
     } catch (error) {
-      records = previousRecords;
-      privatePayments = previousPrivatePayments;
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
+      records = rollbackRecordMutation(records, id, previousRecords.find(record => record.id === id));
+      if (!Object.hasOwn(privatePayments, id) && Object.hasOwn(previousPrivatePayments, id)) privatePayments[id] = previousPrivatePayments[id];
       writeSensitiveStorage(STORAGE_KEY, JSON.stringify(records));
       saveLocalPrivatePayments();
       rebuildDerivedData();
@@ -27281,8 +27316,10 @@ async function deleteCurrentRecord() {
 async function saveRepairFormRecord(event) {
   event.preventDefault();
   const savingUserId = currentSupabaseUser?.id;
+  const savingGeneration = sensitiveStateGeneration;
   if (repairForm.dataset.saving === "1") return;
   const id = document.querySelector("#repairId").value;
+  if (!validatePersonalFormPhone(document.querySelector("#repairPhone"), true)) return;
   const data = repairFormRecord();
   let savedRecord;
   if (!validateRepairDateOrder(data, { focus: true })) return;
@@ -27325,7 +27362,7 @@ async function saveRepairFormRecord(event) {
     rebuildAfterRepairChange();
     render();
     await persistPromise;
-    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     closeRepairDialog();
     logAuditEvent({
       notebook: "repairs",
@@ -27335,13 +27372,14 @@ async function saveRepairFormRecord(event) {
       afterRecord: savedRecord
     });
   } catch (error) {
-    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
-    repairRecords = previousRepairRecords;
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    repairRecords = rollbackRecordMutation(repairRecords, savedRecord.id, previousRepairRecords.find(record => record.id === savedRecord.id), savedRecord);
     writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
     rebuildAfterRepairChange();
     render();
     alert(error.message);
   } finally {
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     repairForm.dataset.saving = "";
     saveRepairBtn.disabled = false;
     saveRepairBtn.textContent = originalSaveText;
@@ -27349,6 +27387,8 @@ async function saveRepairFormRecord(event) {
 }
 
 async function deleteCurrentRepairRecord() {
+  const deletingUserId = currentSupabaseUser?.id;
+  const deletingGeneration = sensitiveStateGeneration;
   const id = document.querySelector("#repairId").value;
   if (!id) return;
   const record = repairRecords.find((item) => item.id === id);
@@ -27359,11 +27399,13 @@ async function deleteCurrentRepairRecord() {
     repairRecords = repairRecords.filter((item) => item.id !== id);
     try {
       await persistDeletedRepairRecord(id);
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
       rebuildDerivedData();
       render();
       closeRepairDialog();
     } catch (error) {
-      repairRecords = previousRepairRecords;
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
+      repairRecords = rollbackRecordMutation(repairRecords, id, previousRepairRecords.find(record => record.id === id));
       writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
       rebuildDerivedData();
       render();
@@ -27375,6 +27417,7 @@ async function deleteCurrentRepairRecord() {
 async function saveDemoFormRecord(event) {
   event.preventDefault();
   const savingUserId = currentSupabaseUser?.id;
+  const savingGeneration = sensitiveStateGeneration;
   if (saveDemoBtn.disabled) return;
   demoFormError.textContent = "";
   delete demoFormError.dataset.errorType;
@@ -27407,6 +27450,7 @@ async function saveDemoFormRecord(event) {
   try {
     if (id && !existingRecord) throw new Error("Nie znaleziono edytowanego aparatu demo. Zamknij okno i otwórz go ponownie.");
     await prepareDemoAttachmentsForSave(recordId);
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     data = prepareDemoLoanData(existingRecord, demoFormRecord());
     savedRecord = { ...(existingRecord || {}), id: recordId, ...data };
     assertDemoRecordReadyForSupabase(savedRecord);
@@ -27422,7 +27466,7 @@ async function saveDemoFormRecord(event) {
     rebuildAfterDemoChange();
     render();
     await persistPromise;
-    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     closeDemoDialog();
     logAuditEvent({
       notebook: "demo",
@@ -27438,8 +27482,8 @@ async function saveDemoFormRecord(event) {
       console.warn(cleanupError);
     }
   } catch (error) {
-    if (hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
-    demoRecords = previousDemoRecords;
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
+    if (savedRecord) demoRecords = rollbackRecordMutation(demoRecords, savedRecord.id, previousDemoRecords.find(record => record.id === savedRecord.id), savedRecord);
     writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
     rebuildAfterDemoChange();
     render();
@@ -27449,12 +27493,15 @@ async function saveDemoFormRecord(event) {
       alert(error.message || "Nie udało się zapisać aparatu demo.");
     }
   } finally {
+    if (savingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && savingUserId !== currentSupabaseUser?.id) return;
     saveDemoBtn.disabled = false;
     saveDemoBtn.textContent = "Zapisz";
   }
 }
 
 async function deleteCurrentDemoRecord() {
+  const deletingUserId = currentSupabaseUser?.id;
+  const deletingGeneration = sensitiveStateGeneration;
   const id = document.querySelector("#demoId").value;
   if (!id) return;
   const record = demoRecords.find((item) => item.id === id);
@@ -27465,16 +27512,19 @@ async function deleteCurrentDemoRecord() {
     demoRecords = demoRecords.filter((item) => item.id !== id);
     try {
       await persistDeletedDemoRecord(id);
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
       try {
         await removeDemoAttachmentPaths(demoAttachmentPaths(record));
       } catch (cleanupError) {
         console.warn(cleanupError);
       }
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
       rebuildDerivedData();
       render();
       closeDemoDialog();
     } catch (error) {
-      demoRecords = previousDemoRecords;
+      if (deletingGeneration !== sensitiveStateGeneration || hasSupabaseConfig && deletingUserId !== currentSupabaseUser?.id) return;
+      demoRecords = rollbackRecordMutation(demoRecords, id, previousDemoRecords.find(record => record.id === id));
       writeSensitiveStorage(DEMO_STORAGE_KEY, JSON.stringify(demoRecords));
       rebuildDerivedData();
       render();

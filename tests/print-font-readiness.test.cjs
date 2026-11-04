@@ -101,6 +101,7 @@ test('RODO validates before print and routes to the same online/offline print pi
   const rodo = source.slice(source.indexOf('async function printPricingRodo('), source.indexOf('\nfunction markAgreementDraftDirty('));
   let valid = false, offline = false, prints = 0, offlinePrints = 0;
   const context = vm.createContext({
+    validateDocumentPhoneForAction: () => true,
     updateRodoFromPesel() {}, renderPricingRodo() {},
     document: {querySelector: () => ({reportValidity: () => valid}), body: {classList: {add() {}, remove() {}}}},
     window: {addEventListener() {}},

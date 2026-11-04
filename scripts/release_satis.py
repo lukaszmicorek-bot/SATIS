@@ -58,7 +58,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/loan-print-copies.test.cjs", "tests/loan-document-correctness.test.cjs",
     "tests/tinnitus-forms.test.cjs", "scripts/build_tinnitus_procedure.py",
     "tests/pcpr-address.test.cjs", "tests/pcpr-notes.test.cjs",
-    "supabase-tasks.sql", "tests/tasks.test.cjs", "tests/tasks.sqltest.cjs", "tests/mail-merge.test.cjs", "tests/mail-merge-pdf.test.cjs", "tests/mail-merge.sqltest.cjs", "supabase-mail-merge.sql", "scripts/build_mail_merge_assets.py",
+    "supabase-tasks.sql", "tests/tasks.test.cjs", "tests/audit-save-regressions.test.cjs", "tests/loan-handover.test.cjs", "tests/tasks.sqltest.cjs", "tests/mail-merge.test.cjs", "tests/mail-merge-pdf.test.cjs", "tests/mail-merge.sqltest.cjs", "supabase-mail-merge.sql", "scripts/build_mail_merge_assets.py",
     "tests/repair-order-items.test.cjs",
     "tests/pricing-create.test.cjs",
     "tests/pricing-discounts.test.cjs",

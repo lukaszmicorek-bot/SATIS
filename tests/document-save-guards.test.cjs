@@ -33,6 +33,7 @@ function setup(kind) {
     normalizePricingOfferHistoryEntry: r => ({...r}), normalizePricingOrderHistoryEntry: r => ({...r}), normalizePricingComplaintHistoryEntry: r => ({...r}),
     normalizeRepairRecordsForUse: r => r,
     currentPricingOfferSnapshot: () => ({...snapshot}), currentPricingOrderSnapshot: () => ({...snapshot}), currentPricingComplaintSnapshot: () => ({...snapshot}),
+    validateDocumentPhoneForAction: () => true,
     requireDocumentCustomerName: () => true, pricingOrderItemsMissingRequiredSide: () => false,
     pricingOrderPaymentSummary: () => ({ invalid: false, tooHigh: false }),
     pricingOrderRepairRecord: r => r, repairDocumentDuplicate: () => null, currentWorkstationName: () => 'Test',
