@@ -25258,8 +25258,11 @@ function clearFormUndo() {
 }
 
 function setupFormUndo() {
-  const scopes = document.querySelectorAll("#capdForm, #pcprForm, #recordForm, #repairForm, #demoForm, .offer-builder");
+  const selector = "#capdForm, #pcprForm, #recordForm, #repairForm, #demoForm, .offer-builder";
+  const scopes = document.querySelectorAll(selector);
   scopes.forEach(scope => {
+    // Nested editors own their undo state; do not bind their outer wrapper too.
+    if (scope.querySelector(selector) || scope.querySelector(":scope > .form-undo-tools")) return;
     const tools = document.createElement("div");
     tools.className = "form-undo-tools";
     const button = document.createElement("button");

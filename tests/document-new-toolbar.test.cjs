@@ -8,6 +8,7 @@ function element(id = '') {
   return {
     id, children: [], classList: { add() {} },
     addEventListener() {}, closest() { return null; },
+    contains(node) { return node === this || this.children.some(child => child === node || child.contains?.(node)); },
     append(node) {
       if (node.parent) node.parent.children = node.parent.children.filter(child => child !== node);
       node.parent = this; this.children.push(node);
@@ -61,3 +62,37 @@ const css = fs.readFileSync('styles.css', 'utf8');
 assert.match(css, /\.unified-document-editor\s*\{\s*--document-control-height: 40px;/);
 assert.match(css, /\.unified-document-editor :is\(\.document-location-field select, input\[data-date-picker\]\)\s*\{[^}]*height: var\(--document-control-height\);[^}]*box-sizing: border-box;/s);
 console.log('OK: new-document buttons moved above forms before undo, existing controls reused without duplicates.');
+
+
+{
+  const form = element('pcprForm'), wrapper = element('pcprBuilder');
+  const field = {value:'Jan Testowy',checked:false,type:'text',dispatchEvent(){},focus(){}};
+  const selector = '#capdForm, #pcprForm, #recordForm, #repairForm, #demoForm, .offer-builder';
+  form.events={};
+  form.addEventListener=(name,callback)=>{assert.equal(form.events[name],undefined,`only one ${name} listener`);form.events[name]=callback;};
+  form.querySelector=sel=>sel=== ':scope > .form-undo-tools' ? form.children.find(child=>child.className==='form-undo-tools')||null : null;
+  form.querySelectorAll=()=>[field];
+  wrapper.querySelector=sel=>sel===selector ? form : null;
+  wrapper.addEventListener=()=>assert.fail('outer PCPR wrapper must not track the same fields');
+  wrapper.append(form);
+  const makeNode=()=>{const node=element();node.events={};node.addEventListener=(name,callback)=>{node.events[name]=callback;};return node;};
+  const buttons=()=>form.children.filter(child=>child.className==='form-undo-tools').flatMap(child=>child.children);
+  const nested=vm.createContext({
+    document:{querySelectorAll:sel=>sel===selector?[wrapper,form]:buttons(),createElement:makeNode},
+    lastFormUndo:null,formUndoGeneration:0,formUndoCheckpoints:new WeakMap(),restoringFormUndo:false,
+    queueMicrotask:callback=>callback(),Event,alert:()=>assert.fail('valid undo should not alert'),updateSavedUndoButton(){},
+    clearFormUndo(){nested.lastFormUndo=null;buttons().forEach(button=>{button.disabled=true;});}
+  });
+  for(const name of ['formUndoSnapshot','sameFormUndoSnapshot']){
+    const offset=source.indexOf(`function ${name}(`);
+    vm.runInContext(source.slice(offset,source.indexOf('\n}',offset)+2),nested);
+  }
+  vm.runInContext(source.slice(start,end),nested);
+  nested.setupFormUndo();nested.setupFormUndo();
+  assert.equal(buttons().filter(button=>button.textContent==='Cofnij wpisywanie').length,1,'exactly one undo button, even after repeated setup');
+  assert.equal(wrapper.children.length,1,'outer wrapper has no extra toolbar');
+  form.events.beforeinput();field.value='Anna Testowa';form.events.input({target:field});
+  const undo=buttons()[0];assert.equal(undo.disabled,false);undo.events.click();
+  assert.equal(field.value,'Jan Testowy','remaining button really restores the previous input');
+  assert.equal(undo.disabled,true);
+}
