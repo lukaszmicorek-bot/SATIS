@@ -750,3 +750,29 @@ test('PCPR Żywiec groups phone digits immediately, including paste, middle edit
   t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');
   assert.equal([...t.stored.values()][0].data.phone,'500 600 800');t.api.clear();
 });
+
+test('PCPR Żywiec personal and home address fields form exactly two desktop rows in logical keyboard order',()=>{
+  const t=fixture(),css=fs.readFileSync(path.join(root,'styles.css'),'utf8');
+  const block=css.slice(css.lastIndexOf('@media screen and (min-width: 901px)'));
+  const groups={person:[[['firstName',3],['middleName',3],['surname',6]],[['pesel',2],['birthDate',2],['gender',3],['personRole',5]]],
+    address:[[['street',4],['house',1],['flat',2],['postal',2],['city',3]],[['postOffice',2],['municipality',2],['county',3],['province',2],['localityType',3]]]};
+  for(const [group,rows]of Object.entries(groups)){
+    const expected=rows.flat().map(([key])=>`merge${key}`);
+    const section=t.nodes.get(expected[0]).parent.parent;
+    assert.ok(section.className.includes(`mail-merge-group-${group}`));
+    const actual=section.children.flatMap(child=>child.children.filter(node=>expected.includes(node.id)).map(node=>node.id));
+    assert.deepEqual(actual,expected);
+    for(const row of rows){
+      assert.equal(row.reduce((sum,[,span])=>sum+span,0),12);
+      for(const [key,span]of row){
+        const tag=['gender','personRole','localityType'].includes(key)?'.mail-merge-choice-field':'label';
+        assert.ok(block.includes(`.mail-merge-group-${group} > ${tag}:has(#merge${key}) { grid-column: span ${span}; }`),key);
+      }
+    }
+  }
+  assert.match(block,/grid-template-columns: repeat\(12,minmax\(0,1fr\)\)/);
+  assert.match(css,/@media screen and \(max-width: 900px\)/);
+  assert.match(css,/@media screen and \(max-width: 540px\)/);
+  assert.match(block,/min-height: 30px/);
+  t.api.clear();
+});
