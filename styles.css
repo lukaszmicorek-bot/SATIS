@@ -17777,3 +17777,8 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .mail-merge-group-address > .mail-merge-choice-field:has(#mergelocalityType) { grid-column: span 3; }
   :is(.mail-merge-group-person,.mail-merge-group-address) > :is(label,.mail-merge-choice-field) > span:first-child { display: flex; align-items: flex-end; min-height: 30px; line-height: 1.25; overflow-wrap: anywhere; }
 }
+
+.pcpr-form-row-bottom > .pcpr-office-field, .pcpr-form-row-bottom > .pcpr-model-stack { align-self: stretch; }
+.pcpr-model-stack { grid-template-rows: minmax(min-content, 1fr); align-content: stretch; gap: 6px; }
+.pcpr-model-stack:has(#pcprSecondModelField:not([hidden])) { grid-template-rows: repeat(2, minmax(min-content, 1fr)); }
+.pcpr-model-stack > .pcpr-model-field { align-content: start; min-height: 0; margin: 0; }

@@ -54,3 +54,18 @@ test('street, house and optional apartment occupy one grid row, including narrow
   assert.match(extract('editPricingPcprItem'),/fillPcprStreetForm\(entry\)/);
   assert.match(extract('resetPricingPcprForm'),/fillPcprStreetForm\(\{ street: "" \}\)/);
 });
+
+test('one or two preliminary models align with the PCPR/MOPS frame without fixed heights or stretched controls',()=>{
+  assert.match(css,/\.pcpr-form-row-bottom > \.pcpr-office-field, \.pcpr-form-row-bottom > \.pcpr-model-stack \{ align-self: stretch; \}/);
+  const single=css.slice(css.lastIndexOf('.pcpr-model-stack {')).split('}')[0];
+  assert.match(single,/grid-template-rows: minmax\(min-content, 1fr\)/);
+  assert.match(css,/\.pcpr-model-stack:has\(#pcprSecondModelField:not\(\[hidden\]\)\) \{ grid-template-rows: repeat\(2, minmax\(min-content, 1fr\)\); \}/);
+  assert.match(css,/\.pcpr-model-stack > \.pcpr-model-field \{ align-content: start;/);
+  assert.doesNotMatch(single,/\b(?:max-|min-)?height:\s*\d/);
+  const caption={textContent:''},field={hidden:true,dataset:{},classList:{toggle(){}},querySelector:()=>caption};
+  const ctx=vm.createContext({pcprSecondModelField:field,addPcprSecondModelBtn:{hidden:false},pcprModelInput2:{value:'Model L',readOnly:false},removePcprSecondModelBtn:{hidden:false}});
+  vm.runInContext(extract('setPcprSecondModelVisible'),ctx);
+  ctx.setPcprSecondModelVisible(true);assert.equal(field.hidden,false);assert.equal(ctx.addPcprSecondModelBtn.hidden,true);assert.equal(ctx.removePcprSecondModelBtn.hidden,false);
+  ctx.setPcprSecondModelVisible(true,{autoBoth:true});assert.equal(field.hidden,false);assert.equal(ctx.pcprModelInput2.readOnly,true);assert.equal(ctx.removePcprSecondModelBtn.hidden,true);
+  ctx.setPcprSecondModelVisible(false);assert.equal(field.hidden,true);assert.equal(ctx.addPcprSecondModelBtn.hidden,false);assert.equal(ctx.pcprModelInput2.value,'');
+});
