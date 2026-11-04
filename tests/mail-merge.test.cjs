@@ -8,6 +8,7 @@ const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surnam
   city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',monthlyIncome:'2 500,50',householdSize:'3',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
   province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
   careHome:'no',householdType:'shared',paymentMode:'transfer',bankOwner:'Jan Adam Testowy',bankName:'Bank testowy',bankAccount:'61109010140000071219812874',certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
+const correspondenceExample={correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
 test('amounts use integer cents and reject invalid grants or malformed money',()=>{
   assert.equal(m.parseMoney('1 234,56 zł'),123456);assert.equal(m.parseMoney('0'),0);
   for(const value of ['',null,'-2','abc','12.345','9'.repeat(400)]) assert.equal(m.parseMoney(value),null);
@@ -82,7 +83,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:6}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:7}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -486,7 +487,7 @@ test('required hints follow certificate validity, second product and automatic a
 test('new applications default to hearing aids and same mailing address, while stored choices are preserved',async()=>{
   const t=fixture();assert.equal(t.nodes.get('mergesubject').value,'Aparaty słuchowe');assert.equal(t.nodes.get('mergeSameAddress').checked,true);
   assert.match(t.nodes.get('mailMergePreviewPages').textContent,/Aparaty słuchowe/);
-  t.fill({...example,subject:'Wkładka uszna',email:'',flat:''});t.nodes.get('mergeSameAddress').checked=false;
+  t.fill({...example,...correspondenceExample,subject:'Wkładka uszna',email:'',flat:''});t.nodes.get('mergeSameAddress').checked=false;
   await t.click('Zapisz');assert.equal(t.stored.size,1);
   const saved=[...t.stored.values()][0].data;assert.equal(saved.sameAddress,false);assert.equal(saved.subject,'Wkładka uszna');
   assert.equal(saved.email,'');assert.equal(saved.flat,'');
@@ -792,4 +793,73 @@ test('PCPR Żywiec pairs income with DPS, retains the previous bank layout and k
   assert.ok(css.includes('.mail-merge-group-bank label:has(#mergebankAccount) { grid-column: span 8; }'));
   assert.ok(!css.includes('.mail-merge-group-bank > label:has(#mergebankOwner)'));
   t.api.clear();
+});
+
+test('different correspondence address is conditional, optional flat stays optional, drafts and printing validate it',()=>{
+  const data={...example,sameAddress:false};
+  assert.ok(m.validate(data,()=>true).some(error=>error.field==='correspondenceCity'));
+  assert.equal(m.draftValidate(data,()=>true).length,0);
+  assert.equal(m.validate({...data,...correspondenceExample,correspondenceFlat:''},()=>true).length,0);
+  assert.ok(m.draftValidate({...data,correspondencePostal:'34300'},()=>true).some(error=>error.field==='correspondencePostal'));
+  assert.equal(m.validate({...example,sameAddress:true,correspondencePostal:'bad'},()=>true).length,0);
+  const marks=m.placements({...data,...correspondenceExample}).filter(item=>item.field.startsWith('correspondence'));
+  assert.equal(marks.length,9);
+  assert.ok(marks.every(item=>item.page===2&&item.x===203.5&&item.y>=297&&item.y+item.height<472));
+  assert.equal(marks.find(item=>item.field==='correspondenceHouse').text,'14A');
+  assert.equal(m.placements({...data,...correspondenceExample}).some(item=>item.field==='sameAddress'),false);
+  assert.equal(m.placements({...data,...correspondenceExample,sameAddress:true}).some(item=>item.field.startsWith('correspondence')),false);
+  assert.equal(m.placements({...data,...correspondenceExample,personRole:'ward'}).filter(item=>item.field.startsWith('correspondence')).length,9);
+});
+
+test('correspondence fields show on uncheck, survive editing and reopening, but are omitted when the address is the same',async()=>{
+  const t=fixture(contactRules()),same=t.nodes.get('mergeSameAddress'),section=t.nodes.get('mailMergeCorrespondence');
+  assert.equal(section.hidden,true);assert.equal(t.nodes.get('mergecorrespondenceStreet').disabled,true);
+  same.checked=false;await same.emit('change');assert.equal(section.hidden,false);assert.equal(t.nodes.get('mergecorrespondenceStreet').disabled,false);
+  t.fill({...example,...correspondenceExample,correspondenceStreet:'testowa',correspondenceHouse:'14a',correspondenceFlat:'2b'});
+  await t.nodes.get('mergecorrespondenceHouse').emit('blur');
+  assert.equal(t.nodes.get('mergecorrespondenceStreet').value,'ul. Testowa');assert.equal(t.nodes.get('mergecorrespondenceHouse').value,'14A');
+  await t.click('Zapisz');assert.equal(t.stored.size,1);assert.equal([...t.stored.values()][0].data.correspondenceFlat,'2B');
+  await t.click('Nowy wniosek');assert.equal(section.hidden,true);assert.equal(t.nodes.get('mergecorrespondenceStreet').value,'');
+  await t.click('Edytuj');assert.equal(same.checked,false);assert.equal(section.hidden,false);assert.equal(t.nodes.get('mergecorrespondenceHouse').value,'14A');
+  same.checked=true;await same.emit('change');assert.equal(section.hidden,true);
+  same.checked=false;await same.emit('change');assert.equal(t.nodes.get('mergecorrespondenceFlat').value,'2B','temporary toggling does not erase typing');
+  same.checked=true;await same.emit('change');await t.click('Zapisz zmiany');
+  assert.ok(!Object.keys([...t.stored.values()][0].data).some(key=>key.startsWith('correspondence')));
+  t.api.clear();assert.equal(t.nodes.get('mergecorrespondenceStreet').value,'');assert.equal(section.hidden,true);
+});
+
+test('correspondence postcode fills only its address, handles ambiguities, manual outside-county addresses and city lookup',async()=>{
+  const geo=regionalGeography();
+  const t=fixture({...contactRules(),loadGeography:async()=>geo}),same=t.nodes.get('mergeSameAddress');
+  t.fill({city:'Żywiec',postal:'34-300'});same.checked=false;await same.emit('change');
+  t.fill({correspondencePostal:'34325'});await t.nodes.get('mergecorrespondencePostal').emit('input');
+  assert.equal(t.nodes.get('mergecorrespondencePostal').value,'34-325');
+  await t.click('34-325 · Bierna');
+  assert.equal(t.nodes.get('mergecorrespondenceCity').value,'Bierna');
+  assert.equal(t.nodes.get('mergecorrespondenceMunicipality').value,'Łodygowice');
+  assert.equal(t.nodes.get('mergecity').value,'Żywiec','home address is untouched');
+  t.fill({correspondencePostal:'99999'});await t.nodes.get('mergecorrespondencePostal').emit('input');
+  for(const suffix of ['City','PostOffice','Municipality','County','Province'])assert.equal(t.nodes.get('mergecorrespondence'+suffix).value,'');
+  assert.match(t.nodes.get('mailMergeCorrespondenceChoices').textContent,/ręcznie/);
+  t.fill({...correspondenceExample,correspondencePostal:'',correspondenceCity:'Żywiec'});await t.nodes.get('mergecorrespondenceCity').emit('blur');
+  assert.equal(t.nodes.get('mergecorrespondencePostal').value,'34-300');
+  t.api.clear();
+});
+
+test('old database can save unchanged same-address drafts but blocks new correspondence values with an SQL update message',async()=>{
+  let saves=0;
+  const t=fixture({rpc:async(name,args)=>name==='satis_mail_merge_list'?{data:{rows:[],total:0,schemaVersion:6}}:{data:{id:args.p_id,revision:++saves}}});
+  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');assert.equal(saves,1);
+  t.nodes.get('mergeSameAddress').checked=false;await t.nodes.get('mergeSameAddress').emit('change');t.fill(correspondenceExample);
+  await t.click('Zapisz roboczo');assert.equal(saves,1);assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);t.api.clear();
+});
+
+test('pending correspondence lookup cannot refill another person or a cleared session',async()=>{
+  let release;const t=fixture({...contactRules(),loadGeography:()=>new Promise(resolve=>{release=resolve;})});
+  t.nodes.get('mergeSameAddress').checked=false;await t.nodes.get('mergeSameAddress').emit('change');
+  t.fill({correspondencePostal:'34325'});const pending=t.nodes.get('mergecorrespondencePostal').emit('input');
+  t.api.clear();release(regionalGeography());await pending;
+  assert.equal(t.nodes.get('mergecorrespondenceCity').value,'');assert.equal(t.nodes.get('mergecorrespondencePostal').value,'');
+  assert.equal(t.nodes.get('mailMergeCorrespondence').hidden,true);
+  assert.equal(t.nodes.get('mailMergeCorrespondenceChoices').children.length,0);
 });

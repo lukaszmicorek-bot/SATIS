@@ -55,7 +55,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',6);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',7);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -108,7 +108,7 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
@@ -135,6 +135,7 @@ begin
         clean:=clean||jsonb_build_object(pair.key,btrim(pair.value#>>'{}'));
       end if;
     end loop;
+    if coalesce(clean->>'sameAddress','true')='true' then clean:=clean-array['correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'];end if;
     if clean ? 'certificateNumber' then clean:=jsonb_set(clean,'{certificateNumber}',to_jsonb(upper(clean->>'certificateNumber')));end if;
     if clean->>'certificateValidity'='indefinite' then clean:=clean||jsonb_build_object('certificateUntil','');end if;
     if coalesce(clean->>'itemCount','1')='1' then clean:=clean-array['subject2','orderNumber2'];end if;
@@ -166,6 +167,7 @@ begin
       if birth>(clock_timestamp() at time zone 'Europe/Warsaw')::date then raise exception 'Future birth' using errcode='22023';end if;
     end if;
     if coalesce(clean->>'postal','') !~ '^([0-9]{2}-[0-9]{3})?$' then raise exception 'Invalid postal code' using errcode='22023';end if;
+    if coalesce(clean->>'correspondencePostal','') !~ '^([0-9]{2}-[0-9]{3})?$' then raise exception 'Invalid correspondence postal code' using errcode='22023';end if;
     digits:=regexp_replace(coalesce(clean->>'phone',''),'[^0-9]','','g');
     if digits !~ '^((48|0048)?[0-9]{9})?$' then raise exception 'Invalid phone' using errcode='22023';end if;
     if coalesce(clean->>'email','') not in ('','-') and clean->>'email' !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then

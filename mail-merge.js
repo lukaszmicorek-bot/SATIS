@@ -5,9 +5,10 @@
 })(typeof window === "undefined" ? null : window, function () {
   "use strict";
   const PAGE = {width: 595.32, height: 841.92};
-  const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName"];
+  const correspondenceFields = ["correspondenceStreet", "correspondenceHouse", "correspondenceFlat", "correspondencePostal", "correspondenceCity", "correspondencePostOffice", "correspondenceMunicipality", "correspondenceCounty", "correspondenceProvince"];
+  const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName", "correspondenceHouse", "correspondenceFlat"];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount"];
+  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
   function shortChoices(options){
     const choices=(options||[]).filter(([value])=>value!=="");
     return choices.length>=2&&choices.length<=4?choices:null;
@@ -84,8 +85,17 @@
     }
     return shared;
   }
-  function validate(data, validPesel) {
+  function correspondenceIssues(data, full = false) {
+    if (data.sameAddress !== false) return [];
     const errors = [];
+    if (full) for (const [field, label] of [["correspondenceStreet","ulicę (lub Nie dotyczy)"],["correspondenceHouse","nr domu"],["correspondencePostal","kod pocztowy"],["correspondenceCity","miejscowość"],["correspondencePostOffice","pocztę"],["correspondenceMunicipality","gminę"],["correspondenceCounty","powiat"],["correspondenceProvince","województwo"]]) {
+      if (!String(data[field] || "").trim()) errors.push({field, text:`Adres korespondencyjny: uzupełnij ${label}.`});
+    }
+    if (data.correspondencePostal && !/^\d{2}-\d{3}$/u.test(data.correspondencePostal)) errors.push({field:"correspondencePostal",text:"Adres korespondencyjny: kod pocztowy powinien mieć format 00-000."});
+    return errors;
+  }
+  function validate(data, validPesel) {
+    const errors = correspondenceIssues(data, true);
     for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["postOffice", "Poczta"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
@@ -150,6 +160,9 @@
       if (data.sameAddress) tick(2,"sameAddress",28.6,259.5);
       if (data.gender) tick(1,"gender",data.gender === "male" ? 201.8 : 282.4,682.2);
     }
+    if (data.sameAddress === false) {
+      for (const [field, top, bottom] of [["correspondenceProvince",294,313.7],["correspondenceCounty",313.7,333.4],["correspondenceMunicipality",333.4,353.1],["correspondenceCity",353.1,372.8],["correspondenceStreet",372.8,392.5],["correspondenceHouse",392.5,412.2],["correspondenceFlat",412.2,431.9],["correspondencePostal",431.9,451.6],["correspondencePostOffice",451.6,471.3]]) cell(2,field,top,bottom);
+    }
     const groupY={I:440.3,II:454.1,III:467.9,none:481.7};
     if (groupY[data.invalidityGroup]) tick(3,"invalidityGroup",201.8,groupY[data.invalidityGroup]);
     const degreeY = {severe: 312.9, moderate: 326.7, mild: 340.5, none: 354.3};
@@ -201,7 +214,7 @@
     return null;
   }
   function draftValidate(data, validPesel) {
-    const errors = [];
+    const errors = correspondenceIssues(data);
     for (const key of ["firstName", "surname"]) if (!String(data[key] || "").trim()) errors.push({field:key,text:"Wpisz imię i nazwisko osoby."});
     for (const key of ["firstName","surname"]) if (data[key] && !/[\p{L}]/u.test(data[key])) errors.push({field:key,text:"Wpisz poprawne imię i nazwisko."});
     if (data.gender && !["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Sprawdź oznaczenie płci."});
@@ -227,6 +240,7 @@
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
     let autoPostal="", autoPostOffice="", addressPostal="", autoGender="", printPages=7, schemaVersion=0;
+    let correspondenceSequence=0, correspondencePostal="", autoCorrespondencePostal="";
     let periodicDate="", activeTemplate=null, candidateTemplate=null, templateImportController=null;
     const addressHistory=new Map();
     const q = id => document.getElementById(id), authorized = () => (a.access?a.access():a.owner()) && Boolean(a.user());
@@ -260,13 +274,14 @@
       return result.data;
     }
     function enrich(data) {
-      return {...data,bankAccount:bankDigits(data.bankAccount),...Object.fromEntries(uppercaseFields.map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")])),itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
+      return {...data,bankAccount:bankDigits(data.bankAccount),...Object.fromEntries(uppercaseFields.filter(key=>!correspondenceFields.includes(key)||Object.hasOwn(data,key)).map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")])),itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
         role:data.firstName && data.personRole!=="ward"?"we własnym imieniu":"",
         gender:a.validPesel(data.pesel)?Number(data.pesel[9])%2?"male":"female":data.gender||""};
     }
     function read() {
       const data=Object.fromEntries(personal.map(key=>[key,fields.get(key).value.trim()]));
       data.sameAddress=fields.get("sameAddress").checked;
+      for(const key of correspondenceFields)if(data.sameAddress || !data[key])delete data[key];
       if(a.iso(data.certificateUntil))data.certificateUntil=a.date(a.iso(data.certificateUntil));
       if(data.itemCount!=="2"){data.subject2="";data.orderNumber2="";}
       if(data.paymentMode!=="transfer")for(const key of ["bankOwner","bankName","bankAccount"])data[key]="";
@@ -288,6 +303,12 @@
       for(const key of ["bankOwner","bankName","bankAccount"]){
         fields.get(key).disabled=busy||!transfer;labels.get(key).classList.toggle("mail-merge-muted",!transfer);
         if(!transfer){fields.get(key).setCustomValidity("");fields.get(key).removeAttribute("aria-invalid");}
+      }
+      const sameAddress=fields.get("sameAddress").checked;
+      q("mailMergeCorrespondence").hidden=sameAddress;
+      for(const key of correspondenceFields){
+        const input=fields.get(key);input.disabled=busy||sameAddress;
+        if(sameAddress){input.setCustomValidity("");input.removeAttribute("aria-invalid");}
       }
       updateBankNotice();updateRequiredHints();
     }
@@ -328,6 +349,11 @@
         const value=fields.get(key).value.trim(),bracket=value.indexOf("(");
         put(key,bracket<0?a.name(value):`${a.name(value.slice(0,bracket))} ${value.slice(bracket)}`);
       }
+      for(const key of ["correspondenceCity","correspondencePostOffice"])put(key,a.city(fields.get(key).value));
+      for(const key of ["correspondenceMunicipality","correspondenceCounty","correspondenceProvince"])put(key,a.name(fields.get(key).value));
+      const correspondenceStreet=fields.get("correspondenceStreet").value;
+      put("correspondenceStreet",correspondenceStreet.trim()==="-"?"-":a.street?a.street(correspondenceStreet):a.name(correspondenceStreet));
+      put("correspondencePostal",a.postal(fields.get("correspondencePostal").value));
       put("city",a.city(fields.get("city").value));
       put("street",fields.get("street").value.trim() === "-" ? "-" : a.street?a.street(fields.get("street").value):a.name(fields.get("street").value));
       for(const key of ["house","flat"])put(key,fields.get(key).value.trim().toLocaleUpperCase("pl-PL"));
@@ -441,6 +467,44 @@
       const verified=geographyPostalMatches(geoIndex,postal.value).find(item=>normalize(item.city)===normalize(city));
       addressChanged(updatePostOffice(verified?.postOffice||city));
     }
+    async function syncCorrespondenceAddress(source="postal") {
+      if(!authorized()||busy||fields.get("sameAddress").checked)return;
+      const sequence=++correspondenceSequence,epoch=session,postal=fields.get("correspondencePostal"),city=fields.get("correspondenceCity"),choices=q("mailMergeCorrespondenceChoices");
+      choices.replaceChildren();
+      const clear=()=>{for(const key of ["correspondenceCity","correspondencePostOffice","correspondenceMunicipality","correspondenceCounty","correspondenceProvince"])fields.get(key).value="";};
+      if(source==="postal"&&correspondencePostal&&correspondencePostal!==postal.value){clear();addressChanged(true);}
+      correspondencePostal=postal.value;
+      const code=postal.value,name=city.value;
+      if(source==="postal"&&!/^\d{2}-\d{3}$/u.test(code)||source==="city"&&!name)return;
+      let geo;try{geo=await getGeography();}catch(error){if(authorized()&&epoch===session&&sequence===correspondenceSequence)choices.append(node("span","document-form-note",error.message));return;}
+      if(!authorized()||busy||fields.get("sameAddress").checked||epoch!==session||sequence!==correspondenceSequence||postal.value!==code||city.value!==name)return;
+      const apply=item=>{
+        if(!authorized()||busy||fields.get("sameAddress").checked||epoch!==session||sequence!==correspondenceSequence)return;
+        for(const [key,value]of Object.entries({City:item.city,PostOffice:item.postOffice||item.city,Municipality:item.municipality,County:item.county,Province:item.province}))if(value)fields.get(`correspondence${key}`).value=a.city(value);
+        choices.replaceChildren();addressChanged(true);
+      };
+      if(source==="postal"){
+        const matches=geographyPostalMatches(geo,code),matching=matches.filter(item=>normalize(item.city)===normalize(name));
+        if(matches.length===1){apply(matches[0]);return;}
+        if(matching.length===1){apply(matching[0]);return;}
+        if(matches.length){
+          const shared=sharedGeography(matches);for(const key of ["postOffice","municipality","county","province"])if(shared[key])fields.get(`correspondence${key[0].toUpperCase()+key.slice(1)}`).value=a.city(shared[key]);
+          choices.append(node("span","document-form-note","Wybierz miejscowość adresu korespondencyjnego:"));
+          matches.forEach(item=>choices.append(button(`${code} · ${item.city}`,()=>apply(item))));addressChanged(true);
+        }else choices.append(node("span","document-form-note","Kod adresu korespondencyjnego nie jest potwierdzony w wykazie powiatu żywieckiego. Uzupełnij adres ręcznie."));
+      }else{
+        const matches=geographyMatches(geo,name);
+        if(matches.length===1)apply(matches[0]);
+        else if(matches.length){choices.append(node("span","document-form-note","Wybierz gminę adresu korespondencyjnego:"));matches.forEach(item=>choices.append(button(`${item.city} · ${item.municipality}`,()=>apply(item))));}
+        const codes=Object.keys(geo.data.postalCodes||{}).filter(value=>geographyPostalMatches(geo,value).some(item=>normalize(item.city)===normalize(name)));
+        const suggestion=a.postalSuggestion?.(name,fields.get("correspondenceStreet").value,addressEntries());
+        if(!codes.length&&suggestion?.code)codes.push(suggestion.code);
+        if(codes.length===1&&(!postal.value||postal.value===autoCorrespondencePostal)){postal.value=codes[0];autoCorrespondencePostal=codes[0];correspondencePostal=codes[0];addressChanged(true);}
+        else if(codes.length&&!codes.includes(postal.value)){choices.append(node("span","document-form-note","Wybierz kod adresu korespondencyjnego:"));codes.forEach(value=>choices.append(button(value,()=>{postal.value=value;correspondencePostal="";return syncCorrespondenceAddress();})));}
+        const verified=geographyPostalMatches(geo,postal.value).filter(item=>normalize(item.city)===normalize(name));
+        if(verified.length===1)apply(verified[0]);
+      }
+    }
     function updateBirth() {
       const input=fields.get("pesel");input.value=input.value.replace(/\D/gu,"").slice(0,11);
       fields.get("birthDate").value=a.validPesel(input.value)?a.birthDate(input.value):"";
@@ -527,6 +591,8 @@
       fields.get("itemCount").value=value;changed();renderPreview();
     }
     function reset() {
+      correspondenceSequence++;correspondencePostal="";autoCorrespondencePostal="";
+      q("mailMergeCorrespondenceChoices").replaceChildren();
       generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";
@@ -539,7 +605,7 @@
       personal.forEach(key=>{fields.get(key).value=entry.data[key]||"";});fields.get("personRole").value||="applicant";
       fields.get("bankAccount").value=formatBankAccount(fields.get("bankAccount").value);
       fields.get("paymentMode").value=entry.data.paymentMode||"transfer";
-      fields.get("sameAddress").checked=Boolean(entry.data.sameAddress);rememberAddress(entry.data);
+      fields.get("sameAddress").checked=Boolean(entry.data.sameAddress);correspondencePostal=entry.data.correspondencePostal||"";rememberAddress(entry.data);
       fields.get("itemCount").value=entry.data.itemCount||((entry.data.subject2||entry.data.orderNumber2)?"2":"1");
       const updated=normalizeFields();addressPostal=fields.get("postal").value;updateBirth();updateConditionalFields();updateAmounts();dirtyState(updated);renderPreview();
     }
@@ -591,7 +657,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=6?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=7?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -611,7 +677,8 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        if(schemaVersion<6){await refresh();if(schemaVersion<6){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
+        const requiredSchema=correspondenceFields.some(key=>Boolean(data[key]))?7:6;
+        if(schemaVersion<requiredSchema){await refresh();if(schemaVersion<requiredSchema){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
@@ -665,6 +732,7 @@
     const sections=[
       ["Dane personalne","person",[["firstName","Imię *"],["middleName","Drugie imię"],["surname","Nazwisko *"],["pesel","PESEL"],["birthDate","Data urodzenia z PESEL-u"],["gender","Płeć (z PESEL-u)",[["","Wybierz…"],["male","Mężczyzna"],["female","Kobieta"]]],["personRole","Dane dotyczą",[["applicant","Wnioskodawcy"],["ward","Podopiecznego / mocodawcy"]]]]],
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
+      ["Adres korespondencyjny","correspondence",[["correspondenceStreet","Ulica"],["correspondenceHouse","Nr domu"],["correspondenceFlat","Nr lokalu (opcjonalnie)"],["correspondencePostal","Kod pocztowy"],["correspondenceCity","Miejscowość"],["correspondencePostOffice","Poczta"],["correspondenceMunicipality","Gmina"],["correspondenceCounty","Powiat"],["correspondenceProvince","Województwo"]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
       ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
       ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["householdSize","Liczba osób w gospodarstwie"]]],
@@ -675,6 +743,7 @@
     let addressSection;
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
+      if(group==="correspondence"){section.id="mailMergeCorrespondence";section.hidden=true;}
       items.forEach(([key,title,options])=>{
         const itemCount=key==="itemCount",choices=!itemCount?shortChoices(options):null;
         const label=node(itemCount||choices?"div":"label",itemCount?"mail-merge-item-count":choices?"mail-merge-choice-field":""),input=node(options&&!itemCount&&!choices?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
@@ -683,6 +752,7 @@
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
         if(key==="bankAccount"){input.inputMode="text";input.maxLength=40;input.setAttribute("aria-describedby","mailMergeBankWarning mailMergeBankHint");}
         if(key==="pesel"){input.inputMode="numeric";input.maxLength=11;}
+        if(correspondenceFields.includes(key))input.dataset.personFormat=/House$|Flat$/u.test(key)?"upper":key.endsWith("Postal")?"postal":"name";
         if(["cost","nfz","requested","monthlyIncome","own"].includes(key))input.inputMode="decimal";
         if(key==="householdSize"){input.type="number";input.min="1";input.max="99";input.step="1";input.inputMode="numeric";}
         if(key==="certificateUntil"){input.setAttribute("data-date-picker","");a.bindDate(input);}
@@ -713,7 +783,7 @@
           }
           choiceGroups.set(key,{group:controls,radios});label.append(controls);
         }
-        const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",email:"Brak e-maila"}[key];
+        const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",correspondenceStreet:"Nie dotyczy",email:"Brak e-maila"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
         if(key==="bankAccount"){
           const warning=node("span","mail-merge-message");warning.id="mailMergeBankWarning";warning.hidden=true;warning.setAttribute("role","status");warning.setAttribute("aria-live","polite");label.append(warning);
@@ -736,6 +806,7 @@
         contractorLabel.append(contractor,node("span","","Konto wykonawcy podane na dowodzie zakupu usługi"));section.append(contractorLabel);
         const hint=node("p","document-form-note mail-merge-full","Sprawdzamy długość i sumę kontrolną polskiego rachunku. Nie potwierdza to istnienia konta ani jego właściciela. Inne formy płatności zależą od zasad PCPR.");hint.id="mailMergeBankHint";section.append(hint);
       }
+      if(group==="correspondence"){const choices=node("div","mail-merge-matches mail-merge-full");choices.id="mailMergeCorrespondenceChoices";choices.setAttribute("aria-live","polite");section.append(choices);}
       if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób. Liczba osób obejmuje wnioskodawcę."));
       if(group==="address"){
         addressSection=section;
@@ -864,6 +935,22 @@
         const size=fields.get("householdSize");size.value="1";size.setCustomValidity("");size.removeAttribute("aria-invalid");
       }
       changed();renderPreview();
+    });
+    fields.get("sameAddress").addEventListener("change",()=>{
+      correspondenceSequence++;q("mailMergeCorrespondenceChoices").replaceChildren();changed();renderPreview();
+      if(!fields.get("sameAddress").checked&&fields.get("correspondencePostal").value)return syncCorrespondenceAddress();
+    });
+    for(const key of correspondenceFields)fields.get(key).addEventListener("blur",()=>{
+      if(!authorized()||busy)return;addressChanged(normalizeFields());renderPreview();
+      if(key==="correspondenceCity"||key==="correspondenceStreet")return syncCorrespondenceAddress("city");
+    });
+    fields.get("correspondencePostal").addEventListener("input",()=>{
+      const input=fields.get("correspondencePostal");input.value=a.postal(input.value);autoCorrespondencePostal="";return syncCorrespondenceAddress();
+    });
+    fields.get("correspondenceCity").addEventListener("input",()=>{
+      correspondenceSequence++;for(const key of ["correspondencePostOffice","correspondenceMunicipality","correspondenceCounty","correspondenceProvince"])fields.get(key).value="";
+      q("mailMergeCorrespondenceChoices").replaceChildren();
+      if(autoCorrespondencePostal&&fields.get("correspondencePostal").value===autoCorrespondencePostal){fields.get("correspondencePostal").value="";autoCorrespondencePostal="";}
     });
     fields.get("paymentMode").addEventListener("change",()=>{changed();renderPreview();});
     fields.get("bankAccount").addEventListener("input",()=>{

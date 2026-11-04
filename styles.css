@@ -17765,6 +17765,11 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 /* Two desktop rows; preserve the existing tablet and phone field order. */
 @media screen and (min-width: 901px) {
   .mail-merge-group-person, .mail-merge-group-address { grid-template-columns: repeat(12,minmax(0,1fr)); align-items: start; }
+  .mail-merge-group-correspondence > label:has(#mergecorrespondenceStreet) { grid-column: span 4; }
+  .mail-merge-group-correspondence > label:has(#mergecorrespondenceHouse) { grid-column: span 1; }
+  .mail-merge-group-correspondence > label:has(#mergecorrespondenceFlat), .mail-merge-group-correspondence > label:has(#mergecorrespondencePostal) { grid-column: span 2; }
+  .mail-merge-group-correspondence > label:has(#mergecorrespondenceCity), .mail-merge-group-correspondence > label:has(#mergecorrespondencePostOffice), .mail-merge-group-correspondence > label:has(#mergecorrespondenceMunicipality), .mail-merge-group-correspondence > label:has(#mergecorrespondenceCounty), .mail-merge-group-correspondence > label:has(#mergecorrespondenceProvince) { grid-column: span 3; }
+
   .mail-merge-group-person > label:has(#mergefirstName) { grid-column: span 3; }
   .mail-merge-group-person > label:has(#mergemiddleName) { grid-column: span 3; }
   .mail-merge-group-person > label:has(#mergesurname) { grid-column: span 6; }
