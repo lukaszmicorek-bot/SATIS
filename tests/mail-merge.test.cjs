@@ -158,7 +158,7 @@ function contactRules() {
   const source=fs.readFileSync(path.join(root,'app.js'),'utf8'),vm=require('node:vm');
   function extract(name){const start=source.indexOf(`function ${name}(`),rest=source.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);}
   const ctx={normalize:value=>String(value||'').toLocaleLowerCase('pl-PL'),normalizeLoanHistoryText:value=>String(value||'').trim().replace(/\s+/gu,' '),pcprPhoneDigits:value=>String(value||'').replace(/\D/gu,''),pcprDigitGroups:(value,groups)=>{let i=0;return groups.map(size=>{const part=value.slice(i,i+size);i+=size;return part;}).filter(Boolean).join(' ');},postalStreetKey:value=>String(value||'').toLowerCase().replace(/^ul\.\s*/u,'').trim()};
-  vm.createContext(ctx);for(const name of ['titleCaseName','formatLoanStreet','formatPcprPostalCode','formatPcprPhone','normalizePcprCity','suggestPostalCode'])vm.runInContext(extract(name),ctx);
+  vm.createContext(ctx);for(const name of ['titleCaseName','formatLoanStreet','formatPcprPostalCode','pcprPhoneDigits','formatPcprPhone','normalizePcprCity','suggestPostalCode'])vm.runInContext(extract(name),ctx);
   const entries=[{city:'Żywiec',postalCode:'34-300',street:'ul. Przykładowa'},{city:'Bielsko-Biała',postalCode:'43-300',street:'ul. Traugutta'},{city:'Testowo',postalCode:'10-100',street:'ul. Pierwsza'},{city:'Testowo',postalCode:'10-101',street:'ul. Druga'},{city:'Druga Wieś',postalCode:'20-200',street:''},{city:'Trzecia Wieś',postalCode:'20-200',street:''}];
   return {name:ctx.titleCaseName,street:ctx.formatLoanStreet,city:value=>/^bielsko$/iu.test(value.trim())?'Bielsko-Biała':ctx.normalizePcprCity(value),phone:ctx.formatPcprPhone,postal:ctx.formatPcprPostalCode,
     postalEntries:()=>entries,postalSuggestion:ctx.suggestPostalCode,cityForPostal:()=>'',loadGeography:async()=>({units:{},places:[]})};
@@ -721,4 +721,32 @@ test('PCPR Żywiec uses only P50 PCPR profiles but retains existing document his
   assert.equal(ctx.customerHistoryContactEntries('Anna Testowa').length,2,'other forms keep all their PCPR contacts');
   ctx.currentSupabaseUser=null;assert.equal(ctx.mailMergeContactMatches('Anna').length,0);
   ctx.currentSupabaseUser={id:'other'};ctx.access=false;assert.equal(ctx.mailMergeContactMatches('Anna').length,0);
+});
+
+test('PCPR Żywiec capitalizes all name fields immediately while preserving spaces, hyphens, selection and composition',async()=>{
+  const t=fixture(contactRules());
+  for(const [key,value,expected]of [['firstName','jan ','Jan '],['middleName','anna maria','Anna Maria'],['surname','testowy-kowalski','Testowy-Kowalski']]){
+    const input=t.nodes.get(`merge${key}`);input.value=value;input.selectionStart=2;input.selectionEnd=4;input.selectionDirection='backward';
+    input.setSelectionRange=(start,end,direction)=>{input.selectionStart=start;input.selectionEnd=end;input.selectionDirection=direction;};
+    await input.emit('input');assert.equal(input.value,expected);assert.equal(input.selectionStart,2);assert.equal(input.selectionEnd,4);assert.equal(input.selectionDirection,'backward');
+  }
+  const surname=t.nodes.get('mergesurname');surname.value='testowy';
+  for(const listener of surname.events.input)listener({isComposing:true});assert.equal(surname.value,'testowy');
+  await surname.emit('compositionend');assert.equal(surname.value,'Testowy');
+  t.api.clear();
+});
+test('PCPR Żywiec groups phone digits immediately, including paste, middle edits, country prefixes and landlines',async()=>{
+  const t=fixture(contactRules()),input=t.nodes.get('mergephone');
+  input.setSelectionRange=(start,end,direction)=>{input.selectionStart=start;input.selectionEnd=end;input.selectionDirection=direction;};
+  for(const [value,expected]of [['5','5'],['5006','500 6'],['500600800','500 600 800'],['+48 500600800','500 600 800'],['0048500600800','500 600 800'],['338153355','33 815 33 55']]){
+    input.value=value;input.selectionStart=input.selectionEnd=value.length;input.selectionDirection='none';
+    await input.emit('input');assert.equal(input.value,expected);assert.equal(input.selectionStart,expected.length);
+  }
+  input.value='500960 080';input.selectionStart=input.selectionEnd=4;
+  await input.emit('input');assert.equal(input.value,'500 960 080');assert.equal(input.selectionStart,5,'caret follows the inserted digit, not the end of the phone');
+  input.value='500600 800';input.selectionStart=input.selectionEnd=3;
+  for(const listener of input.events.input)listener({inputType:'deleteContentForward'});
+  assert.equal(input.value,'500 600 800');assert.equal(input.selectionStart,4,'delete can continue past a separator');
+  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');
+  assert.equal([...t.stored.values()][0].data.phone,'500 600 800');t.api.clear();
 });

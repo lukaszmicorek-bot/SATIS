@@ -818,6 +818,38 @@
     editor.addEventListener("submit",event=>{event.preventDefault();if(authorized()&&!busy)void saveDraft();});
     editor.addEventListener("input",changed);editor.addEventListener("change",changed);
     for(const key of labels.keys())for(const event of ["input","change"])fields.get(key).addEventListener(event,updateRequiredHints);
+    for(const key of ["firstName","middleName","surname"]){
+      const input=fields.get(key);
+      const formatName=event=>{
+        if(!authorized()||busy||event.isComposing)return;
+        const before=input.value,start=input.selectionStart,end=input.selectionEnd,direction=input.selectionDirection;
+        const capitalize=value=>value.replace(/\S+/gu,word=>a.name(word));
+        const formatted=capitalize(before);if(formatted===before)return;
+        input.value=formatted;
+        if(typeof start==="number"&&typeof end==="number"&&input.setSelectionRange)
+          input.setSelectionRange(capitalize(before.slice(0,start)).length,capitalize(before.slice(0,end)).length,direction);
+      };
+      input.addEventListener("input",formatName);input.addEventListener("compositionend",formatName);
+    }
+    const phoneInput=fields.get("phone");
+    const formatPhone=event=>{
+      if(!authorized()||busy||event.isComposing)return;
+      const before=phoneInput.value,start=phoneInput.selectionStart,end=phoneInput.selectionEnd,direction=phoneInput.selectionDirection;
+      const formatted=a.phone(before);if(formatted===before)return;
+      phoneInput.value=formatted;
+      if(typeof start!=="number"||typeof end!=="number"||!phoneInput.setSelectionRange)return;
+      const digits=before.replace(/\D/gu,""),outputDigits=formatted.replace(/\D/gu,"");
+      const prefix=Math.max(0,digits.indexOf(outputDigits));
+      const position=offset=>{
+        const count=Math.max(0,before.slice(0,offset).replace(/\D/gu,"").length-prefix);
+        if(!count)return 0;
+        let index=0,seen=0;while(index<formatted.length&&seen<count){if(/\d/u.test(formatted[index]))seen++;index++;}return index;
+      };
+      let from=position(start),to=position(end);
+      if(start===end&&event.inputType==="deleteContentForward"&&formatted[from]===" ")from=to=from+1;
+      phoneInput.setSelectionRange(from,to,direction);
+    };
+    phoneInput.addEventListener("input",formatPhone);phoneInput.addEventListener("compositionend",formatPhone);
     for(const key of uppercaseFields)fields.get(key).addEventListener("input",()=>{
       const input=fields.get(key),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
       if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
