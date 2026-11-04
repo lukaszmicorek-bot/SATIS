@@ -1,5 +1,5 @@
 {
-  "app_version": "20261104-5",
+  "app_version": "20261104-6",
   "asset_policy_sha256": "5964a8b94befb2a67d877cfcc8fa676963d912b1b996735d0ef2306fbf2591e8",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -19,16 +19,16 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1789429,
-      "sha256": "9ae1639dee23785bf1ddefc3f056e08e56594ed6c6804df8aef8cda81ee0f927"
+      "bytes": 1794409,
+      "sha256": "3083d376f7e1aef1c49e7361e65002170474a33486f2892be58086d805aa7e82"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
       "sha256": "d67c3c9b8fffecf3e158ca390a2dddacf211e575525bca0aff91a71bc18d27df"
     },
     "clients.js": {
-      "bytes": 66063,
-      "sha256": "1011d969285981824bd8cc494ce6c90ad99b231847fc8b5babec22f01ba003c8"
+      "bytes": 67477,
+      "sha256": "ca9b3b5d6e5d3179bd4d56b6a745392bbe72891dc271670df2c72e193d095b2b"
     },
     "data-layer.js": {
       "bytes": 8943,
@@ -47,8 +47,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 461960,
-      "sha256": "2a01bac6228d88a0ec764829d0f4242a91eddf4c3e62352d4e3e97d35c1699ad"
+      "bytes": 464525,
+      "sha256": "b426069d1c1b5ddbccafce00b8a39f9547ebfbaf0f8df322b0033d53b951b4e5"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -164,7 +164,7 @@
     },
     "offline-sw.js": {
       "bytes": 3265,
-      "sha256": "3cf7ae70624d4aea92aba7a431238adb931e2b0c4ea67e4f4e4fa1139796d42d"
+      "sha256": "19ca3ff7b6a23dd155f6fe02a7e79e2f5b23f5121d38c31455776fd693205449"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -199,8 +199,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 426779,
-      "sha256": "4712d88e5f4297c1dacf906780870944f7bf96cd7f939e16c0a7155cbe31c4f2"
+      "bytes": 427225,
+      "sha256": "364a00cf303ebf3bec5159f06996d01b9f0c2bd5e2d2220fdbe6d7158d80879e"
     },
     "supabase-config.js": {
       "bytes": 227,

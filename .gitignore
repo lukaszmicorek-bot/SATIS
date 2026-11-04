@@ -162,3 +162,5 @@
 
 !/tests/pcpr-address.test.cjs
 !/tests/pcpr-notes.test.cjs
+
+!/tests/loan-document-correctness.test.cjs

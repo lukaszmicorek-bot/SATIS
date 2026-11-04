@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261104-5">
+  <link rel="stylesheet" href="styles.css?v=20261104-6">
   </head>
   <body>
     <main class="app-shell">
@@ -808,9 +808,14 @@
                   <label class="clients-name">Imię i nazwisko<input id="clientName" type="text" maxlength="160" required autocomplete="off" spellcheck="false"></label>
                   <label>Telefon<input id="clientPhone" type="tel" maxlength="24" autocomplete="off" placeholder="500 600 800"></label>
                   <label class="document-location-field">Miejsce<select id="clientLocation"><option value="T12">T12 · Bielsko-Biała, Traugutta 12</option><option value="P63">P63 · Bielsko-Biała, Partyzantów 63</option><option value="P50">P50 · Żywiec, Piłsudskiego 50</option></select></label>
-                  <label>Ulica i numer<input id="clientStreet" type="text" maxlength="240" autocomplete="off" placeholder="ul. Traugutta 12" title="Możesz wkleić cały adres — ulica, kod pocztowy i miejscowość." aria-describedby="clientAddressHint"></label>
-                  <label>Kod pocztowy<input id="clientPostal" type="text" maxlength="6" inputmode="numeric" placeholder="00-000" pattern="[0-9]{2}-[0-9]{3}" autocomplete="off"></label>
-                  <label>Miejscowość<input id="clientCity" type="text" maxlength="120" autocomplete="off" list="clientCitySuggestions" aria-describedby="clientAddressHint"></label>
+                  <div class="clients-address-fields structured-address-fields">
+                    <input id="clientStreet" type="hidden">
+                    <label>Ulica<input id="clientStreetName" type="text" maxlength="180" autocomplete="off" data-person-format="name" title="Możesz wkleić cały adres." aria-describedby="clientAddressHint"></label>
+                    <label>Nr domu<input id="clientHouseNumber" type="text" maxlength="20" autocomplete="off" data-person-format="upper"></label>
+                    <label>Nr lokalu<input id="clientFlatNumber" type="text" maxlength="20" autocomplete="off" data-person-format="upper" title="Opcjonalnie"></label>
+                    <label>Kod pocztowy<input id="clientPostal" type="text" maxlength="6" inputmode="numeric" placeholder="00-000" pattern="[0-9]{2}-[0-9]{3}" autocomplete="off"></label>
+                    <label>Miejscowość<input id="clientCity" type="text" maxlength="120" autocomplete="off" data-person-format="name" list="clientCitySuggestions" aria-describedby="clientAddressHint"></label>
+                  </div>
                 </div>
                 <datalist id="clientCitySuggestions"></datalist>
                 <p id="clientAddressHint" class="clients-hint" role="status" aria-live="polite"></p>
@@ -1243,7 +1248,9 @@
                 <div class="loan-full structured-address" data-address-input="loanAddressInput">
                   <input id="loanAddressInput" type="text" autocomplete="off" hidden>
                   <div class="structured-address-fields">
-                    <label><span>Ulica i numer</span><input id="loanAddressStreetInput" data-address-part="street" autocomplete="address-line1" placeholder="ul. Nazwa 1"></label>
+                    <label><span>Ulica</span><input id="loanAddressStreetInput" data-address-part="street" autocomplete="address-line1" placeholder="ul. Nazwa"></label>
+                    <label><span>Nr domu</span><input id="loanAddressHouseInput" placeholder="1" data-address-part="houseNumber" autocomplete="off" maxlength="20"></label>
+                    <label><span>Nr lokalu</span><input id="loanAddressFlatInput" data-address-part="flatNumber" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
                     <label><span>Kod pocztowy</span><input id="loanAddressPostalInput" data-address-part="postalCode" autocomplete="postal-code" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
                     <label><span>Miejscowość</span><input id="loanAddressCityInput" data-address-part="city" autocomplete="address-level2"></label>
                   </div>
@@ -1523,7 +1530,9 @@
                 <div class="rodo-address-field structured-address" data-address-input="receiptAddressInput">
                   <input id="receiptAddressInput" autocomplete="off" hidden>
                   <div class="structured-address-fields">
-                    <label><span>Ulica i numer</span><input id="receiptAddressStreetInput" data-address-part="street" autocomplete="address-line1"></label>
+                    <label><span>Ulica</span><input id="receiptAddressStreetInput" data-address-part="street" autocomplete="address-line1"></label>
+                    <label><span>Nr domu</span><input id="receiptAddressHouseInput" data-address-part="houseNumber" autocomplete="off" maxlength="20"></label>
+                    <label><span>Nr lokalu</span><input id="receiptAddressFlatInput" data-address-part="flatNumber" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
                     <label><span>Kod pocztowy</span><input id="receiptAddressPostalInput" data-address-part="postalCode" autocomplete="postal-code" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
                     <label><span>Miejscowość</span><input id="receiptAddressCityInput" data-address-part="city" autocomplete="address-level2"></label>
                   </div>
@@ -1625,7 +1634,9 @@
                 <div class="rodo-address-field structured-address" data-address-input="rodoAddressInput">
                   <input id="rodoAddressInput" type="text" autocomplete="off" hidden>
                   <div class="structured-address-fields">
-                    <label><span>Ulica i numer</span><input id="rodoAddressStreetInput" data-address-part="street" autocomplete="address-line1"></label>
+                    <label><span>Ulica</span><input id="rodoAddressStreetInput" data-address-part="street" autocomplete="address-line1"></label>
+                    <label><span>Nr domu</span><input id="rodoAddressHouseInput" data-address-part="houseNumber" autocomplete="off" maxlength="20"></label>
+                    <label><span>Nr lokalu</span><input id="rodoAddressFlatInput" data-address-part="flatNumber" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
                     <label><span>Kod pocztowy</span><input id="rodoAddressPostalInput" data-address-part="postalCode" autocomplete="postal-code" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
                     <label><span>Miejscowość</span><input id="rodoAddressCityInput" data-address-part="city" autocomplete="address-level2"></label>
                   </div>
@@ -1725,9 +1736,9 @@
                   </label>
                   <div class="pcpr-street-field pcpr-address-fields" role="group" aria-label="Ulica i numer domu oraz lokalu">
                     <input id="pcprStreetInput" type="hidden">
-                    <label><span>Ulica</span><input id="pcprStreetNameInput" type="text" autocomplete="address-line1"></label>
-                    <label><span>Nr domu</span><input id="pcprHouseNumberInput" type="text" autocomplete="off" maxlength="20"></label>
-                    <label><span>Nr lokalu</span><input id="pcprFlatNumberInput" type="text" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
+                    <label><span>Ulica</span><input id="pcprStreetNameInput" data-person-format="name" type="text" autocomplete="address-line1"></label>
+                    <label><span>Nr domu</span><input id="pcprHouseNumberInput" data-person-format="upper" type="text" autocomplete="off" maxlength="20"></label>
+                    <label><span>Nr lokalu</span><input id="pcprFlatNumberInput" data-person-format="upper" type="text" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
                   </div>
                   <label class="pcpr-postal-field">
                     <span>Kod pocztowy</span>
@@ -1736,7 +1747,7 @@
                   </label>
                   <label class="pcpr-city-field">
                     <span>Miejscowość</span>
-                    <input id="pcprCityInput" type="text" autocomplete="address-level2">
+                    <input id="pcprCityInput" data-person-format="name" type="text" autocomplete="address-level2">
                   </label>
                 </div>
                 <small id="pcprAddressReview" class="pcpr-address-review" role="status" hidden>Adres ma niestandardowy zapis. Zachowano go bez rozdzielania — sprawdź ulicę i numery.</small>
@@ -2664,10 +2675,18 @@
                   <span>Placówka</span>
                   <input id="capdPractitionerFacilityInput" type="text" maxlength="120" autocomplete="off" placeholder="Nazwa placówki">
                 </label>
-                <label class="capd-practitioner-wide">
+                <div class="capd-practitioner-wide structured-address" data-address-input="capdPractitionerAddressInput">
+                  <input id="capdPractitionerAddressInput" type="text" maxlength="180" autocomplete="off" hidden>
                   <span>Adres placówki</span>
-                  <input id="capdPractitionerAddressInput" type="text" maxlength="180" autocomplete="off" placeholder="Ulica, kod pocztowy, miejscowość">
-                </label>
+                  <div class="structured-address-fields">
+                    <label><span>Ulica</span><input id="capdAddressStreetInput" data-address-part="street" autocomplete="off"></label>
+                    <label><span>Nr domu</span><input id="capdAddressHouseInput" data-address-part="houseNumber" autocomplete="off" maxlength="20"></label>
+                    <label><span>Nr lokalu</span><input id="capdAddressFlatInput" data-address-part="flatNumber" autocomplete="off" maxlength="20" title="Opcjonalnie"></label>
+                    <label><span>Kod pocztowy</span><input id="capdAddressPostalInput" data-address-part="postalCode" autocomplete="off" inputmode="numeric" maxlength="6" placeholder="00-000"></label>
+                    <label><span>Miejscowość</span><input id="capdAddressCityInput" data-address-part="city" autocomplete="off"></label>
+                  </div>
+                  <small class="structured-address-hint" aria-live="polite" hidden></small>
+                </div>
               </div>
             </section>
             <div class="private-form-actions private-form-wide">
@@ -3581,17 +3600,17 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261104-5"></script>
-    <script src="data-layer.js?v=20261104-5"></script>
-    <script src="sync-layer.js?v=20261104-5"></script>
-    <script src="traffic-meter.js?v=20261104-5"></script>
-    <script src="repair-returns.js?v=20261104-5"></script>
-    <script src="offline-vault.js?v=20261104-5"></script>
-    <script src="offline-forms.js?v=20261104-5"></script>
-    <script src="stock-audit.js?v=20261104-5"></script>
-    <script src="clients.js?v=20261104-5"></script>
-    <script src="tinnitus-forms.js?v=20261104-5"></script>
-    <script src="mail-merge.js?v=20261104-5"></script>
-  <script src="app.js?v=20261104-5"></script>
+    <script src="supabase-config.js?v=20261104-6"></script>
+    <script src="data-layer.js?v=20261104-6"></script>
+    <script src="sync-layer.js?v=20261104-6"></script>
+    <script src="traffic-meter.js?v=20261104-6"></script>
+    <script src="repair-returns.js?v=20261104-6"></script>
+    <script src="offline-vault.js?v=20261104-6"></script>
+    <script src="offline-forms.js?v=20261104-6"></script>
+    <script src="stock-audit.js?v=20261104-6"></script>
+    <script src="clients.js?v=20261104-6"></script>
+    <script src="tinnitus-forms.js?v=20261104-6"></script>
+    <script src="mail-merge.js?v=20261104-6"></script>
+  <script src="app.js?v=20261104-6"></script>
   </body>
 </html>

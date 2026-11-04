@@ -481,3 +481,23 @@ test('lost link acknowledgment refreshes confirmed server state and retry skips 
   f.nodes.get('clientsForm').emit('submit');for(let i=0;i<12;i++)await tick();
   assert.equal(f.links.length,3);assert.equal(f.nodes.get('clientHistory').children.length,3);
 });
+
+test('client address editing splits the street and both numbers but writes the existing canonical street field',async()=>{
+  const source=fs.readFileSync('app.js','utf8'),vm=require('node:vm');
+  const ctx=vm.createContext({normalizeLoanHistoryText:value=>String(value||'').trim().replace(/\s+/gu,' ')});
+  for(const name of ['titleCaseName','formatLoanStreet','pcprStreetAddressParts']){
+    const start=source.indexOf(`function ${name}(`),rest=source.slice(start);vm.runInContext(rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1),ctx);
+  }
+  let current={...profile,street:'ul. Testowa 12A/3',postal_code:'43-300',city:'Bielsko-Biała'},saved;
+  const f=fixture(async(name,args)=>{
+    if(name==='satis_client_detail')return {data:{...detail,profile:current}};
+    if(name==='satis_clients_write'){saved=args.p_data;current={...current,...saved,revision:2};return {data:{id:current.id,revision:2}};}
+    return {data:[]};
+  },{streetParts:ctx.pcprStreetAddressParts,street:ctx.formatLoanStreet});
+  await f.module.select('client-1');assert.equal(f.nodes.get('clientStreetName').value,'ul. Testowa');assert.equal(f.nodes.get('clientHouseNumber').value,'12A');assert.equal(f.nodes.get('clientFlatNumber').value,'3');
+  f.nodes.get('clientHouseNumber').value='9B';f.nodes.get('clientFlatNumber').value='4';f.nodes.get('clientHouseNumber').emit('input');
+  assert.equal(f.nodes.get('clientStreet').value,'ul. Testowa 9B/4');
+  f.nodes.get('clientsForm').emit('submit');await tick();await tick();
+  assert.equal(saved.street,'ul. Testowa 9B/4');assert.equal(saved.houseNumber,undefined,'no incompatible database columns are sent');
+  f.module.clear();for(const id of ['clientStreetName','clientHouseNumber','clientFlatNumber'])assert.equal(f.nodes.get(id).value,'');
+});

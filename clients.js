@@ -254,6 +254,17 @@
       total = Number(data.total) || 0; loaded = true;
       renderList(); setBusy(busy);
     }
+    function syncStreetFields(read=false, final=false) {
+      if (!a.streetParts) return;
+      const name=q("clientStreetName"),house=q("clientHouseNumber"),flat=q("clientFlatNumber");
+      const source=read?{street:q("clientStreet").value}:final&&!house.value&&!flat.value?{street:name.value}
+        :{streetName:name.value,houseNumber:house.value,flatNumber:flat.value};
+      const parts=a.streetParts(source);
+      q("clientStreet").value=parts.street;
+      if(read||final){name.value=parts.streetName;house.value=parts.houseNumber;flat.value=parts.flatNumber;}
+      house.required=Boolean(flat.value);
+      if(parts.streetNeedsReview)q("clientAddressHint").textContent="Adres niestandardowy — sprawdź podział ulicy i numerów.";
+    }
     function fillProfile(profile) {
       profileDirty = false; activityDirty = false;
       autoCity = ""; autoPostal = "";
@@ -261,6 +272,7 @@
       for (const [id, field] of [["clientName","full_name"],["clientPhone","phone"],["clientStreet","street"],
         ["clientPostal","postal_code"],["clientCity","city"],["clientLocation","location"]]) q(id).value = profile[field] || (field === "location" ? a.station() : "");
       q("clientPhone").value = a.phone(profile.phone);
+      syncStreetFields(true);
       a.locationAccent(q("clientLocation"));
       q("clientsCard").hidden = false;
       q("clientsCardTitle").textContent = profile.full_name || "Nowy klient";
@@ -295,7 +307,7 @@
     async function saveProfile() {
       normalizeContact();
       const data = profilePayload({name:q("clientName").value,phone:q("clientPhone").value,street:q("clientStreet").value,
-        postal:q("clientPostal").value.trim(),city:q("clientCity").value,location:q("clientLocation").value,archived:detail?.profile.archived}, a.person, a.street, a.city);
+        postal:q("clientPostal").value.trim(),city:q("clientCity").value,location:q("clientLocation").value,archived:detail?.profile.archived}, a.person, value=>a.streetParts?value:a.street(value), a.city);
       const id = detail?.profile.id || newProfileId || (newProfileId = a.id());
       if (!detail && profiles.some(p => normalized(p.full_name) === normalized(data.full_name) && data.phone && phoneKey(p.phone) === data.phone)) {
         throw new Error("Karta z tym nazwiskiem i telefonem już jest na liście. Otwórz ją zamiast tworzyć kolejną.");
@@ -708,6 +720,7 @@
       profiles=[];visits=[];detail=null;operations.clear();sourceRows=null;index=sourceIndex([]);loaded=false;busy=false;missingSchema=false;newProfileId="";editingActivity=null;activityId="";profileDirty=false;activityDirty=false;
       for (const id of ["clientsList","clientsSuggestions","clientCandidates","clientHistory","clientOperations","clientsVisitList"]) q(id)?.replaceChildren();
       q("clientsForm")?.reset(); q("clientActivityEditor")?.reset();
+      for(const id of ["clientStreetName","clientHouseNumber","clientFlatNumber"])if(q(id))q(id).value="";
       q("clientsSearch").value="";q("clientsCard").hidden=true;q("clientsReminderBtn").hidden=true;notify("");
       for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount","clientAddressHint"]) q(id).textContent="";
       q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";sourcesUnavailable=false;
@@ -744,9 +757,11 @@
           : /^\d{2}-\d{3}$/.test(code) && !candidates.length && !city.value ? "Nie znamy miejscowości dla tego kodu. Wpisz ją ręcznie." : "";
     }
     function normalizeContact() {
+      syncStreetFields(false,true);
       const before = ["clientName","clientStreet","clientCity","clientPostal","clientPhone"].map(id=>q(id).value);
       q("clientName").value = a.person(q("clientName").value.trim());
-      q("clientStreet").value = a.street(q("clientStreet").value);
+      if(a.streetParts){q("clientStreetName").value=a.street(q("clientStreetName").value);syncStreetFields();}
+      else q("clientStreet").value = a.street(q("clientStreet").value);
       q("clientCity").value = a.city(q("clientCity").value);
       const phone = phoneKey(q("clientPhone").value);
       if (!phone || /^\d{9}$/.test(phone)) q("clientPhone").value = a.phone(phone);
@@ -778,13 +793,20 @@
     q("clientPostal").addEventListener("input", () => {const digits=q("clientPostal").value.replace(/\D/g,"").slice(0,5);q("clientPostal").value=digits.length>2?`${digits.slice(0,2)}-${digits.slice(2)}`:digits;autoPostal="";syncPostalCity();});
     for (const id of ["clientName","clientStreet","clientCity","clientPostal"]) q(id).addEventListener("blur", normalizeContact);
     q("clientCity").addEventListener("input", () => {autoCity="";});
-    q("clientStreet").addEventListener("paste", event => {
+    const pasteStreet = event => {
       const parts = a.addressParts(event.clipboardData?.getData("text") || "");
       if (!parts.street || !parts.city) return;
       event.preventDefault();
       q("clientStreet").value=parts.street;q("clientPostal").value=parts.postalCode||"";q("clientCity").value=parts.city;
+      syncStreetFields(true);
       autoCity="";autoPostal="";profileDirty=true;normalizeContact();
-    });
+    };
+    q("clientStreet").addEventListener("paste",pasteStreet);
+    q("clientStreetName")?.addEventListener("paste",pasteStreet);
+    for(const id of ["clientStreetName","clientHouseNumber","clientFlatNumber"]){
+      q(id)?.addEventListener("input",()=>syncStreetFields());
+      q(id)?.addEventListener("blur",normalizeContact);
+    }
     q("clientLocation").addEventListener("change", () => a.locationAccent(q("clientLocation")));
     q("clientVisitLocation").addEventListener("change", () => {
       a.locationAccent(q("clientVisitLocation"));scheduleLocation=q("clientVisitLocation").value;

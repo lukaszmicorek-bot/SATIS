@@ -17782,3 +17782,11 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .pcpr-model-stack { grid-template-rows: minmax(min-content, 1fr); align-content: stretch; gap: 6px; }
 .pcpr-model-stack:has(#pcprSecondModelField:not([hidden])) { grid-template-rows: repeat(2, minmax(min-content, 1fr)); }
 .pcpr-model-stack > .pcpr-model-field { align-content: start; min-height: 0; margin: 0; }
+
+.structured-address-fields { grid-template-columns: minmax(0, 1.5fr) 68px 68px minmax(95px, .6fr) minmax(0, 1fr); }
+.clients-address-fields { grid-column: 1 / -1; }
+@media screen and (max-width: 700px) {
+  .structured-address-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .structured-address-fields > label:first-of-type { grid-column: 1 / -1; }
+  .structured-address-fields > label:not(:first-of-type) { grid-column: auto; }
+}

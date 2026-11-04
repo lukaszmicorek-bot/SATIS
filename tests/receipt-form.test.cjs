@@ -442,3 +442,43 @@ test('receipt is available online and offline, clears personal data, and never w
   assert.match(offline, /api.validate && !api.validate\(kind\)/);
   assert.match(offline, /api.reset\("receipt"\)/);
 });
+
+test('all personal form inputs format names, phones and address parts live without touching models, emails or invalid phones',()=>{
+  const ctx=vm.createContext({Event});
+  for(const name of ['titleCaseName','titleCaseNameInput','pcprPhoneDigits','pcprDigitGroups','formatPcprPhone','formatPcprPostalCode','formatPersonalFormInput'])vm.runInContext(extract(name),ctx);
+  function field(id,value,dataset={}){return {id,value,dataset,type:'text',selectionStart:2,selectionEnd:2,selectionDirection:'none',setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;},dispatchEvent(){}};}
+  for(const id of ['offerCustomerInput','loanCustomerInput','orderCustomerInput','complaintCustomerInput','receiptCustomerInput','rodoNameInput','capdPatientInput','thiCustomerInput','trqCustomerInput','clientName','customerName','repairCustomerName','demoCurrentUser']){
+    const input=field(id,'jan kowalski-mikosz ');ctx.formatPersonalFormInput({target:input,type:'input'});
+    assert.equal(input.value,'Jan Kowalski-Mikosz ',id);assert.equal(input.selectionStart,2);
+  }
+  for(const id of ['loanPhoneInput','orderPhoneInput','complaintPhoneInput','rodoPhoneInput','clientPhone','repairPhone']){
+    const input=field(id,'500600800');input.selectionStart=input.selectionEnd=9;
+    ctx.formatPersonalFormInput({target:input,type:'input'});assert.equal(input.value,'500 600 800',id);assert.equal(input.selectionStart,11);
+  }
+  for(const value of ['jan@example.test','500600800123','+44 123 456 789']){
+    const input=field('loanPhoneInput',value);ctx.formatPersonalFormInput({target:input,type:'input'});assert.equal(input.value,value);
+  }
+  for(const [kind,value,expected]of [['street','ul. kościuszki','ul. Kościuszki'],['city','żywiec','Żywiec'],['houseNumber','12a','12A'],['flatNumber','3b','3B'],['postalCode','43300','43-300']]){
+    const input=field('part',value,{addressPart:kind});ctx.formatPersonalFormInput({target:input,type:'input'});assert.equal(input.value,expected);
+  }
+  const model=field('deviceName','audeo i90');ctx.formatPersonalFormInput({target:model,type:'input'});assert.equal(model.value,'audeo i90');
+  const composing=field('clientName','jan');ctx.formatPersonalFormInput({target:composing,type:'input',isComposing:true});assert.equal(composing.value,'jan');
+});
+
+test('five-part shared addresses retain canonical strings, history completion, manual typing and legacy data',()=>{
+  const fields=Object.fromEntries(['street','houseNumber','flatNumber','postalCode','city'].map(key=>[key,{value:'',setCustomValidity(){},addEventListener(){}}]));
+  const input={value:'ul. Testowa 12A/3, 43-300 Bielsko-Biała',dataset:{},dispatchEvent(){}};
+  const hint={hidden:true,textContent:''};
+  const root={dataset:{addressInput:'loanAddressInput'},querySelector:selector=>selector==='.structured-address-hint'?hint:fields[selector.match(/="(.+)"/)[1]]};
+  const ctx=vm.createContext({Event,document:{getElementById:()=>input},normalizeLoanHistoryText:value=>String(value||'').trim().replace(/\s+/gu,' '),
+    formatLoanStreet:value=>value.startsWith('ul.')?value:`ul. ${value}`,normalizePcprCity:value=>value,knownPostalAddresses:()=>[],suggestPostalCode:()=>({code:''})});
+  for(const name of ['titleCaseName','pcprStreetAddressParts','formatPcprPostalCode','postalAddressParts','structuredAddressNodes','structuredAddressValue','syncStructuredAddress','commitStructuredAddress'])vm.runInContext(extract(name),ctx);
+  ctx.syncStructuredAddress(root);assert.equal(fields.street.value,'ul. Testowa');assert.equal(fields.houseNumber.value,'12A');assert.equal(fields.flatNumber.value,'3');
+  fields.street.value='Nowa ';ctx.commitStructuredAddress(root);ctx.syncStructuredAddress(root);assert.equal(fields.street.value,'Nowa ');
+  fields.street.value='Nowa';fields.houseNumber.value='9b';fields.flatNumber.value='4a';ctx.commitStructuredAddress(root,true);
+  assert.equal(input.value,'ul. Nowa 9B/4A, 43-300 Bielsko-Biała');
+  input.value='nietypowy adres ???';ctx.syncStructuredAddress(root);assert.equal(fields.street.value,input.value);assert.equal(hint.hidden,false);
+  input.value='';ctx.syncStructuredAddress(root);assert.ok(Object.values(fields).every(field=>field.value===''));
+  for(const prefix of ['loan','receipt','rodo','capd'])assert.ok(html.includes(`id="${prefix}AddressHouseInput"`)&&html.includes(`id="${prefix}AddressFlatInput"`));
+  assert.match(html,/id="clientStreet" type="hidden"/);assert.match(html,/id="clientHouseNumber"/);assert.match(html,/id="clientFlatNumber"/);
+});

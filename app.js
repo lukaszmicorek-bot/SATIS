@@ -13552,13 +13552,61 @@ function postalStreetKey(value) {
   return normalize(value).replace(/^(?:ul\.?|ulica)\s+/u, "").replace(/\s+/gu, " ").trim();
 }
 
+function formatPersonalFormInput(event) {
+  const input = event.target;
+  if (!input || typeof input.value !== "string" || input.disabled || input.readOnly || input.type === "hidden" || event.isComposing) return;
+  const names = ["customerName", "repairCustomerName", "demoCurrentUser", "offerCustomerInput", "loanCustomerInput", "orderCustomerInput", "complaintCustomerInput", "receiptCustomerInput", "rodoNameInput", "pcprCustomerInput", "capdPatientInput", "clientName", "thiCustomerInput", "trqCustomerInput", "stockAuditPerson", "vacationNewEmployeeInput", "mergebankOwner", "mergestreet", "mergecity", "mergepostOffice", "mergemunicipality"];
+  const phones = ["loanPhoneInput", "orderPhoneInput", "complaintPhoneInput", "rodoPhoneInput", "pcprPhoneInput", "repairPhone", "clientPhone"];
+  const part = input.dataset?.addressPart;
+  const kind = input.dataset?.personFormat || (["mergehouse", "mergeflat"].includes(input.id) ? "upper" : names.includes(input.id) ? "name" : phones.includes(input.id) ? "phone"
+    : part === "street" || part === "city" ? "name" : part === "houseNumber" || part === "flatNumber" ? "upper" : part === "postalCode" ? "postal" : "");
+  if (!kind) return;
+  const before = input.value, start = input.selectionStart, end = input.selectionEnd, direction = input.selectionDirection;
+  let formatted = before;
+  const digitsOnly = value => value.replace(/\D/gu, "");
+  if (kind === "phone") {
+    if (/[^\d\s+().-]/u.test(before)) return; // The loan field can also hold an email address.
+    let digits = digitsOnly(before);
+    if (/^\s*\+/u.test(before) && !/^\s*\+48/u.test(before)) return;
+    if (digits.startsWith("0048")) digits = digits.slice(4);
+    else if (/^\s*\+48/u.test(before) || digits.startsWith("48") && digits.length === 11) digits = digits.slice(2);
+    if (!digits || digits.length > 9) return;
+    formatted = formatPcprPhone(digits);
+  } else if (kind === "postal") formatted = formatPcprPostalCode(before);
+  else if (kind === "upper") formatted = before.toLocaleUpperCase("pl-PL");
+  else formatted = (event.type === "blur" ? titleCaseName(before) : titleCaseNameInput(before))
+    .replace(/^Ul\./u, "ul.").replace(/^Al\./u, "al.").replace(/^Os\./u, "os.");
+  if (formatted === before) return;
+  input.value = formatted;
+  if (typeof start === "number" && typeof end === "number" && input.setSelectionRange && input.type !== "number") {
+    const position = offset => {
+      if (!["phone", "postal"].includes(kind)) return Math.min(formatted.length, offset);
+      const prefix = kind === "phone" ? Math.max(0, digitsOnly(before).indexOf(digitsOnly(formatted))) : 0;
+      const count = Math.max(0, digitsOnly(before.slice(0, offset)).length - prefix);
+      if (!count) return 0;
+      let index = 0, seen = 0;
+      while (index < formatted.length && seen < count) { if (/\d/u.test(formatted[index])) seen++; index++; }
+      return index;
+    };
+    let from = position(start), to = position(end);
+    if (start === end && event.inputType === "deleteContentForward" && /[ -]/u.test(formatted[from] || "")) from = to = from + 1;
+    input.setSelectionRange(from, to, direction);
+  }
+  if (event.type === "compositionend") input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function setupPersonalFormFormatting() {
+  for (const type of ["input", "blur", "compositionend"]) document.addEventListener(type, formatPersonalFormInput, true);
+}
+
 function structuredAddressValue(parts) {
-  return [String(parts.street || "").trim(), [parts.postalCode, parts.city].filter(Boolean).join(" ").trim()]
+  const street = [String(parts.street || "").trim(), [parts.houseNumber, parts.flatNumber].filter(Boolean).join("/")].filter(Boolean).join(" ");
+  return [street, [parts.postalCode, parts.city].filter(Boolean).join(" ").trim()]
     .filter(Boolean).join(", ");
 }
 
 function structuredAddressNodes(root) {
-  return Object.fromEntries(["street", "postalCode", "city"].map(key => [key, root.querySelector(`[data-address-part="${key}"]`)]));
+  return Object.fromEntries(["street", "houseNumber", "flatNumber", "postalCode", "city"].map(key => [key, root.querySelector(`[data-address-part="${key}"]`)]).filter(([, field]) => field));
 }
 
 function syncStructuredAddress(root) {
@@ -13568,12 +13616,15 @@ function syncStructuredAddress(root) {
   const parts = postalAddressParts(input.value);
   // Unrecognized legacy addresses remain intact and editable instead of being discarded.
   const recognized = Boolean(parts.street || parts.city);
-  fields.street.value = recognized ? parts.street : input.value;
+  const split = fields.houseNumber && recognized ? pcprStreetAddressParts({ street: parts.street }) : null;
+  fields.street.value = split ? split.streetName : recognized ? parts.street : input.value;
+  if (fields.houseNumber) fields.houseNumber.value = split?.houseNumber || "";
+  if (fields.flatNumber) fields.flatNumber.value = split?.flatNumber || "";
   fields.postalCode.value = recognized ? parts.postalCode : "";
   fields.city.value = parts.city;
   const hint = root.querySelector(".structured-address-hint");
-  hint.hidden = recognized || !input.value;
-  hint.textContent = hint.hidden ? "" : "Sprawdź podział adresu na ulicę, kod i miejscowość.";
+  hint.hidden = recognized && !split?.streetNeedsReview || !input.value;
+  hint.textContent = hint.hidden ? "" : "Sprawdź podział adresu na ulicę, numer domu, lokal, kod i miejscowość.";
   root.dataset.addressValue = input.value;
 }
 
@@ -13582,6 +13633,12 @@ function commitStructuredAddress(root, final = false) {
   const fields = structuredAddressNodes(root);
   const hint = root.querySelector(".structured-address-hint");
   if (final) {
+    if (fields.houseNumber && !fields.houseNumber.value && !fields.flatNumber?.value) {
+      const split = pcprStreetAddressParts({ street: fields.street.value });
+      fields.street.value = split.streetName; fields.houseNumber.value = split.houseNumber;
+      if (fields.flatNumber) fields.flatNumber.value = split.flatNumber;
+    }
+    for (const key of ["houseNumber", "flatNumber"]) if (fields[key]) fields[key].value = fields[key].value.trim().toLocaleUpperCase("pl-PL");
     if (fields.postalCode.value) { hint.hidden = true; hint.textContent = ""; }
     fields.street.value = fields.street.value.includes(",") ? fields.street.value.trim() : formatLoanStreet(fields.street.value);
     fields.postalCode.value = formatPcprPostalCode(fields.postalCode.value);
@@ -13592,7 +13649,7 @@ function commitStructuredAddress(root, final = false) {
       if (cities.length === 1) fields.city.value = cities[0];
     }
     if (!fields.postalCode.value && fields.city.value) {
-      const suggestion = suggestPostalCode(fields.city.value, fields.street.value);
+      const suggestion = suggestPostalCode(fields.city.value, [fields.street.value, [fields.houseNumber?.value, fields.flatNumber?.value].filter(Boolean).join("/")].filter(Boolean).join(" "));
       if (suggestion.code) fields.postalCode.value = suggestion.code;
       hint.hidden = Boolean(suggestion.code);
       hint.textContent = suggestion.code ? "" : "Brak jednoznacznego kodu pocztowego. Uzupełnij go ręcznie.";
@@ -13603,6 +13660,7 @@ function commitStructuredAddress(root, final = false) {
   input.value = structuredAddressValue(Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field.value])));
   root.dataset.addressValue = input.value;
   fields.street.setCustomValidity("");
+  if (fields.houseNumber) fields.houseNumber.required = Boolean(fields.flatNumber?.value);
   fields.postalCode.setCustomValidity(final && fields.postalCode.value && !/^\d{2}-\d{3}$/u.test(fields.postalCode.value)
     ? "Wpisz kod pocztowy w formacie 00-000." : "");
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -13633,6 +13691,10 @@ function setupStructuredAddresses() {
       const parts = postalAddressParts(text);
       if (!parts.street || !parts.city) return;
       event.preventDefault();
+      if (fields.houseNumber) {
+        const split = pcprStreetAddressParts({ street: parts.street });
+        Object.assign(parts, { street: split.streetName, houseNumber: split.houseNumber, flatNumber: split.flatNumber });
+      }
       Object.entries(fields).forEach(([key, field]) => { field.value = parts[key] || ""; });
       commitStructuredAddress(root, true);
     });
@@ -21856,6 +21918,7 @@ function capdPractitionerTitle(name) {
 }
 
 function renderCapdReport() {
+  globalThis.SatisAddressFields?.sync("capdPractitionerAddressInput");
   if (!capdReportResults) return;
   updateCapdPractitionerShortcuts();
   if (capdExaminerBadgeName) capdExaminerBadgeName.textContent = titleCaseName(capdExaminerInput?.value || "") || "Nie wybrano";
@@ -30546,6 +30609,7 @@ window.addEventListener("storage", event => {
   if (event.key?.startsWith("satis-api-traffic-v1:")) renderTrafficMeter();
 });
 setupStructuredAddresses();
+setupPersonalFormFormatting();
 setupDocumentCustomerAutofill();
 setupPrivateSearchInputs();
 setupUnifiedDocumentLayout();
@@ -30676,6 +30740,7 @@ function initializeClientsModule() {
   city: value => /^bielsko$/iu.test(String(value || "").trim()) ? "Bielsko-Biała" : normalizePcprCity(value),
   postalEntries: knownPostalAddresses, cityForPostal: code => PCPR_POSTAL_CODE_CITY_MAP[code] || "",
   postalCode: (city, street) => suggestPostalCode(city, street).code,
+  streetParts: pcprStreetAddressParts,
   addressParts: postalAddressParts, station: () => documentLocationKey(documentLocationForWorkstation()) || "P63",
   date: formatDate, dateTime: formatAuditDateTime, locationAccent: updateDocumentLocationAccent,
   setDate: setDateInputValue, isoDate: isoDateForSave, locationPill: createLocationPill,
