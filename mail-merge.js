@@ -667,11 +667,12 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
       ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
-      ["Dochód i gospodarstwo domowe","income",[["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["householdSize","Liczba osób w gospodarstwie, łącznie z wnioskodawcą"]]],
+      ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["householdSize","Liczba osób w gospodarstwie"],["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]]]],
       ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]],
       ["Forma przekazania środków","bank",[["paymentMode","Sposób przekazania środków",[["transfer","Przelew na konto wnioskodawcy / osoby upoważnionej"],["cash","W kasie lub przekazem pocztowym"],["contractor","Konto wykonawcy z dowodu zakupu"]]],["bankOwner","Właściciel konta (imię i nazwisko)"],["bankName","Nazwa banku"],["bankAccount","Numer rachunku bankowego"]]]
     ];
+    let addressSection;
     for(const [title,group,items]of sections){
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
       items.forEach(([key,title,options])=>{
@@ -735,14 +736,15 @@
         contractorLabel.append(contractor,node("span","","Konto wykonawcy podane na dowodzie zakupu usługi"));section.append(contractorLabel);
         const hint=node("p","document-form-note mail-merge-full","Sprawdzamy długość i sumę kontrolną polskiego rachunku. Nie potwierdza to istnienia konta ani jego właściciela. Inne formy płatności zależą od zasad PCPR.");hint.id="mailMergeBankHint";section.append(hint);
       }
-      if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób."));
+      if(group==="income")section.append(node("p","document-form-note mail-merge-full","Podaj dochód netto przypadający na jedną osobę, nie łączny dochód gospodarstwa. Kwota nie jest ponownie dzielona przez liczbę osób. Liczba osób obejmuje wnioskodawcę."));
       if(group==="address"){
+        addressSection=section;
         for(const id of ["mailMergePostalChoices","mailMergeGeoChoices"]){const choices=node("div","mail-merge-matches mail-merge-full");choices.id=id;choices.setAttribute("aria-live","polite");section.append(choices);}
       }
       editor.append(section);
     }
     const same=node("input");same.type="checkbox";same.id="mergeSameAddress";fields.set("sameAddress",same);
-    const sameLabel=node("label","mail-merge-check");sameLabel.append(same,node("span","","Adres korespondencyjny taki sam jak adres zamieszkania"));
+    const sameLabel=node("label","mail-merge-check mail-merge-full");sameLabel.append(same,node("span","","Adres korespondencyjny taki sam jak adres zamieszkania"));addressSection.append(sameLabel);
     const fundingNote=node("p","document-form-note");fundingNote.id="mailMergeFundingNote";editor.append(fundingNote);
     const own=node("p","document-form-note","Pozostanie po wnioskowanym dofinansowaniu PCPR: "),ownValue=node("strong");ownValue.id="mailMergeOwn";own.append(ownValue);
     const status=node("p","mail-merge-message");status.id="mailMergeMessage";status.setAttribute("role","status");status.setAttribute("aria-live","polite");
@@ -757,7 +759,7 @@
       q("mailMergePrintNotice").textContent=printPages===5?available===7?"Wydruk stron 1–5 z oryginału. Pomija dalszą część oświadczenia, klauzulę informacyjną i wykaz załączników. Pełny wzór ma 7 stron.":"Wybrany wzór ma 5 stron. Sprawdź, czy zawiera wszystkie wymagane oświadczenia i załączniki.":"";
     }
     const actions=node("div","mail-merge-actions mail-merge-main-actions");actions.append(button("Zapisz roboczo",()=>saveDraft(true)),save,button("Sprawdź kompletność",()=>{normalizeFields();updateBirth();markIssues(issues(read(),true));renderPreview();}),button("Drukuj wniosek / PDF",()=>print("current")),button("Drukuj pusty wzór",()=>print("blank")));
-    editor.append(sameLabel,own,node("p","document-form-note","Zapisz roboczo — imię i nazwisko wystarczą. Zapisz i wydruk wypełnionego wniosku — wszystkie właściwe pola muszą być uzupełnione; przy braku danych wybierz Brak lub Nie dotyczy."),completeness,status,printMode,printNotice,actions);
+    editor.append(own,node("p","document-form-note","Zapisz roboczo — imię i nazwisko wystarczą. Zapisz i wydruk wypełnionego wniosku — wszystkie właściwe pola muszą być uzupełnione; przy braku danych wybierz Brak lub Nie dotyczy."),completeness,status,printMode,printNotice,actions);
     const database=node("section","mail-merge-batch"),tools=node("div","mail-merge-list-tools"),listSearch=node("input");listSearch.id="mailMergeListSearch";listSearch.type="search";listSearch.autocomplete="off";listSearch.maxLength=160;listSearch.placeholder="Szukaj w bazie · osoba, telefon, PESEL, nr zlecenia, przedmiot…";
     tools.append(listSearch,button("Odśwież listę",()=>refresh()),button("Drukuj wybrane / PDF",()=>print()));
     const databaseStatus=node("p","document-form-note");databaseStatus.id="mailMergeDatabaseStatus";databaseStatus.setAttribute("role","status");

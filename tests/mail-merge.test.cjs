@@ -776,3 +776,19 @@ test('PCPR Żywiec personal and home address fields form exactly two desktop row
   assert.match(block,/min-height: 30px/);
   t.api.clear();
 });
+
+test('PCPR Żywiec keeps income and household together, address confirmation by address and balanced supporting fields',()=>{
+  const t=fixture(),css=fs.readFileSync(path.join(root,'styles.css'),'utf8');
+  const expected=['monthlyIncome','householdType','householdSize','careHome'];
+  const section=t.nodes.get('mergemonthlyIncome').parent.parent;
+  assert.ok(section.className.includes('mail-merge-group-income'));
+  const actual=section.children.flatMap(child=>child.children.filter(node=>expected.map(key=>`merge${key}`).includes(node.id)).map(node=>node.id));
+  assert.deepEqual(actual,expected.map(key=>`merge${key}`));
+  assert.match(css,/\.mail-merge-group-income > label:has\(#mergemonthlyIncome\), \.mail-merge-group-income > label:has\(#mergehouseholdSize\), \.mail-merge-group-income > \.mail-merge-choice-field:has\(#mergehouseholdType\) \{ grid-column: span 4; \}/);
+  assert.match(css,/\.mail-merge-group-income > \.mail-merge-choice-field:has\(#mergecareHome\) \{ grid-column: 1 \/ -1; \}/);
+  assert.ok(t.nodes.get('mergeSameAddress').parent.parent.className.includes('mail-merge-group-address'));
+  assert.match(css,/\.mail-merge-fields > label\.mail-merge-check \{[^}]*flex-direction: row/);
+  assert.match(css,/\.mail-merge-group-certificate > label:has\(#mergecertificateNumber\) \{ grid-column: span 6; \}/);
+  assert.match(css,/\.mail-merge-group-bank > label:has\(#mergebankAccount\) \{ grid-column: 1 \/ -1; \}/);
+  t.api.clear();
+});

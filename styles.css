@@ -17663,7 +17663,12 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-filled-line { background: #fff; }
 .mail-merge-group-funding label > span { min-height: 32px; }
 @media screen and (min-width: 901px) {
-  .mail-merge-group-income label:has(#mergemonthlyIncome) { grid-column: span 8; }
+  .mail-merge-group-income > label:has(#mergemonthlyIncome), .mail-merge-group-income > label:has(#mergehouseholdSize), .mail-merge-group-income > .mail-merge-choice-field:has(#mergehouseholdType) { grid-column: span 4; }
+  .mail-merge-group-income > .mail-merge-choice-field:has(#mergecareHome) { grid-column: 1 / -1; }
+  .mail-merge-group-certificate > label:has(#mergecertificateNumber) { grid-column: span 6; }
+  .mail-merge-group-certificate > .mail-merge-choice-field:has(#mergecertificateValidity), .mail-merge-group-certificate > label:has(#mergecertificateUntil) { grid-column: span 3; }
+  .mail-merge-group-bank > label:has(#mergebankOwner), .mail-merge-group-bank > label:has(#mergebankName) { grid-column: span 6; }
+  .mail-merge-group-bank > label:has(#mergebankAccount) { grid-column: 1 / -1; }
   .mail-merge-group-funding label { grid-column: span 3; }
 }
 
@@ -17775,7 +17780,8 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .mail-merge-group-address > label:has(#mergecounty) { grid-column: span 3; }
   .mail-merge-group-address > label:has(#mergeprovince) { grid-column: span 2; }
   .mail-merge-group-address > .mail-merge-choice-field:has(#mergelocalityType) { grid-column: span 3; }
-  :is(.mail-merge-group-person,.mail-merge-group-address) > :is(label,.mail-merge-choice-field) > span:first-child { display: flex; align-items: flex-end; min-height: 30px; line-height: 1.25; overflow-wrap: anywhere; }
+  .mail-merge-editor > .mail-merge-fields { row-gap: 14px; }
+  .mail-merge-editor > .mail-merge-fields > :is(label,.mail-merge-choice-field) > span:first-child { display: flex; align-items: flex-end; min-height: 30px; line-height: 1.25; overflow-wrap: anywhere; }
 }
 
 .pcpr-form-row-bottom > .pcpr-office-field, .pcpr-form-row-bottom > .pcpr-model-stack { align-self: stretch; }
@@ -17790,3 +17796,8 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .structured-address-fields > label:first-of-type { grid-column: 1 / -1; }
   .structured-address-fields > label:not(:first-of-type) { grid-column: auto; }
 }
+
+.mail-merge-fields > label.mail-merge-check { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; line-height: 1.5; }
+.mail-merge-fields > label.mail-merge-check input { width: 17px; height: 17px; flex: 0 0 17px; min-height: 0; }
+.mail-merge-fields > label.mail-merge-check > span { min-height: 0; }
+.mail-merge-fields > .document-form-note { margin: 0; line-height: 1.5; }
