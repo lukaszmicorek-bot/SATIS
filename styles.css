@@ -17811,3 +17811,48 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 
 input.personal-phone-invalid { border-color: #c56c7c; background-color: #fff3f5; }
 input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset: 1px; }
+
+.tasks-notebook { min-width: 0; }
+.tasks-form { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; padding: 0 0 18px; border-bottom: 1px solid #d7e4e5; }
+.tasks-form h2 { grid-column: 1 / -1; margin: 0; color: #003f5a; font-size: 17px; }
+.tasks-field { display: grid; align-content: start; gap: 6px; min-width: 0; font-size: 12px; }
+.tasks-field:has(#task-title), .tasks-field:has(#task-note) { grid-column: span 2; }
+.tasks-field :is(input,select,textarea) { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 13px; }
+.tasks-field :is(input,select) { height: 38px; }
+.tasks-important { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.tasks-important input { width: 17px; height: 17px; margin: 0; }
+.tasks-form > .tasks-actions { grid-column: 2 / -1; justify-content: flex-end; }
+.tasks-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tasks-actions button { min-height: 32px; padding: 5px 10px; border-radius: 6px; font-size: 12px; }
+.tasks-save { background: #007b7d; color: #fff; border: 1px solid #007b7d; }
+.tasks-save.tasks-dirty { background: #ad3655; border-color: #ad3655; }
+.tasks-message { white-space: pre-line; color: #9b3f50; font-size: 13px; }
+.tasks-message:empty { display: none; }
+.tasks-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 16px 0; }
+.tasks-filters > input { flex: 1 1 260px; min-width: 180px; max-width: 480px; height: 36px; }
+.tasks-tiles { display: flex; flex-wrap: wrap; gap: 4px; }
+.tasks-tiles button { min-height: 32px; padding: 5px 10px; border-radius: 6px; }
+.tasks-tiles button[aria-pressed="true"] { outline: 1px solid currentColor; font-weight: 700; }
+.tasks-tiles button[data-stage="TODO"] { color: #97521e; background: #fff3e8; }
+.tasks-tiles button[data-stage="IN_PROGRESS"] { color: #315c74; background: #eaf3f8; }
+.tasks-tiles button[data-stage="DONE"] { color: #246e62; background: #e9f4ee; }
+.tasks-list { display: grid; gap: 10px; margin-bottom: 14px; }
+.tasks-item { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; padding: 12px 0 12px 12px; border-bottom: 1px solid #dce5e6; border-left: 3px solid #82aaa5; }
+.tasks-item[data-status="IN_PROGRESS"] { border-left-color: #658c9c; }
+.tasks-item[data-status="DONE"] { border-left-color: #b5c1bf; }
+.tasks-item[data-status="DONE"] .tasks-item-body { opacity: .68; }
+.tasks-item-body { min-width: 0; }
+.tasks-item-heading { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; overflow-wrap: anywhere; }
+.tasks-item-heading strong { color: #003f5a; font-size: 14px; }
+.tasks-status { font-size: 12px; color: #4e7178; }
+.tasks-priority { color: #9a4d29; background: #fff0e5; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+.tasks-note { white-space: pre-wrap; overflow-wrap: anywhere; margin: 7px 0; font-size: 13px; line-height: 1.5; }
+.tasks-meta { display: block; margin-top: 6px; color: #6a7f86; font-size: 11px; overflow-wrap: anywhere; }
+.tasks-due { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 600; color: #416672; }
+.tasks-due[data-overdue="true"] { color: #b13246; }
+.tasks-delete { color: #a13e51; }
+.tasks-history { grid-column: 1 / -1; padding: 12px 0 0; border-top: 1px solid #dce5e6; font-size: 12px; }
+.tasks-history > div + div { margin-top: 14px; }
+.tasks-history p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; }
+@media (max-width:900px) { .tasks-form { grid-template-columns: repeat(2,minmax(0,1fr)); } .tasks-item { grid-template-columns: minmax(0,1fr); } }
+@media (max-width:540px) { .tasks-form { grid-template-columns: minmax(0,1fr); } .tasks-form > *, .tasks-field:has(#task-title), .tasks-field:has(#task-note), .tasks-form > .tasks-actions { grid-column: 1 / -1; } }

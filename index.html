@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261104-12">
+  <link rel="stylesheet" href="styles.css?v=20261104-13">
   </head>
   <body>
     <main class="app-shell">
@@ -53,6 +53,7 @@
           <div class="notebook-switch" role="tablist" aria-label="Wybierz zeszyt">
             <button class="notebook-switch-button active" type="button" role="tab" aria-selected="true" data-notebook="devices">Aparaty</button>
             <button class="notebook-switch-button" type="button" role="tab" aria-selected="false" data-notebook="repairs">Serwis i zamówienia <span id="repairReturnsCount" class="repair-return-count" hidden></span></button>
+            <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="tasks" data-private-shared hidden>Sprawy</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="clients" data-private-owner hidden>Klienci</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="capd" data-private-shared hidden>APD</button>
             <button class="notebook-switch-button private-notebook-button" type="button" role="tab" aria-selected="false" data-notebook="pcpr" data-private-shared hidden>PCPR</button>
@@ -773,6 +774,8 @@
           </section>
         </section>
       </section>
+
+      <section id="tasksNotebook" class="notebook-section tasks-notebook" aria-label="Sprawy bieżące" hidden></section>
 
       <section id="clientsNotebook" class="notebook-section clients-notebook" aria-label="Klienci i wizyty" hidden>
         <div class="clients-toolbar">
@@ -3600,17 +3603,18 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261104-12"></script>
-    <script src="data-layer.js?v=20261104-12"></script>
-    <script src="sync-layer.js?v=20261104-12"></script>
-    <script src="traffic-meter.js?v=20261104-12"></script>
-    <script src="repair-returns.js?v=20261104-12"></script>
-    <script src="offline-vault.js?v=20261104-12"></script>
-    <script src="offline-forms.js?v=20261104-12"></script>
-    <script src="stock-audit.js?v=20261104-12"></script>
-    <script src="clients.js?v=20261104-12"></script>
-    <script src="tinnitus-forms.js?v=20261104-12"></script>
-    <script src="mail-merge.js?v=20261104-12"></script>
-  <script src="app.js?v=20261104-12"></script>
+    <script src="supabase-config.js?v=20261104-13"></script>
+    <script src="data-layer.js?v=20261104-13"></script>
+    <script src="sync-layer.js?v=20261104-13"></script>
+    <script src="traffic-meter.js?v=20261104-13"></script>
+    <script src="repair-returns.js?v=20261104-13"></script>
+    <script src="offline-vault.js?v=20261104-13"></script>
+    <script src="offline-forms.js?v=20261104-13"></script>
+    <script src="stock-audit.js?v=20261104-13"></script>
+    <script src="tasks.js?v=20261104-13"></script>
+    <script src="clients.js?v=20261104-13"></script>
+    <script src="tinnitus-forms.js?v=20261104-13"></script>
+    <script src="mail-merge.js?v=20261104-13"></script>
+  <script src="app.js?v=20261104-13"></script>
   </body>
 </html>

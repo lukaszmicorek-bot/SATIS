@@ -166,3 +166,8 @@
 !/tests/loan-document-correctness.test.cjs
 
 !/tests/audit-history-render-delete.test.cjs
+
+!/tasks.js
+!/supabase-tasks.sql
+!/tests/tasks.test.cjs
+!/tests/tasks.sqltest.cjs

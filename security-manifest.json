@@ -1,6 +1,6 @@
 {
-  "app_version": "20261104-12",
-  "asset_policy_sha256": "5964a8b94befb2a67d877cfcc8fa676963d912b1b996735d0ef2306fbf2591e8",
+  "app_version": "20261104-13",
+  "asset_policy_sha256": "cfc4be5347808581713e3c59815cf46137c0554a8a8d63c1598f810e0d5b8744",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1798097,
-      "sha256": "6361e321ef98ac9afca9f1e3ab3a4e4b3b3207961645b7721a476c2b45cf4fe0"
+      "bytes": 1799870,
+      "sha256": "b832a2501145b51e601772f42ef8a0356c73896a399b5d064c67a3ac65a4adfd"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -47,8 +47,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 464538,
-      "sha256": "a7139d95beba93584c5b700a33a54797ed84210cec303fc18cb1c40f2dd611da"
+      "bytes": 464899,
+      "sha256": "d7f1a8bfb31c005d2484bd7af153fe969e48db76560ba6dd2d024be198d3e9ea"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -164,7 +164,7 @@
     },
     "offline-sw.js": {
       "bytes": 3266,
-      "sha256": "ab1e2ac016d7342d70b26bc55abff078f3079aab90601142c95c1e34bdc4eec8"
+      "sha256": "6d0f94c6bfce3fa364ab85054ea66eb7c0a6b163725710b74ea19e94ec137689"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -199,8 +199,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 429192,
-      "sha256": "76483378673691d5f854fb4ee7f5e0b2a2bc140670918c29d30dced1ad8b5a5b"
+      "bytes": 433004,
+      "sha256": "e44db842430521c02f2f5d1c1cec60d9c8f76903e3c23fedcecc8e4dac1ef62e"
     },
     "supabase-config.js": {
       "bytes": 227,
@@ -209,6 +209,10 @@
     "sync-layer.js": {
       "bytes": 2248,
       "sha256": "07ca08034f593f21dd3b34e23fb8789a4253910e4d15bed7cc3002487b12b361"
+    },
+    "tasks.js": {
+      "bytes": 13563,
+      "sha256": "7473557ed89c16ef1c0219d9d402f9e175c7b84bbc0400bb6143576df0372671"
     },
     "tinnitus-forms.js": {
       "bytes": 21105,

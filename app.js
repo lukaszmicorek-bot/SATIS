@@ -460,6 +460,7 @@ let serialCopyToastTimeout = 0;
 let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
 let stockAuditWorkflow = null;
+let tasksModule = null;
 let clientsModule = null;
 let mailMergeModule = null;
 let clientsSourceCache = { refs: [], rows: [] };
@@ -1219,6 +1220,7 @@ function setCurrentYearTitle() {
     pcpr: "PCPR",
     history: "Historia",
     clients: "Klienci",
+    tasks: "Sprawy",
     tinnitus: "Szumy uszne",
     mailMerge: "PCPR Żywiec",
     capd: capdTitle,
@@ -1490,6 +1492,7 @@ function updatePrivateModulesVisibility() {
   if (vacationRemainingCard) vacationRemainingCard.hidden = !sharedVisible || !vacationCanViewBalance(selectedVacationEmployee());
   vacationSummary?.classList.toggle("gabinet-view", !ownerVisible);
   if (!sharedVisible) {
+    tasksModule?.clear();
     if (workTimePinInput) workTimePinInput.value = "";
     if (workTimeNewPinInput) workTimeNewPinInput.value = "";
     workTimeLoadedSchedules = { employeeId: "", versions: [] };
@@ -1525,7 +1528,7 @@ function updatePrivateModulesVisibility() {
     mailMergeModule?.clear();
     if (activeNotebook === "pcpr" && activePricingView === "mailMerge") switchPricingView("pcpr");
   }
-  if (!sharedVisible && ["capd", "vacation", "pcpr", "history", "tinnitus"].includes(activeNotebook)) switchNotebook("devices");
+  if (!sharedVisible && ["capd", "vacation", "pcpr", "history", "tinnitus", "tasks"].includes(activeNotebook)) switchNotebook("devices");
 }
 
 function updatePricingManagementVisibility() {
@@ -2862,6 +2865,7 @@ function resetInactivityLogoutTimer() {
 function clearSensitiveApplicationState() {
   clearFormUndo();
   clientsModule?.clear();
+  tasksModule?.clear();
   mailMergeModule?.clear();
   clientsSourceCache = { refs: [], rows: [] };
   stockAuditWorkflow?.reset();
@@ -25423,14 +25427,14 @@ function returnToPreviousTab() {
 }
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge", "tinnitus"].includes(notebookName)) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge", "tinnitus", "tasks"].includes(notebookName)) return;
   if (["workTime", "clients"].includes(notebookName) && !canViewPrivateModules()) return;
   if (notebookName === "mailMerge" && !canAccessMailMerge()) return;
   if (notebookName === "mailMerge") {
     switchNotebook("pcpr", { documentView: "mailMerge" });
     return;
   }
-  if (["capd", "vacation", "pcpr", "tinnitus"].includes(notebookName) && !currentSupabaseUser) return;
+  if (["capd", "vacation", "pcpr", "tinnitus", "tasks"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
   hideWorkTimeHourlyPreview();
   hideVacationPeriodPreview();
@@ -25476,6 +25480,12 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
 
   activePricingView = "";
   syncNotebookPanels();
+
+  if (activeNotebook === "tasks") {
+    const module = initializeTasksModule();
+    if (module) void module.open();
+    return;
+  }
 
   if (activeNotebook === "clients") {
     const module = initializeClientsModule();
@@ -30822,3 +30832,26 @@ function initializeClientsModule() {
 }
 initializeClientsModule();
 init();
+
+function initializeTasksModule() {
+  if(tasksModule)return tasksModule;
+  if(!window.SatisTasks?.create)return null;
+  tasksModule=window.SatisTasks.create({
+    document,user:()=>currentSupabaseUser?.id||"",owner:canViewPrivateModules,id:makeId,
+    station:()=>documentLocationKey(documentLocationForWorkstation())||"P63",
+    people:()=>vacationEmployees.map(person=>person.name),bindDate:bindDatePickerInput,
+    date:formatDate,dateTime:formatAuditDateTime,displayDate:displayDateForInput,iso:isoDateForSave,today:todayInputValue,
+    location:input=>{input.closest("label")?.classList.add("document-location-field");updateDocumentLocationAccent(input);},
+    confirm:message=>confirm(message),
+    rpc:async(name,args)=>{
+      if(!currentSupabaseUser||!supabaseClient)throw new Error("Zaloguj się przed otwarciem spraw.");
+      const controller=new AbortController(),timer=window.setTimeout(()=>controller.abort(),15000);
+      try{return await supabaseClient.rpc(name,args).abortSignal(controller.signal);}
+      catch{throw new Error("Brak potwierdzenia z bazy. Ponów operację; nie zamykaj niezapisanej sprawy.");}
+      finally{window.clearTimeout(timer);}
+    }
+  });
+  return tasksModule;
+}
+window.addEventListener("beforeunload",event=>{if(tasksModule?.dirty()){event.preventDefault();event.returnValue="";}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&activeNotebook==="tasks"&&currentSupabaseUser&&!tasksModule?.dirty())void tasksModule?.open();});

@@ -21,7 +21,7 @@ function node(id, dataset = {}, active = false) {
   };
 }
 function setup() {
-  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients', 'tinnitus'].map(name => node(`${name}Notebook`));
+  const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients', 'tinnitus', 'tasks'].map(name => node(`${name}Notebook`));
   const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo'], tinnitus: ['thi', 'trq', 'procedure'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
@@ -32,6 +32,7 @@ function setup() {
     notebookSwitchButtons: ['devices', 'repairs', 'clients', 'pricing', 'capd', 'pcpr', 'history', 'vacation', 'workTime', 'tinnitus'].map(name => node(name, {notebook: name})),
     clientsModule: {open: () => {}},
     initializeClientsModule: () => ({open: () => {}}),
+    initializeTasksModule: () => ({open: () => {context.tasksOpened = true;}}),
     initializeMailMergeModule: () => ({open: () => {context.mailMergeOpened = true;}}),
     canViewPrivateModules: () => context.owner,
     canAccessMailMerge: () => Boolean(context.currentSupabaseUser)&&['satis@pracowniasluchu.pl','gabinet@pracowniasluchu.pl'].includes(context.currentSupabaseUser.email),
@@ -342,11 +343,11 @@ test('history renderers and previews refuse anonymous access but permit authenti
   assert.doesNotThrow(() => ctx.showPricingHistoryPreview('offer', {}));
   assert.match(extract('renderPricingDocumentHistory'), /!canViewDocumentHistory\(\)/);
   assert.match(extract('showPricingHistoryPreview'), /!canViewDocumentHistory\(\)/);
-  assert.match(extract('updatePrivateModulesVisibility'), /!sharedVisible && \["capd", "vacation", "pcpr", "history", "tinnitus"\]/);
+  assert.match(extract('updatePrivateModulesVisibility'), /!sharedVisible && \["capd", "vacation", "pcpr", "history", "tinnitus", "tasks"\]/);
 });
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(top, ['devices', 'repairs', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime', 'tinnitus']);
+  assert.deepEqual(top, ['devices', 'repairs', 'tasks', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime', 'tinnitus']);
   assert.match(html,/id="mailMergeTab"[^>]*data-view="mailMerge" data-view-group="pcpr" data-private-shared hidden/);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {
@@ -806,4 +807,14 @@ test('tinnitus shortcut is below offline forms and preserves independent drafts 
   ctx.switchPricingView('procedure'); assert.equal(ctx.renderCounts.renderTinnitusProcedure,1);
   ctx.switchNotebook('devices'); assert.equal(ctx.activeDeviceView,'database');
   ctx.switchNotebook('tinnitus'); assert.equal(ctx.activePricingView,'procedure');
+});
+
+test('shared Sprawy tab opens for gabinet, has its own panel and refuses anonymous navigation',()=>{
+ const ctx=setup();ctx.currentSupabaseUser=null;ctx.switchNotebook('tasks');assert.equal(ctx.activeNotebook,'devices');
+ ctx.currentSupabaseUser={email:'gabinet@pracowniasluchu.pl'};ctx.owner=false;ctx.switchNotebook('tasks');
+ assert.equal(ctx.activeNotebook,'tasks');assert.equal(ctx.tasksOpened,true);
+ assert.equal(ctx.notebookSections.find(section=>section.id==='tasksNotebook').hidden,false);
+ assert.equal(ctx.statsPanel.hidden,true);
+ assert.match(html,/data-notebook="tasks" data-private-shared hidden/);
+ assert.match(extract('updatePrivateModulesVisibility'),/tasksModule\?\.clear\(\)/);
 });
