@@ -17663,12 +17663,9 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .mail-merge-filled-line { background: #fff; }
 .mail-merge-group-funding label > span { min-height: 32px; }
 @media screen and (min-width: 901px) {
-  .mail-merge-group-income > label:has(#mergemonthlyIncome), .mail-merge-group-income > label:has(#mergehouseholdSize), .mail-merge-group-income > .mail-merge-choice-field:has(#mergehouseholdType) { grid-column: span 4; }
-  .mail-merge-group-income > .mail-merge-choice-field:has(#mergecareHome) { grid-column: 1 / -1; }
+  .mail-merge-group-income > label:has(#mergemonthlyIncome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergecareHome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergehouseholdType), .mail-merge-group-income > label:has(#mergehouseholdSize) { grid-column: span 6; }
   .mail-merge-group-certificate > label:has(#mergecertificateNumber) { grid-column: span 6; }
   .mail-merge-group-certificate > .mail-merge-choice-field:has(#mergecertificateValidity), .mail-merge-group-certificate > label:has(#mergecertificateUntil) { grid-column: span 3; }
-  .mail-merge-group-bank > label:has(#mergebankOwner), .mail-merge-group-bank > label:has(#mergebankName) { grid-column: span 6; }
-  .mail-merge-group-bank > label:has(#mergebankAccount) { grid-column: 1 / -1; }
   .mail-merge-group-funding label { grid-column: span 3; }
 }
 
