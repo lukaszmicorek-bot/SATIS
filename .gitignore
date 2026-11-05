@@ -174,3 +174,6 @@
 
 !/tests/audit-save-regressions.test.cjs
 !/tests/loan-handover.test.cjs
+
+!/vacation-attendance.js
+!/tests/vacation-attendance.test.cjs

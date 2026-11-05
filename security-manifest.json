@@ -1,6 +1,6 @@
 {
-  "app_version": "20261104-14",
-  "asset_policy_sha256": "cfc4be5347808581713e3c59815cf46137c0554a8a8d63c1598f810e0d5b8744",
+  "app_version": "20261105-1",
+  "asset_policy_sha256": "7cad0d5ebc7ee02fc290f9bbc61fa14806eed63f1692646d3a0619e271f934e0",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1804588,
-      "sha256": "4799bda154458dd74c5aa5b8aaca9ea0cf723c267b9f2f91b868de2e1430f65d"
+      "bytes": 1805466,
+      "sha256": "bc5ecf2a5a6f6859160a40ae497fb9da4389d75f03b8ef55f626c21eee6d5773"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -47,8 +47,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 464899,
-      "sha256": "9e21f761096e81b34be90f276ae1d23a971928947396220d6b5c41d3c980efb0"
+      "bytes": 465039,
+      "sha256": "ebebec092e92f900fc1944eb88927926841d3dcb3e5067df91c93576cc66b141"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -163,8 +163,8 @@
       "sha256": "d929b6c8eb73d3ceec2a045f005a043cc0003e6a003c7dd23d829f94ac8e0d19"
     },
     "offline-sw.js": {
-      "bytes": 3266,
-      "sha256": "ec3d964cd5de9ec4feea41a6505ca0bccaf25b2b64b119e301475be12549e208"
+      "bytes": 3265,
+      "sha256": "c3bf6bfd9dde0faf670550df1ebc556ce4af96c3f770b16bae443d987a535321"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -199,8 +199,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 433004,
-      "sha256": "e44db842430521c02f2f5d1c1cec60d9c8f76903e3c23fedcecc8e4dac1ef62e"
+      "bytes": 435875,
+      "sha256": "393d62c6146f4a1134d6f0d3721b97e2fd67d6767f409cb3852f18bf13190a2b"
     },
     "supabase-config.js": {
       "bytes": 227,
@@ -221,6 +221,10 @@
     "traffic-meter.js": {
       "bytes": 7412,
       "sha256": "247dae2ad6fecb5e3563ede1a2dc40617aaadf5feaa115945b598f77d4663d26"
+    },
+    "vacation-attendance.js": {
+      "bytes": 6232,
+      "sha256": "8e8620c4a06ec3a8f3c12b7fd4fb1fc6edb9e5c019571fcfc299a856b2f2bfee"
     },
     "vendor/pdfjs-6.5.438/LICENSE": {
       "bytes": 10174,

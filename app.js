@@ -2866,6 +2866,7 @@ function resetInactivityLogoutTimer() {
 function clearSensitiveApplicationState() {
   clearFormUndo();
   sensitiveStateGeneration += 1;
+  globalThis.SatisVacationAttendance?.clearCurrent?.();
   [recordForm, repairForm, demoForm].forEach(form => { if (form) form.dataset.saving = ""; });
   [saveRecordBtn, saveRepairBtn, saveDemoBtn].forEach(button => { if (button) { button.disabled = false; button.textContent = "Zapisz"; } });
   clientsModule?.clear();
@@ -23673,6 +23674,7 @@ function attachVacationPeriodPreview(term, request) {
 }
 
 function renderVacationHistory() {
+  globalThis.SatisVacationAttendance?.renderCurrent?.();
   if (!vacationHistoryBody || !vacationHistoryEmpty || !vacationHistoryCount) return;
   hideVacationPeriodPreview();
   const employee = selectedVacationEmployee();
@@ -30905,3 +30907,20 @@ function initializeTasksModule() {
 }
 window.addEventListener("beforeunload",event=>{if(tasksModule?.dirty()){event.preventDefault();event.returnValue="";}});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&activeNotebook==="tasks"&&currentSupabaseUser&&!tasksModule?.dirty())void tasksModule?.open();});
+
+if (window.SatisVacationAttendance) {
+  const attendance = window.SatisVacationAttendance.create({
+    document, window, month: () => new Date().getMonth() + 1,
+    context: () => {
+      const employee = selectedVacationEmployee();
+      return { year: selectedVacationYear(), employee, allowed: vacationCanViewBalance(employee),
+        requests: vacationRequests, holiday: polishPublicHolidayOnDate,
+        sick: request => canViewPrivateModules() && vacationIsSickLeave(request) };
+    },
+    print: cleanup => printWithReadyFonts(cleanup),
+    error: message => alert(message)
+  });
+  window.SatisVacationAttendance.renderCurrent = () => attendance.render();
+  window.SatisVacationAttendance.clearCurrent = () => attendance.clear();
+  attendance.render();
+}
