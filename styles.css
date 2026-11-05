@@ -17868,8 +17868,8 @@ input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset:
 .attendance-sheet h2 { font-size: 18px; margin: 14px 0 10px; }
 .attendance-person { margin: 0 0 14px; font-size: 14px; font-weight: 650; }
 .attendance-table { width: 100%; min-width: 620px; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
-.attendance-table :is(th,td) { border: 1px solid #8a8a8a; padding: 5px 7px; text-align: left; line-height: 1.25; overflow-wrap: anywhere; }
-.attendance-table th { color: #111; background: #f3f3f3; font-weight: 700; }
+.attendance-table :is(th,td) { font-size: inherit; border: 1px solid #8a8a8a; padding: 5px 7px; text-align: left; line-height: 1.25; overflow-wrap: anywhere; }
+.attendance-table th { position: static; top: auto; z-index: auto; cursor: default; text-transform: none; color: #111; background: #f3f3f3; font-weight: 700; }
 .attendance-table th:nth-child(1) { width: 15%; }
 .attendance-table th:nth-child(2) { width: 17%; }
 .attendance-table th:nth-child(3), .attendance-table th:nth-child(4) { width: 9%; }
@@ -17885,10 +17885,16 @@ input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset:
   .vacation-attendance-print .attendance-sheet { page: vacationAttendance; width: 190mm; max-width: none; margin: 0; color: #000; }
   .vacation-attendance-print .attendance-sheet h2 { margin: 0 0 3mm; font-size: 14pt; }
   .vacation-attendance-print .attendance-person { font-size: 11pt; margin: 0 0 3mm; }
-  .vacation-attendance-print .attendance-table { min-width: 0; width: 100%; font-size: 9pt; }
-  .vacation-attendance-print .attendance-table :is(th,td) { padding: 1mm; border-color: #707070; box-sizing: border-box; }
-  .vacation-attendance-print .attendance-table tr { height: 6.3mm; }
+  .vacation-attendance-print .attendance-table { min-width: 0; width: 100%; font-size: 9pt; border: 0.35mm solid #333; box-sizing: border-box; }
+  .vacation-attendance-print .attendance-table :is(th,td) { padding: 1mm; border: 0.3mm solid #444; font-size: inherit; vertical-align: middle; box-sizing: border-box; }
+  .vacation-attendance-print .attendance-table thead th { border-top: 0.35mm solid #333; }
+  .vacation-attendance-print .attendance-table tr { height: 7.2mm; }
   .attendance-table tr { break-inside: avoid; page-break-inside: avoid; }
   .vacation-attendance-print .attendance-day-off { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .vacation-attendance-print .attendance-holidays, .vacation-attendance-print .attendance-footnote { font-size: 8pt; margin-top: 2mm; }
 }
+
+.app-update-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 10px 0 14px; padding: 10px 12px; border-left: 3px solid #007b7d; background: #edf6f3; color: #174e56; font-size: 13px; line-height: 1.5; }
+.app-update-notice > span { flex: 1 1 280px; overflow-wrap: anywhere; }
+.app-update-notice button { min-height: 34px; border-color: #82aaa4; white-space: nowrap; }
+@media print { .app-update-notice { display: none !important; } }

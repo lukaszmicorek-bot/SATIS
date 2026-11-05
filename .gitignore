@@ -177,3 +177,5 @@
 
 !/vacation-attendance.js
 !/tests/vacation-attendance.test.cjs
+
+!/tests/app-update-notice.test.cjs

@@ -30538,8 +30538,43 @@ async function init() {
   }
 }
 
+function publishedAppUpdateBlocked() {
+  return Boolean(offlineForms?.editing() || tasksModule?.dirty() ||
+    document.querySelector("dialog[open]:not(#authDialog), form[data-saving='1'], .has-unsaved-changes, .mail-merge-unsaved") ||
+    [...agreementDraftStates.values()].some(state => state.dirty) || stockAuditWorkflow?.isDraft());
+}
+
+function showPublishedAppUpdate(version) {
+  if (!/^\d{8}-\d+$/u.test(version)) return;
+  let notice = document.getElementById("appUpdateNotice");
+  if (!notice) {
+    notice = document.createElement("aside");
+    notice.id = "appUpdateNotice";
+    notice.className = "app-update-notice";
+    notice.setAttribute("role", "status");
+    const text = document.createElement("span");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "reset-filters-btn";
+    button.textContent = "Wczytaj nową wersję";
+    button.addEventListener("click", () => {
+      if (publishedAppUpdateBlocked()) {
+        text.textContent = "Najpierw zapisz zmiany i zamknij edytowane formularze oraz tryb offline. Potem ponownie kliknij aktualizację.";
+        return;
+      }
+      if (!confirm("Czy wszystkie wpisane dane zostały zapisane? Wczytanie aktualizacji przeładuje stronę i wyczyści niezapisane pola formularzy.")) return;
+      const reloadUrl = new URL(window.location.href);
+      reloadUrl.searchParams.set("appVersion", notice.dataset.version);
+      window.location.replace(reloadUrl);
+    });
+    notice.append(text, button);
+    (document.querySelector(".top-panel") || document.querySelector(".app-shell"))?.after(notice);
+  }
+  notice.dataset.version = version;
+  notice.querySelector("span").textContent = `Dostępna nowa wersja SATIS: ${version}. Zapisz bieżącą pracę przed aktualizacją.`;
+}
+
 async function checkForPublishedAppUpdate() {
-  if (offlineForms?.editing()) return;
   if (!CURRENT_APP_VERSION || !/^https?:$/u.test(window.location.protocol)) return;
   try {
     const indexUrl = new URL("index.html", window.location.href);
@@ -30549,18 +30584,11 @@ async function checkForPublishedAppUpdate() {
     const html = await response.text();
     const publishedVersion = html.match(/app\.js\?v=([^"'&<\s]+)/u)?.[1] || "";
     if (!publishedVersion || publishedVersion === CURRENT_APP_VERSION) return;
+    showPublishedAppUpdate(publishedVersion);
     if (navigator.serviceWorker?.controller) {
       const registration = await navigator.serviceWorker.getRegistration();
       await registration?.update();
-      const button = document.querySelector("#offlineFormsLauncher");
-      if (button) button.title = "Nowa wersja: zapisz szkice i zamknij wszystkie karty SATIS, aby zastosować aktualizację.";
-      return;
     }
-    if (document.querySelector("dialog[open], form[data-saving='1'], .has-unsaved-changes") ||
-      [...agreementDraftStates.values()].some((state) => state.dirty)) return;
-    const reloadUrl = new URL(window.location.href);
-    reloadUrl.searchParams.set("appVersion", publishedVersion);
-    window.location.replace(reloadUrl);
   } catch (error) {
     console.warn("Nie udało się sprawdzić aktualizacji aplikacji:", error?.message || error);
   }
