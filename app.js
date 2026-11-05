@@ -22860,6 +22860,7 @@ function normalizeVacationRequest(entry) {
     weekendAccountingVersion: Number(entry?.weekendAccountingVersion) || 0,
     weekendReviewAcknowledged: entry?.weekendReviewAcknowledged === true,
     redacted: entry?.redacted === true,
+    attendanceSickLeave: entry?.redacted === true && status === "ZATWIERDZONY" && entry?.attendanceSickLeave === true,
     notes: normalizeLoanHistoryText(entry?.notes),
     days: calculatedDays,
     hours: type === "L4" ? 0 : Math.max(0, Number(entry?.hours) || 0),
@@ -23084,6 +23085,11 @@ function vacationIsSickLeave(request) {
 
 function vacationShowSickLeave(request) {
   return canViewPrivateModules() && vacationIsSickLeave(request);
+}
+
+function vacationAttendanceIsSickLeave(request, employee = selectedVacationEmployee()) {
+  if (!vacationCanViewBalance(employee) || request?.employeeId !== employee?.id || request?.status !== "ZATWIERDZONY") return false;
+  return vacationIsSickLeave(request) || (request.redacted === true && request.attendanceSickLeave === true);
 }
 
 function vacationUsesAnnualAllowance(request) {
@@ -30982,7 +30988,7 @@ if (window.SatisVacationAttendance) {
       const employee = selectedVacationEmployee();
       return { year: selectedVacationYear(), employee, allowed: vacationCanViewBalance(employee),
         requests: vacationRequests, holiday: polishPublicHolidayOnDate,
-        sick: request => canViewPrivateModules() && vacationIsSickLeave(request) };
+        sick: request => vacationAttendanceIsSickLeave(request, employee) };
     },
     print: cleanup => printWithReadyFonts(cleanup),
     error: message => alert(message)

@@ -203,8 +203,28 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     assert.equal((await one('select vacation_read_authorized() result')).result.requests.find(r => r.id === sick.id).revision, 2);
     await db.exec('reset role');
 
+    await db.exec(read('supabase-vacation-attendance-l4.sql'));
+    await db.exec(read('supabase-vacation-attendance-l4.sql'));
+    await login(owner,'satis@pracowniasluchu.pl');
+    await writeL4({...sick,id:'attendance-legacy',type:'INNY',dateFrom:'2026-11-13',dateTo:'2026-11-13',hours:8,notes:'L4'});
+    await writeL4({...sick,id:'attendance-negative',type:'INNY',dateFrom:'2026-11-16',dateTo:'2026-11-16',hours:8,notes:'bez L4',attendanceSickLeave:true});
+    await writeL4({...sick,id:'attendance-pending',dateFrom:'2026-11-17',dateTo:'2026-11-17',status:'OCZEKUJE'});
+    await login(staff,'gabinet@example.test');
+    const attendanceRead=(await one('select vacation_read_authorized() result')).result;
+    for(const id of [sick.id,'attendance-legacy']){
+      const row=attendanceRead.requests.find(r=>r.id===id);
+      assert.equal(row.data.attendanceSickLeave,true);assert.equal(row.data.type,'ZAJĘTOŚĆ');
+      assert.equal(row.data.redacted,true);assert.equal(row.data.notes,undefined);assert.equal(row.data.hours,undefined);assert.equal(row.revision,null);
+    }
+    assert.equal(attendanceRead.requests.find(r=>r.id==='attendance-negative').data.attendanceSickLeave,false,'marker is recomputed by the server, not trusted from saved JSON');
+    assert.equal(attendanceRead.requests.some(r=>r.id==='attendance-pending'),false);
+    await assert.rejects(submit({...sick,id:'attendance-forbidden-write'},randomUUID()),e=>e.code==='42501');
+    assert.equal((await one("select count(*)::int n from vacation_requests where id='l4-private'")).n,0,'raw private data stays unavailable');
+    await db.exec('reset role');
+
     await db.exec("select set_config('request.jwt.claims','{}',false); set role anon;");
     await denied(submit());
+    await denied(one('select vacation_read_authorized() result'));
     console.log('PASS: shared submission, pending/approved/rejected rereads, redaction, CAS retry, duplicates, holidays and role isolation.');
   } finally { await db.close(); }
 })().catch(error => { console.error(error.message, error.code || ''); process.exitCode = 1; });

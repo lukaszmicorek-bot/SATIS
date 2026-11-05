@@ -1,5 +1,5 @@
 {
-  "app_version": "20261105-7",
+  "app_version": "20261105-8",
   "asset_policy_sha256": "7cad0d5ebc7ee02fc290f9bbc61fa14806eed63f1692646d3a0619e271f934e0",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -19,8 +19,8 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1809209,
-      "sha256": "7777efed321e01aefe641e01e237143f6692e46d3a5a71a616b89bf89c76bb7a"
+      "bytes": 1809656,
+      "sha256": "11ffe1c96643b4e8462573d07e13d2d8be0862c06b58c940024a90e173916f9f"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -48,7 +48,7 @@
     },
     "index.html": {
       "bytes": 465139,
-      "sha256": "5ed73c01b44cff51d1462c3ae7a7c5225ec314a5c222a5a92b4c99259d680b5b"
+      "sha256": "13a5aacf1902e4b023128dd76de7234fb3dbb36eb04cfe25f1333ded2e6cf626"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -164,7 +164,7 @@
     },
     "offline-sw.js": {
       "bytes": 3265,
-      "sha256": "e381f8ff873efd79603c8adbc6ededd9328f4b4d3c220458b59359ed576430a1"
+      "sha256": "a272341b587fddc040a603e0c9cc7181deb8828ba185174af65b3d16480ca6bb"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -223,8 +223,8 @@
       "sha256": "247dae2ad6fecb5e3563ede1a2dc40617aaadf5feaa115945b598f77d4663d26"
     },
     "vacation-attendance.js": {
-      "bytes": 6666,
-      "sha256": "7dff69e5e719c5c8dc853fa6fb2b3ad7e6b04ad15e85db0690e71a46918e774c"
+      "bytes": 6698,
+      "sha256": "8fddb1f14c05551bdf501dd6e47de045bfb35d45871c85ea9ebd95852433bb25"
     },
     "vendor/pdfjs-6.5.438/LICENSE": {
       "bytes": 10174,

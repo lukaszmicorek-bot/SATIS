@@ -99,6 +99,7 @@
 !/supabase-vacation-read-submitted.sql
 !/supabase-vacation-weekend-range.sql
 !/supabase-vacation-l4.sql
+!/supabase-vacation-attendance-l4.sql
 !/tests/vacation-l4.test.cjs
 !/tests/vacation-shared.test.cjs
 !/tests/vacation-shared.sqltest.cjs

@@ -20,7 +20,7 @@ function setup() {
   const button = node(); button.dataset.vacationType = 'L4';
   const ctx = vm.createContext({
     owner: true, employee, writes, alerts, button,
-    canViewPrivateModules: () => ctx.owner,
+    canViewPrivateModules: () => ctx.owner, vacationCanViewBalance: e => Boolean(e) && (ctx.owner || e.id === ctx.assignedEmployee),
     selectedVacationEmployee: () => employee, selectedVacationYear: () => 2026,
     vacationEmployeeUsesHours: e => e?.unit === 'HOURS',
     vacationTypeInput: {value: 'L4'}, vacationTypeChoices: {querySelectorAll: () => [button]},
@@ -44,7 +44,7 @@ function setup() {
     activeDateInput: {value: '', dispatchEvent() {}}, Event: class {}, closeDatePicker() {}
   });
   for (const name of ['vacationTypeUsesHours', 'vacationRequestUsesHours', 'vacationRequestBlocksDay',
-    'vacationTypeLabel', 'vacationIsSickLeave', 'vacationShowSickLeave', 'vacationUsesAnnualAllowance',
+    'vacationTypeLabel', 'vacationIsSickLeave', 'vacationShowSickLeave', 'vacationAttendanceIsSickLeave', 'vacationUsesAnnualAllowance',
     'vacationSickLeaveDays', 'normalizeVacationRequest', 'updateVacationUnitFields', 'updateVacationOwnerLeaveField', 'updateVacationTypeChoices',
     'isoDateFromParts', 'addDaysToIsoDate', 'easterSundayIso', 'polishPublicHolidays', 'polishPublicHolidayOnDate',
     'vacationWorkingDays', 'vacationHolidayDateIssue', 'appendDatePickerTitle', 'createDatePickerMonth',
@@ -175,4 +175,20 @@ test('L4 day amount has the same raspberry color as its employee badge and type 
   }
   assert.ok(css.indexOf(selectors[2]) > css.indexOf('.vacation-history-table tr[data-vacation-status="OCZEKUJE"] .vacation-history-days strong'));
   assert.match(css, /tr\[data-vacation-status="ODRZUCONY"\] \.vacation-history-days strong \{\s*color: #914d58;/);
+});
+
+test('gabinet can label approved L4 in assigned attendance without unlocking medical notes, counters or edits', () => {
+  const ctx = setup(); ctx.owner = false; ctx.assignedEmployee = ctx.employee.id;
+  const data = {employeeId:ctx.employee.id,employeeName:ctx.employee.name,type:'ZAJĘTOŚĆ',
+    dateFrom:'2026-11-05',dateTo:'2026-11-06',status:'ZATWIERDZONY',redacted:true,attendanceSickLeave:true};
+  const request = ctx.normalizeVacationRequest(data);
+  assert.equal(ctx.vacationAttendanceIsSickLeave(request,ctx.employee),true);
+  assert.equal(ctx.vacationShowSickLeave(request),false);
+  assert.equal(ctx.vacationSickLeaveDays(ctx.employee,[request]),0);
+  for (const change of [{attendanceSickLeave:false},{status:'OCZEKUJE'},{status:'ODRZUCONY'},{employeeId:'other'}]) {
+    assert.equal(ctx.vacationAttendanceIsSickLeave(ctx.normalizeVacationRequest({...data,...change}),ctx.employee),false);
+  }
+  ctx.assignedEmployee = 'other';
+  assert.equal(ctx.vacationAttendanceIsSickLeave(request,ctx.employee),false);
+  assert.match(source,/sick: request => vacationAttendanceIsSickLeave\(request, employee\)/);
 });

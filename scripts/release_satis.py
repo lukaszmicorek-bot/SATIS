@@ -40,7 +40,7 @@ EXTRA_PUBLIC_FILES = {
     "scripts/public_assets.py", "tests/stock-audit-workflow.test.cjs",
     "supabase-vacation-read-submitted.sql", "supabase-vacation-carryover.sql", "tests/vacation-carryover.test.cjs",
     "supabase-vacation-weekend-range.sql", "tests/vacation-weekend-range.test.cjs",
-    "supabase-vacation-l4.sql", "tests/vacation-l4.test.cjs",
+    "supabase-vacation-l4.sql", "supabase-vacation-attendance-l4.sql", "tests/vacation-l4.test.cjs",
     "tests/vacation-balance-visibility.test.cjs", "tests/vacation-time-types.test.cjs",
     "supabase-traffic-meter.sql", "tests/traffic-meter.sqltest.cjs",
     "tests/traffic-meter.test.cjs",
