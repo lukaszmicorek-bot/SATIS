@@ -84,6 +84,38 @@ test('L4 selection is hidden and reset on gabinet, forged form submission is rej
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   assert.match(html, /data-vacation-type="L4" data-private-owner hidden/);
 });
+
+test('Justyna: L4 history counts working days without hours, yearly tile counts calendar days, including legacy records', () => {
+  const ctx = setup();
+  ctx.employee.name = 'Justyna Testowa';
+  const history = extract('renderVacationHistory');
+  const amountBlock = history.slice(history.indexOf('    const daysCell ='), history.indexOf('    row.append(employeeCell'));
+  assert.ok(amountBlock.includes('const amount ='));
+  ctx.requestEmployee = ctx.employee;
+  ctx.canViewDetails = true;
+  ctx.formatVacationAmount = String;
+  for (const [dateFrom, dateTo, workingDays, calendarDays] of [
+    ['2026-11-06', '2026-11-11', 3, 6], ['2026-11-05', '2026-11-05', 1, 1],
+    ['2026-03-28', '2026-03-30', 1, 3], ['2026-11-07', '2026-11-08', 0, 2],
+    ['2026-11-11', '2026-11-11', 0, 1]
+  ]) {
+    for (const type of ['INNY', 'WYPOCZYNKOWY', 'NA ŻĄDANIE', 'L4']) {
+      const record = ctx.normalizeVacationRequest({employeeName: ctx.employee.name, employeeId: ctx.employee.id,
+        dateFrom, dateTo, type, notes: 'L4', hours: 0, status: 'ZATWIERDZONY'});
+      ctx.request = record;
+      ctx.usesHours = ctx.vacationRequestUsesHours(record, ctx.employee);
+      ctx.showSickLeave = ctx.vacationShowSickLeave(record);
+      assert.equal(ctx.usesHours, false);
+      vm.runInContext(`{ ${amountBlock}\nglobalThis.amountCell = daysCell; }`, ctx);
+      assert.equal(ctx.amountCell.children[0].textContent, String(workingDays));
+      assert.match(ctx.amountCell.children[0].title, /Dni robocze:/);
+      assert.match(ctx.amountCell.children[0].title, /nie pomniejsza urlopu rocznego/);
+      assert.equal(ctx.vacationSickLeaveDays(ctx.employee, [record]), calendarDays);
+      assert.equal(ctx.vacationUsesAnnualAllowance(record), false);
+    }
+  }
+  assert.equal(ctx.vacationRequestUsesHours({type:'WYPOCZYNKOWY', notes:'bez L4'}, ctx.employee), true);
+});
 test('SATIS saves L4 without hours across weekends and holidays; duplicates and year boundaries still blocked', async () => {
   const ctx = setup(); await ctx.submitVacationRequest();
   assert.equal(ctx.writes.length, 1); assert.equal(ctx.writes[0].hours, 0);

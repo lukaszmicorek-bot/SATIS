@@ -23043,7 +23043,8 @@ function vacationTypeUsesHours(type) {
 }
 
 function vacationRequestUsesHours(request, employee = null) {
-  return request?.type !== "L4" && (vacationTypeUsesHours(request?.type) || vacationEmployeeUsesHours(employee || { name: request?.employeeName }));
+  return request?.type !== "L4" && !vacationIsSickLeave(request)
+    && (vacationTypeUsesHours(request?.type) || vacationEmployeeUsesHours(employee || { name: request?.employeeName }));
 }
 
 function vacationRequestBlocksDay(request) {
@@ -23753,9 +23754,12 @@ function renderVacationHistory() {
     const daysCell = document.createElement("td");
     daysCell.className = "vacation-history-days";
     const days = document.createElement("strong");
-    const amount = vacationUsesAnnualAllowance(request) ? vacationAnnualRequestAmount(request, requestEmployee) : usesHours ? request.hours : request.days;
+    const amount = showSickLeave
+      ? vacationWorkingDays(request.dateFrom, request.dateTo || request.dateFrom)
+      : vacationUsesAnnualAllowance(request) ? vacationAnnualRequestAmount(request, requestEmployee) : usesHours ? request.hours : request.days;
     days.textContent = !canViewDetails ? "-" : usesHours ? `${formatVacationAmount(amount)} godz.` : String(amount);
-    const amountLabel = `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
+    const amountLabel = showSickLeave ? `Dni robocze: ${formatVacationAmount(amount)}`
+      : `${formatVacationAmount(amount)} ${usesHours ? "godz." : amount === 1 ? "dzień" : "dni"}`;
     days.title = request.status === "ODRZUCONY"
       ? "Wniosek odrzucony; nie wpływa na saldo urlopu."
       : !vacationUsesAnnualAllowance(request)
