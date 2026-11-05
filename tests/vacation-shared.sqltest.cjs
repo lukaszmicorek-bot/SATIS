@@ -51,6 +51,8 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     await db.exec(read('supabase-vacation-shared.sql'));
     await db.exec(read('supabase-vacation-weekend-range.sql'));
     await db.exec(read('supabase-vacation-weekend-range.sql'));
+    await db.exec(read('supabase-vacation-l4.sql'));
+    await db.exec(read('supabase-vacation-l4.sql'));
     await login(staff, 'gabinet@example.test');
     await denied(submit({...request, employeeId: 'unknown'}, randomUUID()));
     const saved = await submit();
@@ -172,6 +174,34 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     await login(owner,'satis@pracowniasluchu.pl');await db.exec('reset role');
     await pool('oliwia-duplicate','Oliwia Test',2025,26);
     b=await balance('oliwia-2027');assert.equal(b.carryoverIssue,true);assert.equal(b.carryover,0);assert.equal(b.remaining,24);
+
+    // L4 is a SATIS-only whole-day absence, including for hourly employees.
+    await login(staff, 'gabinet@example.test');
+    const sick = {...request, id:'l4-private', employeeId:'hour-2026', type:'L4',
+      dateFrom:'2026-11-06', dateTo:'2026-11-11', hours:12, status:'ZATWIERDZONY', ownerLeave:false};
+    await assert.rejects(submit(sick, randomUUID()), e => e.code === '42501');
+    await login(owner, 'satis@pracowniasluchu.pl'); await db.exec('reset role');
+    const balanceBeforeL4 = await balance('hour-2026');
+    await db.exec('set role authenticated');
+    const writeL4 = (data, revision=null) => db.query('select satis_write_records($1,$2,$3)', [randomUUID(),
+      [{table:'vacation_requests',id:data.id,data,expectedRevision:revision,delete:false}],'SATIS']);
+    await writeL4(sick);
+    const ownerL4 = (await one('select vacation_read_authorized() result')).result.requests.find(r => r.id === sick.id);
+    assert.equal(ownerL4.data.type, 'L4'); assert.equal(ownerL4.data.hours, 0);
+    assert.equal(ownerL4.data.days, 6); assert.equal(ownerL4.data.ownerLeave, false);
+    await denied(writeL4({...sick,id:'l4-duplicate'}));
+    await writeL4({...sick,id:'l4-weekend',dateFrom:'2026-11-07',dateTo:'2026-11-08'});
+    await db.exec('reset role');
+    assert.deepEqual(await balance('hour-2026'), balanceBeforeL4, 'L4 never consumes annual or carryover hours');
+    await login(staff, 'gabinet@example.test');
+    const redactedL4 = (await one('select vacation_read_authorized() result')).result.requests.find(r => r.id === sick.id);
+    assert.equal(redactedL4.data.type, 'ZAJĘTOŚĆ'); assert.equal(redactedL4.data.redacted, true);
+    assert.equal(redactedL4.data.hours, undefined); assert.equal(redactedL4.data.notes, undefined);
+    await denied(writeL4({...sick,notes:'forged edit'},1));
+    await login(owner, 'satis@pracowniasluchu.pl');
+    await writeL4({...ownerL4.data,notes:'updated'},1);
+    assert.equal((await one('select vacation_read_authorized() result')).result.requests.find(r => r.id === sick.id).revision, 2);
+    await db.exec('reset role');
 
     await db.exec("select set_config('request.jwt.claims','{}',false); set role anon;");
     await denied(submit());

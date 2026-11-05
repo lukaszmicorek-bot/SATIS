@@ -51,7 +51,7 @@ test('vacation form exposes both time types and requires their hours', () => {
   assert.match(html, /id="vacationHoursLabel"/);
   assert.match(extract('updateVacationUnitFields'), /usesHours \|\| vacationTypeUsesHours\(type\)/);
   assert.match(extract('submitVacationRequest'), /vacationTypeUsesHours\(type\) && dateFrom !== dateTo/);
-  assert.match(extract('submitVacationRequest'), /requiresHours = usesHours \|\| vacationTypeUsesHours\(type\)/);
+  assert.match(extract('submitVacationRequest'), /requiresHours = type !== "L4" && \(usesHours \|\| vacationTypeUsesHours\(type\)\)/);
 });
 
 test('time records stay out of leave balances and full-day occupancy', () => {

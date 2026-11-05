@@ -98,6 +98,8 @@
 !/supabase-vacation-shared.sql
 !/supabase-vacation-read-submitted.sql
 !/supabase-vacation-weekend-range.sql
+!/supabase-vacation-l4.sql
+!/tests/vacation-l4.test.cjs
 !/tests/vacation-shared.test.cjs
 !/tests/vacation-shared.sqltest.cjs
 !/tests/notes-tooltip.test.cjs

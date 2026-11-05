@@ -22,6 +22,7 @@ function setup() {
     vacationEmployeesForYear: () => employees, vacationMyEmployeeId: () => '',
     vacationEmployees: employees,
     vacationEmployeeInput: node(), vacationEmployeeList: node(), vacationSaturdayMarkersDisabled: () => false,
+    vacationNewEmployeeInput: node(), vacationAllowanceInput: node(),
     vacationEmployeeUsesHours: employee => employee?.unit === 'HOURS', formatVacationAmount: String,
     vacationEmployeeUsagePercent: () => 0, selectedVacationEmployee: () => employees.find(e => e.id === ctx.vacationEmployeeInput.value),
     selectedVacationYear: () => 2026, vacationRequests: [], vacationUsesAnnualAllowance: () => true,
@@ -97,6 +98,19 @@ test('L4 does not use annual allowance, including legacy annual-leave entries', 
   assert.equal(ctx.vacationUsesAnnualAllowance({type: 'INNY', notes: ''}), false);
   assert.match(extract('submitVacationRequest'), /vacationIsSickLeave\(\{ notes: vacationNotesInput\?\.value \}\) \? "INNY"/);
   assert.match(fs.readFileSync('supabase-vacation-read-submitted.sql', 'utf8'), /and not \([\s\S]*?CHOROBOWE/);
+});
+
+test('employee tiles show L4 day counters only to SATIS and remove them on account change', () => {
+  const {ctx} = setup();
+  for (const name of ['vacationIsSickLeave', 'vacationSickLeaveDays']) vm.runInContext(extract(name), ctx);
+  ctx.owner = true;
+  ctx.vacationRequests = [{employeeId: '1', type: 'L4', status: 'ZATWIERDZONY', dateFrom: '2026-11-05', dateTo: '2026-11-06'}];
+  ctx.renderVacationEmployees();
+  const counters = () => ctx.vacationEmployeeList.children.map(entry => entry.children[0].children.find(child => child.className === 'vacation-employee-sick-days'));
+  assert.deepEqual(counters().map(item => item.textContent), ['L4: 0 dni', 'L4: 2 dni', 'L4: 0 dni']);
+  ctx.owner = false;
+  ctx.renderVacationEmployees();
+  assert.ok(counters().every(item => !item));
 });
 
 test('L4 stays out of used and pending totals for days and hours', () => {

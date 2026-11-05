@@ -22839,11 +22839,12 @@ function normalizeVacationRequest(entry) {
   const dateFrom = isoDateForSave(entry?.dateFrom);
   const dateTo = isoDateForSave(entry?.dateTo || entry?.dateFrom);
   if (!employeeName || !dateFrom || !dateTo) return null;
-  const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "ZA WEEKEND", "NA ŻĄDANIE", "NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE", "INNY", "ZAJĘTOŚĆ", "TERMIN GODZINOWY"].includes(entry?.type)
+  const type = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "ZA WEEKEND", "NA ŻĄDANIE", "NADGODZINY", "WCZEŚNIEJSZE WYJŚCIE", "L4", "INNY", "ZAJĘTOŚĆ", "TERMIN GODZINOWY"].includes(entry?.type)
     ? entry.type
     : "WYPOCZYNKOWY";
   const status = ["OCZEKUJE", "ZATWIERDZONY", "ODRZUCONY"].includes(entry?.status) ? entry.status : "OCZEKUJE";
-  const calculatedDays = vacationTypeUsesHours(type) ? 0 : type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo);
+  const calculatedDays = type === "L4" ? Math.max(0, Math.round((Date.parse(dateTo) - Date.parse(dateFrom)) / 86400000) + 1)
+    : vacationTypeUsesHours(type) ? 0 : type === "ZA SOBOTĘ" ? 1 : vacationWorkingDays(dateFrom, dateTo);
   return {
     id: String(entry?.id || makeId()),
     employeeId: String(entry?.employeeId || ""),
@@ -22861,7 +22862,7 @@ function normalizeVacationRequest(entry) {
     redacted: entry?.redacted === true,
     notes: normalizeLoanHistoryText(entry?.notes),
     days: calculatedDays,
-    hours: Math.max(0, Number(entry?.hours) || 0),
+    hours: type === "L4" ? 0 : Math.max(0, Number(entry?.hours) || 0),
     status,
     requestedAt: entry?.requestedAt || new Date().toISOString(),
     requestedBy: entry?.requestedBy || "",
@@ -23032,6 +23033,7 @@ function vacationTypeLabel(type) {
     "NA ŻĄDANIE": "Urlop na żądanie",
     NADGODZINY: "Nadgodziny",
     "WCZEŚNIEJSZE WYJŚCIE": "Wcześniejsze wyjście",
+    L4: "L4 · Zwolnienie lekarskie",
     INNY: "Inna nieobecność"
   }[type] || type;
 }
@@ -23041,7 +23043,7 @@ function vacationTypeUsesHours(type) {
 }
 
 function vacationRequestUsesHours(request, employee = null) {
-  return vacationTypeUsesHours(request?.type) || vacationEmployeeUsesHours(employee || { name: request?.employeeName });
+  return request?.type !== "L4" && (vacationTypeUsesHours(request?.type) || vacationEmployeeUsesHours(employee || { name: request?.employeeName }));
 }
 
 function vacationRequestBlocksDay(request) {
@@ -23072,6 +23074,7 @@ function vacationCompensatesWeekend(request) {
 
 function vacationIsSickLeave(request) {
   if (!request || request.redacted) return false;
+  if (request.type === "L4") return true;
   const notes = String(request.notes || "").toLocaleUpperCase("pl-PL").replace(/\s+/gu, " ");
   const marker = /\bL[ -]?4\b|\bZWOLNIENIE LEKARSKIE\b|\bCHOROBOWE\b/u;
   const negated = /\b(?:BEZ|BRAK|NIE) (?:L[ -]?4\b|ZWOLNIENIE LEKARSKIE\b|CHOROBOWE\b)/u;
@@ -23101,6 +23104,20 @@ function renderVacationYearOptions() {
     option.selected = year === Math.min(2030, Math.max(2025, currentYear));
     vacationYearInput.append(option);
   }
+}
+
+function vacationSickLeaveDays(employee, requests = vacationRequests) {
+  if (!canViewPrivateModules() || !employee || !Number.isInteger(Number(employee.year))) return 0;
+  const start = Date.UTC(Number(employee.year), 0, 1);
+  const end = Date.UTC(Number(employee.year) + 1, 0, 1) - 86400000;
+  const days = new Set();
+  for (const request of requests) {
+    if (request.employeeId !== employee.id || request.status !== "ZATWIERDZONY" || !vacationIsSickLeave(request)) continue;
+    const from = Math.max(start, Date.parse(request.dateFrom));
+    const to = Math.min(end, Date.parse(request.dateTo || request.dateFrom));
+    for (let day = from; day <= to; day += 86400000) days.add(day);
+  }
+  return days.size;
 }
 
 function renderVacationEmployees() {
@@ -23162,6 +23179,13 @@ function renderVacationEmployees() {
       percent.title = `${usagePercent}% wykorzystanej puli rocznej (bez urlopu zaległego)`;
       percent.setAttribute("aria-label", `${usagePercent}% wykorzystanego urlopu`);
       item.append(percent);
+      const sickDays = vacationSickLeaveDays(employee);
+      const sick = document.createElement("span");
+      sick.className = "vacation-employee-sick-days";
+      sick.textContent = `L4: ${sickDays} ${sickDays === 1 ? "dzień" : "dni"}`;
+      sick.title = `${employee.year}: dni kalendarzowe zatwierdzonego L4, bez pomniejszania puli urlopu. Nakładające się daty liczone tylko raz.`;
+      item.classList.toggle("has-l4-summary", true);
+      item.append(sick);
     }
     if (employee.workstation) {
       const workstation = document.createElement("span");
@@ -23287,7 +23311,12 @@ function vacationEmployeeUsagePercent(employee) {
 }
 
 function updateVacationTypeChoices() {
+  if (vacationTypeInput?.value === "L4" && !canViewPrivateModules()) vacationTypeInput.value = "WYPOCZYNKOWY";
   vacationTypeChoices?.querySelectorAll("[data-vacation-type]").forEach((button) => {
+    if (button.dataset.vacationType === "L4") {
+      button.hidden = !canViewPrivateModules();
+      button.disabled = button.hidden;
+    }
     const active = button.dataset.vacationType === vacationTypeInput?.value;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
@@ -23448,10 +23477,11 @@ function updateVacationUnitFields() {
   const employee = selectedVacationEmployee();
   const usesHours = vacationEmployeeUsesHours(employee);
   const type = vacationTypeInput?.value || "WYPOCZYNKOWY";
-  const requiresHours = usesHours || vacationTypeUsesHours(type);
+  const requiresHours = type !== "L4" && (usesHours || vacationTypeUsesHours(type));
   if (vacationHoursField) vacationHoursField.hidden = !requiresHours;
   if (vacationHoursInput) {
     vacationHoursInput.required = requiresHours;
+    vacationHoursInput.disabled = !requiresHours;
     vacationHoursInput.max = String(type === "NADGODZINY" ? 16 : type === "WCZEŚNIEJSZE WYJŚCIE" ? 8 : 200);
   }
   const compensationField = document.querySelector?.("#vacationCompensationField");
@@ -23480,7 +23510,7 @@ function updateVacationUnitFields() {
 
 function updateVacationOwnerLeaveField() {
   if (!vacationOwnerLeaveField) return;
-  const visible = canViewPrivateModules() && !vacationTypeUsesHours(vacationTypeInput?.value);
+  const visible = canViewPrivateModules() && vacationTypeInput?.value !== "L4" && !vacationTypeUsesHours(vacationTypeInput?.value);
   vacationOwnerLeaveField.hidden = !visible;
   if (!visible && vacationOwnerLeaveInput) vacationOwnerLeaveInput.checked = false;
 }
@@ -23895,7 +23925,7 @@ function editVacationRequest(id) {
   if (vacationYearInput) vacationYearInput.value = String(request.year);
   renderVacationModule();
   if (vacationEmployeeInput) vacationEmployeeInput.value = request.employeeId;
-  if (vacationTypeInput) vacationTypeInput.value = request.type;
+  if (vacationTypeInput) vacationTypeInput.value = canViewPrivateModules() && vacationIsSickLeave(request) ? "L4" : request.type;
   if (vacationSaturdayInput) vacationSaturdayInput.value = request.saturdayDate || "";
   if (vacationNotesInput) vacationNotesInput.value = request.notes || "";
   if (vacationHoursInput) vacationHoursInput.value = request.hours ? formatVacationAmount(request.hours).replace(",", ".") : "";
@@ -24020,6 +24050,10 @@ async function submitVacationRequest(event) {
     return;
   }
   const selectedType = vacationTypeInput?.value || "WYPOCZYNKOWY";
+  if (selectedType === "L4" && !canViewPrivateModules()) {
+    alert("L4 może zapisywać wyłącznie SATIS.");
+    return;
+  }
   // Keep the existing database type; medical absence never consumes annual leave.
   const type = ["WYPOCZYNKOWY", "NA ŻĄDANIE", "INNY"].includes(selectedType)
     && vacationIsSickLeave({ notes: vacationNotesInput?.value }) ? "INNY" : selectedType;
@@ -24029,14 +24063,14 @@ async function submitVacationRequest(event) {
     vacationDateToInput?.focus();
     return;
   }
-  const holidayIssue = vacationHolidayDateIssue(dateFrom, dateTo);
+  const holidayIssue = type === "L4" ? null : vacationHolidayDateIssue(dateFrom, dateTo);
   if (holidayIssue) {
     alert(holidayIssue.message);
     (holidayIssue.field === "from" ? vacationDateFromInput : vacationDateToInput)?.focus();
     return;
   }
   const usesHours = vacationEmployeeUsesHours(employee);
-  const requiresHours = usesHours || vacationTypeUsesHours(type);
+  const requiresHours = type !== "L4" && (usesHours || vacationTypeUsesHours(type));
   const hours = requiresHours ? Number(String(vacationHoursInput?.value || "").replace(",", ".")) : 0;
   const maximumHours = type === "NADGODZINY" ? 16 : type === "WCZEŚNIEJSZE WYJŚCIE" ? 8
     : Math.min(200, vacationWorkingDays(dateFrom, dateTo) * 8);
@@ -24083,9 +24117,9 @@ async function submitVacationRequest(event) {
     return;
   }
   const isEditing = Boolean(editedRequest);
-  const ownerLeave = isEditing
+  const ownerLeave = type !== "L4" && (isEditing
     ? Boolean(vacationOwnerLeaveInput?.checked)
-    : Boolean(canViewPrivateModules() && vacationOwnerLeaveInput?.checked);
+    : Boolean(canViewPrivateModules() && vacationOwnerLeaveInput?.checked));
   if (!submitVacationRequest.draft || submitVacationRequest.draft.userId !== currentSupabaseUser?.id) {
     submitVacationRequest.draft = { id: makeId(), requestedAt: new Date().toISOString(), userId: currentSupabaseUser?.id };
   }
@@ -24162,7 +24196,7 @@ async function decideVacationRequest(id, status) {
   const authUser = currentSupabaseUser;
   const current = vacationRequests.find((request) => request.id === id);
   if (!current) return;
-  const holidayIssue = status === "ZATWIERDZONY" ? vacationHolidayDateIssue(current.dateFrom, current.dateTo) : null;
+  const holidayIssue = status === "ZATWIERDZONY" && current.type !== "L4" ? vacationHolidayDateIssue(current.dateFrom, current.dateTo) : null;
   if (holidayIssue) {
     alert(`${holidayIssue.message} Popraw daty przed zatwierdzeniem.`);
     return;
@@ -24663,7 +24697,7 @@ function workTimeRosterForYear(employees, year) {
 }
 
 function workTimeApprovedLeave(employeeId, date, plan, requests) {
-  const types = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "ZA WEEKEND", "NA ŻĄDANIE", "INNY"];
+  const types = ["WYPOCZYNKOWY", "ZA SOBOTĘ", "ZA WEEKEND", "NA ŻĄDANIE", "L4", "INNY"];
   return requests.some(request => {
     if (request.ownerLeave || request.status !== "ZATWIERDZONY" || request.employeeId !== employeeId
       || !types.includes(request.type) || !request.dateFrom || !request.dateTo || request.dateFrom > date || request.dateTo < date) return false;
@@ -28981,7 +29015,8 @@ function createDatePickerMonth(monthDate, selectedDate, today, dateMinimum = nul
       appendDatePickerTitle(button, `Ta data jest wcześniejsza niż ${dateMinimum.label.toLocaleLowerCase("pl-PL")} (${displayDateForInput(dateMinimum.date)}).`);
     }
     const publicHoliday = polishPublicHolidayOnDate(isoDate);
-    const vacationHolidayBlocked = Boolean(publicHoliday && isVacationCalendarInput());
+    const sickLeaveCalendar = typeof vacationTypeInput !== "undefined" && vacationTypeInput?.value === "L4";
+    const vacationHolidayBlocked = Boolean(publicHoliday && isVacationCalendarInput() && !sickLeaveCalendar);
     const clientVisitBlocked = activeDateInput?.id === "clientVisitDate" && Boolean(publicHoliday || weekday === 0 || weekday === 6);
     if (clientVisitBlocked) {
       button.disabled = true;
@@ -30250,7 +30285,7 @@ capdHistoryStatusFilter?.addEventListener("click", (event) => {
 vacationTypeInput?.addEventListener("change", updateVacationSaturdayField);
 vacationTypeChoices?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vacation-type]");
-  if (!button || !vacationTypeInput) return;
+  if (!button || !vacationTypeInput || (button.dataset.vacationType === "L4" && !canViewPrivateModules())) return;
   vacationTypeInput.value = button.dataset.vacationType;
   vacationTypeInput.dispatchEvent(new Event("change", { bubbles: true }));
 });

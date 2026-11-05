@@ -3322,6 +3322,25 @@ h2 {
   white-space: nowrap;
 }
 
+.vacation-employee-item.has-l4-summary {
+  grid-template-areas:
+    "employee-name employee-place"
+    "employee-allowance employee-place"
+    "employee-sick employee-sick";
+}
+
+.vacation-employee-item .vacation-employee-sick-days {
+  grid-area: employee-sick;
+  justify-self: start;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #8b344b;
+  background: #f9e9ee;
+  font-size: 0.69rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .vacation-employee-item.active {
   border-color: #9ebeb7;
   color: #315f48;
@@ -3565,6 +3584,12 @@ h2 {
   border-color: #a45f73;
   color: #fff;
   background: #a45f73;
+}
+
+.vacation-type-choices button[data-vacation-type="L4"].active {
+  color: #8b344b;
+  background: #f9e9ee;
+  border-color: #e8c5cf;
 }
 
 .vacation-type-choices button[data-vacation-type="INNY"].active {
