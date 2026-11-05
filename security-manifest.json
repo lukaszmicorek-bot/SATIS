@@ -1,5 +1,5 @@
 {
-  "app_version": "20261105-1",
+  "app_version": "20261105-2",
   "asset_policy_sha256": "7cad0d5ebc7ee02fc290f9bbc61fa14806eed63f1692646d3a0619e271f934e0",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -48,7 +48,7 @@
     },
     "index.html": {
       "bytes": 465039,
-      "sha256": "ebebec092e92f900fc1944eb88927926841d3dcb3e5067df91c93576cc66b141"
+      "sha256": "a60ffc1243b8afe8b9fc5d080e37a8f68503576fccada9cb8d489fc7d503437d"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -164,7 +164,7 @@
     },
     "offline-sw.js": {
       "bytes": 3265,
-      "sha256": "c3bf6bfd9dde0faf670550df1ebc556ce4af96c3f770b16bae443d987a535321"
+      "sha256": "cd932cdb837d6eba102db1100b537d9d5234ef80f9f2939edf00eed5cb8eafce"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -223,8 +223,8 @@
       "sha256": "247dae2ad6fecb5e3563ede1a2dc40617aaadf5feaa115945b598f77d4663d26"
     },
     "vacation-attendance.js": {
-      "bytes": 6232,
-      "sha256": "8e8620c4a06ec3a8f3c12b7fd4fb1fc6edb9e5c019571fcfc299a856b2f2bfee"
+      "bytes": 6538,
+      "sha256": "28912c29b8cfe7cb3fb781de19e2488087b4e4f3d2af1802f21149ef8b3ee818"
     },
     "vendor/pdfjs-6.5.438/LICENSE": {
       "bytes": 10174,
