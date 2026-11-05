@@ -158,3 +158,21 @@ test('yearly L4 counter includes legacy entries, excludes pending/rejected/other
   assert.match(render, /if \(canViewPrivateModules\(\)\) \{[\s\S]*vacationSickLeaveDays\(employee\)/);
   assert.match(render, /vacation-employee-sick-days/);
 });
+
+test('L4 day amount has the same raspberry color as its employee badge and type choice, not the generic olive absence color', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
+  const selectors = [
+    '.vacation-employee-item .vacation-employee-sick-days',
+    '.vacation-type-choices button[data-vacation-type="L4"].active',
+    '.vacation-history-table tr.vacation-sick-leave:not([data-vacation-status="ODRZUCONY"]) .vacation-history-days strong'
+  ];
+  for (const selector of selectors) {
+    const start = css.indexOf(`${selector} {`);
+    assert.ok(start >= 0, selector);
+    const block = css.slice(start, css.indexOf('}', start));
+    assert.match(block, /color: #8b344b;/);
+    assert.match(block, /background: #f9e9ee;/);
+  }
+  assert.ok(css.indexOf(selectors[2]) > css.indexOf('.vacation-history-table tr[data-vacation-status="OCZEKUJE"] .vacation-history-days strong'));
+  assert.match(css, /tr\[data-vacation-status="ODRZUCONY"\] \.vacation-history-days strong \{\s*color: #914d58;/);
+});

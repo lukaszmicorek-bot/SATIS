@@ -3795,7 +3795,7 @@ h2 {
 }
 
 .vacation-history-table tr.vacation-sick-leave td:nth-child(2) {
-  color: #9b3f53;
+  color: #8b344b;
   font-weight: 700;
 }
 
@@ -3967,6 +3967,11 @@ h2 {
 .vacation-history-table tr[data-vacation-status="ODRZUCONY"] .vacation-history-days strong {
   color: #914d58;
   background: #faeaf0;
+}
+
+.vacation-history-table tr.vacation-sick-leave:not([data-vacation-status="ODRZUCONY"]) .vacation-history-days strong {
+  color: #8b344b;
+  background: #f9e9ee;
 }
 
 .vacation-history-status {
