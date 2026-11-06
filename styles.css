@@ -17954,5 +17954,9 @@ input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset:
 .complaint-shipping-address p { margin: 4px 0; font-size: 13px; line-height: 1.45; }
 .complaint-shipping-address small, .complaint-shipping-info .complaint-shipping-detail { color: #64747b; font-size: 12px; line-height: 1.45; }
 .complaint-shipping-address .complaint-shipping-courier { color: #244f61; font-weight: 650; }
+.complaint-shipping-address .complaint-shipping-company { color: #53636b; font-size: 12px; }
+.complaint-shipping-address .complaint-shipping-postal { margin-bottom: 8px; color: #193e4d; }
+.complaint-shipping-courier > span { display: block; }
+.complaint-shipping-courier-note { display: block; font-weight: 400; }
 .complaint-shipping-address button { margin-top: 6px; }
 @media print { #complaintShippingInfo { display: none !important; } }

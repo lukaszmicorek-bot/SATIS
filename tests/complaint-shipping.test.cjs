@@ -17,6 +17,30 @@ function setup(read=async()=>({})){const host=new Element('section');let user='o
   return {host,module,copied,reads:()=>reads,user:value=>{user=value;}};
 }
 const product={productName:'HearLink 3050',manufacturer:'Philips',serial:'TEST'};
+test('recipient choices and address blocks are alphabetical regardless of product order',async()=>{
+  const labels=shipping.routes.map(route=>route.label);
+  assert.deepEqual(labels,[...labels].sort((a,b)=>a.localeCompare(b,'pl',{sensitivity:'base',numeric:true})));
+  const s=setup();s.module.render([{...product,manufacturer:'Sonova'},
+    {...product,manufacturer:'Audibel',serial:'TEST2'},{...product,manufacturer:'ReSound',serial:'TEST3'}]);
+  await new Promise(setImmediate);
+  const select=nodes(s.host).find(n=>n.tag==='select');
+  assert.deepEqual(select.children.slice(1).map(n=>n.textContent),labels);
+  const blocks=nodes(s.host).filter(n=>n.className==='complaint-shipping-address');
+  assert.deepEqual(blocks.map(n=>n.children.find(child=>child.tag==='strong').textContent),
+    ['AUDIBEL · Warszawa','GNP / ReSound · Olsztyn','SONOVA · Warszawa']);
+  assert.match(text(blocks[0]),/Pozycje: 2/);assert.match(text(blocks[2]),/Pozycje: 1/);
+  assert.equal(nodes(blocks[0]).filter(n=>n.className==='complaint-shipping-company').length,1);
+  assert.equal(nodes(blocks[0]).filter(n=>n.className==='complaint-shipping-postal').length,1);
+});
+test('courier details and phone are on separate lines from account and NIP',async()=>{
+  const s=setup(async()=>({interton:[{carrier:'DHL',code:'TEST-ACCOUNT',detail:'TEST-DETAIL'}]}));
+  s.module.render([{...product,manufacturer:'Beltone'}]);await new Promise(setImmediate);
+  const courier=nodes(s.host).find(n=>n.className==='complaint-shipping-courier');
+  assert.deepEqual(courier.children.map(n=>n.textContent),['DHL: TEST-ACCOUNT','TEST-DETAIL']);
+  const details=nodes(s.host).filter(n=>n.className==='complaint-shipping-detail').map(n=>n.textContent);
+  assert.ok(details.some(value=>value.startsWith('NIP: ')));
+  assert.ok(details.some(value=>value.startsWith('Tel.: ')));
+});
 test('Sonova uses only DHL even when private configuration still contains UPS',async()=>{
   assert.deepEqual(shipping.routes.find(route=>route.id==='sonova').carriers,['DHL']);
   const sonova={...product,manufacturer:'Phonak'};
@@ -39,7 +63,8 @@ test('same destination groups multiple products; changing address is information
   assert.match(text(s.host),/Pozycje: 1, 2/);assert.match(text(s.host),/Mierzyn/);
   const select=nodes(s.host).find(n=>n.tag==='select');select.value='oticon';select.events.change();
   assert.equal(nodes(s.host).filter(n=>n.className==='complaint-shipping-address').length,2);
-  await nodes(s.host).find(n=>n.tag==='button').events.click();assert.match(s.copied[0],/Oticon Polska/);
+  const oticon=nodes(s.host).find(n=>n.className==='complaint-shipping-address'&&text(n).includes('Oticon Polska'));
+  await nodes(oticon).find(n=>n.tag==='button').events.click();assert.match(s.copied[0],/Oticon Polska/);
   s.module.render([{...product,manufacturer:'Beltone',productName:'Envision'}]);
   assert.match(text(s.host),/Kraków/);assert.equal(s.reads(),1);
 });

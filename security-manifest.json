@@ -1,5 +1,5 @@
 {
-  "app_version": "20261106-4",
+  "app_version": "20261106-5",
   "asset_policy_sha256": "1bc54fce22a3afbfd8c5994245f462877422e394a05a48263e4f814bc66e935d",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -31,8 +31,8 @@
       "sha256": "ca9b3b5d6e5d3179bd4d56b6a745392bbe72891dc271670df2c72e193d095b2b"
     },
     "complaint-shipping.js": {
-      "bytes": 8219,
-      "sha256": "cd994a0e758856cad97c2900b257c6d8784f68e0c6a8c547632fca00a77a54be"
+      "bytes": 8548,
+      "sha256": "5a46f36fdde05723238da28b62af5187a72985e8d8a412a75e5626ead37bd6d6"
     },
     "data-layer.js": {
       "bytes": 8943,
@@ -52,7 +52,7 @@
     },
     "index.html": {
       "bytes": 465333,
-      "sha256": "9e279e0740e1b8cc2c467d164d09716863054590ebe8d79ca7e31931c5d8b254"
+      "sha256": "8fa786aeff5740a30430ecfefa1321adfbaf4be02c2df58772eb147d1945fff7"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -168,7 +168,7 @@
     },
     "offline-sw.js": {
       "bytes": 3290,
-      "sha256": "9dbf17aa94658948b1fa9f3b528562966644ebe341f3c1c5ee750350c7fcb6f7"
+      "sha256": "0160df786f2247e8df267983d1caf6975dd7dd1fadc021efcb41730b64feeac7"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -203,8 +203,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 439038,
-      "sha256": "d425a9889ef27231c43acbb391a4a17afa28232224316f62da77ab0dcf97f3bc"
+      "bytes": 439352,
+      "sha256": "f1b180abb0079fdb550cdba5c7110ad6845c2aac06af4e6427977c59473a7b60"
     },
     "supabase-config.js": {
       "bytes": 227,

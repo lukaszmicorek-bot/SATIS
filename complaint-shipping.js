@@ -11,7 +11,7 @@
     {id:"dgs",label:"DGS · Mierzyn",company:"DGS Poland",address:"ul. Lubieszyńska 42, Mierzyn, 72-006 Szczecin",note:"Wkładki, aparaty ITE, naprawy",carriers:[]},
     {id:"acustica",label:"Acustica / Bernafon · Gdańsk",company:"Acustica Sp. z o.o.",address:"ul. Abrahama 1A, lok. 309, 80-307 Gdańsk",carriers:["UPS"]},
     {id:"oticon",label:"Oticon Polska · Warszawa",company:"Oticon Polska",address:"al. Jana Pawła II 22, 00-133 Warszawa",phone:"+48 22 164 65 00",nip:"522-10-46-291",carriers:["UPS"]}
-  ];
+  ].sort((left,right)=>left.label.localeCompare(right.label,"pl",{sensitivity:"base",numeric:true}));
   function key(value){return String(value||"").normalize("NFD").replace(/\p{M}/gu,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}
   function recommend(manufacturer){
     const value=` ${key(manufacturer)} `;
@@ -79,14 +79,20 @@
       });
       host.append(controls);
       const list=node("div",undefined,"complaint-shipping-addresses");
-      for(const [id,positions]of groups){
-        const route=routes.find(row=>row.id===id);if(!route)continue;
+      for(const route of routes){
+        const positions=groups.get(route.id);if(!positions)continue;
         const block=node("section",undefined,"complaint-shipping-address");
-        block.append(node("small",`Pozycje: ${positions.join(", ")}`),node("strong",route.company),node("p",route.address));
-        if(route.nip||route.phone)block.append(node("p",[route.nip?`NIP: ${route.nip}`:"",route.phone?`tel. ${route.phone}`:""].filter(Boolean).join(" · "),"complaint-shipping-detail"));
+        block.append(node("small",`Pozycje: ${positions.join(", ")}`),node("strong",route.label),node("p",route.company,"complaint-shipping-company"),node("p",route.address,"complaint-shipping-postal"));
+        if(route.nip)block.append(node("p",`NIP: ${route.nip}`,"complaint-shipping-detail"));
+        if(route.phone)block.append(node("p",`Tel.: ${route.phone}`,"complaint-shipping-detail"));
         if(route.note)block.append(node("p",route.note,"complaint-shipping-detail"));
         const codes=accounts[route.accountId||route.id]||[];
-        for(const courier of codes)block.append(node("p",`${courier.carrier}: ${courier.code}${courier.detail?` · ${courier.detail}`:""}`,"complaint-shipping-courier"));
+        for(const courier of codes){
+          const line=node("p",undefined,"complaint-shipping-courier");
+          line.append(node("span",`${courier.carrier}: ${courier.code}`));
+          if(courier.detail)line.append(node("small",courier.detail,"complaint-shipping-courier-note"));
+          block.append(line);
+        }
         if(!codes.length&&route.carriers.length)block.append(node("p",`Kurier: ${route.carriers.join(" / ")}`,"complaint-shipping-detail"));
         const copy=node("button","Kopiuj adres","reset-filters-btn");copy.type="button";
         copy.addEventListener("click",async()=>{
