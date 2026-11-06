@@ -10949,6 +10949,18 @@ tbody tr.device-sold-row .date-text.today-date {
   word-break: normal;
 }
 
+.serial-pill-number,
+.serial-single-line,
+.dialog-title-serial,
+.repair-dialog-serial,
+#serialNumber,
+#repairSerialNumber,
+#repairSerialNumber2,
+#demoSerialNumber {
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1;
+}
+
 .serial-single-line {
   display: block;
   min-width: 0;

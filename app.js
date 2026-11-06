@@ -4303,6 +4303,27 @@ function normalizeDeviceName(value) {
     .trim();
 }
 
+function capitalizeDeviceModel(value) {
+  return String(value ?? "").replace(/(^|[\s-])(\p{L})/gu,
+    (_, separator, letter) => separator + letter.toLocaleUpperCase("pl-PL"));
+}
+
+function syncDeviceModelCapitalization(event) {
+  const input = event.target;
+  if (event.isComposing) return;
+  const before = input.value;
+  const formatted = capitalizeDeviceModel(before);
+  if (formatted === before) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const direction = input.selectionDirection;
+  input.value = formatted;
+  if (typeof start === "number" && typeof end === "number") {
+    input.setSelectionRange(capitalizeDeviceModel(before.slice(0, start)).length,
+      capitalizeDeviceModel(before.slice(0, end)).length, direction);
+  }
+}
+
 function preserveCorrectionCase(source, replacement) {
   if (source === source.toLocaleUpperCase("pl-PL")) return replacement.toLocaleUpperCase("pl-PL");
   if (source[0] === source[0]?.toLocaleUpperCase("pl-PL")) {
@@ -26235,7 +26256,7 @@ function formRecord() {
   });
   normalizeFormDateFields(data, DEVICE_DATE_FIELDS);
   data.manufacturer = data.manufacturer.toLocaleUpperCase("pl-PL");
-  data.deviceName = correctDeviceNameFromHistory(data.deviceName, document.querySelector("#recordId").value);
+  data.deviceName = capitalizeDeviceModel(correctDeviceNameFromHistory(data.deviceName, document.querySelector("#recordId").value));
   data.customerName = titleCaseName(data.customerName);
   data.serialNumber = normalizeSerialNumber(data.serialNumber);
   data.salesInvoice = normalizeSalesInvoice(data.salesInvoice);
@@ -27252,7 +27273,7 @@ function syncSalesInvoiceUppercase(event) {
 
 function correctDeviceNameInput() {
   const input = document.querySelector("#deviceName");
-  input.value = correctDeviceNameFromHistory(input.value, document.querySelector("#recordId").value);
+  input.value = capitalizeDeviceModel(correctDeviceNameFromHistory(input.value, document.querySelector("#recordId").value));
 }
 
 function handleClearDateClick(event) {
@@ -29898,6 +29919,8 @@ registerQualityHintListeners("demo", ["#demoDeviceName", "#demoSerialNumber", "#
 ].forEach((input) => input?.addEventListener("blur", () => correctNotesInput(input)));
 const deviceModelInput = document.querySelector("#deviceName");
 const debouncedDeviceModelSuggestions = debounce(refreshDeviceModelSuggestions, SEARCH_DEBOUNCE_MS);
+deviceModelInput.addEventListener("input", syncDeviceModelCapitalization);
+deviceModelInput.addEventListener("change", syncDeviceModelCapitalization);
 document.querySelector("#customerName").addEventListener("input", syncDeviceTypeFromFields);
 document.querySelector("#salesInvoice").addEventListener("input", syncSalesInvoiceUppercase);
 deviceModelInput.addEventListener("input", debouncedDeviceModelSuggestions);

@@ -22,11 +22,34 @@ function setup() {
     todayInputValue:()=> '2026-10-29', displayType:record=>record.type
   });
   controls['#recordId']={value:''};
-  for(const name of ['normalizeEzwmStatus','normalizeDeviceType','isDeviceCharger','deviceEzwmStatus',
+  for(const name of ['capitalizeDeviceModel','normalizeEzwmStatus','normalizeDeviceType','isDeviceCharger','deviceEzwmStatus',
     'isoDateFromParts','isoDateForSave','deviceEzwmRealizationDelay','formatDaysLabel',
     'syncDeviceEzwmForType','normalizeDeviceRecordForUse','formRecord'])vm.runInContext(extract(name),ctx);
   return {ctx,controls};
 }
+test('model capitalization preserves acronyms, brand spelling, spaces and hyphens',()=>{
+  const {ctx}=setup();
+  for(const [input,expected] of [['audeo l90 r','Audeo L90 R'],['HearLink RIC M90','HearLink RIC M90'],
+    ['ładowarka - charger','Ładowarka - Charger'],['  naída  p50 ','  Naída  P50 '],['','']]) {
+    assert.equal(ctx.capitalizeDeviceModel(input),expected);
+  }
+  vm.runInContext(extract('syncDeviceModelCapitalization'),ctx);
+  const input={value:'audeo l90',selectionStart:3,selectionEnd:5,selectionDirection:'backward',
+    setSelectionRange(...args){this.selection=args;}};
+  ctx.syncDeviceModelCapitalization({target:input});
+  assert.equal(input.value,'Audeo L90');assert.deepEqual(input.selection,[3,5,'backward']);
+  input.value='naida';ctx.syncDeviceModelCapitalization({target:input,isComposing:true});
+  assert.equal(input.value,'naida');
+  assert.match(source,/deviceModelInput\.addEventListener\("input", syncDeviceModelCapitalization\)/);
+  ctx.correctDeviceNameFromHistory=()=> 'audeo RIC';
+  assert.equal(ctx.formRecord().deviceName,'Audeo RIC');
+  vm.runInContext(extract('correctDeviceNameInput'),ctx);
+  ctx.correctDeviceNameInput();assert.equal(ctx.document.querySelector('#deviceName').value,'Audeo RIC');
+});
+test('serial numbers use the font slashed-zero feature without changing their text',()=>{
+  const css=fs.readFileSync(require.resolve('../styles.css'),'utf8');
+  assert.match(css,/#serialNumber,[\s\S]*?#demoSerialNumber\s*\{\s*font-variant-numeric: slashed-zero;\s*font-feature-settings: "zero" 1;/);
+});
 test('chargers use no reimbursement for old and new records regardless of previous EZWM',()=>{
   const {ctx}=setup();
   for(const deviceName of ['Ładowarka','ŁADOWARKA Philips','ladowarka Phonak','Oticon CHARGER 1.0','SmartCharger']) {
