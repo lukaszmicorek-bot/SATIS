@@ -17928,3 +17928,19 @@ input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset:
 .app-update-notice > span { flex: 1 1 280px; overflow-wrap: anywhere; }
 .app-update-notice button { min-height: 34px; border-color: #82aaa4; white-space: nowrap; }
 @media print { .app-update-notice { display: none !important; } }
+
+.complaint-shipping-info { padding: 14px 0; border-top: 1px solid #dbe5e7; border-bottom: 1px solid #dbe5e7; }
+.complaint-shipping-info[hidden] { display: none; }
+.complaint-shipping-info h3 { margin: 0 0 10px; color: #003f5a; font-size: 14px; }
+.complaint-shipping-controls, .complaint-shipping-addresses { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,250px),1fr)); gap: 12px; }
+.complaint-shipping-controls label { display: grid; gap: 5px; min-width: 0; }
+.complaint-shipping-controls label > span { color: #53636b; font-size: 12px; overflow-wrap: anywhere; }
+.complaint-shipping-controls select { width: 100%; min-width: 0; }
+.complaint-shipping-addresses { margin-top: 12px; }
+.complaint-shipping-address { min-width: 0; border-left: 3px solid #82b9b7; padding: 8px 12px; background: #f5f9f9; overflow-wrap: anywhere; }
+.complaint-shipping-address strong { display: block; margin: 4px 0; color: #193e4d; font-size: 13px; }
+.complaint-shipping-address p { margin: 4px 0; font-size: 13px; line-height: 1.45; }
+.complaint-shipping-address small, .complaint-shipping-info .complaint-shipping-detail { color: #64747b; font-size: 12px; line-height: 1.45; }
+.complaint-shipping-address .complaint-shipping-courier { color: #244f61; font-weight: 650; }
+.complaint-shipping-address button { margin-top: 6px; }
+@media print { #complaintShippingInfo { display: none !important; } }

@@ -178,6 +178,11 @@
 !/tests/audit-save-regressions.test.cjs
 !/tests/loan-handover.test.cjs
 
+!/complaint-shipping.js
+!/supabase-complaint-shipping.sql
+!/tests/complaint-shipping.test.cjs
+!/tests/complaint-shipping.sqltest.cjs
+/private/
 !/vacation-attendance.js
 !/tests/vacation-attendance.test.cjs
 

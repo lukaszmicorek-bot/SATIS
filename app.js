@@ -461,6 +461,8 @@ let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
 let stockAuditWorkflow = null;
 let sensitiveStateGeneration = 0;
+let complaintShippingModule = null;
+let complaintShippingManufacturerCache = null;
 let tasksModule = null;
 let clientsModule = null;
 let mailMergeModule = null;
@@ -2871,6 +2873,8 @@ function clearSensitiveApplicationState() {
   [saveRecordBtn, saveRepairBtn, saveDemoBtn].forEach(button => { if (button) { button.disabled = false; button.textContent = "Zapisz"; } });
   clientsModule?.clear();
   tasksModule?.clear();
+  complaintShippingModule?.clear();
+  complaintShippingManufacturerCache = null;
   mailMergeModule?.clear();
   clientsSourceCache = { refs: [], rows: [] };
   stockAuditWorkflow?.reset();
@@ -12736,6 +12740,7 @@ async function deletePricingOrderHistoryEntry(id) {
 
 function restorePricingComplaintFromHistory(entry) {
   if (documentSaveLocks.has("complaint")) return;
+  if (typeof complaintShippingModule !== "undefined") complaintShippingModule?.reset();
   const saved = normalizePricingComplaintHistoryEntry(entry);
   if (!saved) return;
   if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_COMPLAINT_HISTORY_TABLE, saved.id);
@@ -17882,6 +17887,38 @@ function renderPricingComplaintProducts(items) {
   renderTableRows(complaintProductsBody, rows);
 }
 
+function renderComplaintShippingInfo(items) {
+  if (typeof window === "undefined" || !window.SatisComplaintShipping) return;
+  if (!complaintShippingModule) complaintShippingModule = window.SatisComplaintShipping.create({
+    document, user: () => currentSupabaseUser?.id || "",
+    copy: text => navigator.clipboard.writeText(text),
+    read: async () => {
+      if (!hasSupabaseConfig || !currentSupabaseUser || !supabaseClient) throw new Error("Offline");
+      const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 10000);
+      try {
+        const { data, error } = await supabaseClient.rpc("complaint_shipping_accounts_read").abortSignal(controller.signal);
+        if (error) throw error;
+        return data;
+      } finally { window.clearTimeout(timer); }
+    }
+  });
+  const sources = [records, demoRecords, pricingRecords];
+  if (!complaintShippingManufacturerCache || sources.some((source, index) => source !== complaintShippingManufacturerCache.sources[index]
+    || source.length !== complaintShippingManufacturerCache.lengths[index])) {
+    complaintShippingManufacturerCache = { sources, lengths: sources.map(source => source.length), values: new Map() };
+  }
+  const products = items.map(item => {
+    const key = JSON.stringify([item.serial, item.productName]);
+    if (!complaintShippingManufacturerCache.values.has(key)) {
+      const matched = item.serial ? findLoanDeviceBySerial(item.serial) : null;
+      const priced = findPricingOfferRecord(item.productName);
+      complaintShippingManufacturerCache.values.set(key, matched?.manufacturer || priced?.manufacturer || demoManufacturerForModel(item.productName) || "");
+    }
+    return { ...item, manufacturer: complaintShippingManufacturerCache.values.get(key) };
+  });
+  complaintShippingModule.render(products);
+}
+
 function renderPricingComplaint() {
   if (!pricingComplaintView) return;
   ensurePricingComplaintDefaults();
@@ -17921,6 +17958,7 @@ function renderPricingComplaint() {
   setComplaintOutput("defect", complaintInputValue(complaintDefectInput));
   setComplaintOutput("notes", complaintInputValue(complaintNotesInput));
   renderPricingComplaintProducts(items);
+  if (typeof renderComplaintShippingInfo === "function") renderComplaintShippingInfo(items);
 }
 
 function syncComplaintProductNameForType(slot = 1) {
@@ -17937,6 +17975,7 @@ function syncComplaintProductNameForType(slot = 1) {
 
 function resetPricingComplaintForm() {
   if (documentSaveLocks.has("complaint")) return;
+  if (typeof complaintShippingModule !== "undefined") complaintShippingModule?.reset();
   documentDraftIdentities.delete("complaint");
   setDocumentCustomerNameValidity(complaintCustomerInput, true);
   [

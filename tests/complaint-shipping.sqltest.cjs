@@ -1,0 +1,21 @@
+const {PGlite}=require('@electric-sql/pglite');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{const db=new PGlite();try{
+ await db.exec(`create role anon nologin;create role authenticated nologin;create schema auth;
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
+ create function public.is_satis_app_user() returns boolean language sql stable as $$select current_setting('test.allowed',true)='yes'$$;
+ grant usage on schema auth,public to anon,authenticated;`);
+ const schema=fs.readFileSync('supabase-complaint-shipping.sql','utf8');await db.exec(schema);await db.exec(schema);
+ await db.query('insert into private.complaint_shipping_accounts values ($1,$2)', ['sonova',[{carrier:'UPS',code:'TEST-ACCOUNT'}]]);
+ await db.exec("select set_config('test.uid','00000000-0000-0000-0000-000000000001',false);select set_config('test.allowed','yes',false);set role authenticated;");
+ const result=(await db.query('select complaint_shipping_accounts_read() result')).rows[0].result;
+ assert.equal(result.sonova[0].code,'TEST-ACCOUNT');
+ await assert.rejects(db.query('select * from private.complaint_shipping_accounts'),e=>e.code==='42501');
+ await assert.rejects(db.query("delete from private.complaint_shipping_accounts"),e=>e.code==='42501');
+ await db.exec("reset role;select set_config('test.allowed','no',false);set role authenticated;");
+ await assert.rejects(db.query('select complaint_shipping_accounts_read()'),e=>e.code==='42501');
+ await db.exec("reset role;select set_config('test.uid','',false);set role anon;");
+ await assert.rejects(db.query('select complaint_shipping_accounts_read()'),e=>e.code==='42501');
+ console.log('PASS: shipping RPC is authorized, private identifiers are read-only, anonymous and unapproved accounts are denied.');
+}finally{await db.close();}})().catch(error=>{console.error(error.message,error.code||'');process.exitCode=1;});

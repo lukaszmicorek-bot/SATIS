@@ -34,6 +34,7 @@ MIGRATIONS = [
 ]
 EXTRA_PUBLIC_FILES = {
     "tests/offer-payment-layout.test.cjs",
+    "supabase-complaint-shipping.sql", "tests/complaint-shipping.test.cjs", "tests/complaint-shipping.sqltest.cjs",
     "tests/offer-manufacturer-logos.test.cjs",
     "tests/device-ezwm.test.cjs", "tests/device-search-history.test.cjs",
     "supabase-clients.sql", "supabase-client-schedule.sql", "KLIENCI-BEZPIECZENSTWO.md", "tests/clients.test.cjs", "tests/clients.sqltest.cjs",
@@ -94,7 +95,7 @@ def node_binary():
 
 def check_source():
     node = node_binary()
-    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js", "stock-audit.js", "clients.js", "tinnitus-forms.js", "mail-merge.js", "mail-merge-pdf.mjs", "tasks.js", "vacation-attendance.js"):
+    for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js", "stock-audit.js", "clients.js", "tinnitus-forms.js", "mail-merge.js", "mail-merge-pdf.mjs", "tasks.js", "complaint-shipping.js", "vacation-attendance.js"):
         run(node, "--check", str(ROOT / name))
     tests = sorted((ROOT / "tests").glob("*.test.cjs"))
     if not tests:
