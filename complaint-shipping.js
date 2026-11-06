@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==="object"&&module.exports)module.exports=api;if(root)root.SatisComplaintShipping=api;})(typeof window==="undefined"?null:window,function(){
   "use strict";
   const routes=[
-    {id:"sonova",label:"SONOVA · Warszawa",company:"SONOVA POLSKA Sp. z o.o.",address:"plac Bankowy 1, 00-139 Warszawa",nip:"113-00-54-012",carriers:["DHL","UPS"]},
+    {id:"sonova",label:"SONOVA · Warszawa",company:"SONOVA POLSKA Sp. z o.o.",address:"plac Bankowy 1, 00-139 Warszawa",nip:"113-00-54-012",carriers:["DHL"]},
     {id:"sivantos",label:"SIVANTOS · Komorniki",company:"SIVANTOS Sp. z o.o.",address:"ul. Przemysłowa 18, 62-052 Komorniki",nip:"783-14-47-931",carriers:["UPS"]},
     {id:"sivantos-poznan",label:"SIVANTOS · Poznań",company:"SIVANTOS Sp. z o.o.",address:"ul. Bałtycka 6, 61-013 Poznań",nip:"783-14-47-931",carriers:["UPS"],accountId:"sivantos"},
     {id:"audibel",label:"AUDIBEL · Warszawa",company:"AUDIBEL",address:"ul. Wirażowa 119, 02-145 Warszawa",nip:"522-10-46-291",carriers:["UPS"]},
@@ -30,7 +30,7 @@
     if(!value||typeof value!=="object"||Array.isArray(value))return result;
     for(const route of routes){
       const entries=value[route.id];if(!Array.isArray(entries))continue;
-      result[route.id]=entries.slice(0,8).filter(row=>row&&["DHL","UPS","TNT"].includes(row.carrier)).map(row=>({
+      result[route.id]=entries.slice(0,8).filter(row=>row&&["DHL","UPS","TNT"].includes(row.carrier)&&(route.id!=="sonova"||row.carrier==="DHL")).map(row=>({
         carrier:row.carrier,code:String(row.code||"").trim().slice(0,60),detail:String(row.detail||"").trim().slice(0,100)
       })).filter(row=>row.code);
     }

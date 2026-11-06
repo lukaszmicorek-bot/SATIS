@@ -17,6 +17,15 @@ function setup(read=async()=>({})){const host=new Element('section');let user='o
   return {host,module,copied,reads:()=>reads,user:value=>{user=value;}};
 }
 const product={productName:'HearLink 3050',manufacturer:'Philips',serial:'TEST'};
+test('Sonova uses only DHL even when private configuration still contains UPS',async()=>{
+  assert.deepEqual(shipping.routes.find(route=>route.id==='sonova').carriers,['DHL']);
+  const sonova={...product,manufacturer:'Phonak'};
+  const fallback=setup();fallback.module.render([sonova]);await new Promise(setImmediate);
+  assert.match(text(fallback.host),/Kurier: DHL/);assert.doesNotMatch(text(fallback.host),/UPS/);
+  const s=setup(async()=>({sonova:[{carrier:'UPS',code:'TEST-UPS'},{carrier:'DHL',code:'TEST-DHL'}]}));
+  s.module.render([sonova]);await new Promise(setImmediate);
+  assert.match(text(s.host),/DHL: TEST-DHL/);assert.doesNotMatch(text(s.host),/UPS|TEST-UPS/);
+});
 test('manufacturer routes follow supplied destinations, including Beltone/Interton and Olsztyn default',()=>{
   for(const [manufacturer,id]of [['Phonak','sonova'],['SONOVA POLSKA','sonova'],['SIGNIA','sivantos'],['Audio Service','sivantos'],['WSA','sivantos'],
     ['Audibel','audibel'],['Interton.pl','interton'],['Beltone','interton'],['ReSound','gnp'],['Oticon','dgs'],['Philips','dgs'],['Sonic','dgs'],['Bernafon','acustica']])assert.equal(shipping.recommend(manufacturer),id,manufacturer);
