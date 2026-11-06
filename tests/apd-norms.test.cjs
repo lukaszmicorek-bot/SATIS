@@ -103,7 +103,7 @@ vm.runInContext(app.slice(app.indexOf('function capdPractitionerTitle('), app.in
 test('APD footer assigns the combined profession only to Justyna', () => {
   assert.equal(titleContext.capdPractitionerTitle('Justyna Testowa'), 'Protetyk słuchu/logopeda:');
   assert.equal(titleContext.capdPractitionerTitle(' JUSTYNA Testowa '), 'Protetyk słuchu/logopeda:');
-  assert.equal(titleContext.capdPractitionerTitle('Dorota Mikosz-Micorek'), 'Protetyk słuchu:');
+  assert.equal(titleContext.capdPractitionerTitle('Dorota Testowa'), 'Protetyk słuchu:');
   assert.equal(titleContext.capdPractitionerTitle(''), 'Protetyk słuchu:');
 });
 vm.runInContext(`${values}\n${lookup}\n${evaluation}\nglobalThis.normFor = capdNormDefinition; globalThis.evaluate = capdResultEvaluation; globalThis.conclusion = capdAbnormalConclusionText;`, context);
@@ -364,9 +364,9 @@ test('APD keeps practitioner details in history and at the end of the report', (
 test('APD selects a named practitioner without a separate profile-save control', () => {
   assert.doesNotMatch(html, /id="saveCapdPractitionerProfileBtn"|Zapisz profil|id="capdPractitionerProfileStatus"/);
   assert.match(html, /id="capdPractitionerAddressInput"/);
-  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P63"[^>]*><strong>Dorota Mikosz-Micorek<\/strong>/);
-  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P50"[^>]*><strong>Dorota Mikosz-Micorek<\/strong>/);
-  assert.match(html, /data-capd-practitioner-shortcut="justyna" data-capd-practitioner-location="P63"[^>]*><strong>Justyna Testowa<\/strong>/);
+  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P63"[^>]*><strong>Wybierz profil<\/strong>/);
+  assert.match(html, /data-capd-practitioner-shortcut="dorota" data-capd-practitioner-location="P50"[^>]*><strong>Wybierz profil<\/strong>/);
+  assert.match(html, /data-capd-practitioner-shortcut="justyna" data-capd-practitioner-location="P63"[^>]*><strong>Wybierz profil<\/strong>/);
   assert.doesNotMatch(html, /id="addCapdPractitionerAddressBtn"|id="removeCapdPractitionerAddressBtn"/);
   assert.match(app, /await upsertSupabaseRecord\(SUPABASE_CAPD_HISTORY_TABLE, entry\)/);
   assert.match(app, /entries\.filter\(\(entry\) => !entry\.id\.startsWith\(CAPD_PROFILE_ID_PREFIX\)\)/);
@@ -444,8 +444,8 @@ test('APD practitioner shortcut fills the saved person and selected clinic addre
   scope.applyShortcut(profile);
   assert.equal(location.value, 'P63');
   scope.capdSavedPractitionerProfiles = [];
-  assert.equal(scope.findShortcut('dorota').name, 'Dorota Mikosz-Micorek');
-  assert.equal(scope.findShortcut('justyna').name, 'Justyna Testowa');
+  assert.equal(scope.findShortcut('dorota').name, '');
+  assert.equal(scope.findShortcut('justyna').name, '');
 });
 
 test('gabinet has only the 2026 norm set; SATIS retains both choices after an account switch',()=>{

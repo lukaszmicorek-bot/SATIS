@@ -25,8 +25,7 @@ begin
     allowance := least(case when factor = 1 then 300 else 40 end,
       greatest(0, coalesce((period.data->>'allowance')::numeric,0)) * case
         when factor = 1 and (upper(coalesce(period.data->>'unit','')) not in ('HOURS','GODZINY','GODZ.')
-          or (lower(coalesce(period.data->>'name','')) like '%justyna Testowa%'
-            and coalesce((period.data->>'allowance')::numeric,0) = 10)) then 8 else 1 end) * factor;
+          or coalesce((period.data->>'legacyAllowanceDays')::boolean,false)) then 8 else 1 end) * factor;
     used := 0; pending := 0; pending_buckets := null; allocations := '{}';
     buckets := buckets || jsonb_build_array(jsonb_build_object('year',(period.data->>'year')::int,'hours',allowance));
     for q in select r.id, r.data,

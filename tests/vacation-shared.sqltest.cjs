@@ -222,6 +222,21 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
     assert.equal((await one("select count(*)::int n from vacation_requests where id='l4-private'")).n,0,'raw private data stays unavailable');
     await db.exec('reset role');
 
+    await db.exec(read('supabase-vacation-attendance-private.sql'));
+    await db.exec(read('supabase-vacation-attendance-private.sql'));
+    await login(owner,'satis@pracowniasluchu.pl');
+    const employeeBefore=(await one("select data,revision from vacation_employees where id='hour-2026'"));
+    const privateSchedule={1:['09:15','13:45'],3:['10:30','14:30']};
+    await db.query('select satis_write_records($1,$2,$3)',[randomUUID(),[{table:'vacation_employees',id:'hour-2026',
+      data:{...employeeBefore.data,attendanceSchedule:privateSchedule,workTimeEnabled:true},expectedRevision:employeeBefore.revision,delete:false}],'SATIS']);
+    await login(staff,'gabinet@example.test');
+    const attendanceEmployee=(await one('select vacation_read_authorized() result')).result.employees.find(e=>e.id==='hour-2026');
+    assert.deepEqual(attendanceEmployee.data.attendanceSchedule,privateSchedule);
+    assert.equal(attendanceEmployee.data.redacted,true);assert.equal(attendanceEmployee.data.allowance,undefined);
+    const attemptedUpdate=await db.query("update vacation_employees set data=data where id='hour-2026' returning id");
+    assert.equal(attemptedUpdate.rows.length,0,'staff cannot change the private employee schedule');
+    await db.exec('reset role');
+
     await db.exec("select set_config('request.jwt.claims','{}',false); set role anon;");
     await denied(submit());
     await denied(one('select vacation_read_authorized() result'));

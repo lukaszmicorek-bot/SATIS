@@ -21960,6 +21960,8 @@ function updateCapdPractitionerShortcuts() {
   const location = documentLocationKey(capdLocationInput?.value);
   capdPractitionerShortcutButtons.forEach((button) => {
     const name = button.dataset.capdPractitionerShortcut;
+    const label = button.querySelector("strong");
+    if (label) label.textContent = capdProfileForShortcut(name).name || "Wybierz profil";
     const selected = (examiner === name || examiner.startsWith(`${name} `))
       && location === button.dataset.capdPractitionerLocation;
     button.setAttribute("aria-pressed", String(selected));
@@ -24007,7 +24009,9 @@ async function saveVacationEmployee() {
   const authUser = currentSupabaseUser;
   const name = titleCaseName(vacationNewEmployeeInput?.value || "");
   const allowance = Number(vacationAllowanceInput?.value);
-  const unit = normalizeVacationEmployeeUnit("", name);
+  const year = selectedVacationYear();
+  const existing = vacationEmployees.find((employee) => employee.year === year && normalize(employee.name) === normalize(name));
+  const unit = normalizeVacationEmployeeUnit(existing?.unit, name);
   const maximumAllowance = unit === "HOURS" ? 300 : 40;
   if (!name || !Number.isFinite(allowance) || allowance < 0 || allowance > maximumAllowance) {
     alert(unit === "HOURS"
@@ -24015,8 +24019,6 @@ async function saveVacationEmployee() {
       : "Wpisz imię i nazwisko oraz prawidłową liczbę dni od 0 do 40.");
     return;
   }
-  const year = selectedVacationYear();
-  const existing = vacationEmployees.find((employee) => employee.year === year && normalize(employee.name) === normalize(name));
   const employee = normalizeVacationEmployee({
     ...existing,
     id: existing?.id || makeId(),

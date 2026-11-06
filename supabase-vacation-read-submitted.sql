@@ -21,8 +21,7 @@ begin
         greatest(0, coalesce((e.data->>'allowance')::numeric, 0)) * case
           when public.vacation_employee_uses_hours(e.data)
             and (upper(coalesce(e.data->>'unit','')) not in ('HOURS','GODZINY','GODZ.')
-              or (lower(coalesce(e.data->>'name','')) like '%justyna Testowa%'
-                and coalesce((e.data->>'allowance')::numeric,0) = 10)) then 8 else 1 end)
+              or coalesce((e.data->>'legacyAllowanceDays')::boolean,false)) then 8 else 1 end)
         - coalesce((select sum(case when public.vacation_employee_uses_hours(e.data)
           then coalesce((r.data->>'hours')::numeric, 0)
           else public.vacation_working_days((r.data->>'dateFrom')::date, (r.data->>'dateTo')::date) end)

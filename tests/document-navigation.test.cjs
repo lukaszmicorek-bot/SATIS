@@ -154,11 +154,11 @@ test('work time rejects impossible or incomplete entries', () => {
 test('work time shows only the three workers from the selected vacation year', () => {
   const ctx = vm.createContext({normalize: value => String(value).toLowerCase()});
   vm.runInContext(extract('workTimeRosterForYear'), ctx);
-  const entries = ['Oliwia Testowa', 'Justyna Testowa', 'Iwona Test', 'Dorota Test', 'Inna Osoba']
-    .map((name, index) => ({id: String(index), name, year: 2026, redacted: false}));
-  entries.push({id: 'old', name: 'Oliwia Testowa', year: 2025, redacted: false});
+  const entries = ['Osoba Testowa A', 'Justyna Testowa', 'Iwona Test', 'Dorota Test', 'Inna Osoba']
+    .map((name, index) => ({id: String(index), name, year: 2026, redacted: false, workTimeEnabled: index < 3}));
+  entries.push({id: 'old', name: 'Osoba Testowa A', year: 2025, redacted: false});
   assert.equal(ctx.workTimeRosterForYear(entries, 2026).map(item => item.name).join(','),
-    'Oliwia Testowa,Justyna Testowa,Iwona Test');
+    'Osoba Testowa A,Justyna Testowa,Iwona Test');
 });
 test('work time save persists calculated minutes and rejects a store that is not ready', async () => {
   const saved = [];
@@ -169,7 +169,7 @@ test('work time save persists calculated minutes and rejects a store that is not
     canViewPrivateModules: () => true, currentSupabaseUser: {id: 'owner'}, hasSupabaseConfig: true,
     workTimeStoreReady: false, workTimeEditingKey: '', workTimeRecords: [],
     workTimeFields: {Employee: {value: 'e1'}, Month: {value: '2026-10'}},
-    vacationEmployees: [{id: 'e1', name: 'Oliwia Testowa', year: 2026, redacted: false}],
+    vacationEmployees: [{id: 'e1', name: 'Osoba Testowa A', year: 2026, redacted: false}],
     workTimeSaveBtn: {disabled: false}, workTimeStartSaveBtn: {disabled: false},
     supabaseClient: {from: () => ({upsert: async (record, options) => {
       saved.push({record, options}); return {error: null};
@@ -211,7 +211,7 @@ test('gabinet saves only through the PIN-gated RPC for the selected worker', asy
     workTimeStoreReady: true, workTimeEditingKey: '', workTimeRecords: [],
     workTimeFields: {Employee: {value: 'e1'}, Month: {value: '2026-10'}},
     workTimePinInput: {value: '381927'},
-    vacationEmployees: [{id: 'e1', name: 'Oliwia Testowa', year: 2026, redacted: true}],
+    vacationEmployees: [{id: 'e1', name: 'Osoba Testowa A', year: 2026, redacted: true}],
     workTimeSaveBtn: {disabled: false}, workTimeStartSaveBtn: {disabled: false},
     supabaseClient: {rpc: async (name, args) => {calls.push({name, args}); return {data: {ok: true}, error: null};}},
     workTimeDraft: () => ({date: '2026-10-06', kind: 'WORK', start: '08:00', end: '',
@@ -293,7 +293,7 @@ test('only SATIS can remove a work time entry and the audit trail remains', asyn
     workTimeSetMessage: () => {}, loadWorkTimeRecords: async () => {}
   });
   vm.runInContext(extract('deleteWorkTimeRecord'), ctx);
-  const record = {employee_id: 'e1', employee_name: 'Oliwia Testowa', work_date: '2026-10-06', payload: {kind: 'WORK'}};
+  const record = {employee_id: 'e1', employee_name: 'Osoba Testowa A', work_date: '2026-10-06', payload: {kind: 'WORK'}};
   await ctx.deleteWorkTimeRecord(record, {disabled: false});
   assert.equal(saved.length, 1);
   assert.ok(saved[0].payload.deletedAt);
@@ -742,7 +742,7 @@ test('September examples contain normal, late and extra work without creating of
   const ctx = vm.createContext({Date});
   for (const name of ['workTimeExampleSchedule', 'workTimeExampleRecords', 'workTimeIntervalMinutes',
     'workTimeCalculatedMinutes', 'workTimeScheduleComparison']) vm.runInContext(extract(name), ctx);
-  for (const name of ['Oliwia Testowa', 'Justyna Testowa', 'Iwona Testowa']) {
+  for (const name of ['Osoba Testowa A', 'Justyna Testowa', 'Iwona Testowa']) {
     const rows = ctx.workTimeExampleRecords({id: name, name});
     assert.equal(rows.length, 22);
     assert.equal(rows[0].work_date, '2026-09-30');
