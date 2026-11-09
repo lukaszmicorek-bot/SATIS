@@ -5174,7 +5174,24 @@ function appendCustomerTooltipSections(container, text) {
         parts.forEach((part) => {
           const detail = document.createElement("div");
           detail.className = "customer-tooltip-entry-detail";
-          renderWarrantyDateText(detail, part);
+          const equipment = part.match(/^(Prawy|Lewy|Ładowarka|Wkładka uszna):\s*(.*)$/u);
+          const field = part.match(/^(Nr seryjny|Charakter|Kod NFZ|Cena|Miejsce|Status|Wypożyczono|Termin zwrotu):\s*(.*)$/u);
+          if (equipment || field) {
+            const match = equipment || field;
+            const label = document.createElement("span");
+            const value = document.createElement("span");
+            label.className = "customer-tooltip-field-label";
+            label.textContent = equipment ? { Prawy: "P", Lewy: "L" }[match[1]] || match[1] : match[1];
+            value.className = "customer-tooltip-field-value";
+            renderWarrantyDateText(value, match[2]);
+            detail.classList.add("customer-tooltip-field");
+            if (equipment) {
+              detail.classList.add("customer-tooltip-equipment");
+              detail.classList.add(match[1] === "Prawy" ? "side-right" : match[1] === "Lewy" ? "side-left" : "accessory");
+            }
+            if (match[1] === "Nr seryjny") value.classList.add("serial-single-line");
+            detail.append(label, value);
+          } else renderWarrantyDateText(detail, part);
           entry.append(detail);
         });
         block.append(entry);
@@ -18822,31 +18839,30 @@ function loanHistoryMatchesRecordSerial(entry, record) {
 
 function offerHistoryItemsLabel(entry) {
   return (entry?.items || [])
-    .map((item) => [item.model || item.tradeName, item.nfzCode, formatPricingPrice(item.grossPrice)].filter(Boolean).join(" / "))
+    .map((item) => {
+      const model = item.model || item.tradeName;
+      const label = item.kind === "charger" ? "Ładowarka" : item.kind === "earmold" ? "Wkładka uszna" : item.side === "L" ? "Lewy" : "Prawy";
+      return [model ? `${label}: ${model}` : "", item.nfzCode ? `Kod NFZ: ${item.nfzCode}` : "",
+        item.grossPrice !== undefined && item.grossPrice !== "" ? `Cena: ${formatPricingPrice(item.grossPrice)}` : ""].filter(Boolean).join(" | ");
+    })
     .filter(Boolean)
-    .join("; ");
+    .join(" | ");
 }
 
 function loanHistoryItemsLabel(entry) {
-  const items = [entry?.rightDevice, entry?.leftDevice]
-    .filter(hasLoanDeviceData)
-    .map((device) => [
-      device.side,
-      device.model,
-      device.serial,
-      normalizeLoanDemoPurpose(device.purpose) === DEMO_PURPOSE_REPLACEMENT
-        ? "Zastępczy"
-        : normalizeLoanDemoPurpose(device.purpose)
-          ? "Demo"
-          : ""
-    ].filter(Boolean).join(" / "))
-    .filter(Boolean);
-  const charger = [
-    entry?.charger || ((entry?.chargerSerial || entry?.chargerState) ? "Ładowarka" : ""),
-    entry?.chargerSerial
-  ].filter(Boolean).join(" / ");
-  if (charger) items.push(charger);
-  return items.join("; ");
+  const items = [];
+  for (const [label, device] of [["Prawy", entry?.rightDevice], ["Lewy", entry?.leftDevice]]) {
+    if (!device || !hasLoanDeviceData(device)) continue;
+    const purpose = normalizeLoanDemoPurpose(device.purpose);
+    items.push(`${label}: ${device.model || "—"}`);
+    if (device.serial) items.push(`Nr seryjny: ${device.serial}`);
+    if (purpose) items.push(`Charakter: ${purpose === DEMO_PURPOSE_REPLACEMENT ? "Zastępczy" : "Demo"}`);
+  }
+  if (entry?.charger || entry?.chargerSerial || entry?.chargerState) {
+    items.push(`Ładowarka: ${entry.charger || "—"}`);
+    if (entry.chargerSerial) items.push(`Nr seryjny: ${entry.chargerSerial}`);
+  }
+  return items.join(" | ");
 }
 
 function scoreCustomerDocumentMatch(documentDate, purchaseDate, hasSerialMatch = false) {
@@ -18938,16 +18954,13 @@ function soldDeviceHasCompletedPurchase(record) {
 }
 
 function activeDemoLoanLine(loan) {
-  const model = [
-    loan.deviceName || "Aparat demo",
-    loan.serialNumber ? `nr ${loan.serialNumber}` : "",
-    loan.location
-  ].filter(Boolean).join(" / ");
   return [
-    model,
-    loan.status === "DO ZWROTU" ? "do zwrotu" : "wypożyczony",
-    loan.loanDate ? `wypożyczono ${formatDate(loan.loanDate)}` : "",
-    loan.returnDeadline ? `termin ${formatDate(loan.returnDeadline)}` : ""
+    loan.deviceName || "Aparat demo",
+    loan.serialNumber ? `Nr seryjny: ${loan.serialNumber}` : "",
+    loan.location ? `Miejsce: ${loan.location}` : "",
+    `Status: ${loan.status === "DO ZWROTU" ? "do zwrotu" : "wypożyczony"}`,
+    loan.loanDate ? `Wypożyczono: ${formatDate(loan.loanDate)}` : "",
+    loan.returnDeadline ? `Termin zwrotu: ${formatDate(loan.returnDeadline)}` : ""
   ].filter(Boolean).join(" | ");
 }
 

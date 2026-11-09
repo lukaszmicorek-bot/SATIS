@@ -10236,6 +10236,26 @@ tbody tr.device-sold-row:hover {
   line-height: 1.45;
 }
 
+.customer-tooltip-field {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 4px 10px;
+}
+
+.customer-tooltip-field-label { color: #67777b; font-weight: 400; }
+.customer-tooltip-field-value { min-width: 0; }
+.customer-tooltip-field-value:is(.serial-single-line) { overflow-x: auto; font-weight: 700; }
+.customer-tooltip-equipment {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e4eceb;
+  font-weight: 700;
+}
+.customer-tooltip-equipment .customer-tooltip-field-label { font-weight: 800; }
+.customer-tooltip-equipment.side-right .customer-tooltip-field-label { color: #aa454b; }
+.customer-tooltip-equipment.side-left .customer-tooltip-field-label { color: #326f9e; }
+.customer-tooltip-equipment.accessory .customer-tooltip-field-label { color: #8b642e; }
+
 .warranty-date {
   font-weight: 900;
 }

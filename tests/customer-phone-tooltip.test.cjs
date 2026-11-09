@@ -151,3 +151,34 @@ test('Info includes every matching document and its popup can be scrolled', () =
   assert.match(css, /\.table-hover-tooltip\.customer-detail-tooltip\s*\{[^}]*max-height: min\(70vh, 640px\);[^}]*pointer-events: auto;/);
   assert.match(extract('attachTableHoverTooltip'), /setTimeout\(hideTableHoverTooltip, 180\)/);
 });
+
+test('Info lists right, left and charger separately without splitting model or serial slashes', () => {
+  const {context,tooltip}=setup();
+  context.hasLoanDeviceData=device=>Boolean(device.model||device.serial);
+  context.normalizeLoanDemoPurpose=value=>value||'';
+  context.DEMO_PURPOSE_REPLACEMENT='Zastępczy';
+  context.formatPricingPrice=value=>`${value} zł`;
+  for(const name of ['loanHistoryItemsLabel','offerHistoryItemsLabel','activeDemoLoanLine'])vm.runInContext(extract(name),context);
+  const label=context.loanHistoryItemsLabel({
+    rightDevice:{model:'Model R / T',serial:'RIGHT/01',purpose:'Demo'},
+    leftDevice:{model:'Model L',serial:'LEFT02',purpose:'Zastępczy'},
+    charger:'Charger 1.0',chargerSerial:'CHARGE03'
+  });
+  assert.equal(label,'Prawy: Model R / T | Nr seryjny: RIGHT/01 | Charakter: Demo | Lewy: Model L | Nr seryjny: LEFT02 | Charakter: Zastępczy | Ładowarka: Charger 1.0 | Nr seryjny: CHARGE03');
+  context.appendCustomerTooltipSections(tooltip,`Dokumenty klienta:\n• Umowa 1/11/2026 | ${label}`);
+  const details=tooltip.children[0].children[1].children.slice(1);
+  assert.equal(details[0].classList.contains('side-right'),true);
+  assert.equal(details[0].children[0].textContent,'P');
+  assert.equal(details[0].children[1].children[0],'Model R / T');
+  assert.equal(details[1].children[1].children[0],'RIGHT/01');
+  assert.equal(details[3].classList.contains('side-left'),true);
+  assert.equal(details[3].children[0].textContent,'L');
+  assert.equal(details[6].children[0].textContent,'Ładowarka');
+  assert.equal(context.loanHistoryItemsLabel({leftDevice:{serial:'LEFT'}}),'Lewy: — | Nr seryjny: LEFT');
+  assert.equal(context.loanHistoryItemsLabel({}),'');
+  assert.equal(context.offerHistoryItemsLabel({items:[{side:'L',model:'Model',nfzCode:'P.01.01.00',grossPrice:'2000'},
+    {kind:'charger',model:'Charger',grossPrice:'0'}]}),
+    'Lewy: Model | Kod NFZ: P.01.01.00 | Cena: 2000 zł | Ładowarka: Charger | Cena: 0 zł');
+  const loan=context.activeDemoLoanLine({deviceName:'Model',serialNumber:'DEMO01',location:'P63'});
+  assert.match(loan,/Model \| Nr seryjny: DEMO01 \| Miejsce: P63 \| Status: wypożyczony/);
+});
