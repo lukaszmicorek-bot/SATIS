@@ -113,6 +113,8 @@
 !/clients.js
 !/tinnitus-forms.js
 !/care-form.js
+!/accessory-catalog.js
+!/tests/accessory-catalog.test.cjs
 !/tests/care-form.test.cjs
 !/mail-merge.js
 !/mail-merge/
