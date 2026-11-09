@@ -8697,6 +8697,18 @@ function pricingSearchBlob(record) {
     .join("\n");
 }
 
+function switchPricingCatalog(catalog) {
+  const selected = ["main", "repairs", "accessories"].includes(catalog) ? catalog : "main";
+  document.querySelectorAll("[data-pricing-catalog]").forEach((button) => {
+    const active = button.dataset.pricingCatalog === selected;
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll("[data-pricing-catalog-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.pricingCatalogPanel !== selected;
+  });
+}
+
 function renderPricingRecords() {
   ensurePricingRecordsLoaded();
   updatePricingNfzFilterOptions();
@@ -29372,6 +29384,20 @@ document.querySelector("#deletePricingRecordBtn")?.addEventListener("click", asy
 });
 pricingImportInput?.addEventListener("change", importPricingCsv);
 pricingReplaceInput?.addEventListener("change", replacePricingCsv);
+document.querySelectorAll("[data-pricing-catalog]").forEach((button) => {
+  button.addEventListener("click", () => switchPricingCatalog(button.dataset.pricingCatalog));
+  button.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const buttons = [...document.querySelectorAll("[data-pricing-catalog]")];
+    const index = buttons.indexOf(button);
+    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+      : (index + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+    const next = buttons[nextIndex];
+    switchPricingCatalog(next.dataset.pricingCatalog);
+    next.focus();
+  });
+});
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
 pricingNfzFilter?.addEventListener("change", () => {
   pricingNfzDefaultApplied = true;

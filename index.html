@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261109-3">
+  <link rel="stylesheet" href="styles.css?v=20261109-4">
   </head>
   <body>
     <main class="app-shell">
@@ -916,6 +916,12 @@
             <button id="mailMergeTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="mailMergeNotebook" data-view="mailMerge" data-view-group="pcpr" data-private-shared hidden>PCPR Żywiec</button>
           </nav>
           <section id="pricingListView" class="pricing-view-section">
+            <nav class="pricing-catalog-tabs" role="tablist" aria-label="Rodzaj cennika">
+              <button id="pricingMainCatalogTab" class="pricing-catalog-button" type="button" role="tab" aria-selected="true" aria-controls="pricingMainCatalog" data-pricing-catalog="main">Cennik aparatów</button>
+              <button id="pricingRepairsCatalogTab" class="pricing-catalog-button" type="button" role="tab" aria-selected="false" aria-controls="pricingRepairsCatalog" data-pricing-catalog="repairs" tabindex="-1">Cennik napraw</button>
+              <button id="pricingAccessoriesCatalogTab" class="pricing-catalog-button" type="button" role="tab" aria-selected="false" aria-controls="pricingAccessoriesCatalog" data-pricing-catalog="accessories" tabindex="-1">Cennik akcesoriów</button>
+            </nav>
+            <section id="pricingMainCatalog" role="tabpanel" aria-labelledby="pricingMainCatalogTab" data-pricing-catalog-panel="main">
             <section class="controls pricing-controls" aria-label="Narzędzia cennika">
               <label class="search-box">
                 <span>Szukaj</span>
@@ -999,6 +1005,15 @@
             <div class="pricing-empty">
               <strong id="pricingSummary">Wczytano cennik.</strong>
             </div>
+            </section>
+            <section id="pricingRepairsCatalog" class="pricing-catalog-placeholder" role="tabpanel" aria-labelledby="pricingRepairsCatalogTab" data-pricing-catalog-panel="repairs" tabindex="0" hidden>
+              <h2>Cennik napraw</h2>
+              <p class="empty-state">Brak pozycji cennika napraw.</p>
+            </section>
+            <section id="pricingAccessoriesCatalog" class="pricing-catalog-placeholder" role="tabpanel" aria-labelledby="pricingAccessoriesCatalogTab" data-pricing-catalog-panel="accessories" tabindex="0" hidden>
+              <h2>Cennik akcesoriów</h2>
+              <p class="empty-state">Brak pozycji cennika akcesoriów.</p>
+            </section>
           </section>
 
           <section id="pricingOfferView" class="pricing-view-section pricing-offer-section" role="tabpanel" aria-labelledby="offerTab" hidden>
@@ -3609,21 +3624,21 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261109-3"></script>
-    <script src="data-layer.js?v=20261109-3"></script>
-    <script src="sync-layer.js?v=20261109-3"></script>
-    <script src="traffic-meter.js?v=20261109-3"></script>
-    <script src="repair-returns.js?v=20261109-3"></script>
-    <script src="offline-vault.js?v=20261109-3"></script>
-    <script src="offline-forms.js?v=20261109-3"></script>
-    <script src="stock-audit.js?v=20261109-3"></script>
-    <script src="complaint-shipping.js?v=20261109-3"></script>
-    <script src="vacation-attendance.js?v=20261109-3"></script>
-    <script src="tasks.js?v=20261109-3"></script>
-    <script src="clients.js?v=20261109-3"></script>
-    <script src="tinnitus-forms.js?v=20261109-3"></script>
-    <script src="care-form.js?v=20261109-3"></script>
-    <script src="mail-merge.js?v=20261109-3"></script>
-  <script src="app.js?v=20261109-3"></script>
+    <script src="supabase-config.js?v=20261109-4"></script>
+    <script src="data-layer.js?v=20261109-4"></script>
+    <script src="sync-layer.js?v=20261109-4"></script>
+    <script src="traffic-meter.js?v=20261109-4"></script>
+    <script src="repair-returns.js?v=20261109-4"></script>
+    <script src="offline-vault.js?v=20261109-4"></script>
+    <script src="offline-forms.js?v=20261109-4"></script>
+    <script src="stock-audit.js?v=20261109-4"></script>
+    <script src="complaint-shipping.js?v=20261109-4"></script>
+    <script src="vacation-attendance.js?v=20261109-4"></script>
+    <script src="tasks.js?v=20261109-4"></script>
+    <script src="clients.js?v=20261109-4"></script>
+    <script src="tinnitus-forms.js?v=20261109-4"></script>
+    <script src="care-form.js?v=20261109-4"></script>
+    <script src="mail-merge.js?v=20261109-4"></script>
+  <script src="app.js?v=20261109-4"></script>
   </body>
 </html>

@@ -73,6 +73,23 @@ async function main() {
   ctx.canManagePricing = () => false;
   assert.equal(ctx.createPricingRow(sourceRecord, 0).children[3].children.length, 0, 'staff receives no product edit button');
   assert.equal(ctx.createPricingRow(sourceRecord, 0).children.at(-1).children.length, 1, 'staff action cell only allows adding to offer');
+  const catalogs=['main','repairs','accessories'];
+  const catalogButtons=catalogs.map(key=>({dataset:{pricingCatalog:key},attributes:{},setAttribute(name,value){this.attributes[name]=value;}}));
+  const panels=catalogs.map(key=>({dataset:{pricingCatalogPanel:key},draft:key,hidden:true}));
+  ctx.document.querySelectorAll=selector=>selector==='[data-pricing-catalog]'?catalogButtons:panels;
+  vm.runInContext(extract('switchPricingCatalog'),ctx);
+  for(const selected of catalogs){
+    ctx.switchPricingCatalog(selected);
+    assert.deepEqual(panels.map(panel=>panel.hidden),catalogs.map(key=>key!==selected));
+    assert.deepEqual(catalogButtons.map(button=>button.attributes['aria-selected']),catalogs.map(key=>String(key===selected)));
+    assert.deepEqual(catalogButtons.map(button=>button.tabIndex),catalogs.map(key=>key===selected?0:-1));
+  }
+  ctx.switchPricingCatalog('invalid');assert.equal(panels[0].hidden,false);
+  assert.deepEqual(panels.map(panel=>panel.draft),catalogs,'switching preserves existing catalog and filter DOM');
+  assert.doesNotMatch(extract('switchPricingCatalog'),/fetch\(|supabase|renderPricingRecords|savePricingRecords/,'no database requests on switching');
+  const html=fs.readFileSync('index.html','utf8');
+  for(const label of ['Cennik aparatów','Cennik napraw','Cennik akcesoriów'])assert.ok(html.includes(label));
+  assert.ok(html.includes('aria-label="Rodzaj cennika"'));
   console.log('OK: owner-only pricing creation, fresh identity, source preserved, confirmed insert and failed-save recovery.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

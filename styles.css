@@ -4222,6 +4222,16 @@ h2 {
   background: rgba(255, 255, 255, 0.95);
 }
 
+.pricing-catalog-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #dbe5e7; }
+.pricing-catalog-button { min-height: 34px; padding: 7px 13px; border: 1px solid #d4e0e2; border-radius: 6px; background: #fff; color: #53666d; font-size: 13px; font-weight: 650; box-shadow: none; }
+.pricing-catalog-button:hover { background: #f3f7f8; color: #003f5a; transform: none; }
+.pricing-catalog-button[aria-selected="true"] { background: #eaf2f7; border-color: #96b4c4; color: #003f5a; }
+.pricing-catalog-button[data-pricing-catalog="repairs"][aria-selected="true"] { background: #e8f4f2; border-color: #8db8b3; color: #006b6f; }
+.pricing-catalog-button[data-pricing-catalog="accessories"][aria-selected="true"] { background: #fff2e6; border-color: #dabb9d; color: #965017; }
+.pricing-catalog-button:focus-visible { outline: 2px solid #007c80; outline-offset: 2px; }
+.pricing-catalog-placeholder { padding: 12px 0 28px; }
+.pricing-catalog-placeholder h2 { margin: 0; color: #003f5a; font-size: 17px; }
+
 .pricing-subtabs {
   display: inline-flex;
   width: fit-content;
