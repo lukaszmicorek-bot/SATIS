@@ -112,6 +112,8 @@
 !/tests/vacation-weekend-range.test.cjs
 !/clients.js
 !/tinnitus-forms.js
+!/care-form.js
+!/tests/care-form.test.cjs
 !/mail-merge.js
 !/mail-merge/
 /mail-merge/*

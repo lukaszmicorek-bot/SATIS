@@ -22,7 +22,7 @@ function node(id, dataset = {}, active = false) {
 }
 function setup() {
   const sections = ['devices', 'repairs', 'pricing', 'capd', 'vacation', 'workTime', 'clients', 'tinnitus', 'tasks'].map(name => node(`${name}Notebook`));
-  const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'rodo'], tinnitus: ['thi', 'trq', 'procedure'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
+  const tabs = Object.entries({devices: ['database', 'demo', 'stock', 'dataControl', 'offer', 'loan', 'receipt', 'care', 'rodo'], tinnitus: ['thi', 'trq', 'procedure'], repairs: ['repairDatabase', 'repairOpen', 'order', 'complaint'], pcpr: ['pcpr','mailMerge']})
     .flatMap(([group, views]) => views.map((view, index) => node(view, {view, viewGroup: group}, index === 0)));
   const views = ['database', 'demo', 'stock', 'dataControl', 'repairDatabase', 'repairOpen'].map(view =>
     node(`${view}View`, {viewGroup: view.startsWith('repair') ? 'repairs' : 'devices'}));
@@ -41,7 +41,8 @@ function setup() {
     mailMergeView: node('mailMergeNotebook'), pcprViews: node('pcprViews'),
     renderCounts: {}
   };
-  for (const name of ['List', 'Offer', 'Loan', 'Receipt', 'Rodo', 'Thi', 'Trq', 'Procedure', 'Pcpr', 'Order', 'Complaint', 'History']) context[`pricing${name}View`] = node(name);
+  for (const name of ['List', 'Offer', 'Loan', 'Receipt', 'Care', 'Rodo', 'Thi', 'Trq', 'Procedure', 'Pcpr', 'Order', 'Complaint', 'History']) context[`pricing${name}View`] = node(name);
+  context.careForm = {render(){context.renderCounts.care=(context.renderCounts.care||0)+1;}};
   context.pricingTinnitusViews = {thi: context.pricingThiView, trq: context.pricingTrqView};
   context.tinnitusForms = {render: kind => {context.renderCounts[kind] = (context.renderCounts[kind] || 0) + 1;}};
   for (const name of ['hideWorkTimeHourlyPreview', 'hideVacationPeriodPreview', 'updateCustomerRelationsPanelVisibility', 'renderCustomerRelations', 'setCurrentYearTitle',
@@ -57,7 +58,7 @@ function setup() {
 }
 test('document views route to the correct notebook, preserve form nodes, and return to lists', () => {
   const ctx = setup();
-  for (const [view, group] of Object.entries({offer: 'devices', loan: 'devices', receipt: 'devices', rodo: 'devices', thi: 'tinnitus', trq: 'tinnitus', procedure: 'tinnitus', order: 'repairs', complaint: 'repairs'})) {
+  for (const [view, group] of Object.entries({offer: 'devices', loan: 'devices', receipt: 'devices', care: 'devices', rodo: 'devices', thi: 'tinnitus', trq: 'tinnitus', procedure: 'tinnitus', order: 'repairs', complaint: 'repairs'})) {
     const panel = ctx[`pricing${view[0].toUpperCase() + view.slice(1)}View`];
     panel.draft = 'unsaved text';
     ctx.switchPricingView(view);
@@ -365,8 +366,8 @@ test('document tabs form two separate styled groups without changing their roles
   const groups = [...html.matchAll(/<div class="document-tab-group" role="presentation">([\s\S]*?)<\/div>/g)];
   assert.equal(groups.length, 2);
   assert.deepEqual(groups.map(match => [...match[1].matchAll(/data-view="([^"]+)"/g)].map(tab => tab[1])),
-    [['offer', 'loan', 'receipt', 'rodo'], ['order', 'complaint']]);
-  groups.forEach((match, index) => assert.equal((match[1].match(/role="tab"/g) || []).length, index === 0 ? 4 : 2));
+    [['offer', 'loan', 'receipt', 'care', 'rodo'], ['order', 'complaint']]);
+  groups.forEach((match, index) => assert.equal((match[1].match(/role="tab"/g) || []).length, index === 0 ? 5 : 2));
   const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8');
   assert.match(css, /\.document-tab-group \{[^}]*border-left: 1px solid/);
   assert.match(css, /\.document-tab-group \.tab-button\.active \{/);

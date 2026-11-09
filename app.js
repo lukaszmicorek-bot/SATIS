@@ -683,6 +683,8 @@ const pricingOfferView = document.querySelector("#pricingOfferView");
 const pricingLoanView = document.querySelector("#pricingLoanView");
 const pricingRodoView = document.querySelector("#pricingRodoView");
 const pricingReceiptView = document.querySelector("#pricingReceiptView");
+const pricingCareView = document.querySelector("#pricingCareView");
+let careForm = null;
 const pricingTinnitusViews = {thi: document.querySelector("#pricingThiView"), trq: document.querySelector("#pricingTrqView")};
 const pricingProcedureView = document.querySelector("#pricingProcedureView");
 let tinnitusForms = null;
@@ -2935,6 +2937,7 @@ function clearSensitiveApplicationState() {
   document.querySelectorAll("dialog[open]:not(#authDialog)").forEach((dialog) => dialog.close());
   document.querySelectorAll("form:not(#authForm)").forEach((form) => form.reset());
   resetPricingReceipt();
+  careForm?.reset();
   tinnitusForms?.clear();
   if (capdExaminerInput) capdExaminerInput.hidden = true;
   renderCapdPractitionerProfiles();
@@ -9653,7 +9656,7 @@ async function deletePricingRecord(record) {
 }
 
 function pricingViewNotebook(viewName) {
-  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", rodo: "devices", thi: "tinnitus", trq: "tinnitus", procedure: "tinnitus", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
+  return { list: "pricing", offer: "devices", loan: "devices", receipt: "devices", care: "devices", rodo: "devices", thi: "tinnitus", trq: "tinnitus", procedure: "tinnitus", order: "repairs", complaint: "repairs", pcpr: "pcpr", mailMerge: "pcpr", history: "history" }[viewName] || "";
 }
 
 function syncNotebookPanels() {
@@ -9704,6 +9707,7 @@ function switchPricingView(viewName) {
   if (pricingLoanView) pricingLoanView.hidden = activePricingView !== "loan";
   if (pricingRodoView) pricingRodoView.hidden = activePricingView !== "rodo";
   if (pricingReceiptView) pricingReceiptView.hidden = activePricingView !== "receipt";
+  if (pricingCareView) pricingCareView.hidden = activePricingView !== "care";
   Object.entries(pricingTinnitusViews).forEach(([kind, view]) => { if (view) view.hidden = activePricingView !== kind; });
   if (pricingProcedureView) pricingProcedureView.hidden = activePricingView !== "procedure";
   if (pricingPcprView) pricingPcprView.hidden = activePricingView !== "pcpr";
@@ -9724,6 +9728,7 @@ function switchPricingView(viewName) {
   if (activePricingView === "loan") renderPricingLoan();
   if (activePricingView === "rodo") renderPricingRodo();
   if (activePricingView === "receipt") renderPricingReceipt();
+  if (activePricingView === "care") careForm?.render();
   if (["thi", "trq"].includes(activePricingView)) tinnitusForms?.render(activePricingView);
   if (activePricingView === "pcpr") renderPricingPcprList();
   if (activePricingView === "order") renderPricingOrder();
@@ -29381,6 +29386,16 @@ pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
     input.value = price === "" ? "" : formatPricingAmount(price, " ");
   });
 });
+careForm = window.SatisCareForm?.create({
+  view: pricingCareView, document, today: () => formatDate(todayInputValue()), confirm: message => confirm(message),
+  async print() {
+    if (offlineForms?.active()) return offlineForms.print("care");
+    const cleanup = () => document.body.classList.remove("care-print");
+    document.body.classList.add("care-print");
+    window.addEventListener("afterprint", cleanup, {once: true});
+    try { await printWithReadyFonts(cleanup); } catch (error) { cleanup(); throw error; }
+  }
+});
 setupAgreementDraftTracking();
 setupPrimarySaveTracking(recordForm, saveRecordBtn, ["#deviceName", "#serialNumber", "#customerName"]);
 setupPrimarySaveTracking(repairForm, saveRepairBtn, [
@@ -30781,7 +30796,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
   const saves = { offer: saveCurrentPricingOfferToHistory, loan: saveCurrentPricingLoanToHistory,
     order: saveCurrentPricingOrderToHistory, complaint: saveCurrentPricingComplaintToHistory };
   offlineForms = window.SatisOfflineForms.mount({
-    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView, receipt: pricingReceiptView, ...pricingTinnitusViews },
+    views: { offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView, rodo: pricingRodoView, receipt: pricingReceiptView, care: pricingCareView, ...pricingTinnitusViews },
     user: () => currentSupabaseUser,
     pricing: () => pricingRecords,
     setPricing(value) { pricingRecords = normalizePricingRecordsForUse(value); resetPricingPriceLookup(); renderPricingOfferDeviceList(); },
@@ -30815,9 +30830,10 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Uzupełnij grupę pacjenta i wybierz aparat z cennika przed synchronizacją oferty.");
       return saves[kind]({ silent: false });
     },
-    render: kind => ["thi", "trq"].includes(kind) ? tinnitusForms?.render(kind) : kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
-    reset: kind => ["thi", "trq"].includes(kind) ? tinnitusForms?.reset(kind) : kind === "receipt" ? resetPricingReceipt() : kind === "rodo" ? resetPricingRodo() : resets[kind](),
+    render: kind => kind === "care" ? careForm?.render() : ["thi", "trq"].includes(kind) ? tinnitusForms?.render(kind) : kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
+    reset: kind => kind === "care" ? careForm?.reset() : ["thi", "trq"].includes(kind) ? tinnitusForms?.reset(kind) : kind === "receipt" ? resetPricingReceipt() : kind === "rodo" ? resetPricingRodo() : resets[kind](),
     validate: kind => {
+      if (kind === "care") return careForm?.validate() || false;
       if (["thi", "trq"].includes(kind)) return tinnitusForms?.validate(kind) || false;
       if (kind === "receipt") return validatePricingReceipt();
       const names = {offer: "offerCustomerInput", loan: "loanCustomerInput", order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
@@ -30835,12 +30851,14 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       clearPricingOrderRows(); addPricingOrderItemRow();
       resetPricingRodo();
       resetPricingReceipt();
+      careForm?.reset();
       tinnitusForms?.clear();
       documentDraftIdentities.clear(); activePricingLoanHistoryId = "";
       for (const kind of Object.keys(renderers)) renderers[kind]();
     },
     localSaved: kind => markAgreementDraftSaved(kind),
     printSource(kind) {
+      if (kind === "care") return careForm?.printSource();
       if (["thi", "trq"].includes(kind)) return tinnitusForms?.printSource(kind);
       if (kind === "rodo") return document.querySelector("#pricingRodoPrint");
       if (kind === "receipt") return document.querySelector("#pricingReceiptPrint");

@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261109-2">
+  <link rel="stylesheet" href="styles.css?v=20261109-3">
   </head>
   <body>
     <main class="app-shell">
@@ -142,6 +142,7 @@
             <button id="offerTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingOfferView" data-view-group="devices" data-view="offer">Oferta</button>
             <button id="loanTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingLoanView" data-view-group="devices" data-view="loan">Umowa</button>
             <button id="receiptTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingReceiptView" data-view-group="devices" data-view="receipt">Odbiór aparatu</button>
+            <button id="careTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingCareView" data-view-group="devices" data-view="care">Pielęgnacja</button>
             <button id="rodoTab" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="pricingRodoView" data-view-group="devices" data-view="rodo">RODO</button>
           </div>
         </section>
@@ -1610,6 +1611,7 @@
             </article>
           </section>
 
+          <section id="pricingCareView" class="pricing-view-section" role="tabpanel" aria-labelledby="careTab" hidden></section>
           <section id="pricingThiView" class="pricing-view-section" role="tabpanel" aria-labelledby="thiTab" hidden></section>
           <section id="pricingTrqView" class="pricing-view-section" role="tabpanel" aria-labelledby="trqTab" hidden></section>
           <section id="pricingProcedureView" class="pricing-view-section tinnitus-procedure" role="tabpanel" aria-labelledby="procedureTab" hidden>
@@ -3607,20 +3609,21 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261109-2"></script>
-    <script src="data-layer.js?v=20261109-2"></script>
-    <script src="sync-layer.js?v=20261109-2"></script>
-    <script src="traffic-meter.js?v=20261109-2"></script>
-    <script src="repair-returns.js?v=20261109-2"></script>
-    <script src="offline-vault.js?v=20261109-2"></script>
-    <script src="offline-forms.js?v=20261109-2"></script>
-    <script src="stock-audit.js?v=20261109-2"></script>
-    <script src="complaint-shipping.js?v=20261109-2"></script>
-    <script src="vacation-attendance.js?v=20261109-2"></script>
-    <script src="tasks.js?v=20261109-2"></script>
-    <script src="clients.js?v=20261109-2"></script>
-    <script src="tinnitus-forms.js?v=20261109-2"></script>
-    <script src="mail-merge.js?v=20261109-2"></script>
-  <script src="app.js?v=20261109-2"></script>
+    <script src="supabase-config.js?v=20261109-3"></script>
+    <script src="data-layer.js?v=20261109-3"></script>
+    <script src="sync-layer.js?v=20261109-3"></script>
+    <script src="traffic-meter.js?v=20261109-3"></script>
+    <script src="repair-returns.js?v=20261109-3"></script>
+    <script src="offline-vault.js?v=20261109-3"></script>
+    <script src="offline-forms.js?v=20261109-3"></script>
+    <script src="stock-audit.js?v=20261109-3"></script>
+    <script src="complaint-shipping.js?v=20261109-3"></script>
+    <script src="vacation-attendance.js?v=20261109-3"></script>
+    <script src="tasks.js?v=20261109-3"></script>
+    <script src="clients.js?v=20261109-3"></script>
+    <script src="tinnitus-forms.js?v=20261109-3"></script>
+    <script src="care-form.js?v=20261109-3"></script>
+    <script src="mail-merge.js?v=20261109-3"></script>
+  <script src="app.js?v=20261109-3"></script>
   </body>
 </html>

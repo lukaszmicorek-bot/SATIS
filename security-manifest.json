@@ -1,6 +1,6 @@
 {
-  "app_version": "20261109-2",
-  "asset_policy_sha256": "1bc54fce22a3afbfd8c5994245f462877422e394a05a48263e4f814bc66e935d",
+  "app_version": "20261109-3",
+  "asset_policy_sha256": "36dd092ac9e610530c30b4c6e164a0160c0efe79442f5870e72072b4aeef0730",
   "asset_policy_version": 1,
   "external_dependencies": [
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
@@ -19,12 +19,16 @@
       "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
     },
     "app.js": {
-      "bytes": 1811422,
-      "sha256": "76fce11c5e85f5406901cf7170c722e50eb8b764d13391bd98a33f41a1337aa1"
+      "bytes": 1812459,
+      "sha256": "c97ab0bc7b5bce31ea4ef71200234de7afb8f266b7985ca26f3cd11c9c1d0a84"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
       "sha256": "d67c3c9b8fffecf3e158ca390a2dddacf211e575525bca0aff91a71bc18d27df"
+    },
+    "care-form.js": {
+      "bytes": 10769,
+      "sha256": "0979c67cab085858ca2199782b9d502d501e01f01d65cfab8e2dbe8008dc02f9"
     },
     "clients.js": {
       "bytes": 67477,
@@ -51,8 +55,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 465333,
-      "sha256": "cd549fcdc722b6eafdfe136fbe40dc84eecc8ddf66f8ce77e971746d3e07529b"
+      "bytes": 465712,
+      "sha256": "91a3b5f4b3be84adc3c2205d50afb4a299e117f7b1463ad70428b73ed7303300"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -163,12 +167,12 @@
       "sha256": "3241d1e3f4599e3f3ca44ee554c9833970917279a8d85f8747fcaa1fdd6c19eb"
     },
     "offline-forms.js": {
-      "bytes": 20305,
-      "sha256": "d929b6c8eb73d3ceec2a045f005a043cc0003e6a003c7dd23d829f94ac8e0d19"
+      "bytes": 20523,
+      "sha256": "b91671fc76a9de6f5a91f5dceb42ac880f4a788f5962e0fcc723e0e65f14c521"
     },
     "offline-sw.js": {
-      "bytes": 3290,
-      "sha256": "55a7a6846c13abcaa57d75456516276741be4e70a16deb3dd64cb2a113a2b0ea"
+      "bytes": 3306,
+      "sha256": "c4aaa19dd650ff5c71c251759c6b125cc81ddadda5d0cb16239679207b053e47"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -203,8 +207,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 440175,
-      "sha256": "294a0dfaa7b20b59475f839045a455d13327163bf2e341fe036750afa7af3415"
+      "bytes": 446036,
+      "sha256": "1faa2679f804bac3b81c6d33c85c46ae3f1d512230cbb5e56594a463813d39a7"
     },
     "supabase-config.js": {
       "bytes": 227,
