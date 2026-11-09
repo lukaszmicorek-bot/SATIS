@@ -23,7 +23,7 @@ test('serial order tooltip uses shared readable customer sections', () => {
 test('service demo and replacement tooltips share Aparaty detail layout and hover delay', () => {
   assert.match(extract('showTableHoverTooltip'), /dataKey === "demoRelationTooltip"/);
   assert.match(extract('showTableHoverTooltip'), /classList\.toggle\("customer-detail-tooltip", customerTooltip\)/);
-  assert.match(extract('attachTableHoverTooltip'), /dataKey === "demoRelationTooltip"/);
+  assert.match(extract('attachTableHoverTooltip'), /setTimeout\(hideTableHoverTooltip, 350\)/);
   assert.match(extract('repairActiveDemoRelations'), /• \$\{activeDemoLoanLine\(loan\)\}/);
 });
 function extract(name) {
@@ -149,7 +149,43 @@ test('Info includes every matching document and its popup can be scrolled', () =
   assert.equal((info.tooltip.match(/• Oferta /g) || []).length, 6);
   assert.match(info.tooltip, /Oferta 6 \| model 6/);
   assert.match(css, /\.table-hover-tooltip\.customer-detail-tooltip\s*\{[^}]*max-height: min\(70vh, 640px\);[^}]*pointer-events: auto;/);
-  assert.match(extract('attachTableHoverTooltip'), /setTimeout\(hideTableHoverTooltip, 180\)/);
+  assert.match(extract('attachTableHoverTooltip'), /setTimeout\(hideTableHoverTooltip, 350\)/);
+});
+
+test('model and Info popups stay open across pointer transition, focus and internal scrolling', () => {
+  const timers=new Map();let timer=0,tooltip;
+  function interactiveElement(){return {hidden:false,events:{},
+    setAttribute(){},addEventListener(name,handler){this.events[name]=handler;}};}
+  const context=vm.createContext({document:{
+    querySelector:()=>tooltip,
+    createElement:interactiveElement,
+    body:{append(node){tooltip=node;}}
+  },tableHoverHideTimer:0,
+  setTimeout(fn,delay){assert.equal(delay,350);timers.set(++timer,fn);return timer;},
+  clearTimeout(id){timers.delete(id);},
+  showTableHoverTooltip(){tooltip.hidden=false;}
+  });
+  for(const name of ['tableHoverTooltipElement','hideTableHoverTooltip','handleTableHoverScroll','attachTableHoverTooltip'])vm.runInContext(extract(name),context);
+  context.tableHoverTooltipElement();
+  assert.equal(tooltip.tabIndex,0);
+  for(const key of ['priceTooltip','customerTooltip','serialTooltip','demoRelationTooltip']){
+    const anchor=interactiveElement();context.attachTableHoverTooltip(anchor,key);
+    anchor.events.mouseenter();anchor.events.mouseleave();
+    assert.equal(tooltip.hidden,false);assert.equal(timers.size,1);
+    tooltip.events.mouseenter();assert.equal(timers.size,0);
+    context.handleTableHoverScroll({target:{closest:()=>tooltip}});assert.equal(tooltip.hidden,false);
+    anchor.events.blur({relatedTarget:{closest:()=>tooltip}});assert.equal(tooltip.hidden,false);
+    tooltip.events.focusin();assert.equal(timers.size,0);
+    tooltip.events.keydown({key:'ArrowDown'});assert.equal(tooltip.hidden,false);
+    tooltip.events.mouseleave();assert.equal(timers.size,1);
+    [...timers.values()][0]();assert.equal(tooltip.hidden,true);assert.equal(timers.size,0);
+  }
+  tooltip.hidden=false;context.handleTableHoverScroll({target:{closest:()=>null}});assert.equal(tooltip.hidden,true);
+  tooltip.hidden=false;context.handleTableHoverScroll({target:{}});assert.equal(tooltip.hidden,true);
+  tooltip.hidden=false;tooltip.events.keydown({key:'Escape'});assert.equal(tooltip.hidden,true);
+  const baseCss=css.slice(css.indexOf('.table-hover-tooltip {')).split('}')[0];
+  assert.match(baseCss,/pointer-events: auto/);assert.match(baseCss,/overflow: auto/);
+  assert.match(source,/addEventListener\("scroll", handleTableHoverScroll, \{ passive: true, capture: true \}\)/);
 });
 
 test('Info lists right, left and charger separately without splitting model or serial slashes', () => {

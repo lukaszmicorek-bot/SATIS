@@ -5086,9 +5086,19 @@ function tableHoverTooltipElement() {
   tooltip.id = "tableHoverTooltip";
   tooltip.className = "table-hover-tooltip";
   tooltip.setAttribute("role", "tooltip");
+  tooltip.tabIndex = 0;
   tooltip.hidden = true;
   tooltip.addEventListener("mouseenter", () => clearTimeout(tableHoverHideTimer));
-  tooltip.addEventListener("mouseleave", hideTableHoverTooltip);
+  tooltip.addEventListener("mouseleave", () => {
+    tableHoverHideTimer = setTimeout(hideTableHoverTooltip, 350);
+  });
+  tooltip.addEventListener("focusin", () => clearTimeout(tableHoverHideTimer));
+  tooltip.addEventListener("focusout", (event) => {
+    if (!event.relatedTarget?.closest?.("#tableHoverTooltip")) hideTableHoverTooltip();
+  });
+  tooltip.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideTableHoverTooltip();
+  });
   document.body.append(tooltip);
   return tooltip;
 }
@@ -5278,17 +5288,21 @@ function hideTableHoverTooltip() {
   if (tooltip) tooltip.hidden = true;
 }
 
+function handleTableHoverScroll(event) {
+  if (event.target?.closest?.("#tableHoverTooltip")) return;
+  hideTableHoverTooltip();
+}
+
 function attachTableHoverTooltip(element, dataKey) {
   element.addEventListener("mouseenter", () => showTableHoverTooltip(element, dataKey));
   element.addEventListener("mouseleave", () => {
-    if (dataKey === "customerTooltip" || dataKey === "customerPhoneTooltip" || dataKey === "serialTooltip" || dataKey === "demoRelationTooltip") {
-      tableHoverHideTimer = setTimeout(hideTableHoverTooltip, 180);
-    } else {
-      hideTableHoverTooltip();
-    }
+    clearTimeout(tableHoverHideTimer);
+    tableHoverHideTimer = setTimeout(hideTableHoverTooltip, 350);
   });
   element.addEventListener("focus", () => showTableHoverTooltip(element, dataKey));
-  element.addEventListener("blur", hideTableHoverTooltip);
+  element.addEventListener("blur", (event) => {
+    if (!event.relatedTarget?.closest?.("#tableHoverTooltip")) hideTableHoverTooltip();
+  });
 }
 
 function serialRelationTitle(duplicateMatches = [], serviceMatches = [], saleMatches = [], extraTitle = "") {
@@ -29302,7 +29316,7 @@ workstationBtn?.addEventListener("click", () => {
   renderVacationModule();
 });
 window.addEventListener("scroll", updateScrollTopButton, { passive: true });
-window.addEventListener("scroll", hideTableHoverTooltip, { passive: true, capture: true });
+window.addEventListener("scroll", handleTableHoverScroll, { passive: true, capture: true });
 window.addEventListener("resize", hideTableHoverTooltip, { passive: true });
 stockAuditPersonInput?.addEventListener("input", (event) => {
   event.target.value = titleCaseNameInput(event.target.value);

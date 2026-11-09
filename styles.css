@@ -10107,7 +10107,8 @@ tbody tr.device-sold-row:hover {
   font-weight: 650;
   line-height: 1.38;
   white-space: pre-wrap;
-  pointer-events: none;
+  pointer-events: auto;
+  overscroll-behavior: contain;
 }
 
 .table-hover-tooltip[hidden] {
