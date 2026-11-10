@@ -114,6 +114,8 @@
 !/tinnitus-forms.js
 !/care-form.js
 !/accessory-catalog.js
+!/repair-catalog.js
+!/tests/repair-catalog.test.cjs
 !/tests/accessory-catalog.test.cjs
 !/tests/care-form.test.cjs
 !/mail-merge.js

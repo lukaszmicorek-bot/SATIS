@@ -4282,6 +4282,15 @@ h2 {
 .accessory-warranties dd { margin: 0; color: #193f4e; font-weight: 700; }
 .accessory-warranties p { margin: 10px 0 0; color: #68797f; font-size: 12px; line-height: 1.5; }
 .accessory-source-notes li { margin: 10px 0; padding-left: 4px; color: #795c36; line-height: 1.5; }
+.repair-price-table { min-width: 860px; }
+.repair-price-table th:nth-child(2) { width: 34%; }
+.repair-price-table th:nth-child(3) { width: 100px; text-align: left !important; }
+.repair-price-table th:nth-child(5) { width: 50px; }
+.repair-price-table th:nth-child(7) { width: 100px; }
+.repair-price-table .repair-price-code { color: #64777e; font-size: 12px; white-space: nowrap; }
+.repair-price-table .repair-price-net { color: #61777e; font-weight: 500; }
+.repair-price-vat { text-align: right; white-space: nowrap; color: #61777e; font-size: 12px; }
+.repair-price-variant { display: inline-block; margin-top: 5px; padding: 2px 6px; border-radius: 4px; background: #edf2f8; color: #3d6383; font-size: 11px; font-weight: 650; }
 @media (max-width: 600px) {
   .accessory-catalog-toolbar > label:not(.search-box) { flex: 1 1 160px; }
   .accessory-catalog-meta [data-accessory-count] { margin-left: 0; }

@@ -29412,6 +29412,7 @@ pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
     input.value = price === "" ? "" : formatPricingAmount(price, " ");
   });
 });
+window.SatisRepairCatalog?.create({host:document.querySelector("#pricingRepairsCatalog"),document});
 window.SatisAccessoryCatalog?.create({host:document.querySelector("#pricingAccessoriesCatalog"),document});
 careForm = window.SatisCareForm?.create({
   view: pricingCareView, document, today: () => formatDate(todayInputValue()), confirm: message => confirm(message),
