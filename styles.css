@@ -4283,6 +4283,18 @@ h2 {
 .accessory-warranties p { margin: 10px 0 0; color: #68797f; font-size: 12px; line-height: 1.5; }
 .accessory-source-notes li { margin: 10px 0; padding-left: 4px; color: #795c36; line-height: 1.5; }
 .repair-price-table { min-width: 860px; }
+.wsa-group-reference { margin-top: 20px; padding-top: 14px; border-top: 1px solid #d9e4e6; }
+.wsa-group-reference > summary { color: #003f5a; font-weight: 650; cursor: pointer; padding: 8px 0; }
+.wsa-group-toolbar { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+.wsa-group-toolbar .search-box { flex: 1 1 240px; }
+.wsa-group-toolbar a { color: #007b7c; font-size: 13px; }
+.wsa-group-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.wsa-group-table th, .wsa-group-table td { padding: 10px 12px; border-bottom: 1px solid #e3eaeb; text-align: left; }
+.wsa-group-table th { color: #003f5a; background: #f3f7f8; }
+.wsa-group-table th:nth-child(2), .wsa-group-table td:nth-child(2) { width: 70px; text-align: center; }
+.wsa-group-table th:last-child, .wsa-group-table td:last-child { white-space: nowrap; text-align: right; }
+.repair-service-cost-match { display: block; font-size: 12px; line-height: 1.5; font-weight: 450; color: #316267; }
+.repair-service-cost-match[hidden] { display: none; }
 .repair-price-table th:nth-child(2) { width: 34%; }
 .repair-price-table th:nth-child(3) { width: 100px; text-align: left !important; }
 .repair-price-table th:nth-child(5) { width: 50px; }

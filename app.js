@@ -26456,10 +26456,22 @@ function suggestedPhonakRepairCost(deviceName) {
 function syncRepairServiceCostSuggestion() {
   if (!repairServiceCostInput) return;
   const category = normalizeRepairCategory(document.querySelector("#repairCategory")?.value);
+  const model = document.querySelector("#repairDeviceName")?.value;
+  const match = category === "NAPRAWA POGWARANCYJNA" && typeof window !== "undefined"
+    ? window.SatisWSARepairGroups?.quote(model, typeof pricingRecords === "undefined" ? [] : pricingRecords, window.SatisRepairCatalog?.rows || [])
+    : null;
   const suggested = category === "NAPRAWA POGWARANCYJNA"
-    ? suggestedPhonakRepairCost(document.querySelector("#repairDeviceName")?.value)
-    : "";
+    ? (match?.status === "matched" ? match.gross : suggestedPhonakRepairCost(model)) : "";
   const input = repairServiceCostInput;
+  const hint = document.querySelector("#repairServiceCostMatch");
+  if (hint) {
+    const manual = input.dataset.manualCost === "1" || (input.value.trim() && input.dataset.autoValue === undefined);
+    hint.textContent = match?.status === "matched"
+      ? `WSA · grupa ${match.group} · ${formatPricingAmount(match.gross, " ")} zł brutto / szt.${match.matchedModel ? ` · ${match.matchedModel}` : ""}. ${match.source}.${manual ? " Zachowano wpisany koszt." : " Przy kilku urządzeniach potwierdź koszt łączny."}`
+      : match?.status === "ambiguous" ? "Model wymaga doprecyzowania. Wybierz pełną nazwę z cennika; koszt wpisz po potwierdzeniu grupy."
+        : match?.status === "missing-price" ? `WSA · grupa ${match.group}. Brak jednoznacznej ceny w Cenniku napraw.` : "";
+    hint.hidden = !hint.textContent;
+  }
   const hasAutoValue = input.dataset.autoValue !== undefined;
   const current = normalizeServiceCost(input.value);
   if (input.dataset.manualCost === "1") return;
@@ -29413,6 +29425,7 @@ pricingConstructionFilter?.addEventListener("change", renderPricingRecords);
   });
 });
 window.SatisRepairCatalog?.create({host:document.querySelector("#pricingRepairsCatalog"),document});
+window.SatisWSARepairGroups?.create({host:document.querySelector("#pricingRepairsCatalog"),document,repairRows:window.SatisRepairCatalog?.rows || []});
 window.SatisAccessoryCatalog?.create({host:document.querySelector("#pricingAccessoriesCatalog"),document});
 careForm = window.SatisCareForm?.create({
   view: pricingCareView, document, today: () => formatDate(todayInputValue()), confirm: message => confirm(message),

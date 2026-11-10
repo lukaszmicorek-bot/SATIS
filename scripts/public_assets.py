@@ -11,7 +11,7 @@ POLICY_VERSION = 1
 REQUIRED_ASSETS = frozenset({
     "index.html", "app.js", "data-layer.js", "sync-layer.js", "styles.css", "supabase-config.js",
     "offline-vault.js", "offline-forms.js", "offline-sw.js",
-    "repair-returns.js", "traffic-meter.js",
+    "repair-returns.js", "traffic-meter.js", "wsa-repair-groups.js", "repair-pricing/wsa-groups-2024-11.pdf",
     "stock-audit.js", "complaint-shipping.js", "vacation-attendance.js", "tasks.js", "clients.js", "tinnitus-forms.js", "care-form.js", "accessory-catalog.js", "repair-catalog.js", "mail-merge.js",
     "mail-merge/geography.json", "mail-merge/postal-reference.json", "mail-merge-pdf.mjs",
     "vendor/pdfjs-6.5.438/pdf.mjs", "vendor/pdfjs-6.5.438/pdf.worker.mjs", "vendor/pdfjs-6.5.438/LICENSE",

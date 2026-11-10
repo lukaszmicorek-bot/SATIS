@@ -115,6 +115,10 @@
 !/care-form.js
 !/accessory-catalog.js
 !/repair-catalog.js
+!/wsa-repair-groups.js
+!/tests/wsa-repair-groups.test.cjs
+!/repair-pricing/
+!/repair-pricing/wsa-groups-2024-11.pdf
 !/tests/repair-catalog.test.cjs
 !/tests/accessory-catalog.test.cjs
 !/tests/care-form.test.cjs
