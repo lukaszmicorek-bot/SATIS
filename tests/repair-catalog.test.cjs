@@ -22,8 +22,19 @@ test('Phonak constructions remain separate and same-name Roger services are not 
   assert.deepEqual(roger.map(row=>[row.code,row.gross,row.vat]),[['U063.020',1100,8],['U063.030',1200,23]]);
   assert.deepEqual(roger.map(row=>row.variant),['Wyrób medyczny','Wyrób niemedyczny']);
 });
-test('unknown brands and WSA model mapping are not guessed, Beltone warranty refers to repair',()=>{
-  const unknown=catalog.filterRows({brand:'unspecified'});assert.equal(unknown.length,7);assert.ok(unknown.every(row=>!row.brand));
+test('U codes map to Phonak and 9 codes to Philips; uncoded WSA and Beltone stay unchanged',()=>{
+  assert.equal(catalog.filterRows({brand:'unspecified'}).length,0);
+  assert.equal(catalog.filterRows({brand:'Phonak'}).length,17);
+  assert.equal(catalog.filterRows({brand:'Philips'}).length,7);
+  for(const row of catalog.rows){
+    if(row.code.startsWith('U'))assert.equal(row.brand,'Phonak',row.code);
+    if(row.code.startsWith('9'))assert.equal(row.brand,'Philips',row.code);
+  }
+  assert.equal(catalog.filterRows({query:'U062.010'})[0].brand,'Phonak');
+  assert.equal(catalog.filterRows({query:'U063.030'})[0].brand,'Phonak');
+  assert.equal(catalog.filterRows({query:'90082522'})[0].brand,'Philips');
+  assert.equal(catalog.filterRows({query:'90082039'})[0].brand,'Philips');
+  assert.equal(catalog.filterRows({query:'90082041'})[0].brand,'Philips');
   const wsa=catalog.filterRows({brand:'WSA'});assert.equal(wsa.length,8);assert.ok(wsa.every(row=>!row.construction));
   assert.deepEqual(wsa.map(row=>row.gross),[350,400,480,580,730,400,1000,1200]);
   const beltone=catalog.filterRows({brand:'Beltone'});assert.equal(beltone.length,3);

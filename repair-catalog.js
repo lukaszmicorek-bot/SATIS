@@ -39,9 +39,9 @@
   ];
   const key=value=>String(value??"").normalize("NFD").replace(/\p{M}/gu,"").toLowerCase().replace(/ł/gu,"l").replace(/[^a-z0-9]+/gu," ").trim();
   const rows=sourceRows.map(([originalName,net,gross,description,vat],index)=>{
-    const brand=originalName.match(/\b(Phonak|Philips|Beltone|WSA)\b/u)?.[1]||"";
     const category=/wkładki/u.test(originalName)?"earmold":/akcesoria/u.test(originalName)?"accessory":/aparatu/u.test(originalName)?"device":"parts";
     const code=description.match(/^(?:U\d{3}\.\d{3}|\d{8})(?=$|\s)/u)?.[0]||"";
+    const brand=code.startsWith("U")?"Phonak":code.startsWith("9")?"Philips":originalName.match(/\b(Phonak|Philips|Beltone|WSA)\b/u)?.[1]||"";
     const construction=/BTE\/RIC/u.test(originalName)?"BTE/RIC":/\bITE\b/u.test(originalName)?"ITE":"";
     return {id:`repair-price-${index+2}`,sourceRow:index+2,originalName,name:originalName.replace("Naprawa akcesoria bezprzewodowe","Naprawa akcesoriów bezprzewodowych").replace(/\bCros\b/u,"CROS"),
       brand,category,construction,code,net,gross,vat,description,
@@ -62,7 +62,7 @@
       <label><span>Konstrukcja</span><select id="repairCatalogConstruction"><option value="">Wszystkie</option><option value="BTE/RIC">Zauszne · BTE/RIC</option><option value="ITE">Wewnątrzuszne · ITE</option></select></label>
       <div class="accessory-kind-filter" role="group" aria-label="Rodzaj naprawy"><button type="button" data-repair-price-kind="" aria-pressed="true">Wszystkie</button><button type="button" data-repair-price-kind="device" aria-pressed="false">Aparaty</button><button type="button" data-repair-price-kind="earmold" aria-pressed="false">Wkładki</button><button type="button" data-repair-price-kind="accessory" aria-pressed="false">Akcesoria</button><button type="button" data-repair-price-kind="parts" aria-pressed="false">Części i wymiany</button></div></div>
       <div class="accessory-catalog-meta"><strong>Cennik napraw</strong><span>Ceny w zł · netto i brutto</span><span data-repair-price-count role="status" aria-live="polite"></span></div>
-      <p class="accessory-catalog-hint">Ceny, kody i VAT według dostarczonego arkusza. Brak producenta w nazwie pozycji oznacza brak przypisania marki. Grupy WSA pozostają bez przypisania konkretnych modeli.</p>
+      <p class="accessory-catalog-hint">Ceny, kody i VAT według dostarczonego arkusza. Kody zaczynające się od U: Phonak; od 9: Philips. Grupy WSA pozostają bez przypisania konkretnych modeli.</p>
       <div class="accessory-catalog-scroll" tabindex="0" aria-label="Tabela cennika napraw"><table class="accessory-catalog-table repair-price-table"><thead><tr><th>Producent</th><th>Usługa</th><th>Kod</th><th>Netto</th><th>VAT</th><th>Brutto</th><th>Szczegóły</th></tr></thead><tbody></tbody></table></div><p class="empty-state" data-repair-price-empty hidden>Brak pasujących pozycji napraw.</p>`;
     const find=selector=>host.querySelector(selector),search=find("#repairCatalogSearch"),brand=find("#repairCatalogBrand"),construction=find("#repairCatalogConstruction");
     const node=(tag,text,cls)=>{const element=doc.createElement(tag);if(text!==undefined)element.textContent=text;if(cls)element.className=cls;return element;};

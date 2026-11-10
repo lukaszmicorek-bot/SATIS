@@ -1,5 +1,5 @@
 {
-  "app_version": "20261110-1",
+  "app_version": "20261110-2",
   "asset_policy_sha256": "4ae9e60ff70c63d6b2397607d038e8b35657e65aabbe573395321f6301b34ccf",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -60,7 +60,7 @@
     },
     "index.html": {
       "bytes": 467167,
-      "sha256": "7a4b0b5508284116562445371c6fa1e59c9e2d339d379e493572f36bb4e19e44"
+      "sha256": "a0c148568898f9a9969f7e5d63f2e8d25c09d618e09924cc3fb333bd8f80e809"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -176,7 +176,7 @@
     },
     "offline-sw.js": {
       "bytes": 3351,
-      "sha256": "aa3b8c3cf8f8e08694446d9413090cf993fd7ff16458783f21f1e14b3fe844c7"
+      "sha256": "521d4d1b633a6d8e2964527f2c9d123aa0009924f06df2cbb51f8d41774c2647"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -199,8 +199,8 @@
       "sha256": "db354ddf034705bf26e27a10bb9600c03b8e3ccf42693b50eb420a5ae1a36043"
     },
     "repair-catalog.js": {
-      "bytes": 10568,
-      "sha256": "55e99eef501dcd8cd1a6d7325f330effa92fc09c39bca5df3c779cc603228e88"
+      "bytes": 10616,
+      "sha256": "5c91ae10b166176912aecd69c612cab9d0c9d74db48f10fbebb825389a9b5999"
     },
     "repair-returns.js": {
       "bytes": 9784,
