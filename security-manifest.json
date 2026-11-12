@@ -1,5 +1,5 @@
 {
-  "app_version": "20261112-2",
+  "app_version": "20261112-3",
   "asset_policy_sha256": "0680090ee24ddb9a8ad592d24772c9f133d8fd997225e6d58d619f1ce03a7b00",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -59,8 +59,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 467712,
-      "sha256": "44a6763ff5e0e6d6042377ae470c3da4897b19a86df5ffaedbec95c15be8c6a9"
+      "bytes": 467686,
+      "sha256": "ea8e95a3c56c9bdab9c7c538d255c18c35a16c7dcd2f74e9c6f57d399902f942"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -176,7 +176,7 @@
     },
     "offline-sw.js": {
       "bytes": 3416,
-      "sha256": "47eb01f80edd7aedc49aa7ffffa19d090ae2d9e9c8f9bac95effa010c1d2701e"
+      "sha256": "1ccfabc0de02457571e0c78ec48f89194ca64f5cb1e78c07f15206f9c0a4c301"
     },
     "offline-vault.js": {
       "bytes": 5688,
