@@ -5388,6 +5388,7 @@ function repairDocumentDuplicate(incomingRecord) {
 }
 
 let repairWriteCheckInProgress = false;
+const repairPhoneNotificationWrites = new Set();
 
 const nearbyEntryWarningTimers = new Map();
 
@@ -20266,6 +20267,8 @@ function createRepairRow(record) {
     createRepairDocumentNumberCell(record),
     createRepairNotesCell(record)
   ];
+  const phoneControl = createRepairPhoneNotifiedControl(record);
+  if (phoneControl) cells[0].append(phoneControl);
 
   cells.forEach((value, index) => {
     const cell = document.createElement("td");
@@ -20313,6 +20316,8 @@ function createRepairOpenRow(record) {
     createRepairDocumentNumberCell(record),
     createRepairNotesCell(record)
   ];
+  const phoneControl = createRepairPhoneNotifiedControl(record);
+  if (phoneControl) cells[0].append(phoneControl);
 
   cells.forEach((value, index) => {
     const cell = document.createElement("td");
@@ -20762,6 +20767,124 @@ function createLocationPill(location) {
   pill.className = `location-pill ${normalizedLocation}`;
   pill.textContent = normalizedLocation;
   return pill;
+}
+
+function repairPhoneReturnKey(record) {
+  if (record?.orderItems?.length) {
+    const returned = record.orderItems.map((item, index) => [String(item.id || index),
+      isoDateForSave(item.returnDate === undefined ? record.returnDate : item.returnDate)])
+      .filter(([, date]) => date).sort((a, b) => a[0].localeCompare(b[0]));
+    return returned.length ? JSON.stringify(returned) : "";
+  }
+  return isoDateForSave(record?.returnDate) || "";
+}
+
+function repairAwaitingPhoneNotification(record) {
+  if (!repairPhoneReturnKey(record)) return false;
+  if (record.orderItems?.length) return repairOrderProgress(record.orderItems, record).ready > 0;
+  return !isoDateForSave(record.pickupDate);
+}
+
+function repairPhoneNotifiedForReturn(record) {
+  const key = repairPhoneReturnKey(record);
+  return Boolean(key && record.phoneNotifiedReturnKey === key && record.phoneNotifiedAt &&
+    Number.isFinite(Date.parse(record.phoneNotifiedAt)));
+}
+
+function repairPhoneNotificationData(record, previous, checked, now, actor) {
+  const empty = { phoneNotifiedAt: "", phoneNotifiedBy: "", phoneNotifiedReturnKey: "" };
+  if (!checked || !repairPhoneReturnKey(record)) return empty;
+  const stored = { phoneNotifiedAt: previous?.phoneNotifiedAt || "", phoneNotifiedBy: previous?.phoneNotifiedBy || "",
+    phoneNotifiedReturnKey: previous?.phoneNotifiedReturnKey || "" };
+  if (repairPhoneNotifiedForReturn({ ...record, ...stored })) return stored;
+  if (!repairAwaitingPhoneNotification(record)) return empty;
+  return { phoneNotifiedAt: now, phoneNotifiedBy: actor || "", phoneNotifiedReturnKey: repairPhoneReturnKey(record) };
+}
+
+function createRepairPhoneNotifiedControl(record) {
+  const ready = repairAwaitingPhoneNotification(record);
+  const notified = repairPhoneNotifiedForReturn(record);
+  if (!ready && !notified) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "repair-phone-notified";
+  for (const type of ["click", "dblclick"]) wrap.addEventListener(type, event => event.stopPropagation());
+  if (ready) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = notified;
+    input.disabled = repairPhoneNotificationWrites.has(record.id);
+    input.setAttribute("aria-label", `Poinformowano telefonicznie: ${record.customerName || "klient"}`);
+    input.addEventListener("change", () => withSavedUndo("Serwis — telefon", () => changeRepairPhoneNotified(record.id, input.checked, input)));
+    const caption = document.createElement("span");
+    caption.textContent = "Poinformowano tel.";
+    label.append(input, caption);
+    wrap.append(label);
+  } else {
+    const caption = document.createElement("span");
+    caption.textContent = "Poinformowano tel.";
+    wrap.append(caption);
+  }
+  if (notified) {
+    const date = document.createElement("time");
+    date.dateTime = record.phoneNotifiedAt;
+    date.textContent = formatAuditDateTime(record.phoneNotifiedAt);
+    wrap.append(date);
+    if (record.phoneNotifiedBy) wrap.title = `Zaznaczono przez ${record.phoneNotifiedBy}`;
+  }
+  return wrap;
+}
+
+async function changeRepairPhoneNotified(id, notified, control) {
+  const entry = repairRecords.find(record => record.id === id);
+  if (!entry || !repairAwaitingPhoneNotification(entry) || repairPhoneNotificationWrites.has(id)) {
+    control.checked = repairPhoneNotifiedForReturn(entry);
+    return;
+  }
+  if (repairPhoneNotifiedForReturn(entry) === notified) return;
+  if (!requireInitialDataReady()) { control.checked = repairPhoneNotifiedForReturn(entry); return; }
+  const generation = sensitiveStateGeneration, userId = currentSupabaseUser?.id;
+  const updated = { ...entry, ...repairPhoneNotificationData(entry, entry, notified, new Date().toISOString(), currentSupabaseUser?.email) };
+  repairPhoneNotificationWrites.add(id);
+  control.disabled = true;
+  repairRecords = repairRecords.map(record => record.id === id ? updated : record);
+  try {
+    await persistRepairRecord(updated);
+    if (generation !== sensitiveStateGeneration || hasSupabaseConfig && userId !== currentSupabaseUser?.id) return;
+    logAuditEvent({ notebook: "repairs", action: "edit", recordId: id, beforeRecord: entry, afterRecord: updated });
+  } catch (error) {
+    if (generation !== sensitiveStateGeneration || hasSupabaseConfig && userId !== currentSupabaseUser?.id) return;
+    repairRecords = rollbackRecordMutation(repairRecords, id, entry, updated);
+    control.checked = repairPhoneNotifiedForReturn(entry);
+    alert(`Nie udało się zapisać informacji o telefonie: ${error.message}`);
+  } finally {
+    repairPhoneNotificationWrites.delete(id);
+    if (generation === sensitiveStateGeneration && (!hasSupabaseConfig || userId === currentSupabaseUser?.id)) {
+      control.disabled = false;
+      writeSensitiveStorage(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+      rebuildAfterRepairChange();
+      render();
+    }
+  }
+}
+
+function repairPhoneFormState() {
+  return { returnDate: isoDateForSave(document.querySelector("#repairReturnDate")?.value),
+    pickupDate: isoDateForSave(document.querySelector("#repairPickupDate")?.value), orderItems: readRepairOrderItems() };
+}
+
+function syncRepairPhoneNotifiedForm() {
+  const section = document.querySelector("#repairPhoneNotifiedField");
+  const input = document.querySelector("#repairPhoneNotified");
+  if (!section || !input) return;
+  const state = repairPhoneFormState();
+  section.hidden = !repairAwaitingPhoneNotification(state);
+  input.disabled = section.hidden;
+  input.checked = repairPhoneNotifiedForReturn({ ...state, ...(input.phoneNotification || {}) });
+  const date = document.querySelector("#repairPhoneNotifiedDate");
+  date.textContent = input.checked ? formatAuditDateTime(input.phoneNotification.phoneNotifiedAt) : "";
+  if (input.checked) date.dateTime = input.phoneNotification.phoneNotifiedAt;
+  else date.removeAttribute("datetime");
 }
 
 function createRepairStatusCell(record, status) {
@@ -25944,6 +26067,10 @@ function openRepairDialog(record = null) {
   }
   setRepairSerial2Visibility(Boolean(normalizeSerialNumber(normalizedRecord?.serialNumber2)));
   renderRepairOrderItems(normalizedRecord);
+  const phoneInput = document.querySelector("#repairPhoneNotified");
+  phoneInput.phoneNotification = { phoneNotifiedAt: normalizedRecord?.phoneNotifiedAt || "",
+    phoneNotifiedBy: normalizedRecord?.phoneNotifiedBy || "", phoneNotifiedReturnKey: normalizedRecord?.phoneNotifiedReturnKey || "" };
+  syncRepairPhoneNotifiedForm();
   syncRepairServiceCostField();
   updateDocumentLocationAccent(repairLocationInput);
   syncRepairLocationTiles(repairLocationInput);
@@ -26025,6 +26152,7 @@ function syncRepairOrderItemSummary() {
   syncRepairDialogHeaderMeta();
   updateRepairReturnSerialPrompt();
   updateRepairOrderPayment();
+  syncRepairPhoneNotifiedForm();
 }
 
 function renderRepairOrderItems(record) {
@@ -26640,6 +26768,9 @@ function repairFormRecord() {
     data.pickupDate = progress.pickupDate;
     data.status = statusFromRepairDates(data);
   }
+  const phoneInput = document.querySelector("#repairPhoneNotified");
+  if (phoneInput) Object.assign(data, repairPhoneNotificationData(data, phoneInput.phoneNotification, phoneInput.checked,
+    new Date().toISOString(), currentSupabaseUser?.email));
   return data;
 }
 
@@ -27149,6 +27280,7 @@ function syncRepairStatusFromDates() {
   document.querySelector("#repairStatus").value = statusFromRepairDates(data);
   if (validateRepairDateOrder(data)) updateRepairWarrantyHint(data);
   syncRepairDialogHeaderMeta();
+  syncRepairPhoneNotifiedForm();
 }
 
 function syncDemoStatusFromCurrentUser(options = {}) {
@@ -30115,6 +30247,13 @@ document.querySelector("#repairPickupDate").addEventListener("change", () => {
 });
 document.querySelector("#repairPickupDate").addEventListener("focus", renderRepairPickupLoanReminder);
 document.querySelector("#repairPickupDate").addEventListener("click", renderRepairPickupLoanReminder);
+document.querySelector("#repairPhoneNotified")?.addEventListener("change", event => {
+  const input = event.target;
+  input.phoneNotification = repairPhoneNotificationData(repairPhoneFormState(), input.phoneNotification, input.checked,
+    new Date().toISOString(), currentSupabaseUser?.email);
+  syncRepairPhoneNotifiedForm();
+  setPrimarySaveHighlight(saveRepairBtn, true);
+});
 document.querySelector("#repairCategory").addEventListener("change", syncRepairCategoryInput);
 repairServiceCostInput?.addEventListener("input", markRepairServiceCostManualChange);
 repairServiceCostInput?.addEventListener("input", updateRepairOrderPayment);

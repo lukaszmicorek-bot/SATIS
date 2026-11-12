@@ -11336,6 +11336,17 @@ tbody tr.device-sold-row .serial-pill.service {
   min-width: 0;
 }
 
+.repair-return-field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.repair-return-field + label { align-content: start; }
+.repair-phone-notified { display: grid; justify-items: end; gap: 2px; width: 100%; min-width: 0; color: #426969; font-size: 0.65rem; line-height: 1.4; }
+.repair-phone-notified label { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; margin: 0; color: inherit; font-size: inherit; font-weight: 600; cursor: pointer; }
+.repair-phone-notified label span { font-size: inherit; font-weight: 600; }
+.repair-phone-notified input { width: 14px; height: 14px; min-height: 0; flex: 0 0 14px; margin: 0; accent-color: #007a7a; }
+.repair-phone-notified time { color: #6a7d82; font-size: 0.63rem; font-weight: 450; }
+.repair-phone-notified-form { justify-items: start; font-size: 0.75rem; }
+.repair-phone-notified-form time { font-size: 0.7rem; }
+.repair-phone-notified[hidden] { display: none; }
+
 .repair-age-warning {
   display: inline-flex;
   align-items: center;
