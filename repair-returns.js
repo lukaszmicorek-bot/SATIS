@@ -23,7 +23,7 @@
       return result.data;
     } finally { clearTimeout(timer); }
   }
-  function create({ client, records, user, owner, place, workstation, iso, formatDate, openRecord, locationPill, isOrder = () => false }) {
+  function create({ client, records, user, owner, place, workstation, iso, formatDate, openRecord, locationPill, isOrder = () => false, phoneNotifiedControl = () => null }) {
     const button = document.getElementById("repairReturnsBtn");
     const panel = document.getElementById("repairReturnsPanel");
     const list = document.getElementById("repairReturnsList");
@@ -96,6 +96,8 @@
           confirm.disabled = !ready || saving.has(record.id);
           confirm.onclick = () => acknowledge(record); actions.append(confirm);
         }
+        const phone = phoneNotifiedControl(record);
+        if (phone) actions.append(phone);
         item.append(content, actions); list.append(item);
       });
     }

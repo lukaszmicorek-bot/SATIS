@@ -253,6 +253,42 @@ test('acknowledgement uses its own RPC, updates the counter and never changes a 
     assert.equal(elements.get('repairReturnsList').children.length, 0);
   } finally { module?.clear(); global.document = previous; }
 });
+test('returns panel reuses the service phone control and renders its saved state separately from acknowledgement', async () => {
+  const element = () => ({ children: [], hidden: false, textContent: '', dataset: {}, events: {},
+    classList: { toggle() {} }, append(...nodes) { this.children.push(...nodes); },
+    replaceChildren(...nodes) { this.children = nodes; }, setAttribute() {}, querySelectorAll() { return []; },
+    addEventListener(name, handler) { this.events[name] = handler; } });
+  const elements = new Map(['repairReturnsBtn','repairReturnsPanel','repairReturnsList','repairReturnsMessage',
+    'repairReturnsPlace','repairReturnsCount','repairReturnsRefresh','repairReturnsClose'].map(id => [id, element()]));
+  const previous = global.document;
+  global.document = { getElementById: id => elements.get(id), createElement: element, body: element() };
+  const record = { id: 'phone-test', location: 'P63', returnDate: '2026-11-12' };
+  let module, phoneWrites = 0, acknowledgementReads = 0;
+  try {
+    module = create({ client: { async rpc(name) { assert.equal(name, 'satis_repair_return_acknowledgements'); acknowledgementReads++; return { data: [] }; } },
+      records: () => [record], user: () => ({ id: 'test-user' }), owner: () => false, place: () => 'P63',
+      workstation: () => 'P63', iso, formatDate: value => value, openRecord() {}, locationPill: element,
+      phoneNotifiedControl: current => {
+        assert.equal(current, record, 'the live service record is passed without duplicating phone state');
+        const control = element(); control.checked = Boolean(current.phoneNotifiedAt);
+        control.textContent = current.phoneNotifiedAt || 'Poinformowano tel.';
+        control.events.change = () => { phoneWrites++; current.phoneNotifiedAt = '2026-11-12T12:00:00Z'; module.render(); };
+        return control;
+      } });
+    await module.load();
+    const actions = () => elements.get('repairReturnsList').children[0].children[1];
+    assert.equal(actions().children[0].textContent, 'Otwórz');
+    assert.equal(actions().children[1].textContent, 'Potwierdzam informację');
+    assert.equal(actions().children[2].checked, false);
+    actions().children[2].events.change();
+    assert.equal(phoneWrites, 1); assert.equal(acknowledgementReads, 1, 'phone change does not reload or acknowledge return notifications');
+    assert.equal(actions().children[2].checked, true);
+    assert.equal(actions().children[2].textContent, '2026-11-12T12:00:00Z');
+    assert.equal(elements.get('repairReturnsCount').textContent, '1', 'a phone call is not a cabinet acknowledgement');
+    assert.equal(record.pickupDate, undefined, 'phone confirmation never marks customer pickup');
+    assert.match(fs.readFileSync('app.js', 'utf8'), /phoneNotifiedControl: createRepairPhoneNotifiedControl/);
+  } finally { module?.clear(); global.document = previous; }
+});
 test('database stamps account/time, rejects stale returns and grants no direct client writes', () => {
   assert.match(fs.readFileSync('app.js', 'utf8'), /locationPill: createLocationPill, isOrder: isOrderRepairRecord/);
   const sql = fs.readFileSync('supabase-repair-returns.sql', 'utf8');

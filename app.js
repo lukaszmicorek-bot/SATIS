@@ -31064,7 +31064,8 @@ repairReturns = window.SatisRepairReturns?.create({
   },
   workstation: currentWorkstationName, iso: isoDateForSave, formatDate,
   openRecord: record => { switchView("repairDatabase", "repairs"); openRepairDialog(record); },
-  locationPill: createLocationPill, isOrder: isOrderRepairRecord
+  locationPill: createLocationPill, isOrder: isOrderRepairRecord,
+  phoneNotifiedControl: createRepairPhoneNotifiedControl
 });
 setupCustomerTransfer();
 trafficMeter?.connect(supabaseClient);

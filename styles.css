@@ -16614,6 +16614,9 @@ textarea {
 .repair-return-kind-order { color: var(--repair-order-ink); background: var(--repair-order-background); }
 .repair-return-item small { color: #627a86; font-size: 0.72rem; }
 .repair-return-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.repair-return-actions .repair-phone-notified { flex: 0 0 100%; margin-top: 3px; font-size: 0.75rem; }
+.repair-return-actions .repair-phone-notified label span { font-size: inherit; }
+.repair-return-actions .repair-phone-notified time { font-size: 0.7rem; }
 .repair-return-places { display: flex; flex-wrap: wrap; gap: 5px; }
 .repair-return-places .pcpr-tab { min-height: 30px; padding: 5px 10px; font-size: 0.75rem; white-space: nowrap; }
 .repair-return-confirm { padding: 6px 10px; border: 1px solid #bfd9e6; border-radius: 6px; color: #245979; background: #eaf5fb; font-size: 0.75rem; }

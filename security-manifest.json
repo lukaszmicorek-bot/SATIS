@@ -1,5 +1,5 @@
 {
-  "app_version": "20261112-1",
+  "app_version": "20261112-2",
   "asset_policy_sha256": "0680090ee24ddb9a8ad592d24772c9f133d8fd997225e6d58d619f1ce03a7b00",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -23,8 +23,8 @@
       "sha256": "35c986e12412bdf7601b42b49ad0d2c77f5c00a74dea07e28f0090484daf0943"
     },
     "app.js": {
-      "bytes": 1822496,
-      "sha256": "632f5944183508a2476b37998e13f43e7b5a54ebf19d42d55f729d89781bd3db"
+      "bytes": 1822554,
+      "sha256": "f6940682252b79ced21300294bf7ae6a8cc1a7e3aad06cdabf5f539f970fe477"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -60,7 +60,7 @@
     },
     "index.html": {
       "bytes": 467712,
-      "sha256": "e01e43f266b41c21d5110d56b1ce74c8a01efb0f38326e8fdead08c58bfe7486"
+      "sha256": "44a6763ff5e0e6d6042377ae470c3da4897b19a86df5ffaedbec95c15be8c6a9"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -176,7 +176,7 @@
     },
     "offline-sw.js": {
       "bytes": 3416,
-      "sha256": "67dbe506c5cd8b0e949a777f26275d63ac8b1ce7250e2a17c57756198aff7b2f"
+      "sha256": "47eb01f80edd7aedc49aa7ffffa19d090ae2d9e9c8f9bac95effa010c1d2701e"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -207,8 +207,8 @@
       "sha256": "5e8cb762d9e802afeea23eef2b227f8781fe1c89fff5e07e3ddd25ec779f62dc"
     },
     "repair-returns.js": {
-      "bytes": 9784,
-      "sha256": "e8e9b72c557ae6f849a4b6fc0aac3b7c831b245c066101e8c939cff0b453bbc1"
+      "bytes": 9913,
+      "sha256": "2263fccc82ec174c0f135a6fbd717a998b15c7e500d77beb30c42f6fe4eeb8f9"
     },
     "satis-monogram.png": {
       "bytes": 40413,
@@ -219,8 +219,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 454823,
-      "sha256": "6acffe1f725d014726c21d731adff0f9a369c9a008fcee3f28ad6a629ceeb165"
+      "bytes": 455081,
+      "sha256": "7e2011d36daf212885d64d341e83322415175b406b233e9067d59312a8bb765e"
     },
     "supabase-config.js": {
       "bytes": 227,
