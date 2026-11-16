@@ -144,12 +144,31 @@
     let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
     let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
     let scheduleConfig={hours:[],services:[]},scheduleReady=false,editingService=null,newServiceId="",resizeDrag=null,hoursDirty=false,serviceDirty=false,hoursRevision=null,hoursPlace=a.station();
-    const discard = () => !(profileDirty || activityDirty) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
+    const discard = () => !(profileDirty || activityDirty || journey?.dirty()) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
     function unsaved() {
       if (!profileDirty && !activityDirty) return false;
       notify("Zapisz lub anuluj edycję przed zmianą powiązań.", true); return true;
     }
     const allowed = () => a.owner() && Boolean(a.user());
+    const journey = a.journey?.create({host:q("clientJourney"),document:d,allowed,
+      today:a.today,id:a.id,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,confirm:a.confirm,bindDate:a.bindDate,
+      rpc,devices:(profile,links)=>a.availableDevices?.(profile,links)||[],context:journeyContext,
+      canNavigate:()=>!unsaved(),openForm:(kind,profile)=>a.openForm?.(kind,profile),
+      visit:()=>{if(editActivity("VISIT")){q("clientActivityTitle").value="Dopasowanie i odbiór aparatów";q("clientActivityEditor").scrollIntoView?.({block:"center",behavior:"smooth"});}},
+      reserve:async(profile,ids)=>{
+        if(unsaved())throw new Error("Zapisz najpierw zmiany danych klienta.");
+        await a.reserveDevices(profile,ids,detail.links);
+        try{for(const id of ids){if(detail.links.some(link=>link.source_type==="device"&&link.source_id===id))continue;
+          await write("LINK",profile.id,{source_type:"device",source_id:id},detail.profile.revision);
+          detail=await rpc("satis_client_detail",{p_id:profile.id});}}
+        catch{throw new Error("Aparaty zarezerwowano, ale nie potwierdzono wszystkich powiązań. Odśwież kartę i potwierdź je w Dokumentach do potwierdzenia.");}
+        getIndex();renderHistory();renderLinks();renderList();
+      }});
+    function journeyContext(){getIndex();return detail?{...detail,sources:sourceRows||[]}:null;}
+    const demo=a.journey?.createDemo?.({host:q("clientsDemoPanel"),document:d,allowed,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,
+      onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;}});
+    if(q("clientsDemoBtn"))q("clientsDemoBtn").hidden=!demo;
+    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!busy){q("clientsCard").hidden=true;demo?.open();}});
     function node(tag, text = "", className = "") { const n = d.createElement(tag); n.textContent = text; n.className = className; return n; }
     function button(text, action, className = "reset-filters-btn") {
       const b = node("button", text, className); b.type = "button"; b.addEventListener("click", action); return b;
@@ -169,6 +188,7 @@
       if (!allowed()) throw new Error("Brak dostępu do kartoteki.");
       const epoch = generation, user = a.user();
       const result = await a.rpc(name, args);
+      const journeyRequest = name.startsWith("satis_client_journey_");
       if (epoch !== generation || !allowed() || user !== a.user()) throw new Error("Sesja została zakończona.");
       if (result.error) {
         const e = new Error(result.error.code === "PT409" ? "Dane zmieniły się na innym komputerze. Odśwież kartę przed kolejnym zapisem."
@@ -180,15 +200,16 @@
           : result.error.code === "PT428" ? "Nie można planować wizyt w soboty, niedziele ani święta. Wybierz dzień roboczy."
           : result.error.code === "PT429" ? "Osiągnięto limit tej usługi w danym dniu, tygodniu, miesiącu lub roku. Wybierz inny termin."
           : result.error.code === "23505" ? "Taka nazwa usługi już istnieje. Edytuj istniejącą usługę."
-          : /PGRST202|42883|42P01/.test(result.error.code || "") ? name.startsWith("satis_client_schedule_")
+          : /PGRST202|42883|42P01/.test(result.error.code || "") ? journeyRequest
+            ? "Przebieg wymaga uruchomienia supabase-client-journey.sql w SQL Editor." : name.startsWith("satis_client_schedule_")
             ? "Godziny i limity wymagają uruchomienia supabase-client-schedule.sql w SQL Editor."
             : "Kartoteka wymaga uruchomienia supabase-clients.sql w SQL Editor."
           : "Nie udało się wykonać operacji. Sprawdź połączenie; niezapisane dane pozostają w formularzu.");
         e.code = result.error.code;
-        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_")) missingSchema = true;
+        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_") && !journeyRequest) missingSchema = true;
         throw e;
       }
-      if(!name.startsWith("satis_client_schedule_"))missingSchema = false;
+      if(!name.startsWith("satis_client_schedule_")&&!journeyRequest)missingSchema = false;
       return result.data;
     }
     async function write(action, id, data, revision) {
@@ -207,7 +228,10 @@
       finally { if (epoch === generation && allowed()) { busy = false; setBusy(false); } }
     }
     function setBusy(value) {
-      q("clientsNotebook").querySelectorAll("input,select,textarea,button").forEach(control => {control.disabled = value || control.dataset.closed==="true";});
+      q("clientsNotebook").querySelectorAll("input,select,textarea,button").forEach(control => {
+        if(q("clientsDemoPanel")?.contains?.(control))return;
+        control.disabled = value || control.dataset.closed==="true";
+      });
       q("clientsNotebook").querySelectorAll("[data-client-write]").forEach(control => {control.disabled = value || !loaded || missingSchema;});
       q("clientsNotebook").querySelectorAll("[data-schedule-write]").forEach(control=>{control.disabled=value || !scheduleReady;});
       q("clientVisitService").disabled=value || !scheduleReady;
@@ -286,7 +310,9 @@
     }
     function newCard(candidate = null) {
       if (!allowed() || busy || !discard()) return;
+      demo?.clear();
       detailSequence++; detail = null; newProfileId = a.id();
+      journey?.clear();
       const parts = a.addressParts(candidate?.address || "");
       fillProfile({full_name: candidate?.name || "", phone: candidate?.phone || "", street: parts.street || "",
         postal_code: parts.postalCode || "", city: parts.city || "", location: candidate?.location || a.station()});
@@ -297,12 +323,14 @@
     }
     async function select(id) {
       if (!discard()) return;
+      demo?.clear();
       const sequence = ++detailSequence;
       const data = await rpc("satis_client_detail", {p_id: id});
       if (sequence !== detailSequence) return;
       detail = data; fillProfile(data.profile);
       q("clientIdentityWarning").hidden = true;
       renderHistory(); renderLinks(); renderList();
+      await journey?.show(journeyContext());
     }
     async function saveProfile() {
       normalizeContact();
@@ -352,6 +380,7 @@
       await write("DELETE", detail.profile.id, {}, detail.profile.revision);
       profileDirty = false; activityDirty = false;
       detail = null; q("clientsCard").hidden = true; q("clientsForm").reset(); q("clientActivityEditor").reset();
+      journey?.clear();
       q("clientHistory").replaceChildren(); q("clientOperations").replaceChildren();
       await list(); await upcoming(); notify("Karta usunięta. Dokumenty źródłowe pozostały bez zmian.");
     }
@@ -711,11 +740,13 @@
     }
     function refreshSources() {
       if (!allowed() || !a.active()) return;
-      try { getIndex(); renderList(); renderLinks(); renderHistory(); }
+      try { getIndex(); renderList(); renderLinks(); renderHistory(); if(detail)journey?.refresh(journeyContext()); }
       catch { notify("Nie udało się odczytać powiązanych dokumentów. Odśwież dane; zapisane karty nie zostały usunięte.",true); }
       if (sourcesUnavailable) notify("Nie udało się odczytać powiązanych dokumentów. Zapisane karty klientów pozostają dostępne.",true);
     }
     function clear() {
+      demo?.clear();
+      journey?.clear();
       generation++; listSequence++; detailSequence++; visitSequence++; clearTimeout(searchTimer); clearTimeout(pollTimer);
       profiles=[];visits=[];detail=null;operations.clear();sourceRows=null;index=sourceIndex([]);loaded=false;busy=false;missingSchema=false;newProfileId="";editingActivity=null;activityId="";profileDirty=false;activityDirty=false;
       for (const id of ["clientsList","clientsSuggestions","clientCandidates","clientHistory","clientOperations","clientsVisitList"]) q(id)?.replaceChildren();
@@ -874,7 +905,7 @@
     q("clientsSchedulePrev").addEventListener("click",()=>moveSchedule(-1));
     q("clientsScheduleNext").addEventListener("click",()=>moveSchedule(1));
     q("clientsScheduleToday").addEventListener("click",()=>{if(allowed()){scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);renderSchedule();}});
-    a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty || hoursDirty || serviceDirty)){event.preventDefault();event.returnValue="";}});
+    a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty || hoursDirty || serviceDirty || journey?.dirty())){event.preventDefault();event.returnValue="";}});
     setBusy(false);
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};

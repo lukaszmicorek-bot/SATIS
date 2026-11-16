@@ -111,6 +111,11 @@
 !/tests/vacation-balance-visibility.test.cjs
 !/tests/vacation-weekend-range.test.cjs
 !/clients.js
+!/client-journey.js
+!/supabase-client-journey.sql
+!/tests/client-journey.test.cjs
+!/tests/client-journey-lifecycle.test.cjs
+!/tests/client-journey.sqltest.cjs
 !/tinnitus-forms.js
 !/care-form.js
 !/accessory-catalog.js

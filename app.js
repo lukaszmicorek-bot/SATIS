@@ -31113,22 +31113,30 @@ stockAuditWorkflow = SatisStockAudit.create({
 });
 function clientsCurrentSources() {
   if (!canViewPrivateModules() || !currentSupabaseUser) return [];
-  const refs = [records, repairRecords, pricingLoanHistory, pricingOfferHistory, pricingOrderHistory, pricingComplaintHistory];
+  const refs = [records, repairRecords, pricingLoanHistory, pricingOfferHistory, pricingOrderHistory, pricingComplaintHistory, demoRecords];
   if (refs.every((ref, i) => ref === clientsSourceCache.refs[i])) return clientsSourceCache.rows;
   const rows = [], add = row => { if (row.id && String(row.name || "").trim()) rows.push(row); };
   records.forEach(record => add({type: "device", id: record.id, name: record.customerName, phone: record.phone || "",
     date: isoDateForSave(record.pickupDate || record.receivedDate), location: record.location, kind: "Aparat",
     model: record.deviceName, serial: record.serialNumber, number: record.salesInvoice, status: deviceStatusDisplayLabel(displayType(record)),
+    workflow: { type: displayType(record), pickupDate: isoDateForSave(record.pickupDate), invoice: record.salesInvoice,
+      ezwm: deviceEzwmStatus(record), hearingAid: !pricingOfferAccessoryKind({model:record.deviceName}) },
     open: () => { switchNotebook("devices", {documentView: "database"}); openDialog(record); }}));
   repairRecords.forEach(record => add({type: "service", id: record.id, name: record.customerName, phone: record.phone || "",
     date: isoDateForSave(record.pickupDate || record.returnDate || record.sentDate || record.receivedDate), location: record.location,
-    kind: "Serwis / zamówienie", model: record.deviceName, serial: repairSerialNumbers(record).join(" · "), number: repairDocumentInfo(record)?.number || "",
+    kind: isOrderRepairRecord(record) ? "Zamówienie" : "Serwis / reklamacja", model: record.deviceName, serial: repairSerialNumbers(record).join(" · "), number: repairDocumentInfo(record)?.number || "",
+    workflow: { receivedDate: isoDateForSave(record.receivedDate), sentDate: isoDateForSave(record.sentDate), returnDate: isoDateForSave(record.returnDate), pickupDate: isoDateForSave(record.pickupDate),
+      sourceDocumentId: record.sourceDocumentId, phoneNotifiedAt: repairPhoneNotifiedForReturn(record) ? record.phoneNotifiedAt : "" },
     status: record.status, open: () => { switchNotebook("repairs"); openRepairDialog(record); }}));
   normalizePricingLoanHistory(pricingLoanHistory).forEach(entry => add({type: "loan", id: entry.id, name: entry.customer,
     phone: entry.phone, address: entry.address, date: isoDateForSave(entry.date), location: currentDateLocationKey(entry.city) || currentDateLocationKey(entry.workstation),
     kind: "Umowa wypożyczenia", model: [entry.rightDevice?.model, entry.leftDevice?.model, entry.charger].filter(Boolean).join(" · "),
     serial: [entry.rightDevice?.serial, entry.leftDevice?.serial, entry.chargerSerial].filter(Boolean).join(" · "), number: entry.number,
-    status: entry.returnDate ? "Zakończona" : "Aktywna", open: () => { switchPricingView("loan"); restorePricingLoanFromHistory(entry); }}));
+    status: entry.returnDate ? "Zakończona" : "Aktywna", workflow: { returnDate: entry.returnDate, periodTo: entry.periodTo,
+      outstandingDemo: demoRecords.some(record => customerNameLookupKey(record.currentUser) === customerNameLookupKey(entry.customer)
+        && [entry.rightDevice?.serial,entry.leftDevice?.serial,entry.chargerSerial].some(serial => serial && serialDuplicateKey(serial) === serialDuplicateKey(record.serialNumber))
+        && !record.returnDate && record.loanDate === (entry.periodFrom || entry.date)) },
+    open: () => { switchPricingView("loan"); restorePricingLoanFromHistory(entry); }}));
   normalizePricingOfferHistory(pricingOfferHistory).forEach(entry => add({type: "offer", id: entry.id, name: entry.customer,
     phone: entry.phone, address: entry.address, date: isoDateForSave(entry.offerDate), location: currentDateLocationKey(entry.location),
     kind: "Oferta", model: entry.items.map(item => item.model || item.tradeName).filter(Boolean).join(" · "), number: entry.number,
@@ -31145,6 +31153,61 @@ function clientsCurrentSources() {
   clientsSourceCache = {refs, rows};
   return rows;
 }
+function availableClientJourneyDevices(profile, links = []) {
+  if (!canViewPrivateModules() || !currentSupabaseUser) return [];
+  const linked = new Set(links.filter(link=>link.source_type === "device").map(link=>link.source_id));
+  return records.filter(record => !pricingOfferAccessoryKind({model:record.deviceName}) && hasValidStockIdentity(record) &&
+    (isInStock(record) && !String(record.customerName || "").trim() ||
+      linked.has(record.id) && ["REZERWACJA","SPRZEDANY"].includes(displayType(record)) ||
+      record.clientProfileId === profile.id && displayType(record) === "REZERWACJA"))
+    .map(record=>({id:record.id,model:record.deviceName,serial:record.serialNumber,location:record.location,type:displayType(record)}));
+}
+
+async function reserveClientJourneyDevices(profile, ids, links = []) {
+  if (!canViewPrivateModules() || !currentSupabaseUser || !requireInitialDataReady() || !hasSupabaseConfig)
+    throw new Error("Rezerwacja z kartoteki wymaga połączenia i konta SATIS.");
+  if (!profile?.id || profile.archived || !isFullPersonName(profile.full_name) || !Array.isArray(ids) || ids.length<1 || ids.length>2 || new Set(ids).size!==ids.length)
+    throw new Error("Sprawdź klienta i wybierz 1 lub 2 aparaty.");
+  await satisChangeQueue.flush();
+  if (!canViewPrivateModules() || !currentSupabaseUser) throw new Error("Sesja zakończona.");
+  const userId=currentSupabaseUser.id,generation=sensitiveStateGeneration;
+  const linked = new Set(links.filter(link=>link.source_type==="device").map(link=>link.source_id));
+  const selectedSerials = ids.map(id=>serialDuplicateKey(records.find(record=>record.id===id)?.serialNumber));
+  if (selectedSerials.some(serial=>!serial) || new Set(selectedSerials).size!==ids.length) throw new Error("Numery seryjne wybranych aparatów muszą być różne.");
+  const changes=ids.map(id=>{
+    const record=records.find(item=>item.id===id);
+    if(!record || pricingOfferAccessoryKind({model:record.deviceName}) || !hasValidStockIdentity(record))throw new Error("Wybrany aparat jest niedostępny. Odśwież kartę.");
+    if(record.clientProfileId===profile.id && displayType(record)==="REZERWACJA")return null;
+    if(linked.has(id) && customerNameLookupKey(record.customerName)===customerNameLookupKey(profile.full_name) && ["REZERWACJA","SPRZEDANY"].includes(displayType(record)))return null;
+    if(!isInStock(record) || String(record.customerName||"").trim())throw new Error("Aparat nie jest już wolny. Nie zmieniono rezerwacji.");
+    return {before:record,after:{...record,customerName:titleCaseName(profile.full_name),phone:profile.phone||"",type:"REZERWACJA",clientProfileId:profile.id}};
+  }).filter(Boolean);
+  if(!changes.length)return;
+  await satisDataStore.commit(changes.map(change=>satisDataStore.prepare(SUPABASE_DEVICE_TABLE,change.after)),{requestTimeoutMs:20000});
+  if(generation!==sensitiveStateGeneration || userId!==currentSupabaseUser?.id)throw new Error("Sesja zakończona — sprawdź zapis po ponownym zalogowaniu.");
+  const updated=new Map(changes.map(change=>[change.after.id,change.after]));
+  records=records.map(record=>updated.get(record.id)||record);
+  writeSensitiveStorage(STORAGE_KEY,JSON.stringify(records));
+  rebuildAfterDeviceChange();
+  changes.forEach(change=>logAuditEvent({notebook:"devices",action:"edit",recordId:change.after.id,beforeRecord:change.before,afterRecord:change.after}));
+}
+
+function openClientJourneyForm(kind, profile) {
+  if(!canViewPrivateModules() || !currentSupabaseUser)return;
+  const ids={offer:"offerCustomerInput",loan:"loanCustomerInput",order:"orderCustomerInput",complaint:"complaintCustomerInput",rodo:"rodoNameInput",receipt:"receiptCustomerInput",care:"careCustomerInput"};
+  if(!ids[kind])return;
+  const address=[profile.street,[profile.postal_code,profile.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  const fields=customerTransferFields(ids[kind]);
+  if(!fields.name)fields.name=document.getElementById(ids[kind]);
+  if(kind==="rodo"){fields.phone=document.getElementById("rodoPhoneInput");fields.address=document.getElementById("rodoAddressInput");}
+  if(kind==="receipt")fields.address=document.getElementById("receiptAddressInput");
+  if(!applyCustomerTransfer(fields,{name:profile.full_name,phone:profile.phone,address}))return;
+  switchPricingView(kind);
+  if(kind==="receipt"){completeReceiptCustomer();renderPricingReceipt();}
+  if(kind==="rodo")renderPricingRodo();
+  if(kind==="care")careForm?.render();
+}
+
 function mailMergeContactMatches(query) {
   if (!canAccessMailMerge() || !currentSupabaseUser) return [];
   const pcprNames = normalizePricingPcprList(pricingPcprList).filter(entry => entry.place === "P50").map(entry => entry.customer);
@@ -31213,6 +31276,8 @@ function initializeClientsModule() {
     clientsModule = window.SatisClients.create({
   document, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
   active: () => activeNotebook === "clients", sources: clientsCurrentSources,
+  journey: window.SatisClientJourney, availableDevices: availableClientJourneyDevices,
+  reserveDevices: reserveClientJourneyDevices, openForm: openClientJourneyForm, bindDate: bindDatePickerInput,
   rpc: async (name, args) => {
     if (!currentSupabaseUser || !canViewPrivateModules() || !supabaseClient) throw new Error("Zaloguj się na konto SATIS.");
     const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 15000);
