@@ -55,6 +55,9 @@ async function run(){
  assert.equal(await page.locator('#clientsDialog').evaluate(node=>node.open),true,'client opens in a separate native modal');
  assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Klient Testowy');
  assert.equal(await page.locator('#clientsDialog').getAttribute('data-location-tone'),'P63');
+ const headingStyle=await page.locator('#clientsDialogTitle').evaluate(node=>{const title=getComputedStyle(node),header=getComputedStyle(node.closest('header'));return {size:parseFloat(title.fontSize),weight:Number(title.fontWeight),text:title.color,background:header.backgroundColor};});
+ assert.ok(headingStyle.size>=18&&headingStyle.weight>=700,'customer heading is larger and bold');
+ assert.equal(headingStyle.text,'rgb(255, 255, 255)');assert.equal(headingStyle.background,'rgb(0, 102, 108)');
  assert.equal(await page.locator('#clientsCasePanel').isVisible(),true);
  await page.getByRole('tab',{name:'Dane',exact:true}).click();
  await page.locator('#clientCity').fill('Miasto testowe');
@@ -156,6 +159,7 @@ async function run(){
  await page.mouse.up();
  assert.equal(await page.locator('#clientsBookingDialog').evaluate(node=>node.open),true);
  assert.equal(await page.locator('#clientsBookingDialog').getAttribute('data-location-tone'),'P63');
+ assert.equal(await page.locator('#clientsBookingTitle').evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
  assert.equal(await page.locator('#clientsBookingSearch').evaluate(node=>node.closest('label').classList.contains('person-highlight-field')),true);
  assert.equal(await page.locator('#clientsBookingFrom').inputValue(),'09:00');assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:00');
  assert.equal(await page.evaluate(()=>bookingWrites.length),0,'selecting time never writes');
