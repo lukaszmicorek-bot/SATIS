@@ -15,6 +15,18 @@
     }
     return result;
   }
+  function confirmationTimes(history,state){
+    const rows=[...history].filter(event=>state.case_id?event.data?.case_id===state.case_id:!event.data?.case_id&&event.data?.started_on===state.started_on)
+      .sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+    const result={},previous={};
+    for(const [index,event]of rows.entries())for(const id of Object.keys(flags)){
+      const checked=event.data.confirmations?.[id]===true;
+      if(checked&&previous[id]!==true&&(index>0||history.length<30)&&Number.isFinite(Date.parse(event.created_at)))result[id]=event.created_at;
+      if(!checked)delete result[id];previous[id]=checked;
+    }
+    for(const id of Object.keys(result))if(!state.confirmations[id])delete result[id];
+    return result;
+  }
   function localDay(value){const date=new Date(value);if(!Number.isFinite(date.getTime()))return "";return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;}
   function normalize(value={},today=""){
     return {kind:value.kind==="SERVICE"?"SERVICE":"PURCHASE",started_on:day(value.started_on)||today,interest:["UNKNOWN","INTERESTED","DECLINED"].includes(value.interest)?value.interest:"UNKNOWN",
@@ -42,50 +54,6 @@
     const contact=state.follow_up?.loan_id===String(row.id)?day(state.follow_up.contact_on):"";
     if(days<14&&!contact)return null;
     return {loan:row,days,start,contact_on:contact,due:contact?contact<=today:days>=14};
-  }
-  function demoSnapshots(){
-    const profile={id:"DEMO-CLIENT-NOT-SAVED",full_name:"Klient demonstracyjny",phone:"",location:"P63"};
-    const state=normalize({started_on:"2026-10-19",trial_required:true,devices_required:2},"2026-10-19");
-    const sources=[{type:"loan",id:"DEMO-LOAN",name:profile.full_name,kind:"Umowa wypożyczenia",date:"2026-10-19",model:"Testowe aparaty P i L",number:"PRZYKŁAD/10/2026",workflow:{returnDate:""}}],activities=[],snapshots=[];
-    function save(label,date){snapshots.push({label,date,state:structuredClone(state),context:{profile:{...profile},sources:structuredClone(sources),activities:structuredClone(activities),links:sources.map(row=>({source_type:row.type,source_id:row.id}))}});}
-    save("1. Wypożyczenie i umowa","2026-10-19");
-    sources[0].workflow.returnDate="2026-11-02";save("2. Zwrot aparatów Demo","2026-11-02");
-    state.interest="INTERESTED";state.confirmations.rodo=true;
-    sources.push({type:"offer",id:"DEMO-OFFER",name:profile.full_name,kind:"Oferta",date:"2026-11-02",model:"Dwa aparaty testowe"});
-    state.referral="REQUESTED";save("3. Oferta, RODO i zlecenie w toku","2026-11-02");
-    state.referral="READY";state.device_ids=["DEMO-SALE-P","DEMO-SALE-L"];
-    for(const side of ["P","L"])sources.push({type:"device",id:`DEMO-SALE-${side}`,name:profile.full_name,kind:"Aparat",model:`Aparat testowy ${side}`,serial:`TEST-SALE-${side}`,date:"2026-10-01",workflow:{type:"REZERWACJA",hearingAid:true}});
-    save("4. Dwa aparaty zarezerwowane","2026-11-03");
-    activities.push({id:"DEMO-VISIT",kind:"VISIT",title:"Dopasowanie i odbiór aparatów",starts_at:"2026-11-04T10:00:00Z",status:"PLANNED"});state.visit_id="DEMO-VISIT";
-    save("5. Wizyta umówiona","2026-11-03");
-    activities[0].status="COMPLETED";
-    for(const item of sources.filter(row=>row.type==="device")){item.date="2026-11-04";Object.assign(item.workflow,{type:"SPRZEDANY",pickupDate:"2026-11-04",invoice:"TEST-FS/11/2026",ezwm:"REALIZACJA"});}
-    for(const id of Object.keys(flags))state.confirmations[id]=true;save("6. Zakup i dokumenty zakończone","2026-11-04");
-    sources.push({type:"complaint",id:"DEMO-COMPLAINT",name:profile.full_name,kind:"Reklamacja",date:"2026-11-09",number:"TEST-REK/11/2026",model:"Aparat testowy P",serial:"TEST-SALE-P"});
-    const repair={type:"service",id:"DEMO-SERVICE",name:profile.full_name,kind:"Serwis / reklamacja",date:"2026-11-09",number:"TEST-REK/11/2026",model:"Aparat testowy P",serial:"TEST-SALE-P",workflow:{sourceDocumentId:"DEMO-COMPLAINT",receivedDate:"2026-11-09"}};sources.push(repair);
-    save("7. Reklamacja przyjęta","2026-11-09");
-    repair.workflow.sentDate="2026-11-10";repair.date="2026-11-10";save("8. Wysłanie do naprawy","2026-11-10");
-    repair.workflow.returnDate="2026-11-13";repair.date="2026-11-13";save("9. Powrót — trzeba zadzwonić","2026-11-13");
-    repair.workflow.phoneNotifiedAt="2026-11-13T11:15:00Z";save("10. Telefon — czekamy na odbiór","2026-11-13");
-    repair.workflow.pickupDate="2026-11-16";repair.date="2026-11-16";save("11. Odbiór — cała droga zakończona","2026-11-16");
-    return snapshots;
-  }
-  function createDemo(a){
-    if(!a.host)return null;
-    const host=a.host,doc=a.document,snapshots=demoSnapshots();let current=snapshots[0];
-    const header=doc.createElement("header"),heading=doc.createElement("h2"),close=doc.createElement("button"),note=doc.createElement("p"),label=doc.createElement("label"),select=doc.createElement("select"),body=doc.createElement("section");
-    header.className="clients-section-heading";heading.textContent="Klient demonstracyjny · P63";close.type="button";close.className="reset-filters-btn";close.textContent="Zamknij przykład";
-    note.className="clients-hint";note.textContent="Dane fikcyjne · tylko podgląd · bez zapisu do bazy. Wybierz etap, aby zobaczyć następny krok i powiązania.";
-    label.className="client-demo-stage";label.append("Etap przykładu",select);select.setAttribute("aria-label","Etap klienta demonstracyjnego");
-    snapshots.forEach((snapshot,index)=>{const option=doc.createElement("option");option.value=String(index);option.textContent=snapshot.label;select.append(option);});
-    header.append(heading,close);host.append(header,note,label,body);body.className="client-journey";
-    const view=create({host:body,document:doc,allowed:a.allowed,readOnly:true,today:()=>current.date,id:()=>"NO-WRITE-DEMO",setDate:a.setDate,iso:a.iso,dateTime:a.dateTime,
-      confirm:()=>false,canNavigate:()=>false,devices:()=>[],openForm(){},visit(){},
-      rpc:async name=>{if(name!=="satis_client_journey_read")throw new Error("Przykład nie zapisuje danych.");return {journey:{revision:1,data:current.state},events:[]};}});
-    function show(){if(!a.allowed())return;for(const row of current.context.sources)row.open=()=>{};void view.show(current.context);}
-    select.addEventListener("change",()=>{current=snapshots[Number(select.value)]||snapshots[0];show();});
-    close.addEventListener("click",()=>{view.clear();host.hidden=true;a.onClose?.();});
-    return {open(){if(!a.allowed())return;host.hidden=false;show();host.scrollIntoView?.({block:"start",behavior:"smooth"});},clear(){view.clear();host.hidden=true;}};
   }
   function build(context,state,today,manual=[]){
     const s=normalize(state,today),all=confirmedRows(context),selected=new Set(s.source_keys||[]);
@@ -206,7 +174,7 @@
   function aVisitDetail(visit,today){return localDay(visit.starts_at)<today?"Termin minął. Potwierdź odbycie albo zmień datę.":"Otwórz szczegóły lub zmień termin wizyty.";}
   function create(a){
     const host=a.host,doc=a.document;if(!host)return null;
-    let context=null,state=null,saved=null,revision=null,events=[],cases=[],manual=new Set(),caseSupport=false,followUpSupport=false,rodoElsewhere=false,contactDraft=null,loading=false,busy=false,dirty=false,available=false,hasStorage=false,generation=0,operation=null,reservationAttempt=null,notice=null;
+    let context=null,state=null,saved=null,revision=null,events=[],cases=[],confirmedAt={},rodoConfirmedAt="",manual=new Set(),caseSupport=false,followUpSupport=false,rodoElsewhere=false,contactDraft=null,loading=false,busy=false,dirty=false,available=false,hasStorage=false,generation=0,operation=null,reservationAttempt=null,notice=null;
     const node=(tag,text,cls)=>{const n=doc.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
     const allowed=()=>a.allowed()&&context;
     function button(label,action,cls="reset-filters-btn"){const b=node("button",label,cls);b.type="button";b.disabled=busy||Boolean(a.readOnly);b.addEventListener("click",()=>{if(allowed()&&!busy&&!a.readOnly)action();});return b;}
@@ -232,12 +200,15 @@
       const opened=new Set([...host.querySelectorAll("details[open]")].map(section=>section.className));
       host.hidden=false;host.dataset.kind=state.kind;host.replaceChildren();
       const plan=build({...context,rodo_confirmed_elsewhere:rodoElsewhere},state,a.today(),[...manual]),header=node("header",undefined,"clients-section-heading");let caseField=null;
+      const stamps={...confirmationTimes(events,state),...confirmedAt};
       const title=node("h3","Bieżąca sprawa"),summary=node("span",plan.phase,"client-journey-summary");summary.dataset.complete=String(plan.complete);header.append(title,summary);host.append(header);
       const status=node("p",loading?"Wczytywanie etapów…":"", "clients-hint");status.dataset.journeyMessage="";status.setAttribute("role","status");host.append(status);
       if(!hasStorage&&!loading){status.textContent="Zapis etapów wymaga uruchomienia supabase-client-journey.sql. Dokumenty źródłowe pozostają dostępne.";status.dataset.error="true";}
       if(context.profile.archived||saved?.archived)host.append(node("p",context.profile.archived?"Karta zarchiwizowana — przebieg tylko do odczytu.":"Poprzednia sprawa — tylko do odczytu. Bieżącą wybierzesz z listy.","clients-hint"));
       if(!loading&&plan.consentMissing){const consent=node("div",undefined,"client-consent-notice");consent.append(node("strong","RODO — brak potwierdzenia"),node("span","Sprawdź dokument klienta. Sam wydruk nie potwierdza podpisania."));
         const controls=node("div",undefined,"clients-actions");controls.append(button("Otwórz RODO",()=>go("rodo")),button("Potwierdź dokument",()=>{if(!editable())return;if(!a.confirm("Potwierdzasz, że dokument RODO tej osoby został podpisany lub przekazany zgodnie z przyjętą procedurą?"))return;state.confirmations.rodo=true;change();void saveState();}));consent.append(controls);host.append(consent);}
+      if(!loading&&!plan.consentMissing){const timestamp=state.confirmations.rodo?stamps.rodo||rodoConfirmedAt:rodoConfirmedAt;
+        host.append(node("p",timestamp?`RODO potwierdzono: ${a.dateTime(timestamp)}`:dirty&&!saved?.data.confirmations?.rodo?"Potwierdzenie RODO — do zapisu":"RODO potwierdzone · brak daty wcześniejszego potwierdzenia","client-confirmation-stamp"));}
       if(!loading&&plan.followUp){const follow=plan.followUp,reminder=node("div",undefined,follow.due?"client-follow-up due":"client-follow-up");
         reminder.append(node("strong",follow.due?"Kontakt po wypożyczeniu":"Kontakt zaplanowany"),node("span",follow.due?`Od rozpoczęcia wypożyczenia minęło ${follow.days} dni. Brak powiązanej oferty i sprzedaży.`:`Ponowny kontakt: ${a.date?.(follow.contact_on)||follow.contact_on}.`));
         const choices=node("div",undefined,"clients-actions");choices.append(button("Przygotuj ofertę",()=>go("offer")),button("Rezygnacja",()=>{if(!editable()||!a.confirm("Zapisać rezygnację z zakupu? Nie kończy to aktywnego wypożyczenia."))return;state.interest="DECLINED";delete state.follow_up;contactDraft=null;change();void saveState();}));reminder.append(choices);
@@ -275,7 +246,8 @@
       const chain=node("ol",undefined,"client-journey-chain"),completed=node("details",undefined,"client-journey-completed"),doneChain=node("ol",undefined,"client-journey-chain");completed.append(node("summary",`Wykonane czynności · ${plan.steps.filter(step=>step.done||step.skipped).length}`),doneChain);
       const suggestedIds=new Set(plan.suggestions.slice(0,3).map(item=>item.id));
       for(const step of plan.steps){if(!step.done&&!flags[step.id]&&(suggestedIds.has(step.id)||step.id.startsWith("service:")))continue;
-        const row=node("li");row.dataset.done=String(step.done);row.dataset.skipped=String(step.skipped);const content=node("div");content.append(node("strong",step.title),node("small",`${step.detail}${step.date?` · ${a.dateTime(step.date)}`:""}`));
+        const row=node("li");row.dataset.done=String(step.done);row.dataset.skipped=String(step.skipped);const content=node("div");const timestamp=step.done&&flags[step.id]?stamps[step.id]:step.date;
+        content.append(node("strong",step.title),node("small",`${step.detail}${timestamp?` · ${a.dateTime(timestamp)}`:step.done&&flags[step.id]?" · brak daty wcześniejszego potwierdzenia":""}`));
         row.append(node("span",step.skipped?"—":step.done?"✓":"○","client-journey-mark"),content);
         if(flags[step.id]){const label=node("label",undefined,"client-journey-check"),check=node("input");check.type="checkbox";check.checked=state.confirmations[step.id];check.disabled=busy||!available;check.setAttribute("aria-label",flags[step.id]);check.addEventListener("change",()=>{if(!editable())return;state.confirmations[step.id]=check.checked;change();});label.append(check,node("span","Potwierdź"));row.append(label);}
         if(step.action)row.append(button("Otwórz",()=>go(step.action)));(step.done||step.skipped?doneChain:chain).append(row);
@@ -292,7 +264,7 @@
       const allActions=node("details",undefined,"client-journey-all-actions");allActions.append(node("summary","Dodaj"));
       const forms=node("div",undefined,"clients-actions client-journey-forms");for(const [kind,label]of [["offer","Oferta"],["loan","Umowa wypożyczenia"],["purchase","Zakup"],["rodo","RODO"],["receipt","Odbiór"],["care","Pielęgnacja"],["order","Zamówienie"],["complaint","Reklamacja"],["newVisit","Umów wizytę"]])forms.append(button(label,()=>kind==="purchase"?choose(kind):go(kind)));allActions.append(forms);
       const confirmations=node("div",undefined,"clients-actions");for(const [id,label]of Object.entries(flags))confirmations.append(button(label,()=>choose(id)));allActions.append(node("h4","Potwierdzenia dokumentów"),confirmations,node("p","Potwierdzaj po podpisaniu lub przekazaniu. Sam wydruk nie potwierdza wykonania czynności.","clients-hint"));host.append(allActions);
-      const actions=node("div",undefined,"clients-actions client-journey-actions");const save=button("Zapisz przebieg",()=>void saveState(),"primary");save.dataset.journeySave="";const newCase=button("Nowa sprawa",()=>{if(!editable()||!caseSupport||!a.confirm("Rozpocząć odrębną sprawę? Poprzednia pozostanie dostępna na liście spraw. Niezapisane zmiany zostaną pominięte."))return;rodoElsewhere=rodoElsewhere||saved?.data.confirmations?.rodo===true;state=normalize({case_id:a.id(),source_keys:[]},a.today());revision=null;saved=null;events=[];manual.clear();contactDraft=null;change();});newCase.disabled=busy||!available||!caseSupport;newCase.title=caseSupport?"Odrębny zakup, testowanie lub serwis":"Wymaga supabase-clients-audit.sql";actions.append(save,newCase);host.append(actions);
+      const actions=node("div",undefined,"clients-actions client-journey-actions");const save=button("Zapisz przebieg",()=>void saveState(),"primary");save.dataset.journeySave="";const newCase=button("Nowa sprawa",()=>{if(!editable()||!caseSupport||!a.confirm("Rozpocząć odrębną sprawę? Poprzednia pozostanie dostępna na liście spraw. Niezapisane zmiany zostaną pominięte."))return;rodoElsewhere=rodoElsewhere||saved?.data.confirmations?.rodo===true;state=normalize({case_id:a.id(),source_keys:[]},a.today());revision=null;saved=null;events=[];confirmedAt={};manual.clear();contactDraft=null;change();});newCase.disabled=busy||!available||!caseSupport;newCase.title=caseSupport?"Odrębny zakup, testowanie lub serwis":"Wymaga supabase-clients-audit.sql";actions.append(save,newCase);host.append(actions);
       if(plan.services.length){const serviceDetails=node("details",undefined,"client-journey-service-details");serviceDetails.append(node("summary",`Przebieg serwisu i zamówień · ${plan.services.length}`));for(const item of plan.services){const row=node("article",undefined,"client-journey-service");row.dataset.closed=String(item.closed);row.append(node("strong",[item.row.kind,item.row.number,item.row.model].filter(Boolean).join(" · ")));
         if(item.missingService)row.append(node("p","Brak powiązanego wpisu w Serwisie — sprawdź zapis formularza.","client-journey-warning"));
         else for(const stage of item.steps)row.append(node("span",`${stage.date?"✓":"○"} ${stage.label}${stage.date?` · ${a.dateTime(stage.date)}`:""}`));
@@ -324,17 +296,17 @@
       finally{if(epoch===generation&&allowed()){busy=false;render();}}
     }
     async function read(epoch,caseId){const data=await a.rpc(caseId?"satis_client_journey_case_read":"satis_client_journey_read",{p_customer_id:context.profile.id,...(caseId?{p_case_id:caseId}:{})});if(epoch!==generation||!allowed())return;
-      caseSupport=data.case_support===true;followUpSupport=data.follow_up_support===true;rodoElsewhere=data.rodo_confirmed_elsewhere===true;cases=data.cases||[];saved=data.journey;revision=saved?.revision??null;
+      caseSupport=data.case_support===true;followUpSupport=data.follow_up_support===true;rodoElsewhere=data.rodo_confirmed_elsewhere===true;confirmedAt=data.confirmation_times||{};rodoConfirmedAt=data.rodo_confirmed_at||"";cases=data.cases||[];saved=data.journey;revision=saved?.revision??null;
       state=saved?normalize(saved.data,a.today()):caseSupport?normalize({case_id:a.id(),source_keys:[]},a.today()):initialState(context,a.today());events=data.events||[];hasStorage=true;available=!context.profile.archived&&!saved?.archived&&!a.readOnly;loading=false;render();}
     async function switchCase(caseId){if(!allowed()||busy||!caseSupport)return;const epoch=generation;busy=true;loading=true;notice=null;render();
       try{await read(epoch,caseId);manual.clear();contactDraft=null;dirty=false;operation=null;}catch(error){if(epoch===generation&&allowed()){loading=false;message(error.message,true);}}
       finally{if(epoch===generation&&allowed()){busy=false;render();}}}
-    async function show(value){generation++;context=value;state=initialState(value,a.today());saved=null;revision=null;events=[];manual=new Set();contactDraft=null;dirty=false;busy=false;operation=null;available=false;hasStorage=false;loading=true;notice=null;render();const epoch=generation;
+    async function show(value){generation++;context=value;state=initialState(value,a.today());saved=null;revision=null;events=[];confirmedAt={};rodoConfirmedAt="";manual=new Set();contactDraft=null;dirty=false;busy=false;operation=null;available=false;hasStorage=false;loading=true;notice=null;render();const epoch=generation;
       try{await read(epoch);}catch(error){if(epoch===generation&&allowed()){loading=false;
         if(!/PGRST202|42883|42P01/.test(error.code||""))notice={text:"Nie udało się wczytać etapów. Odśwież kartę przed zapisem; dokumenty źródłowe pozostały bez zmian.",error:true};render();}}}
     function refresh(value){if(!allowed()||context.profile.id!==value?.profile.id)return;context=value;if(!busy)render();}
-    function clear(){generation++;context=null;state=null;saved=null;events=[];cases=[];manual.clear();caseSupport=false;followUpSupport=false;rodoElsewhere=false;contactDraft=null;dirty=false;busy=false;available=false;operation=null;reservationAttempt=null;host.replaceChildren();host.hidden=true;}
+    function clear(){generation++;context=null;state=null;saved=null;events=[];cases=[];confirmedAt={};rodoConfirmedAt="";manual.clear();caseSupport=false;followUpSupport=false;rodoElsewhere=false;contactDraft=null;dirty=false;busy=false;available=false;operation=null;reservationAttempt=null;host.replaceChildren();host.hidden=true;}
     return {show,refresh,clear,dirty:()=>dirty,busy:()=>busy,ready:()=>available};
   }
-  return {flags,normalize,confirmedRows,initialState,build,followUpStatus,historyEvents,demoSnapshots,createDemo,create};
+  return {flags,normalize,confirmedRows,initialState,build,followUpStatus,historyEvents,confirmationTimes,create};
 });

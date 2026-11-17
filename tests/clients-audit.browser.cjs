@@ -17,8 +17,8 @@ async function run(){
    {type:'device',id:'sold-test',name:profile.full_name,date:'2026-11-17',kind:'Aparat',model:'Model testowy',serial:'TEST-SOLD',workflow:{type:'SPRZEDANY',pickupDate:'2026-11-17',invoice:'TEST-FS',ezwm:'REALIZACJA'},open(){}}];
   const detail={profile,links:sources.map(row=>({source_type:row.type,source_id:row.id})),activities:[],operations:[]};
   let journey={case_id:'30000000-0000-0000-0000-000000000001',revision:1,archived:false,data:SatisClientJourney.normalize({case_id:'30000000-0000-0000-0000-000000000001',source_keys:['offer:offer-test'],device_ids:['sold-test'],started_on:'2026-11-17',interest:'INTERESTED',referral:'REQUESTED'},'2026-11-17')};
-  const stored=new Map([[journey.case_id,journey]]);let writes=0,ids=10,hold=false,release=null,missing=false,calls=[],reserveCalls=0,confirmDiscard=true,todayValue='2026-11-17';
-  const response=selected=>({journey:selected,events:[],case_support:!missing,follow_up_support:!missing,rodo_confirmed_elsewhere:[...stored.values()].some(row=>row.case_id!==selected?.case_id&&row.data.confirmations.rodo),cases:[...stored.values()].map(row=>({case_id:row.case_id,kind:row.data.kind,started_on:row.data.started_on,archived:row.archived}))});
+  const stored=new Map([[journey.case_id,journey]]),confirmationStamps=new Map(),serverStamp='2026-11-17T10:15:00Z';let writes=0,ids=10,hold=false,release=null,missing=false,calls=[],reserveCalls=0,confirmDiscard=true,todayValue='2026-11-17';
+  const response=selected=>({journey:selected,events:[],case_support:!missing,follow_up_support:!missing,confirmation_times:confirmationStamps.get(selected?.case_id)||{},rodo_confirmed_at:[...stored.values()].some(row=>row.data.confirmations.rodo)?serverStamp:null,rodo_confirmed_elsewhere:[...stored.values()].some(row=>row.case_id!==selected?.case_id&&row.data.confirmations.rodo),cases:[...stored.values()].map(row=>({case_id:row.case_id,kind:row.data.kind,started_on:row.data.started_on,archived:row.archived}))});
   const rpc=async(name,args)=>{calls.push(name);switch(name){
    case 'satis_clients_overview':case 'satis_clients_search':return {data:{profiles:[profile],total:1}};
    case 'satis_client_detail':return {data:detail};
@@ -27,6 +27,7 @@ async function run(){
    case 'satis_client_journey_read':return {data:response(journey)};
    case 'satis_client_journey_case_read':return {data:response(stored.get(args.p_case_id))};
    case 'satis_client_journey_write':writes++;if(hold)await new Promise(resolve=>release=resolve);
+    {const previous=stored.get(args.p_data.case_id)?.data.confirmations||{},stamps={...(confirmationStamps.get(args.p_data.case_id)||{})};for(const [id,value]of Object.entries(args.p_data.confirmations)){if(value&&!previous[id])stamps[id]=serverStamp;if(!value)delete stamps[id];}confirmationStamps.set(args.p_data.case_id,stamps);}
     for(const row of stored.values())if(row.case_id!==args.p_data.case_id)row.archived=true;
     journey={case_id:args.p_data.case_id,revision:(args.p_expected_revision||0)+1,archived:false,data:args.p_data};stored.set(journey.case_id,journey);return {data:{journey}};
    default:throw Error('Unexpected RPC: '+name);
@@ -70,6 +71,15 @@ async function run(){
  await page.getByRole('button',{name:'Nowa sprawa',exact:true}).click();
  assert.equal(await page.locator('#clientJourney .client-journey-chain li').count(),0,'new case has no mandatory generic checklist');
  assert.equal(await page.locator('#clientJourney .client-journey-summary').textContent(),'Wybierz czynność');
+ for(const viewport of [{width:1366,height:768},{width:390,height:844}]){
+  await page.setViewportSize(viewport);
+  const tiles=await page.locator('.client-journey-suggestion button').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,left:r.left,right:r.right,height:r.height};}));
+  assert.ok(tiles.length>=2);assert.ok(Math.abs(tiles[0].top-tiles[1].top)<1,'action tiles share a row');assert.ok(tiles[0].right<tiles[1].left,'tiles do not overlap');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.locator('.clients-dialog-scroll').evaluate(node=>node.scrollTop=0);
+  if(process.env.SATIS_QA_DIR)await page.locator('#clientsDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-actions-'+viewport.width+'.png')});
+ }
+ await page.setViewportSize({width:1366,height:768});
  await page.locator('[data-journey-save]').click();await page.waitForFunction(()=>stored.size===2);
  const currentId=await page.evaluate(()=>journey.case_id);
  await page.getByRole('combobox',{name:'Sprawa klienta',exact:true}).selectOption('30000000-0000-0000-0000-000000000001');
@@ -108,6 +118,7 @@ async function run(){
  await page.getByRole('button',{name:'Potwierdź dokument',exact:true}).click();
  await page.waitForFunction(()=>journey.data.confirmations.rodo&&!document.querySelector('[data-journey-save]').classList.contains('client-journey-unsaved'));
  assert.equal(await page.locator('.client-consent-notice').count(),0);
+ assert.ok((await page.locator('.client-confirmation-stamp').textContent()).includes('2026-11-17T10:15:00Z'),'confirmation shows the saved server timestamp');
  await page.locator('.client-follow-up-later summary').click();
  await page.getByRole('textbox',{name:'Data ponownego kontaktu',exact:true}).fill('2026-11-20');
  assert.equal(await page.locator('[data-journey-save]').isEnabled(),true,'draft contact date is protected as an unsaved edit');
@@ -120,12 +131,10 @@ async function run(){
  assert.equal(await page.locator('.client-follow-up').count(),0);assert.ok((await page.locator('#clientJourney').textContent()).includes('wypożyczeń'),'declining purchase must not finish the loan');
  await page.getByRole('button',{name:'Zamknij kartę klienta',exact:true}).click();
  assert.equal(await page.locator('#clientsDialog').evaluate(node=>node.open),false);
- await page.locator('#clientsDemoBtn').click();const count=await page.evaluate(()=>calls.length);
- for(const index of ['0','5','8','10'])await page.getByRole('combobox',{name:'Etap klienta demonstracyjnego',exact:true}).selectOption(index);
- assert.equal(await page.evaluate(()=>calls.length),count,'demonstration remains local and read-only');
+ assert.equal(await page.locator('#clientsDemoBtn, #clientsDemoPanel').count(),0,'no demonstration client is offered');
  await page.evaluate(()=>testModule.clear());assert.equal(await page.locator('#clientJourney').textContent(),'');assert.deepEqual(errors,[]);
  assert.equal(await page.locator('#clientsContactSummary').textContent(),'');assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Karta klienta');
- console.log('OK: separate scrollable client modal, contextual actions, protected pending save, isolated cases, historical read-only view, atomic reservation, migration safety, demo privacy and responsive layouts.');
+ console.log('OK: scrollable client modal, side-by-side action tiles, confirmation timestamps, protected pending save, isolated cases, atomic reservation, migration safety, no demo client and responsive layouts.');
  }finally{await browser.close();}
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

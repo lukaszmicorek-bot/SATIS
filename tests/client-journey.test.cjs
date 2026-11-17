@@ -112,6 +112,21 @@ test('RODO alert depends on an explicit confirmation, including a different case
  assert.equal(journey.build({...make(),rodo_confirmed_elsewhere:true},state,today).consentMissing,false);
  state.confirmations.rodo=true;assert.equal(journey.build(make(),state,today).consentMissing,false);
 });
+test('confirmation dates use the last real transition and do not change on unrelated edits',()=>{
+ const state=base(),stamp='2026-11-17T09:30:00Z',events=[
+  {created_at:'2026-11-16T08:00:00Z',data:{...state,confirmations:{rodo:false,receipt:false}}},
+  {created_at:stamp,data:{...state,confirmations:{rodo:true,receipt:true}}},
+  {created_at:'2026-11-18T12:00:00Z',data:{...state,confirmations:{rodo:true,receipt:true}}}];
+ const dates=journey.confirmationTimes(events,state);assert.equal(dates.rodo,stamp);assert.equal(dates.receipt,stamp);
+ const off={...state,confirmations:{...state.confirmations,receipt:false}};assert.equal(journey.confirmationTimes(events,off).receipt,undefined);
+ events.push({created_at:'2026-11-19T09:00:00Z',data:off},{created_at:'2026-11-20T11:45:00Z',data:state});
+ assert.equal(journey.confirmationTimes(events,state).receipt,'2026-11-20T11:45:00Z');
+});
+test('truncated or missing history never invents a confirmation date',()=>{
+ const state=base(),events=Array.from({length:30},(_,index)=>({created_at:`2026-11-${String(index+1).padStart(2,'0')}T10:00:00Z`,data:state}));
+ assert.deepEqual(journey.confirmationTimes([],state),{});assert.deepEqual(journey.confirmationTimes(events,state),{});
+ assert.deepEqual(journey.confirmationTimes([{created_at:'2026-01-01',data:{...state,started_on:'2025-01-01'}}],state),{});
+});
 test('trial follow-up begins after fourteen calendar days and uses period start rather than signing date',()=>{
  const state=journey.normalize({},today),loan=row('loan','loan','2026-10-01',{periodFrom:'2026-11-03'});
  assert.equal(journey.followUpStatus([loan],state,'2026-11-16'),null);
@@ -175,15 +190,7 @@ test('new workflow uses private RPCs, no browser PII persistence, HTML interpret
  for(const file of ['offline-sw.js','scripts/public_assets.py','index.html'])assert.match(fs.readFileSync(file,'utf8'),/client-journey.js/);
  assert.match(fs.readFileSync('clients.js','utf8'),/!journeyRequest\) missingSchema = true/);
 });
-test('visible demonstration is synthetic, immutable across stages and covers purchase plus complaint',()=>{
- const frames=journey.demoSnapshots();assert.equal(frames.length,11);assert.equal(frames[0].context.profile.phone,'');
- assert.equal(frames[0].context.profile.full_name,'Klient demonstracyjny');assert.equal(frames[0].context.sources.length,1);
- const plan=s=>journey.build(s.context,s.state,s.date);
- assert.equal(plan(frames[0]).activeLoans.length,1);assert.equal(plan(frames[1]).activeLoans.length,0);
- assert.equal(plan(frames[4]).steps.find(step=>step.id==='visit').detail.includes('Termin minął'),false,'historical preview uses its own day');
- assert.equal(plan(frames[5]).complete,true);assert.equal(plan(frames[6]).complete,false);
- assert.match(plan(frames[8]).next.title,/telefonicznie/);assert.match(plan(frames[9]).next.title,/Odbiór/);assert.equal(plan(frames[10]).complete,true);
- const fresh=journey.demoSnapshots();frames[0].state.interest='DECLINED';assert.equal(fresh[0].state.interest,'UNKNOWN');
- const text=fs.readFileSync('client-journey.js','utf8');assert.match(text,/readOnly:true/);assert.match(text,/name!=="satis_client_journey_read"/);
- assert.match(fs.readFileSync('index.html','utf8'),/id="clientsDemoBtn"/);
+test('the synthetic demonstration client is not shipped or displayed',()=>{
+ for(const file of ['index.html','clients.js','client-journey.js'])assert.doesNotMatch(fs.readFileSync(file,'utf8'),/clientsDemoBtn|clientsDemoPanel|Klient demonstracyjny|DEMO-CLIENT-NOT-SAVED|createDemo|demoSnapshots/);
+ assert.equal(journey.createDemo,undefined);
 });

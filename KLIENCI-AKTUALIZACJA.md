@@ -35,6 +35,15 @@ starszych migracji kartoteki po tej aktualizacji.
 - RODO jest potwierdzane recznie. Po migracji uwzgledniane jest tez
   potwierdzenie w innej sprawie tej samej karty. Nie wnioskujemy podpisu
   z wydruku dokumentu ani z samej zgodnosci nazwisk.
+- Potwierdzenia dokumentow pokazuja date i godzine zapisu na serwerze.
+  Ponowny zapis innych pol nie zmienia tej daty. Cofniecie potwierdzenia
+  i ponowne zaznaczenie zapisuje nowy moment. Starszych dat bez historii
+  nie odtwarzamy z dzisiejszego zegara. Aby odczytywac daty z pelnej
+  historii, uruchom zaktualizowany `supabase-clients-follow-up.sql`, nawet
+  jesli poprzednia wersja tego pliku byla juz wykonana. Bez aktualizacji
+  dostepne sa tylko daty mozliwe do ustalenia z wczytanej historii.
+- Usunieto klienta demonstracyjnego z aplikacji. Byl podgladem lokalnym,
+  bez zapisu do bazy; rzeczywiste karty i dokumenty pozostaly bez zmian.
 - Po 14 dniach od rozpoczecia wypozyczenia (okres od z umowy; przy jego
   braku data umowy) pojawia sie przypomnienie, jesli po tej dacie nie ma
   powiazanej oferty ani sprzedazy aparatu z faktura i data odbioru.

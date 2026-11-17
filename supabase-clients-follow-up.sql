@@ -52,14 +52,29 @@ end $$;
 revoke all on function public.satis_client_journey_case_read_followup_base(uuid,uuid) from public,anon,authenticated;
 create or replace function public.satis_client_journey_case_read(p_customer_id uuid,p_case_id uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare result jsonb; previous_consent boolean;
+declare result jsonb; previous_consent boolean; stamps jsonb; consent_time timestamptz;
 begin
   perform public.satis_clients_audit_owner();
   result:=public.satis_client_journey_case_read_followup_base(p_customer_id,p_case_id);
   select exists(select 1 from public.customer_journeys where customer_id=p_customer_id
     and case_id is distinct from (result#>>'{journey,case_id}')::uuid
     and data#>'{confirmations,rodo}'='true'::jsonb) into previous_consent;
-  return result||jsonb_build_object('follow_up_support',true,'rodo_confirmed_elsewhere',previous_consent);
+  with flags as (
+    select e.case_id,e.id,e.created_at,f.key,f.value,
+      lag(f.value,1,'false'::jsonb) over(partition by e.case_id,f.key order by e.id) previous
+    from public.customer_journey_events e cross join lateral jsonb_each(e.data->'confirmations') f
+    where e.customer_id=p_customer_id and f.key in ('rodo','fitting','receipt','instructions','warranty','care')
+  ), changed as (
+    select f.case_id,f.key,max(f.created_at) confirmed_at from flags f
+    join public.customer_journeys j on j.case_id=f.case_id
+    where f.value='true'::jsonb and f.previous is distinct from 'true'::jsonb
+      and j.data->'confirmations'->f.key='true'::jsonb group by f.case_id,f.key
+  )
+  select coalesce(jsonb_object_agg(key,to_jsonb(confirmed_at))
+      filter(where case_id=(result#>>'{journey,case_id}')::uuid),'{}'::jsonb),
+    max(confirmed_at) filter(where key='rodo') into stamps,consent_time from changed;
+  return result||jsonb_build_object('follow_up_support',true,'rodo_confirmed_elsewhere',previous_consent,
+    'confirmation_times',stamps,'rodo_confirmed_at',consent_time);
 end $$;
 revoke all on function public.satis_client_journey_case_read(uuid,uuid) from public,anon;
 grant execute on function public.satis_client_journey_case_read(uuid,uuid) to authenticated;

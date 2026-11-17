@@ -550,22 +550,22 @@ test('in-flight journey cannot be closed by Escape or navigation',async()=>{
  assert.equal(f.module.canLeave(),false);assert.equal(dialog.open,true);assert.equal(journey.state.cleared,0);
  dialog.emit('cancel');assert.equal(dialog.open,true);assert.match(f.nodes.get('clientsDialogMessage').textContent,/zakończenie zapisu/);
 });
-test('shared busy changes never enable or disable journey or demo controls in any selector pass',async()=>{
+test('shared busy changes never enable or disable journey controls in any selector pass',async()=>{
   let release;
   const f=fixture(async(name)=>name==='satis_clients_write'?new Promise(resolve=>{release=resolve;})
     :{data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_detail'?detail:[]});
   const core=f.document.createElement('button'),owned=[];
-  for(const host of ['clientJourney','clientsDemoPanel'])for(const disabled of [true,false]) {
+  for(const host of ['clientJourney'])for(const disabled of [true,false]) {
     const control=f.document.createElement('button');control.disabled=disabled;
     control.dataset.clientWrite='';control.dataset.scheduleWrite='';owned.push(control);f.nodes.get(host).append(control);
   }
   f.nodes.get('clientsNotebook').querySelectorAll=()=>[core,...owned];
   await f.module.open();await f.module.select(profile.id);
-  assert.deepEqual(owned.map(control=>control.disabled),[true,false,true,false]);
+  assert.deepEqual(owned.map(control=>control.disabled),[true,false]);
   f.nodes.get('clientsForm').emit('submit');await tick();
-  assert.equal(core.disabled,true);assert.deepEqual(owned.map(control=>control.disabled),[true,false,true,false]);
+  assert.equal(core.disabled,true);assert.deepEqual(owned.map(control=>control.disabled),[true,false]);
   release({data:{id:profile.id,revision:2}});for(let i=0;i<4;i++)await tick();
-  assert.deepEqual(owned.map(control=>control.disabled),[true,false,true,false]);
+  assert.deepEqual(owned.map(control=>control.disabled),[true,false]);
 });
 test('an in-flight journey save blocks normal actions without clearing or reloading the journey',async()=>{
   const journey=journeyHarness();
@@ -574,7 +574,7 @@ test('an in-flight journey save blocks normal actions without clearing or reload
   const calls=f.calls.length,shown=journey.state.shown,cleared=journey.state.cleared;
   journey.state.busy=true;
   await f.module.select('other');
-  for(const id of ['clientsNew','clientsRefresh','clientArchive','clientDelete','clientAddNote','clientAddVisit','clientsDemoBtn'])f.nodes.get(id).emit('click');
+  for(const id of ['clientsNew','clientsRefresh','clientArchive','clientDelete','clientAddNote','clientAddVisit'])f.nodes.get(id).emit('click');
   f.nodes.get('clientsForm').emit('submit');await tick();
   assert.equal(f.calls.length,calls);assert.equal(journey.state.shown,shown);assert.equal(journey.state.cleared,cleared);
   assert.equal(f.nodes.get('clientName').value,profile.full_name);assert.equal(journey.state.busy,true);

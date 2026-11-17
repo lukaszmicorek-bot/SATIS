@@ -17795,18 +17795,19 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-dialog .client-journey > .clients-section-heading { margin-top: 0; margin-bottom: 10px; border-top: 0; padding-top: 0; }
 .client-journey [data-journey-message]:empty { display: none; }
 .client-journey-suggestions h4 { margin: 8px 0; }
-.client-journey-suggestions { margin: 8px 0 16px; padding: 2px 0 12px; border-bottom: 1px solid #dce5e7; }
-.client-journey-suggestion { display: grid; grid-template-columns: minmax(200px,0.8fr) minmax(0,1.2fr); align-items: center; gap: 10px 18px; margin: 10px 0; }
-.client-journey-suggestion button { min-height: 64px; padding: 14px 18px; font-size: 0.95rem; font-weight: 650; text-align: left; white-space: normal; color: #00666c; background: #edf6f5; border-color: #bbd8d5; }
+.client-journey-suggestions { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); align-items: start; gap: 12px; margin: 8px 0 16px; padding: 2px 0 12px; border-bottom: 1px solid #dce5e7; }
+.client-journey-suggestion { display: grid; grid-template-columns: minmax(0,1fr); align-items: start; gap: 8px; min-width: 0; }
+.client-journey-suggestion button { min-height: 80px; padding: 14px 18px; font-size: 0.95rem; font-weight: 650; text-align: left; white-space: normal; overflow-wrap: anywhere; color: #00666c; background: #edf6f5; border-color: #bbd8d5; }
 .client-journey-suggestion > span { color: #5b737b; font-size: 0.8rem; line-height: 1.45; }
 .client-journey-all-actions { margin: 14px 0; border-top: 1px solid #dce5e7; }
 .client-consent-notice, .client-follow-up { display: grid; gap: 8px; margin: 12px 0; padding: 12px 14px; border-left: 3px solid #d0a670; background: #fff8ed; font-size: 0.8rem; line-height: 1.5; }
 .client-consent-notice { border-color: #c68b94; background: #fcf2f4; }
+.client-confirmation-stamp { margin: 8px 0 12px; color: #487765; font-size: 0.78rem; line-height: 1.5; }
 .client-follow-up:not(.due) { border-color: #88aaa9; background: #f0f7f6; }
 .client-follow-up-later { margin-top: 4px; }
 .client-follow-up-later label { display: grid; gap: 5px; max-width: 250px; margin: 8px 0; }
 .client-follow-up-later summary { cursor: pointer; }
-@media(max-width:600px) { .clients-heading-identity { gap: 6px; } .clients-dialog-heading { gap: 8px; } .clients-dialog-heading h2 { font-size: 0.82rem; } .clients-heading-identity .clients-contact-summary { gap: 6px; font-size: 0.72rem; } .client-journey-suggestion { grid-template-columns: minmax(0,1fr); gap: 7px; } .client-journey-suggestion button { min-height: 60px; } }
+@media(max-width:600px) { .clients-heading-identity { gap: 6px; } .clients-dialog-heading { gap: 8px; } .clients-dialog-heading h2 { font-size: 0.82rem; } .clients-heading-identity .clients-contact-summary { gap: 6px; font-size: 0.72rem; } .client-journey-suggestions { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; } .client-journey-suggestion { gap: 7px; } .client-journey-suggestion button { min-height: 90px; padding: 12px; font-size: 0.85rem; } }
 @media(max-width:600px) { .clients-dialog { width: calc(100vw - 16px); max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); } .clients-dialog-heading { padding: 12px; } .clients-dialog-scroll { padding: 12px; } .clients-directory #clientsList, .clients-directory #clientsSuggestions { grid-template-columns: minmax(0,1fr); } }
 .clients-directory { min-width: 0; border-right: 1px solid #dce4e5; padding-right: 18px; }
 .clients-workspace { min-width: 0; }
@@ -17821,9 +17822,6 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-person .location-pill, .client-visit .location-pill { flex-shrink: 0; white-space: nowrap; font-size: 0.72rem; }
 .clients-person span, .client-visit span { font-size: 0.82rem; }
 .clients-person small, .client-visit small { font-size: 0.75rem; }
-.clients-demo-person { margin: 0 0 12px; padding: 12px 10px; border-left: 3px solid #007d80; background: #f0f8f7; }
-.clients-demo-person small { color: #5f7c7e; }
-.client-demo-stage { display: grid; gap: 6px; max-width: 520px; margin: 16px 0; font-size: 0.8rem; font-weight: 600; }
 .clients-person:hover, .client-visit:hover { background: #f0f7f7; }
 .clients-person[aria-pressed="true"] { background: #e9f4f3; box-shadow: inset 3px 0 #007d80; }
 .clients-card-heading, .clients-section-heading { justify-content: space-between; }

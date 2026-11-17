@@ -166,10 +166,6 @@
         return result;
       }});
     function journeyContext(){getIndex();return detail?{...detail,sources:sourceRows||[]}:null;}
-    const demo=a.journey?.createDemo?.({host:q("clientsDemoPanel"),document:d,allowed,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,
-      onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;renderContactSummary(detail?.profile||{location:a.station()});if(detail||newProfileId)showCard();else q("clientsDialog")?.close?.();}});
-    if(q("clientsDemoBtn"))q("clientsDemoBtn").hidden=!demo;
-    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!coreBusy()&&discard()){q("clientsCard").hidden=true;demo?.open();renderContactSummary({location:"P63"});showCard("Klient demonstracyjny");}});
     function renderContactSummary(profile) {
       const summary=q("clientsContactSummary");if(!summary)return;summary.replaceChildren();
       if(profile.phone)summary.append(node("span",a.phone(profile.phone),"clients-contact-phone"));
@@ -199,7 +195,7 @@
       if(coreBusy()){notify("Poczekaj na zakończenie zapisu.",true);return false;}
       if(discardChanges&&!discard())return false;
       a.closeDatePicker?.();q("clientsDialog")?.close?.();
-      if(discardChanges){profileDirty=false;activityDirty=false;journey?.clear();demo?.clear();updateProfileSave();}
+      if(discardChanges){profileDirty=false;activityDirty=false;journey?.clear();updateProfileSave();}
       return true;
     }
     q("clientsDialogClose")?.addEventListener("click",()=>closeCard());
@@ -277,7 +273,7 @@
       finally { if (epoch === generation && allowed()) { busy = false; setBusy(false); } }
     }
     function setBusy(value) {
-      const independentlyOwned = control => q("clientsDemoPanel")?.contains?.(control) || q("clientJourney")?.contains?.(control);
+      const independentlyOwned = control => q("clientJourney")?.contains?.(control);
       q("clientsNotebook").querySelectorAll("input,select,textarea,button").forEach(control => {
         if(independentlyOwned(control))return;
         control.disabled = value || control.dataset.closed==="true";
@@ -384,7 +380,6 @@
     }
     function newCard(candidate = null) {
       if (!allowed() || coreBusy() || !discard()) return;
-      demo?.clear();
       detailSequence++; detail = null; newProfileId = a.id();
       journey?.clear();
       const parts = a.addressParts(candidate?.address || "");
@@ -400,7 +395,6 @@
     }
     async function select(id) {
       if (!discard()) return;
-      demo?.clear();
       const sequence = ++detailSequence;
       const data = await rpc("satis_client_detail", {p_id: id});
       if (sequence !== detailSequence) return;
@@ -858,7 +852,6 @@
       a.closeDatePicker?.();q("clientsDialog")?.close?.();
       if(q("clientsDialogTitle"))q("clientsDialogTitle").textContent="Karta klienta";
       setCardPanel("case");
-      demo?.clear();
       journey?.clear();
       clientWorkFilter="";for(const tile of q("clientsNotebook").querySelectorAll("[data-client-stage]"))tile.setAttribute("aria-pressed",String(tile.dataset.clientStage===""));
       generation++; listSequence++; detailSequence++; visitSequence++; clearTimeout(searchTimer); clearTimeout(pollTimer);

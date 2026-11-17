@@ -272,11 +272,14 @@ test('clients audit upgrade: legacy compatibility, case isolation, atomic reserv
     assert.deepEqual(await journey(followCustomer,1,postponed,postponeId),savedFollow);
     const readFollow=await current(followCustomer);assert.equal(readFollow.follow_up_support,true);
     assert.deepEqual(readFollow.events[0].data.follow_up,postponed.follow_up);
+    const firstConsent=readFollow.confirmation_times.rodo;assert.ok(Number.isFinite(Date.parse(firstConsent)));
+    assert.equal(readFollow.rodo_confirmed_at,firstConsent,'unrelated writes do not move the actual confirmation time');
     await denied(journey(followCustomer,2,{...postponed,follow_up:{...postponed.follow_up,loan_id:'someone-else'}}),'22023');
     await denied(journey(followCustomer,2,{...postponed,follow_up:{...postponed.follow_up,extra:'not allowed'}}),'22023');
     await denied(journey(followCustomer,1,postponed),'PT409');
     const nextFollow={...base,case_id:randomUUID(),source_keys:[]};await journey(followCustomer,null,nextFollow);
     assert.equal((await current(followCustomer)).rodo_confirmed_elsewhere,true);
+    assert.equal((await current(followCustomer)).rodo_confirmed_at,firstConsent,'new case retains the previous client confirmation date');
     assert.equal((await current(other)).rodo_confirmed_elsewhere,false);
     await denied(value('select satis_clients_audit_save_followup_base($1,1,$2::jsonb) r',[followCustomer,JSON.stringify(nextFollow)]),'42501');
     await clients('DELETE',followCustomer,1,{});
