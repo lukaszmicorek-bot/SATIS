@@ -17771,7 +17771,9 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-dialog > .clients-message { margin: 0; padding: 8px 22px; flex: 0 0 auto; }
 .clients-dialog > .clients-message:empty { display: none; }
 .clients-dialog .clients-card-heading { margin-bottom: 8px; }
-.clients-contact-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; color: #526f78; font-size: 0.85rem; }
+.clients-contact-summary { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; margin: 0 0 12px; color: #526f78; font-size: 0.85rem; white-space: nowrap; }
+.clients-contact-summary > * { flex: 0 0 auto; }
+@media(max-width:1100px) { .clients-dialog .clients-contact-grid { grid-template-columns: minmax(0,1fr) minmax(0,1.4fr); } .clients-dialog .clients-name { grid-column: 1 / -1; } }
 .clients-contact-phone { color: #234955; font-weight: 600; white-space: nowrap; }
 .clients-card-tabs { display: flex; gap: 8px; border-bottom: 1px solid #dce5e7; background: #f9fcfc; position: sticky; top: -18px; z-index: 2; }
 .clients-card-tabs button { flex: 1 1 0; min-height: 40px; padding: 9px 14px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: #657b83; font: inherit; font-size: 0.85rem; font-weight: 600; }

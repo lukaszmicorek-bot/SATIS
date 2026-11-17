@@ -1,5 +1,5 @@
 {
-  "app_version": "20261117-3",
+  "app_version": "20261117-4",
   "asset_policy_sha256": "37644364832f3e8f09ebfd65a33c3ed98c8ec9d2d417a7883fd20e94208bc18d",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -64,7 +64,7 @@
     },
     "index.html": {
       "bytes": 470030,
-      "sha256": "1ee6d443b607c810fe0860a85fc8e70e8fc14c923dbfb920e9a9aaa79ec05760"
+      "sha256": "03fb14c39a3a826fc39e282e1ce09e48c7bb4e62e5be9db836f86f88fcf83e41"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -180,7 +180,7 @@
     },
     "offline-sw.js": {
       "bytes": 3437,
-      "sha256": "c2d747f54c1b0356da2dff5e67078dd69b5b8bd82703c85ca973496d5eb8e94d"
+      "sha256": "f65d72111db16de59b90fe7f6120dc1105fae32e15b972d14244a93846cae080"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -223,8 +223,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 464818,
-      "sha256": "0e51578880b24dadda50c0ed66176ea57406eec7e71c1738c9b2958f7e2112e8"
+      "bytes": 465070,
+      "sha256": "7ecc14297d217565dce8c7a570173f50f07bb46e620624d66e7a389cc9275f9f"
     },
     "supabase-config.js": {
       "bytes": 227,

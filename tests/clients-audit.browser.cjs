@@ -12,7 +12,7 @@ async function run(){
   const url=new URL(route.request().url()),name=url.pathname.slice(1);
   if(url.origin!=='http://satis.test')return route.abort();
   if(!name)return route.fulfill({contentType:'text/html',body:`<!doctype html><html lang="pl"><head><meta charset="utf-8"><link rel="stylesheet" href="styles.css"></head><body><button id="clientsReminderBtn" hidden></button><main class="app-shell">${markup}</main><script src="client-journey.js"></script><script src="clients.js"></script><script>
-  const profile={id:'20000000-0000-0000-0000-000000000001',full_name:'Klient Testowy',phone:'',street:'',postal_code:'',city:'',location:'P63',revision:1};
+  const profile={id:'20000000-0000-0000-0000-000000000001',full_name:'Klient Testowy',phone:'123 456 789',street:'',postal_code:'',city:'',location:'P63',revision:1};
   let sources=[{type:'offer',id:'offer-test',name:profile.full_name,date:'2026-11-17',kind:'Oferta',model:'Model testowy',open(){}},
    {type:'device',id:'sold-test',name:profile.full_name,date:'2026-11-17',kind:'Aparat',model:'Model testowy',serial:'TEST-SOLD',workflow:{type:'SPRZEDANY',pickupDate:'2026-11-17',invoice:'TEST-FS',ezwm:'REALIZACJA'},open(){}}];
   const detail={profile,links:sources.map(row=>({source_type:row.type,source_id:row.id})),activities:[],operations:[]};
@@ -88,6 +88,12 @@ async function run(){
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  if(process.env.SATIS_QA_DIR)await page.locator('#clientsDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-desktop.png')});
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ const aligned=await page.evaluate(()=>{const children=[...document.querySelector('#clientsContactSummary').children];const [phone,place]=children.map(node=>node.getBoundingClientRect());return Math.abs((phone.top+phone.height/2)-(place.top+place.height/2))<1;});
+ assert.equal(aligned,true,'phone and location remain on one line in the customer heading');
+ await page.getByRole('tab',{name:'Dane',exact:true}).click();
+ const fields=await page.evaluate(()=>{const phone=document.querySelector('#clientPhone').getBoundingClientRect(),place=document.querySelector('#clientLocation').getBoundingClientRect();return {sameRow:Math.abs(phone.top-place.top)<1,notOverlapping:phone.right<place.left};});
+ assert.deepEqual(fields,{sameRow:true,notOverlapping:true},'phone and location fields share one row on mobile');
+ await page.getByRole('tab',{name:'Sprawa',exact:true}).click();
  if(process.env.SATIS_QA_DIR)await page.locator('#clientsDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-mobile.png')});
  await page.evaluate(async()=>{missing=true;await testModule.select(profile.id);});
  assert.equal(await page.locator('[data-journey-reserve]').isDisabled(),true,'no unsafe reservation fallback before migration');
