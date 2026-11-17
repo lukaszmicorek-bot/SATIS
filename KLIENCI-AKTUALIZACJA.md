@@ -24,6 +24,26 @@ oryginalnych dokumentow ani kopii zapasowych.
 
 ## Obsluga
 
+### Zapis wizyty z kalendarza
+
+- W widoku Dzien, 3 dni lub Tydzien wybierz gabinet i przeciagnij mysza
+  po wolnych godzinach jednego dnia. Przedzial podswietla sie co 15 minut.
+  Mozesz zaznaczac w dol albo w gore, do 4 godzin. Klikniecie pojedynczej
+  godziny lub Enter otwiera domyslnie 30 minut (krocej przy zamknieciu).
+- W oknie Nowa wizyta wybierz zapisanego klienta oraz aktywna usluge.
+  Wyszukiwarka przeszukuje kartoteke po nazwisku lub telefonie, niezaleznie
+  od aktualnego filtra listy klientow. Zgodnosc nazwiska nie zatwierdza
+  osoby automatycznie; wybierz ja z wynikow. Ostatnio otwarta karta moze
+  byc wstepnie wybrana, z mozliwoscia zmiany.
+- Godziny Od i Do mozna poprawic. Wybor uslugi pokazuje cene i standardowy
+  czas, ale nie nadpisuje przedzialu zaznaczonego mysza.
+- Dopiero Zapisz wizyte zapisuje dzialanie w historii wybranego klienta
+  i kalendarzu. Nadal obowiazuja godziny otwarcia, dni robocze, limity uslug,
+  kontrola kolizji i ochrona przed podwojnym wyslaniem. Brak polaczenia
+  pozostawia okno i dane do ponowienia, bez nowego identyfikatora wizyty.
+- Ta zmiana nie wymaga nowego SQL. Korzysta z istniejacego zapisu wizyt
+  i konfiguracji `supabase-client-schedule.sql`.
+
 ### RODO i kontakt po wypozyczeniu
 
 Po aktualizacji audytu uruchom w SQL Editor `supabase-clients-follow-up.sql`.

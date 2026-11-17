@@ -186,17 +186,46 @@ test('schedule switches four views without additional API traffic and clears on 
   assert.equal(f.calls.length,count,'view changes reuse the in-memory visit snapshot');
   f.module.clear();assert.equal(f.nodes.get('clientsSchedule').children.length,0);assert.equal(f.nodes.get('clientsScheduleTitle').textContent,'');
 });
-test('schedule slot fills date and time for the selected client and chosen clinic without saving', async () => {
+test('schedule slot opens an appointment dialog for the chosen clinic without saving', async () => {
   const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_clients_upcoming'?[]:detail}));
+  const dialog=f.nodes.get('clientsBookingDialog');dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
   await f.module.open();await f.module.select('client-1');
   f.nodes.get('clientsSchedulePlaces').emit('click',{target:{closest:()=>({dataset:{schedulePlace:'P50'}})}});
   const grid=f.nodes.get('clientsSchedule').children[0];
   const column=grid.children.find(node=>node.className==='clients-schedule-day');
   column.children[0].emit('click');
-  assert.equal(f.nodes.get('clientVisitDate').value,'2026-10-26');
-  assert.equal(f.nodes.get('clientVisitTime').value,'07:00');
-  assert.equal(f.nodes.get('clientVisitLocation').value,'P50');
+  assert.equal(dialog.open,true);
+  assert.equal(f.nodes.get('clientsBookingSummary').children[0].textContent,'2026-10-26');
+  assert.equal(f.nodes.get('clientsBookingSummary').children[1].textContent,'P50');
+  assert.equal(f.nodes.get('clientsBookingFrom').value,'07:00');
+  assert.equal(f.nodes.get('clientsBookingTo').value,'07:30');
+  assert.equal(f.nodes.get('clientsBookingSearch').value,profile.full_name);
   assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
+});
+test('drag selection snaps both ways to quarter hours, respects opening hours and caps duration',()=>{
+  assert.deepEqual(clients.selectedTimeRange(540,590,480,1020),{start:540,end:600});
+  assert.deepEqual(clients.selectedTimeRange(585,540,480,1020),{start:540,end:600});
+  assert.deepEqual(clients.selectedTimeRange(540,1300,480,1020),{start:540,end:780});
+  assert.deepEqual(clients.selectedTimeRange(900,0,480,1020),{start:675,end:915});
+  assert.deepEqual(clients.selectedTimeRange(1005,1100,480,1020),{start:1005,end:1020});
+});
+test('calendar booking locks duplicate submits and retains the same request ID after an uncertain write',async()=>{
+  let release,fail=true;const payloads=[],service={id:'service',name:'Kontrola',price:100,duration_minutes:30,enabled:true};
+  const f=fixture(async(name,args)=>{
+    if(name==='satis_clients_write'){payloads.push(args);return new Promise(resolve=>release=()=>resolve(fail?{error:{code:'NETWORK'}}:{data:{id:args.p_id}}));}
+    return {data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_schedule_read'?{hours:[],services:[service]}:name==='satis_clients_upcoming'?[]:detail};
+  });
+  const dialog=f.nodes.get('clientsBookingDialog');dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
+  await f.module.open();await f.module.select(profile.id);
+  f.nodes.get('clientsSchedule').children[0].children.find(node=>node.className==='clients-schedule-day').children[0].emit('click');
+  f.nodes.get('clientsBookingService').value=service.id;
+  f.nodes.get('clientsBookingForm').emit('submit');f.nodes.get('clientsBookingForm').emit('submit');await tick();
+  assert.equal(payloads.length,1);assert.equal(f.module.canLeave(),false);
+  release();await tick();assert.equal(dialog.open,true);assert.match(f.nodes.get('clientsBookingMessage').textContent,/Nie udało/);
+  fail=false;f.nodes.get('clientsBookingForm').emit('submit');await tick();
+  assert.equal(payloads[0].p_request_id,payloads[1].p_request_id);assert.equal(payloads[0].p_id,payloads[1].p_id);
+  assert.equal(payloads[1].p_data.duration_minutes,30);assert.equal(payloads[1].p_data.customer_id,profile.id);assert.equal(payloads[1].p_data.service_id,service.id);
+  release();for(let i=0;i<4;i++)await tick();assert.equal(dialog.open,false);assert.equal(f.nodes.get('clientsBookingSearch').value,'');
 });
 const descendants=node=>[node,...node.children.flatMap(descendants)];
 for(const failed of [false,true])test(`calendar resize ${failed?'restores the old block after rejection':'saves without losing service or notes'}`,async()=>{

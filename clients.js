@@ -118,6 +118,12 @@
     return entry?.days?.[(new Date(`${day}T12:00:00`).getDay()+6)%7] || null;
   }
   function resizedDuration(duration,delta,scale=1.5) {return Math.max(5,Math.min(240,Math.round((duration+delta/scale)/5)*5));}
+  function selectedTimeRange(anchor,current,from,to) {
+    const snap=value=>Math.max(from,Math.min(to-15,Math.floor(value/15)*15));
+    anchor=snap(anchor);current=snap(current);
+    return current<anchor?{start:Math.max(current,anchor+15-240),end:anchor+15}
+      :{start:anchor,end:Math.min(current+15,anchor+240,to)};
+  }
   function profilePayload(form, person, street, city) {
     const name = person(form.name.trim()), phone = phoneKey(form.phone);
     if (name.split(/\s+/).length < 2 || name.length > 160) throw new Error("Wpisz imię i nazwisko klienta.");
@@ -137,6 +143,7 @@
     requiredIds.push("clientsSchedule","clientsScheduleViews","clientsScheduleDate","clientsSchedulePlaces","clientsSchedulePrev","clientsScheduleToday","clientsScheduleNext","clientsScheduleTitle","clientsScheduleNotice",
       "clientVisitService","clientVisitPrice","clientsServicePrice","clientsScheduleSettingsNotice","clientsOpeningForm","clientsOpeningPlace","clientsOpeningRows","clientsOpeningHint",
       "clientsServiceForm","clientsServiceName","clientsServiceDuration","clientsServiceDay","clientsServiceWeek","clientsServiceMonth","clientsServiceYear","clientsServiceEnabled","clientsServiceNew","clientsServiceList");
+    requiredIds.push("clientsBookingDialog","clientsBookingClose","clientsBookingForm","clientsBookingSummary","clientsBookingSearch","clientsBookingResults","clientsBookingClient","clientsBookingService","clientsBookingPrice","clientsBookingFrom","clientsBookingTo","clientsBookingDuration","clientsBookingMessage","clientsBookingSave");
     if (requiredIds.some(id=>!q(id))) throw new Error("Widok Klientów wymaga odświeżenia strony.");
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
@@ -146,6 +153,7 @@
     const sourceSearchWarning = "Wyszukiwanie kart po modelu i numerze seryjnym oraz filtry spraw wymagają uruchomienia supabase-clients-audit.sql. Nadal możesz szukać po nazwisku i telefonie.";
     let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
     let scheduleConfig={hours:[],services:[]},scheduleReady=false,editingService=null,newServiceId="",resizeDrag=null,hoursDirty=false,serviceDirty=false,hoursRevision=null,hoursPlace=a.station();
+    let booking=null,bookingSearchTimer,bookingSequence=0,slotDrag=null;
     const discard = () => !(profileDirty || activityDirty || journey?.dirty()) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
     function unsaved(includeJourney = true) {
       if (!profileDirty && !activityDirty && !(includeJourney && journey?.dirty())) return false;
@@ -192,6 +200,7 @@
         setCardPanel(tabs[next].dataset.clientPanel);tabs[next].focus();});
     });
     function closeCard(discardChanges=true) {
+      if(booking)return closeBooking(discardChanges);
       if(coreBusy()){notify("Poczekaj na zakończenie zapisu.",true);return false;}
       if(discardChanges&&!discard())return false;
       a.closeDatePicker?.();q("clientsDialog")?.close?.();
@@ -281,6 +290,7 @@
       q("clientsNotebook").querySelectorAll("[data-client-write]").forEach(control => {if(!independentlyOwned(control))control.disabled = value || !loaded || missingSchema || control.dataset.closed==="true";});
       q("clientsNotebook").querySelectorAll("[data-schedule-write]").forEach(control=>{if(!independentlyOwned(control))control.disabled=value || !scheduleReady;});
       q("clientVisitService").disabled=value || !scheduleReady;
+      q("clientsBookingSave").textContent=value&&booking?"Zapisywanie…":"Zapisz wizytę";
       updateProfileSave();
     }
     function renderList() {
@@ -642,20 +652,91 @@
     }
     function openVisit(visit) {void guarded(()=>select(visit.customer_id));}
     function bookSlot(day, minutes) {
-      if(!allowed() || coreBusy())return;
-      if(nonworkingDay(day,a.holiday)){notify("Weekend lub święto — wybierz dzień roboczy.",true);return;}
-      if(!detail || detail.profile.archived){notify("Wybierz najpierw zapisanego klienta, aby umówić wizytę.",true);return;}
-      if(!scheduleLocation){notify("Wybierz gabinet w harmonogramie przed wskazaniem godziny.",true);return;}
-      const location=scheduleLocation;
-      if(profileDirty){notify("Zapisz najpierw zmienione dane kontaktowe.",true);return;}
-      if((q("clientActivityEditor").hidden || q("clientActivityKind").value!=="VISIT") && !editActivity("VISIT"))return;
-      a.setDate(q("clientVisitDate"),day);q("clientVisitTime").value=clock(minutes);
-      q("clientVisitLocation").value=location;scheduleLocation=location;scheduleAnchor=day;
-      a.locationAccent(q("clientVisitLocation"));renderSchedule();
-      activityDirty=true;q("clientActivityEditor").scrollIntoView?.({block:"nearest",behavior:"smooth"});
+      const opening=openingForDay(scheduleConfig.hours,scheduleLocation,day);
+      const end=opening&&!opening.closed?Number(opening.to.slice(0,2))*60+Number(opening.to.slice(3)):1440;
+      openBooking(day,minutes,Math.min(minutes+30,end));
+    }
+    function bookingMessage(text="") {q("clientsBookingMessage").textContent=text;}
+    function bookingChanged() {booking.dirty=true;q("clientsBookingSave").classList.toggle("client-journey-unsaved",true);}
+    function bookingDuration() {
+      const duration=timeMinutes(q("clientsBookingTo").value)-timeMinutes(q("clientsBookingFrom").value);
+      q("clientsBookingDuration").textContent=Number.isFinite(duration)&&duration>=5&&duration<=240?`Czas wizyty: ${duration} min`:"Wybierz przedział od 5 do 240 minut w tym samym dniu.";
+      return duration;
+    }
+    function timeMinutes(value) {return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;}
+    function validateBooking(day,start,end,location) {
+      if(!scheduleReady)throw new Error("Wczytaj godziny otwarcia i usługi przed zapisem wizyty.");
+      if(!["T12","P50","P63"].includes(location))throw new Error("Wybierz gabinet w harmonogramie przed wskazaniem godziny.");
+      if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>=1440||end-start<5||end-start>240)throw new Error("Wybierz przedział od 5 do 240 minut w tym samym dniu.");
+      checkVisitDay(day,visitStart(day,clock(start)),end-start);
+      const opening=openingForDay(scheduleConfig.hours,location,day);
+      if(opening&&(opening.closed||start<timeMinutes(opening.from)||end>timeMinutes(opening.to)))throw new Error("Termin wykracza poza godziny otwarcia gabinetu.");
+    }
+    function openBooking(day,start,end) {
+      if(!allowed()||coreBusy()||booking)return;
+      try {
+        validateBooking(day,start,end,scheduleLocation);
+        if(profileDirty||activityDirty||journey?.dirty())throw new Error("Zapisz lub anuluj edycję karty klienta przed planowaniem wizyty.");
+        const dialog=q("clientsBookingDialog");if(!dialog?.showModal)throw new Error("Odśwież stronę, aby otworzyć zapis wizyty.");
+        booking={id:a.id(),day,location:scheduleLocation,client:detail?.profile.archived?null:detail?.profile||null,dirty:false};
+        q("clientsBookingSummary").replaceChildren(node("strong",a.date(day)),a.locationPill(booking.location));
+        q("clientsBookingFrom").value=clock(start);q("clientsBookingTo").value=clock(end);bookingDuration();bookingMessage();
+        q("clientsBookingSearch").value=booking.client?.full_name||"";
+        q("clientsBookingClient").textContent=booking.client?`${booking.client.full_name} · ${a.phone(booking.client.phone)||"Brak telefonu"}`:"Wybierz klienta z zapisanej kartoteki.";
+        q("clientsBookingResults").replaceChildren();
+        const empty=node("option","Wybierz usługę");empty.value="";
+        q("clientsBookingService").replaceChildren(empty,...scheduleConfig.services.filter(item=>item.enabled).map(item=>{const option=node("option",`${item.name} · ${priceLabel(item.price)} · ${item.duration_minutes} min`);option.value=item.id;return option;}));
+        q("clientsBookingService").value="";q("clientsBookingPrice").textContent="";
+        q("clientsBookingSave").classList.toggle("client-journey-unsaved",false);
+        if(!scheduleConfig.services.some(item=>item.enabled))bookingMessage("Dodaj aktywną usługę w sekcji Godziny otwarcia i usługi.");
+        dialog.showModal();(booking.client?q("clientsBookingService"):q("clientsBookingSearch")).focus();
+      }catch(error){notify(error.message,true);}
+    }
+    function closeBooking(ask=true,force=false) {
+      if(coreBusy()&&!force)return false;
+      if(ask&&booking?.dirty&&!a.confirm("Porzucić niezapisaną wizytę?"))return false;
+      booking=null;bookingSequence++;clearTimeout(bookingSearchTimer);q("clientsBookingDialog")?.close?.();
+      for(const id of ["clientsBookingSearch","clientsBookingFrom","clientsBookingTo"])if(q(id))q(id).value="";
+      for(const id of ["clientsBookingResults","clientsBookingSummary","clientsBookingClient","clientsBookingPrice","clientsBookingMessage","clientsBookingDuration"])q(id)?.replaceChildren();
+      q("clientsBookingService")?.replaceChildren();return true;
+    }
+    async function searchBookingClients(sequence) {
+      if(!booking||!allowed()||sequence!==bookingSequence)return;
+      try {
+        const data=await rpc("satis_clients_overview",{p_query:q("clientsBookingSearch").value.trim(),p_offset:0,p_archived:false,p_location:""});
+        if(!booking||sequence!==bookingSequence)return;
+        q("clientsBookingResults").replaceChildren(...(data.profiles||[]).filter(item=>!item.archived).map(item=>{
+          const choice=button("",()=>{if(!booking)return;booking.client=item;bookingChanged();bookingSequence++;clearTimeout(bookingSearchTimer);
+            q("clientsBookingSearch").value=item.full_name;q("clientsBookingClient").textContent=`${item.full_name} · ${a.phone(item.phone)||"Brak telefonu"}`;q("clientsBookingResults").replaceChildren();bookingMessage();},"clients-person");
+          const heading=node("div",undefined,"clients-person-heading");heading.append(node("strong",item.full_name),a.locationPill(item.location));choice.append(heading,node("small",a.phone(item.phone)||"Brak telefonu"));return choice;
+        }));
+        if(!data.profiles?.length)q("clientsBookingResults").append(node("p","Brak pasujących kart klientów."));
+        else if(data.total>data.profiles.length)q("clientsBookingResults").append(node("p","Doprecyzuj nazwisko lub telefon, aby znaleźć pozostałych klientów."));
+      }catch(error){if(booking&&sequence===bookingSequence)bookingMessage(error.message);}
+    }
+    async function saveBooking() {
+      if(!booking)return;
+      bookingSequence++;clearTimeout(bookingSearchTimer);
+      const current=booking,service=scheduleConfig.services.find(item=>item.id===q("clientsBookingService").value&&item.enabled);
+      try {
+        if(!current.client?.id||current.client.archived)throw new Error("Wybierz klienta z wyników wyszukiwania.");
+        if(!service)throw new Error("Wybierz aktywną usługę.");
+        const start=timeMinutes(q("clientsBookingFrom").value),end=timeMinutes(q("clientsBookingTo").value);
+        validateBooking(current.day,start,end,current.location);
+        const data={customer_id:current.client.id,kind:"VISIT",title:service.name,note:"",starts_at:visitStart(current.day,clock(start)),duration_minutes:end-start,location:current.location,status:"PLANNED",service_id:service.id};
+        try{await write("ACTIVITY",current.id,data,null);}catch(error){
+          if(error.code!=="PT422"||!a.confirm("Termin nakłada się na inną wizytę w tym gabinecie. Zapisać mimo nakładania terminów?"))throw error;
+          await write("ACTIVITY",current.id,{...data,allow_overlap:true},null);
+        }
+      }catch(error){if(allowed()&&booking===current)bookingMessage(error.message);return;}
+      current.dirty=false;
+      // Close after the write, independently of a later calendar refresh failure.
+      closeBooking(false,true);
+      try{await upcoming();if(allowed())notify("Wizyta zapisana w kalendarzu i historii klienta.");}
+      catch{if(allowed())notify("Wizyta została zapisana. Odśwież harmonogram, aby wczytać jej aktualny widok.",true);}
     }
     function renderSchedule() {
-      if(!allowed() || resizeDrag)return;
+      if(!allowed() || resizeDrag || slotDrag)return;
       const host=q("clientsSchedule"),range=scheduleRange(scheduleView,scheduleAnchor);
       const today=a.today?.()||localInput(new Date()).slice(0,10),coverageStart=shiftDay(visitsFetchedAt||today,-30),coverageEnd=shiftDay(visitsFetchedAt||today,90);
       const covered=day=>visitsLoaded && day>coverageStart && day<coverageEnd;
@@ -707,12 +788,13 @@
       grid.append(axis);
       range.days.forEach((day,i)=>{
         const column=node("div","","clients-schedule-day");column.style.height=`${height}px`;
+        column.dataset.day=day;
         const opening=openingForDay(scheduleConfig.hours,scheduleLocation,day);
         column.dataset.weekend=String([0,6].includes(new Date(`${day}T12:00:00`).getDay()));
         if(!covered(day)){column.append(node("p",visitsLoaded?"Poza zakresem danych":"Brak danych"));grid.append(column);return;}
         for(let minute=from;minute<to;minute+=15){
-          const slot=button("",()=>bookSlot(day,minute),"clients-schedule-slot");
-          const length=Number(q("clientVisitDuration").value)||30;
+          const slot=button("",event=>{if(!column.suppressSlotClick||event.detail===0)bookSlot(day,minute);},"clients-schedule-slot");
+          const length=15;
           const closed=nonworkingDay(day,a.holiday) || (opening && (opening.closed || minute<minutes(opening.from) || minute+length>minutes(opening.to)));
           slot.disabled=Boolean(closed);slot.dataset.closed=String(Boolean(closed));
           slot.style.top=`${(minute-from)*scale}px`;slot.style.height=`${15*scale}px`;
@@ -720,6 +802,36 @@
           slot.setAttribute("aria-label",`${a.date(day)}, ${clock(minute)}${closed?" · brak zapisów":""}${scheduleLocation?`, ${scheduleLocation}`:" — wybierz gabinet"}${occupied?" · zajęty termin":""}`);slot.title=`${a.date(day)} · ${clock(minute)}${closed?" · brak zapisów":""}${occupied?" · zajęty termin":""}`;
           column.append(slot);
         }
+        const lower=opening&&!opening.closed?Math.max(from,minutes(opening.from)):from;
+        const upper=opening&&!opening.closed?Math.min(to,minutes(opening.to)):to;
+        let selection=null;
+        const removeSelection=()=>{selection?.remove?.();selection=null;};
+        const paintSelection=()=>{
+          const range=slotDrag.range;selection.style.top=`${(range.start-from)*scale}px`;selection.style.height=`${(range.end-range.start)*scale}px`;
+          selection.textContent=`${clock(range.start)}–${clock(range.end)}`;
+        };
+        column.addEventListener("pointerdown",pointer=>{
+          const slot=pointer.target.closest?.(".clients-schedule-slot");
+          if(!slot||slot.disabled||pointer.button!==0||pointer.pointerType==="touch"||!allowed()||coreBusy()||booking||resizeDrag)return;
+          if(!scheduleReady||!scheduleLocation){bookSlot(day,from);return;}
+          column.suppressSlotClick=false;pointer.preventDefault();slot.focus();
+          const rect=column.getBoundingClientRect(),minute=from+Math.floor((pointer.clientY-rect.top)/scale/15)*15;
+          slotDrag={column,pointerId:pointer.pointerId,day,anchor:minute,startY:pointer.clientY,moved:false,range:selectedTimeRange(minute,minute,lower,upper)};
+          selection=node("div",undefined,"clients-schedule-selection");selection.setAttribute("aria-hidden","true");column.append(selection);paintSelection();column.setPointerCapture?.(pointer.pointerId);
+        });
+        column.addEventListener("pointermove",pointer=>{
+          if(slotDrag?.column!==column||slotDrag.pointerId!==pointer.pointerId)return;
+          slotDrag.moved=slotDrag.moved||Math.abs(pointer.clientY-slotDrag.startY)>4;
+          slotDrag.range=selectedTimeRange(slotDrag.anchor,from+(pointer.clientY-column.getBoundingClientRect().top)/scale,lower,upper);paintSelection();
+        });
+        const cancelSelection=()=>{if(slotDrag?.column===column){slotDrag=null;column.suppressSlotClick=true;removeSelection();}};
+        column.addEventListener("pointerup",pointer=>{
+          if(slotDrag?.column!==column||slotDrag.pointerId!==pointer.pointerId)return;
+          const drag=slotDrag;slotDrag=null;removeSelection();column.suppressSlotClick=true;setTimeout(()=>{column.suppressSlotClick=false;},0);column.releasePointerCapture?.(pointer.pointerId);
+          if(drag.moved)openBooking(day,drag.range.start,drag.range.end);else bookSlot(day,drag.anchor);
+        });
+        column.addEventListener("pointercancel",cancelSelection);column.addEventListener("lostpointercapture",cancelSelection);
+        column.addEventListener("keydown",event=>{if(event.key==="Escape"&&slotDrag?.column===column){event.preventDefault();const id=slotDrag.pointerId;cancelSelection();column.releasePointerCapture?.(id);}});
         for(const item of perDay[i]) {
           const event=node("div","","clients-schedule-event");event.dataset.locationTone=item.visit.location;
           event.style.top=`${(item.startMinute-from)*scale}px`;event.style.height=`${Math.max(24,(item.endMinute-item.startMinute)*scale-2)}px`;
@@ -866,6 +978,7 @@
       q("clientsSchedule").replaceChildren();q("clientsScheduleTitle").textContent="";q("clientsScheduleNotice").textContent="";q("clientsScheduleDate").value="";
       visitsLoaded=false;visitsFetchedAt="";scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);
       resizeDrag=null;scheduleReady=false;scheduleConfig={hours:[],services:[]};editingService=null;newServiceId="";
+      slotDrag=null;closeBooking(false,true);
       hoursDirty=false;serviceDirty=false;hoursRevision=null;
       q("clientsServiceForm").reset();q("clientsServiceList").replaceChildren();q("clientsOpeningRows").replaceChildren();
       q("clientVisitService").replaceChildren();q("clientVisitPrice").textContent="";q("clientsScheduleSettingsNotice").textContent="";
@@ -974,6 +1087,21 @@
     q("clientsSchedulePlaces").addEventListener("click",event=>{
       const tile=event.target.closest("[data-schedule-place]");if(!tile || !allowed() || coreBusy())return;scheduleLocation=tile.dataset.schedulePlace;renderSchedule();
     });
+    q("clientsBookingClose")?.addEventListener("click",()=>closeBooking());
+    q("clientsBookingDialog")?.addEventListener("cancel",event=>{event.preventDefault();closeBooking();});
+    q("clientsBookingSearch")?.addEventListener("input",()=>{
+      if(!booking||!allowed()||coreBusy())return;
+      booking.client=null;bookingChanged();bookingMessage();q("clientsBookingClient").textContent="Wybierz klienta z wyników wyszukiwania.";q("clientsBookingResults").replaceChildren();
+      clearTimeout(bookingSearchTimer);const sequence=++bookingSequence;
+      if(q("clientsBookingSearch").value.trim().length>=2)bookingSearchTimer=setTimeout(()=>void searchBookingClients(sequence),250);
+    });
+    q("clientsBookingService")?.addEventListener("change",()=>{
+      if(!booking||!allowed()||coreBusy())return;bookingChanged();bookingMessage();
+      const service=scheduleConfig.services.find(item=>item.id===q("clientsBookingService").value&&item.enabled);
+      q("clientsBookingPrice").textContent=service?`Cena brutto: ${priceLabel(service.price)} · standardowy czas: ${service.duration_minutes} min`:"";
+    });
+    for(const id of ["clientsBookingFrom","clientsBookingTo"])q(id)?.addEventListener("input",()=>{if(booking&&allowed()&&!coreBusy()){bookingChanged();bookingDuration();bookingMessage();}});
+    q("clientsBookingForm")?.addEventListener("submit",event=>{event.preventDefault();void guarded(saveBooking);});
     q("clientsOpeningPlace").value=a.station();
     q("clientsOpeningPlace").addEventListener("change",()=>{
       if(!allowed() || coreBusy())return;
@@ -1019,7 +1147,7 @@
     q("clientsSchedulePrev").addEventListener("click",()=>moveSchedule(-1));
     q("clientsScheduleNext").addEventListener("click",()=>moveSchedule(1));
     q("clientsScheduleToday").addEventListener("click",()=>{if(allowed()&&!coreBusy()){scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);renderSchedule();}});
-    a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty || hoursDirty || serviceDirty || journey?.dirty())){event.preventDefault();event.returnValue="";}});
+    a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty || hoursDirty || serviceDirty || journey?.dirty() || booking?.dirty)){event.preventDefault();event.returnValue="";}});
     const filterHost=q("clientsNotebook").querySelector?.(".clients-toolbar");
     if(filterHost){const filters=node("div","","pcpr-tab-group clients-work-filters");filters.setAttribute("role","group");filters.setAttribute("aria-label","Sprawy do załatwienia");
       for(const [value,label]of [["","Wszystkie"],["CONTACT","Do kontaktu"],["NFZ","Zlecenie"],["VISIT","Wizyta"],["PICKUP","Do odbioru"],["OVERDUE","Zaległe"]]){
@@ -1031,5 +1159,5 @@
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       close:()=>closeCard(),canLeave:()=>closeCard(),select: id => guarded(() => select(id))};
   }
-  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,openingForDay,resizedDuration,parsePrice,priceLabel,nonworkingDay,profilePayload,create};
+  return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,openingForDay,resizedDuration,selectedTimeRange,parsePrice,priceLabel,nonworkingDay,profilePayload,create};
 });

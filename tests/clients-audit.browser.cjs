@@ -17,13 +17,20 @@ async function run(){
    {type:'device',id:'sold-test',name:profile.full_name,date:'2026-11-17',kind:'Aparat',model:'Model testowy',serial:'TEST-SOLD',workflow:{type:'SPRZEDANY',pickupDate:'2026-11-17',invoice:'TEST-FS',ezwm:'REALIZACJA'},open(){}}];
   const detail={profile,links:sources.map(row=>({source_type:row.type,source_id:row.id})),activities:[],operations:[]};
   let journey={case_id:'30000000-0000-0000-0000-000000000001',revision:1,archived:false,data:SatisClientJourney.normalize({case_id:'30000000-0000-0000-0000-000000000001',source_keys:['offer:offer-test'],device_ids:['sold-test'],started_on:'2026-11-17',interest:'INTERESTED',referral:'REQUESTED'},'2026-11-17')};
-  const stored=new Map([[journey.case_id,journey]]),confirmationStamps=new Map(),serverStamp='2026-11-17T10:15:00Z';let writes=0,ids=10,hold=false,release=null,missing=false,calls=[],reserveCalls=0,confirmDiscard=true,todayValue='2026-11-17';
+  const stored=new Map([[journey.case_id,journey]]),confirmationStamps=new Map(),serverStamp='2026-11-17T10:15:00Z',appointments=[],bookingWrites=[];
+  const testService={id:'service-test',name:'Kontrola testowa',price:150,duration_minutes:30,enabled:true};
+  let writes=0,ids=10,hold=false,release=null,missing=false,calls=[],reserveCalls=0,confirmDiscard=true,todayValue='2026-11-17',holdBooking=false,releaseBooking=null;
   const response=selected=>({journey:selected,events:[],case_support:!missing,follow_up_support:!missing,confirmation_times:confirmationStamps.get(selected?.case_id)||{},rodo_confirmed_at:[...stored.values()].some(row=>row.data.confirmations.rodo)?serverStamp:null,rodo_confirmed_elsewhere:[...stored.values()].some(row=>row.case_id!==selected?.case_id&&row.data.confirmations.rodo),cases:[...stored.values()].map(row=>({case_id:row.case_id,kind:row.data.kind,started_on:row.data.started_on,archived:row.archived}))});
   const rpc=async(name,args)=>{calls.push(name);switch(name){
    case 'satis_clients_overview':case 'satis_clients_search':return {data:{profiles:[profile],total:1}};
    case 'satis_client_detail':return {data:detail};
-   case 'satis_client_schedule_read':return {data:{hours:[],services:[]}};
-   case 'satis_clients_upcoming':return {data:[]};
+   case 'satis_client_schedule_read':return {data:{hours:[{location:'P63',days:Array.from({length:7},(_,i)=>({closed:i>4,from:'08:00',to:'17:00'}))}],services:[testService]}};
+   case 'satis_clients_upcoming':return {data:appointments};
+   case 'satis_clients_write':{
+    if(args.p_action!=='ACTIVITY')throw Error('Unexpected write');bookingWrites.push(args);
+    if(holdBooking)await new Promise(resolve=>releaseBooking=resolve);
+    const activity={...args.p_data,id:args.p_id,revision:1,full_name:profile.full_name};appointments.push(activity);detail.activities.push(activity);return {data:activity};
+   }
    case 'satis_client_journey_read':return {data:response(journey)};
    case 'satis_client_journey_case_read':return {data:response(stored.get(args.p_case_id))};
    case 'satis_client_journey_write':writes++;if(hold)await new Promise(resolve=>release=resolve);
@@ -132,9 +139,48 @@ async function run(){
  await page.getByRole('button',{name:'Zamknij kartę klienta',exact:true}).click();
  assert.equal(await page.locator('#clientsDialog').evaluate(node=>node.open),false);
  assert.equal(await page.locator('#clientsDemoBtn, #clientsDemoPanel').count(),0,'no demonstration client is offered');
+ await page.evaluate(async()=>{testModule.clear();await testModule.open();});
+ await page.setViewportSize({width:1366,height:900});
+ await page.evaluate(()=>todayValue='2026-11-17');await page.locator('#clientsScheduleToday').click();
+ await page.getByRole('button',{name:'Dzień',exact:true}).click();
+ const day=page.locator('.clients-schedule-day[data-day="2026-11-17"]');
+ const start=day.locator('button[aria-label^="2026-11-17, 09:00"]'),end=day.locator('button[aria-label^="2026-11-17, 09:45"]');
+ await start.scrollIntoViewIfNeeded();const first=await start.boundingBox(),last=await end.boundingBox();
+ await page.mouse.move(first.x+first.width/2,first.y+first.height/2);await page.mouse.down();
+ await page.mouse.move(last.x+last.width/2,last.y+last.height/2,{steps:5});await page.keyboard.press('Escape');await page.mouse.up();
+ assert.equal(await page.locator('#clientsBookingDialog').evaluate(node=>node.open),false,'Escape cancels a mouse selection without opening a booking');
+ await page.mouse.move(first.x+first.width/2,first.y+first.height/2);await page.mouse.down();
+ await page.mouse.move(last.x+last.width/2,last.y+last.height/2,{steps:5});
+ assert.equal(await day.locator('.clients-schedule-selection').textContent(),'09:00–10:00');
+ await page.mouse.up();
+ assert.equal(await page.locator('#clientsBookingDialog').evaluate(node=>node.open),true);
+ assert.equal(await page.locator('#clientsBookingFrom').inputValue(),'09:00');assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:00');
+ assert.equal(await page.evaluate(()=>bookingWrites.length),0,'selecting time never writes');
+ assert.equal(await page.locator('#clientsBookingSearch').inputValue(),'','no prior client is required to start a booking');
+ await page.locator('#clientsBookingClose').click();
+ await page.mouse.move(last.x+last.width/2,last.y+last.height/2);await page.mouse.down();await page.mouse.move(first.x+first.width/2,first.y+first.height/2,{steps:5});await page.mouse.up();
+ assert.equal(await page.locator('#clientsBookingFrom').inputValue(),'09:00');assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:00','reverse dragging selects the same interval');
+ await page.locator('#clientsBookingSearch').fill('Testowy');await page.locator('#clientsBookingResults button').first().click();
+ await page.locator('#clientsBookingService').selectOption('service-test');
+ assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:00','service selection preserves the dragged duration');
+ await page.locator('#clientsBookingTo').fill('07:00');await page.locator('#clientsBookingSave').click();
+ assert.equal(await page.evaluate(()=>bookingWrites.length),0);assert.ok((await page.locator('#clientsBookingMessage').textContent()).includes('przedział'));
+ await page.locator('#clientsBookingTo').fill('10:00');
+ if(process.env.SATIS_QA_DIR)await page.locator('#clientsBookingDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-booking-desktop.png')});
+ await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ if(process.env.SATIS_QA_DIR)await page.locator('#clientsBookingDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-booking-mobile.png')});
+ await page.evaluate(()=>holdBooking=true);await page.locator('#clientsBookingSave').click();await page.waitForFunction(()=>releaseBooking!==null);
+ await page.keyboard.press('Escape');assert.equal(await page.locator('#clientsBookingDialog').evaluate(node=>node.open),true);
+ await page.evaluate(()=>{document.getElementById('clientsBookingForm').dispatchEvent(new Event('submit',{cancelable:true}));holdBooking=false;releaseBooking();});
+ await page.waitForFunction(()=>!document.getElementById('clientsBookingDialog').open);
+ assert.equal(await page.evaluate(()=>bookingWrites.length),1,'double submission cannot create two visits');
+ assert.equal(await page.evaluate(()=>bookingWrites[0].p_data.duration_minutes),60);
+ assert.equal(await page.evaluate(()=>bookingWrites[0].p_data.customer_id),await page.evaluate(()=>profile.id));
+ assert.equal(await day.locator('.clients-schedule-event').count(),1);
+ assert.equal(await page.locator('#clientsBookingSearch').inputValue(),'','closed booking clears customer data');
  await page.evaluate(()=>testModule.clear());assert.equal(await page.locator('#clientJourney').textContent(),'');assert.deepEqual(errors,[]);
  assert.equal(await page.locator('#clientsContactSummary').textContent(),'');assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Karta klienta');
- console.log('OK: scrollable client modal, side-by-side action tiles, confirmation timestamps, protected pending save, isolated cases, atomic reservation, migration safety, no demo client and responsive layouts.');
+ console.log('OK: client modal, action tiles, confirmation dates, isolated cases, atomic reservation, mouse range booking, client/service selection, protected duplicate submission and responsive layouts.');
  }finally{await browser.close();}
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

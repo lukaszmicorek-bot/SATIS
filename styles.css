@@ -17920,6 +17920,22 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-notebook .clients-schedule-slot { position: absolute; left: 0; width: 100%; min-height: 0; padding: 0; border: 0; border-bottom: 1px solid #e9eeee; border-radius: 0; background: transparent; box-shadow: none; }
 .clients-notebook .clients-schedule-slot:hover, .clients-notebook .clients-schedule-slot:focus-visible { background: #e9f4f3; outline: 1px solid #7bb5b4; outline-offset: -1px; }
 .clients-notebook .clients-schedule-slot[data-closed="true"] { background: #edf0f1; cursor: not-allowed; opacity: 0.8; }
+.clients-schedule-day { user-select: none; }
+.clients-schedule-slot { touch-action: pan-x pan-y; cursor: crosshair; }
+.clients-schedule-selection { position: absolute; z-index: 3; left: 2px; right: 2px; box-sizing: border-box; pointer-events: none; padding: 4px 6px; border: 1px solid #518d90; border-left-width: 3px; border-radius: 4px; color: #124f54; background: rgb(206 232 230 / 90%); font-size: 0.75rem; font-weight: 700; }
+.clients-booking-dialog { width: min(540px,calc(100vw - 24px)); }
+.clients-booking-dialog .clients-booking-form { overflow-y: auto; min-height: 0; padding: 16px 22px 22px; display: grid; gap: 14px; }
+.clients-booking-form > label, .clients-booking-times label { display: grid; min-width: 0; gap: 5px; font-size: 0.82rem; }
+.clients-booking-form input, .clients-booking-form select { width: 100%; min-width: 0; box-sizing: border-box; height: 40px; }
+.clients-booking-summary, .clients-booking-times { display: flex; align-items: center; gap: 14px; }
+.clients-booking-times label { flex: 1; }
+.clients-booking-results { max-height: 200px; overflow-y: auto; }
+.clients-booking-results:empty, #clientsBookingMessage:empty { display: none; }
+.clients-booking-client { margin: 0; padding: 8px 0; color: #285c62; font-size: 0.83rem; font-weight: 600; }
+.clients-booking-form .clients-hint, .clients-booking-form .clients-warning { margin: 0; }
+.clients-booking-form .clients-actions { justify-content: flex-end; }
+.clients-booking-form small { color: #617980; line-height: 1.5; }
+@media(max-width:600px) { .clients-booking-dialog .clients-booking-form { padding: 14px; } }
 .clients-schedule-event, .clients-schedule-month-event { --visit-accent: #7b969d; --visit-background: #edf4f5; }
 .clients-schedule-event[data-location-tone="T12"], .clients-schedule-month-event[data-location-tone="T12"] { --visit-accent: #9c8d7b; --visit-background: #f7f2ed; }
 .clients-schedule-event[data-location-tone="P50"], .clients-schedule-month-event[data-location-tone="P50"] { --visit-accent: #8a9850; --visit-background: #f0f4e2; }
