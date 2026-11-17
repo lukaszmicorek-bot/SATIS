@@ -17751,6 +17751,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-toolbar, .clients-card-heading, .clients-section-heading, .clients-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .clients-toolbar { align-items: end; margin: 12px 0; }
 .clients-toolbar label, .clients-contact-grid label, .client-activity-editor label { display: flex; flex-direction: column; gap: 5px; font-size: 0.8rem; font-weight: 600; min-width: 0; }
+.clients-work-filters { flex-basis: 100%; gap: 6px; padding-top: 4px; }
 .clients-search { flex: 1 1 300px; }
 .clients-toolbar .clients-archive-toggle { flex-direction: row; align-items: center; padding-bottom: 9px; }
 .clients-notebook input:not([type="checkbox"]), .clients-notebook select, .clients-notebook textarea { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; padding: 9px 10px; border: 1px solid #cbd7d9; border-radius: 5px; background: #fff; color: #243b43; }
@@ -17788,6 +17789,18 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .client-journey-warning, .client-journey [data-journey-message][data-error="true"] { color: #9c454c; font-size: 0.8rem; line-height: 1.5; }
 .client-journey-settings { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: 10px 0; }
 .client-journey-settings label { display: grid; gap: 5px; min-width: 0; font-size: 0.77rem; font-weight: 600; }
+.client-journey-case-picker { display: grid; gap: 5px; max-width: 520px; margin: 12px 0; font-size: 0.8rem; font-weight: 600; }
+.client-journey-case-picker select { width: 100%; min-width: 0; }
+.client-journey-options, .client-journey-completed { margin: 12px 0; border-top: 1px solid #dce4e5; }
+.client-journey-options > summary, .client-journey-completed > summary { color: #335e6b; }
+.client-journey-assigned { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 0; font-size: 0.82rem; }
+.client-journey-assigned button { white-space: normal; overflow-wrap: anywhere; font-feature-settings: "zero"; }
+.client-journey-source-list { max-height: 300px; overflow-y: auto; padding: 8px 0; }
+.client-journey-source-list > strong { display: block; margin-bottom: 8px; font-size: 0.82rem; }
+.client-journey-source-list label { display: flex; align-items: flex-start; gap: 9px; padding: 9px 0; border-bottom: 1px solid #e1e9e9; font-size: 0.78rem; line-height: 1.45; }
+.client-journey-source-list label span { min-width: 0; overflow-wrap: anywhere; }
+.client-journey-source-list input[type="checkbox"] { margin-top: 3px; }
+.client-journey-actions { padding: 10px 0; min-height: 48px; }
 .client-journey-chain { list-style: none; margin: 12px 0; padding: 0; }
 .client-journey-chain li { display: grid; grid-template-columns: 24px minmax(0,1fr) auto auto; gap: 10px; align-items: center; min-height: 54px; border-bottom: 1px solid #e1e9e9; padding: 8px 0; }
 .client-journey-chain li > div { display: grid; gap: 4px; }

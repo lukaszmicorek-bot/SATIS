@@ -73,22 +73,45 @@ test('manual document confirmations and corrections join history with server dat
 const app=fs.readFileSync('app.js','utf8');
 function extract(name){const match=new RegExp(`^(?:async )?function ${name}\\(`,'m').exec(app),rest=app.slice(match.index),next=rest.slice(1).search(/\n(?:async )?function /);return rest.slice(0,next+1);}
 function reserveContext(records,extra={}){const calls=[];let prepares=0;const c=vm.createContext({records,currentSupabaseUser:{id:'owner-test'},sensitiveStateGeneration:1,hasSupabaseConfig:true,
+ AbortController,window:{setTimeout,clearTimeout},currentWorkstationName:()=> 'P63',
+ supabaseClient:{rpc:(_name,args)=>({abortSignal:async()=>{calls.push(args.p_changes);return {data:{journey:{revision:1,data:args.p_data},device_rows:args.p_changes.map(change=>({id:change.id,revision:2,data:change.data}))}};}})},
  canViewPrivateModules:()=>true,requireInitialDataReady:()=>true,isFullPersonName:()=>true,satisChangeQueue:{flush:async()=>{}},SUPABASE_DEVICE_TABLE:'device_records',STORAGE_KEY:'test',
  serialDuplicateKey:v=>String(v||'').toUpperCase(),pricingOfferAccessoryKind:r=>/charger/i.test(r.model)?'charger':'',hasValidStockIdentity:r=>Boolean(r.deviceName&&r.serialNumber),
  displayType:r=>r.type,isInStock:r=>r.type==='NA STANIE',titleCaseName:v=>v,customerNameLookupKey:v=>String(v||'').toLowerCase(),
- satisDataStore:{prepare:(_t,r)=>{prepares++;return r;},commit:async r=>calls.push(r)},writeSensitiveStorage(){},rebuildAfterDeviceChange(){},logAuditEvent(){},...extra});vm.runInContext(extract('reserveClientJourneyDevices'),c);return {c,calls,prepares:()=>prepares};}
+ satisDataStore:{prepare:(_t,r)=>{prepares++;return {table:'device_records',id:r.id,data:r,expectedRevision:1,delete:false};},observe(){}},writeSensitiveStorage(){},rebuildAfterDeviceChange(){},logAuditEvent(){},...extra});vm.runInContext(extract('reserveClientJourneyDevices'),c);return {c,calls,prepares:()=>prepares};}
+const reservation=ids=>({requestId:'10000000-0000-0000-0000-000000000001',revision:null,state:journey.normalize({device_ids:ids,devices_required:ids.length},today)});
 const stock=id=>({id,deviceName:'Model testowy',serialNumber:id,type:'NA STANIE',customerName:''});
 test('one atomic versioned batch reserves two devices, preserves metadata and repeat is safe',async()=>{
  const {c,calls}=reserveContext([{...stock('one'),notes:'Bez zmian'},stock('two')]);
- await c.reserveClientJourneyDevices({...profile,phone:'123456789'},['one','two']);assert.equal(calls.length,1);assert.equal(calls[0].length,2);
+ await c.reserveClientJourneyDevices({...profile,phone:'123456789'},['one','two'],[],reservation(['one','two']));assert.equal(calls.length,1);assert.equal(calls[0].length,2);
  assert.equal(c.records[0].type,'REZERWACJA');assert.equal(c.records[0].notes,'Bez zmian');assert.equal(c.records[0].clientProfileId,profile.id);
- await c.reserveClientJourneyDevices(profile,['one','two']);assert.equal(calls.length,1);
+ await c.reserveClientJourneyDevices(profile,['one','two'],[],reservation(['one','two']));assert.equal(calls[1].length,0,'repeat needs no second stock mutation');
 });
 test('busy/other-person device, duplicate serial, unauthorized account and write rejection never mutate stock',async()=>{
  for(const records of [[stock('one'),{...stock('two'),type:'REZERWACJA',customerName:'Inna Osoba'}],[stock('one'),{...stock('two'),serialNumber:'one'}]]){
-  const {c,calls}=reserveContext(records);await assert.rejects(c.reserveClientJourneyDevices(profile,['one','two']));assert.equal(calls.length,0);assert.equal(c.records[0].customerName,'');}
+  const {c,calls}=reserveContext(records);await assert.rejects(c.reserveClientJourneyDevices(profile,['one','two'],[],reservation(['one','two'])));assert.equal(calls.length,0);assert.equal(c.records[0].customerName,'');}
  const denied=reserveContext([stock('one')],{canViewPrivateModules:()=>false});await assert.rejects(denied.c.reserveClientJourneyDevices(profile,['one']));assert.equal(denied.calls.length,0);
- const failed=reserveContext([stock('one')],{satisDataStore:{prepare:(_t,r)=>r,commit:async()=>{throw new Error('conflict');}}});await assert.rejects(failed.c.reserveClientJourneyDevices(profile,['one']));assert.equal(failed.c.records[0].type,'NA STANIE');
+ const failed=reserveContext([stock('one')],{supabaseClient:{rpc:()=>({abortSignal:async()=>({error:{code:'PT409'}})})}});await assert.rejects(failed.c.reserveClientJourneyDevices(profile,['one'],[],reservation(['one'])));assert.equal(failed.c.records[0].type,'NA STANIE');
+});
+test('separate cases on the same day never inherit the earlier sale or document confirmations',()=>{
+ const data=successful(),state=journey.normalize({case_id:'10000000-0000-0000-0000-000000000001',source_keys:[]},today);
+ const plan=journey.build(data,state,today);
+ for(const id of ['offer','devices','delivery','ezwm'])assert.equal(plan.steps.find(s=>s.id===id).done,false,id);
+ const history=[{created_at:today,data:{...state,case_id:'10000000-0000-0000-0000-000000000002',confirmations:{rodo:true}}}];
+ assert.deepEqual(journey.historyEvents(history,state),[]);
+ state.source_keys=['offer:offer-test'];state.device_ids=['aid1'];
+ const selected=journey.build(data,state,today);assert.equal(selected.steps.find(s=>s.id==='offer').done,true);assert.equal(selected.steps.find(s=>s.id==='delivery').done,true);
+});
+test('interest is not described as a confirmed purchase before there is a sale',()=>{
+ const plan=journey.build(make(),journey.normalize({interest:'INTERESTED'},today),today);
+ assert.equal(plan.steps.find(s=>s.id==='interest').detail,'Zainteresowany zakupem');
+});
+test('a lost reservation response retries the identical payload even when realtime already changed stock',async()=>{
+ let fail=true;const requests=[];
+ const {c}=reserveContext([stock('one')],{supabaseClient:{rpc:(_name,args)=>({abortSignal:async()=>{requests.push(JSON.stringify(args));if(fail){fail=false;throw Error('response lost');}return {data:{journey:{revision:1,data:args.p_data},device_rows:[{id:'one',revision:2,data:args.p_changes[0].data}]}};}})}});
+ const attempt=reservation(['one']);await assert.rejects(c.reserveClientJourneyDevices(profile,['one'],[],attempt));
+ c.records=[{...stock('one'),type:'REZERWACJA',customerName:profile.full_name,clientProfileId:profile.id}];
+ await c.reserveClientJourneyDevices(profile,['one'],[],attempt);assert.equal(requests[0],requests[1]);
 });
 test('new workflow uses private RPCs, no browser PII persistence, HTML interpretation or external requests',()=>{
  const text=fs.readFileSync('client-journey.js','utf8');assert.doesNotMatch(text,/innerHTML|localStorage|sessionStorage|indexedDB|fetch\(/);

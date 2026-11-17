@@ -155,7 +155,13 @@ begin
   if request_row.actor_id is distinct from actor or request_row.fingerprint is distinct from fp then
     raise exception 'Request already used' using errcode='22023';
   end if;
-  if request_row.result is not null then return request_row.result; end if;
+  if request_row.result is not null then
+    cid:=case when p_action='ACTIVITY' then (p_data->>'customer_id')::uuid else p_id end;
+    if p_action<>'DELETE' and not exists(select 1 from public.customer_profiles where id=cid) then
+      raise exception 'Karta klienta nie istnieje.' using errcode='P0002';
+    end if;
+    return request_row.result;
+  end if;
   perform pg_advisory_xact_lock(hashtext('satis-client-record-' || p_id::text));
 
   if p_action = 'PROFILE' then
@@ -237,6 +243,7 @@ begin
       if exists(select 1 from public.customer_activities a where a.customer_id=cid and a.kind='VISIT' and a.status='PLANNED') then
         raise exception 'Najpierw zakoncz lub anuluj zaplanowane wizyty.' using errcode='22023';
       end if;
+      delete from public.customer_write_requests r where r.result#>>'{journey,customer_id}'=cid::text;
       delete from public.customer_profiles where id=cid;
       result:=jsonb_build_object('id',cid,'deleted',true);
     else

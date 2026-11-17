@@ -31163,14 +31163,16 @@ function availableClientJourneyDevices(profile, links = []) {
     .map(record=>({id:record.id,model:record.deviceName,serial:record.serialNumber,location:record.location,type:displayType(record)}));
 }
 
-async function reserveClientJourneyDevices(profile, ids, links = []) {
+async function reserveClientJourneyDevices(profile, ids, links = [], journeyWrite = {}) {
   if (!canViewPrivateModules() || !currentSupabaseUser || !requireInitialDataReady() || !hasSupabaseConfig)
     throw new Error("Rezerwacja z kartoteki wymaga połączenia i konta SATIS.");
   if (!profile?.id || profile.archived || !isFullPersonName(profile.full_name) || !Array.isArray(ids) || ids.length<1 || ids.length>2 || new Set(ids).size!==ids.length)
     throw new Error("Sprawdź klienta i wybierz 1 lub 2 aparaty.");
+  if (!journeyWrite.requestId || !journeyWrite.state) throw new Error("Otwórz aktualny przebieg sprawy przed rezerwacją.");
   await satisChangeQueue.flush();
   if (!canViewPrivateModules() || !currentSupabaseUser) throw new Error("Sesja zakończona.");
   const userId=currentSupabaseUser.id,generation=sensitiveStateGeneration;
+  if (!journeyWrite.rpcArgs) {
   const linked = new Set(links.filter(link=>link.source_type==="device").map(link=>link.source_id));
   const selectedSerials = ids.map(id=>serialDuplicateKey(records.find(record=>record.id===id)?.serialNumber));
   if (selectedSerials.some(serial=>!serial) || new Set(selectedSerials).size!==ids.length) throw new Error("Numery seryjne wybranych aparatów muszą być różne.");
@@ -31182,17 +31184,29 @@ async function reserveClientJourneyDevices(profile, ids, links = []) {
     if(!isInStock(record) || String(record.customerName||"").trim())throw new Error("Aparat nie jest już wolny. Nie zmieniono rezerwacji.");
     return {before:record,after:{...record,customerName:titleCaseName(profile.full_name),phone:profile.phone||"",type:"REZERWACJA",clientProfileId:profile.id}};
   }).filter(Boolean);
-  if(!changes.length)return;
-  await satisDataStore.commit(changes.map(change=>satisDataStore.prepare(SUPABASE_DEVICE_TABLE,change.after)),{requestTimeoutMs:20000});
+  journeyWrite.rpcArgs = {p_customer_id:profile.id,p_request_id:journeyWrite.requestId,p_expected_revision:journeyWrite.revision,
+    p_profile_revision:profile.revision,p_data:journeyWrite.state,p_changes:changes.map(change=>satisDataStore.prepare(SUPABASE_DEVICE_TABLE,change.after)),p_workstation:currentWorkstationName()};
+  journeyWrite.changes=changes;journeyWrite.userId=userId;
+  }
+  if(journeyWrite.userId!==userId)throw new Error("Sesja zakończona. Otwórz ponownie kartę klienta.");
+  const controller=new AbortController(),timer=window.setTimeout(()=>controller.abort(),20000);
+  let result;
+  try{result=await supabaseClient.rpc("satis_client_journey_reserve",journeyWrite.rpcArgs).abortSignal(controller.signal);}
+  catch{throw new Error("Brak potwierdzenia rezerwacji. Ponów tę samą operację bez zmieniania pól; baza nie utworzy drugiej rezerwacji.");}
+  finally{window.clearTimeout(timer);}
+  if(result.error){const error=new Error(/PGRST202|42883|42P01/.test(result.error.code||"")?"Bezpieczna rezerwacja wymaga uruchomienia supabase-clients-audit.sql. Nie wykonano rezerwacji.":result.error.code==="PT409"?"Dane zmieniły się na innym stanowisku. Odśwież kartę i dostępność aparatów.":"Nie udało się zarezerwować aparatów. Sprawdź aktualne dane przed ponowieniem.");error.code=result.error.code;throw error;}
+  if(!result.data?.journey || !Array.isArray(result.data.device_rows))throw new Error("Niepełne potwierdzenie rezerwacji. Odśwież kartę i sprawdź zapis w bazie.");
   if(generation!==sensitiveStateGeneration || userId!==currentSupabaseUser?.id)throw new Error("Sesja zakończona — sprawdź zapis po ponownym zalogowaniu.");
-  const updated=new Map(changes.map(change=>[change.after.id,change.after]));
+  const changes=journeyWrite.changes,updated=new Map(changes.map(change=>[change.after.id,change.after]));
+  for(const row of result.data.device_rows){const record=row.data||updated.get(row.id);if(record)updated.set(row.id,{...record,id:row.id});satisDataStore.observe(SUPABASE_DEVICE_TABLE,{...row,data:record});}
   records=records.map(record=>updated.get(record.id)||record);
   writeSensitiveStorage(STORAGE_KEY,JSON.stringify(records));
   rebuildAfterDeviceChange();
   changes.forEach(change=>logAuditEvent({notebook:"devices",action:"edit",recordId:change.after.id,beforeRecord:change.before,afterRecord:change.after}));
+  return result.data;
 }
 
-function openClientJourneyForm(kind, profile) {
+function openClientJourneyForm(kind, profile, caseData = {}) {
   if(!canViewPrivateModules() || !currentSupabaseUser)return;
   const ids={offer:"offerCustomerInput",loan:"loanCustomerInput",order:"orderCustomerInput",complaint:"complaintCustomerInput",rodo:"rodoNameInput",receipt:"receiptCustomerInput",care:"careCustomerInput"};
   if(!ids[kind])return;
@@ -31203,7 +31217,7 @@ function openClientJourneyForm(kind, profile) {
   if(kind==="receipt")fields.address=document.getElementById("receiptAddressInput");
   if(!applyCustomerTransfer(fields,{name:profile.full_name,phone:profile.phone,address}))return;
   switchPricingView(kind);
-  if(kind==="receipt"){completeReceiptCustomer();renderPricingReceipt();}
+  if(kind==="receipt"){const serial=records.find(record=>caseData.device_ids?.includes(record.id))?.serialNumber||"";completeReceiptCustomer({preferredSerial:serial});renderPricingReceipt();}
   if(kind==="rodo")renderPricingRodo();
   if(kind==="care")careForm?.render();
 }

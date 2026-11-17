@@ -1,5 +1,5 @@
 {
-  "app_version": "20261116-1",
+  "app_version": "20261117-1",
   "asset_policy_sha256": "37644364832f3e8f09ebfd65a33c3ed98c8ec9d2d417a7883fd20e94208bc18d",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -23,8 +23,8 @@
       "sha256": "35c986e12412bdf7601b42b49ad0d2c77f5c00a74dea07e28f0090484daf0943"
     },
     "app.js": {
-      "bytes": 1828337,
-      "sha256": "16a6378e46c8154eae72546f73cd01ece288ada859ffd9e8bb18e900d9f3712c"
+      "bytes": 1830255,
+      "sha256": "248a54e2cf17b2edbb5b627a7c560ffa77aa8a8ed9141e7add4048ef03e8a828"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -35,12 +35,12 @@
       "sha256": "0979c67cab085858ca2199782b9d502d501e01f01d65cfab8e2dbe8008dc02f9"
     },
     "client-journey.js": {
-      "bytes": 31529,
-      "sha256": "80e9f4c6bb75146d708711d8da5ed1374b4cfce6d4bb9e4bce5b95aa54ecb704"
+      "bytes": 37358,
+      "sha256": "2d582e53ecc51d534cf416d883bdf8030204b395f77ecc337ea45531b137bcde"
     },
     "clients.js": {
-      "bytes": 69809,
-      "sha256": "28046e9cd93f853471291fc2db6d102480692608c4dbe1681e03c40e2c638a81"
+      "bytes": 75048,
+      "sha256": "b76ebdf9f3b51bc510490af7716842b6274688f1de16b0df4e9766853c1718fc"
     },
     "complaint-shipping.js": {
       "bytes": 8548,
@@ -64,7 +64,7 @@
     },
     "index.html": {
       "bytes": 468221,
-      "sha256": "034d10a326e40db645856f71030163c9a69badbc16889b8b65877c8f75b45f52"
+      "sha256": "236fde55e59d34348dd1279754e643cd0111005fced590d9dfcdb835bdce0a04"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -180,7 +180,7 @@
     },
     "offline-sw.js": {
       "bytes": 3437,
-      "sha256": "731795ef822317eed48370459c14a38460e626d857d402f046bc0f0c71e4eaa7"
+      "sha256": "33b99a0a989e8e1663d9a7082b64c4956b7e37668819ea967567267511d00ada"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -223,8 +223,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 458881,
-      "sha256": "e20921a3cc2a6b04a8a7bcbe8d26f3148034a4327112b52fb87d8b4036b8da92"
+      "bytes": 460158,
+      "sha256": "72eaadbd9b5b15a5792e5eb1d7e09f180ef8ff3453627d0eae6e50ae14656389"
     },
     "supabase-config.js": {
       "bytes": 227,

@@ -92,17 +92,23 @@ test('opening hours follow ISO weekdays and resize snaps to 5 minutes with safe 
 function fakeDOM() {
   const nodes=new Map();
   function element(tag='div') {
-    return {tagName:tag.toUpperCase(),textContent:'',value:'',hidden:false,disabled:false,checked:false,dataset:{},style:{},children:[],handlers:{},attributes:{},
+    const node={tagName:tag.toUpperCase(),textContent:'',className:'',value:'',hidden:false,disabled:false,checked:false,dataset:{},style:{},children:[],handlers:{},attributes:{},
       addEventListener(type, fn){(this.handlers[type] ||= []).push(fn);},
       emit(type,event={}){for(const fn of this.handlers[type]||[])fn({preventDefault(){},...event});},
       append(...items){this.children.push(...items);},replaceChildren(...items){this.children=items;},
       setAttribute(key,value){this.attributes[key]=value;},focus(){},reset(){},
       querySelectorAll(){return [];},
+      contains(other){return this===other || this.children.some(child=>child.contains?.(other));},
     };
+    node.classList={toggle(name,on){const classes=new Set(node.className.split(' ').filter(Boolean));if(on)classes.add(name);else classes.delete(name);node.className=[...classes].join(' ');},contains(name){return node.className.split(' ').includes(name);}};
+    return node;
   }
   for(const match of html.matchAll(/<([a-z]+)[^>]*\bid="([^"]+)"[^>]*>/g)) {
     const node=element(match[1]);node.hidden=/\shidden(?:\s|>)/.test(match[0]);nodes.set(match[2],node);
   }
+  const save=element('button');save.type='submit';save.dataset.clientWrite='';
+  nodes.get('clientsForm').append(save);
+  nodes.get('clientsForm').querySelectorAll=()=>[save];
   const document={getElementById:id=>nodes.get(id),createElement:element,hidden:false};
   return {document,nodes};
 }
@@ -395,7 +401,7 @@ function relationFixture({confirmed=[],accept=true,failLink=false,existing=false
   let saved=existing || confirmed.length ? {...profile,revision:1} : null,links=confirmed.map(row=>({source_type:row.type,source_id:row.id})),linkAttempts=0;
   const prompts=[],rows=relationSources();
   const f=fixture(async(name,args)=>{
-    if(name==='satis_clients_overview')return {data:{profiles:saved?[saved]:[],total:saved?1:0}};
+    if(name==='satis_clients_overview'||name==='satis_clients_search')return {data:{profiles:saved?[saved]:[],total:saved?1:0}};
     if(name==='satis_client_detail')return {data:{profile:{...saved},links:links.map(link=>({...link})),activities:[],operations:[]}};
     if(name==='satis_clients_write') {
       if(args.p_action==='PROFILE') {
@@ -426,18 +432,30 @@ async function saveProposedClient(f) {
   f.nodes.get('clientsForm').emit('submit');
   for(let i=0;i<12;i++)await tick();
 }
-test('saving a selected source client confirms and persists all three documents with current revisions',async()=>{
+async function confirmSelected(f, indices) {
+  const checks=descendants(f.nodes.get('clientCandidates')).filter(node=>node.type==='checkbox');
+  if(indices)for(const i of indices){checks[i].checked=true;checks[i].emit('change');}
+  descendants(f.nodes.get('clientCandidates')).find(node=>node.textContent.startsWith('Potwierdź wybrane')).emit('click');
+  for(let i=0;i<12;i++)await tick();
+}
+test('saving a selected source client never implicitly links same-name documents; explicit selection uses current revisions',async()=>{
   const f=relationFixture();await saveProposedClient(f);
+  assert.equal(f.links.length,0);assert.equal(f.prompts.length,0);
+  const checks=descendants(f.nodes.get('clientCandidates')).filter(node=>node.type==='checkbox');
+  assert.equal(checks.length,3);assert.ok(checks.every(check=>!check.checked));
+  await confirmSelected(f,[0,1,2]);
   assert.equal(f.links.length,3);
   assert.equal(f.prompts.length,1);
   assert.match(f.prompts[0],/Test Osoba/);
-  for(const label of ['1/10/2026','2/10/2026','TEST123'])assert.ok(f.prompts[0].includes(label));
+  assert.match(f.prompts[0],/\(3\)/);assert.match(f.prompts[0],/nazwisko nie wystarcza/);
+  assert.ok(f.prompts[0].length<250,'confirmation remains concise even with many documents');
   assert.equal(f.nodes.get('clientCandidatesCount').textContent,'0');
   assert.equal(f.nodes.get('clientHistory').children.length,3);
   assert.match(f.nodes.get('clientsMessage').textContent,/3/);
 });
 test('declining document confirmation keeps the saved card and explains the three pending links',async()=>{
   const f=relationFixture({accept:false});await saveProposedClient(f);
+  await confirmSelected(f,[0,1,2]);
   assert.ok(f.saved());assert.equal(f.links.length,0);
   const text=descendants(f.nodes.get('clientHistory')).map(node=>node.textContent).join(' ');
   assert.match(text,/3/);assert.match(text,/potwierdz/);
@@ -452,10 +470,11 @@ test('saving a card preserves already confirmed documents and does not ask to co
 });
 test('partial link failure retains saved links, reports the failure and retry confirms only the missing documents',async()=>{
   const f=relationFixture({failLink:true});await saveProposedClient(f);
+  await confirmSelected(f,[0,1,2]);
   assert.equal(f.links.length,1);
   assert.equal(f.nodes.get('clientsMessage').dataset.error,'true');
   assert.match(f.nodes.get('clientsMessage').textContent,/powiąza|powiąz/);
-  f.nodes.get('clientsForm').emit('submit');for(let i=0;i<12;i++)await tick();
+  await confirmSelected(f);
   assert.equal(f.links.length,3);
   assert.equal(f.nodes.get('clientHistory').children.length,3);
 });
@@ -468,17 +487,21 @@ test('unavailable confirmed documents show a load warning without claiming that 
   assert.doesNotMatch(text,/Brak potwierdzonych powiązań i działań/);
 });
 
-test('an existing client with three source documents gains all three confirmed links on save',async()=>{
+test('an existing client links only individually selected source documents, never all documents on profile save',async()=>{
   const f=relationFixture({existing:true});await saveProposedClient(f);
-  assert.equal(f.saved().id,profile.id);assert.equal(f.links.length,3);
-  assert.equal(f.nodes.get('clientHistory').children.length,3);
+  assert.equal(f.saved().id,profile.id);assert.equal(f.links.length,0);
+  await confirmSelected(f,[1]);
+  assert.equal(f.links.length,1);assert.equal(f.links[0].source_id,'order-a');
+  assert.equal(f.nodes.get('clientHistory').children.length,1);
+  assert.equal(f.nodes.get('clientCandidatesCount').textContent,'2');
 });
 test('lost link acknowledgment refreshes confirmed server state and retry skips that document',async()=>{
   const f=relationFixture({failLink:'uncertain'});await saveProposedClient(f);
+  await confirmSelected(f,[0,1,2]);
   assert.equal(f.links.length,2);
   assert.equal(f.nodes.get('clientsMessage').dataset.error,'true');
   assert.equal(f.nodes.get('clientHistory').children.length,2);
-  f.nodes.get('clientsForm').emit('submit');for(let i=0;i<12;i++)await tick();
+  await confirmSelected(f);
   assert.equal(f.links.length,3);assert.equal(f.nodes.get('clientHistory').children.length,3);
 });
 
@@ -500,4 +523,136 @@ test('client address editing splits the street and both numbers but writes the e
   f.nodes.get('clientsForm').emit('submit');await tick();await tick();
   assert.equal(saved.street,'ul. Testowa 9B/4');assert.equal(saved.houseNumber,undefined,'no incompatible database columns are sent');
   f.module.clear();for(const id of ['clientStreetName','clientHouseNumber','clientFlatNumber'])assert.equal(f.nodes.get(id).value,'');
+});
+
+function journeyHarness() {
+  const state={dirty:false,busy:false,shown:0,cleared:0,config:null};
+  const adapter={create(config){state.config=config;return {
+    dirty:()=>state.dirty,busy:()=>state.busy,
+    async show(){state.shown++;},refresh(){},clear(){state.cleared++;}
+  };}};
+  return {state,adapter};
+}
+test('shared busy changes never enable or disable journey or demo controls in any selector pass',async()=>{
+  let release;
+  const f=fixture(async(name)=>name==='satis_clients_write'?new Promise(resolve=>{release=resolve;})
+    :{data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_detail'?detail:[]});
+  const core=f.document.createElement('button'),owned=[];
+  for(const host of ['clientJourney','clientsDemoPanel'])for(const disabled of [true,false]) {
+    const control=f.document.createElement('button');control.disabled=disabled;
+    control.dataset.clientWrite='';control.dataset.scheduleWrite='';owned.push(control);f.nodes.get(host).append(control);
+  }
+  f.nodes.get('clientsNotebook').querySelectorAll=()=>[core,...owned];
+  await f.module.open();await f.module.select(profile.id);
+  assert.deepEqual(owned.map(control=>control.disabled),[true,false,true,false]);
+  f.nodes.get('clientsForm').emit('submit');await tick();
+  assert.equal(core.disabled,true);assert.deepEqual(owned.map(control=>control.disabled),[true,false,true,false]);
+  release({data:{id:profile.id,revision:2}});for(let i=0;i<4;i++)await tick();
+  assert.deepEqual(owned.map(control=>control.disabled),[true,false,true,false]);
+});
+test('an in-flight journey save blocks normal actions without clearing or reloading the journey',async()=>{
+  const journey=journeyHarness();
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_detail'?detail:[]}),{journey:journey.adapter});
+  await f.module.open();await f.module.select(profile.id);
+  const calls=f.calls.length,shown=journey.state.shown,cleared=journey.state.cleared;
+  journey.state.busy=true;
+  await f.module.select('other');
+  for(const id of ['clientsNew','clientsRefresh','clientArchive','clientDelete','clientAddNote','clientAddVisit','clientsDemoBtn'])f.nodes.get(id).emit('click');
+  f.nodes.get('clientsForm').emit('submit');await tick();
+  assert.equal(f.calls.length,calls);assert.equal(journey.state.shown,shown);assert.equal(journey.state.cleared,cleared);
+  assert.equal(f.nodes.get('clientName').value,profile.full_name);assert.equal(journey.state.busy,true);
+});
+test('dirty journey blocks profile writes before normalization or confirmation and preserves profile edits',async()=>{
+  const journey=journeyHarness(),prompts=[];
+  const f=fixture(async(name)=>({data:name==='satis_client_detail'?detail:[]}),{journey:journey.adapter,confirm:message=>{prompts.push(message);return false;}});
+  await f.module.select(profile.id);journey.state.dirty=true;
+  f.nodes.get('clientName').value='Edytowana Osoba';f.nodes.get('clientsForm').emit('input');
+  f.nodes.get('clientsForm').emit('submit');await tick();
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
+  assert.match(f.nodes.get('clientsMessage').textContent,/Zapisz najpierw przebieg/);
+  assert.equal(prompts.length,0);assert.equal(f.nodes.get('clientName').value,'Edytowana Osoba');
+  assert.equal(f.nodes.get('clientsForm').children[0].classList.contains('client-journey-unsaved'),true);
+});
+test('dirty journey blocks individual and selected LINK, UNLINK, archive and delete before writes',async()=>{
+  const journey=journeyHarness(),rows=relationSources(),linked={source_type:rows[0].type,source_id:rows[0].id};
+  const f=fixture(async(name)=>({data:name==='satis_client_detail'?{...detail,links:[linked]}:[]}),{journey:journey.adapter,sources:()=>rows});
+  await f.module.select(profile.id);journey.state.dirty=true;
+  descendants(f.nodes.get('clientCandidates')).find(node=>node.textContent==='Potwierdź powiązanie').emit('click');await tick();
+  await confirmSelected(f,[0]);
+  descendants(f.nodes.get('clientHistory')).find(node=>node.textContent==='Odłącz').emit('click');await tick();
+  f.nodes.get('clientArchive').emit('click');await tick();f.nodes.get('clientDelete').emit('click');await tick();
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
+  assert.equal(journey.state.shown,1);assert.equal(journey.state.dirty,true);
+});
+test('journey navigation checks profile and activity edits only and forwards selected-case form context',async()=>{
+  const journey=journeyHarness(),opened=[];
+  const f=fixture(async(name)=>({data:name==='satis_client_detail'?detail:[]}),{journey:journey.adapter,openForm:(...args)=>opened.push(args)});
+  await f.module.select(profile.id);journey.state.dirty=true;
+  assert.equal(journey.state.config.canNavigate(),true,'device selection may be dirty when reserve checks navigation');
+  const caseData={device_ids:['selected-device'],case_id:'case-1'};
+  journey.state.config.openForm('receipt',profile,caseData);assert.deepEqual(opened,[['receipt',profile,caseData]]);
+  f.nodes.get('clientsForm').emit('input');assert.equal(journey.state.config.canNavigate(),false);
+  await f.module.select(profile.id);
+  f.nodes.get('clientActivityEditor').emit('input');assert.equal(journey.state.config.canNavigate(),false);
+});
+test('profile save label and dirty class reset after success and logout, but survive a rejected write',async()=>{
+  let fail=true;
+  const f=fixture(async(name)=>name==='satis_clients_write'?(fail?{error:{code:'TIMEOUT'}}:{data:{id:profile.id}})
+    :{data:name==='satis_client_detail'?detail:[]});
+  await f.module.select(profile.id);const save=f.nodes.get('clientsForm').children[0];
+  assert.equal(save.textContent,'Zapisz dane');assert.equal(save.classList.contains('client-journey-unsaved'),false);
+  f.nodes.get('clientsForm').emit('input');assert.equal(save.classList.contains('client-journey-unsaved'),true);
+  f.nodes.get('clientsForm').emit('submit');await tick();assert.equal(save.classList.contains('client-journey-unsaved'),true);
+  fail=false;f.nodes.get('clientsForm').emit('submit');for(let i=0;i<4;i++)await tick();
+  assert.equal(save.classList.contains('client-journey-unsaved'),false);
+  f.nodes.get('clientsNew').emit('click');assert.equal(save.classList.contains('client-journey-unsaved'),true);
+  f.module.clear();assert.equal(save.classList.contains('client-journey-unsaved'),false);
+});
+test('source model and serial token search returns saved cards with actual names and suppresses compatible suggestions',async()=>{
+  const rows=[{...relationSources()[0],name:'Test  Osoba',phone:'+48 500 600 800',model:'Aparat Alpha',serial:'SER123'},
+    {...relationSources()[1],name:'Test Osoba',model:'Beta',serial:'OTHER'},
+    {...relationSources()[2],name:'Inna Osoba',model:'Aparat Alpha',serial:'SER999'}];
+  const f=fixture(async(name)=>({data:['satis_clients_search','satis_clients_overview'].includes(name)?{profiles:[profile],total:1}:[]}),{sources:()=>rows});
+  f.nodes.get('clientsSearch').value='alpha ser123';await f.module.open();
+  const request=f.calls.find(call=>call.name==='satis_clients_search');
+  assert.deepEqual(request.args,{p_query:'alpha ser123',p_offset:0,p_archived:false,p_location:'',p_source_names:['Test Osoba','Test  Osoba']});
+  assert.equal(f.calls.some(call=>call.name==='satis_clients_overview'),false);
+  assert.equal(f.nodes.get('clientsList').children.length,1);assert.equal(f.nodes.get('clientsSuggestions').children.length,0);
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0,'search never associates documents');
+});
+test('plain unmatched searches use only overview and never send an empty optional source-name parameter',async()=>{
+  const f=fixture(async(name)=>({data:name==='satis_clients_overview'?{profiles:[profile],total:1}:[]}),{sources:()=>relationSources()});
+  for(const query of ['', 'unmatched model']) {
+    f.nodes.get('clientsSearch').value=query;await f.module.open();
+  }
+  assert.equal(f.calls.some(call=>call.name==='satis_clients_search'),false);
+  for(const request of f.calls.filter(call=>call.name==='satis_clients_overview'))assert.equal(Object.hasOwn(request.args,'p_source_names'),false);
+});
+test('missing source search RPC falls back to overview with a persistent warning and does not disable core writes',async()=>{
+  const f=fixture(async(name)=>name==='satis_clients_search'?{error:{code:'PGRST202'}}
+    :{data:name==='satis_clients_overview'?{profiles:[profile],total:1}:name==='satis_client_detail'?detail:[]},{sources:()=>relationSources()});
+  const core=f.document.createElement('button');core.dataset.clientWrite='';
+  f.nodes.get('clientsNotebook').querySelectorAll=selector=>selector==='[data-schedule-write]'?[]:[core];
+  f.nodes.get('clientsSearch').value='TEST123';await f.module.open();
+  assert.ok(f.calls.some(call=>call.name==='satis_clients_overview'));assert.equal(core.disabled,false);
+  assert.match(f.nodes.get('clientsMessage').textContent,/modelu i numerze seryjnym.*supabase-clients-audit.sql/);
+  assert.equal(f.nodes.get('clientsSuggestions').children.length,0,'do not offer duplicates while saved source search is unavailable');
+  await f.module.select(profile.id);assert.equal(core.disabled,false);
+  f.nodes.get('clientsSearch').value='unmatched';await f.module.open();
+  assert.doesNotMatch(f.nodes.get('clientsMessage').textContent,/supabase-clients-audit.sql/);
+});
+test('source search authorization errors are never treated as an unavailable RPC or retried through overview',async()=>{
+  const f=fixture(async(name)=>name==='satis_clients_search'?{error:{code:'42501'}}:{data:[]},{sources:()=>relationSources()});
+  f.nodes.get('clientsSearch').value='TEST123';await f.module.open();
+  assert.equal(f.calls.some(call=>call.name==='satis_clients_overview'),false);
+  assert.match(f.nodes.get('clientsMessage').textContent,/nie przyznała dostępu/);
+});
+test('same-name conflicting phones and ambiguous people remain proposals rather than being merged into saved cards',async()=>{
+  const rows=relationSources();rows[1].phone='500600801';
+  const f=fixture(async(name)=>({data:['satis_clients_search','satis_clients_overview'].includes(name)?{profiles:[profile],total:1}:[]}),{sources:()=>rows});
+  f.nodes.get('clientsSearch').value='Test Osoba';await f.module.open();
+  assert.equal(f.nodes.get('clientsList').children.length,1);assert.equal(f.nodes.get('clientsSuggestions').children.length,1);
+  assert.match(descendants(f.nodes.get('clientsSuggestions')).map(node=>node.textContent).join(' '),/możliwe różne osoby/);
+  rows[1].phone=rows[0].phone='500600802';rows[2].phone='500600802';
+  f.module.refreshSources();assert.equal(f.nodes.get('clientsSuggestions').children.length,1,'a conflicting known phone cannot suppress a separate person');
 });

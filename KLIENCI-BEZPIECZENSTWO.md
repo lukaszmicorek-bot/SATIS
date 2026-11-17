@@ -2,6 +2,11 @@
 
 ## Wdrozenie
 
+Aktualizacja po audycie: patrz `KLIENCI-AKTUALIZACJA.md` oraz
+`supabase-clients-audit.sql`. Po niej nie uruchamiaj ponownie starszych
+migracji kartoteki ani harmonogramu. Nowa migracja zachowuje juz
+zainstalowane zasady harmonogramu.
+
 ### Godziny otwarcia, uslugi i zmiana czasu myszka
 
 Po podstawowym `supabase-clients.sql` uruchom **`supabase-client-schedule.sql`**. Ta dodatkowa migracja tworzy wspolne godziny otwarcia i katalog uslug, dodaje wskazanie uslugi przy wizycie oraz obejmuje zapisy kontrola limitow. Nie uruchamiaj ponownie samej starszej migracji podstawowej bez ponownego uruchomienia migracji harmonogramu, poniewaz podstawowa wersja funkcji zapisu nie zna nowych zasad.
@@ -26,8 +31,8 @@ Migracja tworzy nowe tabele i funkcje. Nie importuje, nie usuwa ani nie zmienia 
 - Planowane wizyty nie moga przypadać na sobote, niedziele ani polskie swieta ustawowe (Wigilia od 2025). Ograniczenie obejmuje wpisanie daty recznie, kalendarz, harmonogram, zmiane czasu i zapis RPC w bazie. Nie usuwa starych wizyt i pozwala je anulowac lub oznaczyc jako odbyte. Nie blokuje przegladania kalendarza w dni wolne. Zrodlo swiat: https://api.sejm.gov.pl/eli/acts/DU/2025/296/text.pdf.
 - Wdrozenie cen i blokad: uruchom ponownie aktualny `supabase-client-schedule.sql` w SQL Editor, po wczesniejszym `supabase-clients.sql`. Skrypt jest powtarzalny, nie kasuje kart ani wizyt. Publikacja plikow na GitHub nie wykonuje migracji Supabase.
 
-- Wyszukanie nazwiska, telefonu, modelu lub numeru seryjnego pokazuje propozycje z aktualnie zaladowanych danych Aparatow, Serwisu i formularzy. Zapisane karty przeszukiwane sa po nazwisku i telefonie; propozycje dokumentow rowniez po modelach i numerach.
-- Zapis karty proponuje wspolne potwierdzenie znalezionych, jeszcze niepowiazanych dokumentow (do 100 na raz). Okno pokazuje ich numery, daty i dane kontaktowe. Dopiero potwierdzenie zapisuje powiazania; Anuluj zachowuje sama karte i pozwala wskazac dokumenty pojedynczo. Zbieznosc nazwiska nie jest potwierdzeniem tozsamosci. Przy roznych telefonach/adresach nie wybieramy automatycznie jednego z nich. Juz potwierdzone powiazania pozostaja zachowane przy kolejnych zapisach; po czesciowym bledzie ponowienie obejmuje tylko brakujace dokumenty.
+- Po aktualizacji wyszukiwanie modelu lub numeru seryjnego uwzglednia rowniez zapisane karty na podstawie aktualnie zaladowanych zrodel. Nazwisko i telefon pozostaja dostepne bez tej migracji. Zbieznosc nazw nie potwierdza tozsamosci i nie laczy kart.
+- Zapis karty nie przypisuje dokumentow. Dokumenty potwierdza sie indywidualnie lub po zaznaczeniu wlasciwych pozycji (do 100 na raz), z widocznymi numerami, datami i danymi kontaktowymi. Przy roznych telefonach/adresach nie wybieramy automatycznie jednego z nich. Juz potwierdzone powiazania pozostaja zachowane; po czesciowym bledzie ponowienie obejmuje tylko brakujace dokumenty.
 - Historia dokumentow odczytuje aktualne rekordy zrodlowe przez potwierdzone identyfikatory. Nie kopiuje opisow medycznych ani dokumentow do nowej tabeli. Historia wypozyczen jest oparta na umowach, nie na zmiennym polu aktualnego uzytkownika Demo.
 - Karta nie aktualizuje automatycznie danych kontaktowych w starych dokumentach. Zmiana umowy lub wpisu serwisowego pozostaje osobna operacja.
 - Dane kontaktowe stosuja reguly formularzy: wielkie litery w nazwach po opuszczeniu pola, prefiks ulicy, rozdzielenie nazwy i numeru, kod `00-000`, rozwiniecie Bielsko do Bielsko-Biala oraz grupowanie cyfr telefonu. Mozna wkleic caly adres w pole ulicy. Miasto wynika z jednoznacznych lokalnych danych o kodzie; przy kilku mozliwosciach wymaga wyboru, a recznie wpisanej miejscowosci nie nadpisujemy. Nie ma zapytan adresowych do zewnetrznych uslug.

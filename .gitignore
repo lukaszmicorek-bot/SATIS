@@ -113,6 +113,10 @@
 !/clients.js
 !/client-journey.js
 !/supabase-client-journey.sql
+!/supabase-clients-audit.sql
+!/tests/clients-audit.sqltest.cjs
+!/tests/clients-audit.browser.cjs
+!/KLIENCI-AKTUALIZACJA.md
 !/tests/client-journey.test.cjs
 !/tests/client-journey-lifecycle.test.cjs
 !/tests/client-journey.sqltest.cjs

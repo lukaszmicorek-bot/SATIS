@@ -16,7 +16,10 @@ function fixture(){
   serialDuplicateKey:key,customerNameLookupKey:name,currentDateLocationKey:v=>v||'P63',titleCaseName:identity,
   pricingOfferAccessoryKind:r=>/charger|ładowar/i.test(r.model||'')?'charger':'',hasValidStockIdentity:r=>Boolean(r.deviceName&&r.serialNumber),isInStock:r=>r.type==='NA STANIE',
   satisChangeQueue:{flush:async()=>{}},SUPABASE_DEVICE_TABLE:'device_records',STORAGE_KEY:'synthetic-test',
-  satisDataStore:{prepare:(_table,r)=>r,commit:async()=>{}},writeSensitiveStorage(){},rebuildAfterDeviceChange(){},logAuditEvent(){}});
+  satisDataStore:{prepare:(_table,r)=>({id:r.id,data:r,table:'device_records',expectedRevision:1,delete:false}),observe(){}},
+  AbortController,window:{setTimeout,clearTimeout},currentWorkstationName:()=> 'P63',
+  supabaseClient:{rpc:(_name,args)=>({abortSignal:async()=>({data:{journey:{revision:1,data:args.p_data},device_rows:args.p_changes.map(change=>({id:change.id,revision:2,data:change.data}))}})})},
+  writeSensitiveStorage(){},rebuildAfterDeviceChange(){},logAuditEvent(){}});
  for(const fn of ['repairOrderProgress','repairPhoneReturnKey','repairPhoneNotifiedForReturn','clientsCurrentSources','reserveClientJourneyDevices'])vm.runInContext(extract(fn),c);
  const links=[{source_type:'loan',source_id:'loan-test'}],activities=[];
  const state=journey.normalize({started_on:'2026-10-19',trial_required:true,devices_required:2},'2026-10-19');
@@ -34,7 +37,7 @@ test('complete synthetic lifecycle: loan, return, offer, NFZ, two aids, sale, do
  state.interest='INTERESTED';c.pricingOfferHistory=[{id:'offer-test',customer:profile.full_name,offerDate:'2026-11-02',location:'P63',items:[{model:'Aparat testowy P'},{model:'Aparat testowy L'}]}];links.push({source_type:'offer',source_id:'offer-test'});state.confirmations.rodo=true;
  capture('offer-rodo','Zainteresowanie zakupem, oferta i potwierdzone RODO','2026-11-02');
  state.referral='REQUESTED';p=capture('referral-pending','Zlecenie NFZ do uzyskania','2026-11-03');assert.equal(p.steps.find(s=>s.id==='referral').done,false);
- state.referral='READY';await c.reserveClientJourneyDevices(profile,['sale-P','sale-L']);state.device_ids=['sale-P','sale-L'];links.push(...state.device_ids.map(id=>({source_type:'device',source_id:id})));
+ state.referral='READY';await c.reserveClientJourneyDevices(profile,['sale-P','sale-L'],[],{requestId:'10000000-0000-0000-0000-000000000001',revision:null,state:{...state,device_ids:['sale-P','sale-L']}});state.device_ids=['sale-P','sale-L'];links.push(...state.device_ids.map(id=>({source_type:'device',source_id:id})));
  p=capture('reserved','Zlecenie gotowe i dwa aparaty zarezerwowane','2026-11-03');assert.equal(p.devices.length,2);assert.equal(p.steps.find(s=>s.id==='devices').done,true);assert.ok(c.records.every(r=>r.type==='REZERWACJA'&&r.clientProfileId===profile.id));
  activities.push({id:'visit-test',kind:'VISIT',status:'PLANNED',starts_at:'2026-11-04T10:00:00Z',title:'Dopasowanie i odbiór aparatów',location:'P63'});state.visit_id='visit-test';
  p=capture('visit-planned','Wizyta zaplanowana na 04.11','2026-11-03');assert.equal(p.steps.find(s=>s.id==='visit').done,false);

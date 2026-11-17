@@ -142,38 +142,49 @@
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
     let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
+    let sourceSearchMissing = false, selectedSources = new Set(), clientWorkFilter = "";
+    const sourceSearchWarning = "Wyszukiwanie kart po modelu i numerze seryjnym oraz filtry spraw wymagają uruchomienia supabase-clients-audit.sql. Nadal możesz szukać po nazwisku i telefonie.";
     let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
     let scheduleConfig={hours:[],services:[]},scheduleReady=false,editingService=null,newServiceId="",resizeDrag=null,hoursDirty=false,serviceDirty=false,hoursRevision=null,hoursPlace=a.station();
     const discard = () => !(profileDirty || activityDirty || journey?.dirty()) || a.confirm("Porzucić niezapisane zmiany na karcie klienta?");
-    function unsaved() {
-      if (!profileDirty && !activityDirty) return false;
+    function unsaved(includeJourney = true) {
+      if (!profileDirty && !activityDirty && !(includeJourney && journey?.dirty())) return false;
       notify("Zapisz lub anuluj edycję przed zmianą powiązań.", true); return true;
     }
     const allowed = () => a.owner() && Boolean(a.user());
     const journey = a.journey?.create({host:q("clientJourney"),document:d,allowed,
-      today:a.today,id:a.id,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,confirm:a.confirm,bindDate:a.bindDate,
+      today:a.today,id:a.id,setDate:a.setDate,iso:a.isoDate,date:a.date,dateTime:a.dateTime,confirm:a.confirm,bindDate:a.bindDate,
       rpc,devices:(profile,links)=>a.availableDevices?.(profile,links)||[],context:journeyContext,
-      canNavigate:()=>!unsaved(),openForm:(kind,profile)=>a.openForm?.(kind,profile),
+      canNavigate:()=>!unsaved(false),openForm:(kind,profile,caseData)=>a.openForm?.(kind,profile,caseData),
       visit:()=>{if(editActivity("VISIT")){q("clientActivityTitle").value="Dopasowanie i odbiór aparatów";q("clientActivityEditor").scrollIntoView?.({block:"center",behavior:"smooth"});}},
-      reserve:async(profile,ids)=>{
-        if(unsaved())throw new Error("Zapisz najpierw zmiany danych klienta.");
-        await a.reserveDevices(profile,ids,detail.links);
-        try{for(const id of ids){if(detail.links.some(link=>link.source_type==="device"&&link.source_id===id))continue;
-          await write("LINK",profile.id,{source_type:"device",source_id:id},detail.profile.revision);
-          detail=await rpc("satis_client_detail",{p_id:profile.id});}}
-        catch{throw new Error("Aparaty zarezerwowano, ale nie potwierdzono wszystkich powiązań. Odśwież kartę i potwierdź je w Dokumentach do potwierdzenia.");}
+      reserve:async(profile,ids,attempt)=>{
+        if(unsaved(false))throw new Error("Zapisz najpierw zmiany danych klienta.");
+        const result=await a.reserveDevices(profile,ids,detail.links,attempt);
+        detail=await rpc("satis_client_detail",{p_id:profile.id});
         getIndex();renderHistory();renderLinks();renderList();
+        return result;
       }});
     function journeyContext(){getIndex();return detail?{...detail,sources:sourceRows||[]}:null;}
     const demo=a.journey?.createDemo?.({host:q("clientsDemoPanel"),document:d,allowed,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,
       onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;}});
     if(q("clientsDemoBtn"))q("clientsDemoBtn").hidden=!demo;
-    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!busy){q("clientsCard").hidden=true;demo?.open();}});
+    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!coreBusy()&&discard()){q("clientsCard").hidden=true;demo?.open();}});
+    function coreBusy() { return busy || Boolean(journey?.busy?.()); }
+    function updateProfileSave() {
+      q("clientsForm").querySelectorAll('button[type="submit"][data-client-write]').forEach(control => {
+        control.textContent = "Zapisz dane";
+        control.classList.toggle("client-journey-unsaved", profileDirty);
+      });
+    }
     function node(tag, text = "", className = "") { const n = d.createElement(tag); n.textContent = text; n.className = className; return n; }
     function button(text, action, className = "reset-filters-btn") {
-      const b = node("button", text, className); b.type = "button"; b.addEventListener("click", action); return b;
+      const b = node("button", text, className); b.type = "button";
+      b.addEventListener("click", event => {if (allowed() && !coreBusy()) action(event);}); return b;
     }
-    function notify(text, error = false) { q("clientsMessage").textContent = text; q("clientsMessage").dataset.error = String(error); }
+    function notify(text, error = false) {
+      q("clientsMessage").textContent = sourceSearchMissing && !text.includes(sourceSearchWarning) ? [text, sourceSearchWarning].filter(Boolean).join(" ") : text;
+      q("clientsMessage").dataset.error = String(error || sourceSearchMissing);
+    }
     function getIndex() {
       try {
         const rows = a.sources();
@@ -206,7 +217,7 @@
             : "Kartoteka wymaga uruchomienia supabase-clients.sql w SQL Editor."
           : "Nie udało się wykonać operacji. Sprawdź połączenie; niezapisane dane pozostają w formularzu.");
         e.code = result.error.code;
-        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_") && !journeyRequest) missingSchema = true;
+        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_") && name!=="satis_clients_search" && !journeyRequest) missingSchema = true;
         throw e;
       }
       if(!name.startsWith("satis_client_schedule_")&&!journeyRequest)missingSchema = false;
@@ -221,20 +232,22 @@
       return result;
     }
     async function guarded(work) {
-      if (!allowed() || busy) return;
+      if (!allowed() || coreBusy()) return;
       const epoch = generation; busy = true; setBusy(true);
       try { await work(); }
       catch (e) { if (epoch === generation && allowed()) notify(e.message, true); }
       finally { if (epoch === generation && allowed()) { busy = false; setBusy(false); } }
     }
     function setBusy(value) {
+      const independentlyOwned = control => q("clientsDemoPanel")?.contains?.(control) || q("clientJourney")?.contains?.(control);
       q("clientsNotebook").querySelectorAll("input,select,textarea,button").forEach(control => {
-        if(q("clientsDemoPanel")?.contains?.(control))return;
+        if(independentlyOwned(control))return;
         control.disabled = value || control.dataset.closed==="true";
       });
-      q("clientsNotebook").querySelectorAll("[data-client-write]").forEach(control => {control.disabled = value || !loaded || missingSchema;});
-      q("clientsNotebook").querySelectorAll("[data-schedule-write]").forEach(control=>{control.disabled=value || !scheduleReady;});
+      q("clientsNotebook").querySelectorAll("[data-client-write]").forEach(control => {if(!independentlyOwned(control))control.disabled = value || !loaded || missingSchema || control.dataset.closed==="true";});
+      q("clientsNotebook").querySelectorAll("[data-schedule-write]").forEach(control=>{if(!independentlyOwned(control))control.disabled=value || !scheduleReady;});
       q("clientVisitService").disabled=value || !scheduleReady;
+      updateProfileSave();
     }
     function renderList() {
       if (!allowed()) return clear();
@@ -255,8 +268,13 @@
       const query = q("clientsSearch").value.trim();
       const proposed = q("clientsSuggestions");
       proposed.replaceChildren();
-      if (query.length >= 2 && !q("clientsArchived").checked) {
-        for (const candidate of suggestions(getIndex(), query).filter(item => !location || item.rows.some(row => row.location === location)).slice(0, 30)) {
+      if (query.length >= 2 && !q("clientsArchived").checked && !clientWorkFilter) {
+        for (const candidate of suggestions(getIndex(), query).filter(item => {
+          if (sourceSearchMissing || (location && !item.rows.some(row => row.location === location))) return false;
+          const matches = profiles.filter(profile => normalized(profile.full_name) === normalized(item.name)
+            && (!item.phone || !phoneKey(profile.phone) || phoneKey(profile.phone) === item.phone));
+          return item.ambiguous || matches.length !== 1;
+        }).slice(0, 30)) {
           const b = button("", () => newCard(candidate), "clients-person clients-proposed");
           const heading = node("div", "", "clients-person-heading"), places = node("span", "", "clients-person-places");
           for (const place of [...new Set(candidate.rows.map(row=>row.location))].filter(place=>["T12","P63","P50"].includes(place))) places.append(a.locationPill(place));
@@ -272,11 +290,27 @@
       if (!allowed()) return;
       const sequence = ++listSequence;
       const offset = append ? profiles.length : 0;
-      const data = await rpc("satis_clients_overview", {p_query: q("clientsSearch").value.trim(), p_offset: offset, p_archived: q("clientsArchived").checked, p_location: clientLocation});
+      const query = q("clientsSearch").value.trim();
+      const args = {p_query: query, p_offset: offset, p_archived: q("clientsArchived").checked, p_location: clientLocation};
+      const sourceNames = query.length >= 2 ? [...new Set(suggestions(getIndex(), query).flatMap(item => item.rows.map(row => row.name)))] : [];
+      if(sourceNames.length>2000){profiles=[];total=0;renderList();throw new Error("Wyszukiwanie pasuje do ponad 2000 osób w dokumentach. Wpisz dokładniejszy model, nazwisko lub numer seryjny.");}
+      let data, missingSearch = false;
+      if (sourceNames.length || clientWorkFilter) {
+        try { data = await rpc("satis_clients_search", {...args, p_source_names: sourceNames, ...(clientWorkFilter?{p_filter:clientWorkFilter}:{})}); }
+        catch (error) {
+          if (!/^(PGRST202|42883)$/.test(error.code || "")) throw error;
+          missingSearch = true;
+          data = clientWorkFilter?{profiles:[],total:0}:await rpc("satis_clients_overview", args);
+        }
+      } else data = await rpc("satis_clients_overview", args);
       if (sequence !== listSequence) return;
+      const hadMissingSearch = sourceSearchMissing;
+      sourceSearchMissing = missingSearch;
       profiles = append ? [...profiles, ...(data.profiles || [])] : data.profiles || [];
       total = Number(data.total) || 0; loaded = true;
       renderList(); setBusy(busy);
+      if (sourceSearchMissing) notify(sourceSearchWarning, true);
+      else if (hadMissingSearch) notify("");
     }
     function syncStreetFields(read=false, final=false) {
       if (!a.streetParts) return;
@@ -291,6 +325,7 @@
     }
     function fillProfile(profile) {
       profileDirty = false; activityDirty = false;
+      updateProfileSave();
       autoCity = ""; autoPostal = "";
       q("clientAddressHint").textContent = ""; q("clientCitySuggestions").replaceChildren();
       for (const [id, field] of [["clientName","full_name"],["clientPhone","phone"],["clientStreet","street"],
@@ -309,13 +344,14 @@
       editingActivity = null;
     }
     function newCard(candidate = null) {
-      if (!allowed() || busy || !discard()) return;
+      if (!allowed() || coreBusy() || !discard()) return;
       demo?.clear();
       detailSequence++; detail = null; newProfileId = a.id();
       journey?.clear();
       const parts = a.addressParts(candidate?.address || "");
       fillProfile({full_name: candidate?.name || "", phone: candidate?.phone || "", street: parts.street || "",
         postal_code: parts.postalCode || "", city: parts.city || "", location: candidate?.location || a.station()});
+      selectedSources.clear(); profileDirty = true; updateProfileSave();
       q("clientHistory").replaceChildren(); q("clientOperations").replaceChildren();
       q("clientIdentityWarning").hidden = !candidate;
       q("clientIdentityWarning").textContent = candidate ? "To propozycja danych, nie potwierdzona tożsamość. Sprawdź osobę i dane kontaktowe. Po zapisaniu wybierz jej właściwe dokumenty." : "";
@@ -327,12 +363,16 @@
       const sequence = ++detailSequence;
       const data = await rpc("satis_client_detail", {p_id: id});
       if (sequence !== detailSequence) return;
+      if (detail?.profile.id !== id) selectedSources.clear();
       detail = data; fillProfile(data.profile);
       q("clientIdentityWarning").hidden = true;
       renderHistory(); renderLinks(); renderList();
       await journey?.show(journeyContext());
     }
     async function saveProfile() {
+      if (journey?.busy?.() || journey?.dirty()) {
+        notify("Zapisz najpierw przebieg klienta przed zapisem danych.", true); return;
+      }
       normalizeContact();
       const data = profilePayload({name:q("clientName").value,phone:q("clientPhone").value,street:q("clientStreet").value,
         postal:q("clientPostal").value.trim(),city:q("clientCity").value,location:q("clientLocation").value,archived:detail?.profile.archived}, a.person, value=>a.streetParts?value:a.street(value), a.city);
@@ -343,31 +383,13 @@
       await write("PROFILE", id, data, detail?.profile.revision);
       profileDirty = false; activityDirty = false;
       await select(id);
-      const candidates = detail.profile.archived ? [] : sourceCandidates().slice(0, 100);
-      let linkedCount = 0;
-      if (candidates.length && a.confirm(`Karta ${detail.profile.full_name} została zapisana. Potwierdzić powiązanie dokumentów (${candidates.length}) z tą osobą?\n\n${candidates.map((row, i) =>
-        `${i + 1}. ${row.kind} · ${[row.number,row.serial,row.model].filter(Boolean).join(" · ") || "bez numeru"} · ${row.date ? a.date(row.date) : "bez daty"} · ${row.phone ? a.phone(row.phone) : "brak telefonu"}${row.address ? ` · ${row.address}` : ""}`
-      ).join("\n")}\n\nSprawdź osobę i dane kontaktowe. Zgodne nazwisko nie wystarcza. Anuluj pozostawi dokumenty do indywidualnego potwierdzenia, a zapisana karta pozostanie zachowana.`)) {
-        try {
-          for (const row of candidates) {
-            if (detail.links.some(link => link.source_type === row.type && link.source_id === row.id)) continue;
-            await write("LINK",id,{source_type:row.type,source_id:row.id},detail.profile.revision);
-            linkedCount++;
-            await select(id);
-          }
-        } catch (error) {
-          // Refresh confirmed links after a partial or uncertain write before the next retry.
-          try { await select(id); } catch { /* Keep the last confirmed card if refresh also fails. */ }
-          throw new Error(`Karta została zapisana, ale nie udało się zakończyć potwierdzania dokumentów. Wcześniej zapisane powiązania pozostają zachowane. ${error.message}`);
-        }
-      }
       await list();
       const remaining = detail.profile.archived ? 0 : sourceCandidates().length;
-      notify(linkedCount ? `Karta zapisana. Potwierdzono powiązania: ${linkedCount}.${remaining ? ` Do potwierdzenia pozostało: ${remaining}.` : ""}`
-        : remaining ? `Karta zapisana. Dokumenty do potwierdzenia: ${remaining}. Wybierz właściwe powiązania poniżej lub potwierdź je przy kolejnym zapisie.`
+      notify(remaining ? `Karta zapisana. Dokumenty do potwierdzenia: ${remaining}. Wybierz właściwe dokumenty poniżej.`
         : "Karta zapisana. Dane źródłowe nie zostały zmienione.");
     }
     async function archive() {
+      if (journey?.dirty() && unsaved()) return;
       if (!detail || !discard() || !a.confirm(detail.profile.archived ? "Przywrócić kartę klienta?" : "Zarchiwizować kartę? Dane pozostaną w archiwum; najpierw zakończ lub anuluj zaplanowane wizyty.")) return;
       const p = detail.profile;
       const data = Object.fromEntries(["full_name","phone","street","postal_code","city","location"].map(key => [key,p[key]]));
@@ -376,6 +398,7 @@
       await select(p.id); await list(); await upcoming(); notify("Zmieniono archiwizację karty.");
     }
     async function remove() {
+      if (journey?.dirty() && unsaved()) return;
       if (!detail || !discard() || !a.confirm("Trwale usunąć tę kartę, jej wizyty, notatki i powiązania? Oryginalne wpisy w Bazie, Serwisie i Umowach nie zostaną usunięte. Nie można tego cofnąć w aplikacji.")) return;
       await write("DELETE", detail.profile.id, {}, detail.profile.revision);
       profileDirty = false; activityDirty = false;
@@ -393,14 +416,33 @@
     function renderLinks() {
       if (!detail || !allowed()) return;
       const candidates = sourceCandidates();
-      q("clientCandidates").replaceChildren(...candidates.slice(0, 100).map(row => {
+      const visible = candidates.slice(0, 100), keys = new Set(visible.map(sourceKey));
+      selectedSources = new Set([...selectedSources].filter(key => keys.has(key)));
+      const bulk = button("", () => {void guarded(linkSelectedSources);});
+      bulk.dataset.clientWrite = "";
+      const updateSelection = () => {
+        bulk.textContent = `Potwierdź wybrane (${selectedSources.size})`;
+        bulk.dataset.closed = String(!selectedSources.size);
+        bulk.disabled = coreBusy() || !selectedSources.size;
+      };
+      updateSelection();
+      q("clientCandidates").replaceChildren(...visible.map(row => {
         const line = node("div", "", "client-source-row");
         const content = node("div");
         content.append(node("strong", `${row.kind} · ${row.date ? a.date(row.date) : "bez daty"}`),
           node("span", [row.name,row.model,row.serial,row.number,row.location].filter(Boolean).join(" · ")),
           node("small", [row.phone ? a.phone(row.phone) : "brak telefonu",row.address || "brak adresu"].join(" · ")));
-        if (phoneKey(row.phone) && detail.profile.phone && phoneKey(row.phone) !== detail.profile.phone) content.append(node("small", "Inny telefon — sprawdź osobę", "clients-warning"));
-        line.append(content, button("Potwierdź powiązanie", () => {void guarded(async () => {
+        if (phoneKey(row.phone) && detail.profile.phone && phoneKey(row.phone) !== phoneKey(detail.profile.phone)) content.append(node("small", "Inny telefon — sprawdź osobę", "clients-warning"));
+        const label = node("label"), check = node("input");
+        check.type = "checkbox"; check.checked = selectedSources.has(sourceKey(row));
+        check.setAttribute("aria-label", `Wybierz dokument: ${[row.kind,row.number,row.serial,row.model].filter(Boolean).join(" · ")}`);
+        check.addEventListener("change", () => {
+          if (!allowed() || coreBusy()) {check.checked = selectedSources.has(sourceKey(row)); return;}
+          if (check.checked) selectedSources.add(sourceKey(row)); else selectedSources.delete(sourceKey(row));
+          updateSelection();
+        });
+        label.append(check, node("span", "Wybierz"));
+        line.append(label, content, button("Potwierdź powiązanie", () => {void guarded(async () => {
           if (unsaved()) return;
           if (!a.confirm("Potwierdzasz, że ten dokument dotyczy tej osoby? Samo zgodne imię i nazwisko nie wystarcza.")) return;
           await write("LINK",detail.profile.id,{source_type:row.type,source_id:row.id},detail.profile.revision);
@@ -408,8 +450,27 @@
         });}));
         return line;
       }));
+      if (visible.length) q("clientCandidates").append(node("p", "Sprawdź osobę, telefon i adres przy każdym wybranym dokumencie. Zgodne imię i nazwisko nie wystarcza.", "clients-warning"), bulk);
       q("clientCandidatesEmpty").hidden = candidates.length > 0;
       q("clientCandidatesCount").textContent = `${candidates.length}${candidates.length > 100 ? " · pokazano pierwsze 100" : ""}`;
+    }
+    async function linkSelectedSources() {
+      if (!detail || unsaved()) return;
+      const candidates = sourceCandidates().slice(0, 100).filter(row => selectedSources.has(sourceKey(row)));
+      if (!candidates.length || !a.confirm(`Potwierdzić wybrane dokumenty (${candidates.length}) dla ${detail.profile.full_name}? Sprawdź osobę, telefon i adres. Zgodne nazwisko nie wystarcza.`)) return;
+      const id = detail.profile.id;
+      try {
+        for (const row of candidates) {
+          await write("LINK", id, {source_type:row.type,source_id:row.id}, detail.profile.revision);
+          selectedSources.delete(sourceKey(row));
+          await select(id);
+        }
+      } catch (error) {
+        // Refresh confirmed links after an uncertain acknowledgment before retrying.
+        try { await select(id); } catch { /* Retain the last confirmed card if refresh fails. */ }
+        throw new Error(`Nie udało się zakończyć potwierdzania dokumentów. Zapisane powiązania pozostają zachowane. ${error.message}`);
+      }
+      notify(`Potwierdzono powiązania: ${candidates.length}.`);
     }
     function renderHistory() {
       if (!detail || !allowed()) return;
@@ -450,7 +511,7 @@
         const pending = sourceCandidates().length;
         q("clientHistory").append(node("p", sourcesUnavailable
           ? "Nie udało się odczytać dokumentów. Odśwież dane aplikacji."
-          : pending ? `Dokumenty do potwierdzenia: ${pending}. Potwierdź powiązania przy zapisie karty lub przy wybranym dokumencie poniżej.`
+          : pending ? `Dokumenty do potwierdzenia: ${pending}. Wybierz właściwe dokumenty lub potwierdź je indywidualnie poniżej.`
           : "Brak dokumentów i działań dla tej karty."));
       }
       if (lines.length && !lines.some(row => timelineKind === "all" || (timelineKind === "source") === row.source)) {
@@ -460,7 +521,8 @@
       q("clientOperations").replaceChildren(...detail.operations.map(event => node("p",`${a.dateTime(event.created_at)} · ${event.operation} · ${event.actor_id}`)));
     }
     function editActivity(kind, event = null) {
-      if (!detail || detail.profile.archived || !allowed() || busy) return;
+      if (!detail || detail.profile.archived || !allowed() || coreBusy()) return;
+      if (journey?.dirty() && unsaved()) return;
       if (profileDirty) { notify("Zapisz najpierw zmienione dane kontaktowe.", true); return; }
       if (activityDirty && !discard()) return;
       activityDirty = false;
@@ -489,6 +551,7 @@
     }
     async function saveActivity() {
       if (!detail) return;
+      if (journey?.dirty() && unsaved()) return;
       const kind = q("clientActivityKind").value, title = q("clientActivityTitle").value.trim(), note = q("clientActivityNote").value.trim();
       if (!title || title.length > 160 || note.length > 2000) throw new Error("Podaj krótki tytuł; notatka może mieć maksymalnie 2000 znaków.");
       if (/(?:^|\D)\d{11}(?!\d)/.test(`${title} ${note}`)) throw new Error("Nie wpisuj numeru PESEL w temacie ani notatce.");
@@ -538,7 +601,7 @@
     }
     function openVisit(visit) {void guarded(()=>select(visit.customer_id));}
     function bookSlot(day, minutes) {
-      if(!allowed() || busy)return;
+      if(!allowed() || coreBusy())return;
       if(nonworkingDay(day,a.holiday)){notify("Weekend lub święto — wybierz dzień roboczy.",true);return;}
       if(!detail || detail.profile.archived){notify("Wybierz najpierw zapisanego klienta, aby umówić wizytę.",true);return;}
       if(!scheduleLocation){notify("Wybierz gabinet w harmonogramie przed wskazaniem godziny.",true);return;}
@@ -627,7 +690,7 @@
             const handle=button("",()=>{},"clients-schedule-resize");handle.title="Przeciągnij, aby zmienić czas. Klawiatura: strzałka w górę / w dół.";
             handle.setAttribute("aria-label",`Zmień czas wizyty: ${item.visit.full_name}`);
             handle.addEventListener("pointerdown",pointer=>{
-              if(!allowed() || busy || (pointer.button!==undefined && pointer.button!==0))return;
+              if(!allowed() || coreBusy() || (pointer.button!==undefined && pointer.button!==0))return;
               pointer.preventDefault();pointer.stopPropagation?.();
               resizeDrag={visit:item.visit,startY:pointer.clientY,duration:Number(item.visit.duration_minutes),next:Number(item.visit.duration_minutes)};
               handle.setPointerCapture?.(pointer.pointerId);
@@ -659,7 +722,7 @@
     }
     async function resizeVisit(visit,duration) {
       try {
-        if(!scheduleReady || profileDirty || activityDirty)throw new Error("Zapisz lub anuluj edycję formularza przed zmianą czasu wizyty.");
+        if(!scheduleReady || profileDirty || activityDirty || journey?.dirty())throw new Error("Zapisz lub anuluj edycję formularza i przebiegu przed zmianą czasu wizyty.");
         const card=await rpc("satis_client_detail",{p_id:visit.customer_id}),row=card.activities.find(item=>item.id===visit.id);
         if(!row || String(row.revision)!==String(visit.revision))throw new Error("Wizyta zmieniła się na innym komputerze. Odśwież harmonogram.");
         if(row.status==="PLANNED")checkVisitDay(localInput(row.starts_at).slice(0,10),row.starts_at,duration);
@@ -747,8 +810,10 @@
     function clear() {
       demo?.clear();
       journey?.clear();
+      clientWorkFilter="";for(const tile of q("clientsNotebook").querySelectorAll("[data-client-stage]"))tile.setAttribute("aria-pressed",String(tile.dataset.clientStage===""));
       generation++; listSequence++; detailSequence++; visitSequence++; clearTimeout(searchTimer); clearTimeout(pollTimer);
       profiles=[];visits=[];detail=null;operations.clear();sourceRows=null;index=sourceIndex([]);loaded=false;busy=false;missingSchema=false;newProfileId="";editingActivity=null;activityId="";profileDirty=false;activityDirty=false;
+      sourceSearchMissing=false;selectedSources.clear();updateProfileSave();
       for (const id of ["clientsList","clientsSuggestions","clientCandidates","clientHistory","clientOperations","clientsVisitList"]) q(id)?.replaceChildren();
       q("clientsForm")?.reset(); q("clientActivityEditor")?.reset();
       for(const id of ["clientStreetName","clientHouseNumber","clientFlatNumber"])if(q(id))q(id).value="";
@@ -804,9 +869,11 @@
         else if (autoPostal) {postal.value="";autoPostal="";syncPostalCity();}
       }
       if (before.some((value,i)=>value!==q(["clientName","clientStreet","clientCity","clientPostal","clientPhone"][i]).value)) profileDirty=true;
+      updateProfileSave();
     }
     q("clientsSearch").addEventListener("input", () => {
-      clearTimeout(searchTimer); renderList(); searchTimer=setTimeout(() => {void list().catch(e => {if(allowed())notify(e.message,true);});},250);
+      if (!allowed() || coreBusy()) return;
+      clearTimeout(searchTimer); renderList(); searchTimer=setTimeout(() => {if(!coreBusy())void list().catch(e => {if(allowed())notify(e.message,true);});},250);
     });
     q("clientsArchived").addEventListener("change", () => {void guarded(() => list());});
     q("clientsRefresh").addEventListener("click", () => {void guarded(open);});
@@ -818,10 +885,11 @@
     q("clientAddVisit").addEventListener("click", () => editActivity("VISIT"));
     q("clientAddNote").addEventListener("click", () => editActivity("NOTE"));
     q("clientActivityEditor").addEventListener("submit", event => {event.preventDefault();void guarded(saveActivity);});
-    q("clientCancelActivity").addEventListener("click", () => {if(!activityDirty || a.confirm("Porzucić niezapisany wpis?")){activityDirty=false;q("clientActivityEditor").hidden=true;q("clientActivityEditor").reset();}});
-    q("clientsForm").addEventListener("input", () => {profileDirty=true;});
+    q("clientCancelActivity").addEventListener("click", () => {if(allowed()&&!coreBusy()&&(!activityDirty || a.confirm("Porzucić niezapisany wpis?"))){activityDirty=false;q("clientActivityEditor").hidden=true;q("clientActivityEditor").reset();}});
+    q("clientsForm").addEventListener("input", () => {profileDirty=true;updateProfileSave();});
+    q("clientsForm").addEventListener("change", () => {profileDirty=true;updateProfileSave();});
     q("clientActivityEditor").addEventListener("input", () => {activityDirty=true;});
-    q("clientPostal").addEventListener("input", () => {const digits=q("clientPostal").value.replace(/\D/g,"").slice(0,5);q("clientPostal").value=digits.length>2?`${digits.slice(0,2)}-${digits.slice(2)}`:digits;autoPostal="";syncPostalCity();});
+    q("clientPostal").addEventListener("input", () => {const digits=q("clientPostal").value.replace(/\D/g,"").slice(0,5);q("clientPostal").value=digits.length>2?`${digits.slice(0,2)}-${digits.slice(2)}`:digits;autoPostal="";syncPostalCity();updateProfileSave();});
     for (const id of ["clientName","clientStreet","clientCity","clientPostal"]) q(id).addEventListener("blur", normalizeContact);
     q("clientCity").addEventListener("input", () => {autoCity="";});
     const pasteStreet = event => {
@@ -845,24 +913,27 @@
     });
     q("clientPhone").addEventListener("blur", () => {const phone=phoneKey(q("clientPhone").value);if(!phone || /^\d{9}$/.test(phone))q("clientPhone").value=a.phone(phone);});
     q("clientsPlaceFilter").addEventListener("click", event => {
+      if(!allowed() || coreBusy())return;
       const b=event.target.closest("[data-client-place]");if(!b)return;clientLocation=b.dataset.clientPlace;
       q("clientsPlaceFilter").querySelectorAll("button").forEach(button=>button.setAttribute("aria-pressed",String(button===b)));renderList();renderVisits();void list().catch(e=>{if(allowed())notify(e.message,true);});
       scheduleLocation=clientLocation;renderSchedule();
     });
     q("clientTimelineFilters").addEventListener("click", event => {
+      if(!allowed() || coreBusy())return;
       const b=event.target.closest("[data-client-timeline]");if(!b)return;timelineKind=b.dataset.clientTimeline;
       q("clientTimelineFilters").querySelectorAll("button").forEach(button=>button.setAttribute("aria-pressed",String(button===b)));renderHistory();
     });
-    q("clientsReminderBtn").addEventListener("click", () => {if(allowed())a.navigate();});
+    q("clientsReminderBtn").addEventListener("click", () => {if(allowed()&&!coreBusy()&&discard())a.navigate();});
     q("clientsScheduleViews").addEventListener("click",event=>{
-      const b=event.target.closest("[data-schedule-view]");if(!b || !allowed())return;
+      const b=event.target.closest("[data-schedule-view]");if(!b || !allowed() || coreBusy())return;
       scheduleView=b.dataset.scheduleView;renderSchedule();
     });
     q("clientsSchedulePlaces").addEventListener("click",event=>{
-      const tile=event.target.closest("[data-schedule-place]");if(!tile || !allowed())return;scheduleLocation=tile.dataset.schedulePlace;renderSchedule();
+      const tile=event.target.closest("[data-schedule-place]");if(!tile || !allowed() || coreBusy())return;scheduleLocation=tile.dataset.schedulePlace;renderSchedule();
     });
     q("clientsOpeningPlace").value=a.station();
     q("clientsOpeningPlace").addEventListener("change",()=>{
+      if(!allowed() || coreBusy())return;
       if(hoursDirty && !a.confirm("Porzucić niezapisane godziny otwarcia?")){q("clientsOpeningPlace").value=hoursPlace;return;}fillHours();
     });
     q("clientsOpeningForm").addEventListener("input",()=>{hoursDirty=true;});
@@ -876,7 +947,7 @@
       if(days.some(day=>!day.closed && (!day.from || !day.to || day.from>=day.to)))throw new Error("Godzina otwarcia musi być wcześniejsza od zamknięcia.");
       if(await writeSettings("HOURS",location,{days},hoursRevision)){hoursDirty=false;fillHours();}
     });});
-    q("clientsServiceNew").addEventListener("click",()=>{if(!busy && (!serviceDirty || a.confirm("Porzucić niezapisane ustawienia usługi?")))fillService();});
+    q("clientsServiceNew").addEventListener("click",()=>{if(allowed() && !coreBusy() && (!serviceDirty || a.confirm("Porzucić niezapisane ustawienia usługi?")))fillService();});
     q("clientsServiceForm").addEventListener("submit",event=>{event.preventDefault();void guarded(async()=>{
       if(!scheduleReady)return;
       const data={name:q("clientsServiceName").value.trim(),price:parsePrice(q("clientsServicePrice").value),duration_minutes:Number(q("clientsServiceDuration").value),enabled:q("clientsServiceEnabled").checked};
@@ -892,11 +963,11 @@
     });
     q("clientVisitDuration").addEventListener("change",renderSchedule);
     q("clientsScheduleDate").addEventListener("change",()=>{
-      if(!allowed())return;const day=a.isoDate(q("clientsScheduleDate").value);
+      if(!allowed() || coreBusy())return;const day=a.isoDate(q("clientsScheduleDate").value);
       try{scheduleRange(scheduleView,day);scheduleAnchor=day;renderSchedule();}catch{notify("Wybierz prawidłową datę harmonogramu.",true);}
     });
     function moveSchedule(direction) {
-      if(!allowed())return;
+      if(!allowed() || coreBusy())return;
       if(scheduleView==="month") {
         const date=new Date(`${scheduleAnchor.slice(0,7)}-01T12:00:00`);date.setMonth(date.getMonth()+direction);scheduleAnchor=localInput(date).slice(0,10);
       } else scheduleAnchor=shiftDay(scheduleAnchor,direction*(scheduleView==="week"?7:scheduleView==="three"?3:1));
@@ -904,8 +975,15 @@
     }
     q("clientsSchedulePrev").addEventListener("click",()=>moveSchedule(-1));
     q("clientsScheduleNext").addEventListener("click",()=>moveSchedule(1));
-    q("clientsScheduleToday").addEventListener("click",()=>{if(allowed()){scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);renderSchedule();}});
+    q("clientsScheduleToday").addEventListener("click",()=>{if(allowed()&&!coreBusy()){scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);renderSchedule();}});
     a.onBeforeUnload?.(event => {if(allowed() && (profileDirty || activityDirty || hoursDirty || serviceDirty || journey?.dirty())){event.preventDefault();event.returnValue="";}});
+    const filterHost=q("clientsNotebook").querySelector?.(".clients-toolbar");
+    if(filterHost){const filters=node("div","","pcpr-tab-group clients-work-filters");filters.setAttribute("role","group");filters.setAttribute("aria-label","Sprawy do załatwienia");
+      for(const [value,label]of [["","Wszystkie"],["CONTACT","Do kontaktu"],["NFZ","Zlecenie"],["VISIT","Wizyta"],["PICKUP","Do odbioru"],["OVERDUE","Zaległe"]]){
+        const tile=button(label,()=>void guarded(async()=>{clientWorkFilter=value;for(const control of filters.querySelectorAll("button"))control.setAttribute("aria-pressed",String(control.dataset.clientStage===value));await list();}),"pcpr-tab");
+        tile.dataset.clientStage=value;tile.setAttribute("aria-pressed",String(value===""));filters.append(tile);
+      }filterHost.append(filters);
+    }
     setBusy(false);
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
       select: id => guarded(() => select(id))};

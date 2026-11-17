@@ -92,9 +92,9 @@ begin
   if request_row.actor_id is distinct from actor or request_row.fingerprint is distinct from fp then
     raise exception 'Request already used' using errcode='22023';
   end if;
-  if request_row.result is not null then return request_row.result; end if;
   select * into profile from public.customer_profiles where id=p_customer_id for update;
   if profile.id is null or profile.archived then raise exception 'Karta nie istnieje lub jest zarchiwizowana.' using errcode='22023'; end if;
+  if request_row.result is not null then return request_row.result; end if;
   if p_data->>'visit_id'<>'' and not exists(select 1 from public.customer_activities where id::text=p_data->>'visit_id' and customer_id=p_customer_id and kind='VISIT') then
     raise exception 'Wizyta nie nalezy do tej osoby.' using errcode='22023';
   end if;
