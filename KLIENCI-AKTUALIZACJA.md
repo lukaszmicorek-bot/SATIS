@@ -27,6 +27,11 @@ oryginalnych dokumentow ani kopii zapasowych.
 - Karta klienta otwiera sie w osobnym, przewijanym oknie. Dane kontaktowe
   sa domyslnie zwiniete; przy dodawaniu klienta formularz danych jest otwarty.
   Zamkniecie pyta o niezapisane zmiany, a trwajacy zapis blokuje zamkniecie.
+- Karta ma trzy sekcje: Sprawa, Historia i Dane. Przelaczanie sekcji nie
+  zapisuje ani nie usuwa wpisywanych zmian. Widok Sprawa pokazuje aktualna
+  czynnosc i aparaty, a rzadziej uzywane ustawienia i wybor starszych spraw
+  sa pod Szczegoly i ustawienia sprawy. Historia dokumentow i dzialan jest
+  osobno, podobnie jak kontakty i administracyjne przyciski karty.
 - Nowy klient nie ma obowiazkowej listy wszystkich etapow. Wypozyczenie
   prowadzi do zwrotu i decyzji, zakup do doboru i wydania aparatow, serwis
   do wyslania, powrotu, kontaktu i odbioru. Oferta, wizyta i zlecenie NFZ

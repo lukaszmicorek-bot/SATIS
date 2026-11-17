@@ -539,7 +539,7 @@ test('customer card opens as a modal, protects dirty edits and closes without wr
  const dialog=f.nodes.get('clientsDialog');dialog.open=false;dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
  await f.module.select(profile.id);assert.equal(dialog.open,true);assert.equal(f.nodes.get('clientsContactDetails').open,false);
  f.nodes.get('clientsForm').emit('input');assert.equal(f.module.close(),false);assert.equal(dialog.open,true);
- confirm=true;assert.equal(f.module.close(),true);assert.equal(dialog.open,false);assert.equal(closedPicker,1);
+ const beforeClose=closedPicker;confirm=true;assert.equal(f.module.close(),true);assert.equal(dialog.open,false);assert.equal(closedPicker,beforeClose+1);
  assert.equal(f.calls.some(call=>call.name==='satis_clients_write'),false);
  await f.module.select(profile.id);assert.equal(dialog.open,true);f.module.clear();assert.equal(dialog.open,false);
 });

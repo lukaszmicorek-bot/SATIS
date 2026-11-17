@@ -1,5 +1,5 @@
 {
-  "app_version": "20261117-2",
+  "app_version": "20261117-3",
   "asset_policy_sha256": "37644364832f3e8f09ebfd65a33c3ed98c8ec9d2d417a7883fd20e94208bc18d",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -35,12 +35,12 @@
       "sha256": "0979c67cab085858ca2199782b9d502d501e01f01d65cfab8e2dbe8008dc02f9"
     },
     "client-journey.js": {
-      "bytes": 42617,
-      "sha256": "3f3057bf6091bfa3c2d723664dbc66e598d2b9e241c9c5fed029f55b9f629891"
+      "bytes": 42643,
+      "sha256": "7d6af868b16326e82df521cf36bb9d5553b38f61e67081d1ca518bbc0e2b1aa0"
     },
     "clients.js": {
-      "bytes": 77214,
-      "sha256": "87df858b4239c246f48399f53ced55844a7339854f6840c2a8a63d40ca72c018"
+      "bytes": 78922,
+      "sha256": "34878a91bc5637b5f28dc1d419d8afe52e578c62582c51fc9eae72b556ff759b"
     },
     "complaint-shipping.js": {
       "bytes": 8548,
@@ -63,8 +63,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 468960,
-      "sha256": "b7860234e9c512c117630710c282c4bd42387650ec03ece051ab8d4df931a368"
+      "bytes": 470030,
+      "sha256": "1ee6d443b607c810fe0860a85fc8e70e8fc14c923dbfb920e9a9aaa79ec05760"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -180,7 +180,7 @@
     },
     "offline-sw.js": {
       "bytes": 3437,
-      "sha256": "7ab7ebd339d633a516f470fdb5d430d58cf6271961776061de75a0a7aefa7963"
+      "sha256": "c2d747f54c1b0356da2dff5e67078dd69b5b8bd82703c85ca973496d5eb8e94d"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -223,8 +223,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 462661,
-      "sha256": "a6f34b25c26facec0604ba1534a14030a8de16a73bf8daad8beb90462d10dbe7"
+      "bytes": 464818,
+      "sha256": "0e51578880b24dadda50c0ed66176ea57406eec7e71c1738c9b2958f7e2112e8"
     },
     "supabase-config.js": {
       "bytes": 227,

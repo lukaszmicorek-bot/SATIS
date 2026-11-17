@@ -218,7 +218,7 @@
       if(!allowed()){host.replaceChildren();host.hidden=true;return;}
       const opened=new Set([...host.querySelectorAll("details[open]")].map(section=>section.className));
       host.hidden=false;host.dataset.kind=state.kind;host.replaceChildren();
-      const plan=build(context,state,a.today(),[...manual]),header=node("header",undefined,"clients-section-heading");
+      const plan=build(context,state,a.today(),[...manual]),header=node("header",undefined,"clients-section-heading");let caseField=null;
       const title=node("h3","Bieżąca sprawa"),summary=node("span",plan.phase,"client-journey-summary");summary.dataset.complete=String(plan.complete);header.append(title,summary);host.append(header);
       const status=node("p",loading?"Wczytywanie etapów…":"", "clients-hint");status.dataset.journeyMessage="";status.setAttribute("role","status");host.append(status);
       if(!hasStorage&&!loading){status.textContent="Zapis etapów wymaga uruchomienia supabase-client-journey.sql. Dokumenty źródłowe pozostają dostępne.";status.dataset.error="true";}
@@ -231,9 +231,9 @@
       if(cases.length){const label=node("label",undefined,"client-journey-case-picker"),select=node("select");label.append(node("span","Sprawa klienta"),select);select.disabled=busy||loading;
         const selectedCase=state.case_id||saved?.case_id||"";
         if(!cases.some(item=>item.case_id===selectedCase)){const pending=node("option","Nowa sprawa · niezapisana");pending.value=selectedCase;select.append(pending);}
-        for(const item of cases){const date=item.started_on||item.data?.started_on||"";const option=node("option",`${a.date?.(date)||date} · ${(item.kind||item.data?.kind)==="SERVICE"?"Serwis / zamówienie":"Testowanie i zakup"}${item.archived?" · poprzednia":" · bieżąca"} · ${String(item.case_id).slice(0,8)}`);option.value=item.case_id;select.append(option);}select.value=selectedCase;
-        select.addEventListener("change",()=>{if(busy||dirty&&!a.confirm("Porzucić niezapisane zmiany przebiegu?")){select.value=selectedCase;return;}void switchCase(select.value);});host.append(label);}
-      const settingsDetails=node("details",undefined,"client-journey-options");settingsDetails.append(node("summary","Ustawienia i dokumenty sprawy"));
+        cases.forEach((item,index)=>{const date=item.started_on||item.data?.started_on||"";const option=node("option",`Sprawa ${cases.length-index} · ${a.date?.(date)||date} · ${(item.kind||item.data?.kind)==="SERVICE"?"Serwis / zamówienie":"Zakup / testowanie"}${item.archived?" · poprzednia":" · bieżąca"}`);option.value=item.case_id;select.append(option);});select.value=selectedCase;
+        select.addEventListener("change",()=>{if(busy||dirty&&!a.confirm("Porzucić niezapisane zmiany przebiegu?")){select.value=selectedCase;return;}void switchCase(select.value);});caseField=label;}
+      const settingsDetails=node("details",undefined,"client-journey-options");settingsDetails.append(node("summary","Szczegóły i ustawienia sprawy"));if(caseField)settingsDetails.append(caseField);
       const settings=node("div",undefined,"client-journey-settings");
       settings.append(selectField("Rodzaj bieżącej sprawy",state.kind,[["PURCHASE","Testowanie i zakup"],["SERVICE","Serwis / reklamacja / zamówienie"]],v=>state.kind=v));
       const start=node("label"),date=node("input");start.append(node("span","Początek bieżącej sprawy"),date);date.type="text";date.dataset.datePicker="";date.placeholder="DD.MM.RRRR";a.setDate(date,state.started_on);date.disabled=busy||!available;
@@ -249,14 +249,15 @@
         for(const item of sources){const label=node("label"),check=node("input");check.type="checkbox";check.checked=state.source_keys.includes(key(item));check.disabled=busy||!available;check.setAttribute("aria-label",`Dokument sprawy: ${item.kind||item.type} ${item.number||item.id}`);
           check.addEventListener("change",()=>{if(!editable())return;state.source_keys=state.source_keys.filter(value=>value!==key(item));if(check.checked)state.source_keys.push(key(item));change();});label.append(check,node("span",[item.date,item.kind,item.number,item.model].filter(Boolean).join(" · ")));documents.append(label);}
         if(!sources.length)documents.append(node("p","Najpierw potwierdź dokumenty tej osoby w sekcji Dokumenty do potwierdzenia.","clients-hint"));settingsDetails.append(documents);}
-      host.append(settingsDetails);
       const chain=node("ol",undefined,"client-journey-chain"),completed=node("details",undefined,"client-journey-completed"),doneChain=node("ol",undefined,"client-journey-chain");completed.append(node("summary",`Wykonane czynności · ${plan.steps.filter(step=>step.done||step.skipped).length}`),doneChain);
-      for(const step of plan.steps){const row=node("li");row.dataset.done=String(step.done);row.dataset.skipped=String(step.skipped);const content=node("div");content.append(node("strong",step.title),node("small",`${step.detail}${step.date?` · ${a.dateTime(step.date)}`:""}`));
+      const suggestedIds=new Set(plan.suggestions.slice(0,3).map(item=>item.id));
+      for(const step of plan.steps){if(!step.done&&!flags[step.id]&&(suggestedIds.has(step.id)||step.id.startsWith("service:")))continue;
+        const row=node("li");row.dataset.done=String(step.done);row.dataset.skipped=String(step.skipped);const content=node("div");content.append(node("strong",step.title),node("small",`${step.detail}${step.date?` · ${a.dateTime(step.date)}`:""}`));
         row.append(node("span",step.skipped?"—":step.done?"✓":"○","client-journey-mark"),content);
         if(flags[step.id]){const label=node("label",undefined,"client-journey-check"),check=node("input");check.type="checkbox";check.checked=state.confirmations[step.id];check.disabled=busy||!available;check.setAttribute("aria-label",flags[step.id]);check.addEventListener("change",()=>{if(!editable())return;state.confirmations[step.id]=check.checked;change();});label.append(check,node("span","Potwierdź"));row.append(label);}
         if(step.action)row.append(button("Otwórz",()=>go(step.action)));(step.done||step.skipped?doneChain:chain).append(row);
-      }if(plan.missing.length)host.append(chain);if(plan.steps.some(step=>step.done||step.skipped))host.append(completed);
-      const devices=node("details",undefined,"client-journey-devices");devices.append(node("summary",`Aparaty dla klienta · ${state.device_ids.length} wybrane`));
+      }if(chain.children.length)host.append(node("h4","Pozostałe czynności"),chain);if(plan.steps.some(step=>step.done||step.skipped))settingsDetails.append(completed);
+      const devices=node("details",undefined,"client-journey-devices");devices.append(node("summary",state.device_ids.length?`Wybór i rezerwacja aparatów · ${state.device_ids.length}`:"Wybór i rezerwacja aparatów"));
       const search=node("input");search.type="search";search.placeholder="Szukaj modelu lub numeru seryjnego";search.setAttribute("aria-label","Wybierz aparaty do rezerwacji");devices.append(search);
       const deviceList=node("div",undefined,"client-journey-device-list");devices.append(deviceList);
       function renderDevices(){deviceList.replaceChildren();const terms=clean(search.value).split(" ").filter(Boolean),items=a.devices(context.profile,context.links).filter(item=>terms.every(term=>clean(`${item.model} ${item.serial} ${item.location}`).includes(term)));
@@ -265,16 +266,16 @@
         if(!items.length)deviceList.append(node("p","Brak dostępnych aparatów dla wybranego wyszukiwania."));if(items.length>40)deviceList.append(node("small","Doprecyzuj wyszukiwanie — pokazano pierwsze 40 pozycji."));}
       search.addEventListener("input",renderDevices);renderDevices();
       const reserveButton=button("Przypisz / zarezerwuj wybrane",()=>void reserve());reserveButton.dataset.journeyReserve="";devices.append(reserveButton);host.append(devices);
-      const allActions=node("details",undefined,"client-journey-all-actions");allActions.append(node("summary","Wszystkie czynności"));
+      const allActions=node("details",undefined,"client-journey-all-actions");allActions.append(node("summary","Dodaj czynność"));
       const forms=node("div",undefined,"clients-actions client-journey-forms");for(const [kind,label]of [["offer","Oferta"],["loan","Umowa wypożyczenia"],["purchase","Zakup"],["rodo","RODO"],["receipt","Odbiór"],["care","Pielęgnacja"],["order","Zamówienie"],["complaint","Reklamacja"],["newVisit","Umów wizytę"]])forms.append(button(label,()=>kind==="purchase"?choose(kind):go(kind)));allActions.append(forms);
       const confirmations=node("div",undefined,"clients-actions");for(const [id,label]of Object.entries(flags))confirmations.append(button(label,()=>choose(id)));allActions.append(node("h4","Potwierdzenia dokumentów"),confirmations,node("p","Potwierdzaj po podpisaniu lub przekazaniu. Sam wydruk nie potwierdza wykonania czynności.","clients-hint"));host.append(allActions);
       const actions=node("div",undefined,"clients-actions client-journey-actions");const save=button("Zapisz przebieg",()=>void saveState(),"primary");save.dataset.journeySave="";const newCase=button("Nowa sprawa",()=>{if(!editable()||!caseSupport||!a.confirm("Rozpocząć odrębną sprawę? Poprzednia pozostanie dostępna na liście spraw. Niezapisane zmiany zostaną pominięte."))return;state=normalize({case_id:a.id(),source_keys:[]},a.today());revision=null;saved=null;events=[];manual.clear();change();});newCase.disabled=busy||!available||!caseSupport;newCase.title=caseSupport?"Odrębny zakup, testowanie lub serwis":"Wymaga supabase-clients-audit.sql";actions.append(save,newCase);host.append(actions);
-      if(plan.services.length){host.append(node("h4","Serwis, zamówienia i reklamacje"));for(const item of plan.services){const row=node("article",undefined,"client-journey-service");row.dataset.closed=String(item.closed);row.append(node("strong",[item.row.kind,item.row.number,item.row.model].filter(Boolean).join(" · ")));
+      if(plan.services.length){const serviceDetails=node("details",undefined,"client-journey-service-details");serviceDetails.append(node("summary",`Przebieg serwisu i zamówień · ${plan.services.length}`));for(const item of plan.services){const row=node("article",undefined,"client-journey-service");row.dataset.closed=String(item.closed);row.append(node("strong",[item.row.kind,item.row.number,item.row.model].filter(Boolean).join(" · ")));
         if(item.missingService)row.append(node("p","Brak powiązanego wpisu w Serwisie — sprawdź zapis formularza.","client-journey-warning"));
         else for(const stage of item.steps)row.append(node("span",`${stage.date?"✓":"○"} ${stage.label}${stage.date?` · ${a.dateTime(stage.date)}`:""}`));
-        row.append(button("Otwórz sprawę",()=>openSource(item.row)));host.append(row);}}
-      const timeline=node("details",undefined,"client-journey-events");timeline.append(node("summary","Zmiany etapów sprawy"));const list=node("ol");for(const event of historyEvents(events,state).sort((a,b)=>String(b.date).localeCompare(String(a.date)))){const li=node("li");li.append(node("time",a.dateTime(event.date)),node("strong",event.label),node("span",event.model||""));list.append(li);}timeline.append(list);host.append(timeline);
-      if(events.length){const history=node("details");history.append(node("summary","Historia zapisanych etapów"));for(const event of events)history.append(node("p",`${a.dateTime(event.created_at)} · ${event.actor_email||"SATIS"} · ${event.data.started_on} · ${{UNKNOWN:"Decyzja do ustalenia",INTERESTED:"Zainteresowany zakupem",DECLINED:"Rezygnacja z zakupu"}[event.data.interest]} · ${{UNKNOWN:"Zlecenie do ustalenia",REQUESTED:"Zlecenie w toku",READY:"Zlecenie gotowe",WITHOUT_REFUND:"Bez refundacji"}[event.data.referral]}`));host.append(history);}
+        row.append(button("Otwórz sprawę",()=>openSource(item.row)));serviceDetails.append(row);}settingsDetails.append(serviceDetails);}
+      if(events.length){const timeline=node("details",undefined,"client-journey-events");timeline.append(node("summary","Zmiany etapów sprawy"));const list=node("ol");for(const event of historyEvents(events,state).sort((a,b)=>String(b.date).localeCompare(String(a.date)))){const li=node("li");li.append(node("time",a.dateTime(event.date)),node("strong",event.label),node("span",event.model||""));list.append(li);}timeline.append(list);settingsDetails.append(timeline);}
+      host.append(allActions,devices,settingsDetails,actions);
       for(const section of host.querySelectorAll("details"))if(section.className&&opened.has(section.className))section.open=true;
       if(notice){const current=notice;message(current.text,current.error);}updateSave();
     }

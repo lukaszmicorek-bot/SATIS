@@ -142,7 +142,7 @@
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
     let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
-    let sourceSearchMissing = false, selectedSources = new Set(), clientWorkFilter = "";
+    let sourceSearchMissing = false, selectedSources = new Set(), clientWorkFilter = "", cardPanel = "case";
     const sourceSearchWarning = "Wyszukiwanie kart po modelu i numerze seryjnym oraz filtry spraw wymagają uruchomienia supabase-clients-audit.sql. Nadal możesz szukać po nazwisku i telefonie.";
     let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
     let scheduleConfig={hours:[],services:[]},scheduleReady=false,editingService=null,newServiceId="",resizeDrag=null,hoursDirty=false,serviceDirty=false,hoursRevision=null,hoursPlace=a.station();
@@ -173,9 +173,23 @@
     function coreBusy() { return busy || Boolean(journey?.busy?.()); }
     function showCard(title="Karta klienta") {
       const dialog=q("clientsDialog");if(!allowed()||!dialog?.showModal)return;
-      q("clientsDialogTitle").textContent=title;
+      q("clientsDialogTitle").textContent=title==="Karta klienta"?(detail?.profile.full_name||"Karta klienta"):title;
       if(!dialog.open)dialog.showModal();
     }
+    function setCardPanel(value) {
+      cardPanel=["case","history","contact"].includes(value)?value:"case";
+      const panels={case:"clientsCasePanel",history:"clientsHistoryPanel",contact:"clientsContactPanel"};
+      for(const [key,id]of Object.entries(panels))if(q(id))q(id).hidden=key!==cardPanel;
+      q("clientsCard").querySelectorAll("[data-client-panel]").forEach(tab=>{const active=tab.dataset.clientPanel===cardPanel;tab.setAttribute("aria-selected",String(active));tab.tabIndex=active?0:-1;});
+      if(cardPanel==="contact"&&q("clientsContactDetails"))q("clientsContactDetails").open=true;
+      a.closeDatePicker?.();
+    }
+    q("clientsCard").querySelectorAll("[data-client-panel]").forEach((tab,index,tabs)=>{
+      tab.addEventListener("click",()=>{if(allowed()&&!coreBusy())setCardPanel(tab.dataset.clientPanel);});
+      tab.addEventListener("keydown",event=>{if(!allowed()||coreBusy()||!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();
+        const next=event.key==="Home"?0:event.key==="End"?tabs.length-1:(index+(event.key==="ArrowRight"?1:-1)+tabs.length)%tabs.length;
+        setCardPanel(tabs[next].dataset.clientPanel);tabs[next].focus();});
+    });
     function closeCard(discardChanges=true) {
       if(coreBusy()){notify("Poczekaj na zakończenie zapisu.",true);return false;}
       if(discardChanges&&!discard())return false;
@@ -354,7 +368,9 @@
       a.locationAccent(q("clientLocation"));
       q("clientsCard").hidden = false;
       q("clientsCardTitle").textContent = profile.full_name || "Nowy klient";
-      if(q("clientsContactSummary"))q("clientsContactSummary").textContent=[a.phone(profile.phone),profile.location].filter(Boolean).join(" · ");
+      if(q("clientsContactSummary")){const summary=q("clientsContactSummary");summary.replaceChildren();
+        if(profile.phone)summary.append(node("span",a.phone(profile.phone),"clients-contact-phone"));
+        if(profile.location)summary.append(a.locationPill(profile.location));}
       q("clientArchive").hidden = !profile.id;
       q("clientArchive").textContent = profile.archived ? "Przywróć kartę" : "Archiwizuj";
       q("clientDelete").hidden = !profile.id;
@@ -373,6 +389,7 @@
         postal_code: parts.postalCode || "", city: parts.city || "", location: candidate?.location || a.station()});
       selectedSources.clear(); profileDirty = true; updateProfileSave();
       if(q("clientsContactDetails"))q("clientsContactDetails").open=true;
+      setCardPanel("contact");
       q("clientHistory").replaceChildren(); q("clientOperations").replaceChildren();
       q("clientIdentityWarning").hidden = !candidate;
       q("clientIdentityWarning").textContent = candidate ? "To propozycja danych, nie potwierdzona tożsamość. Sprawdź osobę i dane kontaktowe. Po zapisaniu wybierz jej właściwe dokumenty." : "";
@@ -384,9 +401,11 @@
       const sequence = ++detailSequence;
       const data = await rpc("satis_client_detail", {p_id: id});
       if (sequence !== detailSequence) return;
-      if (detail?.profile.id !== id) selectedSources.clear();
+      const changedClient=detail?.profile.id!==id;
+      if (changedClient) selectedSources.clear();
       detail = data; fillProfile(data.profile);
       if(q("clientsContactDetails"))q("clientsContactDetails").open=false;
+      setCardPanel(changedClient?"case":cardPanel);
       q("clientIdentityWarning").hidden = true;
       renderHistory(); renderLinks(); renderList();
       await journey?.show(journeyContext());
@@ -565,7 +584,7 @@
       a.locationAccent(q("clientVisitLocation"));
       q("clientVisitStatus").value = event?.status || "PLANNED";
       q("clientVisitFields").hidden = kind !== "VISIT";
-      q("clientActivityTitle").focus();
+      setCardPanel("case");q("clientActivityTitle").focus();
       showCard();
       if(kind === "VISIT") {
         scheduleLocation=q("clientVisitLocation").value;
@@ -834,6 +853,8 @@
     }
     function clear() {
       a.closeDatePicker?.();q("clientsDialog")?.close?.();
+      if(q("clientsDialogTitle"))q("clientsDialogTitle").textContent="Karta klienta";
+      setCardPanel("case");
       demo?.clear();
       journey?.clear();
       clientWorkFilter="";for(const tile of q("clientsNotebook").querySelectorAll("[data-client-stage]"))tile.setAttribute("aria-pressed",String(tile.dataset.clientStage===""));

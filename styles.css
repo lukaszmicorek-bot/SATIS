@@ -17771,7 +17771,19 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-dialog > .clients-message { margin: 0; padding: 8px 22px; flex: 0 0 auto; }
 .clients-dialog > .clients-message:empty { display: none; }
 .clients-dialog .clients-card-heading { margin-bottom: 8px; }
-.clients-contact-summary { margin: 4px 0 14px; color: #526f78; font-size: 0.85rem; }
+.clients-contact-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; color: #526f78; font-size: 0.85rem; }
+.clients-contact-phone { color: #234955; font-weight: 600; white-space: nowrap; }
+.clients-card-tabs { display: flex; gap: 8px; border-bottom: 1px solid #dce5e7; background: #f9fcfc; position: sticky; top: -18px; z-index: 2; }
+.clients-card-tabs button { flex: 1 1 0; min-height: 40px; padding: 9px 14px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: #657b83; font: inherit; font-size: 0.85rem; font-weight: 600; }
+.clients-card-tabs button[aria-selected="true"] { color: #00686f; border-bottom-color: #007d80; }
+.clients-card-tabs button:hover { background: #edf5f5; color: #003f5a; }
+.clients-card-tabs button:focus-visible { outline: 2px solid #007d80; outline-offset: -3px; }
+#clientsCard > [role="tabpanel"] { padding-top: 16px; }
+#clientsContactPanel .clients-card-heading { justify-content: flex-end; margin: 0 0 12px; }
+#clientsContactPanel #clientsCardTitle, #clientsContactPanel .clients-contact-details > summary { display: none; }
+#clientsContactPanel .clients-contact-details { border: 0; margin-bottom: 0; }
+#clientsHistoryPanel > h3 { margin-top: 0; }
+#clientsHistoryPanel .client-sources { margin: 10px 0 16px; padding: 10px 0; }
 .clients-contact-details > summary { padding: 9px 0; cursor: pointer; color: #335e6b; font-size: 0.82rem; font-weight: 650; }
 .clients-dialog .clients-contact-details { border-bottom: 1px solid #dce5e7; padding-bottom: 8px; margin-bottom: 14px; }
 .clients-dialog #clientJourney { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -17834,7 +17846,13 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .client-journey-chain li[data-skipped="true"] { opacity: 0.65; }
 .client-journey-check { display: inline-flex; gap: 5px; align-items: center; font-size: 0.72rem; white-space: nowrap; }
 .client-journey input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: #007d80; flex-shrink: 0; }
-.client-journey-forms { padding: 14px 0; }
+.client-journey-forms { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; padding: 12px 0; }
+.client-journey-forms button { min-height: 38px; white-space: normal; }
+.client-journey-all-actions > .clients-actions:not(.client-journey-forms) { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.client-journey-all-actions > .clients-actions button { min-height: 38px; white-space: normal; }
+.client-journey-options > details { margin-left: 8px; }
+.clients-dialog .client-journey-actions { position: sticky; bottom: -24px; z-index: 1; margin: 10px 0 0; padding: 12px 0; background: #f9fcfc; border-top: 1px solid #dce5e7; }
+@media(max-width:600px) { .clients-card-tabs { top: -12px; } .client-journey-forms, .client-journey-all-actions > .clients-actions:not(.client-journey-forms) { grid-template-columns: repeat(2,minmax(0,1fr)); } .clients-dialog .client-journey-actions { bottom: -24px; } }
 .client-journey-unsaved { color: #9d304b !important; background: #fff0f3 !important; border-color: #dda5b3 !important; }
 .client-journey-devices, .client-journey-events { margin: 14px 0; }
 .client-journey summary { cursor: pointer; font-size: 0.82rem; font-weight: 650; padding: 8px 0; }

@@ -45,6 +45,16 @@ async function run(){
  await page.goto('http://satis.test');
  await page.waitForSelector('#clientJourney [data-journey-save]');
  assert.equal(await page.locator('#clientsDialog').evaluate(node=>node.open),true,'client opens in a separate native modal');
+ assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Klient Testowy');
+ assert.equal(await page.locator('#clientsCasePanel').isVisible(),true);
+ await page.getByRole('tab',{name:'Dane',exact:true}).click();
+ await page.locator('#clientCity').fill('Miasto testowe');
+ await page.getByRole('tab',{name:'Historia',exact:true}).click();
+ assert.equal(await page.locator('#clientHistory').isVisible(),true);assert.equal(await page.locator('#clientJourney').isVisible(),false);
+ await page.keyboard.press('ArrowRight');assert.equal(await page.getByRole('tab',{name:'Dane',exact:true}).getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('#clientCity').inputValue(),'Miasto testowe','switching sections preserves typed contact data');
+ await page.evaluate(()=>testModule.select(profile.id));
+ await page.getByRole('tab',{name:'Sprawa',exact:true}).click();
  await page.locator('.client-journey-all-actions > summary').click();
  await page.getByRole('button',{name:'RODO potwierdzone',exact:true}).click();
  await page.locator('.client-journey-options > summary').click();
@@ -74,6 +84,7 @@ async function run(){
  await page.locator('[data-client-stage=""]').click();
  await page.evaluate(()=>testModule.select(profile.id));
  await page.evaluate(()=>{document.querySelector('.clients-dialog-scroll').scrollTop=0;document.querySelector('.client-journey-options').open=false;});
+ assert.equal(await page.getByRole('combobox',{name:'Sprawa klienta',exact:true}).isVisible(),false,'case configuration is collapsed by default');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  if(process.env.SATIS_QA_DIR)await page.locator('#clientsDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-desktop.png')});
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -87,6 +98,7 @@ async function run(){
  for(const index of ['0','5','8','10'])await page.getByRole('combobox',{name:'Etap klienta demonstracyjnego',exact:true}).selectOption(index);
  assert.equal(await page.evaluate(()=>calls.length),count,'demonstration remains local and read-only');
  await page.evaluate(()=>testModule.clear());assert.equal(await page.locator('#clientJourney').textContent(),'');assert.deepEqual(errors,[]);
+ assert.equal(await page.locator('#clientsContactSummary').textContent(),'');assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Karta klienta');
  console.log('OK: separate scrollable client modal, contextual actions, protected pending save, isolated cases, historical read-only view, atomic reservation, migration safety, demo privacy and responsive layouts.');
  }finally{await browser.close();}
 }
