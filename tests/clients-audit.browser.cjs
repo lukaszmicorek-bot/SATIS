@@ -54,6 +54,7 @@ async function run(){
  await page.waitForSelector('#clientJourney [data-journey-save]');
  assert.equal(await page.locator('#clientsDialog').evaluate(node=>node.open),true,'client opens in a separate native modal');
  assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Klient Testowy');
+ assert.equal(await page.locator('#clientsDialog').getAttribute('data-location-tone'),'P63');
  assert.equal(await page.locator('#clientsCasePanel').isVisible(),true);
  await page.getByRole('tab',{name:'Dane',exact:true}).click();
  await page.locator('#clientCity').fill('Miasto testowe');
@@ -154,6 +155,8 @@ async function run(){
  assert.equal(await day.locator('.clients-schedule-selection').textContent(),'09:00–10:00');
  await page.mouse.up();
  assert.equal(await page.locator('#clientsBookingDialog').evaluate(node=>node.open),true);
+ assert.equal(await page.locator('#clientsBookingDialog').getAttribute('data-location-tone'),'P63');
+ assert.equal(await page.locator('#clientsBookingSearch').evaluate(node=>node.closest('label').classList.contains('person-highlight-field')),true);
  assert.equal(await page.locator('#clientsBookingFrom').inputValue(),'09:00');assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:00');
  assert.equal(await page.evaluate(()=>bookingWrites.length),0,'selecting time never writes');
  assert.equal(await page.locator('#clientsBookingSearch').inputValue(),'','no prior client is required to start a booking');
@@ -192,6 +195,7 @@ async function run(){
  assert.equal(await page.locator('#clientsBookingSearch').inputValue(),'','closed booking clears customer data');
  await page.evaluate(()=>testModule.clear());assert.equal(await page.locator('#clientJourney').textContent(),'');assert.deepEqual(errors,[]);
  assert.equal(await page.locator('#clientsContactSummary').textContent(),'');assert.equal(await page.locator('#clientsDialogTitle').textContent(),'Karta klienta');
+ assert.equal(await page.locator('#clientsDialog').getAttribute('data-location-tone'),'');
  console.log('OK: client modal, action tiles, confirmation dates, isolated cases, atomic reservation, mouse range booking, client/service selection, protected duplicate submission and responsive layouts.');
  }finally{await browser.close();}
 }

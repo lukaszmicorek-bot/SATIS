@@ -17765,7 +17765,12 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-dialog { width: min(1080px,calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #cbd8dc; border-radius: 8px; background: #f9fcfc; color: #183d49; overflow: hidden; }
 .clients-dialog[open] { display: flex; flex-direction: column; }
 .clients-dialog::backdrop { background: rgb(16 35 42 / 38%); }
+.clients-dialog { --client-place-accent: #7ba8a6; --client-place-tint: #f0f7f6; border-top: 3px solid var(--client-place-accent); background: #fff; }
+.clients-dialog[data-location-tone="T12"] { --client-place-accent: #aa9784; --client-place-tint: #f8f5f1; }
+.clients-dialog[data-location-tone="P50"] { --client-place-accent: #9ca86c; --client-place-tint: #f5f8ec; }
+.clients-dialog[data-location-tone="P63"] { --client-place-accent: #b3a1c3; --client-place-tint: #f8f4fb; }
 .clients-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-bottom: 1px solid #dce5e7; flex: 0 0 auto; }
+.clients-dialog-heading { background: var(--client-place-tint); }
 .clients-dialog-heading h2 { margin: 0; font-size: 0.95rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clients-heading-identity { display: flex; flex-wrap: nowrap; align-items: center; gap: 14px; min-width: 0; flex: 1 1 auto; }
 .clients-dialog-heading > button { flex: 0 0 auto; }
@@ -17827,6 +17832,10 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-card-heading, .clients-section-heading { justify-content: space-between; }
 .clients-contact-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(120px, 0.7fr) minmax(0, 1.2fr); gap: 14px; margin: 16px 0; }
 .clients-name input { font-weight: 650; border-color: #8ab4b5 !important; }
+.clients-dialog .person-highlight-field { border-left-color: #d5a176; background: #fff8f2; }
+.clients-dialog .person-highlight-field > span { color: #876449; font-size: 0.8rem; font-weight: 650; }
+.clients-dialog .person-highlight-field input { border-color: #e3cdbb !important; font-weight: 650; }
+.clients-contact-grid:has(.person-highlight-field) { align-items: end; }
 .client-journey { padding: 8px 0 20px; border-bottom: 1px solid #dce4e5; }
 .client-journey-summary { color: #426b79; font-size: 0.78rem; font-weight: 650; }
 .client-journey-summary[data-complete="true"] { color: #2c7656; }
@@ -17928,6 +17937,9 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-booking-form > label, .clients-booking-times label { display: grid; min-width: 0; gap: 5px; font-size: 0.82rem; }
 .clients-booking-form input, .clients-booking-form select { width: 100%; min-width: 0; box-sizing: border-box; height: 40px; }
 .clients-booking-summary, .clients-booking-times { display: flex; align-items: center; gap: 14px; }
+.clients-booking-summary { padding-bottom: 10px; border-bottom: 1px solid #e5ebed; }
+.clients-booking-summary > strong { color: #003f5a; }
+.clients-booking-form > label:not(.person-highlight-field) > select { border-left: 3px solid #85b2ad; background-color: #f5faf9; }
 .clients-booking-time { flex: 1; min-width: 0; }
 .clients-booking-time-options { position: relative; height: 144px; overflow-y: auto; overscroll-behavior: contain; margin-top: 6px; border: 1px solid #d4e2e3; border-radius: 4px; background: #fff; scrollbar-width: thin; }
 .clients-booking-form .clients-booking-time-choice { display: block; width: 100%; height: 34px; min-height: 34px; padding: 5px 8px; border: 0; border-bottom: 1px solid #edf2f2; border-radius: 0; color: #526c76; background: transparent; box-shadow: none; font: inherit; font-size: 0.85rem; font-variant-numeric: tabular-nums; text-align: center; }
@@ -17938,6 +17950,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-booking-results { max-height: 200px; overflow-y: auto; }
 .clients-booking-results:empty, #clientsBookingMessage:empty { display: none; }
 .clients-booking-client { margin: 0; padding: 8px 0; color: #285c62; font-size: 0.83rem; font-weight: 600; }
+.clients-booking-client { border-bottom: 1px solid #e5ebed; }
 .clients-booking-form .clients-hint, .clients-booking-form .clients-warning { margin: 0; }
 .clients-booking-form .clients-actions { justify-content: flex-end; }
 .clients-booking-form small { color: #617980; line-height: 1.5; }

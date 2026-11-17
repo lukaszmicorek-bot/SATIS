@@ -176,6 +176,7 @@
       }});
     function journeyContext(){getIndex();return detail?{...detail,sources:sourceRows||[]}:null;}
     function renderContactSummary(profile) {
+      q("clientsDialog").dataset.locationTone=["T12","P50","P63"].includes(profile.location)?profile.location:"";
       const summary=q("clientsContactSummary");if(!summary)return;summary.replaceChildren();
       if(profile.phone)summary.append(node("span",a.phone(profile.phone),"clients-contact-phone"));
       if(profile.location)summary.append(a.locationPill(profile.location));
@@ -702,6 +703,7 @@
         if(profileDirty||activityDirty||journey?.dirty())throw new Error("Zapisz lub anuluj edycję karty klienta przed planowaniem wizyty.");
         const dialog=q("clientsBookingDialog");if(!dialog?.showModal)throw new Error("Odśwież stronę, aby otworzyć zapis wizyty.");
         booking={id:a.id(),day,location:scheduleLocation,client:detail?.profile.archived?null:detail?.profile||null,dirty:false};
+        dialog.dataset.locationTone=booking.location;
         q("clientsBookingSummary").replaceChildren(node("strong",a.date(day)),a.locationPill(booking.location));
         q("clientsBookingFrom").value=clock(start);q("clientsBookingTo").value=clock(end);bookingDuration();bookingMessage();
         q("clientsBookingSearch").value=booking.client?.full_name||"";
@@ -719,6 +721,7 @@
       if(coreBusy()&&!force)return false;
       if(ask&&booking?.dirty&&!a.confirm("Porzucić niezapisaną wizytę?"))return false;
       booking=null;bookingSequence++;clearTimeout(bookingSearchTimer);q("clientsBookingDialog")?.close?.();
+      q("clientsBookingDialog").dataset.locationTone="";
       for(const id of ["clientsBookingSearch","clientsBookingFrom","clientsBookingTo"])if(q(id))q(id).value="";
       for(const id of ["clientsBookingResults","clientsBookingSummary","clientsBookingClient","clientsBookingPrice","clientsBookingMessage","clientsBookingDuration"])q(id)?.replaceChildren();
       q("clientsBookingService")?.replaceChildren();q("clientsBookingFromOptions")?.replaceChildren();q("clientsBookingToOptions")?.replaceChildren();return true;
@@ -986,6 +989,7 @@
     function clear() {
       a.closeDatePicker?.();q("clientsDialog")?.close?.();
       if(q("clientsDialogTitle"))q("clientsDialogTitle").textContent="Karta klienta";
+      q("clientsDialog").dataset.locationTone="";
       setCardPanel("case");
       journey?.clear();
       clientWorkFilter="";for(const tile of q("clientsNotebook").querySelectorAll("[data-client-stage]"))tile.setAttribute("aria-pressed",String(tile.dataset.clientStage===""));
