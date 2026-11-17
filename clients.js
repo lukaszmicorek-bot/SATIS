@@ -167,9 +167,14 @@
       }});
     function journeyContext(){getIndex();return detail?{...detail,sources:sourceRows||[]}:null;}
     const demo=a.journey?.createDemo?.({host:q("clientsDemoPanel"),document:d,allowed,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,
-      onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;showCard();}});
+      onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;renderContactSummary(detail?.profile||{location:a.station()});if(detail||newProfileId)showCard();else q("clientsDialog")?.close?.();}});
     if(q("clientsDemoBtn"))q("clientsDemoBtn").hidden=!demo;
-    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!coreBusy()&&discard()){q("clientsCard").hidden=true;demo?.open();showCard("Klient demonstracyjny");}});
+    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!coreBusy()&&discard()){q("clientsCard").hidden=true;demo?.open();renderContactSummary({location:"P63"});showCard("Klient demonstracyjny");}});
+    function renderContactSummary(profile) {
+      const summary=q("clientsContactSummary");if(!summary)return;summary.replaceChildren();
+      if(profile.phone)summary.append(node("span",a.phone(profile.phone),"clients-contact-phone"));
+      if(profile.location)summary.append(a.locationPill(profile.location));
+    }
     function coreBusy() { return busy || Boolean(journey?.busy?.()); }
     function showCard(title="Karta klienta") {
       const dialog=q("clientsDialog");if(!allowed()||!dialog?.showModal)return;
@@ -368,9 +373,7 @@
       a.locationAccent(q("clientLocation"));
       q("clientsCard").hidden = false;
       q("clientsCardTitle").textContent = profile.full_name || "Nowy klient";
-      if(q("clientsContactSummary")){const summary=q("clientsContactSummary");summary.replaceChildren();
-        if(profile.phone)summary.append(node("span",a.phone(profile.phone),"clients-contact-phone"));
-        if(profile.location)summary.append(a.locationPill(profile.location));}
+      renderContactSummary(profile);
       q("clientArchive").hidden = !profile.id;
       q("clientArchive").textContent = profile.archived ? "Przywróć kartę" : "Archiwizuj";
       q("clientDelete").hidden = !profile.id;

@@ -106,6 +106,40 @@ test('interest is not described as a confirmed purchase before there is a sale',
  const plan=journey.build(make(),journey.normalize({interest:'INTERESTED'},today),today);
  assert.equal(plan.steps.find(s=>s.id==='interest').detail,'Zainteresowany zakupem');
 });
+test('RODO alert depends on an explicit confirmation, including a different case of the same customer',()=>{
+ const state=journey.normalize({},today);
+ assert.equal(journey.build(make(),state,today).consentMissing,true);
+ assert.equal(journey.build({...make(),rodo_confirmed_elsewhere:true},state,today).consentMissing,false);
+ state.confirmations.rodo=true;assert.equal(journey.build(make(),state,today).consentMissing,false);
+});
+test('trial follow-up begins after fourteen calendar days and uses period start rather than signing date',()=>{
+ const state=journey.normalize({},today),loan=row('loan','loan','2026-10-01',{periodFrom:'2026-11-03'});
+ assert.equal(journey.followUpStatus([loan],state,'2026-11-16'),null);
+ const due=journey.followUpStatus([loan],state,'2026-11-17');assert.equal(due.days,14);assert.equal(due.due,true);
+ assert.equal(journey.followUpStatus([{...loan,workflow:{periodFrom:'2026-12-01'}}],state,today),null);
+});
+test('only an offer or a real sale after the latest trial suppresses the follow-up',()=>{
+ const state=journey.normalize({},today),loan=row('loan','loan','2026-10-01');
+ const oldOffer=row('offer','old','2026-09-01');assert.equal(journey.followUpStatus([loan,oldOffer],state,today).due,true);
+ assert.equal(journey.followUpStatus([loan,row('offer','new','2026-10-03')],state,today),null);
+ assert.equal(journey.followUpStatus([loan,row('device','sale',today,{type:'SPRZEDANY',invoice:'FS',pickupDate:today})],state,today),null);
+ assert.equal(journey.followUpStatus([loan,row('device','reserved',today,{type:'REZERWACJA'})],state,today).due,true);
+ assert.equal(journey.followUpStatus([loan,row('device','charger',today,{type:'SPRZEDANY',invoice:'FS',pickupDate:today,hearingAid:false})],state,today).due,true);
+ const newer=row('loan','latest','2026-11-01');assert.equal(journey.followUpStatus([loan,oldOffer,newer],state,today).loan.id,'latest');
+});
+test('postponed contact returns on the chosen date and a decline never closes an unreturned loan',()=>{
+ const loan=row('loan','loan','2026-10-01',{returnDate:''}),state=journey.normalize({follow_up:{loan_id:'loan',contact_on:'2026-11-20'}},today);
+ assert.equal(journey.followUpStatus([loan],state,today).due,false);
+ assert.equal(journey.followUpStatus([loan],state,'2026-11-20').due,true);
+ assert.equal(journey.followUpStatus([loan],{...state,interest:'DECLINED'},today),null);
+ const plan=journey.build(make([loan]),{...state,interest:'DECLINED',started_on:'2026-10-01'},today);
+ assert.equal(plan.activeLoans.length,1);assert.equal(plan.complete,false);
+});
+test('another person or an unconfirmed loan cannot trigger a customer reminder',()=>{
+ const loan=row('loan','loan','2026-10-01');
+ assert.equal(journey.build(make([loan],[],[]),journey.normalize({},today),today).followUp,null);
+ assert.equal(journey.build(make([{...loan,name:'Inna Osoba'}]),journey.normalize({},today),today).followUp,null);
+});
 test('empty customer starts with choices, not a mandatory fifteen-step checklist',()=>{
  const plan=journey.build(make(),journey.normalize({},today),today);
  assert.deepEqual(plan.steps,[]);assert.equal(plan.complete,false);assert.equal(plan.phase,'Wybierz czynność');

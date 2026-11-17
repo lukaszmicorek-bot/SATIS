@@ -260,6 +260,26 @@ test('clients audit upgrade: legacy compatibility, case isolation, atomic reserv
     await db.exec(migration);await login();
     assert.equal((await current(customer)).cases.length,2);
     assert.deepEqual(await reserve(customer,1,1,selected,changes,atomicRequest),atomic);
+    await db.exec('reset role');
+    const followupMigration=read('supabase-clients-follow-up.sql');await db.exec(followupMigration);await db.exec(followupMigration);await login();
+    const followCustomer=randomUUID(),followCase={...base,case_id:randomUUID(),source_keys:[],confirmations:{...base.confirmations,rodo:true}};
+    await clients('PROFILE',followCustomer,null,{full_name:'Followup Test',location:'P63'});
+    await journey(followCustomer,null,followCase);
+    await db.exec('reset role');await db.query("insert into customer_source_links(source_type,source_id,customer_id,linked_by) values('loan','follow-loan',$1,$2)",[followCustomer,owner]);await login();
+    const postponed={...followCase,follow_up:{loan_id:'follow-loan',contact_on:'2027-01-05'}},postponeId=randomUUID();
+    const savedFollow=await journey(followCustomer,1,postponed,postponeId);
+    assert.deepEqual(savedFollow.journey.data.follow_up,postponed.follow_up);
+    assert.deepEqual(await journey(followCustomer,1,postponed,postponeId),savedFollow);
+    const readFollow=await current(followCustomer);assert.equal(readFollow.follow_up_support,true);
+    assert.deepEqual(readFollow.events[0].data.follow_up,postponed.follow_up);
+    await denied(journey(followCustomer,2,{...postponed,follow_up:{...postponed.follow_up,loan_id:'someone-else'}}),'22023');
+    await denied(journey(followCustomer,2,{...postponed,follow_up:{...postponed.follow_up,extra:'not allowed'}}),'22023');
+    await denied(journey(followCustomer,1,postponed),'PT409');
+    const nextFollow={...base,case_id:randomUUID(),source_keys:[]};await journey(followCustomer,null,nextFollow);
+    assert.equal((await current(followCustomer)).rodo_confirmed_elsewhere,true);
+    assert.equal((await current(other)).rodo_confirmed_elsewhere,false);
+    await denied(value('select satis_clients_audit_save_followup_base($1,1,$2::jsonb) r',[followCustomer,JSON.stringify(nextFollow)]),'42501');
+    await clients('DELETE',followCustomer,1,{});
     await denied(value('select satis_clients_audit_save($1,1,$2::jsonb) r',[customer,JSON.stringify(newData)]),'42501');
     await denied(db.query('select * from customer_journeys'),'42501');
     for(const [uid,email] of [[staff,'staff@example.test'],[owner,'wrong@example.test']]) {

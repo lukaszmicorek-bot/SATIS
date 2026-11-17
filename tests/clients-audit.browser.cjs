@@ -17,8 +17,8 @@ async function run(){
    {type:'device',id:'sold-test',name:profile.full_name,date:'2026-11-17',kind:'Aparat',model:'Model testowy',serial:'TEST-SOLD',workflow:{type:'SPRZEDANY',pickupDate:'2026-11-17',invoice:'TEST-FS',ezwm:'REALIZACJA'},open(){}}];
   const detail={profile,links:sources.map(row=>({source_type:row.type,source_id:row.id})),activities:[],operations:[]};
   let journey={case_id:'30000000-0000-0000-0000-000000000001',revision:1,archived:false,data:SatisClientJourney.normalize({case_id:'30000000-0000-0000-0000-000000000001',source_keys:['offer:offer-test'],device_ids:['sold-test'],started_on:'2026-11-17',interest:'INTERESTED',referral:'REQUESTED'},'2026-11-17')};
-  const stored=new Map([[journey.case_id,journey]]);let writes=0,ids=10,hold=false,release=null,missing=false,calls=[],reserveCalls=0,confirmDiscard=true;
-  const response=selected=>({journey:selected,events:[],case_support:!missing,cases:[...stored.values()].map(row=>({case_id:row.case_id,kind:row.data.kind,started_on:row.data.started_on,archived:row.archived}))});
+  const stored=new Map([[journey.case_id,journey]]);let writes=0,ids=10,hold=false,release=null,missing=false,calls=[],reserveCalls=0,confirmDiscard=true,todayValue='2026-11-17';
+  const response=selected=>({journey:selected,events:[],case_support:!missing,follow_up_support:!missing,rodo_confirmed_elsewhere:[...stored.values()].some(row=>row.case_id!==selected?.case_id&&row.data.confirmations.rodo),cases:[...stored.values()].map(row=>({case_id:row.case_id,kind:row.data.kind,started_on:row.data.started_on,archived:row.archived}))});
   const rpc=async(name,args)=>{calls.push(name);switch(name){
    case 'satis_clients_overview':case 'satis_clients_search':return {data:{profiles:[profile],total:1}};
    case 'satis_client_detail':return {data:detail};
@@ -34,7 +34,7 @@ async function run(){
   const identity=value=>value||'';
   const module=SatisClients.create({document,journey:SatisClientJourney,owner:()=>true,user:()=> 'owner',active:()=>true,sources:()=>sources,rpc,
    id:()=> '40000000-0000-0000-0000-'+String(++ids).padStart(12,'0'),person:identity,phone:identity,street:identity,city:identity,addressParts:()=>({}),station:()=> 'P63',date:identity,dateTime:identity,
-   setDate:(input,value)=>input.value=value,isoDate:identity,today:()=> '2026-11-17',locationPill:place=>{const node=document.createElement('span');node.textContent=place;return node;},locationAccent(){},confirm:()=>confirmDiscard,refreshCalendar(){},navigate(){},openForm(){},
+   setDate:(input,value)=>input.value=value,isoDate:identity,today:()=> todayValue,locationPill:place=>{const node=document.createElement('span');node.textContent=place;return node;},locationAccent(){},confirm:()=>confirmDiscard,refreshCalendar(){},navigate(){},openForm(){},
    availableDevices:()=>[{id:'available-one',model:'Aparat testowy',serial:'TEST-ONE',location:'P63',type:'NA STANIE'}],
    reserveDevices:async(_profile,ids,_links,attempt)=>{reserveCalls++;journey={case_id:attempt.state.case_id,revision:2,archived:false,data:attempt.state};stored.set(journey.case_id,journey);detail.links.push({source_type:'device',source_id:ids[0]});sources=[...sources,{type:'device',id:ids[0],name:profile.full_name,kind:'Aparat',date:'2026-11-17',model:'Aparat testowy',serial:'TEST-ONE',workflow:{type:'REZERWACJA'},open(){}}];return {journey,device_rows:[]};},onBeforeUnload(){}});
   window.testModule=module;document.getElementById('clientsNotebook').hidden=false;module.open().then(()=>module.select(profile.id));
@@ -90,6 +90,10 @@ async function run(){
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  const aligned=await page.evaluate(()=>{const children=[...document.querySelector('#clientsContactSummary').children];const [phone,place]=children.map(node=>node.getBoundingClientRect());return Math.abs((phone.top+phone.height/2)-(place.top+place.height/2))<1;});
  assert.equal(aligned,true,'phone and location remain on one line in the customer heading');
+ const heading=await page.evaluate(()=>{const [name,summary]=['#clientsDialogTitle','#clientsContactSummary'].map(selector=>document.querySelector(selector).getBoundingClientRect());return {sameRow:Math.abs((name.top+name.height/2)-(summary.top+summary.height/2))<1,noOverlap:name.right<=summary.left};});
+ assert.deepEqual(heading,{sameRow:true,noOverlap:true},'name, phone and location share one header row');
+ assert.equal(await page.locator('.client-journey-suggestions h4').count(),0,'suggestion heading has been removed');
+ assert.ok((await page.locator('.client-journey-suggestion button').first().boundingBox()).height>=60,'suggested action tiles are larger');
  await page.getByRole('tab',{name:'Dane',exact:true}).click();
  const fields=await page.evaluate(()=>{const phone=document.querySelector('#clientPhone').getBoundingClientRect(),place=document.querySelector('#clientLocation').getBoundingClientRect();return {sameRow:Math.abs(phone.top-place.top)<1,notOverlapping:phone.right<place.left};});
  assert.deepEqual(fields,{sameRow:true,notOverlapping:true},'phone and location fields share one row on mobile');
@@ -98,6 +102,22 @@ async function run(){
  await page.evaluate(async()=>{missing=true;await testModule.select(profile.id);});
  assert.equal(await page.locator('[data-journey-reserve]').isDisabled(),true,'no unsafe reservation fallback before migration');
  assert.equal(await page.getByRole('button',{name:'Nowa sprawa',exact:true}).isDisabled(),true);
+ await page.evaluate(async()=>{missing=false;sources=[{type:'loan',id:'follow-loan',name:profile.full_name,date:'2026-11-01',kind:'Umowa wypożyczenia',workflow:{periodFrom:'2026-11-01',returnDate:''},open(){}}];detail.links=[{source_type:'loan',source_id:'follow-loan'}];journey={...journey,data:SatisClientJourney.normalize({case_id:journey.case_id,source_keys:['loan:follow-loan'],started_on:'2026-11-01'},todayValue)};stored.clear();stored.set(journey.case_id,journey);await testModule.select(profile.id);});
+ assert.equal(await page.locator('.client-consent-notice').isVisible(),true);
+ assert.equal(await page.locator('.client-follow-up.due').isVisible(),true);
+ await page.getByRole('button',{name:'Potwierdź dokument',exact:true}).click();
+ await page.waitForFunction(()=>journey.data.confirmations.rodo&&!document.querySelector('[data-journey-save]').classList.contains('client-journey-unsaved'));
+ assert.equal(await page.locator('.client-consent-notice').count(),0);
+ await page.locator('.client-follow-up-later summary').click();
+ await page.getByRole('textbox',{name:'Data ponownego kontaktu',exact:true}).fill('2026-11-20');
+ assert.equal(await page.locator('[data-journey-save]').isEnabled(),true,'draft contact date is protected as an unsaved edit');
+ await page.getByRole('button',{name:'Zapisz termin',exact:true}).click();
+ await page.waitForFunction(()=>journey.data.follow_up?.contact_on==='2026-11-20'&&!document.querySelector('[data-journey-save]').classList.contains('client-journey-unsaved'));
+ assert.equal(await page.locator('.client-follow-up.due').count(),0);
+ await page.evaluate(async()=>{todayValue='2026-11-20';await testModule.select(profile.id);});
+ assert.equal(await page.locator('.client-follow-up.due').isVisible(),true,'postponed reminder reappears on the chosen day');
+ await page.getByRole('button',{name:'Rezygnacja',exact:true}).click();await page.waitForFunction(()=>journey.data.interest==='DECLINED'&&!document.querySelector('[data-journey-save]').classList.contains('client-journey-unsaved'));
+ assert.equal(await page.locator('.client-follow-up').count(),0);assert.ok((await page.locator('#clientJourney').textContent()).includes('wypożyczeń'),'declining purchase must not finish the loan');
  await page.getByRole('button',{name:'Zamknij kartę klienta',exact:true}).click();
  assert.equal(await page.locator('#clientsDialog').evaluate(node=>node.open),false);
  await page.locator('#clientsDemoBtn').click();const count=await page.evaluate(()=>calls.length);

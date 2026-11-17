@@ -31133,7 +31133,7 @@ function clientsCurrentSources() {
     phone: entry.phone, address: entry.address, date: isoDateForSave(entry.date), location: currentDateLocationKey(entry.city) || currentDateLocationKey(entry.workstation),
     kind: "Umowa wypożyczenia", model: [entry.rightDevice?.model, entry.leftDevice?.model, entry.charger].filter(Boolean).join(" · "),
     serial: [entry.rightDevice?.serial, entry.leftDevice?.serial, entry.chargerSerial].filter(Boolean).join(" · "), number: entry.number,
-    status: entry.returnDate ? "Zakończona" : "Aktywna", workflow: { returnDate: entry.returnDate, periodTo: entry.periodTo,
+    status: entry.returnDate ? "Zakończona" : "Aktywna", workflow: { returnDate: entry.returnDate, periodFrom: isoDateForSave(entry.periodFrom), periodTo: entry.periodTo,
       outstandingDemo: demoRecords.some(record => customerNameLookupKey(record.currentUser) === customerNameLookupKey(entry.customer)
         && [entry.rightDevice?.serial,entry.leftDevice?.serial,entry.chargerSerial].some(serial => serial && serialDuplicateKey(serial) === serialDuplicateKey(record.serialNumber))
         && !record.returnDate && record.loanDate === (entry.periodFrom || entry.date)) },

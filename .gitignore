@@ -114,6 +114,7 @@
 !/client-journey.js
 !/supabase-client-journey.sql
 !/supabase-clients-audit.sql
+!/supabase-clients-follow-up.sql
 !/tests/clients-audit.sqltest.cjs
 !/tests/clients-audit.browser.cjs
 !/KLIENCI-AKTUALIZACJA.md

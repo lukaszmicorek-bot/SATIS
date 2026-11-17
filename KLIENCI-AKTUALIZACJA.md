@@ -24,6 +24,28 @@ oryginalnych dokumentow ani kopii zapasowych.
 
 ## Obsluga
 
+### RODO i kontakt po wypozyczeniu
+
+Po aktualizacji audytu uruchom w SQL Editor `supabase-clients-follow-up.sql`.
+Jest powtarzalny, zachowuje dotychczasowe dane i nie wymaga nowych tabel.
+Bez niego dziala podstawowe ostrzezenie o braku potwierdzenia RODO i zapis
+rezygnacji, ale odroczenie kontaktu jest zablokowane. Nie uruchamiaj
+starszych migracji kartoteki po tej aktualizacji.
+
+- RODO jest potwierdzane recznie. Po migracji uwzgledniane jest tez
+  potwierdzenie w innej sprawie tej samej karty. Nie wnioskujemy podpisu
+  z wydruku dokumentu ani z samej zgodnosci nazwisk.
+- Po 14 dniach od rozpoczecia wypozyczenia (okres od z umowy; przy jego
+  braku data umowy) pojawia sie przypomnienie, jesli po tej dacie nie ma
+  powiazanej oferty ani sprzedazy aparatu z faktura i data odbioru.
+- Rezygnacja zapisuje decyzje o zakupie. Nie zamyka niezwróconej umowy.
+  Umowic pozniej zapisuje date kontaktu; przypomnienie wraca w tym dniu.
+  Data jest wspolna dla komputerow, chroniona wersjonowaniem i zapisana
+  w historii sprawy. Wpisywanie daty jest chronione przed utrata przy
+  zamykaniu okna.
+- Przypomnienia sa widoczne na karcie klienta po jej otwarciu. Nie
+  wysylaja SMS ani wiadomosci przy zamknietej aplikacji.
+
 - Karta klienta otwiera sie w osobnym, przewijanym oknie. Dane kontaktowe
   sa domyslnie zwiniete; przy dodawaniu klienta formularz danych jest otwarty.
   Zamkniecie pyta o niezapisane zmiany, a trwajacy zapis blokuje zamkniecie.

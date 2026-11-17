@@ -21,7 +21,8 @@
       referral:["UNKNOWN","REQUESTED","READY","WITHOUT_REFUND"].includes(value.referral)?value.referral:"UNKNOWN",trial_required:value.trial_required===true,
       devices_required:value.devices_required===2?2:1,device_ids:[...new Set((Array.isArray(value.device_ids)?value.device_ids:[]).map(String))].slice(0,2),
       visit_id:String(value.visit_id||""),confirmations:Object.fromEntries(Object.keys(flags).map(id=>[id,value.confirmations?.[id]===true])),
-      ...(value.case_id?{case_id:String(value.case_id),source_keys:[...new Set((Array.isArray(value.source_keys)?value.source_keys:[]).map(String))]}:{})};
+      ...(value.case_id?{case_id:String(value.case_id),source_keys:[...new Set((Array.isArray(value.source_keys)?value.source_keys:[]).map(String))]}:{}),
+      ...(value.follow_up&&typeof value.follow_up==="object"?{follow_up:{loan_id:String(value.follow_up.loan_id||""),contact_on:day(value.follow_up.contact_on)}}:{})};
   }
   function confirmedRows(context){
     const links=new Set((context.links||[]).map(link=>`${link.source_type}:${link.source_id}`));
@@ -30,6 +31,17 @@
   function initialState(context,today){
     const rows=confirmedRows(context),loans=rows.filter(row=>row.type==="loan").sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     return normalize({started_on:loans[0]?.date||today,trial_required:loans.length>0},today);
+  }
+  function followUpStatus(rows,state,today){
+    const loans=rows.filter(row=>row.type==="loan").map(row=>({row,start:day(row.workflow?.periodFrom)||day(row.date)}))
+      .filter(item=>item.start&&item.start<=today).sort((a,b)=>b.start.localeCompare(a.start)||String(b.row.date).localeCompare(String(a.row.date)));
+    if(!loans.length)return null;
+    const {row,start}=loans[0],days=Math.floor((Date.parse(`${today}T12:00:00Z`)-Date.parse(`${start}T12:00:00Z`))/86400000);
+    const progressed=rows.some(item=>item.type==="offer"&&day(item.date)>=start||item.type==="device"&&item.workflow?.hearingAid!==false&&item.workflow?.type==="SPRZEDANY"&&String(item.workflow.invoice||"").trim()&&day(item.workflow.pickupDate)>=start);
+    if(progressed||state.interest==="DECLINED")return null;
+    const contact=state.follow_up?.loan_id===String(row.id)?day(state.follow_up.contact_on):"";
+    if(days<14&&!contact)return null;
+    return {loan:row,days,start,contact_on:contact,due:contact?contact<=today:days>=14};
   }
   function demoSnapshots(){
     const profile={id:"DEMO-CLIENT-NOT-SAVED",full_name:"Klient demonstracyjny",phone:"",location:"P63"};
@@ -188,12 +200,13 @@
     }else if(!services.length){suggest("complaint","Przyjmij reklamację","Wybierz produkt klienta i przygotuj zgłoszenie.","complaint");suggest("order","Przygotuj zamówienie","Wybierz potrzebne produkty.","order");}
     const phase=serviceNext?"Serwis w toku":activeCaseLoans.length?"Wypożyczenie w toku":s.kind==="SERVICE"?services.length?(complete?"Sprawa zakończona":"Obsługa zgłoszenia"):"Nowe zgłoszenie":purchase?sold.length?(complete?"Zakup zakończony":"Odbiór i dokumenty"):"Zakup":returned?"Po testowaniu":trial?"Wypożyczenie":hasOffer?"Oferta":visit?"Wizyta":"Wybierz czynność";
     return {state:s,steps,services,events,activeLoans,devices,missing,openServices,suggestions,phase,next:suggestions[0]||null,
+      consentMissing:!s.confirmations.rodo&&!context.rodo_confirmed_elsewhere,followUp:s.kind==="SERVICE"?null:followUpStatus(all,s,today),
       complete,done:steps.filter(step=>step.done&&!step.skipped).length,total:steps.filter(step=>!step.skipped).length};
   }
   function aVisitDetail(visit,today){return localDay(visit.starts_at)<today?"Termin minął. Potwierdź odbycie albo zmień datę.":"Otwórz szczegóły lub zmień termin wizyty.";}
   function create(a){
     const host=a.host,doc=a.document;if(!host)return null;
-    let context=null,state=null,saved=null,revision=null,events=[],cases=[],manual=new Set(),caseSupport=false,loading=false,busy=false,dirty=false,available=false,hasStorage=false,generation=0,operation=null,reservationAttempt=null,notice=null;
+    let context=null,state=null,saved=null,revision=null,events=[],cases=[],manual=new Set(),caseSupport=false,followUpSupport=false,rodoElsewhere=false,contactDraft=null,loading=false,busy=false,dirty=false,available=false,hasStorage=false,generation=0,operation=null,reservationAttempt=null,notice=null;
     const node=(tag,text,cls)=>{const n=doc.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
     const allowed=()=>a.allowed()&&context;
     function button(label,action,cls="reset-filters-btn"){const b=node("button",label,cls);b.type="button";b.disabled=busy||Boolean(a.readOnly);b.addEventListener("click",()=>{if(allowed()&&!busy&&!a.readOnly)action();});return b;}
@@ -218,12 +231,22 @@
       if(!allowed()){host.replaceChildren();host.hidden=true;return;}
       const opened=new Set([...host.querySelectorAll("details[open]")].map(section=>section.className));
       host.hidden=false;host.dataset.kind=state.kind;host.replaceChildren();
-      const plan=build(context,state,a.today(),[...manual]),header=node("header",undefined,"clients-section-heading");let caseField=null;
+      const plan=build({...context,rodo_confirmed_elsewhere:rodoElsewhere},state,a.today(),[...manual]),header=node("header",undefined,"clients-section-heading");let caseField=null;
       const title=node("h3","Bieżąca sprawa"),summary=node("span",plan.phase,"client-journey-summary");summary.dataset.complete=String(plan.complete);header.append(title,summary);host.append(header);
       const status=node("p",loading?"Wczytywanie etapów…":"", "clients-hint");status.dataset.journeyMessage="";status.setAttribute("role","status");host.append(status);
       if(!hasStorage&&!loading){status.textContent="Zapis etapów wymaga uruchomienia supabase-client-journey.sql. Dokumenty źródłowe pozostają dostępne.";status.dataset.error="true";}
       if(context.profile.archived||saved?.archived)host.append(node("p",context.profile.archived?"Karta zarchiwizowana — przebieg tylko do odczytu.":"Poprzednia sprawa — tylko do odczytu. Bieżącą wybierzesz z listy.","clients-hint"));
-      if(plan.suggestions.length){const suggested=node("div",undefined,"client-journey-suggestions");suggested.append(node("h4",plan.suggestions.length===1?"Następna czynność":"Proponowane czynności"));for(const item of plan.suggestions.slice(0,3)){const row=node("div",undefined,"client-journey-suggestion");row.append(button(item.title,()=>item.row?openSource(item.row):choose(item.action||item.id)),node("span",item.detail));suggested.append(row);}host.append(suggested);}
+      if(!loading&&plan.consentMissing){const consent=node("div",undefined,"client-consent-notice");consent.append(node("strong","RODO — brak potwierdzenia"),node("span","Sprawdź dokument klienta. Sam wydruk nie potwierdza podpisania."));
+        const controls=node("div",undefined,"clients-actions");controls.append(button("Otwórz RODO",()=>go("rodo")),button("Potwierdź dokument",()=>{if(!editable())return;if(!a.confirm("Potwierdzasz, że dokument RODO tej osoby został podpisany lub przekazany zgodnie z przyjętą procedurą?"))return;state.confirmations.rodo=true;change();void saveState();}));consent.append(controls);host.append(consent);}
+      if(!loading&&plan.followUp){const follow=plan.followUp,reminder=node("div",undefined,follow.due?"client-follow-up due":"client-follow-up");
+        reminder.append(node("strong",follow.due?"Kontakt po wypożyczeniu":"Kontakt zaplanowany"),node("span",follow.due?`Od rozpoczęcia wypożyczenia minęło ${follow.days} dni. Brak powiązanej oferty i sprzedaży.`:`Ponowny kontakt: ${a.date?.(follow.contact_on)||follow.contact_on}.`));
+        const choices=node("div",undefined,"clients-actions");choices.append(button("Przygotuj ofertę",()=>go("offer")),button("Rezygnacja",()=>{if(!editable()||!a.confirm("Zapisać rezygnację z zakupu? Nie kończy to aktywnego wypożyczenia."))return;state.interest="DECLINED";delete state.follow_up;contactDraft=null;change();void saveState();}));reminder.append(choices);
+        const later=node("details",undefined,"client-follow-up-later");later.append(node("summary",follow.contact_on?"Zmień termin kontaktu":"Umówić w późniejszym czasie"));
+        const label=node("label"),date=node("input");label.append(node("span","Data ponownego kontaktu"),date);date.type="text";date.dataset.datePicker="";date.placeholder="DD.MM.RRRR";a.setDate(date,follow.contact_on||"");if(contactDraft?.loan_id===String(follow.loan.id))date.value=contactDraft.value;date.disabled=busy||!available||!followUpSupport;a.bindDate?.(date);
+        const editContact=()=>{if(!editable()||!followUpSupport)return;contactDraft={loan_id:String(follow.loan.id),value:date.value};dirty=true;operation=null;reservationAttempt=null;updateSave();};date.addEventListener("input",editContact);date.addEventListener("change",editContact);
+        const saveLater=button("Zapisz termin",()=>{if(!editable()||!followUpSupport)return;const contact=a.iso(date.value);if(!day(contact)||contact<a.today()){date.setCustomValidity("Wybierz dzisiejszą lub przyszłą datę kontaktu.");date.reportValidity?.();return;}date.setCustomValidity("");state.follow_up={loan_id:String(follow.loan.id),contact_on:contact};contactDraft=null;change();void saveState();});saveLater.disabled=busy||!available||!followUpSupport;later.append(label,saveLater);
+        if(!followUpSupport)later.append(node("small","Zapis terminu wymaga supabase-clients-follow-up.sql.","clients-hint"));reminder.append(later);host.append(reminder);}
+      if(plan.suggestions.length){const suggested=node("div",undefined,"client-journey-suggestions");for(const item of plan.suggestions.slice(0,3)){const row=node("div",undefined,"client-journey-suggestion");row.append(button(item.title,()=>item.row?openSource(item.row):choose(item.action||item.id)),node("span",item.detail));suggested.append(row);}host.append(suggested);}
       if(plan.activeLoans.length)host.append(node("p",`Do sprawdzenia: ${plan.activeLoans.length} wypożyczeń — brak zakończenia umowy lub aktywny wpis w Demo.`,"client-journey-warning"));
       if(plan.devices.length){const assigned=node("div",undefined,"client-journey-assigned");assigned.append(node("strong","Aparaty tej sprawy"));for(const item of plan.devices)assigned.append(button(`${item.model} · ${item.serial}`,()=>openSource(item)));host.append(assigned);}
       const visit=(context.activities||[]).find(item=>item.id===state.visit_id&&item.status==="PLANNED");
@@ -266,10 +289,10 @@
         if(!items.length)deviceList.append(node("p","Brak dostępnych aparatów dla wybranego wyszukiwania."));if(items.length>40)deviceList.append(node("small","Doprecyzuj wyszukiwanie — pokazano pierwsze 40 pozycji."));}
       search.addEventListener("input",renderDevices);renderDevices();
       const reserveButton=button("Przypisz / zarezerwuj wybrane",()=>void reserve());reserveButton.dataset.journeyReserve="";devices.append(reserveButton);host.append(devices);
-      const allActions=node("details",undefined,"client-journey-all-actions");allActions.append(node("summary","Dodaj czynność"));
+      const allActions=node("details",undefined,"client-journey-all-actions");allActions.append(node("summary","Dodaj"));
       const forms=node("div",undefined,"clients-actions client-journey-forms");for(const [kind,label]of [["offer","Oferta"],["loan","Umowa wypożyczenia"],["purchase","Zakup"],["rodo","RODO"],["receipt","Odbiór"],["care","Pielęgnacja"],["order","Zamówienie"],["complaint","Reklamacja"],["newVisit","Umów wizytę"]])forms.append(button(label,()=>kind==="purchase"?choose(kind):go(kind)));allActions.append(forms);
       const confirmations=node("div",undefined,"clients-actions");for(const [id,label]of Object.entries(flags))confirmations.append(button(label,()=>choose(id)));allActions.append(node("h4","Potwierdzenia dokumentów"),confirmations,node("p","Potwierdzaj po podpisaniu lub przekazaniu. Sam wydruk nie potwierdza wykonania czynności.","clients-hint"));host.append(allActions);
-      const actions=node("div",undefined,"clients-actions client-journey-actions");const save=button("Zapisz przebieg",()=>void saveState(),"primary");save.dataset.journeySave="";const newCase=button("Nowa sprawa",()=>{if(!editable()||!caseSupport||!a.confirm("Rozpocząć odrębną sprawę? Poprzednia pozostanie dostępna na liście spraw. Niezapisane zmiany zostaną pominięte."))return;state=normalize({case_id:a.id(),source_keys:[]},a.today());revision=null;saved=null;events=[];manual.clear();change();});newCase.disabled=busy||!available||!caseSupport;newCase.title=caseSupport?"Odrębny zakup, testowanie lub serwis":"Wymaga supabase-clients-audit.sql";actions.append(save,newCase);host.append(actions);
+      const actions=node("div",undefined,"clients-actions client-journey-actions");const save=button("Zapisz przebieg",()=>void saveState(),"primary");save.dataset.journeySave="";const newCase=button("Nowa sprawa",()=>{if(!editable()||!caseSupport||!a.confirm("Rozpocząć odrębną sprawę? Poprzednia pozostanie dostępna na liście spraw. Niezapisane zmiany zostaną pominięte."))return;rodoElsewhere=rodoElsewhere||saved?.data.confirmations?.rodo===true;state=normalize({case_id:a.id(),source_keys:[]},a.today());revision=null;saved=null;events=[];manual.clear();contactDraft=null;change();});newCase.disabled=busy||!available||!caseSupport;newCase.title=caseSupport?"Odrębny zakup, testowanie lub serwis":"Wymaga supabase-clients-audit.sql";actions.append(save,newCase);host.append(actions);
       if(plan.services.length){const serviceDetails=node("details",undefined,"client-journey-service-details");serviceDetails.append(node("summary",`Przebieg serwisu i zamówień · ${plan.services.length}`));for(const item of plan.services){const row=node("article",undefined,"client-journey-service");row.dataset.closed=String(item.closed);row.append(node("strong",[item.row.kind,item.row.number,item.row.model].filter(Boolean).join(" · ")));
         if(item.missingService)row.append(node("p","Brak powiązanego wpisu w Serwisie — sprawdź zapis formularza.","client-journey-warning"));
         else for(const stage of item.steps)row.append(node("span",`${stage.date?"✓":"○"} ${stage.label}${stage.date?` · ${a.dateTime(stage.date)}`:""}`));
@@ -282,6 +305,7 @@
     function updateSave(){const b=host.querySelector('[data-journey-save]');if(b){b.disabled=busy||!available||!dirty;b.classList.toggle("client-journey-unsaved",dirty);b.textContent=busy?"Zapisywanie…":"Zapisz przebieg";}const reserve=host.querySelector('[data-journey-reserve]');if(reserve){reserve.disabled=busy||!available||!caseSupport||!state.device_ids.length;if(!caseSupport)reserve.title="Bezpieczna rezerwacja wymaga supabase-clients-audit.sql";}}
     async function saveState(){
       if(!allowed()||!available||busy||!dirty)return;
+      if(contactDraft){const contact=a.iso(contactDraft.value);if(!day(contact)||contact<a.today()){message("Wybierz dzisiejszą lub przyszłą datę ponownego kontaktu.",true);return;}state.follow_up={loan_id:contactDraft.loan_id,contact_on:contact};contactDraft=null;}
       if(state.device_ids.length>state.devices_required){message("Liczba wybranych aparatów przekracza ustawioną liczbę.",true);return;}
       const epoch=generation,profileId=context.profile.id,payload=normalize(state,a.today());operation=operation||a.id();notice=null;busy=true;render();
       try{const data=await a.rpc("satis_client_journey_write",{p_customer_id:profileId,p_request_id:operation,p_expected_revision:revision,p_data:payload});
@@ -300,17 +324,17 @@
       finally{if(epoch===generation&&allowed()){busy=false;render();}}
     }
     async function read(epoch,caseId){const data=await a.rpc(caseId?"satis_client_journey_case_read":"satis_client_journey_read",{p_customer_id:context.profile.id,...(caseId?{p_case_id:caseId}:{})});if(epoch!==generation||!allowed())return;
-      caseSupport=data.case_support===true;cases=data.cases||[];saved=data.journey;revision=saved?.revision??null;
+      caseSupport=data.case_support===true;followUpSupport=data.follow_up_support===true;rodoElsewhere=data.rodo_confirmed_elsewhere===true;cases=data.cases||[];saved=data.journey;revision=saved?.revision??null;
       state=saved?normalize(saved.data,a.today()):caseSupport?normalize({case_id:a.id(),source_keys:[]},a.today()):initialState(context,a.today());events=data.events||[];hasStorage=true;available=!context.profile.archived&&!saved?.archived&&!a.readOnly;loading=false;render();}
     async function switchCase(caseId){if(!allowed()||busy||!caseSupport)return;const epoch=generation;busy=true;loading=true;notice=null;render();
-      try{await read(epoch,caseId);manual.clear();dirty=false;operation=null;}catch(error){if(epoch===generation&&allowed()){loading=false;message(error.message,true);}}
+      try{await read(epoch,caseId);manual.clear();contactDraft=null;dirty=false;operation=null;}catch(error){if(epoch===generation&&allowed()){loading=false;message(error.message,true);}}
       finally{if(epoch===generation&&allowed()){busy=false;render();}}}
-    async function show(value){generation++;context=value;state=initialState(value,a.today());saved=null;revision=null;events=[];manual=new Set();dirty=false;busy=false;operation=null;available=false;hasStorage=false;loading=true;notice=null;render();const epoch=generation;
+    async function show(value){generation++;context=value;state=initialState(value,a.today());saved=null;revision=null;events=[];manual=new Set();contactDraft=null;dirty=false;busy=false;operation=null;available=false;hasStorage=false;loading=true;notice=null;render();const epoch=generation;
       try{await read(epoch);}catch(error){if(epoch===generation&&allowed()){loading=false;
         if(!/PGRST202|42883|42P01/.test(error.code||""))notice={text:"Nie udało się wczytać etapów. Odśwież kartę przed zapisem; dokumenty źródłowe pozostały bez zmian.",error:true};render();}}}
     function refresh(value){if(!allowed()||context.profile.id!==value?.profile.id)return;context=value;if(!busy)render();}
-    function clear(){generation++;context=null;state=null;saved=null;events=[];cases=[];manual.clear();caseSupport=false;dirty=false;busy=false;available=false;operation=null;reservationAttempt=null;host.replaceChildren();host.hidden=true;}
+    function clear(){generation++;context=null;state=null;saved=null;events=[];cases=[];manual.clear();caseSupport=false;followUpSupport=false;rodoElsewhere=false;contactDraft=null;dirty=false;busy=false;available=false;operation=null;reservationAttempt=null;host.replaceChildren();host.hidden=true;}
     return {show,refresh,clear,dirty:()=>dirty,busy:()=>busy,ready:()=>available};
   }
-  return {flags,normalize,confirmedRows,initialState,build,historyEvents,demoSnapshots,createDemo,create};
+  return {flags,normalize,confirmedRows,initialState,build,followUpStatus,historyEvents,demoSnapshots,createDemo,create};
 });
