@@ -200,6 +200,11 @@ test('schedule slot opens an appointment dialog for the chosen clinic without sa
   assert.equal(f.nodes.get('clientsBookingFrom').value,'07:00');
   assert.equal(f.nodes.get('clientsBookingTo').value,'07:30');
   assert.equal(f.nodes.get('clientsBookingSearch').value,profile.full_name);
+  const options=f.nodes.get('clientsBookingToOptions').children;
+  assert.equal(options[0].textContent,'07:05');assert.equal(options.at(-1).textContent,'11:00');
+  options.find(node=>node.textContent==='08:00').emit('click');
+  assert.equal(f.nodes.get('clientsBookingTo').value,'08:00');
+  assert.equal(f.nodes.get('clientsBookingDuration').textContent,'Czas wizyty: 60 min');
   assert.equal(f.calls.filter(call=>call.name==='satis_clients_write').length,0);
 });
 test('drag selection snaps both ways to quarter hours, respects opening hours and caps duration',()=>{

@@ -144,6 +144,7 @@
       "clientVisitService","clientVisitPrice","clientsServicePrice","clientsScheduleSettingsNotice","clientsOpeningForm","clientsOpeningPlace","clientsOpeningRows","clientsOpeningHint",
       "clientsServiceForm","clientsServiceName","clientsServiceDuration","clientsServiceDay","clientsServiceWeek","clientsServiceMonth","clientsServiceYear","clientsServiceEnabled","clientsServiceNew","clientsServiceList");
     requiredIds.push("clientsBookingDialog","clientsBookingClose","clientsBookingForm","clientsBookingSummary","clientsBookingSearch","clientsBookingResults","clientsBookingClient","clientsBookingService","clientsBookingPrice","clientsBookingFrom","clientsBookingTo","clientsBookingDuration","clientsBookingMessage","clientsBookingSave");
+    requiredIds.push("clientsBookingFromOptions","clientsBookingToOptions");
     if (requiredIds.some(id=>!q(id))) throw new Error("Widok Klientów wymaga odświeżenia strony.");
     let index = sourceIndex([]), sourceRows = null, generation = 0, listSequence = 0, detailSequence = 0, visitSequence = 0;
     let profiles = [], total = 0, detail = null, visits = [], operations = new Map();
@@ -664,6 +665,28 @@
       return duration;
     }
     function timeMinutes(value) {return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;}
+    function renderBookingTimes(focusField="") {
+      if(!booking||!allowed())return;
+      const opening=openingForDay(scheduleConfig.hours,booking.location,booking.day);
+      const from=opening?timeMinutes(opening.from):0,to=opening?timeMinutes(opening.to):1435;
+      const start=timeMinutes(q("clientsBookingFrom").value);
+      for(const field of ["clientsBookingFrom","clientsBookingTo"]){
+        const input=q(field),host=q(`${field}Options`),endField=field==="clientsBookingTo";
+        const lower=endField?Math.max(from,start+5):from,upper=endField?Math.min(to,start+240):to-5;
+        const choices=[];
+        for(let minute=Math.ceil(lower/5)*5;minute<=upper;minute+=5){
+          const value=clock(minute),choice=button(value,()=>{
+            if(!booking)return;input.value=value;bookingChanged();bookingDuration();bookingMessage();renderBookingTimes(field);
+          },"clients-booking-time-choice");
+          choice.dataset.minute=String(minute);choice.setAttribute("aria-pressed",String(input.value===value));choice.tabIndex=input.value===value?0:-1;choices.push(choice);
+        }
+        host.replaceChildren(...choices);
+        const selected=choices.find(choice=>choice.dataset.minute===String(timeMinutes(input.value)));
+        if(!selected&&choices.length)choices[0].tabIndex=0;
+        if(!choices.length)host.append(node("p","Wpisz prawidłową godzinę rozpoczęcia."));
+        if(selected){host.scrollTop=Math.max(0,selected.offsetTop-(host.clientHeight-selected.offsetHeight)/2);if(focusField===field)selected.focus({preventScroll:true});}
+      }
+    }
     function validateBooking(day,start,end,location) {
       if(!scheduleReady)throw new Error("Wczytaj godziny otwarcia i usługi przed zapisem wizyty.");
       if(!["T12","P50","P63"].includes(location))throw new Error("Wybierz gabinet w harmonogramie przed wskazaniem godziny.");
@@ -689,7 +712,7 @@
         q("clientsBookingService").value="";q("clientsBookingPrice").textContent="";
         q("clientsBookingSave").classList.toggle("client-journey-unsaved",false);
         if(!scheduleConfig.services.some(item=>item.enabled))bookingMessage("Dodaj aktywną usługę w sekcji Godziny otwarcia i usługi.");
-        dialog.showModal();(booking.client?q("clientsBookingService"):q("clientsBookingSearch")).focus();
+        dialog.showModal();renderBookingTimes();(booking.client?q("clientsBookingService"):q("clientsBookingSearch")).focus();
       }catch(error){notify(error.message,true);}
     }
     function closeBooking(ask=true,force=false) {
@@ -698,7 +721,7 @@
       booking=null;bookingSequence++;clearTimeout(bookingSearchTimer);q("clientsBookingDialog")?.close?.();
       for(const id of ["clientsBookingSearch","clientsBookingFrom","clientsBookingTo"])if(q(id))q(id).value="";
       for(const id of ["clientsBookingResults","clientsBookingSummary","clientsBookingClient","clientsBookingPrice","clientsBookingMessage","clientsBookingDuration"])q(id)?.replaceChildren();
-      q("clientsBookingService")?.replaceChildren();return true;
+      q("clientsBookingService")?.replaceChildren();q("clientsBookingFromOptions")?.replaceChildren();q("clientsBookingToOptions")?.replaceChildren();return true;
     }
     async function searchBookingClients(sequence) {
       if(!booking||!allowed()||sequence!==bookingSequence)return;
@@ -1100,7 +1123,15 @@
       const service=scheduleConfig.services.find(item=>item.id===q("clientsBookingService").value&&item.enabled);
       q("clientsBookingPrice").textContent=service?`Cena brutto: ${priceLabel(service.price)} · standardowy czas: ${service.duration_minutes} min`:"";
     });
-    for(const id of ["clientsBookingFrom","clientsBookingTo"])q(id)?.addEventListener("input",()=>{if(booking&&allowed()&&!coreBusy()){bookingChanged();bookingDuration();bookingMessage();}});
+    for(const id of ["clientsBookingFrom","clientsBookingTo"]){
+      q(id)?.addEventListener("input",()=>{if(booking&&allowed()&&!coreBusy()){bookingChanged();bookingDuration();bookingMessage();renderBookingTimes();}});
+      q(`${id}Options`)?.addEventListener("keydown",event=>{
+        if(!booking||!allowed()||coreBusy()||!["ArrowUp","ArrowDown","PageUp","PageDown","Home","End"].includes(event.key))return;
+        const choices=[...q(`${id}Options`).querySelectorAll("button")],index=choices.indexOf(event.target);if(index<0)return;
+        event.preventDefault();const next=event.key==="Home"?0:event.key==="End"?choices.length-1:index+({ArrowUp:-1,ArrowDown:1,PageUp:-5,PageDown:5}[event.key]);
+        choices[Math.max(0,Math.min(choices.length-1,next))]?.click();
+      });
+    }
     q("clientsBookingForm")?.addEventListener("submit",event=>{event.preventDefault();void guarded(saveBooking);});
     q("clientsOpeningPlace").value=a.station();
     q("clientsOpeningPlace").addEventListener("change",()=>{

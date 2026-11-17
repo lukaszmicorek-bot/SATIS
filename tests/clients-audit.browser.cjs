@@ -166,6 +166,18 @@ async function run(){
  await page.locator('#clientsBookingTo').fill('07:00');await page.locator('#clientsBookingSave').click();
  assert.equal(await page.evaluate(()=>bookingWrites.length),0);assert.ok((await page.locator('#clientsBookingMessage').textContent()).includes('przedział'));
  await page.locator('#clientsBookingTo').fill('10:00');
+ const fromOptions=page.locator('#clientsBookingFromOptions'),toOptions=page.locator('#clientsBookingToOptions');
+ assert.equal(await fromOptions.locator('button').first().textContent(),'08:00');assert.equal(await fromOptions.locator('button').last().textContent(),'16:55');
+ assert.equal(await toOptions.locator('button').first().textContent(),'09:05');assert.equal(await toOptions.locator('button').last().textContent(),'13:00');
+ const beforeScroll=await fromOptions.evaluate(node=>node.scrollTop);await fromOptions.hover();await page.mouse.wheel(0,130);
+ await page.waitForFunction(before=>document.getElementById('clientsBookingFromOptions').scrollTop>before,beforeScroll);
+ await fromOptions.getByRole('button',{name:'09:30',exact:true}).click();assert.equal(await page.locator('#clientsBookingFrom').inputValue(),'09:30');
+ await toOptions.getByRole('button',{name:'10:30',exact:true}).click();assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:30');
+ assert.equal(await page.locator('#clientsBookingDuration').textContent(),'Czas wizyty: 60 min');
+ await page.keyboard.press('ArrowDown');assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:35');
+ await page.keyboard.press('ArrowUp');assert.equal(await page.locator('#clientsBookingTo').inputValue(),'10:30');
+ await page.locator('#clientsBookingFrom').fill('09:00');await page.locator('#clientsBookingTo').fill('10:00');
+ assert.equal(await fromOptions.getByRole('button',{name:'09:00',exact:true}).getAttribute('aria-pressed'),'true');
  if(process.env.SATIS_QA_DIR)await page.locator('#clientsBookingDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-booking-desktop.png')});
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  if(process.env.SATIS_QA_DIR)await page.locator('#clientsBookingDialog').screenshot({path:path.join(process.env.SATIS_QA_DIR,'clients-booking-mobile.png')});

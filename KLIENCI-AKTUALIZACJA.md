@@ -37,6 +37,10 @@ oryginalnych dokumentow ani kopii zapasowych.
   byc wstepnie wybrana, z mozliwoscia zmiany.
 - Godziny Od i Do mozna poprawic. Wybor uslugi pokazuje cene i standardowy
   czas, ale nie nadpisuje przedzialu zaznaczonego mysza.
+- Pod polami Od i Do sa przewijane listy godzin co 5 minut. Wybrana
+  godzina jest podswietlona; mozna tez wpisac ja recznie. Lista Do
+  uwzglednia poczatek, limit 4 godzin i godzine zamkniecia gabinetu.
+  Listy obsluguja kolko myszy, dotyk i klawisze strzalek.
 - Dopiero Zapisz wizyte zapisuje dzialanie w historii wybranego klienta
   i kalendarzu. Nadal obowiazuja godziny otwarcia, dni robocze, limity uslug,
   kontrola kolizji i ochrona przed podwojnym wyslaniem. Brak polaczenia
