@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261117-1">
+  <link rel="stylesheet" href="styles.css?v=20261117-2">
   </head>
   <body>
     <main class="app-shell">
@@ -804,11 +804,17 @@
               <div id="clientsSuggestions"></div>
             </section>
           </aside>
+          <dialog id="clientsDialog" class="clients-dialog" aria-labelledby="clientsDialogTitle">
+            <header class="clients-dialog-heading"><h2 id="clientsDialogTitle">Karta klienta</h2><button id="clientsDialogClose" type="button" class="reset-filters-btn" aria-label="Zamknij kartę klienta">Zamknij</button></header>
+            <p id="clientsDialogMessage" class="clients-message" role="status" aria-live="polite"></p>
+            <div class="clients-dialog-scroll">
           <div class="clients-workspace">
             <section id="clientsDemoPanel" aria-label="Fikcyjny przykład drogi klienta" hidden></section>
             <section id="clientsCard" hidden>
               <header class="clients-card-heading"><h2 id="clientsCardTitle">Nowy klient</h2><div class="clients-actions"><button id="clientArchive" class="reset-filters-btn" type="button" data-client-write hidden>Archiwizuj</button><button id="clientDelete" class="reset-filters-btn clients-delete" type="button" data-client-write hidden>Usuń kartę</button></div></header>
               <p id="clientIdentityWarning" class="clients-warning" hidden></p>
+              <p id="clientsContactSummary" class="clients-contact-summary"></p>
+              <details id="clientsContactDetails" class="clients-contact-details"><summary>Dane klienta</summary>
               <form id="clientsForm" autocomplete="off">
                 <div class="clients-contact-grid">
                   <label class="clients-name">Imię i nazwisko<input id="clientName" type="text" maxlength="160" required autocomplete="off" spellcheck="false"></label>
@@ -827,6 +833,7 @@
                 <p id="clientAddressHint" class="clients-hint" role="status" aria-live="polite"></p>
                 <div class="clients-actions"><button type="submit" class="primary" data-client-write>Zapisz</button></div>
               </form>
+              </details>
               <section id="clientJourney" class="client-journey" aria-label="Przebieg sprawy klienta" hidden></section>
               <section id="clientActivitySection" hidden>
                 <header class="clients-section-heading"><h3>Historia i działania</h3><div class="clients-actions"><button id="clientAddVisit" class="reset-filters-btn" type="button" data-client-write>Umów wizytę</button><button id="clientAddNote" class="reset-filters-btn" type="button" data-client-write>Dodaj notatkę</button></div></header>
@@ -854,6 +861,8 @@
               <details class="clients-access"><summary>Rejestr dostępu i zmian</summary><div id="clientOperations"></div></details>
             </section>
           </div>
+            </div>
+          </dialog>
         </div>
         <section class="clients-agenda" aria-label="Harmonogram wizyt">
           <header class="clients-section-heading"><h2>Harmonogram wizyt</h2>
@@ -3628,25 +3637,25 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261117-1"></script>
-    <script src="data-layer.js?v=20261117-1"></script>
-    <script src="sync-layer.js?v=20261117-1"></script>
-    <script src="traffic-meter.js?v=20261117-1"></script>
-    <script src="repair-returns.js?v=20261117-1"></script>
-    <script src="offline-vault.js?v=20261117-1"></script>
-    <script src="offline-forms.js?v=20261117-1"></script>
-    <script src="stock-audit.js?v=20261117-1"></script>
-    <script src="complaint-shipping.js?v=20261117-1"></script>
-    <script src="vacation-attendance.js?v=20261117-1"></script>
-    <script src="tasks.js?v=20261117-1"></script>
-    <script src="client-journey.js?v=20261117-1"></script>
-    <script src="clients.js?v=20261117-1"></script>
-    <script src="tinnitus-forms.js?v=20261117-1"></script>
-    <script src="care-form.js?v=20261117-1"></script>
-    <script src="accessory-catalog.js?v=20261117-1"></script>
-    <script src="repair-catalog.js?v=20261117-1"></script>
-    <script src="wsa-repair-groups.js?v=20261117-1"></script>
-    <script src="mail-merge.js?v=20261117-1"></script>
-  <script src="app.js?v=20261117-1"></script>
+    <script src="supabase-config.js?v=20261117-2"></script>
+    <script src="data-layer.js?v=20261117-2"></script>
+    <script src="sync-layer.js?v=20261117-2"></script>
+    <script src="traffic-meter.js?v=20261117-2"></script>
+    <script src="repair-returns.js?v=20261117-2"></script>
+    <script src="offline-vault.js?v=20261117-2"></script>
+    <script src="offline-forms.js?v=20261117-2"></script>
+    <script src="stock-audit.js?v=20261117-2"></script>
+    <script src="complaint-shipping.js?v=20261117-2"></script>
+    <script src="vacation-attendance.js?v=20261117-2"></script>
+    <script src="tasks.js?v=20261117-2"></script>
+    <script src="client-journey.js?v=20261117-2"></script>
+    <script src="clients.js?v=20261117-2"></script>
+    <script src="tinnitus-forms.js?v=20261117-2"></script>
+    <script src="care-form.js?v=20261117-2"></script>
+    <script src="accessory-catalog.js?v=20261117-2"></script>
+    <script src="repair-catalog.js?v=20261117-2"></script>
+    <script src="wsa-repair-groups.js?v=20261117-2"></script>
+    <script src="mail-merge.js?v=20261117-2"></script>
+  <script src="app.js?v=20261117-2"></script>
   </body>
 </html>

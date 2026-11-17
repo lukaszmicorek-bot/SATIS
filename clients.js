@@ -155,8 +155,9 @@
     const journey = a.journey?.create({host:q("clientJourney"),document:d,allowed,
       today:a.today,id:a.id,setDate:a.setDate,iso:a.isoDate,date:a.date,dateTime:a.dateTime,confirm:a.confirm,bindDate:a.bindDate,
       rpc,devices:(profile,links)=>a.availableDevices?.(profile,links)||[],context:journeyContext,
-      canNavigate:()=>!unsaved(false),openForm:(kind,profile,caseData)=>a.openForm?.(kind,profile,caseData),
-      visit:()=>{if(editActivity("VISIT")){q("clientActivityTitle").value="Dopasowanie i odbiór aparatów";q("clientActivityEditor").scrollIntoView?.({block:"center",behavior:"smooth"});}},
+      changed:()=>{if(q("clientsMessage").textContent==="Poczekaj na zakończenie zapisu.")notify("");},
+      canNavigate:()=>!unsaved(false),beforeNavigate:()=>closeCard(false),openForm:(kind,profile,caseData)=>a.openForm?.(kind,profile,caseData),
+      visit:id=>{const visit=detail?.activities.find(row=>row.id===id&&row.kind==="VISIT");if(editActivity("VISIT",visit||null)){if(!visit)q("clientActivityTitle").value="Dopasowanie i odbiór aparatów";q("clientActivityEditor").scrollIntoView?.({block:"center",behavior:"smooth"});}},
       reserve:async(profile,ids,attempt)=>{
         if(unsaved(false))throw new Error("Zapisz najpierw zmiany danych klienta.");
         const result=await a.reserveDevices(profile,ids,detail.links,attempt);
@@ -166,10 +167,27 @@
       }});
     function journeyContext(){getIndex();return detail?{...detail,sources:sourceRows||[]}:null;}
     const demo=a.journey?.createDemo?.({host:q("clientsDemoPanel"),document:d,allowed,setDate:a.setDate,iso:a.isoDate,dateTime:a.dateTime,
-      onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;}});
+      onClose:()=>{q("clientsCard").hidden=!detail&&!newProfileId;showCard();}});
     if(q("clientsDemoBtn"))q("clientsDemoBtn").hidden=!demo;
-    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!coreBusy()&&discard()){q("clientsCard").hidden=true;demo?.open();}});
+    q("clientsDemoBtn")?.addEventListener("click",()=>{if(allowed()&&!coreBusy()&&discard()){q("clientsCard").hidden=true;demo?.open();showCard("Klient demonstracyjny");}});
     function coreBusy() { return busy || Boolean(journey?.busy?.()); }
+    function showCard(title="Karta klienta") {
+      const dialog=q("clientsDialog");if(!allowed()||!dialog?.showModal)return;
+      q("clientsDialogTitle").textContent=title;
+      if(!dialog.open)dialog.showModal();
+    }
+    function closeCard(discardChanges=true) {
+      if(coreBusy()){notify("Poczekaj na zakończenie zapisu.",true);return false;}
+      if(discardChanges&&!discard())return false;
+      a.closeDatePicker?.();q("clientsDialog")?.close?.();
+      if(discardChanges){profileDirty=false;activityDirty=false;journey?.clear();demo?.clear();updateProfileSave();}
+      return true;
+    }
+    q("clientsDialogClose")?.addEventListener("click",()=>closeCard());
+    q("clientsDialog")?.addEventListener("cancel",event=>{event.preventDefault();
+      if(q("clientsDialog").querySelector?.(".two-month-picker:not([hidden])")){a.closeDatePicker?.();return;}closeCard();});
+    q("clientsDialog")?.addEventListener("click",event=>{if(event.target!==q("clientsDialog"))return;const rect=event.currentTarget.getBoundingClientRect();
+      if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeCard();});
     function updateProfileSave() {
       q("clientsForm").querySelectorAll('button[type="submit"][data-client-write]').forEach(control => {
         control.textContent = "Zapisz dane";
@@ -184,6 +202,7 @@
     function notify(text, error = false) {
       q("clientsMessage").textContent = sourceSearchMissing && !text.includes(sourceSearchWarning) ? [text, sourceSearchWarning].filter(Boolean).join(" ") : text;
       q("clientsMessage").dataset.error = String(error || sourceSearchMissing);
+      if(q("clientsDialogMessage")){q("clientsDialogMessage").textContent=q("clientsMessage").textContent;q("clientsDialogMessage").dataset.error=q("clientsMessage").dataset.error;}
     }
     function getIndex() {
       try {
@@ -335,6 +354,7 @@
       a.locationAccent(q("clientLocation"));
       q("clientsCard").hidden = false;
       q("clientsCardTitle").textContent = profile.full_name || "Nowy klient";
+      if(q("clientsContactSummary"))q("clientsContactSummary").textContent=[a.phone(profile.phone),profile.location].filter(Boolean).join(" · ");
       q("clientArchive").hidden = !profile.id;
       q("clientArchive").textContent = profile.archived ? "Przywróć kartę" : "Archiwizuj";
       q("clientDelete").hidden = !profile.id;
@@ -352,10 +372,11 @@
       fillProfile({full_name: candidate?.name || "", phone: candidate?.phone || "", street: parts.street || "",
         postal_code: parts.postalCode || "", city: parts.city || "", location: candidate?.location || a.station()});
       selectedSources.clear(); profileDirty = true; updateProfileSave();
+      if(q("clientsContactDetails"))q("clientsContactDetails").open=true;
       q("clientHistory").replaceChildren(); q("clientOperations").replaceChildren();
       q("clientIdentityWarning").hidden = !candidate;
       q("clientIdentityWarning").textContent = candidate ? "To propozycja danych, nie potwierdzona tożsamość. Sprawdź osobę i dane kontaktowe. Po zapisaniu wybierz jej właściwe dokumenty." : "";
-      q("clientName").focus();
+      showCard("Nowy klient");q("clientName").focus();
     }
     async function select(id) {
       if (!discard()) return;
@@ -365,9 +386,11 @@
       if (sequence !== detailSequence) return;
       if (detail?.profile.id !== id) selectedSources.clear();
       detail = data; fillProfile(data.profile);
+      if(q("clientsContactDetails"))q("clientsContactDetails").open=false;
       q("clientIdentityWarning").hidden = true;
       renderHistory(); renderLinks(); renderList();
       await journey?.show(journeyContext());
+      showCard();
     }
     async function saveProfile() {
       if (journey?.busy?.() || journey?.dirty()) {
@@ -403,6 +426,7 @@
       await write("DELETE", detail.profile.id, {}, detail.profile.revision);
       profileDirty = false; activityDirty = false;
       detail = null; q("clientsCard").hidden = true; q("clientsForm").reset(); q("clientActivityEditor").reset();
+      q("clientsDialog")?.close?.();
       journey?.clear();
       q("clientHistory").replaceChildren(); q("clientOperations").replaceChildren();
       await list(); await upcoming(); notify("Karta usunięta. Dokumenty źródłowe pozostały bez zmian.");
@@ -483,7 +507,7 @@
         const item = node("article", "", "client-timeline-item"), content = node("div");
         if (row.source) {
           content.append(node("strong", `${row.kind} · ${row.date ? a.date(row.date) : "bez daty"}`), node("span",[row.model,row.serial,row.number,row.status,row.location].filter(Boolean).join(" · ")));
-          item.append(content,button("Otwórz", () => {if (allowed() && !busy && discard()) row.open();}),button("Odłącz", () => {void guarded(async () => {
+          item.append(content,button("Otwórz", () => {if (allowed() && !busy && closeCard()) row.open();}),button("Odłącz", () => {void guarded(async () => {
             if (unsaved()) return;
             if (!a.confirm("Odłączyć ten dokument od karty? Oryginalny dokument pozostanie bez zmian.")) return;
             await write("UNLINK",detail.profile.id,{source_type:row.type,source_id:row.id},detail.profile.revision); await select(detail.profile.id);
@@ -542,6 +566,7 @@
       q("clientVisitStatus").value = event?.status || "PLANNED";
       q("clientVisitFields").hidden = kind !== "VISIT";
       q("clientActivityTitle").focus();
+      showCard();
       if(kind === "VISIT") {
         scheduleLocation=q("clientVisitLocation").value;
         if(localDate)scheduleAnchor=localDate.slice(0,10);
@@ -808,6 +833,7 @@
       if (sourcesUnavailable) notify("Nie udało się odczytać powiązanych dokumentów. Zapisane karty klientów pozostają dostępne.",true);
     }
     function clear() {
+      a.closeDatePicker?.();q("clientsDialog")?.close?.();
       demo?.clear();
       journey?.clear();
       clientWorkFilter="";for(const tile of q("clientsNotebook").querySelectorAll("[data-client-stage]"))tile.setAttribute("aria-pressed",String(tile.dataset.clientStage===""));
@@ -818,7 +844,7 @@
       q("clientsForm")?.reset(); q("clientActivityEditor")?.reset();
       for(const id of ["clientStreetName","clientHouseNumber","clientFlatNumber"])if(q(id))q(id).value="";
       q("clientsSearch").value="";q("clientsCard").hidden=true;q("clientsReminderBtn").hidden=true;notify("");
-      for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount","clientAddressHint"]) q(id).textContent="";
+      for (const id of ["clientsCardTitle","clientIdentityWarning","clientsCount","clientCandidatesCount","clientAddressHint","clientsContactSummary"]) if(q(id))q(id).textContent="";
       q("clientCitySuggestions").replaceChildren(); autoCity="";autoPostal="";sourcesUnavailable=false;
       q("clientsSchedule").replaceChildren();q("clientsScheduleTitle").textContent="";q("clientsScheduleNotice").textContent="";q("clientsScheduleDate").value="";
       visitsLoaded=false;visitsFetchedAt="";scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10);
@@ -986,7 +1012,7 @@
     }
     setBusy(false);
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],
-      select: id => guarded(() => select(id))};
+      close:()=>closeCard(),canLeave:()=>closeCard(),select: id => guarded(() => select(id))};
   }
   return {normalized,phoneKey,postalCities,sourceKey,sourceIndex,suggestions,linkedTimeline,visitEvents,localInput,visitStart,shiftDay,scheduleRange,scheduleDayVisits,openingForDay,resizedDuration,parsePrice,priceLabel,nonworkingDay,profilePayload,create};
 });

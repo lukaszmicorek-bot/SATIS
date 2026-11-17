@@ -25728,6 +25728,7 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
   }
   if (["capd", "vacation", "pcpr", "tinnitus", "tasks"].includes(notebookName) && !currentSupabaseUser) return;
   if (notebookName === "history" && !canViewDocumentHistory()) return;
+  if(activeNotebook==="clients"&&notebookName!=="clients"&&clientsModule?.canLeave?.()===false)return;
   hideWorkTimeHourlyPreview();
   hideVacationPeriodPreview();
   activeNotebook = notebookName;
@@ -28997,7 +28998,7 @@ function bindDatePickerInput(input) {
     input.addEventListener("input", () => updateDateInputTodayState(input));
     input.addEventListener("change", () => updateDateInputTodayState(input));
     input.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeDatePicker();
+      if (event.key === "Escape" && !ensureDatePicker().hidden) { event.preventDefault();event.stopPropagation();closeDatePicker(); }
     });
 }
 
@@ -31291,7 +31292,7 @@ function initializeClientsModule() {
   document, owner: canViewPrivateModules, user: () => currentSupabaseUser?.id || "",
   active: () => activeNotebook === "clients", sources: clientsCurrentSources,
   journey: window.SatisClientJourney, availableDevices: availableClientJourneyDevices,
-  reserveDevices: reserveClientJourneyDevices, openForm: openClientJourneyForm, bindDate: bindDatePickerInput,
+  reserveDevices: reserveClientJourneyDevices, openForm: openClientJourneyForm, bindDate: bindDatePickerInput, closeDatePicker,
   rpc: async (name, args) => {
     if (!currentSupabaseUser || !canViewPrivateModules() || !supabaseClient) throw new Error("Zaloguj się na konto SATIS.");
     const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 15000);

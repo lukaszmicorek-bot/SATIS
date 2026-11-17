@@ -24,6 +24,15 @@ oryginalnych dokumentow ani kopii zapasowych.
 
 ## Obsluga
 
+- Karta klienta otwiera sie w osobnym, przewijanym oknie. Dane kontaktowe
+  sa domyslnie zwiniete; przy dodawaniu klienta formularz danych jest otwarty.
+  Zamkniecie pyta o niezapisane zmiany, a trwajacy zapis blokuje zamkniecie.
+- Nowy klient nie ma obowiazkowej listy wszystkich etapow. Wypozyczenie
+  prowadzi do zwrotu i decyzji, zakup do doboru i wydania aparatow, serwis
+  do wyslania, powrotu, kontaktu i odbioru. Oferta, wizyta i zlecenie NFZ
+  pojawiaja sie wtedy, gdy dotycza sprawy. Wszystkie czynnosci mozna wybrac
+  recznie. Otwarcie formularza nie potwierdza wykonania ani podpisania.
+
 - Zapisz dane zapisuje kontakty. Zapisz przebieg zapisuje etapy sprawy.
   Niezapisane zmiany maja malinowe oznaczenie. Trwajacy zapis blokuje
   kolidujace operacje, a odswiezenie nie odblokowuje jego pol.

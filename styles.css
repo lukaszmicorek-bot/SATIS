@@ -17760,7 +17760,30 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .clients-notebook .document-location-field select:focus { border-left-color: var(--document-location-accent); }
 #clientAddressHint:empty { display: none; }
 .clients-notebook input:focus-visible, .clients-notebook select:focus-visible, .clients-notebook textarea:focus-visible { outline: 2px solid #007d80; outline-offset: 2px; }
-.clients-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 28px; }
+.clients-layout { display: block; }
+.clients-directory #clientsList, .clients-directory #clientsSuggestions { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 10px; }
+.clients-dialog { width: min(1080px,calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #cbd8dc; border-radius: 8px; background: #f9fcfc; color: #183d49; overflow: hidden; }
+.clients-dialog[open] { display: flex; flex-direction: column; }
+.clients-dialog::backdrop { background: rgb(16 35 42 / 38%); }
+.clients-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-bottom: 1px solid #dce5e7; flex: 0 0 auto; }
+.clients-dialog-heading h2 { margin: 0; font-size: 0.95rem; }
+.clients-dialog-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 18px 22px 24px; min-height: 0; }
+.clients-dialog > .clients-message { margin: 0; padding: 8px 22px; flex: 0 0 auto; }
+.clients-dialog > .clients-message:empty { display: none; }
+.clients-dialog .clients-card-heading { margin-bottom: 8px; }
+.clients-contact-summary { margin: 4px 0 14px; color: #526f78; font-size: 0.85rem; }
+.clients-contact-details > summary { padding: 9px 0; cursor: pointer; color: #335e6b; font-size: 0.82rem; font-weight: 650; }
+.clients-dialog .clients-contact-details { border-bottom: 1px solid #dce5e7; padding-bottom: 8px; margin-bottom: 14px; }
+.clients-dialog #clientJourney { margin-top: 0; padding-top: 0; border-top: 0; }
+.clients-dialog .client-journey > .clients-section-heading { margin-top: 0; margin-bottom: 10px; border-top: 0; padding-top: 0; }
+.client-journey [data-journey-message]:empty { display: none; }
+.client-journey-suggestions h4 { margin: 8px 0; }
+.client-journey-suggestions { margin: 8px 0 16px; padding: 2px 0 12px; border-bottom: 1px solid #dce5e7; }
+.client-journey-suggestion { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 8px 0; }
+.client-journey-suggestion button { color: #00666c; background: #edf6f5; border-color: #bbd8d5; }
+.client-journey-suggestion > span { color: #5b737b; font-size: 0.8rem; line-height: 1.45; }
+.client-journey-all-actions { margin: 14px 0; border-top: 1px solid #dce5e7; }
+@media(max-width:600px) { .clients-dialog { width: calc(100vw - 16px); max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); } .clients-dialog-heading { padding: 12px; } .clients-dialog-scroll { padding: 12px; } .clients-directory #clientsList, .clients-directory #clientsSuggestions { grid-template-columns: minmax(0,1fr); } }
 .clients-directory { min-width: 0; border-right: 1px solid #dce4e5; padding-right: 18px; }
 .clients-workspace { min-width: 0; }
 .clients-notebook h2 { font-size: 1.05rem; color: #003f5a; margin: 12px 0; }

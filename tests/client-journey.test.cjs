@@ -22,13 +22,13 @@ test('active loan and unclosed Demo stay blockers even after purchase and signed
 test('old offer, old sale and unrelated visits never close a new case; cancelled/missed visits do not count',()=>{
  const data=successful();data.sources[1].date='2025-01-01';data.sources[2].workflow.pickupDate='2025-01-01';
  const s={...base(),device_ids:[],visit_id:'different'};const plan=journey.build(data,s,today);
- for(const id of ['offer','delivery','visit'])assert.equal(plan.steps.find(step=>step.id===id).done,false,id);
+ for(const id of ['offer','delivery','visit'])assert.notEqual(plan.steps.find(step=>step.id===id)?.done,true,id);
  for(const status of ['PLANNED','CANCELLED','MISSED']){const c=successful();c.activities[0].status=status;assert.equal(journey.build(c,base(),today).complete,false,status);}
 });
 test('opening forms or having sold devices never implies RODO, receipt, care or instructions were signed/given',()=>{
  const s={...base(),confirmations:{}};const plan=journey.build(successful(),s,today);
  assert.equal(plan.complete,false);
- for(const id of Object.keys(journey.flags))assert.equal(plan.steps.find(step=>step.id===id).done,false,id);
+ for(const id of Object.keys(journey.flags))assert.notEqual(plan.steps.find(step=>step.id===id)?.done,true,id);
 });
 test('two hearing aids require two assigned and delivered units; chargers do not satisfy the count',()=>{
  const data=successful(),s={...base(),devices_required:2,device_ids:['aid1','charger']};
@@ -96,7 +96,7 @@ test('busy/other-person device, duplicate serial, unauthorized account and write
 test('separate cases on the same day never inherit the earlier sale or document confirmations',()=>{
  const data=successful(),state=journey.normalize({case_id:'10000000-0000-0000-0000-000000000001',source_keys:[]},today);
  const plan=journey.build(data,state,today);
- for(const id of ['offer','devices','delivery','ezwm'])assert.equal(plan.steps.find(s=>s.id===id).done,false,id);
+ assert.equal(plan.steps.length,0);assert.equal(plan.complete,false);
  const history=[{created_at:today,data:{...state,case_id:'10000000-0000-0000-0000-000000000002',confirmations:{rodo:true}}}];
  assert.deepEqual(journey.historyEvents(history,state),[]);
  state.source_keys=['offer:offer-test'];state.device_ids=['aid1'];
@@ -105,6 +105,29 @@ test('separate cases on the same day never inherit the earlier sale or document 
 test('interest is not described as a confirmed purchase before there is a sale',()=>{
  const plan=journey.build(make(),journey.normalize({interest:'INTERESTED'},today),today);
  assert.equal(plan.steps.find(s=>s.id==='interest').detail,'Zainteresowany zakupem');
+});
+test('empty customer starts with choices, not a mandatory fifteen-step checklist',()=>{
+ const plan=journey.build(make(),journey.normalize({},today),today);
+ assert.deepEqual(plan.steps,[]);assert.equal(plan.complete,false);assert.equal(plan.phase,'Wybierz czynność');
+ assert.deepEqual(plan.suggestions.map(row=>row.action),['loan','offer','purchase']);
+});
+test('trial suggests return first and purchase decision only after actual return',()=>{
+ const loan=row('loan','loan',today,{returnDate:''}),context=make([loan]);
+ let plan=journey.build(context,journey.normalize({},today),today);
+ assert.deepEqual(plan.steps.map(step=>step.id),['loan','return']);assert.equal(plan.next.row.id,'loan');
+ loan.workflow.returnDate=today;plan=journey.build(context,journey.normalize({},today),today);
+ assert.ok(plan.steps.some(step=>step.id==='interest'));assert.equal(plan.next.action,'purchase');
+ assert.ok(!plan.steps.some(step=>['delivery','ezwm','receipt'].includes(step.id)));
+});
+test('direct purchase does not require a trial, offer, visit or NFZ unless selected or evidenced',()=>{
+ let state=journey.normalize({interest:'INTERESTED'},today),plan=journey.build(make(),state,today);
+ assert.deepEqual(plan.steps.map(step=>step.id),['interest','devices']);assert.equal(plan.next.action,'devices');
+ state.referral='REQUESTED';plan=journey.build(make(),state,today);assert.ok(plan.steps.some(step=>step.id==='referral'));
+ state.referral='WITHOUT_REFUND';plan=journey.build(make(),state,today);assert.ok(!plan.steps.some(step=>['referral','ezwm'].includes(step.id)));
+});
+test('manual document action reveals just that confirmation without checking it automatically',()=>{
+ const plan=journey.build(make(),journey.normalize({},today),today,['rodo']);
+ assert.deepEqual(plan.steps.map(step=>step.id),['rodo']);assert.equal(plan.steps[0].done,false);
 });
 test('a lost reservation response retries the identical payload even when realtime already changed stock',async()=>{
  let fail=true;const requests=[];
