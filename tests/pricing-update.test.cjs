@@ -6,7 +6,7 @@ function extract(name){const start=source.search(new RegExp(`^(?:async )?functio
 function setup(){
  const writes=[],messages=[],storage=new Map();let commit;
  const c=vm.createContext({pricingFields:['idProduct','nfzCode','tradeName','model','manufacturer','orderIndex','grossPrice','swdCode'],
-  PRICING_UPDATED_MONTH:11,PRICING_UPDATED_YEAR:2026,PRICING_CATALOG_REVISION:'20261118-01',PRICING_META_ROW_ID:'__pricing_meta__',PRICING_META_STORAGE_KEY:'meta',
+  PRICING_UPDATED_MONTH:11,PRICING_UPDATED_YEAR:2026,PRICING_CATALOG_REVISION:'20261118-01',PRICING_CATALOG_NEW_KEYS:JSON.parse(source.match(/^const PRICING_CATALOG_NEW_KEYS = (.+);$/m)[1]),PRICING_META_ROW_ID:'__pricing_meta__',PRICING_META_STORAGE_KEY:'meta',
   PRICING_EMBEDDED_RECORDS:seed,window:{},hasSupabaseConfig:true,supabaseInitialDataReady:true,pricingSupabaseAvailable:true,
   currentSupabaseUser:{id:'owner'},canViewPrivateModules:()=>true,sensitiveStateGeneration:1,pricingMutationInProgress:false,pricingMutationRevision:0,
   pricingRecords:[],pricingMeta:{updatedMonth:4,updatedYear:2026},localStorage:{setItem:(key,value)=>storage.set(key,value)},
@@ -17,7 +17,7 @@ function setup(){
  for(const name of ['normalize','normalizePricingRecordsForUse','normalizePricingRecordForUse','repairPricingRecordColumns','repairShiftedPricingModel',
   'normalizePricingManufacturerName','normalizeAudibelTradeName','normalizePricingPrice','pricingRecordKey','mergePricingRecords',
   'pricingSupabaseRecordId','pricingRecordsForSupabase','pricingSeedRecords','defaultPricingMeta','normalizePricingMeta','savePricingMeta',
-  'currentPricingMeta','markPricingUpdatedNow','splitSupabasePricingRows','bundledPricingUpdatePlan','applyBundledPricingUpdate'])vm.runInContext(extract(name),c);
+  'currentPricingMeta','markPricingUpdatedNow','splitSupabasePricingRows','pricingNewProductKeys','isLatestPricingProduct','bundledPricingUpdatePlan','applyBundledPricingUpdate'])vm.runInContext(extract(name),c);
  return {c,writes,messages,storage,setCommit:fn=>commit=fn};
 }
 const item=(idProduct,extra={})=>({idProduct,nfzCode:'P.01.01.00',tradeName:'Aparat testowy',model:'Model testowy',manufacturer:'Phonak',grossPrice:4000,...extra});
@@ -77,4 +77,48 @@ test('responses from a signed-out session are discarded instead of restoring its
  setCommit(changes=>{c.sensitiveStateGeneration++;c.currentSupabaseUser=null;return changes.map(row=>({table:row.table,id:row.id,revision:1}));});
  assert.equal(await c.applyBundledPricingUpdate(),false);assert.equal(c.pricingRecords,before);assert.equal(c.pricingMeta.catalogRevision,undefined);
  assert.match(extract('clearSensitiveApplicationState'),/setPricingMutationBusy\(false\)/);assert.match(extract('activateSupabaseSession'),/void applyBundledPricingUpdate\(\)/);
+});
+
+test('last CSV batch contains exactly its 99 additions, not price corrections or every source row',()=>{
+ const {c}=setup();assert.equal(c.PRICING_CATALOG_NEW_KEYS.length,99);
+ const sourceKeys=new Set(seed.map(row=>c.pricingRecordKey(row)));
+ assert.ok(c.PRICING_CATALOG_NEW_KEYS.every(key=>sourceKeys.has(key)));
+ assert.ok(!c.PRICING_CATALOG_NEW_KEYS.includes('id:12924643|nfz:p.01.01.00'),'a changed price is not a new product');
+});
+test('highlights persist across reloads and ordinary edits until the next batch; rename/delete preserve identity',()=>{
+ const {c,storage}=setup();const a=item('a'),b=item('b'),d=item('d');
+ c.pricingMeta={updatedMonth:11,updatedYear:2026,latestProductKeys:[c.pricingRecordKey(a)]};
+ assert.equal(c.isLatestPricingProduct(a),true);assert.equal(c.isLatestPricingProduct(b),false);
+ c.markPricingUpdatedNow();assert.equal(c.isLatestPricingProduct(a),true);
+ c.markPricingUpdatedNow({latestProductKeys:c.pricingNewProductKeys([a],[a,b,d])});
+ assert.equal(c.isLatestPricingProduct(a),false);assert.equal(c.isLatestPricingProduct(b),true);assert.equal(c.isLatestPricingProduct(d),true);
+ c.markPricingUpdatedNow({latestProductKeys:[]});assert.equal(c.isLatestPricingProduct(b),true,'price-only import retains the last addition');
+ c.pricingMeta=c.normalizePricingMeta(JSON.parse(storage.get('meta')));assert.equal(c.isLatestPricingProduct(b),true);
+ const changed={...b,nfzCode:'P.01.01.01'};c.markPricingUpdatedNow({replaceProductKey:[c.pricingRecordKey(b),c.pricingRecordKey(changed)]});
+ assert.equal(c.isLatestPricingProduct(changed),true);assert.equal(c.isLatestPricingProduct(b),false);
+ c.markPricingUpdatedNow({replaceProductKey:[c.pricingRecordKey(changed),'']});assert.equal(c.isLatestPricingProduct(changed),false);assert.equal(c.isLatestPricingProduct(d),true);
+ assert.deepEqual(plain(c.normalizePricingMeta({latestProductKeys:[null,{},'x','x','']})).latestProductKeys,['x']);
+});
+test('already imported November prices are untouched when only the 99 highlights need backfilling',async()=>{
+ const {c,writes}=setup();c.pricingRecords=plain(c.pricingSeedRecords());c.pricingRecords[0].grossPrice=123;
+ const before=JSON.stringify(c.pricingRecords);c.pricingMeta={updatedMonth:11,updatedYear:2026,catalogRevision:'20261118-01'};
+ assert.equal(await c.applyBundledPricingUpdate(),true);assert.equal(writes[0].length,1);assert.equal(writes[0][0].id,'__pricing_meta__');
+ assert.equal(JSON.stringify(c.pricingRecords),before);assert.equal(c.pricingMeta.latestProductKeys.length,99);
+ assert.equal(c.pricingRecords.filter(row=>c.isLatestPricingProduct(row)).length,99);
+ assert.equal(await c.applyBundledPricingUpdate(),false);assert.equal(writes.length,1);
+});
+test('CSV import and replacement rotate highlights only for additions and restore them if the transaction fails',async()=>{
+ for(const name of ['importPricingCsv','replacePricingCsv']){
+  const {c}=setup();let loaded,imported,persistError=false;
+  c.FileReader=class{addEventListener(_name,handler){this.handler=handler;}readAsText(){this.result='synthetic';loaded=this.handler();}};
+  c.parseCsv=()=>imported;c.confirm=()=>true;c.pricingImportInput={value:''};c.pricingReplaceInput={value:''};c.alert=()=>{};
+  c.persistPricingRecords=async()=>{if(persistError)throw Error('offline');};c.resetPricingFiltersAfterFullUpdate=()=>{};
+  vm.runInContext(extract(name),c);const a=item('a'),b=item('b'),d=item('d');
+  c.pricingRecords=plain(c.normalizePricingRecordsForUse([a]));c.pricingMeta.latestProductKeys=[c.pricingRecordKey(a)];
+  imported=[a,b,d];c[name]({target:{files:[{}]}});await loaded;
+  assert.deepEqual(plain(c.pricingMeta.latestProductKeys),[c.pricingRecordKey(b),c.pricingRecordKey(d)]);
+  imported=[a,{...b,grossPrice:5000},d];c[name]({target:{files:[{}]}});await loaded;assert.equal(c.isLatestPricingProduct(b),true);
+  const oldRows=c.pricingRecords,oldHighlights=plain(c.pricingMeta.latestProductKeys);persistError=true;imported=[item('failed')];
+  c[name]({target:{files:[{}]}});await loaded;assert.equal(c.pricingRecords,oldRows);assert.deepEqual(plain(c.pricingMeta.latestProductKeys),oldHighlights);
+ }
 });

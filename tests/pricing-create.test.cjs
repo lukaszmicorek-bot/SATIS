@@ -10,6 +10,7 @@ function extract(name) {
 }
 async function main() {
   const writes = [];
+  const marked = [];
   const alerts = [];
   let opened;
   const ctx = vm.createContext({
@@ -24,7 +25,8 @@ async function main() {
     SUPABASE_PRICING_TABLE: 'pricing_records',
     upsertSupabaseRecord: async (table, record) => { writes.push({ table, record }); },
     setPricingMutationBusy: value => { ctx.pricingMutationInProgress = value; },
-    savePricingRecords() {}, markPricingUpdatedNow() {}, pricingMetaRecordForSupabase: () => ({ id: 'meta' }),
+    pricingRecordKey: row => row.idProduct || row.id, isLatestPricingProduct: () => false,
+    savePricingRecords() {}, markPricingUpdatedNow(options) { marked.push(options); }, pricingMetaRecordForSupabase: () => ({ id: 'meta' }),
     rebuildDemoFormSuggestions() {}, renderPricingRecords() {}, renderPricingOfferDeviceList() {}, renderPricingOffer() {}, setCurrentYearTitle() {},
     alert: message => alerts.push(message), console
   });
@@ -44,6 +46,7 @@ async function main() {
   assert.equal(await ctx.commitNewPricingRecord(opened[0]), true);
   assert.equal(ctx.pricingRecords.length, 2); assert.equal(ctx.pricingRecords[0].id, 'source');
   assert.equal(writes[0].record.id, 'new-product-id');
+  assert.deepEqual([...marked[0].latestProductKeys], ['new-product-id']);
   ctx.upsertSupabaseRecord = async () => { throw new Error('test unavailable'); };
   assert.equal(await ctx.commitNewPricingRecord({ id: 'failed' }), false);
   assert.equal(ctx.pricingRecords.length, 2, 'failed write never becomes a saved catalog row');

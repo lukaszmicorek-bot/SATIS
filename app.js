@@ -71,6 +71,7 @@ const MAX_STOCK_AUDIT_HISTORY = 60;
 const PRICING_UPDATED_MONTH = 11;
 const PRICING_UPDATED_YEAR = 2026;
 const PRICING_CATALOG_REVISION = "20261118-01";
+const PRICING_CATALOG_NEW_KEYS = ["id:14265683|nfz:p.01.01.00","id:14265685|nfz:p.01.01.00","id:14265687|nfz:p.01.01.00","id:14265689|nfz:p.01.01.00","id:14265691|nfz:p.01.01.00","id:14265693|nfz:p.01.01.00","id:14265705|nfz:p.01.01.00","id:14265697|nfz:p.01.01.00","id:14265698|nfz:p.01.01.00","id:14265706|nfz:p.01.01.00","id:14265699|nfz:p.01.01.00","id:14265707|nfz:p.01.01.00","id:14265700|nfz:p.01.01.00","id:14265708|nfz:p.01.01.00","id:14265739|nfz:p.01.01.00","id:14265740|nfz:p.01.01.00","id:14265741|nfz:p.01.01.00","id:14265742|nfz:p.01.01.00","id:14265747|nfz:p.01.01.00","id:14265748|nfz:p.01.01.00","id:14265749|nfz:p.01.01.00","id:14265750|nfz:p.01.01.00","id:14265716|nfz:p.01.01.00","id:14265715|nfz:p.01.01.00","id:14265717|nfz:p.01.01.00","id:14265719|nfz:p.01.01.00","id:14265718|nfz:p.01.01.00","id:14265720|nfz:p.01.01.00","id:14265721|nfz:p.01.01.00","id:14265722|nfz:p.01.01.00","id:14265723|nfz:p.01.01.00","id:14265724|nfz:p.01.01.00","id:14265725|nfz:p.01.01.00","id:14265726|nfz:p.01.01.00","id:14265713|nfz:p.01.01.00","id:14265714|nfz:p.01.01.00","id:14265676|nfz:p.01.01.00","id:14265677|nfz:p.01.01.00","id:14265680|nfz:p.01.01.00","id:14265678|nfz:p.01.01.00","id:14265681|nfz:p.01.01.00","id:14265679|nfz:p.01.01.00","id:14265682|nfz:p.01.01.00","id:14265692|nfz:p.01.01.01","id:14265690|nfz:p.01.01.01","id:14265688|nfz:p.01.01.01","id:14265686|nfz:p.01.01.01","id:14265684|nfz:p.01.01.01","id:14265694|nfz:p.01.01.01","id:14265709|nfz:p.01.01.01","id:14265701|nfz:p.01.01.01","id:14265702|nfz:p.01.01.01","id:14265710|nfz:p.01.01.01","id:14265703|nfz:p.01.01.01","id:14265711|nfz:p.01.01.01","id:14265712|nfz:p.01.01.01","id:14265704|nfz:p.01.01.01","id:14265744|nfz:p.01.01.01","id:14265743|nfz:p.01.01.01","id:14265746|nfz:p.01.01.01","id:14265745|nfz:p.01.01.01","id:14265751|nfz:p.01.01.01","id:14265752|nfz:p.01.01.01","id:14265753|nfz:p.01.01.01","id:14265754|nfz:p.01.01.01","id:14265728|nfz:p.01.01.01","id:14265729|nfz:p.01.01.01","id:14265727|nfz:p.01.01.01","id:14265730|nfz:p.01.01.01","id:14265731|nfz:p.01.01.01","id:14265732|nfz:p.01.01.01","id:14265734|nfz:p.01.01.01","id:14265735|nfz:p.01.01.01","id:14265733|nfz:p.01.01.01","id:14265736|nfz:p.01.01.01","id:14265737|nfz:p.01.01.01","id:14265738|nfz:p.01.01.01","id:13384322|nfz:p.03.01.00","id:13384321|nfz:p.03.01.00","id:13384319|nfz:p.03.01.00","id:13384323|nfz:p.03.01.01","id:13384320|nfz:p.03.01.01","id:13384324|nfz:p.04.01","id:13385118|nfz:p.04.01","id:13385119|nfz:p.04.01","id:13385106|nfz:p.04.01","id:13385108|nfz:p.04.01","id:13385127|nfz:p.04.01","id:13385125|nfz:p.04.01","id:13385124|nfz:p.04.01","id:13385123|nfz:p.04.01","id:13385122|nfz:p.04.01","id:13385114|nfz:p.04.01","id:13385113|nfz:p.04.01","id:13384341|nfz:p.04.01","id:13384340|nfz:p.04.01","id:13384338|nfz:p.04.01","id:13384331|nfz:p.04.01","id:13384329|nfz:p.04.01"];
 const PRICING_CATALOG_SOURCE_SHA256 = "328ca94d381822e7cb2f04e02a556a246f60f0d82d063578316df3c93249f9e6";
 const DEFAULT_PRICING_NFZ_CODE = "P.01.01.00";
 const PRICING_META_ROW_ID = "__pricing_meta__";
@@ -6155,7 +6156,8 @@ function normalizePricingMeta(meta) {
   return {
     updatedMonth: updatedMonth >= 1 && updatedMonth <= 12 ? updatedMonth : fallback.updatedMonth,
     updatedYear: updatedYear >= 2000 && updatedYear <= 2100 ? updatedYear : fallback.updatedYear,
-    ...(/^\d{8}-\d{2}$/u.test(String(meta?.catalogRevision || "")) ? { catalogRevision: meta.catalogRevision } : {})
+    ...(/^\d{8}-\d{2}$/u.test(String(meta?.catalogRevision || "")) ? { catalogRevision: meta.catalogRevision } : {}),
+    ...(Array.isArray(meta?.latestProductKeys) ? { latestProductKeys: [...new Set(meta.latestProductKeys.filter(key => typeof key === "string" && key.length > 0 && key.length <= 2000))].slice(0, 25000) } : {})
   };
 }
 
@@ -6179,10 +6181,14 @@ function currentPricingMeta() {
   return pricingMeta;
 }
 
-function markPricingUpdatedNow() {
+function markPricingUpdatedNow({ latestProductKeys, replaceProductKey } = {}) {
   const now = new Date();
+  const meta = currentPricingMeta();
+  let latest = latestProductKeys?.length ? latestProductKeys : meta.latestProductKeys;
+  if (Array.isArray(latest) && replaceProductKey) latest = latest.map(key => key === replaceProductKey[0] ? replaceProductKey[1] : key).filter(Boolean);
   savePricingMeta({
-    ...currentPricingMeta(),
+    ...meta,
+    ...(Array.isArray(latest) ? { latestProductKeys: latest } : {}),
     updatedMonth: now.getMonth() + 1,
     updatedYear: now.getFullYear()
   });
@@ -6288,7 +6294,7 @@ function bundledPricingUpdatePlan(existingRecords, importedRecords = pricingSeed
   const merged = mergePricingRecords(existingRecords, importedRecords);
   const recordsToSave = pricingRecordsForSupabase(merged.records);
   const previous = new Map(normalizePricingRecordsForUse(existingRecords).map(record => [record.id, record]));
-  return { records: recordsToSave, added: merged.added,
+  return { records: recordsToSave, added: merged.added, addedKeys: pricingNewProductKeys(existingRecords, recordsToSave),
     changed: recordsToSave.filter(record => JSON.stringify(record) !== JSON.stringify(previous.get(record.id))) };
 }
 
@@ -6308,7 +6314,8 @@ function showPricingCatalogUpdateNotice(message, error = false) {
 async function applyBundledPricingUpdate() {
   if (!hasSupabaseConfig || !canViewPrivateModules() || !currentSupabaseUser || !supabaseInitialDataReady || pricingMutationInProgress || pricingSupabaseAvailable !== true) return false;
   const meta = currentPricingMeta();
-  if (meta.catalogRevision >= PRICING_CATALOG_REVISION || `${meta.updatedYear}-${String(meta.updatedMonth).padStart(2, "0")}` > `${PRICING_UPDATED_YEAR}-${String(PRICING_UPDATED_MONTH).padStart(2, "0")}`) return false;
+  const backfillHighlights = meta.catalogRevision === PRICING_CATALOG_REVISION && !Array.isArray(meta.latestProductKeys);
+  if ((meta.catalogRevision >= PRICING_CATALOG_REVISION && !backfillHighlights) || `${meta.updatedYear}-${String(meta.updatedMonth).padStart(2, "0")}` > `${PRICING_UPDATED_YEAR}-${String(PRICING_UPDATED_MONTH).padStart(2, "0")}`) return false;
   const userId = currentSupabaseUser.id, generation = sensitiveStateGeneration;
   const attempt = `${generation}:${userId}`;
   if (applyBundledPricingUpdate.attempt === attempt || document.querySelector("#pricingRecordDialog")?.open) return false;
@@ -6316,8 +6323,10 @@ async function applyBundledPricingUpdate() {
   setPricingMutationBusy(true);
   showPricingCatalogUpdateNotice("Aktualizowanie cennika…");
   try {
-    const plan = bundledPricingUpdatePlan(pricingRecords);
-    const nextMeta = { ...meta, updatedMonth: PRICING_UPDATED_MONTH, updatedYear: PRICING_UPDATED_YEAR, catalogRevision: PRICING_CATALOG_REVISION };
+    const plan = backfillHighlights ? { records: pricingRecords, changed: [], addedKeys: [] } : bundledPricingUpdatePlan(pricingRecords);
+    const currentKeys = new Set(plan.records.map(pricingRecordKey));
+    const latestProductKeys = plan.addedKeys.length ? plan.addedKeys : meta.latestProductKeys ?? PRICING_CATALOG_NEW_KEYS.filter(key => currentKeys.has(key));
+    const nextMeta = { ...meta, updatedMonth: PRICING_UPDATED_MONTH, updatedYear: PRICING_UPDATED_YEAR, catalogRevision: PRICING_CATALOG_REVISION, latestProductKeys };
     const changed = [...plan.changed, { id: PRICING_META_ROW_ID, kind: "pricing-meta", ...nextMeta }];
     // One compare-and-swap transaction includes the marker, so retrying cannot partially import a catalog.
     const receipt = await satisDataStore.commit(changed.map(record => satisDataStore.prepare(SUPABASE_PRICING_TABLE, record)), { requestTimeoutMs: 30000 });
@@ -9728,7 +9737,7 @@ async function commitPricingRecordChange(record, replacement) {
       if (input && normalize(input.value) === normalize(oldLabel)) input.value = newLabel;
     });
     try {
-      markPricingUpdatedNow();
+      markPricingUpdatedNow({ replaceProductKey: [pricingRecordKey(record), saved ? pricingRecordKey(saved) : ""] });
       if (hasSupabaseConfig) await upsertSupabaseRecord(SUPABASE_PRICING_TABLE, pricingMetaRecordForSupabase());
     } catch (error) {
       alert(`Pozycja została ${saved ? "zapisana" : "usunięta"}, ale nie udało się zaktualizować daty cennika: ${error.message}`);
@@ -9799,7 +9808,7 @@ async function commitNewPricingRecord(record) {
       console.warn("Produkt zapisano na serwerze, ale nie w pamięci przeglądarki.");
     }
     try {
-      markPricingUpdatedNow();
+      markPricingUpdatedNow({ latestProductKeys: [pricingRecordKey(record)] });
       if (hasSupabaseConfig) await upsertSupabaseRecord(SUPABASE_PRICING_TABLE, pricingMetaRecordForSupabase());
     } catch { alert("Produkt zapisano. Nie udało się zaktualizować daty cennika."); }
     rebuildDemoFormSuggestions(); renderPricingRecords(); renderPricingOfferDeviceList(); renderPricingOffer(); setCurrentYearTitle();
@@ -19528,6 +19537,8 @@ function isPricingModelUnavailable(record) {
 
 function createPricingRow(record, index) {
   const row = document.createElement("tr");
+  const newest = isLatestPricingProduct(record);
+  row.classList.toggle("pricing-row-new", newest);
   const unavailable = isPricingModelUnavailable(record);
   row.classList.toggle("pricing-model-unavailable", unavailable);
   const manufacturerTone = pricingManufacturerTone(record.manufacturer);
@@ -19593,6 +19604,13 @@ function createPricingRow(record, index) {
       cell.textContent = value || "-";
     }
     if (cellIndex === 4) {
+      if (newest) {
+        const badge = document.createElement("span");
+        badge.className = "pricing-new-label";
+        badge.textContent = "Nowość";
+        badge.title = "Pozycja z ostatniego dodania produktów";
+        cell.append(badge);
+      }
       if (unavailable) {
         const availability = document.createElement("span");
         availability.className = "pricing-unavailable-label";
@@ -28911,7 +28929,7 @@ function importPricingCsv(event) {
       }
 
       pricingRecords = merged.records;
-      markPricingUpdatedNow();
+      markPricingUpdatedNow({ latestProductKeys: pricingNewProductKeys(previousPricingRecords, pricingRecords) });
       await persistPricingRecords();
       renderPricingRecords();
       pricingImportInput.value = "";
@@ -28959,7 +28977,7 @@ function replacePricingCsv(event) {
       }
 
       pricingRecords = importedPricingRecords;
-      markPricingUpdatedNow();
+      markPricingUpdatedNow({ latestProductKeys: pricingNewProductKeys(previousPricingRecords, pricingRecords) });
       await persistPricingRecords();
       resetPricingFiltersAfterFullUpdate();
       renderPricingRecords();
@@ -28980,6 +28998,20 @@ function replacePricingCsv(event) {
 function pricingRecordKey(record) {
   if (record.idProduct) return `id:${normalize(record.idProduct)}|nfz:${normalize(record.nfzCode)}`;
   return `name:${normalize([record.nfzCode, record.tradeName, record.model, record.manufacturer].join("|"))}`;
+}
+
+function pricingNewProductKeys(previousRecords, nextRecords) {
+  const previous = new Set(previousRecords.map(pricingRecordKey));
+  return [...new Set(nextRecords.map(pricingRecordKey).filter(key => !previous.has(key)))];
+}
+
+function isLatestPricingProduct(record) {
+  const source = pricingMeta.latestProductKeys;
+  if (isLatestPricingProduct.source !== source) {
+    isLatestPricingProduct.source = source;
+    isLatestPricingProduct.keys = new Set(source || []);
+  }
+  return isLatestPricingProduct.keys?.has(pricingRecordKey(record)) || false;
 }
 
 function mergePricingRecords(existingRecords, importedRecords) {
@@ -29020,6 +29052,8 @@ async function resetPricingRecords() {
   const previousPricingMeta = pricingMeta;
   pricingRecords = seedRecords;
   resetPricingMetaToSeed();
+  const addedKeys = pricingNewProductKeys(previousPricingRecords, seedRecords);
+  savePricingMeta({ ...currentPricingMeta(), latestProductKeys: addedKeys.length ? addedKeys : previousPricingMeta.latestProductKeys || [] });
   try {
     await persistPricingRecords();
     resetPricingFiltersAfterFullUpdate();
