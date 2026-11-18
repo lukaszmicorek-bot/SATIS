@@ -4405,6 +4405,13 @@ h2 {
   margin-bottom: 0;
 }
 
+.pricing-search-filter { display: grid; gap: 6px; min-width: 0; }
+.pricing-search-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+.pricing-search-heading > label:first-child { color: var(--muted); font-size: 0.78rem; font-weight: 800; }
+.pricing-search-heading .pricing-new-filter { display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 2px 6px; border-radius: 4px; color: #46635b; background: #f4f8f5; font-size: 11px; font-weight: 650; white-space: nowrap; cursor: pointer; }
+.pricing-new-filter:has(input:checked) { color: #28674e; background: #e7f2ed; }
+.pricing-new-filter input { width: 14px; height: 14px; min-height: 0; padding: 0; margin: 0; accent-color: #39775f; }
+
 .pricing-price-filter {
   display: grid;
   gap: 6px;

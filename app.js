@@ -672,6 +672,7 @@ const demoEmptyState = document.querySelector("#demoEmptyState");
 const pricingRecordsBody = document.querySelector("#pricingRecordsBody");
 const pricingEmptyState = document.querySelector("#pricingEmptyState");
 const pricingSearchInput = document.querySelector("#pricingSearchInput");
+const pricingNewFilter = document.querySelector("#pricingNewFilter");
 const pricingNfzFilter = document.querySelector("#pricingNfzFilter");
 const pricingManufacturerFilter = document.querySelector("#pricingManufacturerFilter");
 const pricingConstructionFilter = document.querySelector("#pricingConstructionFilter");
@@ -8771,6 +8772,7 @@ function isPricingInEarDevice(record) {
 
 function filteredPricingRecords() {
   const query = normalize(pricingSearchInput?.value || "").trim();
+  const onlyNew = Boolean(pricingNewFilter?.checked);
   const selectedNfzCode = pricingNfzFilter?.value || "";
   const selectedManufacturer = pricingManufacturerFilter?.value || "";
   const selectedConstruction = pricingConstructionFilter?.value || "";
@@ -8781,6 +8783,7 @@ function filteredPricingRecords() {
   const minPrice = hasMinPrice && hasMaxPrice ? Math.min(enteredMinPrice, enteredMaxPrice) : enteredMinPrice;
   const maxPrice = hasMinPrice && hasMaxPrice ? Math.max(enteredMinPrice, enteredMaxPrice) : enteredMaxPrice;
   return pricingRecords.filter((record) => {
+    if (onlyNew && !isLatestPricingProduct(record)) return false;
     if (selectedNfzCode && record.nfzCode !== selectedNfzCode) return false;
     if (selectedManufacturer && normalize(record.manufacturer).trim() !== selectedManufacturer) return false;
     const isInEar = isPricingInEarDevice(record);
@@ -28948,6 +28951,7 @@ function importPricingCsv(event) {
 
 function resetPricingFiltersAfterFullUpdate() {
   if (pricingSearchInput) pricingSearchInput.value = "";
+  if (pricingNewFilter) pricingNewFilter.checked = false;
   pricingNfzDefaultApplied = false;
   if (pricingNfzFilter) pricingNfzFilter.value = "";
   if (pricingManufacturerFilter) pricingManufacturerFilter.value = "";
@@ -29813,6 +29817,7 @@ document.querySelectorAll("[data-pricing-catalog]").forEach((button) => {
   });
 });
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
+pricingNewFilter?.addEventListener("change", renderPricingRecords);
 pricingNfzFilter?.addEventListener("change", () => {
   pricingNfzDefaultApplied = true;
   renderPricingRecords();

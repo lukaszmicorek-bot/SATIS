@@ -122,3 +122,23 @@ test('CSV import and replacement rotate highlights only for additions and restor
   c[name]({target:{files:[{}]}});await loaded;assert.equal(c.pricingRecords,oldRows);assert.deepEqual(plain(c.pricingMeta.latestProductKeys),oldHighlights);
  }
 });
+
+test('new-product filter intersects with text, NFZ, manufacturer, construction and price; reset clears it',()=>{
+ const {c}=setup();
+ for(const name of ['pricingSearchInput','pricingNfzFilter','pricingManufacturerFilter','pricingConstructionFilter','pricingMinPriceFilter','pricingMaxPriceFilter'])c[name]={value:''};
+ c.pricingNewFilter={checked:false};c.pricingNfzDefaultApplied=true;c.formatPricingPrice=value=>String(value);
+ for(const name of ['isPricingInEarDevice','pricingSearchBlob','filteredPricingRecords','resetPricingFiltersAfterFullUpdate'])vm.runInContext(extract(name),c);
+ const a=item('a',{model:'Audeo',grossPrice:5000}),b=item('b',{model:'Virto CIC',grossPrice:6000}),old=item('old',{model:'Audeo'});
+ c.pricingRecords=[a,b,old];c.pricingMeta.latestProductKeys=[c.pricingRecordKey(a),c.pricingRecordKey(b)];
+ assert.equal(c.filteredPricingRecords().length,3);c.pricingNewFilter.checked=true;assert.equal(c.filteredPricingRecords().length,2);
+ c.pricingSearchInput.value='audeo';assert.deepEqual(plain(c.filteredPricingRecords()).map(row=>row.idProduct),['a']);
+ c.pricingSearchInput.value='';c.pricingConstructionFilter.value='IN_EAR';assert.deepEqual(plain(c.filteredPricingRecords()).map(row=>row.idProduct),['b']);
+ c.pricingConstructionFilter.value='';c.pricingNfzFilter.value='P.01.01.01';assert.equal(c.filteredPricingRecords().length,0);
+ c.pricingNfzFilter.value='';c.pricingManufacturerFilter.value='sonic';assert.equal(c.filteredPricingRecords().length,0);
+ c.pricingManufacturerFilter.value='phonak';c.pricingMinPriceFilter.value='5500';assert.deepEqual(plain(c.filteredPricingRecords()).map(row=>row.idProduct),['b']);
+ c.pricingMaxPriceFilter.value='5800';assert.equal(c.filteredPricingRecords().length,0);
+ c.resetPricingFiltersAfterFullUpdate();assert.equal(c.pricingNewFilter.checked,false);assert.equal(c.filteredPricingRecords().length,3);
+ c.pricingNewFilter.checked=true;c.pricingMeta.latestProductKeys=[];assert.equal(c.filteredPricingRecords().length,0);
+ const html=fs.readFileSync(require.resolve('../index.html'),'utf8');assert.match(html,/id="pricingNewFilter" type="checkbox"/);
+ assert.match(source,/pricingNewFilter\?\.addEventListener\("change", renderPricingRecords\)/);
+});
