@@ -6158,7 +6158,8 @@ function normalizePricingMeta(meta) {
     updatedMonth: updatedMonth >= 1 && updatedMonth <= 12 ? updatedMonth : fallback.updatedMonth,
     updatedYear: updatedYear >= 2000 && updatedYear <= 2100 ? updatedYear : fallback.updatedYear,
     ...(/^\d{8}-\d{2}$/u.test(String(meta?.catalogRevision || "")) ? { catalogRevision: meta.catalogRevision } : {}),
-    ...(Array.isArray(meta?.latestProductKeys) ? { latestProductKeys: [...new Set(meta.latestProductKeys.filter(key => typeof key === "string" && key.length > 0 && key.length <= 2000))].slice(0, 25000) } : {})
+    ...(Array.isArray(meta?.latestProductKeys) ? { latestProductKeys: [...new Set(meta.latestProductKeys.filter(key => typeof key === "string" && key.length > 0 && key.length <= 2000))].slice(0, 25000) } : {}),
+    ...(/^(?:catalog:\d{8}-\d{2}|addition:\d{10,16})$/u.test(String(meta?.latestProductBatch || "")) ? { latestProductBatch: meta.latestProductBatch } : {})
   };
 }
 
@@ -6185,11 +6186,12 @@ function currentPricingMeta() {
 function markPricingUpdatedNow({ latestProductKeys, replaceProductKey } = {}) {
   const now = new Date();
   const meta = currentPricingMeta();
-  let latest = latestProductKeys?.length ? latestProductKeys : meta.latestProductKeys;
+  let latest = latestProductKeys?.length ? latestProductKeys : latestPricingProductKeys();
   if (Array.isArray(latest) && replaceProductKey) latest = latest.map(key => key === replaceProductKey[0] ? replaceProductKey[1] : key).filter(Boolean);
   savePricingMeta({
     ...meta,
     ...(Array.isArray(latest) ? { latestProductKeys: latest } : {}),
+    ...(latestProductKeys?.length ? { latestProductBatch: `addition:${now.getTime()}` } : meta.latestProductBatch ? {} : { latestProductBatch: `catalog:${PRICING_CATALOG_REVISION}` }),
     updatedMonth: now.getMonth() + 1,
     updatedYear: now.getFullYear()
   });
@@ -6315,7 +6317,7 @@ function showPricingCatalogUpdateNotice(message, error = false) {
 async function applyBundledPricingUpdate() {
   if (!hasSupabaseConfig || !canViewPrivateModules() || !currentSupabaseUser || !supabaseInitialDataReady || pricingMutationInProgress || pricingSupabaseAvailable !== true) return false;
   const meta = currentPricingMeta();
-  const backfillHighlights = meta.catalogRevision === PRICING_CATALOG_REVISION && !Array.isArray(meta.latestProductKeys);
+  const backfillHighlights = meta.catalogRevision === PRICING_CATALOG_REVISION && !meta.latestProductBatch;
   if ((meta.catalogRevision >= PRICING_CATALOG_REVISION && !backfillHighlights) || `${meta.updatedYear}-${String(meta.updatedMonth).padStart(2, "0")}` > `${PRICING_UPDATED_YEAR}-${String(PRICING_UPDATED_MONTH).padStart(2, "0")}`) return false;
   const userId = currentSupabaseUser.id, generation = sensitiveStateGeneration;
   const attempt = `${generation}:${userId}`;
@@ -6324,10 +6326,14 @@ async function applyBundledPricingUpdate() {
   setPricingMutationBusy(true);
   showPricingCatalogUpdateNotice("Aktualizowanie cennika…");
   try {
-    const plan = backfillHighlights ? { records: pricingRecords, changed: [], addedKeys: [] } : bundledPricingUpdatePlan(pricingRecords);
+    const loadedKeys = new Set(pricingRecords.map(pricingRecordKey));
+    const highlightOnly = backfillHighlights && PRICING_CATALOG_NEW_KEYS.some(key => loadedKeys.has(key));
+    const plan = highlightOnly ? { records: pricingRecords, changed: [], addedKeys: [] } : bundledPricingUpdatePlan(pricingRecords);
     const currentKeys = new Set(plan.records.map(pricingRecordKey));
-    const latestProductKeys = plan.addedKeys.length ? plan.addedKeys : meta.latestProductKeys ?? PRICING_CATALOG_NEW_KEYS.filter(key => currentKeys.has(key));
-    const nextMeta = { ...meta, updatedMonth: PRICING_UPDATED_MONTH, updatedYear: PRICING_UPDATED_YEAR, catalogRevision: PRICING_CATALOG_REVISION, latestProductKeys };
+    const previousKeys = meta.latestProductBatch || meta.latestProductKeys?.length ? meta.latestProductKeys || [] : PRICING_CATALOG_NEW_KEYS;
+    const latestProductKeys = plan.addedKeys.length ? plan.addedKeys : previousKeys.filter(key => currentKeys.has(key));
+    const latestProductBatch = plan.addedKeys.length ? `catalog:${PRICING_CATALOG_REVISION}` : meta.latestProductBatch || `catalog:${PRICING_CATALOG_REVISION}`;
+    const nextMeta = { ...meta, updatedMonth: PRICING_UPDATED_MONTH, updatedYear: PRICING_UPDATED_YEAR, catalogRevision: PRICING_CATALOG_REVISION, latestProductKeys, latestProductBatch };
     const changed = [...plan.changed, { id: PRICING_META_ROW_ID, kind: "pricing-meta", ...nextMeta }];
     // One compare-and-swap transaction includes the marker, so retrying cannot partially import a catalog.
     const receipt = await satisDataStore.commit(changed.map(record => satisDataStore.prepare(SUPABASE_PRICING_TABLE, record)), { requestTimeoutMs: 30000 });
@@ -8828,11 +8834,22 @@ function renderPricingRecords() {
   renderPricingComplaint();
   renderPricingDocumentHistory();
   const visibleRecords = filteredPricingRecords();
+  const newestCount = pricingRecords.filter(isLatestPricingProduct).length;
+  const onlyNew = Boolean(pricingNewFilter?.checked);
+  const newCount = document.querySelector("#pricingNewCount");
+  if (newCount) newCount.textContent = ` (${newestCount})`;
+  const showAllNew = document.querySelector("#pricingShowAllNewBtn");
+  if (showAllNew) showAllNew.hidden = !onlyNew || visibleRecords.length > 0 || newestCount === 0;
+  const retryUpdate = document.querySelector("#pricingRetryUpdateBtn");
+  if (retryUpdate) retryUpdate.hidden = !onlyNew || newestCount > 0 || Boolean(pricingMeta.latestProductBatch) || !hasSupabaseConfig || !canViewPrivateModules();
   renderTableRows(pricingRecordsBody, visibleRecords.map(createPricingRow));
   pricingEmptyState.hidden = visibleRecords.length > 0;
+  pricingEmptyState.textContent = onlyNew
+    ? newestCount ? "Pozostałe filtry ukrywają nowości." : "Brak oznaczonych nowości w pobranym cenniku."
+    : "Brak pozycji cennika dla wybranego wyszukiwania.";
   if (pricingSummary) {
     pricingSummary.textContent = pricingRecords.length
-      ? `Wczytano ${pricingRecords.length} pozycji cennika. Widoczne: ${visibleRecords.length}.`
+      ? onlyNew ? `Nowości: ${visibleRecords.length} z ${newestCount}.` : `Wczytano ${pricingRecords.length} pozycji cennika. Widoczne: ${visibleRecords.length}.`
       : "Brak danych cennika. Odśwież stronę po wgraniu najnowszego app.js.";
   }
   if (pricingVersion) {
@@ -29009,8 +29026,15 @@ function pricingNewProductKeys(previousRecords, nextRecords) {
   return [...new Set(nextRecords.map(pricingRecordKey).filter(key => !previous.has(key)))];
 }
 
+function latestPricingProductKeys() {
+  if (pricingMeta.latestProductBatch || pricingMeta.latestProductKeys?.length) return pricingMeta.latestProductKeys || [];
+  const sameCatalog = pricingMeta.updatedMonth === PRICING_UPDATED_MONTH && pricingMeta.updatedYear === PRICING_UPDATED_YEAR
+    && (!pricingMeta.catalogRevision || pricingMeta.catalogRevision === PRICING_CATALOG_REVISION);
+  return sameCatalog ? PRICING_CATALOG_NEW_KEYS : pricingMeta.latestProductKeys || [];
+}
+
 function isLatestPricingProduct(record) {
-  const source = pricingMeta.latestProductKeys;
+  const source = latestPricingProductKeys();
   if (isLatestPricingProduct.source !== source) {
     isLatestPricingProduct.source = source;
     isLatestPricingProduct.keys = new Set(source || []);
@@ -29818,6 +29842,19 @@ document.querySelectorAll("[data-pricing-catalog]").forEach((button) => {
 });
 pricingSearchInput?.addEventListener("input", debounce(renderPricingRecords, SEARCH_DEBOUNCE_MS));
 pricingNewFilter?.addEventListener("change", renderPricingRecords);
+document.querySelector("#pricingShowAllNewBtn")?.addEventListener("click", () => {
+  resetPricingFiltersAfterFullUpdate();
+  pricingNfzDefaultApplied = true;
+  pricingNewFilter.checked = true;
+  renderPricingRecords();
+});
+document.querySelector("#pricingRetryUpdateBtn")?.addEventListener("click", async (event) => {
+  if (!canViewPrivateModules() || pricingMutationInProgress) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  applyBundledPricingUpdate.attempt = "";
+  try { await applyBundledPricingUpdate(); } finally { button.disabled = false; }
+});
 pricingNfzFilter?.addEventListener("change", () => {
   pricingNfzDefaultApplied = true;
   renderPricingRecords();

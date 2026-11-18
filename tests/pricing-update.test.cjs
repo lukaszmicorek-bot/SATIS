@@ -17,7 +17,7 @@ function setup(){
  for(const name of ['normalize','normalizePricingRecordsForUse','normalizePricingRecordForUse','repairPricingRecordColumns','repairShiftedPricingModel',
   'normalizePricingManufacturerName','normalizeAudibelTradeName','normalizePricingPrice','pricingRecordKey','mergePricingRecords',
   'pricingSupabaseRecordId','pricingRecordsForSupabase','pricingSeedRecords','defaultPricingMeta','normalizePricingMeta','savePricingMeta',
-  'currentPricingMeta','markPricingUpdatedNow','splitSupabasePricingRows','pricingNewProductKeys','isLatestPricingProduct','bundledPricingUpdatePlan','applyBundledPricingUpdate'])vm.runInContext(extract(name),c);
+  'currentPricingMeta','markPricingUpdatedNow','splitSupabasePricingRows','pricingNewProductKeys','latestPricingProductKeys','isLatestPricingProduct','bundledPricingUpdatePlan','applyBundledPricingUpdate'])vm.runInContext(extract(name),c);
  return {c,writes,messages,storage,setCommit:fn=>commit=fn};
 }
 const item=(idProduct,extra={})=>({idProduct,nfzCode:'P.01.01.00',tradeName:'Aparat testowy',model:'Model testowy',manufacturer:'Phonak',grossPrice:4000,...extra});
@@ -141,4 +141,27 @@ test('new-product filter intersects with text, NFZ, manufacturer, construction a
  c.pricingNewFilter.checked=true;c.pricingMeta.latestProductKeys=[];assert.equal(c.filteredPricingRecords().length,0);
  const html=fs.readFileSync(require.resolve('../index.html'),'utf8');assert.match(html,/id="pricingNewFilter" type="checkbox"/);
  assert.match(source,/pricingNewFilter\?\.addEventListener\("change", renderPricingRecords\)/);
+});
+
+test('legacy missing/empty highlight metadata still shows the 99 known November additions, without requiring an owner write',async()=>{
+ for(const latestProductKeys of [undefined,[]]){
+  const {c,writes}=setup();c.pricingRecords=plain(c.pricingSeedRecords());
+  c.pricingMeta={updatedMonth:11,updatedYear:2026,catalogRevision:'20261118-01',...(latestProductKeys?{latestProductKeys}:{})};
+  c.canViewPrivateModules=()=>false;
+  assert.equal(c.pricingRecords.filter(row=>c.isLatestPricingProduct(row)).length,99);assert.equal(writes.length,0);
+  c.canViewPrivateModules=()=>true;assert.equal(await c.applyBundledPricingUpdate(),true);assert.equal(writes[0].length,1);
+  assert.equal(c.pricingMeta.latestProductKeys.length,99);assert.equal(c.pricingMeta.latestProductBatch,'catalog:20261118-01');
+ }
+});
+test('explicitly completed later batches and deleted last additions never resurrect the bundled batch',async()=>{
+ const {c,writes}=setup();c.pricingRecords=plain(c.pricingSeedRecords());
+ c.pricingMeta={updatedMonth:11,updatedYear:2026,catalogRevision:'20261118-01',latestProductKeys:[],latestProductBatch:'addition:1795000000000'};
+ assert.equal(c.pricingRecords.filter(row=>c.isLatestPricingProduct(row)).length,0);assert.equal(await c.applyBundledPricingUpdate(),false);assert.equal(writes.length,0);
+ c.pricingMeta={updatedMonth:12,updatedYear:2026,latestProductKeys:[]};assert.equal(c.pricingRecords.filter(row=>c.isLatestPricingProduct(row)).length,0);
+});
+test('an incomplete legacy catalog cannot claim success merely because its old import marker exists',async()=>{
+ const {c,writes}=setup();c.pricingRecords=[item('legacy',{id:'server-legacy'})];
+ c.pricingMeta={updatedMonth:11,updatedYear:2026,catalogRevision:'20261118-01',latestProductKeys:[]};
+ assert.equal(await c.applyBundledPricingUpdate(),true);assert.equal(c.pricingRecords.length,2262);
+ assert.equal(writes[0].length,2262);assert.equal(c.pricingRecords.filter(row=>c.isLatestPricingProduct(row)).length,2261);
 });

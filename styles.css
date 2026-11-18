@@ -4411,6 +4411,8 @@ h2 {
 .pricing-search-heading .pricing-new-filter { display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 2px 6px; border-radius: 4px; color: #46635b; background: #f4f8f5; font-size: 11px; font-weight: 650; white-space: nowrap; cursor: pointer; }
 .pricing-new-filter:has(input:checked) { color: #28674e; background: #e7f2ed; }
 .pricing-new-filter input { width: 14px; height: 14px; min-height: 0; padding: 0; margin: 0; accent-color: #39775f; }
+.pricing-new-filter #pricingNewCount { font: inherit; color: inherit; }
+.pricing-empty > button { margin: 8px 0 0 10px; }
 
 .pricing-price-filter {
   display: grid;
