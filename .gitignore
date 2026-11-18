@@ -111,6 +111,9 @@
 !/tests/vacation-balance-visibility.test.cjs
 !/tests/vacation-weekend-range.test.cjs
 !/clients.js
+!/statistics.js
+!/tests/statistics.test.cjs
+!/tests/statistics.browser.cjs
 !/client-journey.js
 !/supabase-client-journey.sql
 !/supabase-clients-audit.sql

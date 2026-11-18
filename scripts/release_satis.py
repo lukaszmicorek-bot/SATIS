@@ -33,6 +33,7 @@ MIGRATIONS = [
     "supabase-audit-vacation.sql",
 ]
 EXTRA_PUBLIC_FILES = {
+    "tests/statistics.test.cjs", "tests/statistics.browser.cjs",
     "tests/offer-general.test.cjs", "tests/offer-general.browser.cjs",
     "supabase-clients-follow-up.sql",
     "supabase-clients-audit.sql", "tests/clients-audit.sqltest.cjs", "tests/clients-audit.browser.cjs", "KLIENCI-AKTUALIZACJA.md",
@@ -106,6 +107,7 @@ def node_binary():
 def check_source():
     node = node_binary()
     run(node, "--check", str(ROOT / "client-journey.js"))
+    run(node, "--check", str(ROOT / "statistics.js"))
     run(node, "--check", str(ROOT / "wsa-repair-groups.js"))
     for name in ("app.js", "data-layer.js", "sync-layer.js", "repair-returns.js", "offline-vault.js", "offline-forms.js", "offline-sw.js", "stock-audit.js", "clients.js", "tinnitus-forms.js", "care-form.js", "accessory-catalog.js", "repair-catalog.js", "mail-merge.js", "mail-merge-pdf.mjs", "tasks.js", "complaint-shipping.js", "vacation-attendance.js"):
         run(node, "--check", str(ROOT / name))

@@ -348,7 +348,7 @@ test('history renderers and previews refuse anonymous access but permit authenti
 });
 test('navigation markup is unique, ordered, and linked; history no longer sits under the loan form', () => {
   const top = [...html.matchAll(/data-notebook="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(top, ['devices', 'repairs', 'tasks', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime', 'tinnitus']);
+  assert.deepEqual(top, ['statistics', 'devices', 'repairs', 'tasks', 'clients', 'capd', 'pcpr', 'history', 'pricing', 'vacation', 'workTime', 'tinnitus']);
   assert.match(html,/id="mailMergeTab"[^>]*data-view="mailMerge" data-view-group="pcpr" data-private-shared hidden/);
   assert.match(html, /data-notebook="history" data-private-shared hidden/);
   for (const view of ['offer', 'loan', 'rodo', 'order', 'complaint']) {

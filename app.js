@@ -467,6 +467,7 @@ let complaintShippingModule = null;
 let complaintShippingManufacturerCache = null;
 let tasksModule = null;
 let clientsModule = null;
+let statisticsModule = null;
 let mailMergeModule = null;
 let clientsSourceCache = { refs: [], rows: [] };
 let stockAuditCheckedIndex = new Set(stockAudit.checkedItems || []);
@@ -1228,6 +1229,7 @@ function setCurrentYearTitle() {
     pcpr: "PCPR",
     history: "Historia",
     clients: "Klienci",
+    statistics: "Statystyki",
     tasks: "Sprawy",
     tinnitus: "Szumy uszne",
     mailMerge: "PCPR Żywiec",
@@ -1517,6 +1519,8 @@ function updatePrivateModulesVisibility() {
   }
   if (!ownerVisible) {
     clientsModule?.clear();
+    statisticsModule?.clear();
+    if (activeNotebook === "statistics") switchNotebook("devices");
     clientsSourceCache = { refs: [], rows: [] };
     workTimeRecords = [];
     workTimeMonthRecords = null;
@@ -2877,6 +2881,7 @@ function clearSensitiveApplicationState() {
   [recordForm, repairForm, demoForm].forEach(form => { if (form) form.dataset.saving = ""; });
   [saveRecordBtn, saveRepairBtn, saveDemoBtn].forEach(button => { if (button) { button.disabled = false; button.textContent = "Zapisz"; } });
   clientsModule?.clear();
+  statisticsModule?.clear();
   tasksModule?.clear();
   complaintShippingModule?.clear();
   complaintShippingManufacturerCache = null;
@@ -8515,6 +8520,7 @@ function compareByAge(left, right) {
 }
 
 function render() {
+  if (activeNotebook === "statistics") { initializeStatisticsModule()?.render(); return; }
   if (activeNotebook === "pcpr" && activePricingView === "mailMerge") return;
   if (activeNotebook === "clients") { clientsModule?.refreshSources(); return; }
   repairReturns?.render();
@@ -25857,7 +25863,8 @@ function returnToPreviousTab() {
 }
 
 function switchNotebook(notebookName, { documentView = "" } = {}) {
-  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge", "tinnitus", "tasks"].includes(notebookName)) return;
+  if (!["devices", "repairs", "pricing", "capd", "pcpr", "history", "vacation", "workTime", "clients", "mailMerge", "tinnitus", "tasks", "statistics"].includes(notebookName)) return;
+  if (notebookName === "statistics" && !canViewPrivateModules()) return;
   if (["workTime", "clients"].includes(notebookName) && !canViewPrivateModules()) return;
   if (notebookName === "mailMerge" && !canAccessMailMerge()) return;
   if (notebookName === "mailMerge") {
@@ -25911,6 +25918,11 @@ function switchNotebook(notebookName, { documentView = "" } = {}) {
 
   activePricingView = "";
   syncNotebookPanels();
+
+  if (activeNotebook === "statistics") {
+    initializeStatisticsModule()?.render();
+    return;
+  }
 
   if (activeNotebook === "tasks") {
     const module = initializeTasksModule();
@@ -31425,6 +31437,48 @@ function initializeMailMergeModule() {
     }
   });
   return mailMergeModule;
+}
+
+function statisticsCurrentSources() {
+  if (!canViewPrivateModules()) return { devices: [], services: [] };
+  // Project only counting fields; customer, invoice and payment data stay outside this module.
+  return {
+    devices: records.map(record => ({
+      id: record.id, model: record.deviceName, manufacturer: record.manufacturer,
+      location: normalizeRepairLocation(record.location), type: displayType(record),
+      receivedDate: record.receivedDate, saleDate: soldDeviceSaleDate(record), returnDate: record.returnDate,
+      accessory: Boolean(pricingOfferAccessoryKind({ model: record.deviceName })),
+      validStockIdentity: hasValidStockIdentity(record)
+    })),
+    services: repairRecords.map(record => {
+      const items = repairOrderItemsForRecord(record);
+      const closed = effectiveRepairStatus(record) === "ODEBRANE";
+      const pickupDates = items.map(item => isoDateForSave(item.pickupDate));
+      const completedDate = items.length
+        ? pickupDates.every(Boolean) ? [...pickupDates, isoDateForSave(record.pickupDate)].filter(Boolean).sort().at(-1) : ""
+        : isoDateForSave(record.pickupDate);
+      return {
+        id: record.id, location: normalizeRepairLocation(record.location), category: normalizeRepairCategory(record.category),
+        order: repairDocumentInfo(record).type === "ORDER", receivedDate: record.receivedDate,
+        completedDate: closed ? completedDate : "", closed
+      };
+    })
+  };
+}
+
+function initializeStatisticsModule() {
+  if (!canViewPrivateModules()) return null;
+  if (statisticsModule) return statisticsModule;
+  const host = document.querySelector("#statisticsContent");
+  if (!window.SatisStatistics?.create) {
+    if (host) host.textContent = "Nie udało się uruchomić statystyk. Odśwież stronę.";
+    return null;
+  }
+  statisticsModule = window.SatisStatistics.create({
+    host, document, allowed: canViewPrivateModules, today: todayInputValue, data: statisticsCurrentSources,
+    ready: () => !hasSupabaseConfig || Boolean(currentSupabaseUser && supabaseInitialDataReady)
+  });
+  return statisticsModule;
 }
 
 function initializeClientsModule() {
