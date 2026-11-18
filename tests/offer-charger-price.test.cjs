@@ -71,5 +71,5 @@ assert.match(source, /\[\["1 aparat", chargerBundle\.one\], \["2 aparaty", charg
 assert.ok(!source.includes('(1 ładowarka)'));
 assert.doesNotMatch(extract('renderPricingOffer'), /item\.input\.value = pricingOfferDeviceLabel/);
 assert.match(extract('restorePricingOfferFromHistory'), /offerChargerPriceInput\.value = String\(savedItem\.grossPrice/);
-assert.match(source, /if \(offerChargerPriceInput\?\.validationMessage\)/);
+assert.match(extract('saveCurrentPricingOfferToHistory'), /!offerGeneralInput\?\.checked && offerChargerPriceInput\?\.validationMessage/);
 console.log('OK: charger editable per-offer price, zero price, no catalog mutation or input snap, validation, switching and history restore.');

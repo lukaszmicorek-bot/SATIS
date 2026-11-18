@@ -155,6 +155,8 @@
 !/tests/device-ezwm.test.cjs
 !/tests/offer-manufacturer-logos.test.cjs
 !/tests/offer-payment-layout.test.cjs
+!/tests/offer-general.test.cjs
+!/tests/offer-general.browser.cjs
 !/tests/device-search-history.test.cjs
 
 !/supabase-mail-merge.sql

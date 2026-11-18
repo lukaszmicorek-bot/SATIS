@@ -115,7 +115,7 @@ test('offer subtotal includes every product, remains before funding and resets a
   let extras=[{kind:'charger',record:{grossPrice:500}},{kind:'earmold',record:{grossPrice:200}}];
   const gross=element('strong'),patient=element('strong');
   const ctx=vm.createContext({
-    pricingOfferView:{},ensurePricingOfferDate:()=> '2026-10-30',ensurePricingOfferLocation:()=> 'P63',
+    pricingOfferView:{classList:{toggle(){}}},offerGeneralInput:null,ensurePricingOfferDate:()=> '2026-10-30',ensurePricingOfferLocation:()=> 'P63',
     updateDocumentLocationAccent(){},offerLocationInput:{},addDaysToIsoDate:()=> '2026-11-29',PRICING_OFFER_VALID_DAYS:30,
     offerCustomerInput:{value:'Anna Testowa'},titleCaseName:value=>value,pricingOfferPatientGroup:()=> 'adult',
     offerDeviceInput1:{value:'P'},offerDeviceInput2:{value:'L'},offerTransferSidesBtn:null,
@@ -125,7 +125,8 @@ test('offer subtotal includes every product, remains before funding and resets a
     offerPfronEnabledInput:{checked:true},offerPfronInput:{value:'1000'},pricingOfferPfronAmount:()=>1000,
     offerTitle:null,offerMeta:null,offerNotesInput:null,offerNotesText:null,offerNotesPrint:null,
     offerEmptyState:{},offerContent:{},printPricingOfferBtn:{},offerGrossTotal:gross,offerPatientTotal:patient,
-    offerItemsBody:element('tbody'),offerPaymentsBody:element('tbody'),formatDate:value=>value,
+    offerItemsBody:element('tbody'),offerPaymentsBody:element('tbody'),formatDate:value=>value,document:{getElementById:()=>({})},
+    offerChargerInput:null,offerEarmoldInput:null,
     renderPricingOfferAgeWarning(){},renderPricingOfferItems(){},renderPricingOfferPayments(){},
     createPricingPriceElement:value=>{const node=element('span');node.textContent=String(value);return node;}
   });

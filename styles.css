@@ -5145,6 +5145,27 @@ h2 {
   grid-column: span 2;
 }
 .offer-side-devices { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
+.offer-general-toggle { grid-column: 1 / -1; padding: 10px 12px; border-left: 3px solid #81a9a5; border-radius: 4px; background: #f0f7f6; color: #2d666a; font-size: 0.82rem; }
+.offer-general-toggle input { flex: 0 0 auto; }
+.offer-general-mode .offer-builder :is(.offer-side-devices, .offer-accessory-field, .offer-option-field, .offer-pfron-field, .offer-age-field, [data-document-section="Rozliczenie"]) { display: none !important; }
+:is(.offer-general-mode #pricingOfferPrint, .offer-general-document) :is(.offer-items-table, .offer-payments-table, .offer-total-line) { display: none !important; }
+:is(.offer-general-mode #pricingOfferPrint, .offer-general-document) :is(.offer-description > h3, .offer-description-grid, .document-description-note) { display: none !important; }
+.offer-general-content { margin: 16px 0; }
+.offer-general-content h3 { margin: 0 0 8px; color: #003f5a; font-size: 1rem; }
+.offer-general-content > p { margin: 0 0 12px; color: #4d646e; line-height: 1.5; font-size: 0.8rem; }
+.offer-general-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.85rem; }
+.offer-general-table :is(th, td) { padding: 7px 10px; border-bottom: 1px solid #dce6e8; text-align: left; overflow-wrap: anywhere; }
+.offer-general-table th { background: #eff6f5; color: #245e63; font-weight: 650; }
+.offer-general-table th:last-child, .offer-general-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.offer-general-table tbody tr:nth-child(even) { background: #f8fbfb; }
+@media print {
+  .offer-general-content { margin: 3mm 0; }
+  .offer-general-content h3 { font-size: 10pt; }
+  .offer-general-content > p { font-size: 8pt; margin-bottom: 2mm; }
+  .offer-general-table { font-size: 9pt; line-height: 1.25; }
+  .offer-general-table :is(th, td) { padding: 1.4mm 2mm; }
+  .offer-general-table tr { break-inside: avoid; }
+}
 .offer-side-devices > .offer-device-field { grid-column: auto; grid-row: auto; min-width: 0; }
 
 .offer-device-field {

@@ -456,6 +456,7 @@ let pricingManufacturerToneMap = null;
 let pricingNfzDefaultApplied = false;
 let pricingSupabaseAvailable = null;
 let pricingLoanAutofilledFromOffer = false;
+let pricingGeneralOfferSavedRanges = null;
 let serialCopyToastTimeout = 0;
 let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
@@ -695,6 +696,7 @@ const pricingOfferDeviceList = document.querySelector("#pricingOfferDeviceList")
 const pricingOfferChargerList = document.querySelector("#pricingOfferChargerList");
 const pricingOfferEarmoldList = document.querySelector("#pricingOfferEarmoldList");
 const offerCustomerInput = document.querySelector("#offerCustomerInput");
+const offerGeneralInput = document.querySelector("#offerGeneralInput");
 let customerTransferMemory = null;
 let customerTransferGeneration = 0;
 const offerPatientGroupInputs = [...document.querySelectorAll('input[name="offerPatientGroup"]')];
@@ -8826,6 +8828,75 @@ function pricingOfferPricedRecords() {
   return pricingRecords.filter((record) => normalizePricingPrice(record.grossPrice) !== "");
 }
 
+function pricingGeneralOfferBrand(record) {
+  const brands = [
+    ["Audibel", /audibel/iu], ["Audio Service", /audio[\s-]*service/iu],
+    ["Beltone", /beltone|\bcommence\b|\benvision\b/iu], ["Bernafon", /bernafon|\balpha\b/iu],
+    ["Oticon", /oticon/iu], ["Philips", /philips|hearlink/iu], ["Phonak", /phonak|audeo|naida|virto|\bsky\b/iu],
+    ["ReSound", /resound|\bvivia\b/iu], ["Signia", /signia|\bsilk\b|\binsio\b/iu],
+    ["Sonic", /\bsonic\b|radiant|enchant/iu], ["Starkey", /starkey/iu]
+  ];
+  const product = `${record.tradeName || ""} ${record.model || ""}`;
+  const brand = brands.find(([, pattern]) => pattern.test(product)) || brands.find(([, pattern]) => pattern.test(record.manufacturer || ""));
+  return brand?.[0] || normalizePricingManufacturerName(record.manufacturer);
+}
+
+function normalizePricingGeneralRanges(value) {
+  const ranges = new Map();
+  for (const row of (Array.isArray(value) ? value.slice(0, 100) : [])) {
+    const manufacturer = normalizeLoanHistoryText(row?.manufacturer).slice(0, 100);
+    const min = normalizePricingPrice(row?.min), max = normalizePricingPrice(row?.max);
+    if (!manufacturer || min === "" || max === "" || min <= 0 || max < min || max > 1e10) continue;
+    const key = normalize(manufacturer), previous = ranges.get(key);
+    ranges.set(key, { manufacturer: previous?.manufacturer || manufacturer, min: Math.min(previous?.min ?? min, min), max: Math.max(previous?.max ?? max, max) });
+  }
+  return [...ranges.values()].sort((a, b) => collator.compare(a.manufacturer, b.manufacturer));
+}
+
+function pricingGeneralOfferRanges(catalog = pricingRecords) {
+  const ranges = new Map();
+  for (const record of catalog) {
+    const price = normalizePricingPrice(record.grossPrice), code = normalizePricingNfzCode(record.nfzCode);
+    if (price === "" || price <= 0 || pricingOfferAccessoryKind(record) || isPricingModelUnavailable(record)) continue;
+    if (code && !/^(?:P\.)?0[12]\.01\.(?:00|01)$/u.test(code)) continue;
+    if (!code && /receiver|słuchawk|sluchawk|mikrofon|roger|remote|pilot|filtr|bateri|akumulator|pielęgn|pielegn|serwis|napraw/iu.test(`${record.tradeName} ${record.model}`)) continue;
+    const manufacturer = pricingGeneralOfferBrand(record);
+    if (manufacturer) {
+      const key = normalize(manufacturer), previous = ranges.get(key);
+      ranges.set(key, { manufacturer, min: Math.min(previous?.min ?? price, price), max: Math.max(previous?.max ?? price, price) });
+    }
+  }
+  return normalizePricingGeneralRanges([...ranges.values()]);
+}
+
+function currentPricingGeneralRanges() {
+  return pricingGeneralOfferSavedRanges === null ? pricingGeneralOfferRanges() : normalizePricingGeneralRanges(pricingGeneralOfferSavedRanges);
+}
+
+function renderPricingGeneralOffer(customer, offerDate, offerLocation, validUntil) {
+  const ranges = currentPricingGeneralRanges(), body = document.getElementById("offerGeneralRows");
+  if (body) body.replaceChildren(...ranges.map(range => {
+    const row = document.createElement("tr");
+    appendOfferCell(row, range.manufacturer);
+    appendOfferCell(row, range.min === range.max ? formatPricingPrice(range.min) : `${formatPricingPrice(range.min)} – ${formatPricingPrice(range.max)}`, "amount-cell");
+    return row;
+  }));
+  if (offerTitle) offerTitle.textContent = `Informacja o aparatach słuchowych${customer ? ` dla ${customer}` : ""}`;
+  if (offerMeta) offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} (${PRICING_OFFER_VALID_DAYS} dni)`;
+  const notes = offerNotesInput?.value.trim() || "";
+  if (offerNotesText) offerNotesText.textContent = notes;
+  if (offerNotesPrint) offerNotesPrint.hidden = !notes;
+  if (offerAgeWarning) { offerAgeWarning.hidden = true; offerAgeWarning.textContent = ""; }
+  if (offerEmptyState) { offerEmptyState.hidden = ranges.length > 0; offerEmptyState.textContent = "Brak aparatów z prawidłową ceną w cenniku."; }
+  if (offerContent) offerContent.hidden = !ranges.length;
+  if (savePricingOfferBtn) savePricingOfferBtn.disabled = !ranges.length;
+  if (printPricingOfferBtn) printPricingOfferBtn.disabled = !ranges.length;
+  if (offerItemsBody) offerItemsBody.replaceChildren();
+  if (offerPaymentsBody) offerPaymentsBody.replaceChildren();
+  [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerChargerPriceInput, offerEarmoldInput].forEach(input => { if (input) input.disabled = true; });
+  if (offerTransferSidesBtn) offerTransferSidesBtn.disabled = true;
+}
+
 function pricingOfferSuggestedRecords() {
   return pricingOfferPricedRecords().filter(pricingOfferNfzCodeMatchesAge);
 }
@@ -8954,6 +9025,7 @@ function findPricingOfferAccessoryRecord(value, kind) {
 }
 
 function selectedPricingOfferItems() {
+  if (offerGeneralInput?.checked) return [];
   return [offerDeviceInput1, offerDeviceInput2]
     .map((input, index) => ({
       input,
@@ -8964,6 +9036,7 @@ function selectedPricingOfferItems() {
 }
 
 function selectedPricingOfferAccessoryItems() {
+  if (offerGeneralInput?.checked) return [];
   return [
     { input: offerChargerInput, kind: "charger" },
     { input: offerEarmoldInput, kind: "earmold" }
@@ -9084,6 +9157,8 @@ function duplicatePricingOfferDevice() {
 
 function addPricingRecordToOffer(record) {
   if (!record) return;
+  if (offerGeneralInput?.checked) { offerGeneralInput.checked = false; renderPricingOffer(); }
+  pricingGeneralOfferSavedRanges = null;
   if (!offerDeviceInput1 || !offerDeviceInput2) return;
   const accessoryKind = pricingOfferAccessoryKind(record);
   if (accessoryKind) {
@@ -9319,6 +9394,8 @@ function ensurePricingOfferLocation() {
 function startNewPricingOffer() {
   if (documentSaveLocks.has("offer")) return;
   resetOfferChargerPrice();
+  if (offerGeneralInput) offerGeneralInput.checked = false;
+  pricingGeneralOfferSavedRanges = null;
   documentDraftIdentities.delete("offer");
   [
     offerCustomerInput,
@@ -9360,6 +9437,14 @@ function renderPricingOffer() {
   updateDocumentLocationAccent(offerLocationInput);
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
+  const generalInformation = Boolean(offerGeneralInput?.checked);
+  pricingOfferView.classList.toggle("offer-general-mode", generalInformation);
+  document.getElementById("pricingOfferPrint")?.classList?.toggle("offer-general-document", generalInformation);
+  const generalContent = document.getElementById("offerGeneralContent");
+  if (generalContent) generalContent.hidden = !generalInformation;
+  if (generalInformation) { renderPricingGeneralOffer(customer, offerDate, offerLocation, validUntil); return; }
+  if (offerEmptyState) offerEmptyState.textContent = "Wybierz aparat z cennika, żeby przygotować ofertę.";
+  [offerChargerInput, offerEarmoldInput].forEach(input => { if (input) input.disabled = false; });
   const group = pricingOfferPatientGroup();
   const ageRequired = !group;
   [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
@@ -10322,6 +10407,7 @@ function setupUnifiedDocumentLayout() {
     if (!grid || !before) return;
     const heading = document.createElement("p");
     heading.className = "document-section-title";
+    heading.dataset.documentSection = text;
     heading.textContent = text;
     grid.insertBefore(heading, before);
   };
@@ -10329,7 +10415,7 @@ function setupUnifiedDocumentLayout() {
   offerGrid.prepend(label("offerDateInput"), label("offerLocationInput"));
   title(offerGrid, "Dokument", offerGrid.firstElementChild);
   title(offerGrid, "Klient", label("offerCustomerInput"));
-  title(offerGrid, "Produkty", offerGrid.querySelector(".offer-side-devices"));
+  title(offerGrid, "Produkty", offerGrid.querySelector(".offer-general-toggle") || offerGrid.querySelector(".offer-side-devices"));
   title(offerGrid, "Rozliczenie", offerGrid.querySelector(".offer-option-field"));
   const loanGrid = pricingLoanView.querySelector(".loan-form-grid");
   const clientTitle = [...loanGrid.querySelectorAll(".loan-form-title")].find(node => node.textContent === "Dane klienta");
@@ -10595,6 +10681,13 @@ function normalizePricingOfferHistoryEntry(entry) {
     notes: String(entry.notes || "").trim().slice(0, 300),
     items
   };
+  if (entry.generalInformation === true) {
+    normalizedEntry.generalInformation = true;
+    normalizedEntry.priceRanges = normalizePricingGeneralRanges(entry.priceRanges);
+    normalizedEntry.items = [];
+    normalizedEntry.total = ""; normalizedEntry.nfz = ""; normalizedEntry.pfron = ""; normalizedEntry.patient = "";
+    normalizedEntry.pfronEnabled = false;
+  }
   return pricingOfferHistoryEntryHasContent(normalizedEntry) ? normalizedEntry : null;
 }
 
@@ -10657,6 +10750,13 @@ async function loadSupabasePricingOfferHistory({ deferSuggestions = false } = {}
 function currentPricingOfferSnapshot() {
   const offerDate = ensurePricingOfferDate();
   const location = ensurePricingOfferLocation();
+  if (offerGeneralInput?.checked) {
+    const now = new Date().toISOString();
+    return { id: makeId(), createdAt: now, savedAt: now, savedBy: currentSupabaseUser?.email || "", workstation: currentWorkstationName(),
+      customer: titleCaseName(offerCustomerInput?.value || ""), age: "", patientGroup: "", location, offerDate,
+      validUntil: addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS), generalInformation: true, priceRanges: currentPricingGeneralRanges(),
+      withoutNfz: false, pfronEnabled: false, total: "", nfz: "", pfron: "", patient: "", notes: offerNotesInput?.value.trim() || "", items: [] };
+  }
   const selectedItems = selectedPricingOfferAllItems();
   const items = selectedItems.map((item) => {
     const record = item.record;
@@ -10709,6 +10809,7 @@ function pricingOfferSnapshotKey(entry) {
     customerNameLookupKey(entry?.customer), entry?.offerDate, normalize(entry?.location),
     pricingOfferHistoryPatientGroup(entry), Boolean(entry?.withoutNfz), Boolean(entry?.pfronEnabled),
     Number(entry?.pfron || 0), Number(entry?.nfz || 0), Number(entry?.total || 0),
+    ...(entry?.generalInformation ? ["general", entry.priceRanges] : []),
     (entry?.items || []).map(item => JSON.stringify([
       item.kind || "device", item.side || "", normalize(item.model), normalize(item.nfzCode), Number(item.grossPrice || 0)
     ])).sort()
@@ -10828,7 +10929,8 @@ async function persistPricingOfferHistoryEntry(entry) {
 }
 
 async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
-  if (offerChargerPriceInput?.validationMessage) { offerChargerPriceInput.reportValidity(); return null; }
+  if (!offerGeneralInput?.checked && offerChargerPriceInput?.validationMessage) { offerChargerPriceInput.reportValidity(); return null; }
+  if (offerGeneralInput?.checked && !currentPricingGeneralRanges().length) { alert("Brak aparatów z prawidłową ceną w cenniku."); return null; }
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("offer");
   if (!requireDocumentCustomerName(offerCustomerInput)) return null;
   if (!beginDocumentSave("offer")) return null;
@@ -12424,7 +12526,8 @@ function pricingDocumentDataIssues(entry, kind) {
   if (!customerNameLookupKey(entry?.customer)) issues.push("Brak imienia i nazwiska.");
   if (!isoDateForSave(date)) issues.push("Brak prawidłowej daty dokumentu.");
   if (!pricingHistoryEntryLocation(entry, kind)) issues.push("Brak rozpoznanego miejsca.");
-  if (!items.length) issues.push("Brak pozycji w formularzu.");
+  if (!items.length && !(kind === "offer" && entry.generalInformation)) issues.push("Brak pozycji w formularzu.");
+  if (kind === "offer" && entry.generalInformation && !entry.priceRanges?.length) issues.push("Brak przedziałów cenowych.");
 
   if (["order", "complaint"].includes(kind)) {
     if (!normalizeLoanHistoryText(entry?.number)) issues.push("Brak numeru dokumentu.");
@@ -12603,10 +12706,19 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Miejsce", pricingHistoryEntryLocationValue(saved, "offer"));
     appendPricingHistoryPreviewField(summary, "Wiek", saved.age !== "" ? formatOfferAge(Number(saved.age)) : "");
     appendPricingHistoryPreviewField(summary, "Pacjent", pricingOfferPatientGroupLabel(saved.patientGroup));
-    appendPricingHistoryPreviewField(summary, "Cena", formatPricingPrice(saved.total));
-    appendPricingHistoryPreviewField(summary, "NFZ", formatPricingPrice(saved.nfz));
-    appendPricingHistoryPreviewField(summary, "PFRON", formatPricingPrice(saved.pfron));
-    appendPricingHistoryPreviewField(summary, "Do zapłaty", formatPricingPrice(saved.patient));
+    if (saved.generalInformation) {
+      appendPricingHistoryPreviewField(summary, "Rodzaj", "Informacja ogólna · ceny brutto za jeden aparat");
+      for (const range of saved.priceRanges) {
+        const row = document.createElement("p");
+        row.textContent = `${range.manufacturer}: ${formatPricingPrice(range.min)} – ${formatPricingPrice(range.max)}`;
+        items.append(row);
+      }
+    } else {
+      appendPricingHistoryPreviewField(summary, "Cena", formatPricingPrice(saved.total));
+      appendPricingHistoryPreviewField(summary, "NFZ", formatPricingPrice(saved.nfz));
+      appendPricingHistoryPreviewField(summary, "PFRON", formatPricingPrice(saved.pfron));
+      appendPricingHistoryPreviewField(summary, "Do zapłaty", formatPricingPrice(saved.patient));
+    }
     appendPricingHistoryPreviewField(summary, "Uwagi", saved.notes);
     saved.items.forEach((item, index) => {
       const row = document.createElement("p");
@@ -12694,6 +12806,8 @@ function restorePricingOfferFromHistory(entry) {
   if (!saved) return;
   if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_OFFER_HISTORY_TABLE, saved.id);
   bindDocumentDraft("offer", saved);
+  if (offerGeneralInput) offerGeneralInput.checked = Boolean(saved.generalInformation);
+  pricingGeneralOfferSavedRanges = saved.generalInformation ? normalizePricingGeneralRanges(saved.priceRanges) : null;
   if (offerCustomerInput) offerCustomerInput.value = saved.customer;
   setPricingOfferPatientGroup(saved.patientGroup);
   if (offerLocationInput) offerLocationInput.value = normalizeDocumentLocationValue(saved.location);
@@ -13117,7 +13231,7 @@ function renderPricingDocumentHistory() {
         pricingHistoryEntryLocationValue(entry, "offer"),
         formatAuditDateTime(entry.savedAt) ? `zapis: ${formatAuditDateTime(entry.savedAt)}` : ""
       ].filter(Boolean).join(" | "),
-      details: entry.items.map((item) => {
+      details: entry.generalInformation ? offerHistoryItemsLabel(entry) : entry.items.map((item) => {
         const typeLabel = item.kind === "charger"
           ? "Ładowarka"
           : item.kind === "earmold"
@@ -18870,6 +18984,7 @@ function loanHistoryMatchesRecordSerial(entry, record) {
 }
 
 function offerHistoryItemsLabel(entry) {
+  if (entry?.generalInformation) return `Informacja ogólna · ${(entry.priceRanges || []).map(range => `${range.manufacturer}: ${formatPricingPrice(range.min)} – ${formatPricingPrice(range.max)}`).join(" · ")}`;
   return (entry?.items || [])
     .map((item) => {
       const model = item.model || item.tradeName;
@@ -29681,6 +29796,7 @@ updatePcprFormMode();
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
+offerGeneralInput?.addEventListener("change", () => { pricingGeneralOfferSavedRanges = null; markAgreementDraftDirty("offer"); renderPricingOffer(); });
 offerChargerPriceInput?.addEventListener("input", () => {
   offerChargerPriceInput.dataset.manualPrice = "1";
   markAgreementDraftDirty("offer");
@@ -31019,6 +31135,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "receipt") return validatePricingReceipt();
       const names = {offer: "offerCustomerInput", loan: "loanCustomerInput", order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
       if (!requireDocumentCustomerName(document.getElementById(names[kind]))) return false;
+      if (kind === "offer" && offerGeneralInput?.checked && !currentPricingGeneralRanges().length) { alert("Brak aparatów z prawidłową ceną w cenniku."); return false; }
       const phoneId = {loan: "loanPhoneInput", order: "orderPhoneInput", complaint: "complaintPhoneInput", rodo: "rodoPhoneInput"}[kind];
       if (phoneId && !validatePersonalFormPhone(document.getElementById(phoneId), true)) return false;
       if (kind === "rodo") { updateRodoFromPesel(); return document.getElementById("rodoPeselInput").reportValidity(); }
@@ -31026,6 +31143,8 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
     },
     renderApp: () => render(),
     clearForms() {
+      if (offerGeneralInput) offerGeneralInput.checked = false;
+      pricingGeneralOfferSavedRanges = null;
       Object.values({ offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView }).forEach(view => {
         view.querySelectorAll("input,textarea").forEach(input => { if (!["button", "submit", "radio", "checkbox"].includes(input.type)) input.value = ""; });
       });

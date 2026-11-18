@@ -41,7 +41,7 @@ function setup(kind) {
     repairSerialNumbers: r => [r.serialNumber, r.serialNumber2].filter(Boolean),
     repairDocumentSourceMatches: (r, type, id) => r.sourceDocumentType === type && r.sourceDocumentId === id,
     orderNumberInput: { dataset: {} }, orderDepositInput: { value: '' }, complaintNumberInput: { dataset: {} }, orderDateInput: { value: '2026-09-03' }, complaintDateInput: { value: '2026-09-03' },
-    offerCustomerInput: {}, offerChargerPriceInput: null, orderCustomerInput: {}, complaintCustomerInput: {},
+    offerCustomerInput: {}, offerChargerPriceInput: null, offerGeneralInput: null, orderCustomerInput: {}, complaintCustomerInput: {},
     saveLocalPricingOfferHistory() {}, saveLocalPricingOrderHistory() {}, saveLocalPricingComplaintHistory() {},
     recordDocumentLocationUsage() {}, rebuildCustomerDocumentIndex() {}, rebuildCustomerNameSuggestions() {},
     renderPricingDocumentHistory() {}, renderDeviceViews() {}, markAgreementDraftSaved() {},
