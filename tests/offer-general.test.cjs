@@ -21,6 +21,18 @@ function setup() {
   return c;
 }
 const product=(model,price,manufacturer='PHONAK AG',nfzCode='P.01.01.00',tradeName=model)=>({model,tradeName,manufacturer,nfzCode,grossPrice:price});
+test('only brands with offer logos appear, including when an older saved offer is restored',()=>{
+  const c=setup(),html=fs.readFileSync(require.resolve('../index.html'),'utf8');
+  const start=html.indexOf('<div class="manufacturer-brand-logos"'),block=html.slice(start,html.indexOf('</div>',start));
+  const brands=[...block.matchAll(/alt="([^"]+)"/g)].map(match=>match[1]);assert.equal(brands.length,11);
+  const extras=['BHM TECH','MED-EL','GN Hearing A/S','SBO HEARING A/S','WSAUD A/S','Inna firma'];
+  const catalog=[...brands.map(brand=>product('Model',4000,brand)),...extras.map(brand=>product('Model',100,brand))];
+  const rows=c.pricingGeneralOfferRanges(catalog);assert.equal(rows.length,11);assert.ok(rows.every(row=>brands.includes(row.manufacturer)&&row.min===4000));
+  const saved=c.normalizePricingOfferHistoryEntry({customer:'Osoba Testowa',generalInformation:true,
+    priceRanges:[...rows,...extras.map(manufacturer=>({manufacturer,min:100,max:1000}))]});
+  assert.equal(saved.priceRanges.length,11);assert.ok(saved.priceRanges.every(row=>brands.includes(row.manufacturer)));
+  c.pricingGeneralOfferSavedRanges=saved.priceRanges;assert.equal(c.currentPricingGeneralRanges().length,11);
+});
 test('ranges use catalog hearing aids only and merge NFZ copies and manufacturer aliases',()=>{
   const c=setup();c.pricingRecords=[product('Audeo I50',5000),product('Audeo I90',9000),product('Audeo I50',5000,'Sonova AG','P.01.01.01'),
     product('Charger',10),product('Wkładka',20,'SBO','P.03.01.00'),product('Roger',30000,'Phonak','P.04.01'),

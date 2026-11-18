@@ -8838,13 +8838,13 @@ function pricingGeneralOfferBrand(record) {
   ];
   const product = `${record.tradeName || ""} ${record.model || ""}`;
   const brand = brands.find(([, pattern]) => pattern.test(product)) || brands.find(([, pattern]) => pattern.test(record.manufacturer || ""));
-  return brand?.[0] || normalizePricingManufacturerName(record.manufacturer);
+  return brand?.[0] || "";
 }
 
 function normalizePricingGeneralRanges(value) {
   const ranges = new Map();
   for (const row of (Array.isArray(value) ? value.slice(0, 100) : [])) {
-    const manufacturer = normalizeLoanHistoryText(row?.manufacturer).slice(0, 100);
+    const manufacturer = pricingGeneralOfferBrand({ manufacturer: normalizeLoanHistoryText(row?.manufacturer).slice(0, 100) });
     const min = normalizePricingPrice(row?.min), max = normalizePricingPrice(row?.max);
     if (!manufacturer || min === "" || max === "" || min <= 0 || max < min || max > 1e10) continue;
     const key = normalize(manufacturer), previous = ranges.get(key);

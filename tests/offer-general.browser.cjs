@@ -63,7 +63,8 @@ async function run(){
   if(process.env.SATIS_QA_DIR)await page.locator('#pricingOfferPrint').screenshot({path:path.join(process.env.SATIS_QA_DIR,'offer-general-mobile.png')});
   await page.setViewportSize({width:1366,height:1000});
   await page.evaluate(records=>{pricingRecords=normalizePricingRecordsForUse(records);pricingGeneralOfferSavedRanges=null;offerNotesInput.value='Dodatkowe ustalenia dotyczące doboru i testowania aparatów. '.repeat(6).slice(0,300);renderPricingOffer();},seed.window.PRICING_SEED_RECORDS);
-  assert.ok(await page.locator('#offerGeneralRows tr').count()>=11,'the full local catalog includes all later manufacturers');
+  assert.equal(await page.locator('#offerGeneralRows tr').count(),11,'only the eleven brands with offer logos are shown');
+  assert.deepEqual(await page.locator('#offerGeneralRows tr td:first-child').allTextContents(),[...brands].sort((a,b)=>a.localeCompare(b,'pl')));
   await page.evaluate(()=>document.body.classList.add('pricing-offer-print'));await page.emulateMedia({media:'print'});await page.evaluate(()=>document.fonts.ready);
   if(process.env.SATIS_QA_DIR){const pdf=path.join(process.env.SATIS_QA_DIR,'offer-general.pdf');await page.pdf({path:pdf,format:'A4',printBackground:true,preferCSSPageSize:true});
    const info=execFileSync(process.env.SATIS_PDFINFO||'pdfinfo',[pdf],{encoding:'utf8'});assert.match(info,/Pages:\s+1\b/,'general offer fits on a single A4 page');}
