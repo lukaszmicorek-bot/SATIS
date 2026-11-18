@@ -18322,6 +18322,8 @@ input.personal-phone-invalid:focus { outline: 1px solid #c56c7c; outline-offset:
 .stats-tools { grid-column: 3; grid-row: 1; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 14px; min-width: 0; }
 .statistics-shortcut { min-height: 32px; padding: 5px 12px; border: 1px solid #bed3d1; background: #f2f8f7; color: #1e6263; font-size: 12px; }
 .statistics-shortcut:hover, .statistics-shortcut.active { background: #e3f1ef; border-color: #79a9a6; color: #084c4e; }
+.pricing-catalog-update-notice { margin: 10px 0; padding: 9px 12px; border-left: 3px solid #74a59a; background: #f0f7f4; color: #275c52; font-size: 12px; line-height: 1.5; }
+.pricing-catalog-update-notice[data-error="true"] { border-color: #cc9a55; background: #fff7e9; color: #785b2d; }
 .statistics-notebook { padding: 22px 0; color: #22383f; }
 .statistics-notebook h2 { margin: 0; color: #003f5a; font-size: 21px; }
 .statistics-notebook h3 { margin: 0 0 16px; font-size: 15px; font-weight: 750; }
