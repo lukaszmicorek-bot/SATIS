@@ -6,7 +6,7 @@ const markup=html.slice(html.indexOf('<section id="pricingOfferView"'),html.inde
 function extract(name){const start=source.indexOf(`function ${name}(`);assert.ok(start>=0,name);const rest=source.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);}
 const names=['normalizePricingPrice','normalizePricingManufacturerName','normalizePricingNfzCode','pricingOfferAccessoryKind','isPricingModelUnavailable',
  'normalizeAudibelTradeName','repairShiftedPricingModel','repairPricingRecordColumns','normalizePricingRecordForUse','normalizePricingRecordsForUse',
- 'pricingGeneralOfferBrand','normalizePricingGeneralRanges','pricingGeneralOfferRanges','currentPricingGeneralRanges','appendOfferCell','formatPricingAmount','formatPricingPrice',
+ 'pricingGeneralOfferBrand','normalizePricingGeneralRanges','pricingGeneralOfferRanges','currentPricingGeneralCatalog','currentPricingGeneralRanges','appendOfferCell','formatPricingAmount','formatPricingPrice',
  'renderPricingGeneralOffer','renderPricingOffer','normalizePricingOfferHistoryItem','pricingOfferHistoryEntryHasContent','normalizePricingOfferHistoryEntry',
  'currentPricingOfferSnapshot','restorePricingOfferFromHistory','resetOfferChargerPrice','selectedPricingOfferItems','setPricingOfferPatientGroup','pricingOfferPatientGroup','pricingOfferHistoryPatientGroup'];
 const bindings=['pricingOfferView','offerGeneralInput','offerCustomerInput','offerLocationInput','offerDeviceInput1','offerDeviceInput2','offerTransferSidesBtn','offerChargerInput','offerChargerPriceInput','offerEarmoldInput','offerPfronInput','offerPfronEnabledInput','offerNoNfzInput','offerNotesInput','offerNotesText','offerNotesPrint','offerAgeWarning','offerEmptyState','offerContent','savePricingOfferBtn','printPricingOfferBtn','offerTitle','offerMeta','offerGrossTotal','offerPatientTotal','offerItemsBody','offerPaymentsBody','offerDateInput','pricingOfferDeviceList'];
@@ -23,11 +23,12 @@ async function run(){
     const offerPatientGroupInputs=[...document.querySelectorAll('input[name="offerPatientGroup"]')],collator=new Intl.Collator('pl'),documentSaveLocks=new Map(),PRICING_OFFER_VALID_DAYS=30;
     const pricingFields=['idProduct','nfzCode','tradeName','model','manufacturer','orderIndex','grossPrice','swdCode'];
     const currentSupabaseUser={email:'owner@example.invalid'};
-    let pricingGeneralOfferSavedRanges=null,pricingRecords=${JSON.stringify(brands.flatMap((manufacturer,index)=>[1000,6000].map(price=>({manufacturer,tradeName:manufacturer+' aparat',model:manufacturer+' model',nfzCode:'P.01.01.00',grossPrice:price+index*100}))))};
+    let pricingGeneralOfferSavedRanges=null,pricingGeneralOfferSavedPeriod='',catalogPeriod='2026-11',pricingRecords=${JSON.stringify(brands.flatMap((manufacturer,index)=>[1000,6000].map(price=>({manufacturer,tradeName:manufacturer+' aparat',model:manufacturer+' model',nfzCode:'P.01.01.00',grossPrice:price+index*100}))))};
+    function pricingUpdatedDateTime(){return catalogPeriod;}
     const normalize=value=>String(value??'').toLowerCase().trim(),normalizeLoanHistoryText=value=>String(value??'').trim(),titleCaseName=value=>value;
     const isoDateForSave=value=>value||'',normalizeDocumentLocationValue=value=>value||'',makeId=()=> 'synthetic-offer',currentWorkstationName=()=> 'P63';
     const ensurePricingOfferDate=()=>offerDateInput.value||'2026-11-18',ensurePricingOfferLocation=()=> 'P63',addDaysToIsoDate=()=> '2026-12-18',formatDate=value=>value;
-    function updateDocumentLocationAccent(){}function bindDocumentDraft(){}function renderPricingOfferDeviceList(){}function switchPricingView(){}function markAgreementDraftSaved(){}
+    function updateDocumentLocationAccent(){}function bindDocumentDraft(){}function renderPricingOfferDeviceList(){}function switchPricingView(){}function markAgreementDraftSaved(){}function markAgreementDraftDirty(){}
     function setDateInputValue(input,value){input.value=value;}function pricingOfferDeviceLabel(record){return record.model;}
     function findPricingOfferRecord(value){return pricingRecords.find(row=>row.model===value)||null;}function findPricingOfferAccessoryRecord(){return null;}
     function selectedPricingOfferAllItems(){return selectedPricingOfferItems().map(item=>({...item,kind:'device'}));}function selectedPricingOfferAccessoryItems(){return [];}
@@ -54,6 +55,12 @@ async function run(){
   assert.equal(snapshot.items.length,0);assert.equal(snapshot.generalInformation,true);assert.equal(snapshot.priceRanges.length,11);
   await page.evaluate(saved=>{pricingRecords=[];restorePricingOfferFromHistory(saved);},snapshot);
   assert.equal(await page.locator('#offerGeneralRows tr').count(),11,'history keeps the original price ranges after catalog deletion');
+  await page.evaluate(saved=>{pricingRecords=saved.priceRanges.map(range=>({model:range.manufacturer+' aparat',manufacturer:range.manufacturer,nfzCode:'P.01.01.00',grossPrice:range.min+500}));catalogPeriod='2027-02';renderPricingOffer();},snapshot);
+  assert.equal(await page.evaluate(()=>currentPricingOfferSnapshot().priceRanges[0].min),snapshot.priceRanges[0].min+500);
+  assert.ok((await page.locator('#offerGeneralUpdated').textContent()).includes('luty 2027'),'the displayed catalog date follows a new edition');
+  await page.evaluate(()=>{catalogPeriod='2026-10';renderPricingOffer();});
+  assert.equal(await page.evaluate(()=>currentPricingOfferSnapshot().priceRanges[0].min),snapshot.priceRanges[0].min,'an older cache cannot replace a newer saved edition');
+  await page.evaluate(()=>{catalogPeriod='2026-11';});
   await page.evaluate(()=>{const output=document.createElement('div');output.id='clone';const copy=document.getElementById('pricingOfferPrint').cloneNode(true);copy.removeAttribute('id');output.append(copy);document.body.append(output);});
   assert.equal(await page.locator('#clone .offer-payments-table').isVisible(),false,'offline clone retains general-only presentation');
   await page.locator('#clone').evaluate(node=>node.remove());

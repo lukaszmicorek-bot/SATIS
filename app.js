@@ -457,6 +457,7 @@ let pricingNfzDefaultApplied = false;
 let pricingSupabaseAvailable = null;
 let pricingLoanAutofilledFromOffer = false;
 let pricingGeneralOfferSavedRanges = null;
+let pricingGeneralOfferSavedPeriod = "";
 let serialCopyToastTimeout = 0;
 let lastCopiedSerialNumber = "";
 let stockAudit = loadStockAudit();
@@ -8861,6 +8862,7 @@ function pricingGeneralOfferRanges(catalog = pricingRecords) {
     if (code && !/^(?:P\.)?0[12]\.01\.(?:00|01)$/u.test(code)) continue;
     if (!code && /receiver|słuchawk|sluchawk|mikrofon|roger|remote|pilot|filtr|bateri|akumulator|pielęgn|pielegn|serwis|napraw/iu.test(`${record.tradeName} ${record.model}`)) continue;
     const manufacturer = pricingGeneralOfferBrand(record);
+    if (manufacturer === "Signia" && /\bKIT(?:\b|(?=\d))/iu.test(`${record.tradeName || ""} ${record.model || ""} ${record.idProduct || ""}`)) continue;
     if (manufacturer) {
       const key = normalize(manufacturer), previous = ranges.get(key);
       ranges.set(key, { manufacturer, min: Math.min(previous?.min ?? price, price), max: Math.max(previous?.max ?? price, price) });
@@ -8869,12 +8871,23 @@ function pricingGeneralOfferRanges(catalog = pricingRecords) {
   return normalizePricingGeneralRanges([...ranges.values()]);
 }
 
+function currentPricingGeneralCatalog() {
+  const current = pricingGeneralOfferRanges(), period = pricingUpdatedDateTime();
+  if (pricingGeneralOfferSavedRanges === null) return { ranges: current, period };
+  const saved = normalizePricingGeneralRanges(pricingGeneralOfferSavedRanges);
+  if (!pricingRecords.length || (pricingGeneralOfferSavedPeriod && period < pricingGeneralOfferSavedPeriod)) return { ranges: saved, period: pricingGeneralOfferSavedPeriod };
+  return { ranges: current, period };
+}
+
 function currentPricingGeneralRanges() {
-  return pricingGeneralOfferSavedRanges === null ? pricingGeneralOfferRanges() : normalizePricingGeneralRanges(pricingGeneralOfferSavedRanges);
+  return currentPricingGeneralCatalog().ranges;
 }
 
 function renderPricingGeneralOffer(customer, offerDate, offerLocation, validUntil) {
-  const ranges = currentPricingGeneralRanges(), body = document.getElementById("offerGeneralRows");
+  const catalog = currentPricingGeneralCatalog(), ranges = catalog.ranges, body = document.getElementById("offerGeneralRows");
+  const stamp = document.getElementById("offerGeneralUpdated");
+  if (stamp) stamp.textContent = catalog.period ? `Cennik: ${new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric", timeZone: "Europe/Warsaw" }).format(new Date(`${catalog.period}-01T12:00:00Z`))}` : "";
+  if (pricingGeneralOfferSavedRanges !== null && JSON.stringify(ranges) !== JSON.stringify(normalizePricingGeneralRanges(pricingGeneralOfferSavedRanges))) markAgreementDraftDirty("offer");
   if (body) body.replaceChildren(...ranges.map(range => {
     const row = document.createElement("tr");
     appendOfferCell(row, range.manufacturer);
@@ -9159,6 +9172,7 @@ function addPricingRecordToOffer(record) {
   if (!record) return;
   if (offerGeneralInput?.checked) { offerGeneralInput.checked = false; renderPricingOffer(); }
   pricingGeneralOfferSavedRanges = null;
+  pricingGeneralOfferSavedPeriod = "";
   if (!offerDeviceInput1 || !offerDeviceInput2) return;
   const accessoryKind = pricingOfferAccessoryKind(record);
   if (accessoryKind) {
@@ -9396,6 +9410,7 @@ function startNewPricingOffer() {
   resetOfferChargerPrice();
   if (offerGeneralInput) offerGeneralInput.checked = false;
   pricingGeneralOfferSavedRanges = null;
+  pricingGeneralOfferSavedPeriod = "";
   documentDraftIdentities.delete("offer");
   [
     offerCustomerInput,
@@ -10684,6 +10699,7 @@ function normalizePricingOfferHistoryEntry(entry) {
   if (entry.generalInformation === true) {
     normalizedEntry.generalInformation = true;
     normalizedEntry.priceRanges = normalizePricingGeneralRanges(entry.priceRanges);
+    normalizedEntry.pricingPeriod = /^\d{4}-(?:0[1-9]|1[0-2])$/u.test(String(entry.pricingPeriod || "")) ? entry.pricingPeriod : "";
     normalizedEntry.items = [];
     normalizedEntry.total = ""; normalizedEntry.nfz = ""; normalizedEntry.pfron = ""; normalizedEntry.patient = "";
     normalizedEntry.pfronEnabled = false;
@@ -10752,9 +10768,10 @@ function currentPricingOfferSnapshot() {
   const location = ensurePricingOfferLocation();
   if (offerGeneralInput?.checked) {
     const now = new Date().toISOString();
+    const catalog = currentPricingGeneralCatalog();
     return { id: makeId(), createdAt: now, savedAt: now, savedBy: currentSupabaseUser?.email || "", workstation: currentWorkstationName(),
       customer: titleCaseName(offerCustomerInput?.value || ""), age: "", patientGroup: "", location, offerDate,
-      validUntil: addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS), generalInformation: true, priceRanges: currentPricingGeneralRanges(),
+      validUntil: addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS), generalInformation: true, priceRanges: catalog.ranges, pricingPeriod: catalog.period,
       withoutNfz: false, pfronEnabled: false, total: "", nfz: "", pfron: "", patient: "", notes: offerNotesInput?.value.trim() || "", items: [] };
   }
   const selectedItems = selectedPricingOfferAllItems();
@@ -10959,6 +10976,10 @@ async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
     if (!historyEntry) return null;
     await persistPricingOfferHistoryEntry(historyEntry);
     bindDocumentDraft("offer", historyEntry);
+    if (historyEntry.generalInformation) {
+      pricingGeneralOfferSavedRanges = normalizePricingGeneralRanges(historyEntry.priceRanges);
+      pricingGeneralOfferSavedPeriod = historyEntry.pricingPeriod;
+    }
     pricingOfferHistory = [
       historyEntry,
       ...pricingOfferHistory.filter((entry) => entry.id !== historyEntry.id)
@@ -12808,6 +12829,7 @@ function restorePricingOfferFromHistory(entry) {
   bindDocumentDraft("offer", saved);
   if (offerGeneralInput) offerGeneralInput.checked = Boolean(saved.generalInformation);
   pricingGeneralOfferSavedRanges = saved.generalInformation ? normalizePricingGeneralRanges(saved.priceRanges) : null;
+  pricingGeneralOfferSavedPeriod = saved.generalInformation ? saved.pricingPeriod : "";
   if (offerCustomerInput) offerCustomerInput.value = saved.customer;
   setPricingOfferPatientGroup(saved.patientGroup);
   if (offerLocationInput) offerLocationInput.value = normalizeDocumentLocationValue(saved.location);
@@ -12847,6 +12869,7 @@ function restorePricingOfferFromHistory(entry) {
   switchPricingView("offer");
   renderPricingOffer();
   markAgreementDraftSaved("offer");
+  if (saved.generalInformation && JSON.stringify(currentPricingGeneralRanges()) !== JSON.stringify(saved.priceRanges)) markAgreementDraftDirty("offer");
 }
 
 async function deletePricingOfferHistoryEntry(id) {
@@ -29796,7 +29819,7 @@ updatePcprFormMode();
   input?.addEventListener("input", renderPricingOffer);
   input?.addEventListener("change", renderPricingOffer);
 });
-offerGeneralInput?.addEventListener("change", () => { pricingGeneralOfferSavedRanges = null; markAgreementDraftDirty("offer"); renderPricingOffer(); });
+offerGeneralInput?.addEventListener("change", () => { pricingGeneralOfferSavedRanges = null; pricingGeneralOfferSavedPeriod = ""; markAgreementDraftDirty("offer"); renderPricingOffer(); });
 offerChargerPriceInput?.addEventListener("input", () => {
   offerChargerPriceInput.dataset.manualPrice = "1";
   markAgreementDraftDirty("offer");
@@ -31145,6 +31168,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
     clearForms() {
       if (offerGeneralInput) offerGeneralInput.checked = false;
       pricingGeneralOfferSavedRanges = null;
+      pricingGeneralOfferSavedPeriod = "";
       Object.values({ offer: pricingOfferView, loan: pricingLoanView, order: pricingOrderView, complaint: pricingComplaintView }).forEach(view => {
         view.querySelectorAll("input,textarea").forEach(input => { if (!["button", "submit", "radio", "checkbox"].includes(input.type)) input.value = ""; });
       });

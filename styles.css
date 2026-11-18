@@ -5153,6 +5153,7 @@ h2 {
 .offer-general-content { margin: 16px 0; }
 .offer-general-content h3 { margin: 0 0 8px; color: #003f5a; font-size: 1rem; }
 .offer-general-content > p { margin: 0 0 12px; color: #4d646e; line-height: 1.5; font-size: 0.8rem; }
+.offer-general-content > .offer-general-updated { margin-bottom: 6px; color: #346f70; font-weight: 600; font-size: 0.75rem; }
 .offer-general-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.85rem; }
 .offer-general-table :is(th, td) { padding: 7px 10px; border-bottom: 1px solid #dce6e8; text-align: left; overflow-wrap: anywhere; }
 .offer-general-table th { background: #eff6f5; color: #245e63; font-weight: 650; }

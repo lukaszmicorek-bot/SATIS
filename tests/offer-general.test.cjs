@@ -11,12 +11,12 @@ function setup() {
   const c = vm.createContext({collator:new Intl.Collator('pl'),normalize:value=>String(value||'').trim().toLowerCase(),
     normalizeLoanHistoryText:value=>String(value??'').trim(),isoDateForSave:value=>value||'',normalizeDocumentLocationValue:value=>value||'',
     titleCaseName:value=>value,makeId:()=> 'synthetic-id',customerNameLookupKey:value=>String(value||'').toLowerCase(),
-    pricingOfferHistoryPatientGroup:()=>'',pricingRecords:[],pricingGeneralOfferSavedRanges:null,
+    pricingOfferHistoryPatientGroup:()=>'',pricingRecords:[],pricingGeneralOfferSavedRanges:null,pricingGeneralOfferSavedPeriod:'',pricingUpdatedDateTime:()=> '2026-11',
     offerGeneralInput:{checked:true},offerCustomerInput:{value:'Osoba Testowa'},offerNotesInput:{value:'Ustalenia'},
     ensurePricingOfferDate:()=> '2026-11-18',ensurePricingOfferLocation:()=> 'P63',currentSupabaseUser:{email:'owner@example.invalid'},
     currentWorkstationName:()=> 'P63',addDaysToIsoDate:()=> '2026-12-18',PRICING_OFFER_VALID_DAYS:30});
   for(const name of ['normalizePricingPrice','normalizePricingManufacturerName','normalizePricingNfzCode','pricingOfferAccessoryKind','isPricingModelUnavailable',
-    'pricingGeneralOfferBrand','normalizePricingGeneralRanges','pricingGeneralOfferRanges','currentPricingGeneralRanges','normalizePricingOfferHistoryItem',
+    'pricingGeneralOfferBrand','normalizePricingGeneralRanges','pricingGeneralOfferRanges','currentPricingGeneralCatalog','currentPricingGeneralRanges','normalizePricingOfferHistoryItem',
     'pricingOfferHistoryEntryHasContent','normalizePricingOfferHistoryEntry','currentPricingOfferSnapshot','pricingOfferSnapshotKey','selectedPricingOfferItems','selectedPricingOfferAccessoryItems'])vm.runInContext(extract(name),c);
   return c;
 }
@@ -47,15 +47,29 @@ test('large catalogs are aggregated before history bounds, so later brands and e
   const rows=c.pricingGeneralOfferRanges(catalog);assert.equal(rows.length,3);
   assert.equal(rows.find(row=>row.manufacturer==='Phonak').max,12000);assert.equal(rows.find(row=>row.manufacturer==='Philips').min,2000);
 });
-test('general snapshots contain no models, NFZ payments, totals or hidden selected accessories; history freezes ranges',()=>{
+test('general snapshots contain no models or payments; newer catalogs refresh ranges without a downgrade from older caches',()=>{
   const c=setup();c.pricingRecords=[product('Audeo',4000),product('Audeo',8000)];
   const snapshot=c.currentPricingOfferSnapshot(),saved=c.normalizePricingOfferHistoryEntry(JSON.parse(JSON.stringify(snapshot)));
   assert.equal(saved.generalInformation,true);assert.equal(saved.customer,'Osoba Testowa');assert.equal(saved.items.length,0);assert.equal(saved.total,'');
   assert.equal(saved.patient,'');assert.equal(saved.pfronEnabled,false);assert.equal(c.selectedPricingOfferItems().length,0);assert.equal(c.selectedPricingOfferAccessoryItems().length,0);
-  c.pricingGeneralOfferSavedRanges=saved.priceRanges;c.pricingRecords=[product('Audeo',9999)];
+  c.pricingGeneralOfferSavedRanges=saved.priceRanges;c.pricingGeneralOfferSavedPeriod=saved.pricingPeriod;c.pricingRecords=[product('Audeo',9999)];
+  c.pricingUpdatedDateTime=()=> '2026-10';
   assert.equal(c.currentPricingGeneralRanges()[0].min,4000);assert.equal(c.currentPricingGeneralRanges()[0].max,8000);
+  c.pricingUpdatedDateTime=()=> '2027-02';assert.equal(c.currentPricingGeneralRanges()[0].min,9999);assert.equal(c.currentPricingOfferSnapshot().pricingPeriod,'2027-02');
+  c.pricingUpdatedDateTime=()=> '2026-11';assert.equal(c.currentPricingGeneralRanges()[0].min,9999,'a correction in the same month also refreshes prices');
+  c.pricingRecords=[];assert.equal(c.currentPricingGeneralRanges()[0].min,4000,'missing offline catalog retains the saved information');
+  c.pricingRecords=[product('Audeo',9999)];
   c.pricingGeneralOfferSavedRanges=null;assert.equal(c.currentPricingGeneralRanges()[0].min,9999);
   assert.notEqual(c.pricingOfferSnapshotKey(saved),c.pricingOfferSnapshotKey({...saved,generalInformation:false}));
+});
+test('Signia KIT sets do not raise the single-device range, regardless of name, model or product ID',()=>{
+  const c=setup();const rows=c.pricingGeneralOfferRanges([
+    product('Signia Pure',4000,'Signia'),product('Kit Pure',22000,'Signia'),product('Pure',24000,'Signia','P.01.01.00','SIGNIA KIT'),
+    {...product('Pure',25000,'Signia'),idProduct:'KIT-001'},product('Signia Kit7',26000,'Signia'),product('Kit',6000,'Phonak')]);
+  assert.equal(rows.find(row=>row.manufacturer==='Signia').min,4000);assert.equal(rows.find(row=>row.manufacturer==='Signia').max,4000);
+  assert.equal(rows.find(row=>row.manufacturer==='Phonak').max,6000);
+  c.pricingGeneralOfferSavedRanges=[{manufacturer:'Signia',min:4000,max:22000}];c.pricingGeneralOfferSavedPeriod='2026-11';
+  c.pricingRecords=[product('Signia KIT',22000,'Signia')];assert.equal(c.currentPricingGeneralRanges().length,0,'a catalog consisting only of sets cannot revive an older single-device range');
 });
 test('empty, malformed and unavailable catalog entries cannot invent a range',()=>{
   const c=setup();assert.equal(c.pricingGeneralOfferRanges([]).length,0);
