@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
+const { test } = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
 function extract(name) {
   let start = source.indexOf(`function ${name}(`);
@@ -126,3 +127,75 @@ async function testSaveFailure(stage, history = []) {
   await testSaveFailure('write');
   console.log('OK: 4 save-flow checks (no offline success, full cached history, targeted refresh, button recovery)');
 })().catch((error) => { console.error(error); process.exitCode = 1; });
+
+function baseLoanContext() {
+  const c = vm.createContext({
+    todayInputValue: () => '2026-11-23',
+    isoDateForSave: value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : '',
+    normalizeLoanHistoryText: value => String(value || '').trim(),
+    customerNameLookupKey: value => String(value || '').trim().toLowerCase(),
+    titleCaseName: value => value, formatDate: value => value || '',
+    records: [], demoRecords: [], pricingLoanHistory: [],
+    completedDemoLoanEntry: () => null
+  });
+  for (const name of ['normalizeSerialNumber', 'serialDuplicateKey', 'pricingLoanHistoryDevices',
+    'activePricingLoanEntries', 'activePricingLoansBySerial', 'pricingLoanDataIssues']) vm.runInContext(extract(name), c);
+  return c;
+}
+
+test('a Base aid or charger is a valid loan source without copying it to Demo', () => {
+  const c = baseLoanContext();
+  const entry = { id: 'base-loan', number: '1/11/2026', date: '2026-11-20',
+    customer: 'Klient Testowy', periodFrom: '2026-11-20', periodTo: '2026-12-04',
+    rightDevice: { serial: 'BASE123' }, charger: 'Charger', chargerSerial: 'CHARGER123' };
+  c.records = [{ id: 'base-aid', serialNumber: 'BASE123' }, { id: 'base-charger', serialNumber: 'CHARGER123' }];
+  assert.equal(c.pricingLoanDataIssues(entry).length, 0);
+  const indexes = { demoBySerial: new Map(), deviceBySerial: new Map(c.records.map(r => [r.serialNumber, r])) };
+  assert.equal(c.pricingLoanDataIssues(entry, indexes).length, 0);
+  c.records = [];indexes.deviceBySerial.clear();
+  assert.equal(c.pricingLoanDataIssues(entry).length, 2, 'unknown serials still require correction');
+  assert.match(c.pricingLoanDataIssues(entry)[0], /nie znaleziono w Bazie ani w Demo/);
+});
+
+test('Base loan index keeps overdue and conflicting loans, includes chargers and clears only actual returns', () => {
+  const c = baseLoanContext();
+  const active = { id: 'active', date: '2026-11-01', periodFrom: '2026-11-01', periodTo: '2026-11-15',
+    customer: 'Klient Testowy', rightDevice: { serial: 'BASE123' }, leftDevice: { serial: 'BASE123' }, chargerSerial: 'CHARGER123' };
+  c.pricingLoanHistory = [active, { ...active, id: 'future', periodFrom: '2026-11-24' },
+    { ...active, id: 'returned', returnDate: '2026-11-23' }, { ...active, id: 'old', returnDate: '2026-11-05' }];
+  let index = c.activePricingLoansBySerial();
+  assert.equal(index.get('BASE123').length, 1, 'same contract is not counted twice');
+  assert.equal(index.get('CHARGER123')[0].id, 'active');
+  c.pricingLoanHistory.push({ ...active, id: 'conflict' });
+  assert.equal(c.activePricingLoansBySerial().get('BASE123').length, 2);
+  c.pricingLoanHistory = [{ ...active, returnDate: '2026-11-23' }];
+  assert.equal(c.activePricingLoansBySerial().size, 0);
+  c.pricingLoanHistory = [];
+  assert.equal(c.activePricingLoansBySerial().size, 0, 'deleted loans leave no stale marker');
+  assert.equal(active.returnDate, undefined, 'no status or record is rewritten');
+});
+
+test('Base rental badge opens the current contract, not a stale or ambiguous loan', () => {
+  const c = baseLoanContext();
+  c.document = { createElement: () => ({ dataset: {}, children: [], handlers: {},
+    append(...nodes) { this.children.push(...nodes); },setAttribute() {},
+    addEventListener(name, action) { this.handlers[name] = action; } }) };
+  c.displayType = () => 'NA STANIE';c.createTypePill = type => ({ textContent: type });
+  c.attachTableHoverTooltip = () => {};c.canViewDocumentHistory = () => true;
+  c.restorePricingLoanFromHistory = entry => { c.opened = entry; };
+  c.renderDeviceViews = () => { c.refreshed = true; };c.alert = text => { c.warning = text; };
+  const entry = { id: 'rental', customer: 'Klient Testowy', number: '1/11/2026',
+    date: '2026-11-20', periodFrom: '2026-11-20', periodTo: '2026-12-04', rightDevice: { serial: 'BASE123' } };
+  c.pricingLoanHistory = [entry];
+  vm.runInContext(extract('createLoanedDeviceTypeCell'), c);
+  const cell = c.createLoanedDeviceTypeCell({ serialNumber: 'BASE123' }, [entry]);
+  const badge = cell.children[1];
+  assert.equal(cell.children[0].textContent, 'NA STANIE');
+  assert.equal(badge.textContent, 'Wypożyczony');assert.match(badge.dataset.customerTooltip, /Klient Testowy/);
+  badge.handlers.click();assert.equal(c.opened.id, 'rental');
+  c.opened = null;c.pricingLoanHistory = [{ ...entry, returnDate: '2026-11-23' }];
+  badge.handlers.click();assert.equal(c.opened, null);assert.equal(c.refreshed, true);
+  c.pricingLoanHistory = [entry, { ...entry, id: 'duplicate' }];
+  badge.handlers.click();assert.equal(c.opened, null);assert.match(c.warning, /kilku aktywnych/);
+  assert.match(extract('renderDeviceViews'), /const loansBySerial = activePricingLoansBySerial\(\)/);
+});

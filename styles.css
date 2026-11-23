@@ -13445,6 +13445,28 @@ tbody tr.demo-return-critical:hover {
   align-items: flex-start;
   gap: 3px;
 }
+.devices-table .device-loan-pill {
+  min-height: 23px;
+  padding: 2px 6px;
+  border: 1px solid #b9d7d5;
+  border-radius: 6px;
+  background: #eaf5f4;
+  color: #176662;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.devices-table .device-loan-pill:hover,
+.devices-table .device-loan-pill:focus-visible {
+  background: #dcefed;
+  border-color: #77afaa;
+}
+.devices-table .device-loan-conflict {
+  color: #913d50;
+  border-color: #e4bbc6;
+  background: #fff0f4;
+}
 
 .compact-cell-meta {
   color: #718087;

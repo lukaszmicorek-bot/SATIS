@@ -8670,7 +8670,9 @@ function renderDeviceViews() {
   const visibleRecords = applyLocalRowOrder(filteredRecords(), "devices");
   renderDeviceSearchFilterNotice(searchCounts?.devices || 0, visibleRecords.length);
   const renderedRecords = visibleTableItems(visibleRecords, "devices");
-  renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords, createRow, (record) => record.receivedDate));
+  const loansBySerial = activePricingLoansBySerial();
+  renderTableRows(recordsBody, yearGroupedTableRows(recordsBody, renderedRecords,
+    record => createRow(record, loansBySerial.get(serialDuplicateKey(record.serialNumber)) || []), (record) => record.receivedDate));
   setupLocalRowDrag(recordsBody, renderedRecords, "devices");
   emptyState.hidden = visibleRecords.length > 0;
   renderLimitNotice(databaseRenderNotice, databaseRenderText, visibleRecords.length, renderedRecords.length, "aparatów");
@@ -12264,15 +12266,11 @@ function pricingLoanDataIssues(entry, indexes = null) {
   }
   if (entry.returnDate) return [...new Set(structuralIssues)];
 
-  pricingLoanHistoryDevices(entry).forEach(({ serial, serialKey, kind }) => {
+  pricingLoanHistoryDevices(entry).forEach(({ serial, serialKey }) => {
     const demoRecord = indexes ? indexes.demoBySerial.get(serialKey) : demoRecords.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
     const deviceRecord = indexes ? indexes.deviceBySerial.get(serialKey) : records.find((record) => serialDuplicateKey(record.serialNumber) === serialKey);
-    const equipmentLabel = kind === "charger" ? "ładowarka" : "aparat";
-
     if (!demoRecord) {
-      issues.push(deviceRecord
-        ? `${serial}: ${equipmentLabel} jest w Bazie, ale nie występuje w Demo.`
-        : `${serial}: numeru nie znaleziono w Bazie ani w Demo.`);
+      if (!deviceRecord) issues.push(`${serial}: numeru nie znaleziono w Bazie ani w Demo.`);
       return;
     }
 
@@ -12389,6 +12387,18 @@ function activePricingLoanEntries(entries, today = todayInputValue()) {
     const endB = isoDateForSave(b.periodTo) || "9999-12-31";
     return endA.localeCompare(endB) || String(b.date || "").localeCompare(String(a.date || ""));
   });
+}
+
+function activePricingLoansBySerial(entries = pricingLoanHistory) {
+  const index = new Map();
+  activePricingLoanEntries(entries).forEach(entry => {
+    const serials = new Set(pricingLoanHistoryDevices(entry).map(item => item.serialKey));
+    serials.forEach(key => {
+      if (!index.has(key)) index.set(key, []);
+      index.get(key).push(entry);
+    });
+  });
+  return index;
 }
 
 function filterActivePricingLoansByLocation(entries, location) {
@@ -19401,7 +19411,40 @@ function createCustomerActivityCell(record) {
   return wrap;
 }
 
-function createRow(record) {
+function createLoanedDeviceTypeCell(record, loans) {
+  const cell = document.createElement("div");
+  cell.className = "compact-cell-stack device-loan-state";
+  cell.append(createTypePill(displayType(record)));
+  const badge = document.createElement("button");
+  badge.type = "button";
+  badge.className = `device-loan-pill${loans.length > 1 ? " device-loan-conflict" : ""}`;
+  badge.textContent = "Wypożyczony";
+  badge.dataset.customerTooltip = loans.map(entry => [
+    "Wypożyczenie z Bazy",
+    `Klient: ${entry.customer || "brak danych"}`,
+    `Umowa: ${entry.number || "bez numeru"}`,
+    `Od: ${formatDate(entry.periodFrom || entry.date) || "brak daty"}`,
+    `Termin zwrotu: ${formatDate(entry.periodTo) || "nie podano"}`
+  ].join("\n")).join("\n\n");
+  if (loans.length > 1) badge.dataset.customerTooltip += "\n\nSprawdź nakładające się wypożyczenia.";
+  badge.setAttribute("aria-label", `Wypożyczony. ${badge.dataset.customerTooltip}`);
+  attachTableHoverTooltip(badge, "customerTooltip");
+  badge.addEventListener("click", () => {
+    if (!canViewDocumentHistory()) return;
+    const current = activePricingLoansBySerial().get(serialDuplicateKey(record.serialNumber)) || [];
+    if (current.length !== 1) {
+      renderDeviceViews();
+      alert(current.length ? "Ten numer występuje na kilku aktywnych umowach. Sprawdź historię umów."
+        : "Wypożyczenie zostało zakończone lub usunięte. Lista została odświeżona.");
+      return;
+    }
+    restorePricingLoanFromHistory(current[0]);
+  });
+  cell.append(badge);
+  return cell;
+}
+
+function createRow(record, activeLoans = []) {
   const row = document.createElement("tr");
   const duplicateMatches = duplicateSerialMatches(record, "devices");
   const serviceMatches = serviceSerialMatches(record, "devices");
@@ -19421,7 +19464,7 @@ function createRow(record) {
   }
 
   const cells = [
-    createTypePill(displayType(record)),
+    activeLoans.length ? createLoanedDeviceTypeCell(record, activeLoans) : createTypePill(displayType(record)),
     createDemoModelCell(record),
     createSerialPill(
       record.serialNumber,
