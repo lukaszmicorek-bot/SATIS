@@ -11275,6 +11275,10 @@ function loanFollowUpSummary(value) {
   ].filter(Boolean).join(" · ");
 }
 
+function loanReturnLabel(count) {
+  return count > 1 ? "Zwrot aparatów" : "Zwrot aparatu";
+}
+
 function normalizePricingLoanHistoryEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
   const savedAt = normalizeLoanHistoryText(entry.savedAt || entry.updatedAt || entry.createdAt || new Date().toISOString());
@@ -12868,7 +12872,7 @@ function showPricingHistoryPreview(kind, entry) {
     appendPricingHistoryPreviewField(summary, "Pobrano", saved.testingFee);
     appendPricingHistoryPreviewField(summary, "Data zwrotu", formatDate(saved.returnDate));
     const followUp = loanFollowUpSummary(saved.followUp);
-    if (followUp) appendPricingHistoryPreviewField(summary, "Co dalej po zwrocie · wewnętrzne", followUp);
+    if (followUp) appendPricingHistoryPreviewField(summary, `${loanReturnLabel([saved.rightDevice, saved.leftDevice].filter(hasLoanDeviceData).length)} · wewnętrzne`, followUp);
     if (saved.depositEnabled) appendPricingHistoryPreviewField(summary, "Zwrot kaucji", formatDate(saved.depositReturnDate));
     [saved.rightDevice, saved.leftDevice].filter(hasLoanDeviceData).forEach((device) => {
       const row = document.createElement("p");
@@ -14995,6 +14999,8 @@ function renderPricingLoan() {
     value: device.value || "-"
   }));
   const equipmentCount = activeDevices.length;
+  const followUpTitle = document.getElementById("loanFollowUpTitle");
+  if (followUpTitle) followUpTitle.textContent = `${loanReturnLabel(equipmentCount)} · informacje wewnętrzne`;
   const equipmentLabel = equipmentCount > 1 ? "Aparaty słuchowe" : "Aparat słuchowy";
   if (loanFormEquipmentTitle) loanFormEquipmentTitle.textContent = equipmentLabel;
   if (loanEquipmentTitle) loanEquipmentTitle.textContent = equipmentLabel;

@@ -33,6 +33,7 @@ MIGRATIONS = [
     "supabase-audit-vacation.sql",
 ]
 EXTRA_PUBLIC_FILES = {
+    "supabase-clients-loan-filters.sql", "tests/clients-loan-filters.sqltest.cjs",
     "tests/loan-follow-up.test.cjs",
     "tests/pricing-update.test.cjs",
     "tests/statistics.test.cjs", "tests/statistics.browser.cjs",

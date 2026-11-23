@@ -151,6 +151,7 @@
     let busy = false, loaded = false, missingSchema = false, editingActivity = null, newProfileId = "", activityId = "", searchTimer, pollTimer;
     let clientLocation = "", timelineKind = "all", profileDirty = false, activityDirty = false, autoCity = "", autoPostal = "", sourcesUnavailable = false;
     let sourceSearchMissing = false, selectedSources = new Set(), clientWorkFilter = "", cardPanel = "case";
+    let clientDecisionFilter = "", clientNfzFilter = "";
     const sourceSearchWarning = "Wyszukiwanie kart po modelu i numerze seryjnym oraz filtry spraw wymagają uruchomienia supabase-clients-audit.sql. Nadal możesz szukać po nazwisku i telefonie.";
     let scheduleView="week",scheduleAnchor=a.today?.()||localInput(new Date()).slice(0,10),scheduleLocation=a.station(),visitsLoaded=false,visitsFetchedAt="";
     let scheduleConfig={hours:[],services:[]},scheduleReady=false,editingService=null,newServiceId="",resizeDrag=null,hoursDirty=false,serviceDirty=false,hoursRevision=null,hoursPlace=a.station();
@@ -262,7 +263,8 @@
             : "Kartoteka wymaga uruchomienia supabase-clients.sql w SQL Editor."
           : "Nie udało się wykonać operacji. Sprawdź połączenie; niezapisane dane pozostają w formularzu.");
         e.code = result.error.code;
-        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_") && name!=="satis_clients_search" && !journeyRequest) missingSchema = true;
+        if (/PGRST202|42883|42P01/.test(e.code || "") && name === "satis_clients_follow_up_search") e.message = "Filtry decyzji i NFZ wymagają uruchomienia supabase-clients-loan-filters.sql w SQL Editor. Pozostałe filtry są dostępne.";
+        if (/PGRST202|42883|42P01/.test(e.code || "") && !name.startsWith("satis_client_schedule_") && !["satis_clients_search","satis_clients_follow_up_search"].includes(name) && !journeyRequest) missingSchema = true;
         throw e;
       }
       if(!name.startsWith("satis_client_schedule_")&&!journeyRequest)missingSchema = false;
@@ -314,7 +316,7 @@
       const query = q("clientsSearch").value.trim();
       const proposed = q("clientsSuggestions");
       proposed.replaceChildren();
-      if (query.length >= 2 && !q("clientsArchived").checked && !clientWorkFilter) {
+      if (query.length >= 2 && !q("clientsArchived").checked && !clientWorkFilter && !clientDecisionFilter && !clientNfzFilter) {
         for (const candidate of suggestions(getIndex(), query).filter(item => {
           if (sourceSearchMissing || (location && !item.rows.some(row => row.location === location))) return false;
           const matches = profiles.filter(profile => normalized(profile.full_name) === normalized(item.name)
@@ -341,7 +343,15 @@
       const sourceNames = query.length >= 2 ? [...new Set(suggestions(getIndex(), query).flatMap(item => item.rows.map(row => row.name)))] : [];
       if(sourceNames.length>2000){profiles=[];total=0;renderList();throw new Error("Wyszukiwanie pasuje do ponad 2000 osób w dokumentach. Wpisz dokładniejszy model, nazwisko lub numer seryjny.");}
       let data, missingSearch = false;
-      if (sourceNames.length || clientWorkFilter) {
+      if (clientDecisionFilter || clientNfzFilter) {
+        try {
+          data = await rpc("satis_clients_follow_up_search", {...args, p_source_names: sourceNames,
+            p_filter: clientWorkFilter, p_decision: clientDecisionFilter, p_nfz: clientNfzFilter});
+        } catch (error) {
+          if (sequence === listSequence) { profiles=[];total=0;renderList(); }
+          throw error;
+        }
+      } else if (sourceNames.length || clientWorkFilter) {
         try { data = await rpc("satis_clients_search", {...args, p_source_names: sourceNames, ...(clientWorkFilter?{p_filter:clientWorkFilter}:{})}); }
         catch (error) {
           if (!/^(PGRST202|42883)$/.test(error.code || "")) throw error;
@@ -993,6 +1003,8 @@
       setCardPanel("case");
       journey?.clear();
       clientWorkFilter="";for(const tile of q("clientsNotebook").querySelectorAll("[data-client-stage]"))tile.setAttribute("aria-pressed",String(tile.dataset.clientStage===""));
+      clientDecisionFilter="";clientNfzFilter="";
+      for(const tile of q("clientsNotebook").querySelectorAll("[data-client-follow-up-filter]"))tile.setAttribute("aria-pressed",String(tile.dataset.followUpChoice===""));
       generation++; listSequence++; detailSequence++; visitSequence++; clearTimeout(searchTimer); clearTimeout(pollTimer);
       profiles=[];visits=[];detail=null;operations.clear();sourceRows=null;index=sourceIndex([]);loaded=false;busy=false;missingSchema=false;newProfileId="";editingActivity=null;activityId="";profileDirty=false;activityDirty=false;
       sourceSearchMissing=false;selectedSources.clear();updateProfileSave();
@@ -1189,6 +1201,24 @@
         const tile=button(label,()=>void guarded(async()=>{clientWorkFilter=value;for(const control of filters.querySelectorAll("button"))control.setAttribute("aria-pressed",String(control.dataset.clientStage===value));await list();}),"pcpr-tab");
         tile.dataset.clientStage=value;tile.setAttribute("aria-pressed",String(value===""));filters.append(tile);
       }filterHost.append(filters);
+      const followUp=node("div","","clients-follow-up-filters");
+      for(const [key,label,options]of [
+        ["decision","Decyzja klienta",[["","Wszystkie"],["DECIDED","Zdecydowany na zakup"],["DECLINED","Rezygnuje"],["NONE","Brak informacji"]]],
+        ["nfz","Wniosek NFZ",[["","Wszystkie"],["WAITING","Oczekuje na wniosek"],["READY","Ma wniosek"],["NONE","Brak informacji"]]]
+      ]){
+        const field=node("div","","clients-follow-up-field"),tiles=node("div","","pcpr-tab-group");
+        tiles.setAttribute("role","group");tiles.setAttribute("aria-label",label);field.append(node("span",label));
+        for(const [value,text]of options){
+          const tile=button(text,()=>void guarded(async()=>{
+            if(key==="decision")clientDecisionFilter=value;else clientNfzFilter=value;
+            for(const control of tiles.querySelectorAll("button"))control.setAttribute("aria-pressed",String(control.dataset.followUpChoice===value));
+            notify("Filtrowanie klientów…");await list();notify("");
+          }),"pcpr-tab");
+          tile.dataset.clientFollowUpFilter=key;tile.dataset.followUpChoice=value;tile.setAttribute("aria-pressed",String(value===""));tiles.append(tile);
+        }
+        field.append(tiles);followUp.append(field);
+      }
+      followUp.title="Decyzja i NFZ z najnowszej umowy powiązanej z kartą klienta";filterHost.append(followUp);
     }
     setBusy(false);
     return {open,clear,refreshSources,startReminders,events:(from,to)=>allowed()?visitEvents(visits,from,to):[],

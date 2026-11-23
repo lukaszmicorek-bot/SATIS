@@ -707,3 +707,36 @@ test('same-name conflicting phones and ambiguous people remain proposals rather 
   rows[1].phone=rows[0].phone='500600802';rows[2].phone='500600802';
   f.module.refreshSources();assert.equal(f.nodes.get('clientsSuggestions').children.length,1,'a conflicting known phone cannot suppress a separate person');
 });
+
+function followUpFixture(rpc){
+  const dom=fakeDOM(),baseCreate=dom.document.createElement;
+  dom.document.createElement=tag=>{const node=baseCreate(tag);node.querySelectorAll=selector=>descendants(node).filter(item=>selector==='button'&&item.tagName==='BUTTON');return node;};
+  const toolbar=dom.document.createElement('div');
+  dom.nodes.get('clientsNotebook').querySelector=selector=>selector==='.clients-toolbar'?toolbar:null;
+  dom.nodes.get('clientsNotebook').querySelectorAll=selector=>descendants(toolbar).filter(item=>selector==='[data-client-follow-up-filter]'?Object.hasOwn(item.dataset,'clientFollowUpFilter'):selector==='input,select,textarea,button'&&item.tagName==='BUTTON');
+  return {...fixture(rpc,{document:dom.document}),...dom,toolbar};
+}
+const followUpTile=(f,key,value)=>descendants(f.toolbar).find(node=>node.dataset.clientFollowUpFilter===key&&node.dataset.followUpChoice===value);
+test('decision and NFZ are combined on the server with pagination, and filter choices clear at logout',async()=>{
+  const f=followUpFixture(async(name,args)=>{
+    if(name==='satis_clients_overview')return {data:{profiles:[profile],total:1}};
+    if(name==='satis_clients_follow_up_search')return {data:{profiles:Array.from({length:args.p_offset?1:100},(_,i)=>({...profile,id:'filtered-'+(i+args.p_offset)})),total:101}};
+    return {data:[]};
+  });
+  await f.module.open();followUpTile(f,'decision','DECIDED').emit('click');for(let i=0;i<4;i++)await tick();
+  let request=f.calls.filter(call=>call.name==='satis_clients_follow_up_search').at(-1);assert.equal(request.args.p_decision,'DECIDED');assert.equal(request.args.p_nfz,'');
+  followUpTile(f,'nfz','READY').emit('click');for(let i=0;i<4;i++)await tick();
+  request=f.calls.filter(call=>call.name==='satis_clients_follow_up_search').at(-1);assert.equal(request.args.p_decision,'DECIDED');assert.equal(request.args.p_nfz,'READY');
+  f.nodes.get('clientsMore').emit('click');for(let i=0;i<4;i++)await tick();
+  request=f.calls.filter(call=>call.name==='satis_clients_follow_up_search').at(-1);assert.equal(request.args.p_offset,100);assert.equal(f.nodes.get('clientsList').children.length,101);
+  assert.equal(f.calls.some(call=>call.name==='satis_clients_write'),false);
+  f.module.clear();assert.equal(followUpTile(f,'decision','').attributes['aria-pressed'],'true');assert.equal(followUpTile(f,'nfz','').attributes['aria-pressed'],'true');
+});
+test('missing follow-up SQL fails closed without returning an unfiltered list or disabling the rest of Clients',async()=>{
+  const f=followUpFixture(async(name)=>name==='satis_clients_follow_up_search'?{error:{code:'PGRST202'}}:{data:name==='satis_clients_overview'?{profiles:[profile],total:1}:[]});
+  await f.module.open();const overviews=f.calls.filter(call=>call.name==='satis_clients_overview').length;
+  followUpTile(f,'decision','DECIDED').emit('click');for(let i=0;i<4;i++)await tick();
+  assert.equal(f.nodes.get('clientsList').children.length,0);assert.match(f.nodes.get('clientsMessage').textContent,/supabase-clients-loan-filters.sql/);
+  assert.equal(f.calls.filter(call=>call.name==='satis_clients_overview').length,overviews);
+  followUpTile(f,'decision','').emit('click');for(let i=0;i<4;i++)await tick();assert.equal(f.nodes.get('clientsList').children.length,1);
+});

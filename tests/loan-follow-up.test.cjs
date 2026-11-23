@@ -41,8 +41,16 @@ test('internal fields are editor-only, omitted from print sources and available 
  const field=html.indexOf('id="loanFollowUpFields"'),print=html.indexOf('id="pricingLoanPrint"');assert.ok(field>0&&field<print);
  const block=html.slice(field,html.indexOf('</fieldset>',field));assert.equal((block.match(/type="checkbox"/g)||[]).length,4);assert.match(block,/data-internal-only/);
  assert.match(extract('setupUnifiedDocumentLayout'),/document.getElementById\("loanFollowUpFields"\)/);
- assert.doesNotMatch(extract('renderPricingLoan'),/followUp|loanFollowUp/);assert.doesNotMatch(extract('prepareLoanPrintCopies'),/followUp|loanFollowUp/);
+ assert.doesNotMatch(extract('renderPricingLoan'),/readLoanFollowUp|setLoanOutput\([^)]*followUp/);assert.doesNotMatch(extract('prepareLoanPrintCopies'),/followUp|loanFollowUp/);
  assert.match(extract('clientsCurrentSources'),/followUp: entry.followUp/);
  assert.match(fs.readFileSync(require.resolve('../styles.css'),'utf8'),/@media print \{ #loanFollowUpFields, \[data-internal-only\] \{ display: none !important; \} \}/);
  assert.match(source,/addEventListener\("change", handleLoanFollowUpChange\)/);
+});
+
+test('return heading counts hearing aids only, and changes for one or two devices',()=>{
+ const c=vm.createContext({});vm.runInContext(extract('loanReturnLabel'),c);
+ assert.equal(c.loanReturnLabel(0),'Zwrot aparatu');assert.equal(c.loanReturnLabel(1),'Zwrot aparatu');assert.equal(c.loanReturnLabel(2),'Zwrot aparatów');
+ const render=extract('renderPricingLoan');assert.match(render,/activeDevices = devices.filter\(hasLoanDeviceData\)/);
+ assert.match(render,/loanReturnLabel\(equipmentCount\)/);assert.match(html,/id="loanFollowUpTitle">Zwrot aparatu/);
+ assert.doesNotMatch(html,/Co dalej po zwrocie/);
 });

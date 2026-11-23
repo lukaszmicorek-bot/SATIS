@@ -94,6 +94,8 @@
 !/tests/pricing-create.test.cjs
 !/tests/pricing-update.test.cjs
 !/tests/loan-follow-up.test.cjs
+!/supabase-clients-loan-filters.sql
+!/tests/clients-loan-filters.sqltest.cjs
 !/tests/pricing-discounts.test.cjs
 !/tests/offer-charger-price.test.cjs
 !/tests/repair-returns.sqltest.cjs
