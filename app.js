@@ -10572,7 +10572,7 @@ function setupUnifiedDocumentLayout() {
   returnSection.setAttribute("aria-labelledby", returnTitle.id);
   const returnFields = document.createElement("div");
   returnFields.className = "loan-form-grid";
-  [label("loanReturnDateInput"), label("loanDepositReturnDateInput"), document.getElementById("loanReturnDeadlineHint")]
+  [label("loanReturnDateInput"), label("loanDepositReturnDateInput"), document.getElementById("loanReturnDeadlineHint"), document.getElementById("loanFollowUpFields")]
     .filter(Boolean).forEach(node => returnFields.append(node));
   returnSection.append(returnTitle, returnFields);
   loanGrid.append(returnSection);
@@ -11236,6 +11236,45 @@ function pricingLoanHistoryEntryHasContent(entry) {
   );
 }
 
+function normalizeLoanFollowUp(value) {
+  return {
+    purchaseDecision: ["DECIDED", "DECLINED"].includes(value?.purchaseDecision) ? value.purchaseDecision : "",
+    nfzStatus: ["WAITING", "READY"].includes(value?.nfzStatus) ? value.nfzStatus : ""
+  };
+}
+
+function readLoanFollowUp() {
+  const result = {};
+  for (const group of ["purchaseDecision", "nfzStatus"]) {
+    const checked = document.querySelectorAll(`#loanFollowUpFields input[data-loan-follow-up="${group}"]:checked`);
+    result[group] = checked.length === 1 ? checked[0].value : "";
+  }
+  return normalizeLoanFollowUp(result);
+}
+
+function restoreLoanFollowUp(value) {
+  const followUp = normalizeLoanFollowUp(value);
+  document.querySelectorAll("#loanFollowUpFields input[data-loan-follow-up]").forEach(input => {
+    input.checked = followUp[input.dataset.loanFollowUp] === input.value;
+  });
+}
+
+function handleLoanFollowUpChange(event) {
+  const input = event.target;
+  if (!input.matches("input[data-loan-follow-up]") || !input.checked) return;
+  document.querySelectorAll("#loanFollowUpFields input[data-loan-follow-up]").forEach(other => {
+    if (other !== input && other.dataset.loanFollowUp === input.dataset.loanFollowUp) other.checked = false;
+  });
+}
+
+function loanFollowUpSummary(value) {
+  const followUp = normalizeLoanFollowUp(value);
+  return [
+    { DECIDED: "Klient zdecydowany na zakup", DECLINED: "Klient rezygnuje" }[followUp.purchaseDecision],
+    { WAITING: "Oczekuje na wniosek NFZ", READY: "Ma wniosek NFZ" }[followUp.nfzStatus]
+  ].filter(Boolean).join(" · ");
+}
+
 function normalizePricingLoanHistoryEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
   const savedAt = normalizeLoanHistoryText(entry.savedAt || entry.updatedAt || entry.createdAt || new Date().toISOString());
@@ -11277,6 +11316,7 @@ function normalizePricingLoanHistoryEntry(entry) {
     chargerMissingValue: normalizeLoanHistoryText(entry.chargerMissingValue),
     issueNotes: normalizeLoanHistoryText(entry.issueNotes),
     returnDate: isoDateForSave(entry.returnDate) || normalizeLoanHistoryText(entry.returnDate),
+    followUp: normalizeLoanFollowUp(entry.followUp),
     depositReturnDate: isoDateForSave(entry.depositReturnDate) || normalizeLoanHistoryText(entry.depositReturnDate),
     deductions: normalizeLoanHistoryText(entry.deductions),
     deductionReason: normalizeLoanHistoryText(entry.deductionReason)
@@ -11832,6 +11872,7 @@ function currentPricingLoanSnapshot() {
     chargerMissingValue: loanInputValue(loanChargerMissingValueInput),
     issueNotes: loanInputValue(loanIssueNotesInput),
     returnDate: isoDateForSave(loanReturnDateInput?.value) || loanInputValue(loanReturnDateInput),
+    followUp: readLoanFollowUp(),
     depositReturnDate: loanDepositEnabledInput?.checked ? (isoDateForSave(loanDepositReturnDateInput?.value) || loanInputValue(loanDepositReturnDateInput)) : "",
     deductions: loanInputValue(loanDeductionsInput),
     deductionReason: loanInputValue(loanDeductionReasonInput)
@@ -12064,6 +12105,7 @@ function restorePricingLoanFromHistory(entry) {
   setLoanSnapshotInput(loanChargerMissingValueInput, historyEntry.chargerMissingValue);
   setLoanSnapshotInput(loanIssueNotesInput, historyEntry.issueNotes);
   setLoanSnapshotInput(loanReturnDateInput, historyEntry.returnDate, { date: true });
+  restoreLoanFollowUp(historyEntry.followUp);
   setLoanSnapshotInput(loanDepositReturnDateInput, historyEntry.depositReturnDate, { date: true });
   setLoanSnapshotInput(loanDeductionsInput, historyEntry.deductions);
   setLoanSnapshotInput(loanDeductionReasonInput, historyEntry.deductionReason);
@@ -12825,6 +12867,8 @@ function showPricingHistoryPreview(kind, entry) {
     if (saved.depositEnabled) appendPricingHistoryPreviewField(summary, "Kaucja", saved.deposit);
     appendPricingHistoryPreviewField(summary, "Pobrano", saved.testingFee);
     appendPricingHistoryPreviewField(summary, "Data zwrotu", formatDate(saved.returnDate));
+    const followUp = loanFollowUpSummary(saved.followUp);
+    if (followUp) appendPricingHistoryPreviewField(summary, "Co dalej po zwrocie · wewnętrzne", followUp);
     if (saved.depositEnabled) appendPricingHistoryPreviewField(summary, "Zwrot kaucji", formatDate(saved.depositReturnDate));
     [saved.rightDevice, saved.leftDevice].filter(hasLoanDeviceData).forEach((device) => {
       const row = document.createElement("p");
@@ -14740,6 +14784,7 @@ function restoreLoanTestingRulesChoice(value) {
 
 function startNewPricingLoan() {
   if (pricingLoanSaveInProgress) return;
+  restoreLoanFollowUp();
   resetLoanAutofillState();
   if (loanDepositEnabledInput) loanDepositEnabledInput.checked = false;
   documentDraftIdentities.delete("loan");
@@ -30072,6 +30117,7 @@ loanCustomerInput?.addEventListener("input", (event) => {
   clearStaleLoanContactAutofill();
   renderPricingLoan();
 });
+document.querySelector("#loanFollowUpFields")?.addEventListener("change", handleLoanFollowUpChange);
 loanCustomerInput?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
   clearStaleLoanContactAutofill();
@@ -31449,7 +31495,7 @@ function clientsCurrentSources() {
     phone: entry.phone, address: entry.address, date: isoDateForSave(entry.date), location: currentDateLocationKey(entry.city) || currentDateLocationKey(entry.workstation),
     kind: "Umowa wypożyczenia", model: [entry.rightDevice?.model, entry.leftDevice?.model, entry.charger].filter(Boolean).join(" · "),
     serial: [entry.rightDevice?.serial, entry.leftDevice?.serial, entry.chargerSerial].filter(Boolean).join(" · "), number: entry.number,
-    status: entry.returnDate ? "Zakończona" : "Aktywna", workflow: { returnDate: entry.returnDate, periodFrom: isoDateForSave(entry.periodFrom), periodTo: entry.periodTo,
+    status: entry.returnDate ? "Zakończona" : "Aktywna", workflow: { returnDate: entry.returnDate, periodFrom: isoDateForSave(entry.periodFrom), periodTo: entry.periodTo, followUp: entry.followUp,
       outstandingDemo: demoRecords.some(record => customerNameLookupKey(record.currentUser) === customerNameLookupKey(entry.customer)
         && [entry.rightDevice?.serial,entry.leftDevice?.serial,entry.chargerSerial].some(serial => serial && serialDuplicateKey(serial) === serialDuplicateKey(record.serialNumber))
         && !record.returnDate && record.loanDate === (entry.periodFrom || entry.date)) },

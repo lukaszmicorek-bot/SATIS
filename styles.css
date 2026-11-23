@@ -4413,6 +4413,18 @@ h2 {
 .pricing-new-filter input { width: 14px; height: 14px; min-height: 0; padding: 0; margin: 0; accent-color: #39775f; }
 .pricing-new-filter #pricingNewCount { font: inherit; color: inherit; }
 .pricing-empty > button { margin: 8px 0 0 10px; }
+.loan-follow-up { min-width: 0; margin: 12px 0 0; padding: 14px 0 0; border: 0; border-top: 1px solid #d8e4e3; }
+.loan-follow-up legend { padding: 0 10px 0 0; color: #3a6267; font-size: 12px; font-weight: 700; }
+.loan-follow-up-groups { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 24px; }
+.loan-follow-up-groups > div { display: grid; align-content: start; gap: 7px; min-width: 0; }
+.loan-follow-up-groups > div > span { color: #64777a; font-size: 11px; font-weight: 650; }
+.loan-follow-up-groups label { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 5px 8px; border-radius: 4px; background: #f5f8f8; color: #39585e; font-size: 12px; font-weight: 550; cursor: pointer; }
+.loan-follow-up-groups label:has(input:checked) { background: #e8f3ef; color: #225e4e; }
+.loan-follow-up-groups label:has(input[value="DECLINED"]:checked) { background: #fbefef; color: #88434f; }
+.loan-follow-up input { width: 16px; height: 16px; min-height: 0; padding: 0; margin: 0; accent-color: #367c69; flex: 0 0 16px; }
+.loan-follow-up input[value="DECLINED"] { accent-color: #a45868; }
+@media (max-width: 600px) { .loan-follow-up-groups { grid-template-columns: minmax(0,1fr); } }
+@media print { #loanFollowUpFields, [data-internal-only] { display: none !important; } }
 
 .pricing-price-filter {
   display: grid;
