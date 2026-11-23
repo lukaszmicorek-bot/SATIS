@@ -4470,7 +4470,7 @@ h2 {
 
 .pricing-table th:nth-child(5),
 .pricing-table td:nth-child(5) {
-  width: 150px;
+  width: 172.5px;
 }
 
 .pricing-table th:nth-child(6),
@@ -4480,7 +4480,7 @@ h2 {
 
 .pricing-table th:nth-child(7),
 .pricing-table td:nth-child(7) {
-  width: 62px;
+  width: 44px;
   text-align: center;
 }
 
@@ -4508,7 +4508,7 @@ h2 {
 
 .pricing-table th:nth-child(9),
 .pricing-table td:nth-child(9) {
-  width: 85px;
+  width: 60px;
 }
 
 .pricing-table th:nth-child(10),
@@ -4821,8 +4821,8 @@ h2 {
 .pricing-editor-actions .danger { background: transparent; }
 
 .pricing-table th:nth-child(10),
-.pricing-table td:nth-child(10) { width: 122px; min-width: 122px; }
-.pricing-table .row-actions button { min-width: 24px; min-height: 26px; padding: 0 5px; margin: 2px; }
+.pricing-table td:nth-child(10) { width: 110px; min-width: 110px; }
+.pricing-table .row-actions button { min-width: 24px; min-height: 26px; padding: 0 5px; margin: 1px; }
 .pricing-table .pricing-record-edit-btn { font-size: 0.7rem; }
 
 @media (max-width: 480px) {
