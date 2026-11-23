@@ -54,3 +54,43 @@ test('return date focuses serial field and requires a serial before enabling sav
   ctx.repairForm.dataset.saving = '1'; ctx.updateRepairReturnSerialPrompt();
   assert.equal(button.disabled, true, 'typing must not unlock an in-flight save');
 });
+
+test('sent repairs open at the highlighted return date, but new, returned and picked-up entries do not', () => {
+  function field(value = '') {
+    return { value, classes: new Set(), scrollIntoView() {}, focus() { this.focused = true; },
+      classList: { add(name) { this.owner.classes.add(name); }, remove(name) { this.owner.classes.delete(name); } } };
+  }
+  const sent = field(), returned = field(), pickup = field();
+  for (const input of [sent, returned, pickup]) input.classList.owner = input;
+  const ctx = vm.createContext({
+    document: { querySelector: selector => ({ '#repairSentDate': sent, '#repairReturnDate': returned, '#repairPickupDate': pickup })[selector] },
+    repairForm: { querySelectorAll: () => [returned] }, repairDialog: { open: true }, isoDateForSave: value => value
+  });
+  vm.runInContext(extract('updateRepairReturnDatePrompt'), ctx);
+  ctx.updateRepairReturnDatePrompt({ focus: true });
+  assert.equal(returned.focused, undefined);
+  sent.value = '2026-11-20';ctx.updateRepairReturnDatePrompt({ focus: true });
+  assert.equal(returned.focused, true);assert.ok(returned.classes.has('repair-return-date-pending'));
+  returned.focused = false;returned.value = '2026-11-23';ctx.updateRepairReturnDatePrompt({ focus: true });
+  assert.equal(returned.focused, false);assert.equal(returned.classes.size, 0);
+  returned.value = '';pickup.value = '2026-11-23';ctx.updateRepairReturnDatePrompt({ focus: true });
+  assert.equal(returned.focused, false);assert.equal(returned.classes.size, 0);
+  assert.match(extract('openRepairDialog'), /repairDialog\.showModal\(\);\s*updateRepairReturnDatePrompt\(\{ focus: Boolean\(record\) \}\)/);
+});
+
+test('multi-item orders focus only the first outstanding return and clear stale highlights', () => {
+  const makeInput = value => ({ value, marked: false, scrollIntoView() {}, focus() { this.focused = true; },
+    classList: { add() { this.input.marked = true; }, remove() { this.input.marked = false; } } });
+  const dates = [makeInput('2026-11-22'), makeInput(''), makeInput('')];
+  const pickups = [makeInput(''), makeInput(''), makeInput('2026-11-23')];
+  dates.forEach(input => { input.classList.input = input;input.marked = true; });
+  const rows = dates.map((input, index) => ({ querySelector: selector => selector === '[data-order-return]' ? input : pickups[index] }));
+  const ctx = vm.createContext({
+    document: { querySelector: selector => selector === '#repairSentDate' ? { value: '2026-11-20' } : { hidden: false, querySelectorAll: () => rows } },
+    repairForm: { querySelectorAll: () => dates }, repairDialog: { open: true }, isoDateForSave: value => value
+  });
+  vm.runInContext(extract('updateRepairReturnDatePrompt'), ctx);
+  ctx.updateRepairReturnDatePrompt({ focus: true });
+  assert.deepEqual(dates.map(input => input.marked), [false, true, false]);
+  assert.equal(dates[1].focused, true);assert.equal(dates[0].focused, undefined);
+});

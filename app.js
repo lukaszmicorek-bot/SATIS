@@ -26410,6 +26410,23 @@ function openRepairDialog(record = null) {
   renderNearbyEntryWarning("repairs");
   updateRepairReturnSerialPrompt();
   repairDialog.showModal();
+  updateRepairReturnDatePrompt({ focus: Boolean(record) });
+}
+
+function updateRepairReturnDatePrompt({ focus = false } = {}) {
+  const sent = Boolean(isoDateForSave(document.querySelector("#repairSentDate").value));
+  const panel = document.querySelector("#repairOrderItemsPanel");
+  const rows = panel && !panel.hidden ? [...panel.querySelectorAll(".repair-order-item")] : [];
+  const dates = rows.length ? rows.map(row => ({
+    input: row.querySelector("[data-order-return]"), pickup: row.querySelector("[data-order-pickup]")
+  })) : [{ input: document.querySelector("#repairReturnDate"), pickup: document.querySelector("#repairPickupDate") }];
+  const pending = dates.filter(({ input, pickup }) => sent && !input.value.trim() && !pickup.value.trim());
+  repairForm.querySelectorAll(".repair-return-date-pending").forEach(input => input.classList.remove("repair-return-date-pending"));
+  pending.forEach(({ input }) => input.classList.add("repair-return-date-pending"));
+  if (focus && repairDialog.open && pending.length) {
+    pending[0].input.scrollIntoView({ block: "nearest" });
+    pending[0].input.focus({ preventScroll: true });
+  }
 }
 
 function repairOrderItemsForRecord(record) {
@@ -30489,6 +30506,8 @@ demoForm.addEventListener("submit", (event) => {
 });
 recordForm.addEventListener("click", handleClearDateClick);
 repairForm.addEventListener("click", handleClearDateClick);
+repairForm.addEventListener("input", () => updateRepairReturnDatePrompt());
+repairForm.addEventListener("change", () => updateRepairReturnDatePrompt());
 demoForm.addEventListener("click", handleClearDateClick);
 registerQualityHintListeners("devices", ["#deviceName", "#serialNumber", "#customerName"]);
 registerQualityHintListeners("repairs", ["#repairCustomerName", "#repairDeviceName", "#repairSerialNumber", "#repairSerialNumber2"]);

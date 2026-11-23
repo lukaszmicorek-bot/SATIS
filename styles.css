@@ -16686,6 +16686,15 @@ textarea {
   outline: none;
   box-shadow: none;
 }
+#repairForm input.repair-return-date-pending {
+  background: #fff1e8;
+  border: 1px solid #dfad98;
+}
+#repairForm input.repair-return-date-pending:focus {
+  outline: 2px solid #dfad98;
+  outline-offset: 2px;
+  box-shadow: none;
+}
 .repair-order-items-panel h3 { margin: 0; color: #003f5a; font-size: 0.95rem; }
 .repair-order-items-panel > p { margin: 5px 0 10px; font-size: 0.75rem; color: #62737a; }
 #repairOrderItemsList { display: grid; gap: 12px; }
