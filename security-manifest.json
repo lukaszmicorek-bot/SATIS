@@ -1,5 +1,5 @@
 {
-  "app_version": "20261124-1",
+  "app_version": "20261124-2",
   "asset_policy_sha256": "3e4ebeaff4e53fdb242e731fdea245dc0ea8c6446bf8402c0dd98b5e0132c4b4",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -23,8 +23,8 @@
       "sha256": "35c986e12412bdf7601b42b49ad0d2c77f5c00a74dea07e28f0090484daf0943"
     },
     "app.js": {
-      "bytes": 1951918,
-      "sha256": "5b31483e74df495447792f946095aa96220bde740b932e5270bfa8a9b42d5d10"
+      "bytes": 1955304,
+      "sha256": "dfe65b4ac2c1c3510c9e12f4bbaf300856b4d6272a404d33580d553810fb2d69"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -63,8 +63,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 475027,
-      "sha256": "02cda0dfaa0233ded869c975ee190e7c274a6d2119bbcfa4bd21506fb685f2dd"
+      "bytes": 476701,
+      "sha256": "7055b770b6432e4da3b889b77935a1d1dbbe704edd2aa47fd70d060be8192fa0"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -180,7 +180,7 @@
     },
     "offline-sw.js": {
       "bytes": 3454,
-      "sha256": "4ac6ebfffa3f4b94661c04f2013104aaf966ff337b29d1515c9ce07d845a8efb"
+      "sha256": "8fd828c6030f8d32bf31af72a25b20e49d6af2eb9cb0ca097a80282d80243268"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -227,8 +227,8 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 483930,
-      "sha256": "6843b8f2a1cf3103ee5fa40b1f5deffe57e6414ce27534cb658200827cdd03a7"
+      "bytes": 484735,
+      "sha256": "934c2af64f816d5bdf7aef2fd0d01aad75298aab3d21e5435f6af479895364d4"
     },
     "supabase-config.js": {
       "bytes": 227,

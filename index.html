@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261124-1">
+  <link rel="stylesheet" href="styles.css?v=20261124-2">
   </head>
   <body>
     <main class="app-shell">
@@ -1713,10 +1713,14 @@
           <section id="pricingRodoView" class="pricing-view-section pricing-rodo-section" role="tabpanel" aria-labelledby="rodoTab" hidden>
             <section class="offer-builder rodo-builder" aria-label="Dane do formularza RODO">
               <div class="rodo-form-grid">
+                <fieldset id="rodoPatientType" class="rodo-patient-type"><legend>Klient</legend>
+                  <label><input type="radio" name="rodoPatientKind" value="adult" checked> Dorosły</label>
+                  <label><input type="radio" name="rodoPatientKind" value="child"> Dziecko</label>
+                </fieldset>
                 <label class="person-name-field"><span>Imię i nazwisko</span><input id="rodoNameInput" type="text" list="customerNameSuggestions" autocomplete="off" placeholder="Imię i nazwisko"></label>
                 <label><span>PESEL</span><input id="rodoPeselInput" type="text" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="11 cyfr (opcjonalnie)"></label>
                 <label><span>Data urodzenia</span><input id="rodoBirthDateInput" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
-                <label><span>Telefon</span><input id="rodoPhoneInput" type="tel" autocomplete="off" placeholder="Numer telefonu"></label>
+                <label><span id="rodoPhoneLabel">Telefon</span><input id="rodoPhoneInput" type="tel" autocomplete="off" placeholder="Numer telefonu"></label>
                 <div class="rodo-address-field structured-address" data-address-input="rodoAddressInput">
                   <input id="rodoAddressInput" type="text" autocomplete="off" hidden>
                   <div class="structured-address-fields">
@@ -1728,6 +1732,14 @@
                   </div>
                   <small class="structured-address-hint" aria-live="polite" hidden></small>
                 </div>
+                <section id="rodoGuardianFields" class="rodo-guardian-fields" aria-label="Rodzic lub opiekun prawny" hidden>
+                  <label><span>Imię i nazwisko rodzica / opiekuna prawnego *</span><input id="rodoGuardianNameInput" type="text" autocomplete="off" maxlength="160" disabled></label>
+                  <fieldset><legend>Rola *</legend>
+                    <label><input type="radio" name="rodoGuardianRole" value="Matka" disabled> Matka</label>
+                    <label><input type="radio" name="rodoGuardianRole" value="Ojciec" disabled> Ojciec</label>
+                    <label><input type="radio" name="rodoGuardianRole" value="Opiekun prawny" disabled> Opiekun prawny</label>
+                  </fieldset>
+                </section>
                 <label><span>Miejscowość</span><input id="rodoCityInput" type="text" autocomplete="off" placeholder="Miejscowość"></label>
                 <label><span>Data</span><input id="rodoDateInput" type="text" data-date-picker inputmode="numeric" placeholder="DD.MM.RRRR" autocomplete="off"></label>
               </div>
@@ -1788,7 +1800,7 @@
                 <p>Ma Pani/Pan prawo do dostępu, kopii, sprostowania, usunięcia lub ograniczenia przetwarzania danych, ich przenoszenia, sprzeciwu oraz wycofania zgody – w zakresie przewidzianym przepisami. Przysługuje również prawo wniesienia skargi do Prezesa UODO.</p>
                 <h3>Zgody klienta</h3>
                 <div class="rodo-consent-print"><strong>1. Dane dotyczące zdrowia i usługi</strong><div class="rodo-choice-line"><span><b data-rodo-choice="health-yes"></b> TAK</span><span><b data-rodo-choice="health-no"></b> NIE</span></div>
-                  <p>Wyrażam wyraźną zgodę na przetwarzanie danych dotyczących mojego zdrowia w zakresie niezbędnym do wykonania badań słuchu, konsultacji, oceny przetwarzania słuchowego oraz doboru i dopasowania aparatów słuchowych i innych wybranych usług.</p>
+                  <p>Wyrażam wyraźną zgodę na przetwarzanie danych dotyczących <span data-rodo-health-subject>mojego zdrowia</span> w zakresie niezbędnym do wykonania badań słuchu, konsultacji, oceny przetwarzania słuchowego oraz doboru i dopasowania aparatów słuchowych i innych wybranych usług.</p>
                   <p>Przyjmuję do wiadomości, że badania słuchu oraz dobór i dopasowanie aparatów słuchowych w SATIS wykonuje protetyk słuchu, zgodnie z posiadanymi kwalifikacjami.</p></div>
                 <div class="rodo-consent-print"><strong>2. Powiadomienia dotyczące wizyt</strong><div class="rodo-choice-line"><span><b data-rodo-choice="visits-yes"></b> TAK</span><span><b data-rodo-choice="visits-no"></b> NIE</span></div>
                   <p>Wyrażam zgodę na otrzymywanie na podany numer telefonu SMS i automatycznych powiadomień dotyczących wizyt, w szczególności potwierdzeń, przypomnień, zmian lub odwołania wizyty, również za pośrednictwem systemu Booksy.</p>
@@ -1796,13 +1808,16 @@
                 <div class="rodo-consent-print"><strong>3. Kontakt marketingowy</strong><p>Chcę otrzymywać informacje o ofercie, usługach i promocjach SATIS:</p>
                   <div class="rodo-choice-line rodo-marketing-line"><span><b data-rodo-choice="marketing-phone"></b> telefon</span><span><b data-rodo-choice="marketing-sms"></b> SMS</span><span><b data-rodo-choice="marketing-email"></b> e-mail</span><span><b data-rodo-choice="marketing-none"></b> nie wyrażam zgody</span></div>
                   <p>Zgoda jest dobrowolna i może zostać w każdej chwili wycofana.</p></div>
+                <p data-rodo-child-only hidden>Działając jako rodzic lub opiekun prawny wskazanego dziecka, składam zaznaczone powyżej oświadczenia w jego imieniu.</p>
                 <div class="rodo-signatures">
-                  <p><strong data-rodo-out="name"></strong><span>Imię i nazwisko klienta</span></p>
+                  <p><strong data-rodo-out="name"></strong><span data-rodo-name-label>Imię i nazwisko klienta</span></p>
                   <p><strong data-rodo-out="birthIdentity"></strong><span>Data urodzenia / PESEL</span></p>
-                  <p><strong data-rodo-out="phone"></strong><span>Numer telefonu</span></p>
+                  <p><strong data-rodo-out="phone"></strong><span data-rodo-phone-label>Numer telefonu</span></p>
                   <p><strong data-rodo-out="address"></strong><span>Adres</span></p>
+                  <p data-rodo-child-only hidden><strong data-rodo-out="guardianName"></strong><span>Imię i nazwisko rodzica / opiekuna prawnego</span></p>
+                  <p data-rodo-child-only hidden><strong data-rodo-out="guardianRole"></strong><span>Rola przedstawiciela dziecka</span></p>
                   <p><strong data-rodo-out="placeDate"></strong><span>Miejscowość i data</span></p>
-                  <p><strong></strong><span>Podpis klienta / opiekuna prawnego</span></p>
+                  <p><strong></strong><span data-rodo-signature-label>Podpis klienta</span></p>
                 </div>
               </article>
             </section>
@@ -3697,26 +3712,26 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261124-1"></script>
-    <script src="data-layer.js?v=20261124-1"></script>
-    <script src="sync-layer.js?v=20261124-1"></script>
-    <script src="traffic-meter.js?v=20261124-1"></script>
-    <script src="repair-returns.js?v=20261124-1"></script>
-    <script src="offline-vault.js?v=20261124-1"></script>
-    <script src="offline-forms.js?v=20261124-1"></script>
-    <script src="stock-audit.js?v=20261124-1"></script>
-    <script src="complaint-shipping.js?v=20261124-1"></script>
-    <script src="vacation-attendance.js?v=20261124-1"></script>
-    <script src="tasks.js?v=20261124-1"></script>
-    <script src="client-journey.js?v=20261124-1"></script>
-    <script src="statistics.js?v=20261124-1"></script>
-    <script src="clients.js?v=20261124-1"></script>
-    <script src="tinnitus-forms.js?v=20261124-1"></script>
-    <script src="care-form.js?v=20261124-1"></script>
-    <script src="accessory-catalog.js?v=20261124-1"></script>
-    <script src="repair-catalog.js?v=20261124-1"></script>
-    <script src="wsa-repair-groups.js?v=20261124-1"></script>
-    <script src="mail-merge.js?v=20261124-1"></script>
-  <script src="app.js?v=20261124-1"></script>
+    <script src="supabase-config.js?v=20261124-2"></script>
+    <script src="data-layer.js?v=20261124-2"></script>
+    <script src="sync-layer.js?v=20261124-2"></script>
+    <script src="traffic-meter.js?v=20261124-2"></script>
+    <script src="repair-returns.js?v=20261124-2"></script>
+    <script src="offline-vault.js?v=20261124-2"></script>
+    <script src="offline-forms.js?v=20261124-2"></script>
+    <script src="stock-audit.js?v=20261124-2"></script>
+    <script src="complaint-shipping.js?v=20261124-2"></script>
+    <script src="vacation-attendance.js?v=20261124-2"></script>
+    <script src="tasks.js?v=20261124-2"></script>
+    <script src="client-journey.js?v=20261124-2"></script>
+    <script src="statistics.js?v=20261124-2"></script>
+    <script src="clients.js?v=20261124-2"></script>
+    <script src="tinnitus-forms.js?v=20261124-2"></script>
+    <script src="care-form.js?v=20261124-2"></script>
+    <script src="accessory-catalog.js?v=20261124-2"></script>
+    <script src="repair-catalog.js?v=20261124-2"></script>
+    <script src="wsa-repair-groups.js?v=20261124-2"></script>
+    <script src="mail-merge.js?v=20261124-2"></script>
+  <script src="app.js?v=20261124-2"></script>
   </body>
 </html>

@@ -17705,6 +17705,13 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 .rodo-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .rodo-form-grid label { display: grid; gap: 5px; min-width: 0; }
 .rodo-address-field { grid-column: 1 / -1; }
+.rodo-patient-type { grid-column: 1 / -1; border: 0; margin: 0; padding: 0; }
+.rodo-patient-type legend, .rodo-guardian-fields legend { color: #003f5a; font-size: 0.8rem; font-weight: 750; }
+.rodo-patient-type label, .rodo-guardian-fields fieldset label { display: inline-flex; align-items: center; gap: 5px; margin: 5px 16px 0 0; }
+.rodo-patient-type input, .rodo-guardian-fields fieldset input { width: auto !important; min-height: 0 !important; margin: 0; }
+.rodo-guardian-fields { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; border-top: 1px solid #d4e2e4; padding-top: 12px; }
+.rodo-guardian-fields fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+@media (max-width: 700px) { .rodo-guardian-fields { grid-template-columns: 1fr; } }
 .rodo-consent-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .rodo-consent-controls fieldset { min-width: 0; margin: 0; padding: 10px; border: 1px solid #cadadd; border-radius: 6px; }
 .rodo-consent-controls legend { padding: 0 4px; font-weight: 700; color: #003f5a; }

@@ -10449,10 +10449,51 @@ function updateRodoFromPesel() {
   renderPricingRodo();
 }
 
+function rodoPatientIsChild(birthDate, referenceDate, selectedKind = "adult") {
+  const birth = isoDateForSave(birthDate), reference = isoDateForSave(referenceDate);
+  const age = birth && reference ? ageOnDate(birth, reference) : null;
+  return age === null ? selectedKind === "child" : age < 18;
+}
+
+function syncRodoGuardianFields() {
+  const kind = pricingRodoView.querySelector('input[name="rodoPatientKind"]:checked')?.value || "adult";
+  const child = rodoPatientIsChild(document.querySelector("#rodoBirthDateInput")?.value,
+    document.querySelector("#rodoDateInput")?.value || todayInputValue(), kind);
+  pricingRodoView.querySelectorAll('input[name="rodoPatientKind"]').forEach(input => {
+    input.checked = input.value === (child ? "child" : "adult");
+  });
+  const fields = document.querySelector("#rodoGuardianFields");
+  if (fields) fields.hidden = !child;
+  const name = document.querySelector("#rodoGuardianNameInput");
+  if (name) {
+    name.disabled = !child; name.required = child;
+    name.setCustomValidity("");
+  }
+  pricingRodoView.querySelectorAll('input[name="rodoGuardianRole"]').forEach(input => {
+    input.disabled = !child; input.required = child;
+  });
+  const phoneLabel = document.querySelector("#rodoPhoneLabel");
+  if (phoneLabel) phoneLabel.textContent = child ? "Telefon rodzica / opiekuna" : "Telefon";
+  return child;
+}
+
+function validateRodoGuardian() {
+  const child = syncRodoGuardianFields();
+  if (!child) return true;
+  const name = document.querySelector("#rodoGuardianNameInput");
+  name.value = titleCaseName(name.value);
+  name.setCustomValidity(isFullPersonName(name.value) ? "" : "Podaj imię i nazwisko rodzica lub opiekuna prawnego.");
+  if (!name.reportValidity()) { name.focus(); return false; }
+  const role = pricingRodoView.querySelector('input[name="rodoGuardianRole"]');
+  if (!role.reportValidity()) { role.focus(); return false; }
+  return true;
+}
+
 function renderPricingRodo() {
   globalThis.SatisAddressFields?.sync("rodoAddressInput");
   const print = document.querySelector("#pricingRodoPrint");
   if (!print) return;
+  const child = syncRodoGuardianFields();
   const name = document.querySelector("#rodoNameInput")?.value.trim() || "";
   const birthDate = document.querySelector("#rodoBirthDateInput")?.value || "";
   const pesel = document.querySelector("#rodoPeselInput")?.value.trim() || "";
@@ -10460,7 +10501,9 @@ function renderPricingRodo() {
   const address = document.querySelector("#rodoAddressInput")?.value.trim() || "";
   const city = document.querySelector("#rodoCityInput")?.value.trim() || "";
   const date = document.querySelector("#rodoDateInput")?.value || "";
-  const outputs = { name, birthIdentity: [birthDate ? formatDate(birthDate) : "", pesel ? `PESEL: ${pesel}` : ""].filter(Boolean).join(" · "), phone, address, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
+  const guardianName = child ? titleCaseName(document.querySelector("#rodoGuardianNameInput")?.value || "") : "";
+  const guardianRole = child ? pricingRodoView.querySelector('input[name="rodoGuardianRole"]:checked')?.value || "" : "";
+  const outputs = { name, birthIdentity: [birthDate ? formatDate(birthDate) : "", pesel ? `PESEL: ${pesel}` : ""].filter(Boolean).join(" · "), phone, address, guardianName, guardianRole, placeDate: [city, date ? formatDate(date) : ""].filter(Boolean).join(", ") };
   print.querySelectorAll("[data-rodo-out]").forEach((element) => {
     element.textContent = outputs[element.dataset.rodoOut] || "";
   });
@@ -10469,6 +10512,14 @@ function renderPricingRodo() {
   print.querySelectorAll("[data-rodo-choice]").forEach((box) => {
     box.textContent = selected.has(box.dataset.rodoChoice) ? "X" : "";
   });
+  print.querySelectorAll("[data-rodo-child-only]").forEach(element => { element.hidden = !child; });
+  const labels = {
+    "health-subject": child ? "zdrowia wskazanego dziecka" : "mojego zdrowia",
+    "name-label": child ? "Imię i nazwisko dziecka" : "Imię i nazwisko klienta",
+    "phone-label": child ? "Telefon rodzica / opiekuna" : "Numer telefonu",
+    "signature-label": child ? "Podpis rodzica / opiekuna prawnego" : "Podpis klienta"
+  };
+  Object.entries(labels).forEach(([key, text]) => print.querySelectorAll(`[data-rodo-${key}]`).forEach(element => { element.textContent = text; }));
 }
 
 function resetPricingRodo() {
@@ -10477,6 +10528,7 @@ function resetPricingRodo() {
     else input.value = "";
   });
   setDateInputValue("#rodoDateInput", todayInputValue());
+  pricingRodoView.querySelector('input[name="rodoPatientKind"][value="adult"]').checked = true;
   updateRodoFromPesel();
 }
 
@@ -10484,6 +10536,7 @@ async function printPricingRodo() {
   if (!validateDocumentPhoneForAction("rodo")) return false;
   updateRodoFromPesel();
   if (!document.querySelector("#rodoPeselInput")?.reportValidity()) return false;
+  if (!validateRodoGuardian()) return false;
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.print("rodo");
   renderPricingRodo();
   const cleanup = () => document.body.classList.remove("rodo-print");
@@ -10650,6 +10703,7 @@ function setupUnifiedDocumentLayout() {
   }
   title(pricingReceiptView.querySelector(".rodo-form-grid"), "Produkty", purchase);
   label("rodoNameInput").after(label("rodoPhoneInput"));
+  label("rodoNameInput").before(document.getElementById("rodoPatientType"));
   pricingOrderView.querySelector(".order-editor-head > span").textContent = "Produkty";
   for (const [view, kind] of [[pricingOfferView, "offer"], [pricingLoanView, "loan"], [pricingOrderView, "order"],
     [pricingComplaintView, "complaint"], [pricingReceiptView, "receipt"], [pricingRodoView, "rodo"]]) {
@@ -31143,6 +31197,13 @@ document.querySelector("#rodoNameInput")?.addEventListener("blur", (event) => {
   event.target.value = titleCaseName(event.target.value);
   renderPricingRodo();
 });
+document.querySelector("#rodoGuardianNameInput")?.addEventListener("input", event => {
+  event.target.value = titleCaseNameInput(event.target.value);
+});
+document.querySelector("#rodoGuardianNameInput")?.addEventListener("blur", event => {
+  event.target.value = titleCaseName(event.target.value);
+  renderPricingRodo();
+});
 pricingRodoView?.querySelector(".rodo-builder")?.addEventListener("change", (event) => {
   const input = event.target;
   if (input.name === "rodoMarketing" && input.checked) {
@@ -31471,7 +31532,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "offer" && offerGeneralInput?.checked && !currentPricingGeneralRanges().length) { alert("Brak aparatów z prawidłową ceną w cenniku."); return false; }
       const phoneId = {loan: "loanPhoneInput", order: "orderPhoneInput", complaint: "complaintPhoneInput", rodo: "rodoPhoneInput"}[kind];
       if (phoneId && !validatePersonalFormPhone(document.getElementById(phoneId), true)) return false;
-      if (kind === "rodo") { updateRodoFromPesel(); return document.getElementById("rodoPeselInput").reportValidity(); }
+      if (kind === "rodo") { updateRodoFromPesel(); return document.getElementById("rodoPeselInput").reportValidity() && validateRodoGuardian(); }
       return true;
     },
     renderApp: () => render(),

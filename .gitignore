@@ -78,6 +78,7 @@
 !/tests/receipt-form.test.cjs
 !/tests/offline-vault.test.cjs
 !/tests/print-font-readiness.test.cjs
+!/tests/rodo-pesel.test.cjs
 !/tests/sync-layer.test.cjs
 !/tests/local-row-order.test.cjs
 !/tests/startup-performance.test.cjs

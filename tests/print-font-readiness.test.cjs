@@ -99,10 +99,11 @@ test('RODO print is aligned right and shares normal/hover styling with all four 
 
 test('RODO validates before print and routes to the same online/offline print pipeline', async () => {
   const rodo = source.slice(source.indexOf('async function printPricingRodo('), source.indexOf('\nfunction markAgreementDraftDirty('));
-  let valid = false, offline = false, prints = 0, offlinePrints = 0;
+  let valid = false, guardianValid = true, offline = false, prints = 0, offlinePrints = 0;
   const context = vm.createContext({
     validateDocumentPhoneForAction: () => true,
     updateRodoFromPesel() {}, renderPricingRodo() {},
+    validateRodoGuardian: () => guardianValid,
     document: {querySelector: () => ({reportValidity: () => valid}), body: {classList: {add() {}, remove() {}}}},
     window: {addEventListener() {}},
     offlineForms: {active: () => offline, print: async kind => {assert.equal(kind, 'rodo'); offlinePrints++;}},
@@ -117,5 +118,11 @@ test('RODO validates before print and routes to the same online/offline print pi
   offline = true;
   await context.printPricingRodo();
   assert.equal(offlinePrints, 1);
+  assert.equal(prints, 1);
+  guardianValid = false;
+  assert.equal(await context.printPricingRodo(), false);
+  assert.equal(offlinePrints, 1, 'incomplete guardian must also block offline printing');
+  offline = false;
+  assert.equal(await context.printPricingRodo(), false);
   assert.equal(prints, 1);
 });
