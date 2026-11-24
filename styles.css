@@ -17303,6 +17303,13 @@ input.nearby-entry-match {
     font-weight: 700;
   }
 
+  .offer-document :is(.offer-items-table, .offer-payments-table) th {
+    position: static;
+    top: auto;
+    z-index: auto;
+    cursor: default;
+  }
+
   body.pricing-offer-print #pricingOfferPrint .offer-subtotal-row > :is(th, td) {
     padding: 1.1mm 2.2mm;
     font-size: 7.5pt;

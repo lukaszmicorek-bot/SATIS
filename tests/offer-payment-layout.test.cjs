@@ -111,6 +111,7 @@ test('without refund hides all product codes and mismatch warnings, restoring th
 });
 
 test('offer subtotal includes every product, remains before funding and resets after clearing',()=>{
+  assert.match(css,/\.offer-document :is\(\.offer-items-table, \.offer-payments-table\) th \{\s*position: static;\s*top: auto;\s*z-index: auto;/);
   let devices=[{slot:1,record:{grossPrice:4000}},{slot:2,record:{grossPrice:5000}}];
   let extras=[{kind:'charger',record:{grossPrice:500}},{kind:'earmold',record:{grossPrice:200}}];
   const gross=element('strong'),patient=element('strong');
