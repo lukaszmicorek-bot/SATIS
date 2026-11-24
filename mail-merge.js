@@ -7,8 +7,22 @@
   const PAGE = {width: 595.32, height: 841.92};
   const correspondenceFields = ["correspondenceStreet", "correspondenceHouse", "correspondenceFlat", "correspondencePostal", "correspondenceCity", "correspondencePostOffice", "correspondenceMunicipality", "correspondenceCounty", "correspondenceProvince"];
   const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName", "correspondenceHouse", "correspondenceFlat"];
+  const disabilityTypes = [
+    ["01-U", "Niepełnosprawność intelektualna", 65],
+    ["02-P", "Choroby psychiczne", 78.8],
+    ["03-L", "Zaburzenia głosu, mowy i choroby słuchu", 92.6],
+    ["04-O", "Narząd wzroku", 134],
+    ["05-R", "Narząd ruchu", 175.3],
+    ["06-E", "Epilepsja", 230.5],
+    ["07-S", "Choroby układu oddechowego i krążenia", 244.3],
+    ["08-T", "Choroby układu pokarmowego", 258.1],
+    ["09-M", "Choroby układu moczowo-płciowego", 271.9],
+    ["10-N", "Choroby neurologiczne", 285.7],
+    ["11-I", "Inne", 299.5],
+    ["12-C", "Całościowe zaburzenia rozwojowe", 313.3]
+  ];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
+  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "disabilityType", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
   function shortChoices(options){
     const choices=(options||[]).filter(([value])=>value!=="");
     return choices.length>=2&&choices.length<=4?choices:null;
@@ -170,6 +184,8 @@
     if (data.certificateValidity === "indefinite") tick(3,"certificateValidity",201.8,373.6);
     if (data.certificateValidity === "periodic") {tick(3,"certificateValidity",201.8,387.4);add(3,"certificateUntil",352,387,185,13);}
     cell(3,"certificateNumber",415.8,435.3,203.5,563);
+    const disability = disabilityTypes.find(([code])=>code===data.disabilityType);
+    if(disability)tick(4,"disabilityType",201.5,disability[2]);
     const careX={yes:28.3,no:64.1,unknown:99.3};
     if(careX[data.careHome]!==undefined)tick(4,"careHome",careX[data.careHome],598.8);
     const householdX={individual:28.3,shared:118.3};
@@ -220,6 +236,7 @@
     if (data.gender && !["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Sprawdź oznaczenie płci."});
     if (data.localityType && !["city","village"].includes(data.localityType)) errors.push({field:"localityType",text:"Sprawdź rodzaj miejscowości."});
     if (data.invalidityGroup && !["I","II","III","none"].includes(data.invalidityGroup)) errors.push({field:"invalidityGroup",text:"Sprawdź grupę inwalidzką."});
+    if (data.disabilityType && !disabilityTypes.some(([code])=>code===data.disabilityType)) errors.push({field:"disabilityType",text:"Wybierz rodzaj niepełnosprawności zgodny z orzeczeniem."});
     if (data.pesel && !validPesel(data.pesel)) errors.push({field:"pesel",text:"Sprawdź PESEL: 11 cyfr i prawidłowa suma kontrolna."});
     if (data.postal && !/^\d{2}-\d{3}$/u.test(data.postal)) errors.push({field:"postal",text:"Kod pocztowy: 00-000."});
     if (data.phone && !/^(?:(?:48|0048))?\d{9}$/u.test(data.phone.replace(/\D/gu,""))) errors.push({field:"phone",text:"Wpisz prawidłowy numer telefonu."});
@@ -280,6 +297,7 @@
     }
     function read() {
       const data=Object.fromEntries(personal.map(key=>[key,fields.get(key).value.trim()]));
+      if(!data.disabilityType)delete data.disabilityType;
       data.sameAddress=fields.get("sameAddress").checked;
       for(const key of correspondenceFields)if(data.sameAddress || !data[key])delete data[key];
       if(a.iso(data.certificateUntil))data.certificateUntil=a.date(a.iso(data.certificateUntil));
@@ -657,7 +675,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=7?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=8?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -677,7 +695,7 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        const requiredSchema=correspondenceFields.some(key=>Boolean(data[key]))?7:6;
+        const requiredSchema=data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
         if(schemaVersion<requiredSchema){await refresh();if(schemaVersion<requiredSchema){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
@@ -734,7 +752,7 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Adres korespondencyjny","correspondence",[["correspondenceStreet","Ulica"],["correspondenceHouse","Nr domu"],["correspondenceFlat","Nr lokalu (opcjonalnie)"],["correspondencePostal","Kod pocztowy"],["correspondenceCity","Miejscowość"],["correspondencePostOffice","Poczta"],["correspondenceMunicipality","Gmina"],["correspondenceCounty","Powiat"],["correspondenceProvince","Województwo"]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
-      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
+      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["disabilityType","Rodzaj niepełnosprawności",[["","Wybierz zgodnie z orzeczeniem…"],...disabilityTypes.map(([code,label])=>[code,`${code} — ${label}`])]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
       ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["householdSize","Liczba osób w gospodarstwie"]]],
       ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]],

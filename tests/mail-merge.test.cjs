@@ -83,7 +83,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:7}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:8}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -97,6 +97,32 @@ function fixture(overrides={}) {
     click(text){const target=['Zapisz','Zapisz zmiany'].includes(text)?nodes.get('mailMergeSave'):buttons().find(button=>button.textContent===text || button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+test('disability type has twelve explicit choices, persists, reopens and can be cleared without changing old people',async()=>{
+  const t=fixture();t.api.open();await tick();
+  const select=t.nodes.get('mergedisabilityType');assert.equal(select.tag,'select');assert.equal(select.children.length,13);assert.equal(select.value,'');
+  t.fill({firstName:'Jan',surname:'Testowy',disabilityType:'03-L'});await select.emit('change');await t.click('Zapisz roboczo');
+  assert.equal([...t.stored.values()][0].data.disabilityType,'03-L');
+  t.api.clear();t.api.open();await tick();await t.click('Edytuj');assert.equal(select.value,'03-L');
+  t.fill({disabilityType:''});await select.emit('change');await t.click('Zapisz roboczo');
+  assert.equal([...t.stored.values()][0].data.disabilityType,undefined);t.api.clear();
+});
+test('all disability symbols mark only the corresponding box on page four and invalid codes are rejected',()=>{
+  const codes=['01-U','02-P','03-L','04-O','05-R','06-E','07-S','08-T','09-M','10-N','11-I','12-C'];
+  const positions=[65,78.8,92.6,134,175.3,230.5,244.3,258.1,271.9,285.7,299.5,313.3];
+  for(const [i,code]of codes.entries()){
+    assert.equal(m.draftValidate({...example,disabilityType:code},()=>true).some(e=>e.field==='disabilityType'),false);
+    const marks=m.placements({...example,disabilityType:code}).filter(p=>p.field==='disabilityType');
+    assert.deepEqual(marks,[{page:4,field:'disabilityType',x:201.5,y:positions[i],width:10,height:11,text:'X'}]);
+  }
+  for(const value of ['99-Z','03-l','03-L,05-R','<script>'])assert.ok(m.draftValidate({...example,disabilityType:value},()=>true).some(e=>e.field==='disabilityType'));
+  assert.equal(m.placements(example).some(p=>p.field==='disabilityType'),false);
+});
+test('schema seven continues saving old drafts but blocks disability data until the SQL update',async()=>{
+  let saves=0,lastData;
+  const t=fixture({rpc:async(name,args)=>{if(name==='satis_mail_merge_list')return {data:{rows:[],total:0,schemaVersion:7}};lastData=args.p_data;return {data:{id:args.p_id,revision:++saves}};}});
+  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');assert.equal(saves,1);assert.equal(Object.hasOwn(lastData,'disabilityType'),false);
+  t.fill({disabilityType:'03-L'});await t.click('Zapisz roboczo');assert.equal(saves,1);assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);t.api.clear();
+});
 test('persistent people accept incomplete drafts and reopen after clearing the session',async()=>{
   const t=fixture();t.api.open();await tick();
   assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,7);

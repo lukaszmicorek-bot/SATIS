@@ -55,7 +55,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',7);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',8);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -108,7 +108,7 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
@@ -117,6 +117,7 @@ begin
       or coalesce(p_data->>'localityType','') not in ('','city','village')
       or coalesce(p_data->>'invalidityGroup','') not in ('','I','II','III','none')
       or coalesce(p_data->>'degree','') not in ('','severe','moderate','mild','none')
+      or coalesce(p_data->>'disabilityType','') not in ('','01-U','02-P','03-L','04-O','05-R','06-E','07-S','08-T','09-M','10-N','11-I','12-C')
       or coalesce(p_data->>'careHome','') not in ('','yes','no','unknown')
       or coalesce(p_data->>'householdType','') not in ('','individual','shared')
       or coalesce(p_data->>'paymentMode','') not in ('','transfer','cash','contractor')

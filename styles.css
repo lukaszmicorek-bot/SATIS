@@ -18209,6 +18209,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 @media screen and (min-width: 901px) {
   .mail-merge-group-income > label:has(#mergemonthlyIncome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergecareHome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergehouseholdType), .mail-merge-group-income > label:has(#mergehouseholdSize) { grid-column: span 6; }
   .mail-merge-group-certificate > label:has(#mergecertificateNumber) { grid-column: span 6; }
+  .mail-merge-group-certificate > label:has(#mergedisabilityType) { grid-column: 1 / -1; }
   .mail-merge-group-certificate > .mail-merge-choice-field:has(#mergecertificateValidity), .mail-merge-group-certificate > label:has(#mergecertificateUntil) { grid-column: span 3; }
   .mail-merge-group-funding label { grid-column: span 3; }
 }

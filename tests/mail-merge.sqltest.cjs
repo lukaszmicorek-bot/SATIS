@@ -35,6 +35,7 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     await denied(write(id(),'SAVE',other,null,{...basic,gender:'unknown'}),'22023');
     await denied(write(id(),'SAVE',other,null,{...basic,pesel:'90010112349',gender:'male'}),'22023');
     await denied(write(id(),'SAVE',other,null,{...basic,invalidityGroup:'IV'}),'22023');
+    for(const disabilityType of ['99-Z','03-l','03-L,05-R',123,{},null])await denied(write(id(),'SAVE',other,null,{...basic,disabilityType}),'22023');
     await denied(write(id(),'SAVE',other,null,{...basic,monthlyIncome:'-1'}),'22023');
     for(const value of ['0','2.5','100','abc'])await denied(write(id(),'SAVE',other,null,{...basic,householdSize:value}),'22023');
     await denied(write(id(),'SAVE',other,null,{...basic,careHome:'invalid'}),'22023');
@@ -45,8 +46,14 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     assert.equal(detail.data.careHome,'no');assert.equal(detail.data.householdType,'shared');assert.equal(detail.data.paymentMode,'transfer');assert.equal(detail.data.bankAccount,'61109010140000071219812874');assert.equal(detail.data.bankOwner,'Jan Testowy');
     assert.equal(detail.data.monthlyIncome,'2500.50');assert.equal(detail.data.householdSize,'3');assert.equal(detail.data.requested,'3000');assert.equal(detail.data.certificateNumber,'TEST/AB/2026');assert.equal(detail.data.certificateUntil,'');assert.equal(detail.data.subject2,'Aparat L');assert.equal(detail.data.orderNumber2,'NFZ-2');assert.equal(detail.data.gender,'female');assert.equal(detail.data.invalidityGroup,'none');assert.equal(detail.data.email,'-');assert.equal(detail.data.pesel,complete.pesel);assert.equal(detail.data.cost,'8000.00');
     const list=(await db.query("select satis_mail_merge_list('Testowy',0) result")).rows[0].result;
-    assert.equal(list.schemaVersion,7);assert.equal(list.total,1);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);for(const field of ['bankAccount','bankOwner','bankName','careHome'])assert.equal(list.rows[0].data[field],undefined);
+    assert.equal(list.schemaVersion,8);assert.equal(list.total,1);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);for(const field of ['bankAccount','bankOwner','bankName','careHome','disabilityType'])assert.equal(list.rows[0].data[field],undefined);
     const correspondence={...basic,sameAddress:false,correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
+    for(const disabilityType of ['01-U','02-P','03-L','04-O','05-R','06-E','07-S','08-T','09-M','10-N','11-I','12-C']){
+      await write(id(),'SAVE',other,null,{...basic,disabilityType});
+      assert.equal((await db.query('select satis_mail_merge_detail($1) result',[other])).rows[0].result.data.disabilityType,disabilityType);
+      assert.ok((await db.query("select satis_mail_merge_list('',0) result")).rows[0].result.rows.every(row=>!Object.hasOwn(row.data,'disabilityType')));
+      await write(id(),'DELETE',other,1,{});
+    }
     await denied(write(id(),'SAVE',other,null,{...correspondence,correspondenceCity:{value:'bad'}}),'22023');
     await denied(write(id(),'SAVE',other,null,{...correspondence,correspondencePostal:'34300'}),'22023');
     assert.equal((await write(id(),'SAVE',other,null,correspondence)).rows[0].result.revision,1);
