@@ -18238,6 +18238,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
   .mail-merge-group-income > label:has(#mergemonthlyIncome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergecareHome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergehouseholdType), .mail-merge-group-income > label:has(#mergehouseholdSize) { grid-column: span 6; }
   .mail-merge-group-certificate > label:has(#mergecertificateNumber) { grid-column: span 6; }
   .mail-merge-group-certificate > label:has(#mergedisabilityType) { grid-column: 1 / -1; }
+  .mail-merge-group-certificate > .mail-merge-choice-field:has(:is(#mergecombinedDisability,#mergedisabilityCauseCount)) { grid-column: span 6; }
   .mail-merge-group-certificate > .mail-merge-choice-field:has(#mergecertificateValidity), .mail-merge-group-certificate > label:has(#mergecertificateUntil) { grid-column: span 3; }
   .mail-merge-group-funding label { grid-column: span 3; }
 }
@@ -18373,6 +18374,14 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 }
 
 .mail-merge-fields > label.mail-merge-check { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; line-height: 1.5; }
+.mail-merge-disabilities { grid-column: 1 / -1; min-width: 0; }
+.mail-merge-disabilities > span { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 650; color: #003f5a; }
+.mail-merge-disability-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px 12px; }
+.mail-merge-fields .mail-merge-disability-option { display: flex; flex-direction: row; grid-column: auto; align-items: start; gap: 8px; padding: 6px; min-width: 0; cursor: pointer; }
+.mail-merge-disability-option:has(input:checked) { background: #edf6f5; }
+.mail-merge-disability-option input { flex: 0 0 17px; width: 17px; height: 17px; min-height: 0; margin: 2px 0 0; accent-color: #007b7d; }
+.mail-merge-disability-option span { color: #243d47; font-size: 13px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .mail-merge-disability-options { grid-template-columns: minmax(0,1fr); } }
 .mail-merge-fields > label.mail-merge-check input { width: 17px; height: 17px; flex: 0 0 17px; min-height: 0; }
 .mail-merge-fields > label.mail-merge-check > span { min-height: 0; }
 .mail-merge-fields > .document-form-note { margin: 0; line-height: 1.5; }

@@ -22,10 +22,23 @@
     ["12-C", "Całościowe zaburzenia rozwojowe", 313.3]
   ];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
+  function selectedDisabilities(data){
+    const values=Array.isArray(data.disabilityTypes)?data.disabilityTypes:data.disabilityType?[data.disabilityType]:[];
+    return disabilityTypes.map(([code])=>code).filter(code=>values.includes(code));
+  }
   const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "disabilityType", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
   function shortChoices(options){
     const choices=(options||[]).filter(([value])=>value!=="");
     return choices.length>=2&&choices.length<=4?choices:null;
+  }
+  function disabilityIssues(data,full=false){
+    const errors=[];
+    if(data.disabilityType&&!disabilityTypes.some(([code])=>code===data.disabilityType))errors.push({field:"disabilityType",text:"Wybierz rodzaj niepełnosprawności zgodny z orzeczeniem."});
+    if(Object.hasOwn(data,"disabilityTypes")&&(!Array.isArray(data.disabilityTypes)||data.disabilityTypes.length>12||data.disabilityTypes.some(code=>!disabilityTypes.some(([valid])=>valid===code))||new Set(data.disabilityTypes).size!==data.disabilityTypes.length))errors.push({field:"disabilityType",text:"Sprawdź wybrane rodzaje niepełnosprawności."});
+    if(data.combinedDisability&&!["yes","no"].includes(data.combinedDisability))errors.push({field:"combinedDisability",text:"Wybierz Tak lub Nie przy niepełnosprawności sprzężonej."});
+    if(data.disabilityCauseCount&&!["2","3"].includes(data.disabilityCauseCount))errors.push({field:"disabilityCauseCount",text:"Wybierz liczbę przyczyn: 2 lub 3."});
+    if(full&&data.combinedDisability==="yes"&&!data.disabilityCauseCount)errors.push({field:"disabilityCauseCount",text:"Podaj liczbę przyczyn niepełnosprawności sprzężonej zgodnie z orzeczeniem."});
+    return errors;
   }
   function bankDigits(value){return String(value||"").replace(/\s/gu,"").toLocaleUpperCase("pl-PL").replace(/^PL/u,"");}
   function validBankAccount(value){
@@ -109,7 +122,7 @@
     return errors;
   }
   function validate(data, validPesel) {
-    const errors = correspondenceIssues(data, true);
+    const errors = [...correspondenceIssues(data, true),...disabilityIssues(data,true)];
     for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["postOffice", "Poczta"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
@@ -184,8 +197,12 @@
     if (data.certificateValidity === "indefinite") tick(3,"certificateValidity",201.8,373.6);
     if (data.certificateValidity === "periodic") {tick(3,"certificateValidity",201.8,387.4);add(3,"certificateUntil",352,387,185,13);}
     cell(3,"certificateNumber",415.8,435.3,203.5,563);
-    const disability = disabilityTypes.find(([code])=>code===data.disabilityType);
-    if(disability)tick(4,"disabilityType",201.5,disability[2]);
+    for(const code of selectedDisabilities(data)){
+      const disability=disabilityTypes.find(([value])=>value===code);
+      tick(4,"disabilityType",201.5,disability[2]);
+    }
+    if(["yes","no"].includes(data.combinedDisability))tick(4,"combinedDisability",201.5,data.combinedDisability==="yes"?332.7:346.5);
+    if(data.combinedDisability==="yes"&&["2","3"].includes(data.disabilityCauseCount))tick(4,"disabilityCauseCount",201.5,data.disabilityCauseCount==="2"?490:503.8);
     const careX={yes:28.3,no:64.1,unknown:99.3};
     if(careX[data.careHome]!==undefined)tick(4,"careHome",careX[data.careHome],598.8);
     const householdX={individual:28.3,shared:118.3};
@@ -230,13 +247,12 @@
     return null;
   }
   function draftValidate(data, validPesel) {
-    const errors = correspondenceIssues(data);
+    const errors = [...correspondenceIssues(data),...disabilityIssues(data)];
     for (const key of ["firstName", "surname"]) if (!String(data[key] || "").trim()) errors.push({field:key,text:"Wpisz imię i nazwisko osoby."});
     for (const key of ["firstName","surname"]) if (data[key] && !/[\p{L}]/u.test(data[key])) errors.push({field:key,text:"Wpisz poprawne imię i nazwisko."});
     if (data.gender && !["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Sprawdź oznaczenie płci."});
     if (data.localityType && !["city","village"].includes(data.localityType)) errors.push({field:"localityType",text:"Sprawdź rodzaj miejscowości."});
     if (data.invalidityGroup && !["I","II","III","none"].includes(data.invalidityGroup)) errors.push({field:"invalidityGroup",text:"Sprawdź grupę inwalidzką."});
-    if (data.disabilityType && !disabilityTypes.some(([code])=>code===data.disabilityType)) errors.push({field:"disabilityType",text:"Wybierz rodzaj niepełnosprawności zgodny z orzeczeniem."});
     if (data.pesel && !validPesel(data.pesel)) errors.push({field:"pesel",text:"Sprawdź PESEL: 11 cyfr i prawidłowa suma kontrolna."});
     if (data.postal && !/^\d{2}-\d{3}$/u.test(data.postal)) errors.push({field:"postal",text:"Kod pocztowy: 00-000."});
     if (data.phone && !/^(?:(?:48|0048))?\d{9}$/u.test(data.phone.replace(/\D/gu,""))) errors.push({field:"phone",text:"Wpisz prawidłowy numer telefonu."});
@@ -252,7 +268,7 @@
     return errors;
   }
   function create(a) {
-    const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map(), choiceGroups = new Map();
+    const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map(), choiceGroups = new Map(), disabilityChecks=[];
     let geoPromise = null, geoIndex = null, postalSequence = 0, deferredPostal = false, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
@@ -297,6 +313,11 @@
     }
     function read() {
       const data=Object.fromEntries(personal.map(key=>[key,fields.get(key).value.trim()]));
+      const selected=disabilityChecks.filter(input=>input.checked).map(input=>input.value);
+      data.disabilityType=selected[0]||"";
+      if(selected.length>1)data.disabilityTypes=selected;
+      for(const key of ["combinedDisability","disabilityCauseCount"]){const value=fields.get(key).value;if(value)data[key]=value;}
+      if(data.combinedDisability!=="yes")delete data.disabilityCauseCount;
       if(!data.disabilityType)delete data.disabilityType;
       data.sameAddress=fields.get("sameAddress").checked;
       for(const key of correspondenceFields)if(data.sameAddress || !data[key])delete data[key];
@@ -311,6 +332,10 @@
       else if(restore&&!until.value&&periodicDate)until.value=periodicDate;
       until.disabled=busy||indefinite;until.placeholder=indefinite?"Nie dotyczy":"";
       labels.get("certificateUntil").classList.toggle("mail-merge-muted",indefinite);
+      const coupled=fields.get("combinedDisability").value==="yes",count=fields.get("disabilityCauseCount");
+      if(!coupled){count.value="";count.setCustomValidity("");count.removeAttribute("aria-invalid");}
+      count.disabled=busy||!coupled;labels.get("disabilityCauseCount").classList.toggle("mail-merge-muted",!coupled);
+      for(const input of disabilityChecks)input.disabled=busy;
       updateCertificateNotice();
       for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
       for(const count of [1,2])q(`mailMergeItemCount${count}`).setAttribute("aria-pressed",String(count===(second?2:1)));
@@ -613,6 +638,7 @@
       q("mailMergeCorrespondenceChoices").replaceChildren();
       generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
+      for(const input of disabilityChecks){input.checked=false;input.setCustomValidity("");}
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";
       fields.get("subject").value="Aparaty słuchowe";fields.get("sameAddress").checked=true;fields.get("paymentMode").value="transfer";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
@@ -621,6 +647,9 @@
     function load(entry) {
       reset();editingId=entry.id;editingRevision=entry.revision;
       personal.forEach(key=>{fields.get(key).value=entry.data[key]||"";});fields.get("personRole").value||="applicant";
+      for(const key of ["combinedDisability","disabilityCauseCount"])fields.get(key).value=entry.data[key]||"";
+      const selected=selectedDisabilities(entry.data);for(const input of disabilityChecks)input.checked=selected.includes(input.value);
+      fields.get("disabilityType").value=selected[0]||"";
       fields.get("bankAccount").value=formatBankAccount(fields.get("bankAccount").value);
       fields.get("paymentMode").value=entry.data.paymentMode||"transfer";
       fields.get("sameAddress").checked=Boolean(entry.data.sameAddress);correspondencePostal=entry.data.correspondencePostal||"";rememberAddress(entry.data);
@@ -675,7 +704,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=8?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=9?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -695,7 +724,7 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        const requiredSchema=data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
+        const requiredSchema=data.disabilityTypes||data.combinedDisability||data.disabilityCauseCount?9:data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
         if(schemaVersion<requiredSchema){await refresh();if(schemaVersion<requiredSchema){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
@@ -752,7 +781,7 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Adres korespondencyjny","correspondence",[["correspondenceStreet","Ulica"],["correspondenceHouse","Nr domu"],["correspondenceFlat","Nr lokalu (opcjonalnie)"],["correspondencePostal","Kod pocztowy"],["correspondenceCity","Miejscowość"],["correspondencePostOffice","Poczta"],["correspondenceMunicipality","Gmina"],["correspondenceCounty","Powiat"],["correspondenceProvince","Województwo"]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
-      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["disabilityType","Rodzaj niepełnosprawności",[["","Wybierz zgodnie z orzeczeniem…"],...disabilityTypes.map(([code,label])=>[code,`${code} — ${label}`])]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
+      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["disabilityType","Rodzaj niepełnosprawności — wybierz wszystkie z orzeczenia",[["","Wybierz zgodnie z orzeczeniem…"],...disabilityTypes.map(([code,label])=>[code,`${code} — ${label}`])]],["combinedDisability","Niepełnosprawność sprzężona",[["","Wybierz…"],["yes","Tak"],["no","Nie"]]],["disabilityCauseCount","Liczba przyczyn (wg orzeczenia)",[["","Wybierz…"],["2","2 przyczyny"],["3","3 przyczyny"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
       ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["householdSize","Liczba osób w gospodarstwie"]]],
       ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]],
@@ -763,9 +792,9 @@
       const section=node("fieldset",`mail-merge-fields mail-merge-group-${group}`);section.append(node("legend","",title));
       if(group==="correspondence"){section.id="mailMergeCorrespondence";section.hidden=true;}
       items.forEach(([key,title,options])=>{
-        const itemCount=key==="itemCount",choices=!itemCount?shortChoices(options):null;
-        const label=node(itemCount||choices?"div":"label",itemCount?"mail-merge-item-count":choices?"mail-merge-choice-field":""),input=node(options&&!itemCount&&!choices?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
-        if(itemCount||choices)input.type="hidden";
+        const itemCount=key==="itemCount",multiple=key==="disabilityType",choices=!itemCount&&!multiple?shortChoices(options):null;
+        const label=node(itemCount||choices||multiple?"div":"label",multiple?"mail-merge-disabilities":itemCount?"mail-merge-item-count":choices?"mail-merge-choice-field":""),input=node(options&&!itemCount&&!choices&&!multiple?"select":"input");input.id=`merge${key}`;input.autocomplete="off";input.maxLength=["subject","orderNumber","subject2","orderNumber2"].includes(key)?1000:key==="firstName"?100:key==="surname"?160:240;
+        if(itemCount||choices||multiple)input.type="hidden";
         else if(options)options.forEach(([value,text])=>{const option=node("option","",text);option.value=value;input.append(option);});
         else input.type=key==="phone"?"tel":key==="email"?"email":"text";
         if(key==="bankAccount"){input.inputMode="text";input.maxLength=40;input.setAttribute("aria-describedby","mailMergeBankWarning mailMergeBankHint");}
@@ -777,6 +806,16 @@
         if(["birthDate","own"].includes(key))input.readOnly=true;
         if(key==="own")input.title="Wyliczane automatycznie: całkowity koszt zakupu minus dofinansowanie NFZ, przed dofinansowaniem PCPR.";
         fields.set(key,input);labels.set(key,label);const caption=node("span","",title);label.append(caption,input);
+        if(multiple){
+          caption.id="mailMergeDisabilityLabel";
+          const controls=node("div","mail-merge-disability-options");controls.setAttribute("role","group");controls.setAttribute("aria-labelledby",caption.id);
+          for(const [code,text]of disabilityTypes){
+            const option=node("label","mail-merge-disability-option"),check=node("input");check.type="checkbox";check.value=code;check.id=`mergeDisability-${code}`;check.autocomplete="off";
+            check.addEventListener("change",event=>{event.stopPropagation?.();if(!authorized()||busy)return;input.value=disabilityChecks.find(item=>item.checked)?.value||"";changed();renderPreview();});
+            option.append(check,node("span","",`${code} — ${text}`));controls.append(option);disabilityChecks.push(check);
+          }
+          label.append(controls);
+        }
         if(itemCount){
           caption.id="mailMergeItemCountLabel";
           const controls=node("div","mail-merge-item-switch");controls.setAttribute("role","group");controls.setAttribute("aria-labelledby",caption.id);
@@ -946,6 +985,7 @@
       if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
     });
     for(const event of ["input","change","blur"])fields.get("certificateUntil").addEventListener(event,updateCertificateNotice);
+    fields.get("combinedDisability").addEventListener("change",()=>{changed();renderPreview();});
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});
     fields.get("householdType").addEventListener("change",()=>{
       if(!authorized()||busy)return;

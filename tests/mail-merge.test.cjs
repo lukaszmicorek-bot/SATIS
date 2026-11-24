@@ -83,7 +83,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:8}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:9}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -93,13 +93,14 @@ function fixture(overrides={}) {
   const buttons=()=>host.querySelectorAll('button');
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
     fail(code){failure=code;},pause(promise){pauseSave=promise;},
-    fill(data=example){for(const [key,value]of Object.entries(data)){const input=nodes.get('merge'+key);if(input)input.value=value;}},
+    fill(data=example){for(const [key,value]of Object.entries(data)){if(['disabilityType','disabilityTypes'].includes(key)){const selected=Array.isArray(value)?value:[value];for(const input of host.querySelectorAll('input').filter(item=>item.id?.startsWith('mergeDisability-')))input.checked=selected.includes(input.value);}const input=nodes.get('merge'+key);if(input)input.value=value;}},
     click(text){const target=['Zapisz','Zapisz zmiany'].includes(text)?nodes.get('mailMergeSave'):buttons().find(button=>button.textContent===text || button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('disability type has twelve explicit choices, persists, reopens and can be cleared without changing old people',async()=>{
   const t=fixture();t.api.open();await tick();
-  const select=t.nodes.get('mergedisabilityType');assert.equal(select.tag,'select');assert.equal(select.children.length,13);assert.equal(select.value,'');
+  const select=t.nodes.get('mergedisabilityType');assert.equal(select.type,'hidden');assert.equal(select.value,'');
+  assert.equal([...t.nodes.keys()].filter(id=>id.startsWith('mergeDisability-')).length,12);
   t.fill({firstName:'Jan',surname:'Testowy',disabilityType:'03-L'});await select.emit('change');await t.click('Zapisz roboczo');
   assert.equal([...t.stored.values()][0].data.disabilityType,'03-L');
   t.api.clear();t.api.open();await tick();await t.click('Edytuj');assert.equal(select.value,'03-L');
@@ -122,6 +123,35 @@ test('schema seven continues saving old drafts but blocks disability data until 
   const t=fixture({rpc:async(name,args)=>{if(name==='satis_mail_merge_list')return {data:{rows:[],total:0,schemaVersion:7}};lastData=args.p_data;return {data:{id:args.p_id,revision:++saves}};}});
   t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');assert.equal(saves,1);assert.equal(Object.hasOwn(lastData,'disabilityType'),false);
   t.fill({disabilityType:'03-L'});await t.click('Zapisz roboczo');assert.equal(saves,1);assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);t.api.clear();
+});
+
+test('multiple disabilities, combined flag and cause count survive save, reopen, reset and legacy loading',async()=>{
+  const t=fixture();t.api.open();await tick();
+  t.fill({firstName:'Jan',surname:'Testowy',disabilityTypes:['03-L','05-R'],combinedDisability:'yes',disabilityCauseCount:'2'});
+  await t.nodes.get('mergecombinedDisability').emit('change');await t.click('Zapisz roboczo');
+  const entry=[...t.stored.values()][0];assert.deepEqual(entry.data.disabilityTypes,['03-L','05-R']);assert.equal(entry.data.combinedDisability,'yes');assert.equal(entry.data.disabilityCauseCount,'2');
+  t.api.clear();t.api.open();await tick();await t.click('Edytuj');
+  for(const code of ['03-L','05-R'])assert.equal(t.nodes.get('mergeDisability-'+code).checked,true);
+  assert.equal(t.nodes.get('mergedisabilityCauseCount').value,'2');
+  t.fill({combinedDisability:'no'});await t.nodes.get('mergecombinedDisability').emit('change');assert.equal(t.nodes.get('mergedisabilityCauseCount').disabled,true);assert.equal(t.nodes.get('mergedisabilityCauseCount').value,'');
+  await t.click('Zapisz roboczo');assert.equal([...t.stored.values()][0].data.disabilityCauseCount,undefined);
+  t.fill({disabilityTypes:[]});await t.click('Zapisz roboczo');assert.equal([...t.stored.values()][0].data.disabilityTypes,undefined);assert.equal([...t.stored.values()][0].data.disabilityType,undefined);
+  entry.data={firstName:'Jan',surname:'Testowy',disabilityType:'10-N'};t.stored.set(entry.id,entry);
+  t.api.clear();t.api.open();await tick();await t.click('Edytuj');assert.equal(t.nodes.get('mergeDisability-10-N').checked,true);assert.equal(t.nodes.get('mergecombinedDisability').value,'');t.api.clear();
+});
+test('combined disability marks original page-four boxes and needs the cause count only for a completed form',()=>{
+  const data={...example,disabilityTypes:['03-L','05-R'],combinedDisability:'yes',disabilityCauseCount:'2'};
+  assert.deepEqual(m.placements(data).filter(p=>['disabilityType','combinedDisability','disabilityCauseCount'].includes(p.field)).map(p=>[p.page,p.field,p.y]),[[4,'disabilityType',92.6],[4,'disabilityType',175.3],[4,'combinedDisability',332.7],[4,'disabilityCauseCount',490]]);
+  assert.equal(m.validate({...data,disabilityCauseCount:''},()=>true).some(e=>e.field==='disabilityCauseCount'),true);
+  assert.equal(m.draftValidate({...data,disabilityCauseCount:''},()=>true).some(e=>e.field==='disabilityCauseCount'),false);
+  assert.equal(m.placements({...data,combinedDisability:'no'}).some(p=>p.field==='disabilityCauseCount'),false);
+  for(const disabilityTypes of [null,'03-L',[123],['99-Z'],['03-L','03-L']])assert.ok(m.draftValidate({...example,disabilityTypes},()=>true).some(e=>e.field==='disabilityType'));
+});
+test('schema eight supports a single legacy selection but blocks combined or multiple values before write',async()=>{
+  let saves=0;
+  const t=fixture({rpc:async(name,args)=>name==='satis_mail_merge_list'?{data:{rows:[],total:0,schemaVersion:8}}:{data:{id:args.p_id,revision:++saves}}});
+  t.fill({firstName:'Jan',surname:'Testowy',disabilityType:'03-L'});await t.click('Zapisz roboczo');assert.equal(saves,1);
+  t.fill({disabilityTypes:['03-L','05-R']});await t.click('Zapisz roboczo');assert.equal(saves,1);assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);t.api.clear();
 });
 test('persistent people accept incomplete drafts and reopen after clearing the session',async()=>{
   const t=fixture();t.api.open();await tick();

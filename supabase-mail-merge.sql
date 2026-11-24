@@ -55,7 +55,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',8);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',9);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -108,7 +108,7 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
@@ -118,6 +118,8 @@ begin
       or coalesce(p_data->>'invalidityGroup','') not in ('','I','II','III','none')
       or coalesce(p_data->>'degree','') not in ('','severe','moderate','mild','none')
       or coalesce(p_data->>'disabilityType','') not in ('','01-U','02-P','03-L','04-O','05-R','06-E','07-S','08-T','09-M','10-N','11-I','12-C')
+      or coalesce(p_data->>'combinedDisability','') not in ('','yes','no')
+      or coalesce(p_data->>'disabilityCauseCount','') not in ('','2','3')
       or coalesce(p_data->>'careHome','') not in ('','yes','no','unknown')
       or coalesce(p_data->>'householdType','') not in ('','individual','shared')
       or coalesce(p_data->>'paymentMode','') not in ('','transfer','cash','contractor')
@@ -125,8 +127,21 @@ begin
       raise exception 'Invalid fields' using errcode='22023';
     end if;
     clean:='{}'::jsonb;
+    if p_data ? 'disabilityTypes' then
+      if jsonb_typeof(p_data->'disabilityTypes') is distinct from 'array' then
+        raise exception 'Invalid disability list' using errcode='22023';
+      end if;
+      if jsonb_array_length(p_data->'disabilityTypes')>12 or exists (
+        select 1 from jsonb_array_elements(p_data->'disabilityTypes') v
+        where jsonb_typeof(v)<>'string' or (v#>>'{}') not in ('01-U','02-P','03-L','04-O','05-R','06-E','07-S','08-T','09-M','10-N','11-I','12-C')
+      ) or (select count(*)<>count(distinct v) from jsonb_array_elements(p_data->'disabilityTypes') v) then
+        raise exception 'Invalid disability codes' using errcode='22023';
+      end if;
+    end if;
     for pair in select * from jsonb_each(p_data) loop
-      if pair.key='sameAddress' then
+      if pair.key='disabilityTypes' then
+        clean:=clean||jsonb_build_object(pair.key,pair.value);
+      elsif pair.key='sameAddress' then
         if jsonb_typeof(pair.value)<>'boolean' then raise exception 'Invalid checkbox' using errcode='22023';end if;
         clean:=clean||jsonb_build_object(pair.key,pair.value);
       else
@@ -136,6 +151,11 @@ begin
         clean:=clean||jsonb_build_object(pair.key,btrim(pair.value#>>'{}'));
       end if;
     end loop;
+    if clean ? 'disabilityTypes' then
+      if jsonb_array_length(clean->'disabilityTypes')=0 then clean:=clean-'disabilityType';
+      else clean:=jsonb_set(clean,'{disabilityType}',clean#>'{disabilityTypes,0}');end if;
+    end if;
+    if coalesce(clean->>'combinedDisability','')<>'yes' then clean:=clean-'disabilityCauseCount';end if;
     if coalesce(clean->>'sameAddress','true')='true' then clean:=clean-array['correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'];end if;
     if clean ? 'certificateNumber' then clean:=jsonb_set(clean,'{certificateNumber}',to_jsonb(upper(clean->>'certificateNumber')));end if;
     if clean->>'certificateValidity'='indefinite' then clean:=clean||jsonb_build_object('certificateUntil','');end if;
