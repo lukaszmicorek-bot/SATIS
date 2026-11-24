@@ -5067,7 +5067,7 @@ h2 {
 .mail-merge-list-tools button { min-height: 32px; padding: 0 10px; font-size: 12px; }
 .mail-merge-table-scroll { overflow-x: auto; }
 .mail-merge-table { min-width: 980px; font-size: 12px; }
-.mail-merge-table th:first-child { width: 58px; }
+.mail-merge-table th:first-child { width: 76px; white-space: nowrap; }
 .mail-merge-table th:nth-child(2) { width: 20%; }
 .mail-merge-table th:nth-child(3) { width: 12%; }
 .mail-merge-table th:last-child { width: 132px; }
