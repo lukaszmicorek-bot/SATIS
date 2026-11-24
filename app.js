@@ -21850,24 +21850,27 @@ function capdSideValues(value) {
 function capdResultEvaluation(code, resultValue, normValue) {
   if (!String(resultValue || "").trim() || !String(normValue || "").trim()) return "";
   if (normalize(normValue).includes("jakosciow")) return "";
+  const compare = (result, norm, lowerIsBetter = false) => result === norm ? "borderline"
+    : (lowerIsBetter ? result < norm : result > norm) ? "good" : "bad";
   if (code === "DDT") {
     const result = capdSideValues(resultValue);
     const norm = capdSideValues(normValue);
     const checks = [];
-    if (result.right !== null && norm.right !== null) checks.push(result.right >= norm.right);
-    if (result.left !== null && norm.left !== null) checks.push(result.left >= norm.left);
-    return checks.length ? (checks.every(Boolean) ? "good" : "bad") : "";
+    if (result.right !== null && norm.right !== null) checks.push(compare(result.right, norm.right));
+    if (result.left !== null && norm.left !== null) checks.push(compare(result.left, norm.left));
+    return checks.includes("bad") ? "bad" : checks.includes("borderline") ? "borderline" : checks.length ? "good" : "";
   }
   const result = capdNumberValues(resultValue)[0];
   const norm = capdNumberValues(normValue)[0];
   if (!Number.isFinite(result) || !Number.isFinite(norm)) return "";
   const lowerIsBetter = ["TRW", "TRS", "ASPN-S", "ASPN-Z", "GDT", "DLF"].includes(code);
-  return lowerIsBetter ? (result <= norm ? "good" : "bad") : (result >= norm ? "good" : "bad");
+  return compare(result, norm, lowerIsBetter);
 }
 
 function capdEvaluationLabel(evaluation) {
   if (evaluation === "good") return "W normie";
   if (evaluation === "bad") return "Poza normą";
+  if (evaluation === "borderline") return "Na granicy normy";
   return "Brak oceny";
 }
 
@@ -21894,6 +21897,11 @@ function capdDdtAbnormalDescription(value, normValue) {
 
 function capdAbnormalResults(results) {
   return results.filter((result) => capdResultEvaluation(result.code, result.value, result.norm) === "bad");
+}
+
+function capdBorderlineSummary(results) {
+  const borderline = results.filter(result => capdResultEvaluation(result.code, result.value, result.norm) === "borderline");
+  return borderline.length ? `Wyniki na granicy normy: ${borderline.map(result => `${result.code} (wynik ${result.value} ${result.unit || ""}; norma ${result.norm} ${result.unit || ""})`).join(", ")}.` : "";
 }
 
 function capdAbnormalConclusionText(age, conclusionType, results) {
@@ -21927,18 +21935,22 @@ function capdAbnormalConclusionText(age, conclusionType, results) {
     "Warto zadbać o regularny tryb dnia, odpowiednią ilość snu, aktywność fizyczną oraz zbilansowaną dietę, które wspierają prawidłowe funkcjonowanie układu nerwowego i koncentrację. Ewentualną suplementację należy stosować wyłącznie po konsultacji z lekarzem, który oceni jej zasadność.",
     "Zaleca się również objęcie dziecka opieką poradni psychologiczno-pedagogicznej oraz stosowanie się do zaleceń specjalistów zarówno w domu, jak i w środowisku szkolnym."
   ];
-  return [introduction, summary, overview, caution, "Opis wyników badania", ...descriptions,
-    "Zalecenia", ...recommendations.map((text) => `• ${text}`)].join("\n\n");
+  return [introduction, summary, capdBorderlineSummary(results), overview, caution, "Opis wyników badania", ...descriptions,
+    "Zalecenia", ...recommendations.map((text) => `• ${text}`)].filter(Boolean).join("\n\n");
 }
 
 function capdNormalConclusionText(results) {
-  if (!results.length || !results.every((result) => capdResultEvaluation(result.code, result.value, result.norm) === "good")) return "";
+  if (!results.length || !results.every((result) => ["good", "borderline"].includes(capdResultEvaluation(result.code, result.value, result.norm)))) return "";
   if (results.some((result) => {
     if (result.code !== "DDT") return false;
     const values = capdSideValues(result.value);
     const norms = capdSideValues(result.norm);
     return values.right === null || values.left === null || norms.right === null || norms.left === null;
   })) return "";
+  const borderline = capdBorderlineSummary(results);
+  if (borderline) return [borderline,
+    "Oznaczenie dotyczy wyników równych wpisanej wartości granicznej. Osiągnięcie tej wartości nie oznacza przekroczenia normy.",
+    "Wyniki wymagają indywidualnej interpretacji łącznie z wywiadem, pozostałymi badaniami i obserwacją funkcjonowania dziecka."].join("\n\n");
   return ["Uzyskane wyniki mieszczą się w normach wiekowych i wskazują na prawidłowe funkcjonowanie badanych procesów słuchowych oraz sprawność w zakresie odbioru i przetwarzania informacji słuchowych.", "Zalecenia",
     "• Nie ma obecnie wskazań do prowadzenia specjalistycznego treningu słuchowego, ponieważ uzyskane wyniki mieszczą się w normach wiekowych.",
     "• Wskazane jest zapewnienie dziecku sprzyjających warunków do nauki, w szczególności ograniczenie nadmiernego hałasu i innych bodźców rozpraszających podczas wykonywania zadań wymagających koncentracji.",
@@ -21995,6 +22007,7 @@ function updateCapdTestEvaluation(item) {
   if (badge) {
     badge.dataset.evaluation = evaluation;
     badge.textContent = capdEvaluationLabel(evaluation);
+    badge.title = evaluation === "borderline" ? "Wynik równy wpisanej granicy normy; nie jest wynikiem poza normą." : "";
   }
   return evaluation;
 }
@@ -22186,6 +22199,12 @@ function appendCapdReportResultCell(row, value, unit, evaluation = "") {
   const resultUnit = document.createElement("span");
   resultUnit.textContent = unit;
   cell.append(result, resultUnit);
+  if (evaluation === "borderline") {
+    const label = document.createElement("small");
+    label.className = "capd-report-evaluation";
+    label.textContent = capdEvaluationLabel(evaluation);
+    cell.append(label);
+  }
   row.append(cell);
 }
 
@@ -22391,7 +22410,11 @@ function renderCapdAbnormalPanel(results) {
   if (riskOption) riskOption.disabled = age >= 6;
   if (featuresOption) featuresOption.disabled = age < 6;
   if (capdConclusionType?.selectedOptions[0]?.disabled) capdConclusionType.value = "";
-  if (capdAbnormalSummary) capdAbnormalSummary.textContent = abnormal.length ? abnormal.map((result) => result.code).join(" · ") : "Wyniki w normie";
+  const borderline = results.filter(result => capdResultEvaluation(result.code, result.value, result.norm) === "borderline");
+  if (capdAbnormalSummary) capdAbnormalSummary.textContent = [
+    abnormal.length ? abnormal.map((result) => result.code).join(" · ") : "",
+    borderline.length ? `Na granicy normy: ${borderline.map(result => result.code).join(" · ")}` : ""
+  ].filter(Boolean).join(" · ") || "Wyniki w normie";
   if (capdAbnormalPreview) capdAbnormalPreview.textContent = capdSuggestedConclusionText(age, capdConclusionType?.value || "", results, capdIncludeMtr?.checked);
 }
 
@@ -22399,7 +22422,7 @@ function insertCapdAbnormalConclusion() {
   if (!capdDescriptionInput) return;
   const text = capdSuggestedConclusionText(capdAgeValue(), capdConclusionType?.value || "", capdCurrentResults(), capdIncludeMtr?.checked);
   if (!text) return;
-  if ((capdDescriptionInput.textContent?.includes("Wyniki poza normą:") || capdDescriptionInput.textContent?.includes("Uzyskane wyniki mieszczą się w normach wiekowych")) && !confirm("W opisie jest już propozycja wniosków. Dodać kolejną?")) return;
+  if ((capdDescriptionInput.textContent?.includes("Wyniki poza normą:") || capdDescriptionInput.textContent?.includes("Wyniki na granicy normy:") || capdDescriptionInput.textContent?.includes("Uzyskane wyniki mieszczą się w normach wiekowych")) && !confirm("W opisie jest już propozycja wniosków. Dodać kolejną?")) return;
   capdDescriptionInput.insertAdjacentHTML("beforeend", capdPlainTextToHtml(text));
   renderCapdReport();
   capdDescriptionInput.focus({ preventScroll: true });

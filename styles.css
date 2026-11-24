@@ -1958,6 +1958,19 @@ h2 {
   color: #a33b32;
   background: #fff0ee;
 }
+.capd-evaluation-badge[data-evaluation="borderline"] {
+  border-color: #dfc88f;
+  color: #805b19;
+  background: #fff7df;
+}
+.capd-result-control[data-evaluation="borderline"] {
+  border-color: #d1ad5f;
+  background: #fff8e8;
+}
+.capd-result-control[data-evaluation="borderline"] input {
+  color: #805b19;
+  background: #fff8e8;
+}
 
 .capd-result-control[data-evaluation="good"] {
   border-color: #74b590;
@@ -2276,6 +2289,16 @@ h2 {
 
 .capd-report-result.bad strong {
   color: #aa3d34;
+}
+.capd-report-result.borderline strong,
+.capd-report-result.borderline .capd-report-evaluation {
+  color: #805b19;
+}
+.capd-report-evaluation {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.65rem;
+  font-weight: 750;
 }
 
 .capd-report-conclusions {

@@ -194,6 +194,68 @@ test('DDT names only the ear with an abnormal entered result', () => {
   assert.doesNotMatch(text, /obu uszu|ucha prawego/);
 });
 
+test('APD marks equality with the entered limit, never an arbitrary near-limit margin', () => {
+  for (const code of ['TRW', 'TRS', 'ASPN-S', 'ASPN-Z', 'GDT', 'DLF']) {
+    assert.equal(context.evaluate(code, '10', '≤ 10'), 'borderline', code);
+    assert.equal(context.evaluate(code, '9,99', '≤ 10'), 'good', code);
+    assert.equal(context.evaluate(code, '10,01', '≤ 10'), 'bad', code);
+  }
+  assert.equal(context.evaluate('FPT', '50', '≥ 50'), 'borderline');
+  assert.equal(context.evaluate('FPT', '50,01', '≥ 50'), 'good');
+  assert.equal(context.evaluate('FPT', '49,99', '≥ 50'), 'bad');
+  assert.equal(context.evaluate('TRW', '585.20', '≤ 585,20'), 'borderline');
+  assert.equal(context.evaluate('ASPN-S', '-3', '≤ -3'), 'borderline');
+  assert.equal(context.evaluate('ASPN-S', '-3,01', '≤ -3'), 'good');
+  assert.equal(context.evaluate('ASPN-S', '-2,99', '≤ -3'), 'bad');
+  assert.equal(context.evaluate('ASPN-Z', '0', '≤ 0'), 'borderline');
+  for (const [value, norm] of [['', '≤ 10'], ['10', ''], ['10', '≤'], ['opis', '≤ 10'], ['10', 'Ocena jakościowa']]) {
+    assert.equal(context.evaluate('TRW', value, norm), '');
+  }
+  assert.equal(context.capdEvaluationLabel('borderline'), 'Na granicy normy');
+});
+
+test('DDT outside either ear always overrides a boundary value in the other ear', () => {
+  const norm = 'P ≥ 65; L ≥ 45';
+  assert.equal(context.evaluate('DDT', 'P: 65; L: 50', norm), 'borderline');
+  assert.equal(context.evaluate('DDT', 'P: 70; L: 45', norm), 'borderline');
+  assert.equal(context.evaluate('DDT', 'P: 65; L: 45', norm), 'borderline');
+  assert.equal(context.evaluate('DDT', 'P: 65; L: 44', norm), 'bad');
+  assert.equal(context.evaluate('DDT', 'P: 64; L: 45', norm), 'bad');
+  assert.equal(context.evaluate('DDT', 'P: 70; L: 50', norm), 'good');
+  assert.equal(context.capdNormalConclusionText([{code: 'DDT', value: 'P: 65', norm}]), '', 'partial DDT cannot produce a complete normal/boundary conclusion');
+});
+
+test('boundary conclusions name the tests and do not reuse unqualified normal or abnormal conclusions', () => {
+  const results = [{code: 'TRW', value: '585,20', norm: '≤ 585,20', unit: 'ms'},
+    {code: 'TRS', value: '450', norm: '≤ 550', unit: 'ms'}];
+  const text = context.capdSuggestedConclusionText(6, '', results);
+  assert.match(text, /Wyniki na granicy normy: TRW/);
+  assert.match(text, /nie oznacza przekroczenia normy/);
+  assert.doesNotMatch(text, /prawidłowe funkcjonowanie|Nie ma obecnie wskazań|Wyniki poza normą/);
+  assert.equal(context.capdAbnormalResults(results).length, 0);
+  assert.equal(context.capdNormalConclusionText([...results, {code: 'FPT', value: '', norm: '≥ 50'}]), '');
+  const mixed = context.capdSuggestedConclusionText(6, '', [...results, {code: 'FPT', value: '20', norm: '≥ 50', unit: '%'}]);
+  assert.match(mixed, /Wyniki poza normą: FPT/);
+  assert.match(mixed, /Wyniki na granicy normy: TRW/);
+});
+
+test('printed boundary values have an explicit text label as well as their color', () => {
+  const start = app.indexOf('function appendCapdReportResultCell('), rest = app.slice(start);
+  const fn = rest.slice(0, rest.indexOf('\nfunction ', 1));
+  const scope = vm.createContext({capdEvaluationLabel: value => context.capdEvaluationLabel(value),
+    document: {createElement: () => ({children: [], append(...items) {this.children.push(...items);}})}});
+  vm.runInContext(fn, scope);
+  const row = {children: [], append(item) {this.children.push(item);}};
+  scope.appendCapdReportResultCell(row, '10', 'ms', 'borderline');
+  assert.equal(row.children[0].className, 'capd-report-result borderline');
+  assert.equal(row.children[0].children[2].textContent, 'Na granicy normy');
+  scope.appendCapdReportResultCell(row, '9', 'ms', 'good');
+  assert.equal(row.children[1].children.length, 2);
+  const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+  assert.match(css, /\.capd-evaluation-badge\[data-evaluation="borderline"\]/);
+  assert.match(css, /\.capd-report-result\.borderline strong/);
+});
+
 test('APD keeps examination location and examiner in the form, history, and report', () => {
   assert.match(html, /<input id="capdLocationInput" type="hidden" value="P63">/);
   assert.doesNotMatch(html, /class="capd-location-field|<span>Miejsce<\/span>\s*<select id="capdLocationInput"/);
