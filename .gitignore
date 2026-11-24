@@ -3,6 +3,7 @@
 !/.gitignore
 !/CNAME
 !/README.md
+!/OFFLINE.md
 !/KOPIE-I-ODTWORZENIE.md
 !/index.html
 !/app.js
@@ -83,6 +84,10 @@
 !/tests/sync-layer.test.cjs
 !/tests/local-row-order.test.cjs
 !/tests/startup-performance.test.cjs
+!/tests/priority-offline.browser.cjs
+!/tests/synthetic-supabase.cjs
+!/tests/audit-history-completeness.test.cjs
+!/tests/document-customer-required.test.cjs
 !/tests/document-save-guards.test.cjs
 !/tests/recovery_backup_test.py
 !/tests/repair-save-validation.test.cjs

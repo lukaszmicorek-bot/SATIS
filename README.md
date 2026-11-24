@@ -1,7 +1,6 @@
-# Zeszyt aparatów
+# SATIS
 
-Lokalna aplikacja do prowadzenia ewidencji aparatów i dokumentów podobnej do tabeli z PDF.
-W jednej aplikacji są dwa zeszyty: aparaty oraz serwis i zamówienia.
+Wspólna ewidencja aparatów, serwisu i zamówień, z dokumentami i cennikiem. Po zalogowaniu Aparaty i Serwis są pobierane w pierwszej kolejności. Można je przeglądać, zanim wczytają się pozostałe moduły. Zapis jest dostępny po potwierdzeniu danych potrzebnych do sprawdzenia powiązań i duplikatów. Awaria odczytu APD lub PCPR nie blokuje zapisu aparatów i dokumentów.
 
 ## Szybkie poprawki i publikacja
 
@@ -16,7 +15,7 @@ python3 scripts/release_satis.py publish
 
 Workflow `.github/workflows/quality.yml` uruchamia na GitHubie testy syntetyczne po każdej zmianie i dla pull requestów. Po zmianie na `main` sprawdza też sumy plików wydania i publikuje wyłącznie zasoby z manifestu, ale tylko gdy wszystkie kontrole przejdą. Aby publikacja była naprawdę blokowana przez testy, ustaw w GitHub `Settings` → `Pages` → `Build and deployment` → `Source` na **GitHub Actions**. Dopóki źródłem Pages pozostaje gałąź `main`, stary mechanizm może opublikować pliki mimo czerwonego wyniku testów. Do repozytorium trafia tylko wybrany zestaw testów na danych syntetycznych.
 
-Formularze offline (oferta, umowa, zamówienie, reklamacja): instrukcja pierwszego włączenia, hasła, wydruków roboczych i synchronizacji jest w `OFFLINE.md`.
+Formularze offline nie wymagają osobnego hasła. Zobacz [pierwsze włączenie, wydruki robocze i synchronizację](OFFLINE.md).
 
 Poprzedni roboczy widok listy obecności został zastąpiony przez Ewidencję. Plik `supabase-attendance.sql` pozostał wyłącznie jako ślad wcześniejszej migracji; nie uruchamiaj go dla nowej ewidencji i nie usuwaj istniejącej tabeli bez sprawdzenia danych.
 

@@ -1,5 +1,5 @@
 /* Static shell only. Never cache API responses, uploaded files or user data. */
-const VERSION = "20261124-14";
+const VERSION = "20261124-15";
 const CACHE = `satis-shell-${VERSION}`;
 const SDK = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
 const SDK_INTEGRITY = "sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP";
@@ -26,6 +26,7 @@ self.addEventListener("install", event => event.waitUntil((async () => {
 // No skipWaiting: never replace code under an open, unsaved form.
 self.addEventListener("activate", event => event.waitUntil((async () => {
   for (const name of await caches.keys()) if (name.startsWith("satis-shell-") && name !== CACHE) await caches.delete(name);
+  await self.clients.claim();
 })()));
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;

@@ -25,6 +25,14 @@ jobs:
           done
       - name: Run synthetic regression tests
         run: node --test tests/*.test.cjs
+      - name: Install synthetic test dependencies
+        run: npm install --no-save --package-lock=false playwright@1.62.1 @electric-sql/pglite@0.3.14
+      - name: Verify PCPR database permissions
+        run: node tests/mail-merge.sqltest.cjs
+      - name: Test startup and offline printing in Chromium
+        run: |
+          npx playwright install --with-deps chromium
+          node tests/priority-offline.browser.cjs
       - name: Verify published assets
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node ci/verify-release.cjs

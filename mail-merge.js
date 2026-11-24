@@ -26,6 +26,12 @@
     const values=Array.isArray(data.disabilityTypes)?data.disabilityTypes:data.disabilityType?[data.disabilityType]:[];
     return disabilityTypes.map(([code])=>code).filter(code=>values.includes(code));
   }
+  function disabilitySelectionWarning(data){
+    const count=selectedDisabilities(data).length;
+    if(count>1&&data.combinedDisability==="no" || data.combinedDisability==="yes"&&data.disabilityCauseCount&&count!==Number(data.disabilityCauseCount))
+      return "Sprawdź dane z orzeczeniem: zaznaczone rodzaje i liczba przyczyn mogą być niespójne.";
+    return "";
+  }
   const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "disabilityType", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
   function shortChoices(options){
     const choices=(options||[]).filter(([value])=>value!=="");
@@ -336,6 +342,9 @@
       if(!coupled){count.value="";count.setCustomValidity("");count.removeAttribute("aria-invalid");}
       count.disabled=busy||!coupled;labels.get("disabilityCauseCount").classList.toggle("mail-merge-muted",!coupled);
       for(const input of disabilityChecks)input.disabled=busy;
+      const disabilityWarning=q("mailMergeDisabilityWarning");
+      disabilityWarning.textContent=disabilitySelectionWarning({disabilityTypes:disabilityChecks.filter(input=>input.checked).map(input=>input.value),combinedDisability:fields.get("combinedDisability").value,disabilityCauseCount:count.value});
+      disabilityWarning.hidden=!disabilityWarning.textContent;
       updateCertificateNotice();
       for(const key of ["subject2","orderNumber2"]){labels.get(key).hidden=!second;fields.get(key).disabled=busy||!second;}
       for(const count of [1,2])q(`mailMergeItemCount${count}`).setAttribute("aria-pressed",String(count===(second?2:1)));
@@ -815,6 +824,7 @@
             option.append(check,node("span","",`${code} — ${text}`));controls.append(option);disabilityChecks.push(check);
           }
           label.append(controls);
+          const warning=node("p","mail-merge-certificate-warning mail-merge-certificate-soon");warning.id="mailMergeDisabilityWarning";warning.hidden=true;warning.setAttribute("role","status");label.append(warning);
         }
         if(itemCount){
           caption.id="mailMergeItemCountLabel";

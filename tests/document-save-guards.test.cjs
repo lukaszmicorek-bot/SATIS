@@ -34,6 +34,7 @@ function setup(kind) {
     normalizeRepairRecordsForUse: r => r,
     currentPricingOfferSnapshot: () => ({...snapshot}), currentPricingOrderSnapshot: () => ({...snapshot}), currentPricingComplaintSnapshot: () => ({...snapshot}),
     selectedPricingOfferAllItems: () => snapshot.items.map(record => ({record})), normalizePricingPrice: value => value,
+    pricingOfferPriceInput: () => null,
     validateDocumentPhoneForAction: () => true,
     requireDocumentCustomerName: () => true, pricingOrderItemsMissingRequiredSide: () => false,
     pricingOrderPaymentSummary: () => ({ invalid: false, tooHigh: false }),
@@ -75,7 +76,9 @@ function setup(kind) {
     }
   });
   c.satisDataStore = createStore({ client: c.supabaseClient, uuid: () => `operation-${++ids}` });
-  for (const name of ['requireInitialDataReady', 'upsertSupabaseRecord', 'documentDraftId', 'bindDocumentDraft', 'beginDocumentSave', 'endDocumentSave', 'refreshDocumentHistoryForSave',
+  c.SUPABASE_CAPD_HISTORY_TABLE = 'apd';
+  c.SUPABASE_PCPR_LIST_TABLE = 'pcpr';
+  for (const name of ['requireInitialDataReady', 'requireSupabaseTableReady', 'upsertSupabaseRecord', 'validatePricingOfferForAction', 'validatePricingOrderDetails', 'documentDraftId', 'bindDocumentDraft', 'beginDocumentSave', 'endDocumentSave', 'refreshDocumentHistoryForSave',
     'refreshDocumentNextNumber', 'documentNextSequence', 'validateDocumentNumberForSave', 'confirmNearbyDocumentSave', 'nearbyServiceEntries', 'nearbyEntryMatches', 'loanContractNumberParts', 'canonicalLoanContractNumber',
     'monthlyDocumentNumber', 'monthlyComplaintNumber', 'nextPricingOrderNumber', 'nextPricingComplaintNumber',
     'pricingOfferSnapshotKey', 'pricingOrderSemanticKey', 'pricingComplaintSemanticKey', 'pricingComplaintsShareIntake',

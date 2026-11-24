@@ -131,7 +131,7 @@ test('offer subtotal includes every product, remains before funding and resets a
     renderPricingOfferAgeWarning(){},renderPricingOfferItems(){},renderPricingOfferPayments(){},
     createPricingPriceElement:value=>{const node=element('span');node.textContent=String(value);return node;}
   });
-  vm.runInContext(extract('renderPricingOffer'),ctx);
+  vm.runInContext(extract('pricingOfferTotals')+'\n'+extract('renderPricingOffer'),ctx);
   ctx.renderPricingOffer();
   assert.equal(gross.textContent,'9700');assert.equal(patient.textContent,'6600');
   ctx.offerNoNfzInput.checked=true;ctx.offerPfronEnabledInput.checked=false;
@@ -148,4 +148,17 @@ test('offer subtotal includes every product, remains before funding and resets a
   assert.match(css,/\.offer-items-table \.offer-subtotal-row > :is\(th, td\) \{[^}]*padding: 5px 10px;/);
   assert.match(css,/\.offer-items-table \.offer-subtotal-amount strong \{ font-size: 0.8rem;/);
   assert.match(css,/body\.pricing-offer-print #pricingOfferPrint \.offer-subtotal-amount strong \{[^}]*font-size: 8.3pt;/);
+});
+
+test('refund is capped separately for each device; unknown codes and accessories get zero',()=>{
+  const {ctx}=setup();
+  ctx.normalizePricingPrice=value=>value??'';
+  ctx.pricingOfferPfronAmount=remaining=>Math.min(1000,remaining);
+  vm.runInContext(extract('pricingOfferTotals'),ctx);
+  const device=(nfzCode,grossPrice)=>({record:{nfzCode,grossPrice}});
+  const pair=[device('P.01.01.00',600),device('P.01.01.01',5100.21)];
+  const all=[...pair,device('P.01.01.00',700)];
+  assert.deepEqual({...ctx.pricingOfferTotals(all,pair,false,true)},{total:6400.21,nfz:3600,pfron:1000,patient:1800.21});
+  for(const code of ['', 'P.99.99.00', 'C+']) assert.equal(ctx.pricingOfferNfzAmount(device(code,1000).record),0);
+  assert.deepEqual({...ctx.pricingOfferTotals(all,pair,true,false)},{total:6400.21,nfz:0,pfron:0,patient:6400.21});
 });

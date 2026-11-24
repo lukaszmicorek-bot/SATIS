@@ -77,6 +77,7 @@ const DEFAULT_PRICING_NFZ_CODE = "P.01.01.00";
 const PRICING_META_ROW_ID = "__pricing_meta__";
 const PRICING_OFFER_NFZ_PER_DEVICE = 1050;
 const PRICING_OFFER_NFZ_BY_CODE = {
+  "P.01.01.00": PRICING_OFFER_NFZ_PER_DEVICE,
   "P.01.01.01": 3000,
   "P.02.01.00": 2100,
   "P.02.01.01": 3000,
@@ -353,6 +354,7 @@ const satisDataStore = hasSupabaseConfig ? window.SatisData.createStore({
 }) : null;
 let supabaseRefreshInProgress = false;
 let supabaseInitialDataReady = false;
+let supabasePrimaryDataReady = false;
 let deferredSuggestionsTimer = 0;
 const loadPerformanceSamples = [];
 
@@ -389,6 +391,16 @@ function requireInitialDataReady() {
   if (!hasSupabaseConfig || supabaseInitialDataReady || offlineForms?.active()) return true;
   alert("Trwa ładowanie powiązań i danych potrzebnych do bezpiecznego zapisu. Poczekaj chwilę.");
   return false;
+}
+
+function requireSupabaseTableReady(tableName) {
+  if (tableName === SUPABASE_CAPD_HISTORY_TABLE || tableName === SUPABASE_PCPR_LIST_TABLE) {
+    const ready = tableName === SUPABASE_CAPD_HISTORY_TABLE ? capdHistorySupabaseAvailable : pricingPcprListSupabaseAvailable;
+    if (ready === true) return true;
+    alert("Nie potwierdzono odczytu tego modułu. Odśwież stronę przed zapisaniem zmian.");
+    return false;
+  }
+  return requireInitialDataReady();
 }
 
 function publishEarlyDeviceRecords(loaded, userId, startedAt) {
@@ -2318,7 +2330,7 @@ async function loadSupabaseIds(tableName, options = {}) {
 }
 
 async function upsertSupabaseRecord(tableName, record, options = {}) {
-  if (!requireInitialDataReady()) throw new Error("Dane nie są jeszcze gotowe do zapisu.");
+  if (!requireSupabaseTableReady(tableName)) throw new Error("Dane nie są jeszcze gotowe do zapisu.");
   setConnectionStatus("syncing", "Zapisywanie...");
   try {
     await satisDataStore.write(tableName, record, options);
@@ -2330,7 +2342,7 @@ async function upsertSupabaseRecord(tableName, record, options = {}) {
 }
 
 async function deleteSupabaseRecord(tableName, id) {
-  if (!requireInitialDataReady()) throw new Error("Dane nie są jeszcze gotowe do usuwania.");
+  if (!requireSupabaseTableReady(tableName)) throw new Error("Dane nie są jeszcze gotowe do usuwania.");
   setConnectionStatus("syncing", "Usuwanie...");
   try {
     await satisDataStore.remove(tableName, id);
@@ -2416,6 +2428,8 @@ async function refreshRecordsFromSupabase(options = {}) {
 
 async function performSupabaseRefresh(options = {}) {
   const userId = currentSupabaseUser.id;
+  const generation = sensitiveStateGeneration;
+  const sessionMatches = () => generation === sensitiveStateGeneration && currentSupabaseUser?.id === userId;
   if (recordDialog.open || repairDialog.open || demoDialog.open) {
     scheduleSupabaseRefresh(1000);
     return false;
@@ -2425,25 +2439,44 @@ async function performSupabaseRefresh(options = {}) {
   const loadStartedAt = performance.now();
   try {
     setConnectionStatus("syncing", "Synchronizacja...");
+    const [sharedRecords, sharedRepairRecords] = await Promise.all([
+      loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX })
+        .then(loaded => sessionMatches() ? publishEarlyDeviceRecords(loaded, userId, loadStartedAt) : loaded),
+      loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse)
+    ]);
+    if (!sessionMatches()) return false;
+    if (![sharedRecords, sharedRepairRecords].every(Array.isArray)) throw new Error("Nie pobrano Aparatów lub Serwisu.");
+    records = sharedRecords;
+    repairRecords = sharedRepairRecords;
+    const firstPrimaryLoad = !supabasePrimaryDataReady;
+    supabasePrimaryDataReady = true;
+    rebuildDerivedData({ deferSuggestions: true });
+    render();
+    if (firstPrimaryLoad) {
+      hideAuthDialog();
+      subscribeToSupabaseChanges();
+    }
+    setConnectionStatus("syncing", "Aparaty i Serwis gotowe do przeglądania · pobieranie powiązań");
+    recordLoadTiming("aparaty i serwis widoczne", loadStartedAt);
+    const rowOrders = loadSharedRowOrders().then(() => { if (sessionMatches()) renderSharedRowOrderViews(); });
+    void Promise.allSettled([loadSupabasePricingPcprList(), loadSupabaseCapdHistory(), rowOrders]).then(results => {
+      if (!sessionMatches()) return;
+      if (results.slice(0, 2).some(result => result.status === "rejected" || !Array.isArray(result.value))) {
+        console.warn("Nie potwierdzono odczytu PCPR lub APD.");
+      }
+    });
     const paymentLoad = loadPrivatePayments().then(() => {
       recordLoadTiming("płatności pobrane", loadStartedAt);
       return { error: null };
     }, error => ({ error }));
     const [
-      sharedRecords,
-      sharedRepairRecords,
       sharedDemoRecords,
       sharedPricingRecords,
       sharedLoanHistory,
       sharedOfferHistory,
       sharedOrderHistory,
-      sharedComplaintHistory,
-      sharedPcprList,
-      sharedCapdHistory
+      sharedComplaintHistory
     ] = await Promise.all([
-      loadSupabaseTable(SUPABASE_DEVICE_TABLE, normalizeDeviceRecordsForUse, { excludeIdPrefix: DEMO_ID_PREFIX })
-        .then(loaded => publishEarlyDeviceRecords(loaded, userId, loadStartedAt)),
-      loadSupabaseTable(SUPABASE_REPAIR_TABLE, normalizeRepairRecordsForUse),
       loadSupabaseTable(
         SUPABASE_DEVICE_TABLE,
         (loadedRecords) => normalizeDemoRecordsForUse(loadedRecords.filter((record) => record.id !== DEMO_SEED_MARKER_ID)),
@@ -2453,45 +2486,31 @@ async function performSupabaseRefresh(options = {}) {
       loadSupabasePricingLoanHistory({ deferSuggestions: true }),
       loadSupabasePricingOfferHistory({ deferSuggestions: true }),
       loadSupabasePricingOrderHistory({ deferSuggestions: true }),
-      loadSupabasePricingComplaintHistory({ deferSuggestions: true }),
-      loadSupabasePricingPcprList({ deferSuggestions: true }),
-      loadSupabaseCapdHistory(),
-      loadSharedRowOrders()
+      loadSupabasePricingComplaintHistory({ deferSuggestions: true })
     ]);
-    if (currentSupabaseUser?.id !== userId) return;
-    if (![sharedRecords, sharedRepairRecords, sharedDemoRecords, sharedPricingRecords,
-      sharedLoanHistory, sharedOfferHistory, sharedOrderHistory, sharedComplaintHistory,
-      sharedPcprList, sharedCapdHistory].every(Array.isArray)) {
+    if (!sessionMatches()) return false;
+    if (![sharedDemoRecords, sharedPricingRecords, sharedLoanHistory, sharedOfferHistory, sharedOrderHistory, sharedComplaintHistory].every(Array.isArray)) {
       throw new Error("Nie pobrano kompletu danych. Sprawdź połączenie i ponów logowanie; nie uznano pustej historii za poprawny odczyt.");
     }
-    records = sharedRecords;
-    repairRecords = sharedRepairRecords;
     demoRecords = sharedDemoRecords;
     if (sharedPricingRecords) pricingRecords = sharedPricingRecords;
     if (sharedLoanHistory) pricingLoanHistory = sharedLoanHistory;
     if (sharedOfferHistory) pricingOfferHistory = sharedOfferHistory;
     if (sharedOrderHistory) pricingOrderHistory = sharedOrderHistory;
     if (sharedComplaintHistory) pricingComplaintHistory = sharedComplaintHistory;
-    if (sharedPcprList) pricingPcprList = sharedPcprList;
-    if (sharedCapdHistory) capdHistory = sharedCapdHistory;
     const paymentResult = await paymentLoad;
-    if (currentSupabaseUser?.id !== userId) return;
+    if (!sessionMatches()) return false;
     if (paymentResult.error) throw paymentResult.error;
-    const firstLoad = !supabaseInitialDataReady;
     supabaseInitialDataReady = true;
     rebuildDerivedData({ deferSuggestions: true });
     render();
-    if (firstLoad) {
-      hideAuthDialog();
-      subscribeToSupabaseChanges();
-    }
-    setConnectionStatus("online", "Supabase");
     refreshRecordsFromSupabase.recoveryAttempts = 0;
     recordLoadTiming("pełne dane gotowe", loadStartedAt);
     void repairReturns?.load();
+    setConnectionStatus("online", "Supabase");
     return true;
   } catch (error) {
-    if (currentSupabaseUser?.id !== userId) return false;
+    if (!sessionMatches()) return false;
     console.warn(error);
     setConnectionStatus("error", "Błąd synchronizacji");
     const attempts = refreshRecordsFromSupabase.recoveryAttempts || 0;
@@ -2500,7 +2519,7 @@ async function performSupabaseRefresh(options = {}) {
       setConnectionStatus("syncing", "Ponawiam pobieranie danych...");
       scheduleSupabaseRefresh(attempts ? 3000 : 1000);
     }
-    if (options.throwOnError) throw error;
+    if (options.throwOnError && !supabasePrimaryDataReady) throw error;
     return false;
   } finally {
     supabaseRefreshInProgress = false;
@@ -2836,12 +2855,12 @@ async function activateSupabaseSession(user) {
   setConnectionStatus("syncing", "Łączenie...");
   renderCachedRecordsBeforeSupabaseSync();
   await refreshRecordsFromSupabase({ throwOnError: true });
-  if (!supabaseInitialDataReady) throw new Error("Nie zakończono pobierania danych. Spróbuj ponownie.");
+  if (!supabasePrimaryDataReady) throw new Error("Nie zakończono pobierania Aparatów i Serwisu. Spróbuj ponownie.");
   void Promise.allSettled([loadStockAuditHistory(), loadVacationData()]).then(() => {
     if (currentSupabaseUser?.id !== user.id) return;
     if (activeDeviceView === "stock") renderStockView();
   });
-  await seedDemoRecordsIfEmpty();
+  if (supabaseInitialDataReady) await seedDemoRecordsIfEmpty();
   void applyBundledPricingUpdate();
   clientsModule?.startReminders();
   subscribeToSupabaseChanges();
@@ -2916,6 +2935,7 @@ function clearSensitiveApplicationState() {
   const orderPanel = document.querySelector("#repairOrderItemsPanel");
   if (orderPanel) orderPanel.hidden = true;
   supabaseInitialDataReady = false;
+  supabasePrimaryDataReady = false;
   window.clearTimeout(deferredSuggestionsTimer);
   deferredSuggestionsTimer = 0;
   loadPerformanceSamples.length = 0;
@@ -9053,7 +9073,40 @@ function pricingOfferNfzAmount(record) {
   const codeWithPrefix = code && !code.startsWith("P.") ? `P.${code}` : code;
   return Object.prototype.hasOwnProperty.call(PRICING_OFFER_NFZ_BY_CODE, codeWithPrefix)
     ? PRICING_OFFER_NFZ_BY_CODE[codeWithPrefix]
-    : PRICING_OFFER_NFZ_PER_DEVICE;
+    : 0;
+}
+
+function pricingOfferTotals(items, devices, withoutNfz, pfronEnabled) {
+  const cents = value => Math.max(0, Math.round(100 * (normalizePricingPrice(value) || 0)));
+  const total = items.reduce((sum, { record }) => sum + cents(record.grossPrice), 0);
+  const nfz = withoutNfz ? 0 : devices.reduce((sum, { record }) =>
+    sum + Math.min(cents(record.grossPrice), cents(pricingOfferNfzAmount(record))), 0);
+  const pfron = pfronEnabled ? cents(pricingOfferPfronAmount((total - nfz) / 100)) : 0;
+  return { total: total / 100, nfz: nfz / 100, pfron: pfron / 100, patient: (total - nfz - pfron) / 100 };
+}
+
+function validatePricingOfferForAction() {
+  if (!requireDocumentCustomerName(offerCustomerInput)) return false;
+  if (offerGeneralInput?.checked) {
+    if (currentPricingGeneralRanges().length) return true;
+    alert("Brak aparatów z prawidłową ceną w cenniku.");
+    return false;
+  }
+  const items = selectedPricingOfferAllItems();
+  if (!items.length) {
+    alert("Wpisz co najmniej jeden produkt.");
+    offerDeviceInput1?.focus();
+    return false;
+  }
+  for (const item of items) {
+    const price = normalizePricingPrice(item.record.grossPrice);
+    const input = pricingOfferPriceInput(item.input);
+    if (price !== "" && price >= 0 && !input?.validationMessage) continue;
+    input?.focus();
+    input?.reportValidity();
+    return false;
+  }
+  return true;
 }
 
 function pricingOfferNfzDescription(items) {
@@ -9420,7 +9473,7 @@ function renderPricingOfferItems(items, withoutNfz = false) {
   const rows = items.map((item, index) => {
     const record = item.record;
     const row = document.createElement("tr");
-    if (!withoutNfz && item.kind === "device" && !pricingOfferNfzCodeMatchesAge(record)) {
+    if (!withoutNfz && item.kind === "device" && pricingOfferNfzAmount(record) && !pricingOfferNfzCodeMatchesAge(record)) {
       row.classList.add("offer-age-mismatch");
       row.title = "Kod NFZ tej pozycji nie pasuje do wybranej grupy pacjenta.";
     }
@@ -9455,22 +9508,18 @@ function renderPricingOfferAgeWarning(items) {
   if (!offerAgeWarning) return;
   const suffix = pricingOfferNfzSuffixForAge();
   const group = pricingOfferPatientGroup();
-  if (!group) {
-    offerAgeWarning.textContent = "";
-    offerAgeWarning.hidden = true;
-    return;
-  }
-  if (!suffix || !items.length || offerNoNfzInput?.checked) {
+  if (!items.length || offerNoNfzInput?.checked) {
     offerAgeWarning.hidden = true;
     offerAgeWarning.textContent = "";
     return;
   }
 
-  const mismatches = items
+  const unrecognized = items.map(item => item.record).filter(record => !record.offerCustom && !pricingOfferNfzAmount(record));
+  const mismatches = (!suffix ? [] : items)
     .map((item) => item.record)
-    .filter((record) => !pricingOfferNfzCodeMatchesAge(record));
+    .filter((record) => pricingOfferNfzAmount(record) && !pricingOfferNfzCodeMatchesAge(record));
 
-  if (!mismatches.length) {
+  if (!mismatches.length && !unrecognized.length) {
     offerAgeWarning.hidden = true;
     offerAgeWarning.textContent = "";
     return;
@@ -9479,7 +9528,10 @@ function renderPricingOfferAgeWarning(items) {
   const names = mismatches
     .map((record) => `${pricingOfferDeviceName(record)} (${normalizePricingNfzCode(record.nfzCode) || "brak kodu NFZ"})`)
     .join(", ");
-  offerAgeWarning.textContent = `${pricingOfferPatientGroupLabel(group)}: kod NFZ powinien kończyć się na .${suffix}. Sprawdź: ${names}.`;
+  const warnings = [];
+  if (mismatches.length) warnings.push(`${pricingOfferPatientGroupLabel(group)}: kod NFZ powinien kończyć się na .${suffix}. Sprawdź: ${names}.`);
+  if (unrecognized.length) warnings.push(`Nie naliczono NFZ: brak obsługiwanego kodu dla ${unrecognized.map(pricingOfferDeviceName).join(", ")}.`);
+  offerAgeWarning.textContent = warnings.join(" ");
   offerAgeWarning.hidden = false;
 }
 
@@ -9663,19 +9715,14 @@ function renderPricingOffer() {
   const deviceItems = selectedPricingOfferItems().map((item) => ({ ...item, kind: "device" }));
   updateOfferDevicePriceLabels(deviceItems);
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
-  const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
-  const deviceTotal = deviceItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
   const hasValidDevice = offerItems.length > 0 && offerItems.every(item => {
     const price = normalizePricingPrice(item.record.grossPrice); return price !== "" && price >= 0;
   }) && !offerChargerPriceInput?.validationMessage;
   if (savePricingOfferBtn) savePricingOfferBtn.disabled = !hasValidDevice;
   const withoutNfz = Boolean(offerNoNfzInput?.checked);
-  const nfzLimit = deviceItems.reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
-  const nfz = withoutNfz ? 0 : Math.min(deviceTotal, nfzLimit);
   const pfronEnabled = Boolean(offerPfronEnabledInput?.checked);
   if (offerPfronInput) offerPfronInput.disabled = !pfronEnabled;
-  const pfron = pfronEnabled ? pricingOfferPfronAmount(Math.max(total - nfz, 0)) : 0;
-  const patient = Math.max(total - nfz - pfron, 0);
+  const { total, nfz, pfron, patient } = pricingOfferTotals(offerItems, deviceItems, withoutNfz, pfronEnabled);
 
   if (pfronEnabled && offerPfronInput && offerPfronInput.value && pfron !== normalizePricingPrice(offerPfronInput.value)) {
     offerPfronInput.title = "PFRON nie może przekroczyć kwoty po odliczeniu NFZ.";
@@ -10659,6 +10706,18 @@ function setLoanReturnEditMode(active) {
 
 function setupUnifiedDocumentLayout() {
   const statuses = new Map();
+  for (const kind of ["Offer", "Loan", "Order", "Complaint"]) {
+    const print = document.getElementById(`printPricing${kind}Btn`);
+    const save = document.getElementById(`savePricing${kind}Btn`);
+    if (save) save.textContent = "Zapisz";
+    if (!print) continue;
+    const note = document.createElement("p");
+    note.id = `printPricing${kind}Hint`;
+    note.className = "document-form-note document-print-hint";
+    note.textContent = "Drukuj / PDF zapisuje dokument w historii przed wydrukiem.";
+    print.parentElement.after(note);
+    print.setAttribute("aria-describedby", note.id);
+  }
   const label = id => document.getElementById(id)?.closest("label");
   const title = (grid, text, before) => {
     if (!grid || !before) return;
@@ -11032,15 +11091,10 @@ function currentPricingOfferSnapshot() {
       manual: record.offerCustom === true
     });
   }).filter(Boolean);
-  const total = items.reduce((sum, item) => sum + Number(normalizePricingPrice(item.grossPrice) || 0), 0);
   const withoutNfz = Boolean(offerNoNfzInput?.checked);
-  const selectedDevices = selectedPricingOfferItems();
-  const deviceTotal = selectedDevices.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
-  const nfzLimit = selectedDevices.reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
-  const nfz = withoutNfz ? 0 : Math.min(deviceTotal, nfzLimit);
+  const selectedDevices = selectedItems.filter(item => item.kind === "device");
   const pfronEnabled = Boolean(offerPfronEnabledInput?.checked);
-  const pfron = pfronEnabled ? pricingOfferPfronAmount(Math.max(total - nfz, 0)) : 0;
-  const patient = Math.max(total - nfz - pfron, 0);
+  const { total, nfz, pfron, patient } = pricingOfferTotals(selectedItems, selectedDevices, withoutNfz, pfronEnabled);
   const now = new Date().toISOString();
 
   return {
@@ -11191,18 +11245,8 @@ async function persistPricingOfferHistoryEntry(entry) {
 }
 
 async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
-  if (!offerGeneralInput?.checked && offerChargerPriceInput?.validationMessage) { offerChargerPriceInput.reportValidity(); return null; }
-  if (!offerGeneralInput?.checked) {
-    const items = selectedPricingOfferAllItems();
-    if (!items.length) { alert("Wpisz co najmniej jeden produkt."); return null; }
-    for (const item of items) {
-      const price = normalizePricingPrice(item.record.grossPrice);
-      if (price === "" || price < 0) { pricingOfferPriceInput(item.input)?.reportValidity(); return null; }
-    }
-  }
-  if (offerGeneralInput?.checked && !currentPricingGeneralRanges().length) { alert("Brak aparatów z prawidłową ceną w cenniku."); return null; }
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("offer");
-  if (!requireDocumentCustomerName(offerCustomerInput)) return null;
+  if (!validatePricingOfferForAction()) return null;
   if (!beginDocumentSave("offer")) return null;
   try {
     await refreshDocumentHistoryForSave("offer");
@@ -15058,7 +15102,7 @@ function updatePricingLoanRequiredHighlights() {
   return missingInputs;
 }
 
-function validatePricingLoanForAction() {
+function validatePricingLoanForAction({ checkNumber = true } = {}) {
   if (!validateDocumentPhoneForAction("loan")) return false;
   syncLoanPostalCode();
   pricingLoanValidationRequested = true;
@@ -15080,7 +15124,7 @@ function validatePricingLoanForAction() {
     (document.querySelector("#loanAddressStreetInput") || loanAddressInput)?.focus();
     return false;
   }
-  if (!updateLoanContractNumberValidity()) {
+  if (checkNumber && !updateLoanContractNumberValidity()) {
     alert(loanContractNumberInput?.validationMessage || "Sprawdź numer umowy.");
     loanContractNumberInput?.focus();
     return false;
@@ -15541,10 +15585,11 @@ function mergePricingPcprList(...listSets) {
 async function loadSupabasePricingPcprList({ deferSuggestions = false } = {}) {
   if (!hasSupabaseConfig || !currentSupabaseUser || pricingPcprListSupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
+  const generation = sensitiveStateGeneration;
 
   try {
     const sharedList = await loadSupabaseTable(SUPABASE_PCPR_LIST_TABLE, normalizePricingPcprList);
-    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    if (!currentSupabaseUser || sensitiveStateGeneration !== generation || currentSupabaseUser.id !== userId) return null;
     pricingPcprListSupabaseAvailable = true;
     // A successful cloud load replaces the browser cache so remotely deleted
     // entries do not return on another computer.
@@ -15554,7 +15599,7 @@ async function loadSupabasePricingPcprList({ deferSuggestions = false } = {}) {
     renderPricingPcprList();
     return pricingPcprList;
   } catch (error) {
-    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    if (!currentSupabaseUser || sensitiveStateGeneration !== generation || currentSupabaseUser.id !== userId) return null;
     console.warn("Nie udało się pobrać listy PCPR z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) pricingPcprListSupabaseAvailable = false;
     renderPricingPcprList();
@@ -16395,6 +16440,16 @@ async function persistPricingOrderHistoryEntry(entry) {
   }
 }
 
+function validatePricingOrderDetails(items) {
+  if (!items?.length) { alert("Dodaj przynajmniej jedną pozycję zamówienia."); return false; }
+  if (pricingOrderItemsMissingRequiredSide(items)) { alert("Wybierz stronę P, L lub obie strony dla każdej wkładki."); return false; }
+  const payment = pricingOrderPaymentSummary(items, orderDepositInput?.value);
+  if (!payment.invalid && !payment.tooHigh) return true;
+  alert(payment.invalid ? "Wpisz poprawną kwotę zadatku." : "Zadatek nie może być wyższy niż wartość zamówienia.");
+  orderDepositInput?.focus();
+  return false;
+}
+
 async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("order");
   if (!validateDocumentPhoneForAction("order")) return null;
@@ -16403,20 +16458,7 @@ async function saveCurrentPricingOrderToHistory({ silent = false } = {}) {
   try {
     await refreshDocumentHistoryForSave("order");
     const snapshot = normalizePricingOrderHistoryEntry(currentPricingOrderSnapshot());
-    if (!snapshot?.items.length) {
-      if (!silent) alert("Dodaj przynajmniej jedną pozycję zamówienia.");
-      return null;
-    }
-    if (pricingOrderItemsMissingRequiredSide(snapshot.items)) {
-      if (!silent) alert("Wybierz stronę P lub L dla każdej wkładki.");
-      return null;
-    }
-    const payment = pricingOrderPaymentSummary(snapshot.items, orderDepositInput?.value);
-    if (payment.invalid || payment.tooHigh) {
-      alert(payment.invalid ? "Wpisz poprawną kwotę zadatku." : "Zadatek nie może być wyższy niż wartość zamówienia.");
-      orderDepositInput?.focus();
-      return null;
-    }
+    if (!validatePricingOrderDetails(snapshot?.items)) return null;
     const now = new Date().toISOString();
     snapshot.id = documentDraftId("order");
     const existingEntry = pricingOrderHistory.find(entry => entry.id === snapshot.id);
@@ -22986,9 +23028,10 @@ function saveLocalCapdHistory() {
 async function loadSupabaseCapdHistory() {
   if (!hasSupabaseConfig || !currentSupabaseUser || capdHistorySupabaseAvailable === false) return null;
   const userId = currentSupabaseUser.id;
+  const generation = sensitiveStateGeneration;
   try {
     const entries = await loadSupabaseTable(SUPABASE_CAPD_HISTORY_TABLE, (loaded) => loaded);
-    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    if (!currentSupabaseUser || sensitiveStateGeneration !== generation || currentSupabaseUser.id !== userId) return null;
     capdHistorySupabaseAvailable = true;
     capdSavedPractitionerProfiles = normalizeCapdSavedPractitionerProfiles(entries.filter((entry) =>
       entry.id.startsWith(CAPD_PROFILE_ID_PREFIX)));
@@ -22998,7 +23041,7 @@ async function loadSupabaseCapdHistory() {
     renderCapdPractitionerProfiles();
     return capdHistory;
   } catch (error) {
-    if (!currentSupabaseUser || currentSupabaseUser.id !== userId) return null;
+    if (!currentSupabaseUser || sensitiveStateGeneration !== generation || currentSupabaseUser.id !== userId) return null;
     console.warn("Nie udało się pobrać historii APD z Supabase:", error?.message || error);
     if (isMissingSupabaseTableError(error)) capdHistorySupabaseAvailable = false;
     renderCapdHistory();
@@ -31692,7 +31735,6 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
         ensureLoanContractNumber();
         if (!validatePricingLoanForAction()) return null;
       }
-      if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Wpisz produkt i prawidłową cenę przed synchronizacją oferty.");
       return saves[kind]({ silent: false });
     },
     render: kind => kind === "care" ? careForm?.render() : ["thi", "trq"].includes(kind) ? tinnitusForms?.render(kind) : kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),
@@ -31701,11 +31743,17 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
       if (kind === "care") return careForm?.validate() || false;
       if (["thi", "trq"].includes(kind)) return tinnitusForms?.validate(kind) || false;
       if (kind === "receipt") return validatePricingReceipt();
-      const names = {offer: "offerCustomerInput", loan: "loanCustomerInput", order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
+      if (kind === "offer") return validatePricingOfferForAction();
+      if (kind === "loan") return validatePricingLoanForAction({ checkNumber: false });
+      const names = {order: "orderCustomerInput", complaint: "complaintCustomerInput", rodo: "rodoNameInput"};
       if (!requireDocumentCustomerName(document.getElementById(names[kind]))) return false;
-      if (kind === "offer" && offerGeneralInput?.checked && !currentPricingGeneralRanges().length) { alert("Brak aparatów z prawidłową ceną w cenniku."); return false; }
-      const phoneId = {loan: "loanPhoneInput", order: "orderPhoneInput", complaint: "complaintPhoneInput", rodo: "rodoPhoneInput"}[kind];
+      const phoneId = {order: "orderPhoneInput", complaint: "complaintPhoneInput", rodo: "rodoPhoneInput"}[kind];
       if (phoneId && !validatePersonalFormPhone(document.getElementById(phoneId), true)) return false;
+      if (kind === "order") return validatePricingOrderDetails(currentPricingOrderSnapshot().items);
+      if (kind === "complaint" && !normalizePricingComplaintHistoryEntry(currentPricingComplaintSnapshot())) {
+        alert("Uzupełnij produkt albo opis reklamacji.");
+        return false;
+      }
       if (kind === "rodo") { updateRodoFromPesel(); return document.getElementById("rodoPeselInput").reportValidity() && validateRodoGuardian(); }
       return true;
     },

@@ -141,6 +141,11 @@ test('multiple disabilities, combined flag and cause count survive save, reopen,
   for(const code of ['03-L','05-R'])assert.equal(t.nodes.get('mergeDisability-'+code).checked,true);
   assert.equal(t.nodes.get('mergedisabilityCauseCount').value,'2');
   t.fill({combinedDisability:'no'});await t.nodes.get('mergecombinedDisability').emit('change');assert.equal(t.nodes.get('mergedisabilityCauseCount').disabled,true);assert.equal(t.nodes.get('mergedisabilityCauseCount').value,'');
+  const warning=t.nodes.get('mailMergeDisabilityWarning');
+  assert.equal(warning.hidden,false);assert.match(warning.textContent,/Sprawdź dane z orzeczeniem/);
+  t.fill({combinedDisability:'yes',disabilityCauseCount:'2'});await t.nodes.get('mergecombinedDisability').emit('change');
+  assert.equal(warning.hidden,true);
+  t.fill({combinedDisability:'no'});await t.nodes.get('mergecombinedDisability').emit('change');
   await t.click('Zapisz roboczo');assert.equal([...t.stored.values()][0].data.disabilityCauseCount,undefined);
   t.fill({disabilityTypes:[]});await t.click('Zapisz roboczo');assert.equal([...t.stored.values()][0].data.disabilityTypes,undefined);assert.equal([...t.stored.values()][0].data.disabilityType,undefined);
   entry.data={firstName:'Jan',surname:'Testowy',disabilityType:'10-N'};t.stored.set(entry.id,entry);

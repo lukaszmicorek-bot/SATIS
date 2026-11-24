@@ -37,7 +37,7 @@ test('schema checks overlap only after access has been authorized', async () => 
 
 test('bootstrap defers repeated customer suggestion builds until the shared rebuild', () => {
   const refresh = extract('performSupabaseRefresh');
-  for (const name of ['LoanHistory', 'OfferHistory', 'OrderHistory', 'ComplaintHistory', 'PcprList']) {
+  for (const name of ['LoanHistory', 'OfferHistory', 'OrderHistory', 'ComplaintHistory']) {
     assert.ok(refresh.includes(`loadSupabasePricing${name}({ deferSuggestions: true })`));
     assert.match(extract(`loadSupabasePricing${name}`), /if \(!deferSuggestions\)/);
   }
@@ -81,20 +81,23 @@ test('first render is limited, all years remain searchable and complete paginati
   assert.match(extract('renderDeviceViews'), /visibleTableItems\(visibleRecords/);
   assert.match(extract('loadSupabaseTable'), /page.length === 0/);
   const refresh = extract('performSupabaseRefresh');
-  assert.ok(refresh.indexOf('const paymentLoad =') < refresh.indexOf('await Promise.all'));
-  assert.ok(refresh.includes('.then(loaded => publishEarlyDeviceRecords'));
+  assert.ok(refresh.indexOf('const paymentLoad =') > refresh.indexOf('supabasePrimaryDataReady = true'));
+  assert.match(refresh, /sessionMatches\(\) \? publishEarlyDeviceRecords/);
   assert.doesNotMatch(refresh, /JSON.stringify\(records\)/);
   assert.match(refresh, /paymentResult.error\) throw/);
 });
 
-test('complete bootstrap waits for histories and payments, but displays products first', async () => {
-  let resolveDevices, resolveHistory, resolvePayments;
+test('devices and service display before histories; optional modules never block document readiness', async () => {
+  let resolveDevices, resolveHistory, resolvePayments, resolvePcpr;
   const devices = new Promise(resolve => { resolveDevices = resolve; });
   const history = new Promise(resolve => { resolveHistory = resolve; });
   const payments = new Promise(resolve => { resolvePayments = resolve; });
+  const pcpr = new Promise(resolve => { resolvePcpr = resolve; });
   let early = 0, final = 0;
+  let optionalLoads = 0;
   const ctx = vm.createContext({
     hasSupabaseConfig: true, supabaseInitialDataReady: false, supabaseRefreshInProgress: false,
+    supabasePrimaryDataReady: false, sensitiveStateGeneration: 0,
     currentSupabaseUser: { id: 'user' }, document: { hidden: false },
     recordDialog: {}, repairDialog: {}, demoDialog: {}, performance: { now: () => 1 },
     activeNotebook: 'devices', activeDeviceView: 'database',
@@ -105,26 +108,32 @@ test('complete bootstrap waits for histories and payments, but displays products
     loadPrivatePayments: () => payments, loadSupabasePricingRecords: () => history,
     loadSupabasePricingLoanHistory: async () => [], loadSupabasePricingOfferHistory: async () => [],
     loadSupabasePricingOrderHistory: async () => [], loadSupabasePricingComplaintHistory: async () => [],
-    loadSupabasePricingPcprList: async () => [], loadSupabaseCapdHistory: async () => [], loadSharedRowOrders: async () => {},
+    loadSupabasePricingPcprList: () => { optionalLoads++; return pcpr; }, loadSupabaseCapdHistory: async () => null, loadSharedRowOrders: async () => {},
+    renderSharedRowOrderViews() {},
     rebuildDeviceDerivedData() {}, updateStats() {}, renderDeviceViews() { early++; },
     rebuildDerivedData() {}, render() { final++; }, satisChangeQueue: { flush() {} }, repairReturns: null, console
   });
   vm.runInContext(extract('publishEarlyDeviceRecords') + '\n' + extract('performSupabaseRefresh') + '\n' + extract('refreshRecordsFromSupabase'), ctx);
   const done = ctx.refreshRecordsFromSupabase({ throwOnError: true });
+  assert.equal(optionalLoads, 0);
   resolveDevices([{ id: 'one' }]);
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(early, 1); assert.equal(final, 0); assert.equal(ctx.supabaseInitialDataReady, false);
+  assert.equal(early, 1); assert.equal(final, 1); assert.equal(ctx.supabaseInitialDataReady, false);
+  assert.equal(ctx.supabasePrimaryDataReady, true);
+  assert.equal(optionalLoads, 1);
   resolveHistory([]);
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(final, 0);
+  assert.equal(final, 1);
   resolvePayments(); await done;
-  assert.equal(final, 1); assert.equal(ctx.supabaseInitialDataReady, true);
+  assert.equal(final, 2); assert.equal(ctx.supabaseInitialDataReady, true);
+  resolvePcpr([]);
 });
 
 test('initial data loads even in a background tab and overlapping callers await the same load', async () => {
   let finish;
   let starts = 0;
   const ctx = vm.createContext({hasSupabaseConfig: true, currentSupabaseUser: {id: 'user'},
+    supabasePrimaryDataReady: false, sensitiveStateGeneration: 0,
     document: {hidden: true}, supabaseInitialDataReady: false,
     performSupabaseRefresh: () => { starts++; return new Promise(resolve => { finish = resolve; }); }});
   vm.runInContext(extract('refreshRecordsFromSupabase'), ctx);
@@ -143,6 +152,7 @@ test('failed refresh preserves loaded records, releases the lock and retries onl
   const records = [{id: 'keep'}];
   const delays = [];
   const ctx = vm.createContext({hasSupabaseConfig: true, currentSupabaseUser: {id: 'user'},
+    supabasePrimaryDataReady: false, sensitiveStateGeneration: 0,
     document: {hidden: false}, supabaseInitialDataReady: false, supabaseRefreshInProgress: false,
     recordDialog: {}, repairDialog: {}, demoDialog: {}, performance: {now: () => 0},
     loadPrivatePayments: async () => {}, recordLoadTiming() {},

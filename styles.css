@@ -9788,18 +9788,34 @@ td {
 }
 
 th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  color: #fff;
-  background: #2d3f45;
+  color: #243d47;
   font-size: 0.72rem;
-  line-height: 1.15;
+  line-height: 1.35;
   letter-spacing: 0;
-  text-transform: uppercase;
   white-space: normal;
+}
+
+thead th {
+  background: #edf4f5;
+  font-weight: 700;
+}
+
+@media screen {
+  :is(.devices-table, .demo-table, .repairs-table, .pricing-table) thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    color: #fff;
+    background: #2d3f45;
+  }
+}
+
+th:is([data-sort], [data-demo-sort], [data-repair-sort], [data-pricing-sort]) {
   cursor: pointer;
 }
+
+.document-print-hint { margin: 2px 0 0; text-align: right; }
+.offline-form-mode .document-print-hint { display: none; }
 
 th.actions-head {
   cursor: default;
