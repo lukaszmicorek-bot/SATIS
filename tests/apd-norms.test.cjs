@@ -22,7 +22,8 @@ function patientSaveContext() {
     documentLocationKey: value => String(value || ''), normalizeCapdPractitioner: () => ({}),
     capdRichTextPlainText: value => String(value || ''), capdPlainTextToHtml: value => String(value || ''), sanitizeCapdRichText: value => String(value || ''),
     makeId: () => 'test-id', capdHistory: [], activeCapdHistoryId: '', currentSupabaseUser: {id: 'test-user'},
-    capdPatientInput: {focus() {}}, capdPeselInput: {value: '', focus() {}}, capdPractitionerShortcutButtons: [],
+    capdPatientInput: {focus() {}}, capdParentPhoneInput: {value: ''}, validatePersonalFormPhone: () => true,
+    capdPeselInput: {value: '', focus() {}}, capdPractitionerShortcutButtons: [],
     saveCapdHistoryBtn: {textContent: 'Zapisz', disabled: false}, linkCapdExaminerToProfile() {},
     parseCapdPesel: value => value === 'VALID' ? {birthDate: '2020-01-01'} : null,
     isFullPersonName: value => String(value).trim().split(/\s+/).length >= 2,
@@ -56,8 +57,11 @@ test('APD retains an optional parent through registration, editing and history r
   const {scope, writes} = patientSaveContext();
   assert.equal(scope.normalizeCapdHistoryEntry({...scope.raw, registrationOnly:true}).parent, '');
   scope.raw.parent = 'Anna Testowa';
+  scope.raw.parentPhone = '500 600 700';
   await scope.saveCurrentCapdToHistory();
   assert.equal(writes[0].parent, 'Anna Testowa');
+  assert.equal(writes[0].parentPhone, '500 600 700');
+  assert.equal(scope.normalizeCapdHistory(writes)[0].parentPhone, '500 600 700');
   assert.equal(scope.normalizeCapdHistory(writes)[0].parent, 'Anna Testowa');
   scope.raw.parent = '';
   await scope.saveCurrentCapdToHistory();
@@ -68,7 +72,10 @@ test('APD retains an optional parent through registration, editing and history r
   assert.match(app, /capdParentInput\.value = historyEntry\.parent/);
   assert.match(app, /parent: titleCaseName\(capdParentInput\?\.value \|\| ""\)\.slice\(0, 160\)/);
   assert.match(app, /capdReportParent\.textContent = parent/);
-  assert.match(app, /capdReportParentRow\.hidden = !parent/);
+  assert.match(app, /capdReportParentRow\.hidden = !parent && !parentPhone/);
+  assert.match(html, /id="capdParentPhoneInput" type="tel" data-person-format="phone"/);
+  assert.match(app, /capdParentPhoneInput\.value = historyEntry\.parentPhone/);
+  assert.equal(scope.normalizeCapdHistoryEntry({...scope.raw, registrationOnly:true, parentPhone:''}).parentPhone, '');
 });
 
 test('patient registration preserves planned date separately and turns into study on same ID', async () => {
@@ -89,6 +96,12 @@ test('patient registration preserves planned date separately and turns into stud
   assert.equal(writes[1].status, 'OPIS');
   assert.equal(writes[1].testDate, '2026-11-01');
   assert.equal(scope.capdHistory.length, 1);
+});
+
+test('APD refuses saving an entered invalid parent phone without making the optional field mandatory', async () => {
+  const {scope,writes}=patientSaveContext();scope.validatePersonalFormPhone=()=>false;
+  await scope.saveCurrentCapdToHistory();assert.equal(writes.length,0);
+  scope.validatePersonalFormPhone=()=>true;await scope.saveCurrentCapdToHistory();assert.equal(writes.length,1);
 });
 
 test('incomplete name, invalid optional PESEL and premature ready stage are rejected', async () => {

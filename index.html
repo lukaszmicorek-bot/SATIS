@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261124-10">
+  <link rel="stylesheet" href="styles.css?v=20261124-11">
   </head>
   <body>
     <main class="app-shell">
@@ -2461,10 +2461,16 @@
             <input id="capdLocationInput" type="hidden" value="P63">
             <input id="capdExaminerInput" type="hidden">
 
-            <label class="capd-parent-field private-form-wide">
+            <div class="capd-parent-fields private-form-wide">
+            <label class="capd-parent-field">
               <span>Imię i nazwisko rodzica / opiekuna</span>
               <input id="capdParentInput" type="text" maxlength="160" autocomplete="off" title="Opcjonalnie">
             </label>
+            <label>
+              <span>Telefon rodzica / opiekuna</span>
+              <input id="capdParentPhoneInput" type="tel" data-person-format="phone" maxlength="30" autocomplete="off" title="Opcjonalnie">
+            </label>
+            </div>
 
             <section id="capdScopePanel" class="capd-scope-panel private-form-wide" data-scope="pending" aria-live="polite">
               <span>Zakres badania</span>
@@ -2821,7 +2827,7 @@
               <span>Wiek<strong id="capdReportAge">-</strong></span>
               <span>Data badania<strong id="capdReportDate">-</strong></span>
             </div>
-            <p id="capdReportParentRow" class="capd-report-parent" hidden>Rodzic / opiekun: <strong id="capdReportParent"></strong></p>
+            <p id="capdReportParentRow" class="capd-report-parent" hidden><span>Rodzic / opiekun: <strong id="capdReportParent"></strong></span><span id="capdReportParentPhoneRow" hidden>Telefon: <strong id="capdReportParentPhone"></strong></span></p>
             <section id="capdReportPerformedExams" class="capd-report-performed-exams" hidden>
               <strong>Przeprowadzone badania</strong>
               <ul id="capdReportPerformedExamsList"></ul>
@@ -3721,26 +3727,26 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261124-10"></script>
-    <script src="data-layer.js?v=20261124-10"></script>
-    <script src="sync-layer.js?v=20261124-10"></script>
-    <script src="traffic-meter.js?v=20261124-10"></script>
-    <script src="repair-returns.js?v=20261124-10"></script>
-    <script src="offline-vault.js?v=20261124-10"></script>
-    <script src="offline-forms.js?v=20261124-10"></script>
-    <script src="stock-audit.js?v=20261124-10"></script>
-    <script src="complaint-shipping.js?v=20261124-10"></script>
-    <script src="vacation-attendance.js?v=20261124-10"></script>
-    <script src="tasks.js?v=20261124-10"></script>
-    <script src="client-journey.js?v=20261124-10"></script>
-    <script src="statistics.js?v=20261124-10"></script>
-    <script src="clients.js?v=20261124-10"></script>
-    <script src="tinnitus-forms.js?v=20261124-10"></script>
-    <script src="care-form.js?v=20261124-10"></script>
-    <script src="accessory-catalog.js?v=20261124-10"></script>
-    <script src="repair-catalog.js?v=20261124-10"></script>
-    <script src="wsa-repair-groups.js?v=20261124-10"></script>
-    <script src="mail-merge.js?v=20261124-10"></script>
-  <script src="app.js?v=20261124-10"></script>
+    <script src="supabase-config.js?v=20261124-11"></script>
+    <script src="data-layer.js?v=20261124-11"></script>
+    <script src="sync-layer.js?v=20261124-11"></script>
+    <script src="traffic-meter.js?v=20261124-11"></script>
+    <script src="repair-returns.js?v=20261124-11"></script>
+    <script src="offline-vault.js?v=20261124-11"></script>
+    <script src="offline-forms.js?v=20261124-11"></script>
+    <script src="stock-audit.js?v=20261124-11"></script>
+    <script src="complaint-shipping.js?v=20261124-11"></script>
+    <script src="vacation-attendance.js?v=20261124-11"></script>
+    <script src="tasks.js?v=20261124-11"></script>
+    <script src="client-journey.js?v=20261124-11"></script>
+    <script src="statistics.js?v=20261124-11"></script>
+    <script src="clients.js?v=20261124-11"></script>
+    <script src="tinnitus-forms.js?v=20261124-11"></script>
+    <script src="care-form.js?v=20261124-11"></script>
+    <script src="accessory-catalog.js?v=20261124-11"></script>
+    <script src="repair-catalog.js?v=20261124-11"></script>
+    <script src="wsa-repair-groups.js?v=20261124-11"></script>
+    <script src="mail-merge.js?v=20261124-11"></script>
+  <script src="app.js?v=20261124-11"></script>
   </body>
 </html>

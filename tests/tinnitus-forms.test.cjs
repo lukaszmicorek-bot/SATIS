@@ -36,6 +36,8 @@ test('questionnaire headers keep dark text on light backgrounds without database
   assert.match(css, /\.tinnitus-document :is\(\.tinnitus-table, \.tinnitus-grade-table\) th \{[^}]*position: static;[^}]*top: auto;[^}]*z-index: auto;[^}]*color: #243d47;[^}]*cursor: default;[^}]*text-transform: none;/);
   assert.match(css, /\.tinnitus-table thead th \{[^}]*font-weight: 700;[^}]*background: #eef5f5;/);
   assert.match(css, /\.tinnitus-table tbody th \{[^}]*background: #fff;/);
+  assert.match(css, /\.tinnitus-table tbody th\.tinnitus-question \{ color: #182e36; font-size: 14px; font-weight: 550; line-height: 1\.5; \}/);
+  assert.match(css, /\.tinnitus-table tbody th\.tinnitus-question \{ color: #111; font-size: 8\.5pt; line-height: 1\.3; \}/);
   assert.match(css, /\.tinnitus-choice-head \{ font-size: 12px; line-height: 1\.4; overflow-wrap: normal; \}/);
   assert.match(css, /\.tinnitus-choice-head \{ font-size: 7pt; \}/, 'print stays compact');
 });

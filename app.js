@@ -1086,6 +1086,7 @@ const workTimeExamplesNotice = document.querySelector("#workTimeExamplesNotice")
 const capdForm = document.querySelector("#capdForm");
 const capdPatientInput = document.querySelector("#capdPatientInput");
 const capdParentInput = document.querySelector("#capdParentInput");
+const capdParentPhoneInput = document.querySelector("#capdParentPhoneInput");
 const capdPeselInput = document.querySelector("#capdPeselInput");
 const capdPeselStatus = document.querySelector("#capdPeselStatus");
 const capdBirthDateInput = document.querySelector("#capdBirthDateInput");
@@ -1127,6 +1128,8 @@ const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
 const capdReportParent = document.querySelector("#capdReportParent");
 const capdReportParentRow = document.querySelector("#capdReportParentRow");
+const capdReportParentPhone = document.querySelector("#capdReportParentPhone");
+const capdReportParentPhoneRow = document.querySelector("#capdReportParentPhoneRow");
 const capdReportPractitioner = document.querySelector("#capdReportPractitioner");
 const capdReportPractitionerName = document.querySelector("#capdReportPractitionerName");
 const capdReportPractitionerLicense = document.querySelector("#capdReportPractitionerLicense");
@@ -1406,7 +1409,7 @@ function canManagePricingLoanHistory() {
 
 function canManagePricingPcprList() {
   if (!hasSupabaseConfig) return true;
-  return String(currentSupabaseUser?.email || "").trim().toLowerCase() === PRIVATE_PAYMENT_EMAIL;
+  return [PRIVATE_PAYMENT_EMAIL, "gabinet@pracowniasluchu.pl"].includes(String(currentSupabaseUser?.email || "").trim().toLowerCase());
 }
 
 function renderTrafficMeter() {
@@ -22820,7 +22823,10 @@ function renderCapdReport() {
   if (capdReportPatient) capdReportPatient.textContent = patient || "-";
   const parent = titleCaseName(capdParentInput?.value || "");
   if (capdReportParent) capdReportParent.textContent = parent;
-  if (capdReportParentRow) capdReportParentRow.hidden = !parent;
+  const parentPhone = formatRodoPhone(capdParentPhoneInput?.value || "");
+  if (capdReportParentRow) capdReportParentRow.hidden = !parent && !parentPhone;
+  if (capdReportParentPhone) capdReportParentPhone.textContent = parentPhone;
+  if (capdReportParentPhoneRow) capdReportParentPhoneRow.hidden = !parentPhone;
   if (capdReportPesel) capdReportPesel.textContent = pesel || "-";
   if (capdReportBirthDate) capdReportBirthDate.textContent = birthDate || "-";
   if (capdReportAge) capdReportAge.textContent = age === null ? "-" : formatCapdAge(age);
@@ -22923,6 +22929,7 @@ function normalizeCapdHistoryEntry(entry) {
     workstation: normalizeLoanHistoryText(entry.workstation),
     patient: titleCaseName(entry.patient || entry.customer || ""),
     parent: titleCaseName(entry.parent || "").slice(0, 160),
+    parentPhone: normalizeLoanHistoryText(entry.parentPhone || "").slice(0, 30),
     pesel: String(entry.pesel || "").replace(/\D/g, "").slice(0, 11),
     birthDate: isoDateForSave(entry.birthDate) || normalizeLoanHistoryText(entry.birthDate),
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
@@ -23010,6 +23017,7 @@ function currentCapdSnapshot() {
     workstation: currentWorkstationName(),
     patient: titleCaseName(capdPatientInput?.value || ""),
     parent: titleCaseName(capdParentInput?.value || "").slice(0, 160),
+    parentPhone: formatRodoPhone(capdParentPhoneInput?.value || ""),
     pesel: String(capdPeselInput?.value || "").replace(/\D/g, ""),
     birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
     age: age ?? "",
@@ -23045,6 +23053,7 @@ async function persistCapdHistoryEntry(entry) {
 async function saveCurrentCapdToHistory() {
   linkCapdExaminerToProfile();
   if (saveCurrentCapdToHistory.pending) return;
+  if (!validatePersonalFormPhone(capdParentPhoneInput, true)) return;
   const authUser = currentSupabaseUser;
   const parsedPesel = parseCapdPesel(capdPeselInput?.value);
   const rawSnapshot = currentCapdSnapshot();
@@ -23138,6 +23147,8 @@ function restoreCapdHistoryEntry(entry) {
   activeCapdHistoryId = historyEntry.id;
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
   if (capdParentInput) capdParentInput.value = historyEntry.parent;
+  if (capdParentPhoneInput) capdParentPhoneInput.value = historyEntry.parentPhone;
+  validatePersonalFormPhone(capdParentPhoneInput);
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
   setDateInputValue(capdDateInput, historyEntry.testDate || historyEntry.plannedTestDate || todayInputValue());
   if (capdLocationInput) capdLocationInput.value = historyEntry.location || "P63";
@@ -23423,6 +23434,7 @@ function renderCapdHistory() {
 
 function resetCapdForm() {
   capdForm?.reset();
+  validatePersonalFormPhone(capdParentPhoneInput);
   if (capdNormSourceSelect) delete capdNormSourceSelect.dataset.savedNormSource;
   updateCapdNormSourceAccess();
   if (capdNormSourceSelect) capdNormSourceSelect.dataset.previous = capdNormSourceSelect.value;
@@ -31226,6 +31238,12 @@ document.addEventListener("selectionchange", () => {
   });
 });
 resetCapdFormBtn?.addEventListener("click", resetCapdForm);
+capdParentPhoneInput?.addEventListener("input", () => validatePersonalFormPhone(capdParentPhoneInput));
+capdParentPhoneInput?.addEventListener("blur", () => {
+  capdParentPhoneInput.value = formatRodoPhone(capdParentPhoneInput.value);
+  validatePersonalFormPhone(capdParentPhoneInput);
+  renderCapdReport();
+});
 saveCapdHistoryBtn?.addEventListener("click", () => withSavedUndo("APD — wynik badania", saveCurrentCapdToHistory));
 printCapdReportBtn?.addEventListener("click", printCapdReport);
 capdHistorySearchInput?.addEventListener("input", debounce(renderCapdHistory, SEARCH_DEBOUNCE_MS));

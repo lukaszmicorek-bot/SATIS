@@ -169,6 +169,7 @@
 !/tests/device-search-history.test.cjs
 
 !/supabase-mail-merge.sql
+!/supabase-pcpr-gabinet-delete.sql
 !/tests/mail-merge.sqltest.cjs
 
 !/mail-merge-pdf.mjs
