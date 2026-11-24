@@ -73,3 +73,31 @@ assert.doesNotMatch(extract('renderPricingOffer'), /item\.input\.value = pricing
 assert.match(extract('restorePricingOfferFromHistory'), /offerChargerPriceInput\.value = String\(savedItem\.grossPrice/);
 assert.match(extract('saveCurrentPricingOfferToHistory'), /!offerGeneralInput\?\.checked && offerChargerPriceInput\?\.validationMessage/);
 console.log('OK: charger editable per-offer price, zero price, no catalog mutation or input snap, validation, switching and history restore.');
+
+const makeInput = id => ({id,value:'',dataset:{},setCustomValidity(value){this.validationMessage=value;}});
+const freeRight=makeInput('offerDeviceInput1'),freeLeft=makeInput('offerDeviceInput2');
+const prices={offerPriceInput1:makeInput('offerPriceInput1'),offerPriceInput2:makeInput('offerPriceInput2')};
+const catalog=[{idProduct:'TEST1',model:'Audeo Test',grossPrice:5000,nfzCode:'P.01.01.00'}];
+const free=vm.createContext({document:{getElementById:id=>prices[id],activeElement:null},normalize:value=>String(value||'').trim().toLowerCase(),
+  formatPricingPrice:value=>String(value),
+  pricingOfferSuggestedRecords:()=>catalog,pricingOfferPricedRecords:()=>catalog,pricingOfferAccessoryRecords:()=>[],
+  offerDeviceInput1:freeRight,offerDeviceInput2:freeLeft,offerGeneralInput:null,markAgreementDraftDirty(){},renderPricingOffer(){},
+  PRICING_OFFER_NFZ_BY_CODE:{},PRICING_OFFER_NFZ_PER_DEVICE:1050,normalizeLoanHistoryText:value=>String(value??'').trim()});
+for(const name of ['normalizePricingPrice','normalizePricingNfzCode','pricingOfferDeviceLabel','pricingOfferPriceInput','pricingOfferInputRecord',
+  'pricingOfferWithPrice','copyPricingOfferInputDetails','selectedPricingOfferItems','transferOfferSides','pricingOfferNfzAmount','normalizePricingOfferHistoryItem'])vm.runInContext(extract(name),free);
+freeRight.value='Dowolny produkt';
+let manual=free.selectedPricingOfferItems()[0].record;
+assert.equal(manual.model,'Dowolny produkt');assert.equal(manual.grossPrice,'');assert.ok(prices.offerPriceInput1.validationMessage);
+prices.offerPriceInput1.value='1234,56';prices.offerPriceInput1.dataset.manualPrice='1';
+manual=free.selectedPricingOfferItems()[0].record;assert.equal(manual.grossPrice,1234.56);assert.equal(free.pricingOfferNfzAmount(manual),0);
+free.transferOfferSides();assert.equal(freeLeft.value,'Dowolny produkt');assert.equal(free.selectedPricingOfferItems()[0].record.grossPrice,1234.56);
+assert.equal(prices.offerPriceInput2.value,'1234,56');assert.equal(catalog[0].grossPrice,5000);
+freeRight.value='Audeo';assert.equal(free.pricingOfferInputRecord(freeRight).offerCustom,true,'partial text is not replaced with a catalog product');
+freeRight.value='Audeo Test';assert.equal(free.selectedPricingOfferItems()[0].record.grossPrice,5000);
+prices.offerPriceInput1.value='4500';prices.offerPriceInput1.dataset.manualPrice='1';assert.equal(free.selectedPricingOfferItems()[0].record.grossPrice,4500);assert.equal(catalog[0].grossPrice,5000);
+prices.offerPriceInput1.value='-1';assert.equal(free.selectedPricingOfferItems()[0].record.grossPrice,'');
+prices.offerPriceInput1.value='0';assert.equal(free.selectedPricingOfferItems()[0].record.grossPrice,0);
+const stored=free.normalizePricingOfferHistoryItem({kind:'device',record:manual});assert.equal(stored.manual,true);
+freeRight.value=stored.model;freeRight.dataset.offerSavedValue=stored.model;freeRight.dataset.offerSavedRecord=JSON.stringify({...stored,offerCustom:stored.manual});
+assert.equal(free.pricingOfferInputRecord(freeRight).offerCustom,true);assert.equal(free.pricingOfferInputRecord(freeRight).grossPrice,'1234.56');
+console.log('OK: free offer names and prices, exact suggestions, no inferred NFZ, empty/negative/zero price, P/L transfer, historical manual flag and immutable catalog.');

@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261124-8">
+  <link rel="stylesheet" href="styles.css?v=20261124-9">
   </head>
   <body>
     <main class="app-shell">
@@ -1088,32 +1088,34 @@
                 </label>
                 <label class="offer-general-toggle offer-check-line"><input id="offerGeneralInput" type="checkbox"><span>Informacja ogólna — firmy i przedziały cenowe, bez modeli</span></label>
                 <div class="offer-side-devices">
-                <label class="offer-device-field offer-device-right document-device-block" data-ear="P">
-                  <span><b class="document-ear-badge" aria-hidden="true">P</b> Prawy aparat</span>
-                  <input id="offerDeviceInput1" type="text" list="pricingOfferDeviceList" placeholder="Model lub nazwa z cennika" autocomplete="off">
-                  <output id="offerDevicePrice1" class="document-device-price" aria-label="Cena prawego aparatu" aria-live="polite"></output>
-                </label>
+                <div class="offer-device-field offer-device-right document-device-block" data-ear="P">
+                  <span id="offerDeviceLabel1"><b class="document-ear-badge" aria-hidden="true">P</b> Prawy aparat</span>
+                  <input id="offerDeviceInput1" type="text" list="pricingOfferDeviceList" placeholder="Wpisz dowolną nazwę lub wybierz z cennika" autocomplete="off" aria-labelledby="offerDeviceLabel1">
+                  <output id="offerDevicePrice1" class="document-device-price" aria-label="Cena prawego aparatu" aria-live="polite" hidden></output>
+                  <label class="offer-product-price"><span>Cena w tej ofercie (zł)</span><input id="offerPriceInput1" type="text" inputmode="decimal" autocomplete="off" aria-label="Cena prawego aparatu w tej ofercie" disabled></label>
+                </div>
                 <button id="offerTransferSidesBtn" class="loan-side-transfer-btn" type="button" title="Przenieś lub zamień aparaty P i L" aria-label="Przenieś lub zamień aparaty P i L" disabled>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20V4m-4 4 4-4 4 4M16 4v16m-4-4 4 4 4-4"/></svg>
                 </button>
-                <label class="offer-device-field offer-device-left document-device-block" data-ear="L">
-                  <span><b class="document-ear-badge" aria-hidden="true">L</b> Lewy aparat</span>
-                  <input id="offerDeviceInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi aparat albo puste" autocomplete="off">
-                  <output id="offerDevicePrice2" class="document-device-price" aria-label="Cena lewego aparatu" aria-live="polite"></output>
-                </label>
+                <div class="offer-device-field offer-device-left document-device-block" data-ear="L">
+                  <span id="offerDeviceLabel2"><b class="document-ear-badge" aria-hidden="true">L</b> Lewy aparat</span>
+                  <input id="offerDeviceInput2" type="text" list="pricingOfferDeviceList" placeholder="Drugi aparat albo puste" autocomplete="off" aria-labelledby="offerDeviceLabel2">
+                  <output id="offerDevicePrice2" class="document-device-price" aria-label="Cena lewego aparatu" aria-live="polite" hidden></output>
+                  <label class="offer-product-price"><span>Cena w tej ofercie (zł)</span><input id="offerPriceInput2" type="text" inputmode="decimal" autocomplete="off" aria-label="Cena lewego aparatu w tej ofercie" disabled></label>
+                </div>
                 </div>
                 <div class="offer-accessory-field offer-charger-field">
                   <label><span>Ładowarka</span>
-                    <input id="offerChargerInput" type="text" list="pricingOfferChargerList" placeholder="Opcjonalnie, wybierz z cennika" autocomplete="off">
+                    <input id="offerChargerInput" type="text" list="pricingOfferChargerList" placeholder="Dowolna nazwa lub pozycja z cennika" autocomplete="off">
                   </label>
                   <label><span class="offer-charger-price-caption">Cena w tej ofercie (zł)</span>
                     <input id="offerChargerPriceInput" type="text" inputmode="decimal" placeholder="Cena z cennika" autocomplete="off" aria-label="Cena ładowarki w tej ofercie" disabled>
                   </label>
                 </div>
-                <label class="offer-accessory-field offer-earmold-field">
-                  <span>Wkładka uszna</span>
-                  <input id="offerEarmoldInput" type="text" list="pricingOfferEarmoldList" placeholder="Opcjonalnie, wybierz z cennika" autocomplete="off">
-                </label>
+                <div class="offer-accessory-field offer-earmold-field">
+                  <label><span>Wkładka uszna</span><input id="offerEarmoldInput" type="text" list="pricingOfferEarmoldList" placeholder="Dowolna nazwa lub pozycja z cennika" autocomplete="off"></label>
+                  <label class="offer-product-price"><span>Cena w tej ofercie (zł)</span><input id="offerEarmoldPriceInput" type="text" inputmode="decimal" autocomplete="off" aria-label="Cena wkładki w tej ofercie" disabled></label>
+                </div>
                 <div class="offer-option-field">
                   <span>NFZ</span>
                   <label class="offer-check-line" for="offerNoNfzInput">
@@ -3719,26 +3721,26 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261124-8"></script>
-    <script src="data-layer.js?v=20261124-8"></script>
-    <script src="sync-layer.js?v=20261124-8"></script>
-    <script src="traffic-meter.js?v=20261124-8"></script>
-    <script src="repair-returns.js?v=20261124-8"></script>
-    <script src="offline-vault.js?v=20261124-8"></script>
-    <script src="offline-forms.js?v=20261124-8"></script>
-    <script src="stock-audit.js?v=20261124-8"></script>
-    <script src="complaint-shipping.js?v=20261124-8"></script>
-    <script src="vacation-attendance.js?v=20261124-8"></script>
-    <script src="tasks.js?v=20261124-8"></script>
-    <script src="client-journey.js?v=20261124-8"></script>
-    <script src="statistics.js?v=20261124-8"></script>
-    <script src="clients.js?v=20261124-8"></script>
-    <script src="tinnitus-forms.js?v=20261124-8"></script>
-    <script src="care-form.js?v=20261124-8"></script>
-    <script src="accessory-catalog.js?v=20261124-8"></script>
-    <script src="repair-catalog.js?v=20261124-8"></script>
-    <script src="wsa-repair-groups.js?v=20261124-8"></script>
-    <script src="mail-merge.js?v=20261124-8"></script>
-  <script src="app.js?v=20261124-8"></script>
+    <script src="supabase-config.js?v=20261124-9"></script>
+    <script src="data-layer.js?v=20261124-9"></script>
+    <script src="sync-layer.js?v=20261124-9"></script>
+    <script src="traffic-meter.js?v=20261124-9"></script>
+    <script src="repair-returns.js?v=20261124-9"></script>
+    <script src="offline-vault.js?v=20261124-9"></script>
+    <script src="offline-forms.js?v=20261124-9"></script>
+    <script src="stock-audit.js?v=20261124-9"></script>
+    <script src="complaint-shipping.js?v=20261124-9"></script>
+    <script src="vacation-attendance.js?v=20261124-9"></script>
+    <script src="tasks.js?v=20261124-9"></script>
+    <script src="client-journey.js?v=20261124-9"></script>
+    <script src="statistics.js?v=20261124-9"></script>
+    <script src="clients.js?v=20261124-9"></script>
+    <script src="tinnitus-forms.js?v=20261124-9"></script>
+    <script src="care-form.js?v=20261124-9"></script>
+    <script src="accessory-catalog.js?v=20261124-9"></script>
+    <script src="repair-catalog.js?v=20261124-9"></script>
+    <script src="wsa-repair-groups.js?v=20261124-9"></script>
+    <script src="mail-merge.js?v=20261124-9"></script>
+  <script src="app.js?v=20261124-9"></script>
   </body>
 </html>

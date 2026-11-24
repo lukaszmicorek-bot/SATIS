@@ -54,14 +54,17 @@ Object.assign(context, {
   pricingOfferPatientGroup: () => group, offerDeviceInput1: offerRight,
   offerDeviceInput2: offerLeft, renderPricingOffer() {}
 });
+context.document = {getElementById:()=>null};
+vm.runInContext(extract('pricingOfferPriceInput'), context);
+vm.runInContext(extract('copyPricingOfferInputDetails'), context);
 vm.runInContext(extract('transferOfferSides'), context);
 context.transferOfferSides(); assert.equal(offerRight.value, ''); assert.equal(offerLeft.value, 'Model P');
 context.transferOfferSides(); assert.equal(offerRight.value, 'Model P'); assert.equal(offerLeft.value, '');
 offerLeft.value = 'Model L';
 context.transferOfferSides(); assert.equal(offerRight.value, 'Model L'); assert.equal(offerLeft.value, 'Model P');
 group = '';
-context.transferOfferSides(); assert.equal(offerRight.value, 'Model L', 'patient group required');
+context.transferOfferSides(); assert.equal(offerRight.value, 'Model P', 'patient group no longer blocks free entry');
 for (const id of ['offerMoveRightToLeftBtn', 'offerMoveLeftToRightBtn', 'offerDuplicateFirstBtn']) assert.ok(!html.includes(`id="${id}"`));
 assert.ok(html.indexOf('id="offerTransferSidesBtn"') > html.indexOf('id="offerDeviceInput1"'));
 assert.ok(html.indexOf('id="offerTransferSidesBtn"') < html.indexOf('id="offerDeviceInput2"'));
-console.log('OK: offer uses same three-way transfer with patient-group guard and no old buttons.');
+console.log('OK: offer uses the same three-way transfer without requiring a patient group.');

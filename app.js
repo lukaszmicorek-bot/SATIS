@@ -9044,7 +9044,9 @@ function pricingOfferDeviceName(record) {
 }
 
 function pricingOfferNfzAmount(record) {
+  if (record?.offerCustom) return 0;
   const code = normalizePricingNfzCode(record?.nfzCode);
+  if (["A", "CH", "C+"].includes(code)) return 0;
   const codeWithPrefix = code && !code.startsWith("P.") ? `P.${code}` : code;
   return Object.prototype.hasOwnProperty.call(PRICING_OFFER_NFZ_BY_CODE, codeWithPrefix)
     ? PRICING_OFFER_NFZ_BY_CODE[codeWithPrefix]
@@ -9114,10 +9116,6 @@ function renderPricingOfferDeviceList() {
   if (!pricingOfferDeviceList) return;
   renderPricingOfferAccessoryLists();
   const fragment = document.createDocumentFragment();
-  if (!pricingOfferPatientGroup()) {
-    pricingOfferDeviceList.replaceChildren(fragment);
-    return;
-  }
   pricingOfferSuggestedRecords()
     .slice()
     .sort((left, right) => collator.compare(left.model || left.tradeName, right.model || right.tradeName))
@@ -9162,13 +9160,62 @@ function findPricingOfferAccessoryRecord(value, kind) {
   return findPricingOfferRecordInCandidates(value, pricingOfferAccessoryRecords(kind));
 }
 
+function pricingOfferPriceInput(input) {
+  const ids = { offerDeviceInput1: "offerPriceInput1", offerDeviceInput2: "offerPriceInput2", offerChargerInput: "offerChargerPriceInput", offerEarmoldInput: "offerEarmoldPriceInput" };
+  return input && ids[input.id] ? document.getElementById(ids[input.id]) : null;
+}
+
+function pricingOfferInputRecord(input, kind = "device") {
+  const text = String(input?.value || "").trim();
+  if (!text) return null;
+  if (input.dataset?.offerSavedValue === text) {
+    try { return JSON.parse(input.dataset.offerSavedRecord); } catch { /* Fall back to the entered product. */ }
+  }
+  const candidates = kind === "device" ? [...pricingOfferSuggestedRecords(), ...pricingOfferPricedRecords()] : pricingOfferAccessoryRecords(kind);
+  const query = normalize(text);
+  const record = candidates.find(item => [pricingOfferDeviceLabel(item), item.idProduct, item.model, item.tradeName].some(value => value && normalize(value) === query));
+  return record || { idProduct: `manual:${kind}:${text}`, model: text, tradeName: "", manufacturer: "", nfzCode: "", grossPrice: "", offerCustom: true };
+}
+
+function pricingOfferWithPrice(input, record) {
+  const control = pricingOfferPriceInput(input);
+  if (!control) return record;
+  const key = String(input?.value || "").trim();
+  if (control.dataset.offerModel !== key) {
+    control.dataset.offerModel = key;
+    delete control.dataset.manualPrice;
+  }
+  control.disabled = !record;
+  if (!record) { control.value = ""; control.setCustomValidity(""); return null; }
+  if (!control.dataset.manualPrice && document.activeElement !== control) control.value = String(record.grossPrice ?? "").replace(".", ",");
+  const price = normalizePricingPrice(control.value);
+  const valid = price !== "" && price >= 0;
+  control.setCustomValidity(valid ? "" : "Podaj cenę produktu: zero lub więcej.");
+  return { ...record, grossPrice: valid ? Math.round(price * 100) / 100 : "" };
+}
+
+function copyPricingOfferInputDetails(from, to) {
+  if (!from || !to) return;
+  to.dataset ||= {};
+  for (const key of ["offerSavedRecord", "offerSavedValue"]) {
+    if (from.dataset?.[key] !== undefined) to.dataset[key] = from.dataset[key];
+    else delete to.dataset[key];
+  }
+  const source = pricingOfferPriceInput(from), target = pricingOfferPriceInput(to);
+  if (!target) return;
+  target.value = source?.value || "";
+  target.dataset.offerModel = String(to.value || "").trim();
+  if (source?.dataset.manualPrice) target.dataset.manualPrice = "1";
+  else delete target.dataset.manualPrice;
+}
+
 function selectedPricingOfferItems() {
   if (offerGeneralInput?.checked) return [];
   return [offerDeviceInput1, offerDeviceInput2]
     .map((input, index) => ({
       input,
       slot: index + 1,
-      record: findPricingOfferRecord(input?.value)
+      record: pricingOfferWithPrice(input, pricingOfferInputRecord(input))
     }))
     .filter((item) => item.record);
 }
@@ -9181,8 +9228,8 @@ function selectedPricingOfferAccessoryItems() {
   ].map((item) => ({
     ...item,
     record: item.kind === "charger"
-      ? pricingOfferChargerWithPrice(findPricingOfferAccessoryRecord(item.input?.value, item.kind))
-      : findPricingOfferAccessoryRecord(item.input?.value, item.kind)
+      ? pricingOfferChargerWithPrice(pricingOfferInputRecord(item.input, item.kind))
+      : pricingOfferWithPrice(item.input, pricingOfferInputRecord(item.input, item.kind))
   })).filter((item) => item.record);
 }
 
@@ -9250,39 +9297,50 @@ function selectedPricingOfferRecords() {
 function setPricingOfferInput(input, record) {
   if (!input || !record) return;
   input.value = pricingOfferDeviceLabel(record);
+  delete input.dataset.offerSavedRecord;
+  delete input.dataset.offerSavedValue;
 }
 
 function movePricingOfferDevice(fromInput, toInput, sourceLabel) {
-  if (!pricingOfferPatientGroup()) {
-    offerPatientGroupInputs[0]?.focus();
-    return;
-  }
   if (!fromInput?.value.trim()) {
     alert(`Najpierw wybierz aparat ${sourceLabel}.`);
     return;
   }
   if (!toInput) return;
   toInput.value = fromInput.value;
+  copyPricingOfferInputDetails(fromInput, toInput);
   fromInput.value = "";
   renderPricingOffer();
 }
 
 function transferOfferSides() {
-  if (!pricingOfferPatientGroup() || !offerDeviceInput1 || !offerDeviceInput2) return;
+  if (!offerDeviceInput1 || !offerDeviceInput2) return;
   const right = offerDeviceInput1.value;
   const left = offerDeviceInput2.value;
   if (!right.trim() && !left.trim()) return;
+  const rightDetails = { id: offerDeviceInput1.id, value: right, dataset: { ...offerDeviceInput1.dataset } };
+  const rightPrice = pricingOfferPriceInput(offerDeviceInput1);
+  const savedRightPrice = rightPrice ? { value: rightPrice.value, dataset: { ...rightPrice.dataset } } : null;
   offerDeviceInput1.value = left;
   offerDeviceInput2.value = right;
+  copyPricingOfferInputDetails(offerDeviceInput2, offerDeviceInput1);
+  const leftPrice = pricingOfferPriceInput(offerDeviceInput2);
+  offerDeviceInput2.dataset ||= {};
+  for (const key of ["offerSavedRecord", "offerSavedValue"]) {
+    if (rightDetails.dataset[key] !== undefined) offerDeviceInput2.dataset[key] = rightDetails.dataset[key];
+    else delete offerDeviceInput2.dataset[key];
+  }
+  if (leftPrice) {
+    leftPrice.value = savedRightPrice?.value || "";
+    leftPrice.dataset.offerModel = right.trim();
+    if (savedRightPrice?.dataset.manualPrice) leftPrice.dataset.manualPrice = "1";
+    else delete leftPrice.dataset.manualPrice;
+  }
   markAgreementDraftDirty("offer");
   renderPricingOffer();
 }
 
 function duplicatePricingOfferDevice() {
-  if (!pricingOfferPatientGroup()) {
-    offerPatientGroupInputs[0]?.focus();
-    return;
-  }
   const source = offerDeviceInput1?.value.trim() ? offerDeviceInput1 : offerDeviceInput2;
   const target = source === offerDeviceInput1 ? offerDeviceInput2 : offerDeviceInput1;
   if (!source?.value.trim() || !target) {
@@ -9290,6 +9348,7 @@ function duplicatePricingOfferDevice() {
     return;
   }
   target.value = source.value;
+  copyPricingOfferInputDetails(source, target);
   renderPricingOffer();
 }
 
@@ -9306,11 +9365,6 @@ function addPricingRecordToOffer(record) {
     switchPricingView("offer");
     renderPricingOffer();
     pricingOfferView?.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-  if (!pricingOfferPatientGroup()) {
-    alert("Najpierw wybierz: Dorosły lub Dziecko, aby wybrać aparat do oferty.");
-    offerPatientGroupInputs[0]?.focus();
     return;
   }
 
@@ -9399,8 +9453,8 @@ function renderPricingOfferAgeWarning(items) {
   const suffix = pricingOfferNfzSuffixForAge();
   const group = pricingOfferPatientGroup();
   if (!group) {
-    offerAgeWarning.textContent = "Wybierz: Dorosły lub Dziecko przed wyborem aparatu.";
-    offerAgeWarning.hidden = false;
+    offerAgeWarning.textContent = "";
+    offerAgeWarning.hidden = true;
     return;
   }
   if (!suffix || !items.length || offerNoNfzInput?.checked) {
@@ -9533,6 +9587,12 @@ function ensurePricingOfferLocation() {
 function startNewPricingOffer() {
   if (documentSaveLocks.has("offer")) return;
   resetOfferChargerPrice();
+  for (const input of [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput]) {
+    if (!input) continue;
+    delete input.dataset.offerSavedRecord; delete input.dataset.offerSavedValue;
+    const price = pricingOfferPriceInput(input);
+    if (price) { price.value = ""; delete price.dataset.manualPrice; delete price.dataset.offerModel; }
+  }
   if (offerGeneralInput) offerGeneralInput.checked = false;
   pricingGeneralOfferSavedRanges = null;
   pricingGeneralOfferSavedPeriod = "";
@@ -9583,16 +9643,14 @@ function renderPricingOffer() {
   const generalContent = document.getElementById("offerGeneralContent");
   if (generalContent) generalContent.hidden = !generalInformation;
   if (generalInformation) { renderPricingGeneralOffer(customer, offerDate, offerLocation, validUntil); return; }
-  if (offerEmptyState) offerEmptyState.textContent = "Wybierz aparat z cennika, żeby przygotować ofertę.";
+  if (offerEmptyState) offerEmptyState.textContent = "Wpisz produkt i cenę lub skorzystaj z podpowiedzi cennika.";
   [offerChargerInput, offerEarmoldInput].forEach(input => { if (input) input.disabled = false; });
-  const group = pricingOfferPatientGroup();
-  const ageRequired = !group;
   [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
-    if (input) input.disabled = ageRequired;
+    if (input) input.disabled = false;
   });
   const hasOfferDevice = Boolean(offerDeviceInput1?.value.trim() || offerDeviceInput2?.value.trim());
   if (offerTransferSidesBtn) {
-    offerTransferSidesBtn.disabled = ageRequired || !hasOfferDevice;
+    offerTransferSidesBtn.disabled = !hasOfferDevice;
     const right = Boolean(offerDeviceInput1?.value.trim());
     const left = Boolean(offerDeviceInput2?.value.trim());
     const label = right && left ? "Zamień aparaty P i L" : right ? "Przenieś aparat z P do L" : left ? "Przenieś aparat z L do P" : "Najpierw wybierz aparat P albo L";
@@ -9604,8 +9662,10 @@ function renderPricingOffer() {
   const offerItems = [...deviceItems, ...selectedPricingOfferAccessoryItems()];
   const total = offerItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
   const deviceTotal = deviceItems.reduce((sum, item) => sum + Number(normalizePricingPrice(item.record.grossPrice) || 0), 0);
-  const hasValidDevice = deviceItems.length > 0 && !offerChargerPriceInput?.validationMessage;
-  if (savePricingOfferBtn) savePricingOfferBtn.disabled = ageRequired || !hasValidDevice;
+  const hasValidDevice = offerItems.length > 0 && offerItems.every(item => {
+    const price = normalizePricingPrice(item.record.grossPrice); return price !== "" && price >= 0;
+  }) && !offerChargerPriceInput?.validationMessage;
+  if (savePricingOfferBtn) savePricingOfferBtn.disabled = !hasValidDevice;
   const withoutNfz = Boolean(offerNoNfzInput?.checked);
   const nfzLimit = deviceItems.reduce((sum, item) => sum + pricingOfferNfzAmount(item.record), 0);
   const nfz = withoutNfz ? 0 : Math.min(deviceTotal, nfzLimit);
@@ -9620,7 +9680,7 @@ function renderPricingOffer() {
     offerPfronInput.title = "";
   }
 
-  const offerHeading = deviceItems.length === 1 ? "Oferta aparatu słuchowego" : "Oferta aparatów słuchowych";
+  const offerHeading = !deviceItems.length ? "Oferta" : deviceItems.length === 1 ? "Oferta aparatu słuchowego" : "Oferta aparatów słuchowych";
   if (offerTitle) offerTitle.textContent = customer ? `${offerHeading} dla ${customer}` : offerHeading;
   if (offerMeta) {
     offerMeta.textContent = `Data oferty: ${formatDate(offerDate)} | Miejsce: ${offerLocation} | Ważna do: ${formatDate(validUntil)} (${PRICING_OFFER_VALID_DAYS} dni)`;
@@ -9632,7 +9692,7 @@ function renderPricingOffer() {
   const hasItems = offerItems.length > 0;
   if (offerEmptyState) offerEmptyState.hidden = hasItems;
   if (offerContent) offerContent.hidden = !hasItems;
-  if (printPricingOfferBtn) printPricingOfferBtn.disabled = ageRequired || !hasValidDevice;
+  if (printPricingOfferBtn) printPricingOfferBtn.disabled = !hasValidDevice;
   if (offerGrossTotal) offerGrossTotal.replaceChildren(createPricingPriceElement(total));
   if (!hasItems) {
     if (offerItemsBody) offerItemsBody.replaceChildren();
@@ -10840,6 +10900,7 @@ function normalizePricingOfferHistoryItem(item) {
     nfzCode: normalizeLoanHistoryText(item.nfzCode || record.nfzCode),
     grossPrice: normalizeLoanHistoryText(item.grossPrice ?? record.grossPrice)
   };
+  if (item.manual === true || record.offerCustom === true) normalizedItem.manual = true;
   return normalizedItem.model || normalizedItem.tradeName || normalizedItem.manufacturer || normalizedItem.grossPrice
     ? normalizedItem
     : null;
@@ -10964,7 +11025,8 @@ function currentPricingOfferSnapshot() {
       tradeName: record.tradeName,
       manufacturer: record.manufacturer,
       nfzCode: record.nfzCode,
-      grossPrice: record.grossPrice
+      grossPrice: record.grossPrice,
+      manual: record.offerCustom === true
     });
   }).filter(Boolean);
   const total = items.reduce((sum, item) => sum + Number(normalizePricingPrice(item.grossPrice) || 0), 0);
@@ -11127,6 +11189,14 @@ async function persistPricingOfferHistoryEntry(entry) {
 
 async function saveCurrentPricingOfferToHistory({ silent = false } = {}) {
   if (!offerGeneralInput?.checked && offerChargerPriceInput?.validationMessage) { offerChargerPriceInput.reportValidity(); return null; }
+  if (!offerGeneralInput?.checked) {
+    const items = selectedPricingOfferAllItems();
+    if (!items.length) { alert("Wpisz co najmniej jeden produkt."); return null; }
+    for (const item of items) {
+      const price = normalizePricingPrice(item.record.grossPrice);
+      if (price === "" || price < 0) { pricingOfferPriceInput(item.input)?.reportValidity(); return null; }
+    }
+  }
   if (offerGeneralInput?.checked && !currentPricingGeneralRanges().length) { alert("Brak aparatów z prawidłową ceną w cenniku."); return null; }
   if (typeof offlineForms !== "undefined" && offlineForms?.active()) return offlineForms.save("offer");
   if (!requireDocumentCustomerName(offerCustomerInput)) return null;
@@ -13075,26 +13145,33 @@ function restorePricingOfferFromHistory(entry) {
   if (offerPfronInput) offerPfronInput.value = saved.pfronEnabled ? String(saved.pfron || "") : "";
   if (offerNotesInput) offerNotesInput.value = saved.notes;
   [offerDeviceInput1, offerDeviceInput2, offerChargerInput, offerEarmoldInput].forEach((input) => {
-    if (input) input.value = "";
+    if (input) {
+      input.value = ""; delete input.dataset.offerSavedRecord; delete input.dataset.offerSavedValue;
+      const price = pricingOfferPriceInput(input);
+      if (price) { price.value = ""; delete price.dataset.manualPrice; delete price.dataset.offerModel; }
+    }
   });
   resetOfferChargerPrice();
   let fallbackDeviceIndex = 0;
   saved.items.forEach((savedItem) => {
     let input = null;
-    let record = null;
+    const record = { ...savedItem, offerCustom: savedItem.manual === true };
     if (savedItem.kind === "charger") {
       input = offerChargerInput;
-      record = findPricingOfferAccessoryRecord(savedItem.model || savedItem.tradeName, "charger");
     } else if (savedItem.kind === "earmold") {
       input = offerEarmoldInput;
-      record = findPricingOfferAccessoryRecord(savedItem.model || savedItem.tradeName, "earmold");
     } else {
       const deviceIndex = savedItem.side === "L" ? 1 : Math.min(fallbackDeviceIndex, 1);
       input = deviceIndex === 1 ? offerDeviceInput2 : offerDeviceInput1;
-      record = findPricingOfferRecord(savedItem.model || savedItem.tradeName);
       fallbackDeviceIndex = Math.max(fallbackDeviceIndex + 1, deviceIndex + 1);
     }
-    if (input) input.value = record ? pricingOfferDeviceLabel(record) : (savedItem.model || savedItem.tradeName || "");
+    if (input) {
+      input.value = savedItem.model || savedItem.tradeName || "";
+      input.dataset.offerSavedValue = input.value;
+      input.dataset.offerSavedRecord = JSON.stringify(record);
+      const price = pricingOfferPriceInput(input);
+      if (price) { price.value = String(savedItem.grossPrice ?? "").replace(".", ","); price.dataset.manualPrice = "1"; price.dataset.offerModel = input.value.trim(); }
+    }
     if (savedItem.kind === "charger" && record && offerChargerPriceInput) {
       offerChargerPriceInput.dataset.chargerKey = pricingRecordKey(record);
       offerChargerPriceInput.dataset.manualPrice = "1";
@@ -19805,7 +19882,7 @@ function createPricingRow(record, index) {
   offerButton.textContent = "+";
   offerButton.title = "Dodaj aparat do oferty";
   offerButton.setAttribute("aria-label", `Dodaj do oferty: ${record.model || record.tradeName || "aparat"}`);
-  offerButton.disabled = normalizePricingPrice(record.grossPrice) === "" || !pricingOfferPatientGroup();
+  offerButton.disabled = normalizePricingPrice(record.grossPrice) === "";
   if (!pricingOfferPatientGroup()) offerButton.title = "Najpierw wybierz Dorosły lub Dziecko w Ofercie.";
   offerButton.addEventListener("click", () => addPricingRecordToOffer(record));
   offerCell.append(offerButton);
@@ -30256,15 +30333,14 @@ updatePcprFormMode();
   input?.addEventListener("change", renderPricingOffer);
 });
 offerGeneralInput?.addEventListener("change", () => { pricingGeneralOfferSavedRanges = null; pricingGeneralOfferSavedPeriod = ""; markAgreementDraftDirty("offer"); renderPricingOffer(); });
-offerChargerPriceInput?.addEventListener("input", () => {
-  offerChargerPriceInput.dataset.manualPrice = "1";
-  markAgreementDraftDirty("offer");
-  renderPricingOffer();
-});
-offerChargerPriceInput?.addEventListener("blur", () => {
-  if (!offerChargerPriceInput.value.trim()) delete offerChargerPriceInput.dataset.manualPrice;
-  renderPricingOffer();
-});
+for (const id of ["offerPriceInput1", "offerPriceInput2", "offerEarmoldPriceInput", "offerChargerPriceInput"]) {
+  const input = document.getElementById(id);
+  input?.addEventListener("input", () => {
+    input.dataset.manualPrice = "1";
+    markAgreementDraftDirty("offer");
+    renderPricingOffer();
+  });
+}
 offerPatientGroupInputs.forEach((input) => input.addEventListener("change", () => {
   renderPricingOfferDeviceList();
   renderPricingOffer();
@@ -31598,7 +31674,7 @@ if (window.SatisOfflineForms && hasSupabaseSettings) {
         ensureLoanContractNumber();
         if (!validatePricingLoanForAction()) return null;
       }
-      if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Uzupełnij grupę pacjenta i wybierz aparat z cennika przed synchronizacją oferty.");
+      if (kind === "offer" && printPricingOfferBtn?.disabled) throw new Error("Wpisz produkt i prawidłową cenę przed synchronizacją oferty.");
       return saves[kind]({ silent: false });
     },
     render: kind => kind === "care" ? careForm?.render() : ["thi", "trq"].includes(kind) ? tinnitusForms?.render(kind) : kind === "receipt" ? renderPricingReceipt() : kind === "rodo" ? renderPricingRodo() : renderers[kind](),

@@ -33,6 +33,7 @@ function setup(kind) {
     normalizePricingOfferHistoryEntry: r => ({...r}), normalizePricingOrderHistoryEntry: r => ({...r}), normalizePricingComplaintHistoryEntry: r => ({...r}),
     normalizeRepairRecordsForUse: r => r,
     currentPricingOfferSnapshot: () => ({...snapshot}), currentPricingOrderSnapshot: () => ({...snapshot}), currentPricingComplaintSnapshot: () => ({...snapshot}),
+    selectedPricingOfferAllItems: () => snapshot.items.map(record => ({record})), normalizePricingPrice: value => value,
     validateDocumentPhoneForAction: () => true,
     requireDocumentCustomerName: () => true, pricingOrderItemsMissingRequiredSide: () => false,
     pricingOrderPaymentSummary: () => ({ invalid: false, tooHigh: false }),
