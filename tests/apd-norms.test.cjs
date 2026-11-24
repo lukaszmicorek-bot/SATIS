@@ -52,6 +52,25 @@ test('APD saves only patient name without PESEL, date, examiner or results and r
   assert.equal(reloaded[0].patient, 'Jan Testowy');
 });
 
+test('APD retains an optional parent through registration, editing and history reload without inferring one', async () => {
+  const {scope, writes} = patientSaveContext();
+  assert.equal(scope.normalizeCapdHistoryEntry({...scope.raw, registrationOnly:true}).parent, '');
+  scope.raw.parent = 'Anna Testowa';
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(writes[0].parent, 'Anna Testowa');
+  assert.equal(scope.normalizeCapdHistory(writes)[0].parent, 'Anna Testowa');
+  scope.raw.parent = '';
+  await scope.saveCurrentCapdToHistory();
+  assert.equal(writes[1].parent, '');
+  assert.equal(scope.normalizeCapdHistoryEntry({...scope.raw, registrationOnly:true, parent:'A'.repeat(200)}).parent.length, 160);
+  assert.match(html, /id="capdParentInput"[^>]*maxlength="160"[^>]*autocomplete="off"/);
+  assert.match(html, /id="capdReportParentRow"[^>]*hidden/);
+  assert.match(app, /capdParentInput\.value = historyEntry\.parent/);
+  assert.match(app, /parent: titleCaseName\(capdParentInput\?\.value \|\| ""\)\.slice\(0, 160\)/);
+  assert.match(app, /capdReportParent\.textContent = parent/);
+  assert.match(app, /capdReportParentRow\.hidden = !parent/);
+});
+
 test('patient registration preserves planned date separately and turns into study on same ID', async () => {
   const {scope, writes} = patientSaveContext();
   scope.raw.testDate = '2026-11-01';

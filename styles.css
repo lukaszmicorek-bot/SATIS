@@ -2056,6 +2056,13 @@ h2 {
   font-size: 0.84rem;
 }
 
+.capd-report-parent {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .capd-report-performed-exams {
   margin: 0;
   color: #173f4e;
@@ -5091,14 +5098,15 @@ h2 {
 .tinnitus-table-scroll { min-width: 0; overflow-x: auto; }
 .tinnitus-table { width: 100%; min-width: 620px; border-collapse: collapse; table-layout: fixed; font-size: 13px; line-height: 1.35; }
 .tinnitus-table :is(th, td) { padding: 5px 6px; border: 1px solid #cbd8dc; vertical-align: middle; }
-.tinnitus-table thead th { font-weight: 600; background: #eef5f5; text-align: center; }
+.tinnitus-document :is(.tinnitus-table, .tinnitus-grade-table) th { position: static; top: auto; z-index: auto; color: #243d47; cursor: default; text-transform: none; }
+.tinnitus-table thead th { font-weight: 700; background: #eef5f5; text-align: center; }
 .tinnitus-table .tinnitus-number { width: 5%; text-align: center; font-size: 11px; }
-.tinnitus-table tbody th { font-weight: 400; text-align: left; }
+.tinnitus-table tbody th { background: #fff; font-weight: 400; text-align: left; }
 .tinnitus-thi .tinnitus-question { width: 62%; }
 .tinnitus-trq .tinnitus-question { width: 45%; }
-.tinnitus-choice-head { font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
+.tinnitus-choice-head { font-size: 12px; line-height: 1.4; overflow-wrap: normal; }
 .tinnitus-choice-head :is(span, b) { display: block; }
-.tinnitus-choice-head b { margin-top: 4px; font-size: 13px; }
+.tinnitus-choice-head b { margin-top: 5px; font-size: 14px; }
 .tinnitus-answer { display: flex; align-items: center; justify-content: center; min-height: 32px; cursor: pointer; border-radius: 4px; }
 .tinnitus-answer:has(input:checked) { background: #e0f2ed; }
 .tinnitus-answer input { flex: none; width: 17px; height: 17px; min-height: 0; margin: 0; accent-color: #2b8a78; }

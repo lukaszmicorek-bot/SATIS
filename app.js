@@ -1085,6 +1085,7 @@ const workTimeExamplesRemove = document.querySelector("#workTimeExamplesRemove")
 const workTimeExamplesNotice = document.querySelector("#workTimeExamplesNotice");
 const capdForm = document.querySelector("#capdForm");
 const capdPatientInput = document.querySelector("#capdPatientInput");
+const capdParentInput = document.querySelector("#capdParentInput");
 const capdPeselInput = document.querySelector("#capdPeselInput");
 const capdPeselStatus = document.querySelector("#capdPeselStatus");
 const capdBirthDateInput = document.querySelector("#capdBirthDateInput");
@@ -1124,6 +1125,8 @@ const printCapdReportBtn = document.querySelector("#printCapdReportBtn");
 const capdReportTitle = document.querySelector("#capdReportTitle");
 const capdReportMeta = document.querySelector("#capdReportMeta");
 const capdReportPatient = document.querySelector("#capdReportPatient");
+const capdReportParent = document.querySelector("#capdReportParent");
+const capdReportParentRow = document.querySelector("#capdReportParentRow");
 const capdReportPractitioner = document.querySelector("#capdReportPractitioner");
 const capdReportPractitionerName = document.querySelector("#capdReportPractitionerName");
 const capdReportPractitionerLicense = document.querySelector("#capdReportPractitionerLicense");
@@ -22738,6 +22741,9 @@ function renderCapdReport() {
   if (capdReportTitle) capdReportTitle.textContent = reportTitle;
   if (capdReportMeta) capdReportMeta.textContent = `Zakres: ${scope}`;
   if (capdReportPatient) capdReportPatient.textContent = patient || "-";
+  const parent = titleCaseName(capdParentInput?.value || "");
+  if (capdReportParent) capdReportParent.textContent = parent;
+  if (capdReportParentRow) capdReportParentRow.hidden = !parent;
   if (capdReportPesel) capdReportPesel.textContent = pesel || "-";
   if (capdReportBirthDate) capdReportBirthDate.textContent = birthDate || "-";
   if (capdReportAge) capdReportAge.textContent = age === null ? "-" : formatCapdAge(age);
@@ -22839,6 +22845,7 @@ function normalizeCapdHistoryEntry(entry) {
     savedBy: normalizeLoanHistoryText(entry.savedBy || entry.userEmail),
     workstation: normalizeLoanHistoryText(entry.workstation),
     patient: titleCaseName(entry.patient || entry.customer || ""),
+    parent: titleCaseName(entry.parent || "").slice(0, 160),
     pesel: String(entry.pesel || "").replace(/\D/g, "").slice(0, 11),
     birthDate: isoDateForSave(entry.birthDate) || normalizeLoanHistoryText(entry.birthDate),
     age: ageText !== "" && Number.isFinite(Number(ageText)) ? Number(ageText) : "",
@@ -22925,6 +22932,7 @@ function currentCapdSnapshot() {
     savedBy: currentSupabaseUser?.email || "",
     workstation: currentWorkstationName(),
     patient: titleCaseName(capdPatientInput?.value || ""),
+    parent: titleCaseName(capdParentInput?.value || "").slice(0, 160),
     pesel: String(capdPeselInput?.value || "").replace(/\D/g, ""),
     birthDate: parseCapdPesel(capdPeselInput?.value)?.birthDate || "",
     age: age ?? "",
@@ -23052,6 +23060,7 @@ function restoreCapdHistoryEntry(entry) {
   if (typeof satisDataStore !== "undefined") satisDataStore?.beginEdit(SUPABASE_CAPD_HISTORY_TABLE, historyEntry.id);
   activeCapdHistoryId = historyEntry.id;
   if (capdPatientInput) capdPatientInput.value = historyEntry.patient;
+  if (capdParentInput) capdParentInput.value = historyEntry.parent;
   if (capdPeselInput) capdPeselInput.value = historyEntry.pesel;
   setDateInputValue(capdDateInput, historyEntry.testDate || historyEntry.plannedTestDate || todayInputValue());
   if (capdLocationInput) capdLocationInput.value = historyEntry.location || "P63";
@@ -31129,11 +31138,16 @@ capdDescriptionColor?.addEventListener("input", () => {
 document.addEventListener("selectionchange", () => {
   if (capdSelectionIsInsideEditor()) rememberCapdDescriptionSelection();
 });
-capdPatientInput?.addEventListener("input", (event) => {
-  event.target.value = titleCaseNameInput(event.target.value);
-});
-capdPatientInput?.addEventListener("blur", (event) => {
-  event.target.value = titleCaseName(event.target.value);
+[
+  capdPatientInput,
+  capdParentInput
+].forEach((input) => {
+  input?.addEventListener("input", (event) => {
+    event.target.value = titleCaseNameInput(event.target.value);
+  });
+  input?.addEventListener("blur", (event) => {
+    event.target.value = titleCaseName(event.target.value);
+  });
 });
 resetCapdFormBtn?.addEventListener("click", resetCapdForm);
 saveCapdHistoryBtn?.addEventListener("click", () => withSavedUndo("APD — wynik badania", saveCurrentCapdToHistory));

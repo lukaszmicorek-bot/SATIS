@@ -31,6 +31,15 @@ test('THI interpretation honors every interval boundary; incomplete results are 
   assert.throws(() => score('unknown', []));
 });
 
+test('questionnaire headers keep dark text on light backgrounds without database sticky styles', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.tinnitus-document :is\(\.tinnitus-table, \.tinnitus-grade-table\) th \{[^}]*position: static;[^}]*top: auto;[^}]*z-index: auto;[^}]*color: #243d47;[^}]*cursor: default;[^}]*text-transform: none;/);
+  assert.match(css, /\.tinnitus-table thead th \{[^}]*font-weight: 700;[^}]*background: #eef5f5;/);
+  assert.match(css, /\.tinnitus-table tbody th \{[^}]*background: #fff;/);
+  assert.match(css, /\.tinnitus-choice-head \{ font-size: 12px; line-height: 1\.4; overflow-wrap: normal; \}/);
+  assert.match(css, /\.tinnitus-choice-head \{ font-size: 7pt; \}/, 'print stays compact');
+});
+
 class Element {
   constructor(tag) {
     this.tag = tag;this.children = [];this.attributes = {};this.listeners = {};this.value = '';this.checked = false;
