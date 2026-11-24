@@ -5021,7 +5021,7 @@ h2 {
 .mail-merge-batch h3 { margin: 0; font-size: 16px; color: #003f5a; }
 .mail-merge-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; margin: 12px 0; }
 .mail-merge-table :is(th,td) { text-align: left; padding: 8px; border-bottom: 1px solid #dce6e8; overflow-wrap: anywhere; vertical-align: middle; }
-.mail-merge-table th { background: #f1f6f7; font-size: 12px; }
+.mail-merge-table th { position: static; top: auto; z-index: auto; color: #003f5a; background: #edf4f5; font-size: 12px; font-weight: 700; line-height: 1.4; text-transform: none; cursor: default; }
 .mail-merge-table th:first-child { width: 55px; }
 .mail-merge-table th:last-child { width: 145px; }
 .mail-merge-table input[type="checkbox"] { width: 17px; height: 17px; min-height: 0; }

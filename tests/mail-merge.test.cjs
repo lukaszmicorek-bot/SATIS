@@ -97,6 +97,13 @@ function fixture(overrides={}) {
     click(text){const target=['Zapisz','Zapisz zmiany'].includes(text)?nodes.get('mailMergeSave'):buttons().find(button=>button.textContent===text || button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+test('people table headers have dark contrast, static positioning and column semantics',()=>{
+  const t=fixture(),heads=t.nodes.get('mailMergeNotebook').querySelectorAll('th');
+  assert.equal(heads.length,7);assert.ok(heads.every(head=>head.scope==='col'));
+  const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'../styles.css'),'utf8');
+  assert.match(css,/\.mail-merge-table th \{ position: static; top: auto; z-index: auto; color: #003f5a; background: #edf4f5; font-size: 12px; font-weight: 700; line-height: 1\.4; text-transform: none; cursor: default;/);
+  t.api.clear();
+});
 test('disability type has twelve explicit choices, persists, reopens and can be cleared without changing old people',async()=>{
   const t=fixture();t.api.open();await tick();
   const select=t.nodes.get('mergedisabilityType');assert.equal(select.type,'hidden');assert.equal(select.value,'');

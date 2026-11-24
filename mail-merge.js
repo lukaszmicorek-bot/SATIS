@@ -893,7 +893,7 @@
     const databaseStatus=node("p","document-form-note");databaseStatus.id="mailMergeDatabaseStatus";databaseStatus.setAttribute("role","status");
     const count=node("p","document-form-note");count.id="mailMergeCount";
     const table=node("table","mail-merge-table"),thead=node("thead"),row=node("tr");
-    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot","Akcje"].forEach(text=>row.append(node("th","",text)));thead.append(row);
+    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot","Akcje"].forEach(text=>{const cell=node("th","",text);cell.scope="col";row.append(cell);});thead.append(row);
     const body=node("tbody");body.id="mailMergeQueue";table.append(thead,body);const scroll=node("div","mail-merge-table-scroll");scroll.append(table);
     const empty=node("p","document-form-note","Brak zapisanych osób dla wybranego wyszukiwania.");empty.id="mailMergeEmpty";
     const paging=node("div","mail-merge-actions"),previous=button("Poprzednie",()=>{offset=Math.max(0,offset-50);return refresh();}),next=button("Następne",()=>{offset+=50;return refresh();});previous.id="mailMergePrevious";next.id="mailMergeNext";paging.append(previous,next);
