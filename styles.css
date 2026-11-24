@@ -4633,6 +4633,15 @@ h2 {
   background: transparent;
 }
 
+@media screen {
+  :is(.pricing-table, .accessory-catalog-table, .wsa-group-table) > tbody > tr:not(.accessory-detail-row):is(:hover, :focus-within) > td {
+    box-shadow: inset 0 0 0 9999px rgba(0, 122, 122, 0.08);
+  }
+  .pricing-table > tbody > tr.pricing-manufacturer-row:is(:hover, :focus-within) > td:first-child {
+    box-shadow: inset 4px 0 0 color-mix(in srgb, var(--pricing-tone-accent) 72%, #fff), inset 0 0 0 9999px rgba(0, 122, 122, 0.08);
+  }
+}
+
 .pricing-unavailable-label {
   display: block;
   width: fit-content;

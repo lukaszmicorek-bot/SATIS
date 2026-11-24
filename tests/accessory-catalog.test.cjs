@@ -2,6 +2,11 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const catalog=require('../accessory-catalog.js');
+test('catalog row hover covers every cell, keeps the manufacturer accent and excludes detail/print rows', () => {
+  const css = fs.readFileSync(require.resolve('../styles.css'), 'utf8');
+  assert.match(css, /@media screen\s*\{\s*:is\(\.pricing-table, \.accessory-catalog-table, \.wsa-group-table\) > tbody > tr:not\(\.accessory-detail-row\):is\(:hover, :focus-within\) > td\s*\{\s*box-shadow: inset 0 0 0 9999px rgba\(0, 122, 122, 0\.08\)/);
+  assert.match(css, /tr\.pricing-manufacturer-row:is\(:hover, :focus-within\) > td:first-child\s*\{\s*box-shadow: inset 4px 0 0 color-mix[^;]+inset 0 0 0 9999px/);
+});
 const find=(brand,name,price)=>catalog.rows.find(row=>row.brands.includes(brand)&&row.name===name&&(price===undefined||row.price===price));
 test('source produces 58 distinct entries without duplicating repeated Beltone sections',()=>{
   assert.equal(catalog.rows.length,58);
