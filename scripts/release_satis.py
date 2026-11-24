@@ -85,7 +85,7 @@ EXTRA_PUBLIC_FILES = {
     "tests/customer-phone-tooltip.test.cjs",
     "tests/current-date-widget.test.cjs",
     "tests/data-layer.test.cjs", "tests/document-navigation.test.cjs",
-    "tests/offline-vault.test.cjs", "tests/print-font-readiness.test.cjs", "tests/rodo-pesel.test.cjs",
+    "tests/offline-vault.test.cjs", "tests/print-font-readiness.test.cjs", "tests/rodo-pesel.test.cjs", "tests/serial-input-tools.test.cjs",
     "tests/sync-layer.test.cjs",
     "tests/receipt-form.test.cjs",
 }

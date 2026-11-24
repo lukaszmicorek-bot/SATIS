@@ -2903,6 +2903,7 @@ function clearSensitiveApplicationState() {
   submitVacationRequest.draft = null;
   customerTransferMemory = null;
   customerTransferGeneration += 1;
+  lastCopiedSerialNumber = "";
   document.querySelectorAll(".customer-transfer-status").forEach(status => { status.textContent = ""; status.hidden = true; });
   repairReturns?.clear();
   document.querySelector("#repairOrderItemsList")?.replaceChildren();
@@ -14628,31 +14629,8 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
 async function pasteCopiedSerialToLoanDevice(side) {
   const inputs = loanDeviceInputs(side);
   if (!inputs.serial || loanInputValue(inputs.serial)) return;
-
-  let serial = lastCopiedSerialNumber;
-  if (!serial && navigator.clipboard?.readText) {
-    try {
-      serial = normalizeSerialNumber(await navigator.clipboard.readText());
-    } catch (error) {
-      serial = "";
-    }
-  }
-
-  if (!serial) {
-    inputs.serial.placeholder = "Najpierw skopiuj numer";
-    setTimeout(() => {
-      if (inputs.serial && !loanInputValue(inputs.serial)) inputs.serial.placeholder = "";
-    }, 1600);
-    return;
-  }
-
-  rememberCopiedSerialNumber(serial);
-  inputs.serial.value = serial;
-  if (side === "charger") {
-    updateLoanSerialPasteHint(side);
-  } else {
-    fillLoanDeviceFromSerial(side, true);
-  }
+  if (!await pasteClipboardToInput(inputs.serial.id, "serial")) return;
+  rememberCopiedSerialNumber(inputs.serial.value);
   updateLoanSerialPasteHints();
   renderPricingLoan();
 }
@@ -20293,18 +20271,19 @@ function createCopyIcon() {
   return icon;
 }
 
-async function pasteClipboardToInput(targetId, format = "") {
-  const input = document.querySelector(`#${targetId}`);
-  if (!input) return;
-
-  let text = "";
+async function readClipboardInputText(format = "") {
   try {
-    text = navigator.clipboard?.readText ? await navigator.clipboard.readText() : "";
-  } catch (error) {
-    text = "";
-  }
+    if (navigator.clipboard?.readText) return await navigator.clipboard.readText();
+  } catch { /* A number copied inside SATIS can still be pasted without clipboard access. */ }
+  return ["serial", "serials"].includes(format) ? lastCopiedSerialNumber : "";
+}
 
-  if (!text && format === "serial") text = lastCopiedSerialNumber;
+async function pasteClipboardToInput(targetId, format = "") {
+  const input = document.getElementById(targetId);
+  if (!input || input.disabled || input.readOnly) return false;
+  const previous = input.value, generation = sensitiveStateGeneration;
+  const text = await readClipboardInputText(format);
+  if (!input.isConnected || input.disabled || input.readOnly || input.value !== previous || generation !== sensitiveStateGeneration) return false;
   if (!text) {
     const originalPlaceholder = input.placeholder;
     input.placeholder = "Najpierw skopiuj tekst";
@@ -20312,44 +20291,110 @@ async function pasteClipboardToInput(targetId, format = "") {
     setTimeout(() => {
       if (input.placeholder === "Najpierw skopiuj tekst") input.placeholder = originalPlaceholder;
     }, 1600);
-    return;
+    return false;
+  }
+  if (format === "serial" && String(text).split(/[,;\n]+/u).filter(part => part.trim()).length > 1) {
+    showSerialCopyToast("W tym polu wklej jeden numer seryjny. Kolejny numer wpisz w osobnym polu.");
+    return false;
   }
 
   input.value = format === "serial"
     ? normalizeSerialNumber(text)
+    : format === "serials"
+      ? String(text).split(/[,;\n]+/u).map(normalizeSerialNumber).filter(Boolean).join(", ")
     : normalizeLoanHistoryText(text);
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
   input.focus();
+  return true;
 }
 
 async function copySerialNumber(serialText, pill, defaultTitle) {
-  if (!serialText || serialText === "brak numeru") return;
-
+  if (!serialText || serialText === "brak numeru") return false;
+  const generation = sensitiveStateGeneration;
+  let copied = false;
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(serialText);
-    } else {
-      copyTextWithFallback(serialText);
+      copied = true;
     }
+  } catch { /* Try the browser's legacy copy path when the async API is blocked. */ }
+  if (!copied) {
+    try { copied = copyTextWithFallback(serialText); } catch { copied = false; }
+  }
+  if (generation !== sensitiveStateGeneration) return false;
+  if (copied) {
     rememberCopiedSerialNumber(serialText);
     showSerialCopied(pill, defaultTitle);
-  } catch (error) {
+  } else {
+    rememberCopiedSerialNumber("");
+    pill.classList?.remove("copied");
+    if (pill.dataset?.copyTimer) {
+      window.clearTimeout(Number(pill.dataset.copyTimer));
+      delete pill.dataset.copyTimer;
+    }
     pill.title = "Nie udało się skopiować numeru";
+    showSerialCopyToast("Nie udało się skopiować. Zaznacz numer i użyj Ctrl+C lub Cmd+C.");
   }
+  return copied;
 }
 
 function copyTextWithFallback(text) {
+  const active = document.activeElement;
+  const selection = active && typeof active.selectionStart === "number"
+    ? [active.selectionStart, active.selectionEnd, active.selectionDirection] : null;
   const input = document.createElement("textarea");
   input.value = text;
   input.setAttribute("readonly", "");
   input.style.position = "fixed";
   input.style.top = "-1000px";
   input.style.opacity = "0";
-  document.body.append(input);
-  input.select();
-  document.execCommand("copy");
-  input.remove();
+  (document.querySelector("dialog[open]") || document.body).append(input);
+  try {
+    input.select();
+    return Boolean(document.execCommand("copy"));
+  } finally {
+    input.remove();
+    active?.focus({ preventScroll: true });
+    if (selection) active.setSelectionRange(...selection);
+  }
+}
+
+function setupSerialInputTools(input, { multiple = false } = {}) {
+  if (!input || input.dataset.serialToolsBound) return;
+  input.dataset.serialToolsBound = "1";
+  const parent = input.parentElement;
+  const paste = parent.querySelector("[data-paste-target], [data-paste-loan-serial]") || document.createElement("button");
+  const copy = parent.querySelector("[data-receipt-copy]") || document.createElement("button");
+  const reuse = parent.classList.contains("paste-input-field") || parent.classList.contains("receipt-serial-control");
+  const wrap = reuse ? parent : document.createElement("span");
+  if (!reuse) { input.before(wrap); wrap.append(input); }
+  wrap.classList.add("serial-input-control");
+  const refresh = () => {
+    const filled = Boolean(input.value.trim());
+    copy.hidden = !filled; copy.disabled = input.disabled || !filled;
+    paste.hidden = filled; paste.disabled = input.disabled || input.readOnly;
+  };
+  if (!copy.hasAttribute("data-receipt-copy")) copy.addEventListener("click", event => {
+    event.preventDefault(); event.stopPropagation();
+    const value = multiple ? input.value.split(/[,;\n]+/u).map(normalizeSerialNumber).filter(Boolean).join(", ") : normalizeSerialNumber(input.value);
+    if (value) void copySerialNumber(value, copy, "Kopiuj numer seryjny");
+  });
+  if (!paste.hasAttribute("data-paste-target") && !paste.hasAttribute("data-paste-loan-serial")) paste.addEventListener("click", event => {
+    event.preventDefault(); event.stopPropagation();
+    void pasteClipboardToInput(input.id, multiple ? "serials" : "serial");
+  });
+  for (const [button, action, text] of [[copy, "copy", "Kopiuj"], [paste, "paste", "Wklej"]]) {
+    button.type = "button"; button.textContent = text;
+    button.dataset.serialInputAction = action;
+    button.dataset.serialInputTarget = input.id;
+    button.setAttribute("aria-label", `${text} ${multiple ? "numery seryjne" : "numer seryjny"}`);
+    wrap.append(button);
+  }
+  for (const event of ["input", "change", "focus"]) input.addEventListener(event, refresh);
+  wrap.addEventListener("mouseenter", refresh);
+  wrap.addEventListener("focusin", refresh);
+  refresh();
 }
 
 function showSerialCopied(pill, defaultTitle) {
@@ -26660,6 +26705,7 @@ function renderRepairOrderItems(record) {
     serial.placeholder = Number(item.quantity) > 1 ? "NR1, NR2" : "Numer seryjny";
     serial.addEventListener("input", syncUppercaseTextInput);
     serialLabel.append(serialTitle, serial);
+    setupSerialInputTools(serial, { multiple: true });
     for (const input of [model, serial]) input.addEventListener("input", () => {
       syncRepairOrderItemSummary(); setPrimarySaveHighlight(saveRepairBtn, true);
     });
@@ -31610,6 +31656,10 @@ window.addEventListener("storage", event => {
 });
 setupStructuredAddresses();
 setupPersonalFormFormatting();
+for (const id of ["serialNumber", "demoSerialNumber", "repairSerialNumber", "repairSerialNumber2",
+  "loanRightSerialInput", "loanLeftSerialInput", "loanChargerSerialInput", "complaintSerialInput", "complaintSerialInput2", "complaintSerialInput3", "receiptSerialP", "receiptSerialL"]) {
+  setupSerialInputTools(document.getElementById(id));
+}
 setupDocumentCustomerAutofill();
 setupPrivateSearchInputs();
 setupUnifiedDocumentLayout();
