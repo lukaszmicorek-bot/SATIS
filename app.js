@@ -16246,6 +16246,23 @@ function pricingOrderPaymentSummary(items, depositValue) {
   return { total, deposit, remaining, invalid, tooHigh };
 }
 
+function pricingOrderPaymentState(payment) {
+  if (payment.invalid || payment.tooHigh) return { state: "invalid", label: "Sprawdź kwotę zadatku" };
+  if (!Number.isFinite(payment.total) || !Number.isFinite(payment.remaining)) return { state: "unpriced", label: "Do wyceny" };
+  if (payment.total === 0) return { state: "free", label: "Bez opłaty" };
+  if (payment.remaining === 0) return { state: "paid", label: "Zapłacone w całości" };
+  return payment.deposit > 0 ? { state: "partial", label: "Częściowo zapłacone" } : { state: "unpaid", label: "Do zapłaty" };
+}
+
+function renderPricingOrderPaymentState(root, payment) {
+  const { state, label } = pricingOrderPaymentState(payment);
+  root.querySelectorAll("[data-order-payment]").forEach(element => { element.dataset.paymentState = state; });
+  root.querySelectorAll("[data-order-payment-status]").forEach(element => {
+    element.textContent = label;
+    element.hidden = state === "unpriced";
+  });
+}
+
 function pricingOrderWaterproofCost(itemNotes, orderNotes) {
   return /\bbrokat\w*/i.test(`${itemNotes || ""} ${orderNotes || ""}`) ? 210 : 200;
 }
@@ -17244,6 +17261,7 @@ function renderPricingOrder() {
     : payment.tooHigh ? "Zadatek nie może być wyższy niż wartość zamówienia." : "";
   if (orderTotalAmount) orderTotalAmount.textContent = payment.total === "" ? "Do wyceny" : formatServiceCost(payment.total);
   if (orderRemainingAmount) orderRemainingAmount.textContent = payment.remaining === "" ? "Do wyceny" : formatServiceCost(payment.remaining);
+  renderPricingOrderPaymentState(pricingOrderView, payment);
   if (orderPaymentWarning) {
     orderPaymentWarning.textContent = paymentError;
     orderPaymentWarning.hidden = !paymentError;
@@ -26640,9 +26658,11 @@ function repairOrderProgress(items, legacy = {}) {
 function updateRepairOrderPayment() {
   const panel = document.querySelector("#repairOrderItemsPanel");
   if (!panel || panel.hidden) return;
-  const total = normalizeServiceCost(repairServiceCostInput.value) || 0;
-  const deposit = normalizeServiceCost(document.querySelector("#repairOrderDeposit").value) || 0;
-  document.querySelector("#repairOrderRemaining").textContent = `Pozostało do zapłaty: ${formatServiceCost(Math.max(0, total - deposit))}`;
+  const payment = pricingOrderPaymentSummary([{ type: "INNE", quantity: "1", cost: repairServiceCostInput.value }],
+    document.querySelector("#repairOrderDeposit").value);
+  document.querySelector("#repairOrderRemaining").textContent = payment.remaining === "" ? "Pozostało do zapłaty: do ustalenia"
+    : `Pozostało do zapłaty: ${formatServiceCost(payment.remaining)}`;
+  renderPricingOrderPaymentState(panel, payment);
 }
 
 function syncRepairOrderItemSummary() {

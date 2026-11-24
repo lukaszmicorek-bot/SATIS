@@ -413,6 +413,34 @@ test('order deposit and remaining balance stay consistent in form, print, and ca
   assert.equal(context.pricingOrderPaymentSummary([{ cost: 1000, quantity: '1' }], '1000,01').tooHigh, true);
 });
 
+test('order payment states distinguish paid, partial, unpaid, unpriced and invalid amounts', () => {
+  const c = vm.createContext({normalizePricingOrderItem: item => item});
+  for (const name of ['normalizePricingPrice','normalizeServiceCost','pricingOrderTotalCost','pricingOrderPaymentSummary','pricingOrderPaymentState']) vm.runInContext(extract(name),c);
+  const state = (cost, deposit) => c.pricingOrderPaymentState(c.pricingOrderPaymentSummary([{cost,quantity:'1'}],deposit));
+  assert.equal(state(200,'200').state,'paid');assert.equal(state(200,'200').label,'Zapłacone w całości');
+  assert.equal(state(200,'100').state,'partial');assert.equal(state(200,'100').label,'Częściowo zapłacone');
+  assert.equal(state(200,'').state,'unpaid');assert.equal(state(200,'0').state,'unpaid');
+  assert.equal(state('','100').state,'unpriced');assert.equal(state(0,'0').state,'free');
+  for (const deposit of ['201','-1','błąd']) assert.equal(state(200,deposit).state,'invalid');
+  assert.equal(state('100,01','100,01').state,'paid');assert.equal(state('100,01','100').state,'partial');
+  assert.equal(c.pricingOrderPaymentState(c.pricingOrderPaymentSummary([{cost:200,quantity:'1'},{cost:'',quantity:'1'}],'200')).state,'unpriced');
+});
+
+test('order payment state updates form and print together and clears obsolete labels', () => {
+  const blocks = [{dataset:{}},{dataset:{}}], labels = [{},{ }];
+  const c = vm.createContext({});
+  for (const name of ['pricingOrderPaymentState','renderPricingOrderPaymentState']) vm.runInContext(extract(name),c);
+  const root = {querySelectorAll: selector => selector === '[data-order-payment]' ? blocks : labels};
+  c.renderPricingOrderPaymentState(root,{total:200,deposit:200,remaining:0});
+  assert.ok(blocks.every(n=>n.dataset.paymentState==='paid'));assert.ok(labels.every(n=>n.textContent==='Zapłacone w całości'&&!n.hidden));
+  c.renderPricingOrderPaymentState(root,{total:200,deposit:100,remaining:100});
+  assert.ok(blocks.every(n=>n.dataset.paymentState==='partial'));
+  c.renderPricingOrderPaymentState(root,{total:'',deposit:100,remaining:''});
+  assert.ok(blocks.every(n=>n.dataset.paymentState==='unpriced'));assert.ok(labels.every(n=>n.hidden));
+  assert.match(extract('renderPricingOrder'), /renderPricingOrderPaymentState\(pricingOrderView, payment\)/);
+  assert.match(extract('updateRepairOrderPayment'), /renderPricingOrderPaymentState\(panel, payment\)/);
+});
+
 test('an offer keeps a selected charger when its catalog price changes', () => {
   const charger = { idProduct: 'CH-123', model: 'Ładowarka Alpha', tradeName: 'Ładowarka Alpha',
     manufacturer: 'Philips', grossPrice: 500 };

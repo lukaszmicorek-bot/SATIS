@@ -6221,6 +6221,23 @@ h2 {
 }
 
 .order-payment-warning[hidden] { display: none; }
+.order-payment-status {
+  display: inline-block; width: fit-content; max-width: 100%;
+  padding: 3px 7px; border: 1px solid #cbd8dd; border-radius: 5px;
+  color: #52656b; background: #f5f8f9;
+  font-size: 11px; font-weight: 750; line-height: 1.3;
+}
+[data-order-payment][data-payment-state="paid"] :is(strong, input) { color: #247247; }
+[data-order-payment][data-payment-state="paid"] .order-payment-status {
+  color: #247247; background: #edf8f0; border-color: #b8dac4;
+}
+[data-order-payment][data-payment-state="partial"] .order-payment-status {
+  color: #8a5b16; background: #fff6df; border-color: #e5d1a2;
+}
+[data-order-payment]:is([data-payment-state="partial"], [data-payment-state="unpaid"]) :is(#orderRemainingAmount, [data-order-out="remaining"], #repairOrderRemaining),
+[data-order-payment]:is([data-payment-state="unpaid"], [data-payment-state="invalid"]) .order-payment-status { color: #ad3546; }
+[data-order-payment][data-payment-state="paid"] input,
+[data-order-payment][data-payment-state="partial"] input { border-color: #a6ccb4; }
 
 .order-doc-grid p:nth-child(3) {
   grid-column: span 2;
