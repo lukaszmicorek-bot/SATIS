@@ -2,6 +2,11 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const catalog=require('../repair-catalog.js');
+test('repair catalog omits the explanatory price/code/VAT line but retains the table',()=>{
+  const source=fs.readFileSync(require.resolve('../repair-catalog.js'),'utf8');
+  assert.doesNotMatch(source,/Ceny, kody i VAT|Kody zaczynające się od U|Podział modeli WSA na grupy: karta poniżej/);
+  assert.match(source,/<th>Netto<\/th><th>VAT<\/th><th>Brutto<\/th>/);
+});
 test('all 35 spreadsheet rows keep their net, gross, VAT, description and source row',()=>{
   assert.equal(catalog.rows.length,35);assert.equal(catalog.sourceRows.length,35);
   assert.equal(new Set(catalog.rows.map(row=>row.id)).size,35);

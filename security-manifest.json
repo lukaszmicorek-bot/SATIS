@@ -1,5 +1,5 @@
 {
-  "app_version": "20261124-5",
+  "app_version": "20261124-6",
   "asset_policy_sha256": "3e4ebeaff4e53fdb242e731fdea245dc0ea8c6446bf8402c0dd98b5e0132c4b4",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -64,7 +64,7 @@
     },
     "index.html": {
       "bytes": 477040,
-      "sha256": "f468c7709095dfd993b2bf46821d1326570797e91acf12ca5be69a086c5b24fb"
+      "sha256": "9767097fa6eb3df1158a59f9d3e95c517a5b5acacf06dc45f81ee98e225e4032"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -180,7 +180,7 @@
     },
     "offline-sw.js": {
       "bytes": 3454,
-      "sha256": "e8b4703a96ec18b49ad1d205d8bdc639d828e61645128309da11d5c60c3ec1f7"
+      "sha256": "9ea5064e8ca6a7deec27fcc9b1169615cbef72288fd486322cd701d9d24d7671"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -203,8 +203,8 @@
       "sha256": "db354ddf034705bf26e27a10bb9600c03b8e3ccf42693b50eb420a5ae1a36043"
     },
     "repair-catalog.js": {
-      "bytes": 10605,
-      "sha256": "a6ca3ac5d86ee0fe6c8f526217f497996cf849b9fc43b78d949e3339f189d63a"
+      "bytes": 10415,
+      "sha256": "a7d6ecdf75416e9145c8a6e2c74f13aae02633602dac2e1b4e7f89308d8b7bc0"
     },
     "repair-pricing/wsa-groups-2024-11.pdf": {
       "bytes": 91417,
