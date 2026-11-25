@@ -4,10 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = process.env.SATIS_ROOT || path.resolve(__dirname, '..');
 const m = require(process.env.SATIS_MODULE || path.join(root,'mail-merge.js'));
+const firstOrder='5-NFZAPZZ26-00000001',secondOrder='5-AB12CD34-00000002',paperOrder='0-19-000000001-2';
 const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surname:'Testowy',pesel:'90010112349',birthDate:'01.01.1990',
   city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',monthlyIncome:'2 500,50',householdSize:'3',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
   province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
-  careHome:'no',householdType:'shared',paymentMode:'transfer',bankOwner:'Jan Adam Testowy',bankName:'Bank testowy',bankAccount:'61109010140000071219812874',certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
+  careHome:'no',householdType:'shared',paymentMode:'transfer',bankOwner:'Jan Adam Testowy',bankName:'Bank testowy',bankAccount:'61109010140000071219812874',certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:firstOrder,cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
 const correspondenceExample={correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
 const submissionKeys=['referralValid','referralCallDone','hearingTestCurrent','nfzOrderAvailable','certificatePrinted'];
 test('amounts use integer cents and reject invalid grants or malformed money',()=>{
@@ -427,10 +428,10 @@ test('one or two products keep their order numbers paired and require the second
   const t=fixture();t.fill();t.fill({itemCount:'2',subject2:'Aparat L',orderNumber2:''});await t.nodes.get('mergeitemCount').emit('change');
   assert.equal(t.nodes.get('mergesubject2').parent.hidden,false);await t.click('Zapisz zmiany');assert.equal(t.stored.size,0);
   assert.match(t.nodes.get('mailMergeMessage').textContent,/Numer zlecenia 2/);
-  t.fill({orderNumber2:'NFZ-2'});await t.click('Zapisz zmiany');const saved=[...t.stored.values()][0].data;
-  assert.equal(saved.subject2,'Aparat L');assert.equal(saved.orderNumber2,'NFZ-2');
+  t.fill({orderNumber2:secondOrder});await t.click('Zapisz zmiany');const saved=[...t.stored.values()][0].data;
+  assert.equal(saved.subject2,'Aparat L');assert.equal(saved.orderNumber2,secondOrder);
   const marks=m.placements(saved);assert.equal(marks.find(item=>item.field==='subject').text,saved.subject);
-  assert.match(marks.find(item=>item.field==='orderNumber').text,/2\. NFZ-2/);
+  assert.ok(marks.find(item=>item.field==='orderNumber').text.includes(`2. ${secondOrder}`));
   for(const item of marks)assert.ok(m.fitText(item.text,item.width,item.height,(text,size)=>text.length*size*0.5),item.field);
   t.fill({itemCount:'1'});await t.nodes.get('mergeitemCount').emit('change');assert.equal(t.nodes.get('mergesubject2').value,'');assert.equal(t.nodes.get('mergesubject2').parent.hidden,true);t.api.clear();
 });
@@ -564,19 +565,44 @@ test('county scope filters defensive index construction, including any mixed or 
 });
 
 test('both order numbers become uppercase on input, paste, save without blur, reopening and print',async()=>{
-  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber:'nfz ab/2026',orderNumber2:'nfz cd-2/2026'});
+  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber:firstOrder.toLowerCase(),orderNumber2:secondOrder.toLowerCase()});
   const first=t.nodes.get('mergeorderNumber');first.selectionStart=4;first.selectionEnd=6;
   let selection;first.setSelectionRange=(start,end)=>{selection=[start,end];};
   await first.emit('input');await t.nodes.get('mergeorderNumber2').emit('input');
-  assert.equal(first.value,'NFZ AB/2026');assert.deepEqual(selection,[4,6]);assert.equal(t.nodes.get('mergeorderNumber2').value,'NFZ CD-2/2026');
-  t.fill({orderNumber:'nfz ef/2026',orderNumber2:'nfz gh/2026'});await t.click('Zapisz');
-  const entry=[...t.stored.values()][0];assert.equal(entry.data.orderNumber,'NFZ EF/2026');assert.equal(entry.data.orderNumber2,'NFZ GH/2026');
+  assert.equal(first.value,firstOrder);assert.deepEqual(selection,[4,6]);assert.equal(t.nodes.get('mergeorderNumber2').value,secondOrder);
+  t.fill({orderNumber:firstOrder.toLowerCase(),orderNumber2:secondOrder.toLowerCase()});await t.click('Zapisz');
+  const entry=[...t.stored.values()][0];assert.equal(entry.data.orderNumber,firstOrder);assert.equal(entry.data.orderNumber2,secondOrder);
   entry.data.orderNumber='stare ab/2025';entry.data.orderNumber2='stare cd/2025';await t.click('Edytuj');
   assert.equal(first.value,'STARE AB/2025');assert.equal(t.nodes.get('mergeorderNumber2').value,'STARE CD/2025');
   assert.match(t.nodes.get('mailMergePreviewPages').textContent,/STARE AB\/2025/);
   const one=m.placements({...example,orderNumber:'nfz ab/2026'}).find(item=>item.field==='orderNumber');assert.equal(one.text,'NFZ AB/2026');
   const two=m.placements({...example,itemCount:'2',orderNumber:'nfz ab/2026',orderNumber2:'nfz cd/2026'}).find(item=>item.field==='orderNumber');
   assert.equal(two.text,'1. NFZ AB/2026\n2. NFZ CD/2026');t.api.clear();
+});
+test('validates NFZ production identifiers in both slots but rejects PIN, PESEL, test numbers and malformed formats',()=>{
+  const valid=value=>!m.validate({...example,orderNumber:value},()=>true).some(error=>error.field==='orderNumber');
+  for(const value of [firstOrder,secondOrder,paperOrder,'1-26-000000002-2','5-NFZOW0126-00000500',firstOrder.toLowerCase(),
+    '5 – ab12cd34 – 00000002','5AB12CD3400000002','0190000000012'])assert.ok(valid(value),value);
+  for(const value of ['', '1234',example.pesel,'T5-NFZAPZZ26-00000001','5-ABCDEFGHI-00000001',
+    '5-AB12CD34-0000000','5-AB12CD34-00000X02','0-19-000000000-2',`${firstOrder} 1234`])assert.equal(valid(value),false,value);
+  assert.ok(m.validate({...example,itemCount:'2',subject2:'Aparat L',orderNumber2:'1234'},()=>true).some(error=>error.field==='orderNumber2'&&/PIN/.test(error.text)));
+  assert.equal(m.validate({...example,itemCount:'1',orderNumber2:'1234'},()=>true).some(error=>error.field==='orderNumber2'),false);
+  assert.ok(m.draftValidate({...example,orderNumber:`${firstOrder} 1234`},()=>true).some(error=>error.field==='orderNumber'));
+});
+test('invalid NFZ numbers warn before submit and block final save and printing; a corrected draft can proceed',async()=>{
+  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber2:'12 34'});await t.confirmChecklist();
+  const input=t.nodes.get('mergeorderNumber2'),notice=t.nodes.get('mailMergeOrderWarning-orderNumber2');
+  await input.emit('input');
+  assert.equal(notice.hidden,false);assert.match(notice.textContent,/PIN/);
+  await t.click('Zapisz');await t.click('Drukuj wniosek');await t.click('Zapisz roboczo');
+  assert.equal(t.stored.size,0);assert.equal(t.prints(),0);
+  input.value='';await input.emit('input');
+  assert.equal(notice.hidden,true);assert.equal(input.attributes['aria-invalid'],undefined);
+  await t.click('Zapisz roboczo');assert.equal(t.stored.size,1);
+  input.value='5 – ab12cd34 – 00000002';await input.emit('blur');
+  assert.equal(input.value,secondOrder);assert.equal(notice.hidden,true);
+  await t.click('Zapisz');assert.equal([...t.stored.values()][0].data.orderNumber2,secondOrder);
+  await t.click('Drukuj wniosek');assert.equal(t.prints(),1);t.api.clear();
 });
 
 test('application number is removed from editor, table, required fields, save payload and print overlays',async()=>{
@@ -675,7 +701,7 @@ test('item count is a two-button switch with synchronized reset, saved state and
   assert.equal(one.attributes['aria-pressed'],'true');assert.equal(two.attributes['aria-pressed'],'false');
   await two.emit('click');assert.equal(t.nodes.get('mergeitemCount').value,'2');assert.equal(two.attributes['aria-pressed'],'true');
   assert.equal(t.nodes.get('mergesubject2').parent.hidden,false);
-  t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber2:'NFZ-2'});await t.click('Zapisz zmiany');
+  t.fill({...example,itemCount:'2',subject2:'Aparat L',orderNumber2:secondOrder});await t.click('Zapisz zmiany');
   await t.click('Nowy wniosek');assert.equal(one.attributes['aria-pressed'],'true');
   await t.click('Edytuj');assert.equal(two.attributes['aria-pressed'],'true');
   await one.emit('click');assert.equal(t.nodes.get('mergesubject2').value,'');assert.equal(t.nodes.get('mergesubject2').parent.hidden,true);
@@ -762,7 +788,7 @@ test('first product description and both order numbers fit their original cells 
   assert.equal(m.fitText(long.text,long.width,long.height,measure,long.fit),null);
 });
 test('preview and printing use identical compact fitting for two products, without changing entered names',async()=>{
-  const t=fixture();t.fill({...example,itemCount:'2',subject:'Aparat słuchowy / model testowy',subject2:'Aparat słuchowy / drugi model testowy',orderNumber2:'NFZ-2'});
+  const t=fixture();t.fill({...example,itemCount:'2',subject:'Aparat słuchowy / model testowy',subject2:'Aparat słuchowy / drugi model testowy',orderNumber2:secondOrder});
   await t.nodes.get('mergefirstName').emit('blur');
   const preview=t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-fitted-items');assert.equal(preview.length,2);
   assert.deepEqual(preview.map(item=>item.textContent.split('\n').length),[1,2]);assert.ok(preview.every(item=>item.style.height));
@@ -784,12 +810,12 @@ test('two items print only the first description, without numbering or repeating
 });
 
 test('two order numbers use a fixed number column, equal font size and aligned text starts in preview and print',async()=>{
-  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparaty słuchowe',orderNumber:'111111/2026',orderNumber2:'222222/2026'});
+  const t=fixture();t.fill({...example,itemCount:'2',subject2:'Aparaty słuchowe',orderNumber:firstOrder,orderNumber2:paperOrder});
   await t.nodes.get('mergefirstName').emit('blur');
   const rows=t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-order-line');assert.equal(rows.length,2);
   assert.equal(rows[0].style.gridTemplateColumns,rows[1].style.gridTemplateColumns);
   assert.deepEqual(rows.map(row=>row.children[0].textContent),['1. ','2. ']);
-  assert.deepEqual(rows.map(row=>row.children[1].textContent),['111111/2026','222222/2026']);
+  assert.deepEqual(rows.map(row=>row.children[1].textContent),[firstOrder,paperOrder]);
   await t.confirmChecklist();
   await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   assert.deepEqual(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-order-line').map(row=>row.style.gridTemplateColumns),rows.map(row=>row.style.gridTemplateColumns));t.api.clear();

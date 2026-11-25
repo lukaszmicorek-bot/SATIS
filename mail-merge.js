@@ -7,6 +7,7 @@
   const PAGE = {width: 595.32, height: 841.92};
   const correspondenceFields = ["correspondenceStreet", "correspondenceHouse", "correspondenceFlat", "correspondencePostal", "correspondenceCity", "correspondencePostOffice", "correspondenceMunicipality", "correspondenceCounty", "correspondenceProvince"];
   const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName", "correspondenceHouse", "correspondenceFlat"];
+  const orderNumberFields = ["orderNumber", "orderNumber2"];
   const disabilityTypes = [
     ["01-U", "Niepełnosprawność intelektualna", 65],
     ["02-P", "Choroby psychiczne", 78.8],
@@ -140,7 +141,7 @@
     return errors;
   }
   function validate(data, validPesel) {
-    const errors = [...correspondenceIssues(data, true),...disabilityIssues(data,true)];
+    const errors = [...correspondenceIssues(data, true),...disabilityIssues(data,true),...nfzOrderNumberIssues(data)];
     for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["postOffice", "Poczta"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
@@ -173,6 +174,32 @@
     const items=[{subject:data.subject||"",orderNumber:data.orderNumber||""}];
     if(data.itemCount==="2" || (!data.itemCount && (data.subject2 || data.orderNumber2)))items.push({subject:data.subject2||"",orderNumber:data.orderNumber2||""});
     return items;
+  }
+  // NFZ eZWM identifier specification v2.0. The 9-character issuer codes belong to NFZ.
+  function parseNfzOrderNumber(value){
+    const input=String(value??"").trim().toUpperCase().replace(/\s*[-‐‑‒–—−]\s*/gu,"-");
+    const electronic=input.match(/^5-([A-Z0-9]{8}|NFZ[A-Z0-9]{6})-(\d{8})$/u)
+      ||input.match(/^5([A-Z0-9]{8}|NFZ[A-Z0-9]{6})(\d{8})$/u);
+    if(electronic)return `5-${electronic[1]}-${electronic[2]}`;
+    const paper=input.match(/^([01])-(\d{2})-(\d{9})-(\d)$/u)||input.match(/^([01])(\d{2})(\d{9})(\d)$/u);
+    if(paper&&paper[3]!=="000000000")return paper.slice(1).join("-");
+    return "";
+  }
+  function nfzOrderNumberWarning(value){
+    const input=String(value??"").trim();
+    if(!input)return "";
+    const compact=input.replace(/\s/gu,"");
+    if(/^\d{4}$/u.test(compact))return "Wpisz pełny identyfikator zlecenia NFZ, nie 4-cyfrowy PIN.";
+    if(/^\d{11}$/u.test(compact))return "Wpisz identyfikator zlecenia NFZ, nie numer PESEL.";
+    if(parseNfzOrderNumber(input))return "";
+    if(/^T5/iu.test(compact))return "To identyfikator testowy. Przepisz numer z właściwego zlecenia NFZ.";
+    return "Sprawdź format identyfikatora zlecenia NFZ i przepisz cały numer z dokumentu.";
+  }
+  function nfzOrderNumberIssues(data){
+    return orderNumberFields.slice(0,applicationItems(data).length).flatMap(field=>{
+      const text=nfzOrderNumberWarning(data[field]);
+      return text?[{field,text}]:[];
+    });
   }
   function placements(data) {
     const result = [];
@@ -265,7 +292,7 @@
     return null;
   }
   function draftValidate(data, validPesel) {
-    const errors = [...correspondenceIssues(data),...disabilityIssues(data)];
+    const errors = [...correspondenceIssues(data),...disabilityIssues(data),...nfzOrderNumberIssues(data)];
     for (const key of ["firstName", "surname"]) if (!String(data[key] || "").trim()) errors.push({field:key,text:"Wpisz imię i nazwisko osoby."});
     for (const key of ["firstName","surname"]) if (data[key] && !/[\p{L}]/u.test(data[key])) errors.push({field:key,text:"Wpisz poprawne imię i nazwisko."});
     if (data.gender && !["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Sprawdź oznaczenie płci."});
@@ -327,7 +354,9 @@
       return result.data;
     }
     function enrich(data) {
-      return {...data,bankAccount:bankDigits(data.bankAccount),...Object.fromEntries(uppercaseFields.filter(key=>!correspondenceFields.includes(key)||Object.hasOwn(data,key)).map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")])),itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
+      const uppercase=Object.fromEntries(uppercaseFields.filter(key=>!correspondenceFields.includes(key)||Object.hasOwn(data,key)).map(key=>[key,String(data[key]||"").toLocaleUpperCase("pl-PL")]));
+      for(const key of orderNumberFields)uppercase[key]=parseNfzOrderNumber(data[key])||uppercase[key];
+      return {...data,bankAccount:bankDigits(data.bankAccount),...uppercase,itemCount:data.itemCount||((data.subject2||data.orderNumber2)?"2":"1"),certificateUntil:data.certificateValidity==="indefinite"?"":data.certificateUntil||"",birthDate:a.validPesel(data.pesel)?a.birthDate(data.pesel):"",
         role:data.firstName && data.personRole!=="ward"?"we własnym imieniu":"",
         gender:a.validPesel(data.pesel)?Number(data.pesel[9])%2?"male":"female":data.gender||""};
     }
@@ -415,6 +444,15 @@
       warning.hidden=!invalid;warning.textContent=invalid?"Nieprawidłowy numer rachunku. Wpisz 26 cyfr NRB lub PL i 26 cyfr; sprawdzana jest również suma kontrolna.":"";
       labels.get("bankAccount").classList.toggle("mail-merge-bank-invalid",invalid);
     }
+    function updateOrderNumberNotice(key) {
+      const input=fields.get(key),notice=q(`mailMergeOrderWarning-${key}`);
+      const hadWarning=!notice.hidden;
+      const warning=key==="orderNumber2"&&fields.get("itemCount").value!=="2"?"":nfzOrderNumberWarning(input.value);
+      notice.hidden=!warning;notice.textContent=warning;
+      if(warning)input.setAttribute("aria-invalid","true");
+      else if(hadWarning||input.value.trim())input.removeAttribute("aria-invalid");
+      if(hadWarning||input.value.trim())input.setCustomValidity(warning);
+    }
     function updateCertificateNotice(){
       const input=fields.get("certificateUntil"),label=labels.get("certificateUntil"),warning=q("mailMergeCertificateWarning");
       const today=a.today?.()||new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Warsaw"}).format(new Date());
@@ -440,6 +478,10 @@
       put("street",fields.get("street").value.trim() === "-" ? "-" : a.street?a.street(fields.get("street").value):a.name(fields.get("street").value));
       for(const key of ["house","flat"])put(key,fields.get(key).value.trim().toLocaleUpperCase("pl-PL"));
       for(const key of uppercaseFields)put(key,fields.get(key).value.toLocaleUpperCase("pl-PL"));
+      for(const key of orderNumberFields){
+        const canonical=parseNfzOrderNumber(fields.get(key).value);
+        if(canonical)put(key,canonical);
+      }
       if(fields.get("certificateValidity").value==="indefinite")put("certificateUntil","");
       put("bankName",fields.get("bankName").value.trim().replace(/\s+/gu," "));put("bankAccount",formatBankAccount(fields.get("bankAccount").value));
       put("postal",a.postal(fields.get("postal").value));put("phone",a.phone(fields.get("phone").value));
@@ -670,6 +712,7 @@
     function renderPreview() {
       clearTimeout(previewTimer);if(!authorized())return;
       updateAmounts();updateCertificateNotice();updateBankNotice();updateRequiredHints();
+      orderNumberFields.forEach(updateOrderNumberNotice);
       const data=read();
       q("mailMergePreviewPages").replaceChildren(pages(data,true));
       updatePrintCompleteness(data);
@@ -863,7 +906,7 @@
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
       ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["disabilityType","Rodzaj niepełnosprawności — wybierz wszystkie z orzeczenia",[["","Wybierz zgodnie z orzeczeniem…"],...disabilityTypes.map(([code,label])=>[code,`${code} — ${label}`])]],["combinedDisability","Niepełnosprawność sprzężona",[["","Wybierz…"],["yes","Tak"],["no","Nie"]]],["disabilityCauseCount","Liczba przyczyn (wg orzeczenia)",[["","Wybierz…"],["2","2 przyczyny"],["3","3 przyczyny"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
       ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["householdSize","Liczba osób w gospodarstwie"]]],
-      ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia 2"]]],
+      ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia NFZ 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia NFZ 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]],
       ["Forma przekazania środków","bank",[["paymentMode","Sposób przekazania środków",[["transfer","Przelew na konto wnioskodawcy / osoby upoważnionej"],["cash","W kasie lub przekazem pocztowym"],["contractor","Konto wykonawcy z dowodu zakupu"]]],["bankOwner","Właściciel konta (imię i nazwisko)"],["bankName","Nazwa banku"],["bankAccount","Numer rachunku bankowego"]]]
     ];
@@ -886,6 +929,11 @@
         if(["birthDate","own"].includes(key))input.readOnly=true;
         if(key==="own")input.title="Wyliczane automatycznie: całkowity koszt zakupu minus dofinansowanie NFZ, przed dofinansowaniem PCPR.";
         fields.set(key,input);labels.set(key,label);const caption=node("span","",title);label.append(caption,input);
+        if(orderNumberFields.includes(key)){
+          input.spellcheck=false;
+          const notice=node("small","mail-merge-message");notice.id=`mailMergeOrderWarning-${key}`;notice.hidden=true;notice.setAttribute("role","status");
+          input.setAttribute("aria-describedby",notice.id);label.append(notice);
+        }
         if(multiple){
           caption.id="mailMergeDisabilityLabel";
           const controls=node("div","mail-merge-disability-options");controls.setAttribute("role","group");controls.setAttribute("aria-labelledby",caption.id);
@@ -1087,6 +1135,15 @@
       const input=fields.get(key),start=input.selectionStart,end=input.selectionEnd,before=input.value;input.value=before.toLocaleUpperCase("pl-PL");
       if(typeof start==="number" && input.setSelectionRange)input.setSelectionRange(before.slice(0,start).toLocaleUpperCase("pl-PL").length,before.slice(0,end).toLocaleUpperCase("pl-PL").length);
     });
+    for(const key of orderNumberFields){
+      const input=fields.get(key);
+      input.addEventListener("input",()=>updateOrderNumberNotice(key));
+      input.addEventListener("blur",()=>{
+        const canonical=parseNfzOrderNumber(input.value);
+        if(canonical&&canonical!==input.value){input.value=canonical;changed();renderPreview();}
+        else updateOrderNumberNotice(key);
+      });
+    }
     for(const event of ["input","change","blur"])fields.get("certificateUntil").addEventListener(event,updateCertificateNotice);
     fields.get("combinedDisability").addEventListener("change",()=>{changed();renderPreview();});
     fields.get("certificateValidity").addEventListener("change",()=>{updateConditionalFields(true);changed();renderPreview();});

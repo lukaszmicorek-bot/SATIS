@@ -19,6 +19,8 @@ Formularze offline nie wymagają osobnego hasła. Zobacz [pierwsze włączenie, 
 
 W **PCPR → PCPR Żywiec** sekcja **Przed złożeniem wniosku** zapisuje wewnętrzną checklistę dokumentów i kontakt w sprawie skierowania. Wszystkie pięć potwierdzeń jest wymaganych do wydruku wypełnionego wniosku, także z listy. Checklista nie trafia do PDF i nie blokuje zapisu ani wydruku pustego wzoru. Do zapisywania checklisty potrzebny jest `supabase-mail-merge.sql` w wersji 10 lub nowszej, a do wyświetlania numerów zleceń NFZ w tabeli potrzebna jest wersja 11.
 
+W obu polach numeru zlecenia wpisz identyfikator z dokumentu, bez PIN-u i PESEL-u. Zapis i wydruk sprawdzają format według [specyfikacji eZWM NFZ](https://www.nfz.gov.pl/download/gfx/nfz/pl/defaultstronaopisowa/1220/2/1/specyfikacja_identyfikatora_zlecenia.pdf). Szkic można zapisać bez numeru. Aplikacja nie sprawdza statusu ani istnienia zlecenia w NFZ.
+
 Poprzedni roboczy widok listy obecności został zastąpiony przez Ewidencję. Plik `supabase-attendance.sql` pozostał wyłącznie jako ślad wcześniejszej migracji; nie uruchamiaj go dla nowej ewidencji i nie usuwaj istniejącej tabeli bez sprawdzenia danych.
 
 ## Ewidencja czasu pracy
