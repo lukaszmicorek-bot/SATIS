@@ -50,6 +50,7 @@ begin
   select coalesce(jsonb_agg(to_jsonb(s)),'[]') into result from (
     select p.id,p.revision,p.updated_at,right(p.data->>'pesel',4) as pesel_tail,
       coalesce(p.data->'submitted'='true'::jsonb,false) as submitted,
+      case when p.data->'submitted'='true'::jsonb then p.data->>'submittedDate' end as submitted_date,
       jsonb_build_object('firstName',p.data->>'firstName','middleName',p.data->>'middleName','surname',p.data->>'surname',
         'phone',p.data->>'phone','city',p.data->>'city','degree',p.data->>'degree','applicationNumber',p.data->>'applicationNumber',
         'subject',p.data->>'subject','orderNumber',p.data->>'orderNumber',
@@ -58,7 +59,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',12);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',13);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -116,10 +117,14 @@ begin
       raise exception 'Invalid submission status' using errcode='22023';
     end if;
     update public.mail_merge_people
-      set data=case when p_data->'submitted'='true'::jsonb then data||p_data else data-'submitted' end,
+      set data=case
+        when p_data->'submitted'='false'::jsonb then data-array['submitted','submittedDate']
+        when data->'submitted'='true'::jsonb then data
+        else data||jsonb_build_object('submitted',true,'submittedDate',(clock_timestamp() at time zone 'Europe/Warsaw')::date)
+      end,
         revision=revision+1,updated_at=clock_timestamp(),updated_by=actor
       where id=p_id
-      returning jsonb_build_object('id',id,'revision',revision,'submitted',p_data->'submitted') into result;
+      returning jsonb_build_object('id',id,'revision',revision,'submitted',p_data->'submitted','submitted_date',data->>'submittedDate') into result;
   else
     if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince','submissionChecklist'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
@@ -139,7 +144,9 @@ begin
       or coalesce(p_data->>'certificateValidity','') not in ('','indefinite','periodic') then
       raise exception 'Invalid fields' using errcode='22023';
     end if;
-    clean:=case when person.data->'submitted'='true'::jsonb then '{"submitted":true}'::jsonb else '{}'::jsonb end;
+    clean:=case when person.data->'submitted'='true'::jsonb
+      then jsonb_strip_nulls(jsonb_build_object('submitted',true,'submittedDate',person.data->'submittedDate'))
+      else '{}'::jsonb end;
     if p_data ? 'disabilityTypes' then
       if jsonb_typeof(p_data->'disabilityTypes') is distinct from 'array' then
         raise exception 'Invalid disability list' using errcode='22023';

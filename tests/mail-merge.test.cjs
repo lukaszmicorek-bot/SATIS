@@ -85,18 +85,19 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:12}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:13}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       const previous=stored.get(args.p_id);
       if((previous?.revision??null)!==args.p_expected_revision)return {error:{code:'PT409'}};
       if(args.p_action==='SET_SUBMITTED'){
-        const entry={...previous,submitted:args.p_data.submitted,revision:previous.revision+1};
-        stored.set(entry.id,entry);return {data:{id:entry.id,revision:entry.revision,submitted:entry.submitted}};
+        const date=args.p_data.submitted?(previous.submitted?previous.submitted_date:'2026-11-25'):null;
+        const entry={...previous,submitted:args.p_data.submitted,submitted_date:date,revision:previous.revision+1};
+        stored.set(entry.id,entry);return {data:{id:entry.id,revision:entry.revision,submitted:entry.submitted,submitted_date:date}};
       }
       saveCalls++;if(pauseSave)await pauseSave;
       if([...stored.values()].some(entry=>entry.id!==args.p_id && entry.data.pesel && entry.data.pesel===args.p_data.pesel))return {error:{code:'PT423'}};
-      const entry={id:args.p_id,revision:(previous?.revision||0)+1,submitted:previous?.submitted===true,data:{...args.p_data}};stored.set(args.p_id,entry);return {data:{id:entry.id,revision:entry.revision}};
+      const entry={...previous,id:args.p_id,revision:(previous?.revision||0)+1,submitted:previous?.submitted===true,data:{...args.p_data}};stored.set(args.p_id,entry);return {data:{id:entry.id,revision:entry.revision}};
     },...overrides});
   const buttons=()=>host.querySelectorAll('button');
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
@@ -121,7 +122,7 @@ test('PCPR list pairs existing order numbers with their products without adding 
     {id:'one',data:{firstName:'Anna',surname:'Testowa',subject:'Aparat',orderNumber:'NFZ-003'}},
     {id:'none',data:{firstName:'Ewa',surname:'Testowa',subject:'Wkładka',orderNumber:null}}
   ];
-  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows,total:rows.length,schemaVersion:12}};}});
+  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows,total:rows.length,schemaVersion:13}};}});
   t.api.open();await tick();
   const list=t.nodes.get('mailMergeQueue');
   assert.ok(list.children.every(row=>row.children.length===8));
@@ -132,26 +133,37 @@ test('PCPR list pairs existing order numbers with their products without adding 
   assert.deepEqual(queries,['satis_mail_merge_list']);
   t.api.clear();
 });
-test('submission is toggled in the table, shared on reload, and survives saving the open form',async()=>{
-  const t=fixture({access:()=>true});t.owner(false);t.fill();
+test('submission date and row emphasis update on toggle, reload and normal edit',async()=>{
+  const t=fixture({access:()=>true,date:value=>value.split('-').reverse().join('.')});t.owner(false);t.fill();
   await t.click('Zapisz');
   const entry=[...t.stored.values()][0];
-  const checkbox=()=>t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-submitted-check')[0];
+  const row=()=>t.nodes.get('mailMergeQueue').children[0];
+  const checkbox=()=>row().querySelectorAll('.mail-merge-submitted-check')[0];
+  const caption=()=>row().querySelectorAll('.mail-merge-submitted-caption')[0];
   assert.equal(checkbox().checked,false);
+  assert.match(row().className,/mail-merge-row-pending/);
+  assert.equal(caption().textContent,'Do złożenia');
   checkbox().checked=true;await checkbox().emit('change');
   assert.equal(checkbox().checked,true);
   assert.equal(t.stored.get(entry.id).submitted,true);
+  assert.match(row().className,/mail-merge-row-submitted/);
+  assert.equal(caption().tag,'time');assert.equal(caption().textContent,'25.11.2026');
+  assert.equal(caption().attributes.datetime,'2026-11-25');
+  assert.equal(checkbox().attributes['aria-describedby'],caption().id);
   assert.deepEqual(t.stored.get(entry.id).data,entry.data);
   const printCheck=t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-print-selection')[0];
   assert.equal(printCheck.checked,false);assert.equal(printCheck.disabled,false);
   t.fill({surname:'Zmieniony'});await t.click('Zapisz');
   assert.equal(t.stored.get(entry.id).data.surname,'Zmieniony');
   assert.equal(t.stored.get(entry.id).submitted,true);
+  assert.equal(t.stored.get(entry.id).submitted_date,'2026-11-25');
   t.api.clear();t.api.open();await tick();
   assert.equal(checkbox().checked,true);
   checkbox().checked=false;await checkbox().emit('change');
   assert.equal(t.stored.get(entry.id).submitted,false);
   assert.equal(checkbox().checked,false);
+  assert.equal(t.stored.get(entry.id).submitted_date,null);
+  assert.equal(caption().textContent,'Do złożenia');
   t.api.clear();
 });
 test('failed or stale submission status is not shown as saved',async()=>{
@@ -164,14 +176,15 @@ test('failed or stale submission status is not shown as saved',async()=>{
   assert.equal(t.stored.get(entry.id).submitted,false);
   assert.equal(checkbox().disabled,false);t.api.clear();
 });
-test('version 11 keeps the submission checkbox disabled until the migration is run',async()=>{
+test('older status remains marked without an invented date, and toggling waits for schema 13',async()=>{
   const queries=[];
-  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows:[{id:'old',revision:1,data:{firstName:'Jan',surname:'Testowy'}}],total:1,schemaVersion:11}};}});
+  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows:[{id:'old',revision:1,submitted:true,data:{firstName:'Jan',surname:'Testowy'}}],total:1,schemaVersion:12}};}});
   t.api.open();await tick();
   const checkbox=t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-submitted-check')[0];
   assert.equal(checkbox.disabled,true);
-  checkbox.checked=true;await checkbox.emit('change');
-  assert.equal(checkbox.checked,false);
+  assert.equal(t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-submitted-caption')[0].textContent,'Brak daty');
+  checkbox.checked=false;await checkbox.emit('change');
+  assert.equal(checkbox.checked,true);
   assert.deepEqual(queries,['satis_mail_merge_list']);t.api.clear();
 });
 test('disability type has twelve explicit choices, persists, reopens and can be cleared without changing old people',async()=>{

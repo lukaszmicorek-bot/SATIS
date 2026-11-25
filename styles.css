@@ -5088,8 +5088,17 @@ h2 {
 .mail-merge-list-item + .mail-merge-list-item { margin-top: 4px; }
 .mail-merge-list-order { display: block; color: #365961; font-size: 11px; line-height: 1.45; }
 .mail-merge-table .mail-merge-submitted { width: 88px; text-align: center; }
+.mail-merge-submitted-mark { display: grid; justify-items: center; gap: 4px; }
 .mail-merge-submitted-check { margin: 0; vertical-align: middle; accent-color: #007b7d; cursor: pointer; }
 .mail-merge-submitted-check:disabled { cursor: default; }
+.mail-merge-submitted-caption { color: #52656d; font-size: 11px; line-height: 1.35; }
+.mail-merge-submitted-caption[datetime] { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mail-merge-row-pending:not(.mail-merge-selected) { background: #fffcf3; }
+.mail-merge-row-pending > td:first-child { box-shadow: inset 3px 0 #c58a32; }
+.mail-merge-row-pending .mail-merge-submitted-caption { color: #79511d; font-weight: 650; }
+.mail-merge-row-submitted:not(.mail-merge-selected) { background: #f5f7f8; color: #52656d; }
+.mail-merge-row-submitted > td:nth-child(2) strong { font-weight: 600; }
+.mail-merge-row-submitted .mail-merge-submitted-check { accent-color: #5d747b; }
 .mail-merge-list-status:empty { display: none; }
 .mail-merge-table .mail-merge-actions { display: table-cell; white-space: nowrap; }
 .mail-merge-table .mail-merge-actions button { display: inline-flex; align-items: center; min-height: 30px; padding: 0 7px; font-size: 12px; }

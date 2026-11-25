@@ -334,7 +334,7 @@
       busy=value;host.setAttribute("aria-busy",String(value));
       fields.forEach(input=>{input.disabled=value;});
       for(const control of host.querySelectorAll("button"))control.disabled=value;
-      for(const control of host.querySelectorAll(".mail-merge-submitted-check"))control.disabled=value||schemaVersion<12;
+      for(const control of host.querySelectorAll(".mail-merge-submitted-check"))control.disabled=value||schemaVersion<13;
       for(const control of host.querySelectorAll(".mail-merge-print-selection"))control.disabled=value;
       if(!value){q("mailMergePrevious").disabled=offset===0;q("mailMergeNext").disabled=offset+rows.length>=total;}
       updateConditionalFields();updateTemplateControls();updatePrintMode();
@@ -790,7 +790,9 @@
     function renderRows() {
       const list=q("mailMergeQueue");list.replaceChildren();
       for(const entry of rows){
-        const row=node("tr");if(entry.id===editingId)row.className="mail-merge-selected";
+        const done=entry.submitted===true;
+        const row=node("tr",done?"mail-merge-row-submitted":"mail-merge-row-pending");
+        if(entry.id===editingId)row.classList.add("mail-merge-selected");
         const cell=node("td"),check=node("input","mail-merge-print-selection");check.type="checkbox";check.checked=entry.selected;check.disabled=busy;
         check.setAttribute("aria-label",`Wydrukuj: ${entry.data.firstName} ${entry.data.surname}`);
         check.addEventListener("change",()=>{if(authorized()&&!busy){entry.selected=check.checked;renderCount();}});cell.append(check);row.append(cell);
@@ -813,10 +815,15 @@
         if(!itemsCell.children.length)itemsCell.textContent="—";
         row.append(itemsCell);
         const submittedCell=node("td","mail-merge-submitted"),submitted=node("input","mail-merge-submitted-check");
-        submitted.type="checkbox";submitted.checked=entry.submitted===true;submitted.disabled=busy||schemaVersion<12;
+        submitted.type="checkbox";submitted.checked=done;submitted.disabled=busy||schemaVersion<13;
         submitted.setAttribute("aria-label",`Złożono wniosek do PCPR: ${label.textContent}`);
         submitted.addEventListener("change",()=>saveSubmitted(entry,submitted));
-        submittedCell.append(submitted);row.append(submittedCell);
+        const date=done&&entry.submitted_date;
+        const caption=node(date?"time":"span","mail-merge-submitted-caption",date?a.date(date):done?"Brak daty":"Do złożenia");
+        if(date)caption.setAttribute("datetime",date);
+        caption.id=`mailMergeSubmitted-${entry.id}`;submitted.setAttribute("aria-describedby",caption.id);
+        const mark=node("div","mail-merge-submitted-mark");mark.append(submitted,caption);
+        submittedCell.append(mark);row.append(submittedCell);
         const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)));if(a.owner())actions.append(button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
@@ -830,24 +837,29 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=12?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=13?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+          :schemaVersion===12?"Aby zapisywać datę złożenia, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :schemaVersion===11?"Aby zapisywać status złożenia wniosku, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :schemaVersion===10?"Aby wyświetlić numery zleceń w tabeli, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :"Nowe pola i numery zleceń w tabeli wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        return true;
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function saveSubmitted(entry,input) {
       const submitted=input.checked,revision=entry.revision;
       input.checked=entry.submitted===true;
-      if(!authorized()||busy||schemaVersion<12||submitted===input.checked)return;
+      if(!authorized()||busy||schemaVersion<13||submitted===input.checked)return;
       const epoch=session,status=q("mailMergeListActionStatus");
       status.textContent="Zapisywanie statusu…";lock(true);
       try{
         const result=await rpc("satis_mail_merge_write",{p_request_id:a.id(),p_action:"SET_SUBMITTED",p_id:entry.id,p_expected_revision:revision,p_data:{submitted}});
-        entry.revision=result.revision;entry.submitted=result.submitted;input.checked=result.submitted;
+        entry.revision=result.revision;entry.submitted=result.submitted;entry.submitted_date=result.submitted_date;
         if(editingId===entry.id&&editingRevision===revision)editingRevision=result.revision;
-        await refresh();
-        if(authorized()&&epoch===session)status.textContent=submitted?"Oznaczono wniosek jako złożony.":"Cofnięto oznaczenie złożenia wniosku.";
+        const refreshed=await refresh();
+        if(authorized()&&epoch===session){
+          if(!refreshed)renderRows();
+          status.textContent=submitted?"Oznaczono wniosek jako złożony.":"Cofnięto oznaczenie złożenia wniosku.";
+        }
       }catch(error){
         if(authorized()&&epoch===session){
           status.textContent=error.message;await refresh();
