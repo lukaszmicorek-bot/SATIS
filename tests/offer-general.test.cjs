@@ -42,7 +42,7 @@ function setup() {
   return { c, notes, notesText, content };
 }
 
-test('general offer contains only the two information sections followed by notes', () => {
+test('general offer keeps the information and notes before the notice and shared cooperation section', () => {
   const block = html.slice(html.indexOf('<section id="offerGeneralContent"'), html.indexOf('<div id="offerContent"'));
   assert.deepEqual([...block.matchAll(/<h3>([^<]+)<\/h3>/g)].map(match => match[1]), [
     'Jakie modele możesz u nas wypróbować?', 'Ile kosztuje aparat słuchowy?'
@@ -50,6 +50,8 @@ test('general offer contains only the two information sections followed by notes
   assert.deepEqual([...block.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1]), ['Ładowalne', 'Na baterie', 'Dyskretne']);
   assert.ok(block.indexOf('id="offerGeneralNotesPrint"') > block.indexOf('Ile kosztuje'));
   assert.doesNotMatch(block, /offer-general-table|Jak wygląda współpraca/);
+  assert.ok(block.indexOf('offer-general-device-notice') > block.indexOf('id="offerGeneralNotesPrint"'));
+  assert.match(html, /class="medical-device-notice">[^<]+<\/p>\s*<\/div>\s*<section class="document-description offer-description"[^>]+>\s*<h3>Jak wygląda współpraca z nami\?<\/h3>/);
 });
 
 test('general offer shows the print date immediately after the place, without an offer date or catalogue', () => {

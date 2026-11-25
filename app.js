@@ -9738,11 +9738,17 @@ function renderPricingOffer() {
   const validUntil = addDaysToIsoDate(offerDate, PRICING_OFFER_VALID_DAYS);
   const customer = titleCaseName(offerCustomerInput?.value || "");
   const generalInformation = Boolean(offerGeneralInput?.checked);
+  const printDocument = document.getElementById("pricingOfferPrint");
+  const cooperation = printDocument?.querySelector(".offer-description");
   pricingOfferView.classList.toggle("offer-general-mode", generalInformation);
-  document.getElementById("pricingOfferPrint")?.classList?.toggle("offer-general-document", generalInformation);
+  printDocument?.classList?.toggle("offer-general-document", generalInformation);
   const generalContent = document.getElementById("offerGeneralContent");
   if (generalContent) generalContent.hidden = !generalInformation;
-  if (generalInformation) { renderPricingGeneralOffer(generalContent, customer, offerLocation); return; }
+  if (generalInformation) {
+    if (cooperation) cooperation.hidden = false;
+    renderPricingGeneralOffer(generalContent, customer, offerLocation);
+    return;
+  }
   if (offerEmptyState) offerEmptyState.textContent = "Wpisz produkt i cenę lub skorzystaj z podpowiedzi cennika.";
   [offerChargerInput, offerEarmoldInput].forEach(input => { if (input) input.disabled = false; });
   [offerDeviceInput1, offerDeviceInput2].forEach((input) => {
@@ -9787,6 +9793,7 @@ function renderPricingOffer() {
   const hasItems = offerItems.length > 0;
   if (offerEmptyState) offerEmptyState.hidden = hasItems;
   if (offerContent) offerContent.hidden = !hasItems;
+  if (cooperation) cooperation.hidden = !hasItems;
   if (printPricingOfferBtn) printPricingOfferBtn.disabled = !hasValidDevice;
   if (offerGrossTotal) offerGrossTotal.replaceChildren(createPricingPriceElement(total));
   if (!hasItems) {
@@ -13137,6 +13144,11 @@ function showPricingHistoryPreview(kind, entry) {
         information.querySelectorAll("[id]").forEach(node => node.removeAttribute("id"));
         setPricingGeneralOfferNotes(information, saved.notes);
         items.append(information);
+        const cooperation = document.querySelector("#pricingOfferPrint .offer-description")?.cloneNode(true);
+        if (cooperation) {
+          cooperation.hidden = false;
+          items.append(cooperation);
+        }
       }
     } else {
       appendPricingHistoryPreviewField(summary, "Cena", formatPricingPrice(saved.total));

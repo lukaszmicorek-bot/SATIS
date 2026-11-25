@@ -114,7 +114,7 @@ test('offer subtotal includes every product, remains before funding and resets a
   assert.match(css,/\.offer-document :is\(\.offer-items-table, \.offer-payments-table\) th \{\s*position: static;\s*top: auto;\s*z-index: auto;/);
   let devices=[{slot:1,record:{grossPrice:4000}},{slot:2,record:{grossPrice:5000}}];
   let extras=[{kind:'charger',record:{grossPrice:500}},{kind:'earmold',record:{grossPrice:200}}];
-  const gross=element('strong'),patient=element('strong');
+  const gross=element('strong'),patient=element('strong'),cooperation={hidden:true};
   const ctx=vm.createContext({
     pricingOfferView:{classList:{toggle(){}}},offerGeneralInput:null,ensurePricingOfferDate:()=> '2026-10-30',ensurePricingOfferLocation:()=> 'P63',
     updateDocumentLocationAccent(){},offerLocationInput:{},addDaysToIsoDate:()=> '2026-11-29',PRICING_OFFER_VALID_DAYS:30,
@@ -126,7 +126,8 @@ test('offer subtotal includes every product, remains before funding and resets a
     offerPfronEnabledInput:{checked:true},offerPfronInput:{value:'1000'},pricingOfferPfronAmount:()=>1000,
     offerTitle:null,offerMeta:null,offerNotesInput:null,offerNotesText:null,offerNotesPrint:null,
     offerEmptyState:{},offerContent:{},printPricingOfferBtn:{},offerGrossTotal:gross,offerPatientTotal:patient,
-    offerItemsBody:element('tbody'),offerPaymentsBody:element('tbody'),formatDate:value=>value,document:{getElementById:()=>({})},
+    offerItemsBody:element('tbody'),offerPaymentsBody:element('tbody'),formatDate:value=>value,
+    document:{getElementById:id=>id==='pricingOfferPrint'?{querySelector:()=>cooperation}:null},
     offerChargerInput:null,offerEarmoldInput:null,
     renderPricingOfferAgeWarning(){},renderPricingOfferItems(){},renderPricingOfferPayments(){},
     createPricingPriceElement:value=>{const node=element('span');node.textContent=String(value);return node;}
@@ -134,6 +135,7 @@ test('offer subtotal includes every product, remains before funding and resets a
   vm.runInContext(extract('pricingOfferTotals')+'\n'+extract('renderPricingOffer'),ctx);
   ctx.renderPricingOffer();
   assert.equal(gross.textContent,'9700');assert.equal(patient.textContent,'6600');
+  assert.equal(cooperation.hidden,false);
   ctx.offerNoNfzInput.checked=true;ctx.offerPfronEnabledInput.checked=false;
   ctx.renderPricingOffer();
   assert.equal(gross.textContent,'9700');assert.equal(patient.textContent,'9700');
@@ -142,6 +144,7 @@ test('offer subtotal includes every product, remains before funding and resets a
   devices=[];extras=[];
   ctx.renderPricingOffer();
   assert.equal(gross.textContent,'0');assert.equal(patient.textContent,'0');
+  assert.equal(cooperation.hidden,true);
   assert.match(html,/<tbody id="offerItemsBody"><\/tbody>\s*<tfoot>[\s\S]*?Razem przed dofinansowaniem[\s\S]*?id="offerGrossTotal"/);
   assert.ok(html.indexOf('id="offerGrossTotal"')<html.indexOf('id="offerPaymentsBody"'));
   assert.match(css,/\.offer-items-table \.offer-subtotal-amount \{[^}]*text-align: right;[^}]*white-space: nowrap;/);

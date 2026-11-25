@@ -14,7 +14,7 @@
     <link rel="shortcut icon" type="image/png" href="favicon-32.png?v=20260827-3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-3">
     <link rel="preload" href="InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261125-9">
+  <link rel="stylesheet" href="styles.css?v=20261125-10">
   </head>
   <body>
     <main class="app-shell">
@@ -1213,8 +1213,9 @@
                 </div>
                 <p id="offerNotesPrint" class="offer-print-notes" hidden><strong>Uwagi:</strong> <span id="offerNotesText"></span></p>
                 <p class="medical-device-notice">To jest wyrób medyczny. Używaj go zgodnie z instrukcją używania lub etykietą.</p>
+              </div>
 
-                <section class="document-description offer-description" aria-label="Informacje o współpracy">
+              <section class="document-description offer-description" aria-label="Informacje o współpracy" hidden>
                   <h3>Jak wygląda współpraca z nami?</h3>
                   <div class="offer-description-grid">
                     <p><strong>Badanie i dobór</strong><span>Rozwiązanie dobieramy do wyniku badania słuchu, codziennych potrzeb, stylu życia i budżetu Pacjenta.</span></p>
@@ -1239,8 +1240,7 @@
                       <span class="manufacturer-logo-frame"><img class="manufacturer-logo-image logo-starkey" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHg9IjAiIHk9IjAiIHZpZXdCb3g9IjAgMCAxMjQgNzYiIHhtbDpzcGFjZT0icHJlc2VydmUiPjxzdHlsZT4uc3Qwe2ZpbGw6IzAwM2E3MH08L3N0eWxlPjxwYXRoIGNsYXNzPSJzdDAiIGQ9Ik00MC44IDM4Yy0uOC0xLTIuMS0xLjYtMy40LTEuNS0xLjYgMC0zLjIuNy0zLjIgMi41IDAgMy45IDkuMyAxLjcgOS4zIDguNiAwIDQuMi0zLjMgNi4yLTcuMSA2LjItMi40LjEtNC44LS45LTYuNC0yLjZsMi42LTIuNWMuOSAxLjMgMi4zIDIgMy45IDJzMy40LS45IDMuNC0yLjdjMC00LjMtOS4yLTEuOC05LjItOC44IDAtNCAzLjYtNS45IDcuMi01LjkgMi4xLS4xIDQuMS42IDUuNiAyTDQwLjggMzh6TTQ0LjIgNDIuOXYtMi44SDQ3di0zLjhoMy4zdjMuOGgzLjZ2Mi44aC0zLjZ2NS44YzAgMS4zLjQgMi4xIDEuOCAyLjEuNiAwIDEuMi0uMSAxLjgtLjR2Mi44Yy0uOC4zLTEuNy41LTIuNi40LTMuNSAwLTQuMy0xLjYtNC4zLTQuN3YtNi4xbC0yLjguMXpNNjQuNyA1MS41Yy0xIDEuNC0yLjYgMi4yLTQuMyAyLjEtMi41IDAtNC44LTEuMy00LjgtNCAwLTQuMyA1LTQuNiA4LjMtNC42aC44di0uNGMwLTEuNi0xLjMtMi41LTMtMi41LTEuMyAwLTIuNi41LTMuNSAxLjRsLTEuNy0xLjdjMS41LTEuNCAzLjUtMi4yIDUuNi0yLjEgNS42IDAgNS42IDQuMSA1LjYgNS45djcuNmgtM3YtMS43em0tLjItNC4xaC0uN2MtMS44IDAtNSAuMS01IDIgMCAxLjIgMS4yIDEuNyAyLjMgMS43IDIuMyAwIDMuMy0xLjIgMy4zLTN2LS43ek03MC42IDQwLjFoMy4zdjIuMWguMWMuOS0xLjkgMy4xLTIuOSA1LjEtMi4ydjMuMmMtLjUtLjEtMS4xLS4yLTEuNi0uMi0xLjgtLjEtMy40IDEuMy0zLjUgMy4xdjcuM2gtMy4zVjQwLjF6TTgxIDMyLjVoMy4zdjEzLjFsNS4xLTUuNWg0LjJsLTUuNyA2IDYgNy4yaC00LjRsLTUuMy02LjdoLS4xdjYuN0g4MVYzMi41eiIvPjxwYXRoIGNsYXNzPSJzdDAiIGQ9Ik05Ni44IDQ3LjhjLjIgMS44IDEuNyAzLjIgMy42IDMuMSAxLjQgMCAyLjctLjcgMy42LTEuOGwyLjQgMS44Yy0yLjMgMy4yLTYuNyAzLjgtOS45IDEuNXMtMy44LTYuNy0xLjUtOS45YzEuNC0xLjkgMy41LTIuOSA1LjgtMi45IDMuNyAwIDYuMiAyLjYgNi4yIDcuMnYuOWwtMTAuMi4xem02LjgtMi40Yy4xLTEuNy0xLjItMy4xLTIuOS0zLjJoLS40Yy0xLjgtLjEtMy4zIDEuMy0zLjQgMy4xaDYuN3pNMTA3LjQgNDAuMWgzLjZsMy43IDkuMmguMWwzLjMtOS4yaDMuNGwtNi4yIDE1LjZjLTEgMi41LTIuMSAzLjgtNSAzLjgtLjkgMC0xLjctLjEtMi41LS4zbC40LTNjLjUuMiAxLjEuMyAxLjcuMyAxLjYgMCAyLjEtLjEgMi42LTEuNWwuNi0xLjYtNS43LTEzLjN6Ii8+PHBhdGggZD0iTTcwLjQgNzAuN1M0MS44IDU1LjEgOS4zIDY4LjRsMTUuOS0yNy4yTDkuMyAyNy4xSDMyTDQzLjYgNy45bDQuMSAxOS4yaDc0LjJ2LS40bC03MS4yLTMuMkw0NC45LjIgMjkuNiAyMy42SDEuMUwyMC4yIDQyUzEuMiA3Ni4yIDEuMSA3Ni4yQzM0LjIgNTYuMyA3MC40IDcxIDcwLjQgNzF2LS4zeiIgZmlsbD0iI2ViYTkwMCIvPjwvc3ZnPg==" alt="Starkey"></span>
                     </div>
                   </div>
-                </section>
-              </div>
+              </section>
               <p class="document-gabinet-title">Nasze gabinety:</p>
               <address class="offer-locations document-gabinet-locations" aria-label="Adresy gabinetów SATIS">
                 <span class="document-gabinet-item">
@@ -3733,26 +3733,26 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-    <script src="supabase-config.js?v=20261125-9"></script>
-    <script src="data-layer.js?v=20261125-9"></script>
-    <script src="sync-layer.js?v=20261125-9"></script>
-    <script src="traffic-meter.js?v=20261125-9"></script>
-    <script src="repair-returns.js?v=20261125-9"></script>
-    <script src="offline-vault.js?v=20261125-9"></script>
-    <script src="offline-forms.js?v=20261125-9"></script>
-    <script src="stock-audit.js?v=20261125-9"></script>
-    <script src="complaint-shipping.js?v=20261125-9"></script>
-    <script src="vacation-attendance.js?v=20261125-9"></script>
-    <script src="tasks.js?v=20261125-9"></script>
-    <script src="client-journey.js?v=20261125-9"></script>
-    <script src="statistics.js?v=20261125-9"></script>
-    <script src="clients.js?v=20261125-9"></script>
-    <script src="tinnitus-forms.js?v=20261125-9"></script>
-    <script src="care-form.js?v=20261125-9"></script>
-    <script src="accessory-catalog.js?v=20261125-9"></script>
-    <script src="repair-catalog.js?v=20261125-9"></script>
-    <script src="wsa-repair-groups.js?v=20261125-9"></script>
-    <script src="mail-merge.js?v=20261125-9"></script>
-  <script src="app.js?v=20261125-9"></script>
+    <script src="supabase-config.js?v=20261125-10"></script>
+    <script src="data-layer.js?v=20261125-10"></script>
+    <script src="sync-layer.js?v=20261125-10"></script>
+    <script src="traffic-meter.js?v=20261125-10"></script>
+    <script src="repair-returns.js?v=20261125-10"></script>
+    <script src="offline-vault.js?v=20261125-10"></script>
+    <script src="offline-forms.js?v=20261125-10"></script>
+    <script src="stock-audit.js?v=20261125-10"></script>
+    <script src="complaint-shipping.js?v=20261125-10"></script>
+    <script src="vacation-attendance.js?v=20261125-10"></script>
+    <script src="tasks.js?v=20261125-10"></script>
+    <script src="client-journey.js?v=20261125-10"></script>
+    <script src="statistics.js?v=20261125-10"></script>
+    <script src="clients.js?v=20261125-10"></script>
+    <script src="tinnitus-forms.js?v=20261125-10"></script>
+    <script src="care-form.js?v=20261125-10"></script>
+    <script src="accessory-catalog.js?v=20261125-10"></script>
+    <script src="repair-catalog.js?v=20261125-10"></script>
+    <script src="wsa-repair-groups.js?v=20261125-10"></script>
+    <script src="mail-merge.js?v=20261125-10"></script>
+  <script src="app.js?v=20261125-10"></script>
   </body>
 </html>
