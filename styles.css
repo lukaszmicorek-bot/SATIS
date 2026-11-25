@@ -5085,6 +5085,8 @@ h2 {
 .mail-merge-table th:nth-child(3) { width: 12%; }
 .mail-merge-table th:last-child { width: 132px; }
 .mail-merge-table td:nth-child(3) { white-space: nowrap; }
+.mail-merge-list-item + .mail-merge-list-item { margin-top: 4px; }
+.mail-merge-list-order { display: block; color: #365961; font-size: 11px; line-height: 1.45; }
 .mail-merge-table .mail-merge-actions { display: table-cell; white-space: nowrap; }
 .mail-merge-table .mail-merge-actions button { display: inline-flex; align-items: center; min-height: 30px; padding: 0 7px; font-size: 12px; }
 .mail-merge-table .mail-merge-actions button + button { margin-left: 5px; }

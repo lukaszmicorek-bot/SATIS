@@ -17,7 +17,7 @@ Workflow `.github/workflows/quality.yml` uruchamia na GitHubie testy syntetyczne
 
 Formularze offline nie wymagają osobnego hasła. Zobacz [pierwsze włączenie, wydruki robocze i synchronizację](OFFLINE.md).
 
-W **PCPR → PCPR Żywiec** sekcja **Przed złożeniem wniosku** zapisuje wewnętrzną checklistę dokumentów i kontakt w sprawie skierowania. Wszystkie pięć potwierdzeń jest wymaganych do wydruku wypełnionego wniosku, także z listy. Checklista nie trafia do PDF i nie blokuje zapisu ani wydruku pustego wzoru. Do zapisywania checklisty potrzebny jest `supabase-mail-merge.sql` w wersji 10 lub nowszej.
+W **PCPR → PCPR Żywiec** sekcja **Przed złożeniem wniosku** zapisuje wewnętrzną checklistę dokumentów i kontakt w sprawie skierowania. Wszystkie pięć potwierdzeń jest wymaganych do wydruku wypełnionego wniosku, także z listy. Checklista nie trafia do PDF i nie blokuje zapisu ani wydruku pustego wzoru. Do zapisywania checklisty potrzebny jest `supabase-mail-merge.sql` w wersji 10 lub nowszej, a do wyświetlania numerów zleceń NFZ w tabeli potrzebna jest wersja 11.
 
 Poprzedni roboczy widok listy obecności został zastąpiony przez Ewidencję. Plik `supabase-attendance.sql` pozostał wyłącznie jako ślad wcześniejszej migracji; nie uruchamiaj go dla nowej ewidencji i nie usuwaj istniejącej tabeli bez sprawdzenia danych.
 

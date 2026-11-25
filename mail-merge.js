@@ -755,7 +755,17 @@
         if(phone){const link=node("a","mail-merge-phone-link",entry.data.phone);link.setAttribute("href",phone);phoneCell.append(link);}
         else phoneCell.textContent=entry.data.phone||"—";
         row.append(phoneCell);
-        for(const text of [entry.data.city||"—",degrees[entry.data.degree]||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
+        for(const text of [entry.data.city||"—",degrees[entry.data.degree]||"—"])row.append(node("td","",text));
+        const itemsCell=node("td","mail-merge-list-items");
+        for(const {subject,orderNumber}of applicationItems(entry.data)){
+          if(!subject&&!orderNumber)continue;
+          const item=node("div","mail-merge-list-item");
+          if(subject)item.append(node("span","",subject));
+          if(orderNumber)item.append(node("small","mail-merge-list-order",`Zlecenie NFZ: ${orderNumber}`));
+          itemsCell.append(item);
+        }
+        if(!itemsCell.children.length)itemsCell.textContent="—";
+        row.append(itemsCell);
         const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)));if(a.owner())actions.append(button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
@@ -769,7 +779,9 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=10?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=11?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+          :schemaVersion===10?"Aby wyświetlić numery zleceń w tabeli, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
+          :"Nowe pola i numery zleceń w tabeli wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -984,7 +996,7 @@
     const batchPrintStatus=node("p","mail-merge-message");batchPrintStatus.id="mailMergeBatchPrintStatus";batchPrintStatus.setAttribute("role","status");
     const count=node("p","document-form-note");count.id="mailMergeCount";
     const table=node("table","mail-merge-table"),thead=node("thead"),row=node("tr");
-    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot","Akcje"].forEach(text=>{const cell=node("th","",text);cell.scope="col";row.append(cell);});thead.append(row);
+    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot / zlecenie NFZ","Akcje"].forEach(text=>{const cell=node("th","",text);cell.scope="col";row.append(cell);});thead.append(row);
     const body=node("tbody");body.id="mailMergeQueue";table.append(thead,body);const scroll=node("div","mail-merge-table-scroll");scroll.append(table);
     const empty=node("p","document-form-note","Brak zapisanych osób dla wybranego wyszukiwania.");empty.id="mailMergeEmpty";
     const paging=node("div","mail-merge-actions"),previous=button("Poprzednie",()=>{offset=Math.max(0,offset-50);return refresh();}),next=button("Następne",()=>{offset+=50;return refresh();});previous.id="mailMergePrevious";next.id="mailMergeNext";paging.append(previous,next);

@@ -50,12 +50,14 @@ begin
   select coalesce(jsonb_agg(to_jsonb(s)),'[]') into result from (
     select p.id,p.revision,p.updated_at,right(p.data->>'pesel',4) as pesel_tail,
       jsonb_build_object('firstName',p.data->>'firstName','middleName',p.data->>'middleName','surname',p.data->>'surname',
-        'phone',p.data->>'phone','city',p.data->>'city','degree',p.data->>'degree','applicationNumber',p.data->>'applicationNumber','subject',p.data->>'subject','subject2',p.data->>'subject2') as data
+        'phone',p.data->>'phone','city',p.data->>'city','degree',p.data->>'degree','applicationNumber',p.data->>'applicationNumber',
+        'subject',p.data->>'subject','orderNumber',p.data->>'orderNumber',
+        'subject2',p.data->>'subject2','orderNumber2',p.data->>'orderNumber2') as data
     from public.mail_merge_people p
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',10);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',11);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)

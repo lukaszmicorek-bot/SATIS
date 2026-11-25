@@ -84,7 +84,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:10}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:11}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -104,6 +104,24 @@ test('people table headers have dark contrast, static positioning and column sem
   assert.equal(heads.length,7);assert.ok(heads.every(head=>head.scope==='col'));
   const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'../styles.css'),'utf8');
   assert.match(css,/\.mail-merge-table th \{ position: static; top: auto; z-index: auto; color: #003f5a; background: #edf4f5; font-size: 12px; font-weight: 700; line-height: 1\.4; text-transform: none; cursor: default;/);
+  t.api.clear();
+});
+test('PCPR list pairs existing order numbers with their products without adding a column or a detail read',async()=>{
+  const queries=[];
+  const rows=[
+    {id:'two',data:{firstName:'Jan',surname:'Testowy',subject:'Aparat P',orderNumber:'NFZ-001',subject2:'Aparat L',orderNumber2:'NFZ-002'}},
+    {id:'one',data:{firstName:'Anna',surname:'Testowa',subject:'Aparat',orderNumber:'NFZ-003'}},
+    {id:'none',data:{firstName:'Ewa',surname:'Testowa',subject:'Wkładka',orderNumber:null}}
+  ];
+  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows,total:rows.length,schemaVersion:11}};}});
+  t.api.open();await tick();
+  const list=t.nodes.get('mailMergeQueue');
+  assert.ok(list.children.every(row=>row.children.length===7));
+  assert.deepEqual(list.children[0].querySelectorAll('.mail-merge-list-item').map(item=>item.children.map(node=>node.textContent)),
+    [['Aparat P','Zlecenie NFZ: NFZ-001'],['Aparat L','Zlecenie NFZ: NFZ-002']]);
+  assert.equal(list.children[1].querySelectorAll('.mail-merge-list-order').length,1);
+  assert.equal(list.children[2].querySelectorAll('.mail-merge-list-order').length,0);
+  assert.deepEqual(queries,['satis_mail_merge_list']);
   t.api.clear();
 });
 test('disability type has twelve explicit choices, persists, reopens and can be cleared without changing old people',async()=>{
