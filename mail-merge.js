@@ -334,6 +334,8 @@
       busy=value;host.setAttribute("aria-busy",String(value));
       fields.forEach(input=>{input.disabled=value;});
       for(const control of host.querySelectorAll("button"))control.disabled=value;
+      for(const control of host.querySelectorAll(".mail-merge-submitted-check"))control.disabled=value||schemaVersion<12;
+      for(const control of host.querySelectorAll(".mail-merge-print-selection"))control.disabled=value;
       if(!value){q("mailMergePrevious").disabled=offset===0;q("mailMergeNext").disabled=offset+rows.length>=total;}
       updateConditionalFields();updateTemplateControls();updatePrintMode();
       if(!value && deferredPostal){deferredPostal=false;void syncCityFromPostal();}
@@ -744,6 +746,7 @@
       fields.get("subject").value="Aparaty słuchowe";fields.get("sameAddress").checked=true;fields.get("paymentMode").value="transfer";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
       q("mailMergeBatchPrintStatus").textContent="";
+      q("mailMergeListActionStatus").textContent="";
       dirtyState(false);message("");updateAmounts();renderPreview();
     }
     function load(entry) {
@@ -788,7 +791,7 @@
       const list=q("mailMergeQueue");list.replaceChildren();
       for(const entry of rows){
         const row=node("tr");if(entry.id===editingId)row.className="mail-merge-selected";
-        const cell=node("td"),check=node("input");check.type="checkbox";check.checked=entry.selected;check.disabled=busy;
+        const cell=node("td"),check=node("input","mail-merge-print-selection");check.type="checkbox";check.checked=entry.selected;check.disabled=busy;
         check.setAttribute("aria-label",`Wydrukuj: ${entry.data.firstName} ${entry.data.surname}`);
         check.addEventListener("change",()=>{if(authorized()&&!busy){entry.selected=check.checked;renderCount();}});cell.append(check);row.append(cell);
         const name=node("td"),label=node("strong","",`${entry.data.firstName} ${entry.data.middleName||""} ${entry.data.surname}`.replace(/\s+/gu," "));
@@ -809,6 +812,11 @@
         }
         if(!itemsCell.children.length)itemsCell.textContent="—";
         row.append(itemsCell);
+        const submittedCell=node("td","mail-merge-submitted"),submitted=node("input","mail-merge-submitted-check");
+        submitted.type="checkbox";submitted.checked=entry.submitted===true;submitted.disabled=busy||schemaVersion<12;
+        submitted.setAttribute("aria-label",`Złożono wniosek do PCPR: ${label.textContent}`);
+        submitted.addEventListener("change",()=>saveSubmitted(entry,submitted));
+        submittedCell.append(submitted);row.append(submittedCell);
         const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)));if(a.owner())actions.append(button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
@@ -822,10 +830,29 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=11?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=12?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+          :schemaVersion===11?"Aby zapisywać status złożenia wniosku, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :schemaVersion===10?"Aby wyświetlić numery zleceń w tabeli, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :"Nowe pola i numery zleceń w tabeli wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
+    }
+    async function saveSubmitted(entry,input) {
+      const submitted=input.checked,revision=entry.revision;
+      input.checked=entry.submitted===true;
+      if(!authorized()||busy||schemaVersion<12||submitted===input.checked)return;
+      const epoch=session,status=q("mailMergeListActionStatus");
+      status.textContent="Zapisywanie statusu…";lock(true);
+      try{
+        const result=await rpc("satis_mail_merge_write",{p_request_id:a.id(),p_action:"SET_SUBMITTED",p_id:entry.id,p_expected_revision:revision,p_data:{submitted}});
+        entry.revision=result.revision;entry.submitted=result.submitted;input.checked=result.submitted;
+        if(editingId===entry.id&&editingRevision===revision)editingRevision=result.revision;
+        await refresh();
+        if(authorized()&&epoch===session)status.textContent=submitted?"Oznaczono wniosek jako złożony.":"Cofnięto oznaczenie złożenia wniosku.";
+      }catch(error){
+        if(authorized()&&epoch===session){
+          status.textContent=error.message;await refresh();
+        }
+      }finally{if(authorized()&&epoch===session)lock(false);}
     }
     async function openEntry(entry) {
       if(dirty&&!a.confirm("Porzucić niezapisane zmiany i otworzyć wybraną osobę?"))return;
@@ -1042,13 +1069,14 @@
     tools.append(listSearch,button("Odśwież listę",()=>refresh()),button("Drukuj wybrane / PDF",()=>print()));
     const databaseStatus=node("p","document-form-note");databaseStatus.id="mailMergeDatabaseStatus";databaseStatus.setAttribute("role","status");
     const batchPrintStatus=node("p","mail-merge-message");batchPrintStatus.id="mailMergeBatchPrintStatus";batchPrintStatus.setAttribute("role","status");
+    const listActionStatus=node("p","document-form-note mail-merge-list-status");listActionStatus.id="mailMergeListActionStatus";listActionStatus.setAttribute("role","status");
     const count=node("p","document-form-note");count.id="mailMergeCount";
     const table=node("table","mail-merge-table"),thead=node("thead"),row=node("tr");
-    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot / zlecenie NFZ","Akcje"].forEach(text=>{const cell=node("th","",text);cell.scope="col";row.append(cell);});thead.append(row);
+    ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot / zlecenie NFZ","Złożono wniosek","Akcje"].forEach(text=>{const cell=node("th",text==="Złożono wniosek"?"mail-merge-submitted":"",text);cell.scope="col";row.append(cell);});thead.append(row);
     const body=node("tbody");body.id="mailMergeQueue";table.append(thead,body);const scroll=node("div","mail-merge-table-scroll");scroll.append(table);
     const empty=node("p","document-form-note","Brak zapisanych osób dla wybranego wyszukiwania.");empty.id="mailMergeEmpty";
     const paging=node("div","mail-merge-actions"),previous=button("Poprzednie",()=>{offset=Math.max(0,offset-50);return refresh();}),next=button("Następne",()=>{offset+=50;return refresh();});previous.id="mailMergePrevious";next.id="mailMergeNext";paging.append(previous,next);
-    database.append(node("h3","","Baza osób"),tools,databaseStatus,batchPrintStatus,count,scroll,empty,paging);
+    database.append(node("h3","","Baza osób"),tools,databaseStatus,batchPrintStatus,listActionStatus,count,scroll,empty,paging);
     const preview=node("section","mail-merge-preview"),previewTitle=node("h3");previewTitle.id="mailMergePreviewTitle";
     const previewNotice=node("p","mail-merge-message");previewNotice.id="mailMergePreviewNotice";
     const previewPages=node("div","mail-merge-preview-pages");previewPages.id="mailMergePreviewPages";preview.append(previewTitle,previewNotice,previewPages);

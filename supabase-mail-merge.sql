@@ -49,6 +49,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0;
   select coalesce(jsonb_agg(to_jsonb(s)),'[]') into result from (
     select p.id,p.revision,p.updated_at,right(p.data->>'pesel',4) as pesel_tail,
+      coalesce(p.data->'submitted'='true'::jsonb,false) as submitted,
       jsonb_build_object('firstName',p.data->>'firstName','middleName',p.data->>'middleName','surname',p.data->>'surname',
         'phone',p.data->>'phone','city',p.data->>'city','degree',p.data->>'degree','applicationNumber',p.data->>'applicationNumber',
         'subject',p.data->>'subject','orderNumber',p.data->>'orderNumber',
@@ -57,7 +58,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',11);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',12);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -91,7 +92,7 @@ begin
     or coalesce(lower(auth.jwt()->>'email')='satis@pracowniasluchu.pl',false) is not true) then
     raise exception 'Delete requires SATIS owner' using errcode='42501';
   end if;
-  if p_request_id is null or p_id is null or p_action is null or p_action not in ('SAVE','DELETE')
+  if p_request_id is null or p_id is null or p_action is null or p_action not in ('SAVE','DELETE','SET_SUBMITTED')
     or jsonb_typeof(p_data) is distinct from 'object' or octet_length(p_data::text)>16384 then
     raise exception 'Invalid input' using errcode='22023';
   end if;
@@ -109,6 +110,16 @@ begin
     if p_data<>'{}'::jsonb or person.id is null then raise exception 'Invalid delete' using errcode='22023';end if;
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
+  elsif p_action='SET_SUBMITTED' then
+    if person.id is null or p_data - 'submitted' <> '{}'::jsonb
+      or jsonb_typeof(p_data->'submitted') is distinct from 'boolean' then
+      raise exception 'Invalid submission status' using errcode='22023';
+    end if;
+    update public.mail_merge_people
+      set data=case when p_data->'submitted'='true'::jsonb then data||p_data else data-'submitted' end,
+        revision=revision+1,updated_at=clock_timestamp(),updated_by=actor
+      where id=p_id
+      returning jsonb_build_object('id',id,'revision',revision,'submitted',p_data->'submitted') into result;
   else
     if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince','submissionChecklist'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
@@ -128,7 +139,7 @@ begin
       or coalesce(p_data->>'certificateValidity','') not in ('','indefinite','periodic') then
       raise exception 'Invalid fields' using errcode='22023';
     end if;
-    clean:='{}'::jsonb;
+    clean:=case when person.data->'submitted'='true'::jsonb then '{"submitted":true}'::jsonb else '{}'::jsonb end;
     if p_data ? 'disabilityTypes' then
       if jsonb_typeof(p_data->'disabilityTypes') is distinct from 'array' then
         raise exception 'Invalid disability list' using errcode='22023';
@@ -229,7 +240,8 @@ begin
       returning jsonb_build_object('id',mail_merge_people.id,'revision',mail_merge_people.revision) into result;
     exception when unique_violation then raise exception 'Duplicate person' using errcode='PT423';end;
   end if;
-  insert into public.mail_merge_access_log(person_id,actor_id,operation) values(p_id,actor,p_action);
+  insert into public.mail_merge_access_log(person_id,actor_id,operation)
+    values(p_id,actor,case when p_action='SET_SUBMITTED' then 'SAVE' else p_action end);
   update public.mail_merge_write_requests set result=merge_write.result where id=p_request_id;
   return result;
 end $$;

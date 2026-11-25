@@ -85,12 +85,18 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:11}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:12}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
+      const previous=stored.get(args.p_id);
+      if((previous?.revision??null)!==args.p_expected_revision)return {error:{code:'PT409'}};
+      if(args.p_action==='SET_SUBMITTED'){
+        const entry={...previous,submitted:args.p_data.submitted,revision:previous.revision+1};
+        stored.set(entry.id,entry);return {data:{id:entry.id,revision:entry.revision,submitted:entry.submitted}};
+      }
       saveCalls++;if(pauseSave)await pauseSave;
       if([...stored.values()].some(entry=>entry.id!==args.p_id && entry.data.pesel && entry.data.pesel===args.p_data.pesel))return {error:{code:'PT423'}};
-      const entry={id:args.p_id,revision:(stored.get(args.p_id)?.revision||0)+1,data:{...args.p_data}};stored.set(args.p_id,entry);return {data:{id:entry.id,revision:entry.revision}};
+      const entry={id:args.p_id,revision:(previous?.revision||0)+1,submitted:previous?.submitted===true,data:{...args.p_data}};stored.set(args.p_id,entry);return {data:{id:entry.id,revision:entry.revision}};
     },...overrides});
   const buttons=()=>host.querySelectorAll('button');
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
@@ -102,7 +108,8 @@ function fixture(overrides={}) {
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('people table headers have dark contrast, static positioning and column semantics',()=>{
   const t=fixture(),heads=t.nodes.get('mailMergeNotebook').querySelectorAll('th');
-  assert.equal(heads.length,7);assert.ok(heads.every(head=>head.scope==='col'));
+  assert.equal(heads.length,8);assert.ok(heads.every(head=>head.scope==='col'));
+  assert.equal(heads[6].textContent,'Złożono wniosek');
   const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'../styles.css'),'utf8');
   assert.match(css,/\.mail-merge-table th \{ position: static; top: auto; z-index: auto; color: #003f5a; background: #edf4f5; font-size: 12px; font-weight: 700; line-height: 1\.4; text-transform: none; cursor: default;/);
   t.api.clear();
@@ -114,16 +121,58 @@ test('PCPR list pairs existing order numbers with their products without adding 
     {id:'one',data:{firstName:'Anna',surname:'Testowa',subject:'Aparat',orderNumber:'NFZ-003'}},
     {id:'none',data:{firstName:'Ewa',surname:'Testowa',subject:'Wkładka',orderNumber:null}}
   ];
-  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows,total:rows.length,schemaVersion:11}};}});
+  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows,total:rows.length,schemaVersion:12}};}});
   t.api.open();await tick();
   const list=t.nodes.get('mailMergeQueue');
-  assert.ok(list.children.every(row=>row.children.length===7));
+  assert.ok(list.children.every(row=>row.children.length===8));
   assert.deepEqual(list.children[0].querySelectorAll('.mail-merge-list-item').map(item=>item.children.map(node=>node.textContent)),
     [['Aparat P','Zlecenie NFZ: NFZ-001'],['Aparat L','Zlecenie NFZ: NFZ-002']]);
   assert.equal(list.children[1].querySelectorAll('.mail-merge-list-order').length,1);
   assert.equal(list.children[2].querySelectorAll('.mail-merge-list-order').length,0);
   assert.deepEqual(queries,['satis_mail_merge_list']);
   t.api.clear();
+});
+test('submission is toggled in the table, shared on reload, and survives saving the open form',async()=>{
+  const t=fixture({access:()=>true});t.owner(false);t.fill();
+  await t.click('Zapisz');
+  const entry=[...t.stored.values()][0];
+  const checkbox=()=>t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-submitted-check')[0];
+  assert.equal(checkbox().checked,false);
+  checkbox().checked=true;await checkbox().emit('change');
+  assert.equal(checkbox().checked,true);
+  assert.equal(t.stored.get(entry.id).submitted,true);
+  assert.deepEqual(t.stored.get(entry.id).data,entry.data);
+  const printCheck=t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-print-selection')[0];
+  assert.equal(printCheck.checked,false);assert.equal(printCheck.disabled,false);
+  t.fill({surname:'Zmieniony'});await t.click('Zapisz');
+  assert.equal(t.stored.get(entry.id).data.surname,'Zmieniony');
+  assert.equal(t.stored.get(entry.id).submitted,true);
+  t.api.clear();t.api.open();await tick();
+  assert.equal(checkbox().checked,true);
+  checkbox().checked=false;await checkbox().emit('change');
+  assert.equal(t.stored.get(entry.id).submitted,false);
+  assert.equal(checkbox().checked,false);
+  t.api.clear();
+});
+test('failed or stale submission status is not shown as saved',async()=>{
+  const t=fixture();t.fill();await t.click('Zapisz');
+  const checkbox=()=>t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-submitted-check')[0];
+  const [entry]=t.stored.values();entry.revision++;
+  checkbox().checked=true;await checkbox().emit('change');
+  assert.equal(checkbox().checked,false);
+  assert.match(t.nodes.get('mailMergeListActionStatus').textContent,/innym komputerze/);
+  assert.equal(t.stored.get(entry.id).submitted,false);
+  assert.equal(checkbox().disabled,false);t.api.clear();
+});
+test('version 11 keeps the submission checkbox disabled until the migration is run',async()=>{
+  const queries=[];
+  const t=fixture({rpc:async name=>{queries.push(name);return {data:{rows:[{id:'old',revision:1,data:{firstName:'Jan',surname:'Testowy'}}],total:1,schemaVersion:11}};}});
+  t.api.open();await tick();
+  const checkbox=t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-submitted-check')[0];
+  assert.equal(checkbox.disabled,true);
+  checkbox.checked=true;await checkbox.emit('change');
+  assert.equal(checkbox.checked,false);
+  assert.deepEqual(queries,['satis_mail_merge_list']);t.api.clear();
 });
 test('disability type has twelve explicit choices, persists, reopens and can be cleared without changing old people',async()=>{
   const t=fixture();t.api.open();await tick();
@@ -228,7 +277,7 @@ test('batch print rejects the whole selection when a saved checklist is missing 
   const t=fixture();t.fill();await t.confirmChecklist();await t.click('Zapisz');
   await t.click('Nowy wniosek');t.fill({...example,firstName:'Adam',pesel:'90010112355'});
   await t.confirmChecklist(submissionKeys.filter(key=>key!=='referralCallDone'));await t.click('Zapisz');
-  const checks=t.nodes.get('mailMergeQueue').querySelectorAll('input');
+  const checks=t.nodes.get('mailMergeQueue').querySelectorAll('.mail-merge-print-selection');
   assert.equal(checks.length,2);
   for(const check of checks){check.checked=true;await check.emit('change');}
   await t.confirmChecklist(['referralCallDone']);
@@ -611,7 +660,7 @@ test('application number is removed from editor, table, required fields, save pa
   assert.equal(m.validate({...example,applicationNumber:''},()=>true).length,0);
   assert.equal(m.placements({...example,applicationNumber:'OLD/01'}).some(item=>item.field==='applicationNumber'),false);
   await t.click('Zapisz');assert.equal([...t.stored.values()][0].data.applicationNumber,undefined);
-  assert.equal(t.nodes.get('mailMergeQueue').children[0].children.length,7);
+  assert.equal(t.nodes.get('mailMergeQueue').children[0].children.length,8);
   assert.doesNotMatch(t.nodes.get('mailMergeListSearch').placeholder,/nr wniosku/);t.api.clear();
 });
 test('certificate expiry uses six calendar months, includes the boundary, and ignores indefinite or invalid dates',()=>{

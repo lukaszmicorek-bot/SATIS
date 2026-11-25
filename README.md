@@ -21,6 +21,8 @@ W **PCPR → PCPR Żywiec** sekcja **Przed złożeniem wniosku** zapisuje wewnę
 
 W obu polach numeru zlecenia wpisz identyfikator z dokumentu, bez PIN-u i PESEL-u. Zapis i wydruk sprawdzają format według [specyfikacji eZWM NFZ](https://www.nfz.gov.pl/download/gfx/nfz/pl/defaultstronaopisowa/1220/2/1/specyfikacja_identyfikatora_zlecenia.pdf). Szkic można zapisać bez numeru. Aplikacja nie sprawdza statusu ani istnienia zlecenia w NFZ.
 
+Kolumna **Złożono wniosek** pozwala odnotować złożenie wniosku do PCPR bez otwierania formularza. Jest to ręczne oznaczenie, nie wysyłka wniosku. Status jest wspólny dla SATIS i gabinetu i wymaga pliku `supabase-mail-merge.sql` w wersji 12 lub nowszej.
+
 Poprzedni roboczy widok listy obecności został zastąpiony przez Ewidencję. Plik `supabase-attendance.sql` pozostał wyłącznie jako ślad wcześniejszej migracji; nie uruchamiaj go dla nowej ewidencji i nie usuwaj istniejącej tabeli bez sprawdzenia danych.
 
 ## Ewidencja czasu pracy
