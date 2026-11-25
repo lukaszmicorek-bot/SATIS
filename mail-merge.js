@@ -22,6 +22,18 @@
     ["12-C", "Całościowe zaburzenia rozwojowe", 313.3]
   ];
   const normalize = value => String(value || "").normalize("NFD").replace(/\p{M}/gu, "").replace(/ł/giu, "l").trim().replace(/\s+/gu, " ").toLowerCase();
+  const submissionChecks = [
+    ["referralValid", "Skierowanie jest ważne"],
+    ["referralCallDone", "Wykonano telefon do pacjenta w dniu rejestracji (w sprawie skierowania)"],
+    ["hearingTestCurrent", "Badanie słuchu jest aktualne"],
+    ["nfzOrderAvailable", "Zlecenie NFZ jest dostępne"],
+    ["certificatePrinted", "Orzeczenie jest wydrukowane"]
+  ];
+  function patientPhoneHref(value) {
+    const digits=String(value||"").replace(/\D/gu,"");
+    if(!/^(?:(?:48|0048))?\d{9}$/u.test(digits))return "";
+    return `tel:+48${digits.slice(-9)}`;
+  }
   function selectedDisabilities(data){
     const values=Array.isArray(data.disabilityTypes)?data.disabilityTypes:data.disabilityType?[data.disabilityType]:[];
     return disabilityTypes.map(([code])=>code).filter(code=>values.includes(code));
@@ -275,6 +287,8 @@
   }
   function create(a) {
     const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map(), choiceGroups = new Map(), disabilityChecks=[];
+    const checklist = new Map();
+    let checklistPreviouslySaved = false;
     let geoPromise = null, geoIndex = null, postalSequence = 0, deferredPostal = false, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
@@ -330,9 +344,20 @@
       if(a.iso(data.certificateUntil))data.certificateUntil=a.date(a.iso(data.certificateUntil));
       if(data.itemCount!=="2"){data.subject2="";data.orderNumber2="";}
       if(data.paymentMode!=="transfer")for(const key of ["bankOwner","bankName","bankAccount"])data[key]="";
+      const checked=Object.fromEntries([...checklist].filter(([,input])=>input.checked).map(([key])=>[key,true]));
+      if(Object.keys(checked).length||checklistPreviouslySaved)data.submissionChecklist=checked;
       return enrich(data);
     }
+    function updateSubmissionChecklist() {
+      let count=0;
+      for(const input of checklist.values()){input.disabled=busy;if(input.checked)count++;}
+      q("mailMergeChecklistProgress").textContent=`Sprawdzone: ${count} / ${checklist.size}`;
+      const dial=q("mailMergeReferralCall"),phone=patientPhoneHref(fields.get("phone").value);
+      dial.hidden=!phone||busy;
+      if(phone)dial.setAttribute("href",phone);else dial.removeAttribute("href");
+    }
     function updateConditionalFields(restore=false){
+      updateSubmissionChecklist();
       const indefinite=fields.get("certificateValidity").value==="indefinite",until=fields.get("certificateUntil"),second=fields.get("itemCount").value==="2";
       if(indefinite){if(until.value)periodicDate=until.value;until.value="";until.setCustomValidity("");until.removeAttribute("aria-invalid");}
       else if(restore&&!until.value&&periodicDate)until.value=periodicDate;
@@ -648,6 +673,7 @@
       generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
       for(const input of disabilityChecks){input.checked=false;input.setCustomValidity("");}
+      checklistPreviouslySaved=false;for(const input of checklist.values())input.checked=false;
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";
       fields.get("subject").value="Aparaty słuchowe";fields.get("sameAddress").checked=true;fields.get("paymentMode").value="transfer";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
@@ -658,6 +684,8 @@
       personal.forEach(key=>{fields.get(key).value=entry.data[key]||"";});fields.get("personRole").value||="applicant";
       for(const key of ["combinedDisability","disabilityCauseCount"])fields.get(key).value=entry.data[key]||"";
       const selected=selectedDisabilities(entry.data);for(const input of disabilityChecks)input.checked=selected.includes(input.value);
+      for(const [key,input]of checklist)input.checked=entry.data.submissionChecklist?.[key]===true;
+      checklistPreviouslySaved=[...checklist.values()].some(input=>input.checked);
       fields.get("disabilityType").value=selected[0]||"";
       fields.get("bankAccount").value=formatBankAccount(fields.get("bankAccount").value);
       fields.get("paymentMode").value=entry.data.paymentMode||"transfer";
@@ -699,7 +727,11 @@
         const name=node("td"),label=node("strong","",`${entry.data.firstName} ${entry.data.middleName||""} ${entry.data.surname}`.replace(/\s+/gu," "));
         name.append(label);if(entry.pesel_tail)name.append(node("small","mail-merge-pesel",`PESEL: •••••••${entry.pesel_tail}`));row.append(name);
         const degrees={severe:"Znaczny",moderate:"Umiarkowany",mild:"Lekki",none:"Nie dotyczy"};
-        for(const text of [entry.data.phone||"—",entry.data.city||"—",degrees[entry.data.degree]||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
+        const phoneCell=node("td"),phone=patientPhoneHref(entry.data.phone);
+        if(phone){const link=node("a","mail-merge-phone-link",entry.data.phone);link.setAttribute("href",phone);phoneCell.append(link);}
+        else phoneCell.textContent=entry.data.phone||"—";
+        row.append(phoneCell);
+        for(const text of [entry.data.city||"—",degrees[entry.data.degree]||"—",[entry.data.subject,entry.data.subject2].filter(Boolean).join(" · ")||"—"])row.append(node("td","",text));
         const actions=node("td","mail-merge-actions");actions.append(button("Edytuj",()=>openEntry(entry)));if(a.owner())actions.append(button("Usuń",()=>deleteEntry(entry),"ghost mail-merge-delete"));row.append(actions);list.append(row);
       }
       q("mailMergeEmpty").hidden=rows.length>0;renderCount();
@@ -713,7 +745,7 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=9?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=10?"Zapis w bazie · dostęp dla SATIS i gabinetu":"Nowe pola wymagają aktualizacji. Uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę. Dotychczasowe wpisy pozostają bez zmian.";
       }catch(error){if(authorized()&&sequence===readSequence){q("mailMergeDatabaseStatus").textContent=error.message;}}
     }
     async function openEntry(entry) {
@@ -733,10 +765,11 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        const requiredSchema=data.disabilityTypes||data.combinedDisability||data.disabilityCauseCount?9:data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
+        const requiredSchema=data.submissionChecklist?10:data.disabilityTypes||data.combinedDisability||data.disabilityCauseCount?9:data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
         if(schemaVersion<requiredSchema){await refresh();if(schemaVersion<requiredSchema){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
+        checklistPreviouslySaved=Boolean(Object.keys(data.submissionChecklist||{}).length);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
         offset=0;q("mailMergeListSearch").value="";await refresh();
         if(authorized()&&epoch===session)message(draft?"Zapisano roboczo. Przed wydrukiem sprawdź kompletność pól.":wasEditing?"Zmiany zapisane w bazie.":"Osoba zapisana w bazie.");
@@ -880,6 +913,27 @@
         for(const id of ["mailMergePostalChoices","mailMergeGeoChoices"]){const choices=node("div","mail-merge-matches mail-merge-full");choices.id=id;choices.setAttribute("aria-live","polite");section.append(choices);}
       }
       editor.append(section);
+      if(group==="contact"){
+        const checks=node("fieldset","mail-merge-fields mail-merge-submission");
+        checks.append(node("legend","","Przed złożeniem wniosku"));
+        for(const [key,text]of submissionChecks){
+          const label=node("label","mail-merge-check mail-merge-submission-item"),input=node("input");
+          input.type="checkbox";input.autocomplete="off";input.id=`mailMergeCheck-${key}`;checklist.set(key,input);
+          input.addEventListener("input",event=>event.stopPropagation?.());
+          input.addEventListener("change",event=>{
+            event.stopPropagation?.();if(!authorized()||busy)return;
+            dirtyState();updateSubmissionChecklist();
+          });
+          label.append(input,node("span","",text));checks.append(label);
+          if(key==="referralCallDone"){
+            const dial=node("a","mail-merge-phone-link mail-merge-submission-phone","Zadzwoń do pacjenta");
+            dial.id="mailMergeReferralCall";dial.hidden=true;checks.append(dial);
+          }
+        }
+        const progress=node("p","document-form-note mail-merge-submission-progress");
+        progress.id="mailMergeChecklistProgress";progress.setAttribute("role","status");
+        checks.append(progress);editor.append(checks);
+      }
     }
     const same=node("input");same.type="checkbox";same.id="mergeSameAddress";fields.set("sameAddress",same);
     const sameLabel=node("label","mail-merge-check mail-merge-full");sameLabel.append(same,node("span","","Adres korespondencyjny taki sam jak adres zamieszkania"));addressSection.append(sameLabel);

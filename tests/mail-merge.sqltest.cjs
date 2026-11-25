@@ -46,7 +46,7 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     assert.equal(detail.data.careHome,'no');assert.equal(detail.data.householdType,'shared');assert.equal(detail.data.paymentMode,'transfer');assert.equal(detail.data.bankAccount,'61109010140000071219812874');assert.equal(detail.data.bankOwner,'Jan Testowy');
     assert.equal(detail.data.monthlyIncome,'2500.50');assert.equal(detail.data.householdSize,'3');assert.equal(detail.data.requested,'3000');assert.equal(detail.data.certificateNumber,'TEST/AB/2026');assert.equal(detail.data.certificateUntil,'');assert.equal(detail.data.subject2,'Aparat L');assert.equal(detail.data.orderNumber2,'NFZ-2');assert.equal(detail.data.gender,'female');assert.equal(detail.data.invalidityGroup,'none');assert.equal(detail.data.email,'-');assert.equal(detail.data.pesel,complete.pesel);assert.equal(detail.data.cost,'8000.00');
     const list=(await db.query("select satis_mail_merge_list('Testowy',0) result")).rows[0].result;
-    assert.equal(list.schemaVersion,9);assert.equal(list.total,1);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);for(const field of ['bankAccount','bankOwner','bankName','careHome','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount'])assert.equal(list.rows[0].data[field],undefined);
+    assert.equal(list.schemaVersion,10);assert.equal(list.total,1);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);for(const field of ['bankAccount','bankOwner','bankName','careHome','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount'])assert.equal(list.rows[0].data[field],undefined);
     const correspondence={...basic,sameAddress:false,correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
     for(const disabilityTypes of [null,'03-L',{},[123],['99-Z'],['03-L','03-L']])await denied(write(id(),'SAVE',other,null,{...basic,disabilityTypes}),'22023');
     await denied(write(id(),'SAVE',other,null,{...basic,combinedDisability:'invalid'}),'22023');
@@ -60,6 +60,19 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     const cleared=(await db.query('select satis_mail_merge_detail($1) result',[other])).rows[0].result.data;
     assert.equal(cleared.disabilityType,undefined);assert.equal(cleared.disabilityCauseCount,undefined);
     await write(id(),'DELETE',other,2,{});
+    const checklist={referralValid:true,referralCallDone:true,hearingTestCurrent:true,nfzOrderAvailable:true,certificatePrinted:true};
+    for(const invalid of [null,[],{referralCallDone:'true'},{referralCallDone:false},{notes:'extra'}]){
+      await denied(write(id(),'SAVE',other,null,{...basic,submissionChecklist:invalid}),'22023');
+    }
+    await write(id(),'SAVE',other,null,{...basic,submissionChecklist:checklist});
+    const getChecklist=async()=>(await db.query('select satis_mail_merge_detail($1) result',[other])).rows[0].result.data.submissionChecklist;
+    assert.deepEqual(await getChecklist(),checklist);
+    assert.ok((await db.query("select satis_mail_merge_list('',0) result")).rows[0].result.rows.every(row=>!Object.hasOwn(row.data,'submissionChecklist')));
+    await write(id(),'SAVE',other,1,basic);
+    assert.deepEqual(await getChecklist(),checklist,'older clients do not erase the checklist');
+    await write(id(),'SAVE',other,2,{...basic,submissionChecklist:{}});
+    assert.equal(await getChecklist(),undefined);
+    await write(id(),'DELETE',other,3,{});
     for(const disabilityType of ['01-U','02-P','03-L','04-O','05-R','06-E','07-S','08-T','09-M','10-N','11-I','12-C']){
       await write(id(),'SAVE',other,null,{...basic,disabilityType});
       assert.equal((await db.query('select satis_mail_merge_detail($1) result',[other])).rows[0].result.data.disabilityType,disabilityType);

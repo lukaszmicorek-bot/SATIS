@@ -55,7 +55,7 @@ begin
     where p_query='' or position(lower(p_query) in lower(concat_ws(' ',p.data->>'firstName',p.data->>'middleName',p.data->>'surname',p.data->>'pesel',p.data->>'phone',p.data->>'applicationNumber',p.data->>'orderNumber',p.data->>'orderNumber2',p.data->>'city',p.data->>'subject',p.data->>'subject2'))) > 0
     order by p.updated_at desc,p.id limit 50 offset p_offset
   ) s;
-  return jsonb_build_object('rows',result,'total',total,'schemaVersion',9);
+  return jsonb_build_object('rows',result,'total',total,'schemaVersion',10);
 end $$;
 
 create or replace function public.satis_mail_merge_detail(p_id uuid)
@@ -108,7 +108,7 @@ begin
     delete from public.mail_merge_people where id=p_id;
     result:=jsonb_build_object('id',p_id,'deleted',true);
   else
-    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince'] <> '{}'::jsonb
+    if p_data - array['gender','localityType','invalidityGroup','personRole','firstName','middleName','surname','pesel','province','county','municipality','city','street','house','flat','postal','postOffice','phone','email','applicationNumber','degree','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount','certificateNumber','certificateValidity','certificateUntil','subject','orderNumber','subject2','orderNumber2','itemCount','cost','nfz','requested','monthlyIncome','householdSize','sameAddress','careHome','householdType','paymentMode','bankOwner','bankName','bankAccount','correspondenceStreet','correspondenceHouse','correspondenceFlat','correspondencePostal','correspondenceCity','correspondencePostOffice','correspondenceMunicipality','correspondenceCounty','correspondenceProvince','submissionChecklist'] <> '{}'::jsonb
       or length(btrim(coalesce(p_data->>'firstName',''))) not between 1 and 100
       or length(btrim(coalesce(p_data->>'surname',''))) not between 1 and 160
       or coalesce(p_data->>'personRole','') not in ('applicant','ward')
@@ -138,9 +138,24 @@ begin
         raise exception 'Invalid disability codes' using errcode='22023';
       end if;
     end if;
+    if p_data ? 'submissionChecklist' then
+      if jsonb_typeof(p_data->'submissionChecklist') is distinct from 'object' then
+        raise exception 'Invalid submission checklist' using errcode='22023';
+      end if;
+      if exists (
+        select 1 from jsonb_each(p_data->'submissionChecklist') item
+        where item.key not in ('referralValid','referralCallDone','hearingTestCurrent','nfzOrderAvailable','certificatePrinted')
+          or item.value <> 'true'::jsonb
+      ) then raise exception 'Invalid submission check' using errcode='22023';end if;
+    elsif person.data ? 'submissionChecklist' then
+      -- Older clients omit the field entirely; an empty object explicitly clears it.
+      clean:=clean||jsonb_build_object('submissionChecklist',person.data->'submissionChecklist');
+    end if;
     for pair in select * from jsonb_each(p_data) loop
       if pair.key='disabilityTypes' then
         clean:=clean||jsonb_build_object(pair.key,pair.value);
+      elsif pair.key='submissionChecklist' then
+        if pair.value<>'{}'::jsonb then clean:=clean||jsonb_build_object(pair.key,pair.value);end if;
       elsif pair.key='sameAddress' then
         if jsonb_typeof(pair.value)<>'boolean' then raise exception 'Invalid checkbox' using errcode='22023';end if;
         clean:=clean||jsonb_build_object(pair.key,pair.value);

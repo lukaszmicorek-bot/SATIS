@@ -5058,6 +5058,17 @@ h2 {
 .mail-merge-fields label:has(#mergepostal), .mail-merge-fields label:has(#mergepostOffice) { grid-column: span 3; }
 .mail-merge-fields label:has(#mergepersonRole), .mail-merge-fields label:has(#mergecounty), .mail-merge-fields label:has(#mergeorderNumber) { grid-column: span 4; }
 .mail-merge-full { grid-column: 1 / -1; }
+.mail-merge-submission { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px 12px; }
+.mail-merge-submission .mail-merge-submission-item { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
+.mail-merge-submission-item input[type="checkbox"] { width: 17px; height: 17px; flex: 0 0 17px; margin: 0; accent-color: #007b7d; }
+.mail-merge-submission .mail-merge-submission-item:has(#mailMergeCheck-referralCallDone) { grid-column: 1; }
+.mail-merge-submission-phone { grid-column: 2; grid-row: 2; font-size: 12px; }
+.mail-merge-phone-link { color: #00646b; text-decoration: underline; text-underline-offset: 2px; }
+.mail-merge-submission-progress { grid-column: 1 / -1; margin: 3px 0 0; }
+@media (max-width: 620px) {
+  .mail-merge-submission { grid-template-columns: minmax(0, 1fr); }
+  .mail-merge-submission-phone { grid-column: 1; grid-row: auto; margin-left: 25px; }
+}
 .mail-merge-main-actions { justify-content: flex-end; padding: 10px 0; border-top: 1px solid #e0e8eb; }
 .mail-merge-save { color: #fff; background: #007b7d; border-color: #007b7d; min-width: 110px; }
 .mail-merge-save.mail-merge-unsaved { color: #fff; background: #ad3655; border-color: #ad3655; }

@@ -83,7 +83,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:9}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:10}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       saveCalls++;if(pauseSave)await pauseSave;
@@ -164,6 +164,38 @@ test('schema eight supports a single legacy selection but blocks combined or mul
   const t=fixture({rpc:async(name,args)=>name==='satis_mail_merge_list'?{data:{rows:[],total:0,schemaVersion:8}}:{data:{id:args.p_id,revision:++saves}}});
   t.fill({firstName:'Jan',surname:'Testowy',disabilityType:'03-L'});await t.click('Zapisz roboczo');assert.equal(saves,1);
   t.fill({disabilityTypes:['03-L','05-R']});await t.click('Zapisz roboczo');assert.equal(saves,1);assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);t.api.clear();
+});
+test('submission checklist stores independent internal checks and reuses the patient phone',async()=>{
+  const t=fixture();t.api.open();await tick();
+  const keys=['referralValid','referralCallDone','hearingTestCurrent','nfzOrderAvailable','certificatePrinted'];
+  assert.ok(keys.every(key=>!t.nodes.get('mailMergeCheck-'+key).checked));
+  t.fill({firstName:'Jan',surname:'Testowy',phone:'500 600 700'});
+  for(const key of keys.slice(0,3)){
+    const check=t.nodes.get('mailMergeCheck-'+key);check.checked=true;await check.emit('change');
+  }
+  const dial=t.nodes.get('mailMergeReferralCall');
+  assert.equal(dial.attributes.href,'tel:+48500600700');
+  assert.equal(dial.hidden,false);
+  assert.match(t.nodes.get('mailMergeChecklistProgress').textContent,/3 \/ 5/);
+  await t.click('Zapisz roboczo');
+  const entry=[...t.stored.values()][0];
+  assert.deepEqual(entry.data.submissionChecklist,{referralValid:true,referralCallDone:true,hearingTestCurrent:true});
+  assert.equal(t.nodes.get('mailMergeQueue').querySelectorAll('a')[0].attributes.href,'tel:+48500600700');
+  assert.deepEqual(m.placements({...example,submissionChecklist:entry.data.submissionChecklist}),m.placements(example));
+  await t.click('Nowy wniosek');assert.ok(keys.every(key=>!t.nodes.get('mailMergeCheck-'+key).checked));
+  await t.click('Edytuj');
+  assert.deepEqual(keys.map(key=>t.nodes.get('mailMergeCheck-'+key).checked),[true,true,true,false,false]);
+  for(const key of keys)t.nodes.get('mailMergeCheck-'+key).checked=false;
+  await t.click('Zapisz roboczo');assert.deepEqual(t.stored.get(entry.id).data.submissionChecklist,{});
+  t.api.clear();assert.equal(dial.hidden,true);
+});
+test('existing PCPR writes work on schema 9, but checked items require schema 10',async()=>{
+  let saves=0;
+  const t=fixture({rpc:async(name,args)=>name==='satis_mail_merge_list'?{data:{rows:[],total:0,schemaVersion:9}}:{data:{id:args.p_id,revision:++saves}}});
+  t.fill({firstName:'Jan',surname:'Testowy'});await t.click('Zapisz roboczo');assert.equal(saves,1);
+  t.nodes.get('mailMergeCheck-referralValid').checked=true;
+  await t.click('Zapisz roboczo');assert.equal(saves,1);
+  assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);t.api.clear();
 });
 test('persistent people accept incomplete drafts and reopen after clearing the session',async()=>{
   const t=fixture();t.api.open();await tick();
