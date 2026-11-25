@@ -34,6 +34,9 @@ const SUPABASE_LOAN_CONTRACT_TABLE = "loan_contracts";
 const SUPABASE_OFFER_HISTORY_TABLE = "pricing_offer_history";
 const SUPABASE_ORDER_HISTORY_TABLE = "pricing_order_history";
 const SUPABASE_COMPLAINT_HISTORY_TABLE = "pricing_complaint_history";
+const SHARED_DOCUMENT_HISTORY_TABLES = [SUPABASE_LOAN_CONTRACT_TABLE, SUPABASE_OFFER_HISTORY_TABLE,
+  SUPABASE_ORDER_HISTORY_TABLE, SUPABASE_COMPLAINT_HISTORY_TABLE];
+const SHARED_DOCUMENT_CHECK_MS = 60 * 1000;
 const SUPABASE_PCPR_LIST_TABLE = "pcpr_list";
 const SUPABASE_VACATION_EMPLOYEE_TABLE = "vacation_employees";
 const SUPABASE_VACATION_REQUEST_TABLE = "vacation_requests";
@@ -2586,10 +2589,83 @@ function applyChangedSupabaseRecords(table, ids, rows) {
     if (historyChanges.length) capdHistory = apply(capdHistory, normalizeCapdHistory, historyChanges);
     renderCapdPractitionerProfiles();
   }
+  if (SHARED_DOCUMENT_HISTORY_TABLES.includes(table)) {
+    refreshSharedDocumentViews();
+    setConnectionStatus("online", "Supabase");
+    return;
+  }
   rebuild();
   render();
   if (table === SUPABASE_REPAIR_TABLE) void repairReturns?.load();
   setConnectionStatus("online", "Supabase");
+}
+
+function refreshSharedDocumentViews() {
+  rebuildCustomerDocumentIndex();
+  rebuildCustomerNameSuggestions();
+  if (activeNotebook === "history") renderPricingDocumentHistory();
+  else if (activeNotebook === "devices" && activeDeviceView === "loan") renderPricingLoanHistory();
+  else if (activeNotebook === "clients") clientsModule?.refreshSources();
+  else if (activeNotebook === "devices" && activeDeviceView === "database") renderDeviceViews();
+  else if (activeNotebook === "repairs" && pricingViewNotebook(activePricingView) !== "repairs") renderRepairRecords();
+}
+
+const sharedDocumentCheckSignatures = new Map();
+let sharedDocumentCheckPending = null;
+let sharedDocumentCheckedAt = 0;
+
+async function readSharedDocumentRevisions(table, sessionMatches) {
+  const rows = [];
+  let afterId = "";
+  while (sessionMatches()) {
+    let query = supabaseClient.from(table).select("id,revision");
+    if (afterId) query = query.gt("id", afterId);
+    const { data, error } = await query.order("id", { ascending: true }).limit(SUPABASE_PAGE_SIZE);
+    if (error) throw error;
+    if (!Array.isArray(data) || data.some(row => !row.id || !Number.isSafeInteger(Number(row.revision)) || Number(row.revision) < 1)) {
+      throw new Error("Nie potwierdzono wersji dokumentów.");
+    }
+    if (!data.length) return rows;
+    rows.push(...data);
+    afterId = data[data.length - 1].id;
+  }
+  return null;
+}
+
+async function checkSharedDocuments() {
+  if (!hasSupabaseConfig || !supabaseInitialDataReady || !currentSupabaseUser || !navigator.onLine || document.hidden ||
+      supabaseRefreshInProgress || offlineForms?.active() || sharedDocumentCheckPending ||
+      Date.now() - sharedDocumentCheckedAt < 5000) return;
+  if (pricingViewNotebook(activePricingView) !== activeNotebook ||
+      !["history", "loan", "offer", "order", "complaint"].includes(activePricingView)) return;
+  const userId = currentSupabaseUser.id, generation = sensitiveStateGeneration;
+  const sessionMatches = () => currentSupabaseUser?.id === userId && sensitiveStateGeneration === generation;
+  sharedDocumentCheckedAt = Date.now();
+  const pending = Promise.allSettled(SHARED_DOCUMENT_HISTORY_TABLES.map(async (table) => {
+    const { data, count, error } = await supabaseClient.from(table)
+      .select("id,updated_at,revision", { count: "exact" })
+      .order("updated_at", { ascending: false }).order("id", { ascending: false }).limit(1);
+    if (error) throw error;
+    if (!sessionMatches() || supabaseRefreshInProgress || !Array.isArray(data) || !Number.isSafeInteger(count)) return;
+    const signature = JSON.stringify([count, data?.[0] ?? null]);
+    if (sharedDocumentCheckSignatures.get(table) === signature) return;
+    const revisions = await readSharedDocumentRevisions(table, sessionMatches);
+    if (!revisions || !sessionMatches() || supabaseRefreshInProgress) return;
+    const history = {
+      [SUPABASE_LOAN_CONTRACT_TABLE]: pricingLoanHistory, [SUPABASE_OFFER_HISTORY_TABLE]: pricingOfferHistory,
+      [SUPABASE_ORDER_HISTORY_TABLE]: pricingOrderHistory, [SUPABASE_COMPLAINT_HISTORY_TABLE]: pricingComplaintHistory
+    }[table];
+    const ids = window.SatisSync.changedDocumentIds(history, revisions, id => satisDataStore.revision(table, id));
+    satisChangeQueue.pushMany(table, ids);
+    sharedDocumentCheckSignatures.set(table, signature);
+  }));
+  sharedDocumentCheckPending = pending;
+  try {
+    await pending;
+    if (sessionMatches()) await satisChangeQueue.flush();
+  } finally {
+    if (sharedDocumentCheckPending === pending) sharedDocumentCheckPending = null;
+  }
 }
 
 let documentSyncRunning = false;
@@ -2944,6 +3020,9 @@ function clearSensitiveApplicationState() {
   offlineForms?.lock();
   satisDataStore?.clear();
   satisChangeQueue?.clear();
+  sharedDocumentCheckSignatures.clear();
+  sharedDocumentCheckPending = null;
+  sharedDocumentCheckedAt = 0;
   documentSyncFailures = [];
   documentSyncNetworkPending = false;
   const syncNotice = document.querySelector("#documentSyncNotice");
@@ -9012,7 +9091,10 @@ function setPricingGeneralOfferNotes(content, value) {
 
 function renderPricingGeneralOffer(content, customer, offerLocation) {
   if (offerTitle) offerTitle.textContent = `Informacja o aparatach słuchowych${customer ? ` · ${customer}` : ""}`;
-  if (offerMeta) offerMeta.textContent = `Miejsce: ${offerLocation}`;
+  if (offerMeta) {
+    const printDate = new Date().toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit", year: "numeric" });
+    offerMeta.textContent = `Miejsce: ${offerLocation} | Data wydruku: ${printDate}`;
+  }
   setPricingGeneralOfferNotes(content, offerNotesInput?.value);
   if (offerAgeWarning) { offerAgeWarning.hidden = true; offerAgeWarning.textContent = ""; }
   if (offerEmptyState) offerEmptyState.hidden = true;
@@ -10046,6 +10128,7 @@ function switchPricingView(viewName) {
   if (activePricingView === "order") renderPricingOrder();
   if (activePricingView === "complaint") renderPricingComplaint();
   if (activePricingView === "history") renderPricingDocumentHistory();
+  void checkSharedDocuments();
 }
 
 function recentReceiptCustomers(source, query = "", today = todayInputValue()) {
@@ -10905,6 +10988,7 @@ async function printPricingOffer() {
   if (printPricingOfferBtn?.disabled) return;
   const savedEntry = await saveCurrentPricingOfferToHistory({ silent: true });
   if (!savedEntry) return;
+  if (offerGeneralInput?.checked) renderPricingOffer();
   const cleanup = () => document.body.classList.remove("pricing-offer-print");
   document.body.classList.add("pricing-offer-print");
   window.addEventListener("afterprint", cleanup, { once: true });
@@ -31638,12 +31722,14 @@ setupCurrentDateWidget();
 window.setInterval(checkForPublishedAppUpdate, APP_UPDATE_CHECK_MS);
 window.setInterval(refreshCurrentDateWidget, 60 * 1000);
 window.setInterval(processPendingDocumentSync, 30 * 1000);
+window.setInterval(checkSharedDocuments, SHARED_DOCUMENT_CHECK_MS);
 window.setInterval(renderPricingLoanHistory, 60 * 60 * 1000);
 window.setInterval(updateLoanReturnDeadlineHighlight, 60 * 1000);
 window.setInterval(refreshDemoReturnReminders, 60 * 1000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     if (currentSupabaseUser && !supabaseInitialDataReady) scheduleSupabaseRefresh();
+    void checkSharedDocuments();
     refreshCurrentDateWidget();
     checkForPublishedAppUpdate();
     renderPricingLoanHistory();
@@ -31655,6 +31741,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("online", () => {
   if (!hasSupabaseConfig || !currentSupabaseUser) return;
   refreshRecordsFromSupabase.recoveryAttempts = 0;
+  void checkSharedDocuments();
   scheduleSupabaseRefresh();
 });
 

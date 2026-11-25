@@ -52,10 +52,20 @@
     }
     return {
       push(table, id) { enqueue(table, [id]); arm(); },
+      pushMany(table, ids) { if (ids.length) { enqueue(table, ids); arm(); } },
       flush,
       clear() { generation += 1; pending.clear(); cancel(timer); },
       pendingCount: () => [...pending.values()].reduce((sum, ids) => sum + ids.size, 0)
     };
   }
-  return { createQueue };
+  function changedDocumentIds(local, remote, revision) {
+    const localIds = new Set(local.map(row => row.id));
+    const changes = new Set();
+    for (const row of remote) {
+      if (!localIds.delete(row.id) || revision(row.id) !== Number(row.revision)) changes.add(row.id);
+    }
+    for (const id of localIds) changes.add(id);
+    return [...changes];
+  }
+  return { createQueue, changedDocumentIds };
 });

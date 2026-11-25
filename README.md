@@ -17,6 +17,8 @@ Workflow `.github/workflows/quality.yml` uruchamia na GitHubie testy syntetyczne
 
 Formularze offline nie wymagają osobnego hasła. Zobacz [pierwsze włączenie, wydruki robocze i synchronizację](OFFLINE.md).
 
+Zapisane online oferty, umowy, zamówienia i reklamacje są wspólne dla stanowisk. SATIS odbiera zmiany na bieżąco; w formularzach i Historii dodatkowo co minutę sprawdza, czy nie przegapił zmian. Aktualizacja historii nie zastępuje otwartego formularza. Dokument staje się widoczny na innych stanowiskach dopiero po potwierdzonym zapisie na serwerze.
+
 W **PCPR → PCPR Żywiec** sekcja **Przed złożeniem wniosku** zapisuje wewnętrzną checklistę dokumentów i kontakt w sprawie skierowania. Wszystkie pięć potwierdzeń jest wymaganych do wydruku wypełnionego wniosku, także z listy. Checklista nie trafia do PDF i nie blokuje zapisu ani wydruku pustego wzoru. Do zapisywania checklisty potrzebny jest `supabase-mail-merge.sql` w wersji 10 lub nowszej, a do wyświetlania numerów zleceń NFZ w tabeli potrzebna jest wersja 11.
 
 W obu polach numeru zlecenia wpisz identyfikator z dokumentu, bez PIN-u i PESEL-u. Zapis i wydruk sprawdzają format według [specyfikacji eZWM NFZ](https://www.nfz.gov.pl/download/gfx/nfz/pl/defaultstronaopisowa/1220/2/1/specyfikacja_identyfikatora_zlecenia.pdf). Szkic można zapisać bez numeru. Aplikacja nie sprawdza statusu ani istnienia zlecenia w NFZ.

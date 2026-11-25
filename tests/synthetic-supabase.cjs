@@ -20,7 +20,7 @@ function installSyntheticSupabase() {
 
   class Query {
     constructor(table) { this.table = table; this.filters = []; this.orders = []; this.cap = Infinity; }
-    select() { return this; }
+    select(columns, options = {}) { this.columns = columns; this.count = options.count; return this; }
     eq(key, value) { this.filters.push(row => row[key] === value); return this; }
     gt(key, value) { this.filters.push(row => row[key] > value); return this; }
     in(key, values) { this.filters.push(row => values.includes(row[key])); return this; }
@@ -42,8 +42,12 @@ function installSyntheticSupabase() {
         for (const [key, asc] of [...this.orders].reverse()) {
           rows.sort((a, b) => (a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0) * (asc ? 1 : -1));
         }
+        const count = this.count === 'exact' ? rows.length : null;
         rows = rows.slice(this.start || 0, (this.start || 0) + this.cap);
-        return { data: structuredClone(this.singleRow ? rows[0] || null : rows), error: null };
+        if (this.columns && /^[a-z_,]+$/u.test(this.columns)) {
+          rows = rows.map(row => Object.fromEntries(this.columns.split(',').map(key => [key, row[key]])));
+        }
+        return { data: structuredClone(this.singleRow ? rows[0] || null : rows), count, error: null };
       }).then(resolve, reject);
     }
   }
@@ -73,7 +77,11 @@ function installSyntheticSupabase() {
     },
     removeChannel() {}
   };
-  window.__qa = { calls };
+  window.__qa = { calls, changeDocument(table, id, data) {
+    const existing = tables[table].find(record => record.id === id);
+    tables[table] = tables[table].filter(record => record.id !== id);
+    if (data) tables[table].push({ ...row(id, data), revision: (existing?.revision || 0) + 1, updated_at: new Date().toISOString() });
+  } };
   localStorage.setItem('zeszyt-aparatow-workstation-name-v1', 'P63');
   localStorage.setItem('zeszyt-aparatow-demo-return-reminder-last-shown', String(Date.now()));
 }

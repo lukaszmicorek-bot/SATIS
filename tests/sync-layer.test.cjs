@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { createQueue } = require('../sync-layer.js');
+const { createQueue, changedDocumentIds } = require('../sync-layer.js');
 
 function syncFunction(name) {
   const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
@@ -11,6 +11,58 @@ function syncFunction(name) {
   assert.ok(match);
   return source.slice(match.index, source.indexOf('\n}', match.index) + 2);
 }
+
+test('missed document events recover additions, deletions and revised rows without rereading unchanged contents', () => {
+  const history = ['unchanged', 'edited', 'deleted'].map(id => ({ id }));
+  const server = [{id:'unchanged',revision:'1'},{id:'edited',revision:2},{id:'added',revision:1}];
+  assert.deepEqual(changedDocumentIds(history, server, () => 1), ['edited','added','deleted']);
+});
+
+test('background history updates do not replace the currently edited form', () => {
+  const calls = [];
+  const ctx = vm.createContext({activeNotebook:'repairs',activePricingView:'order',activeDeviceView:'database',
+    rebuildCustomerDocumentIndex:()=>calls.push('index'),rebuildCustomerNameSuggestions:()=>calls.push('names'),
+    pricingViewNotebook:()=> 'repairs', renderRepairRecords:()=>calls.push('repairs'),
+    renderPricingDocumentHistory:()=>calls.push('history')});
+  vm.runInContext(syncFunction('refreshSharedDocumentViews'),ctx);
+  ctx.refreshSharedDocumentViews();
+  assert.deepEqual(calls,['index','names']);
+  ctx.activeNotebook='history';
+  ctx.refreshSharedDocumentViews();
+  assert.deepEqual(calls.slice(2),['index','names','history']);
+});
+
+test('document probes read revisions only after a change and discard results from an old login', async () => {
+  let reads = 0, revision = 1, pendingProbe;
+  const queued = [];
+  const ctx = vm.createContext({
+    hasSupabaseConfig:true,supabaseInitialDataReady:true,currentSupabaseUser:{id:'test'},sensitiveStateGeneration:0,
+    navigator:{onLine:true},document:{hidden:false},supabaseRefreshInProgress:false,offlineForms:null,
+    activeNotebook:'history',activePricingView:'history',pricingViewNotebook:view=>view,
+    sharedDocumentCheckPending:null,sharedDocumentCheckedAt:0,sharedDocumentCheckSignatures:new Map(),
+    SHARED_DOCUMENT_HISTORY_TABLES:['loan'],SUPABASE_LOAN_CONTRACT_TABLE:'loan',SUPABASE_OFFER_HISTORY_TABLE:'offer',
+    SUPABASE_ORDER_HISTORY_TABLE:'order',SUPABASE_COMPLAINT_HISTORY_TABLE:'complaint',
+    pricingLoanHistory:[{id:'one'}],pricingOfferHistory:[],pricingOrderHistory:[],pricingComplaintHistory:[],
+    supabaseClient:{from(){return {select(){return this;},order(){return this;},limit(){return pendingProbe||
+      Promise.resolve({data:[{id:'one',revision,updated_at:String(revision)}],count:1});}};}},
+    readSharedDocumentRevisions:async()=>{reads++;return [{id:'one',revision}];},
+    satisDataStore:{revision:()=>1},satisChangeQueue:{pushMany(_table,ids){queued.push(...ids);},async flush(){}},
+    window:{SatisSync:{changedDocumentIds}}
+  });
+  vm.runInContext(syncFunction('checkSharedDocuments'),ctx);
+  const check = () => {ctx.sharedDocumentCheckedAt=0;return ctx.checkSharedDocuments();};
+  await check();await check();
+  assert.equal(reads,1);assert.deepEqual(queued,[]);
+  revision=2;await check();
+  assert.equal(reads,2);assert.deepEqual(queued,['one']);
+  let finish;
+  pendingProbe=new Promise(resolve=>{finish=resolve;});
+  const previous=check();
+  ctx.sensitiveStateGeneration++;
+  finish({data:[{id:'other',revision:1}],count:2});
+  await previous;
+  assert.equal(reads,2);assert.deepEqual(queued,['one']);
+});
 
 test('document sync retries read-only RPCs once without retrying writes or permission failures', async () => {
   let calls = 0;

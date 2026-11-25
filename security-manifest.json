@@ -1,5 +1,5 @@
 {
-  "app_version": "20261125-7",
+  "app_version": "20261125-8",
   "asset_policy_sha256": "3e4ebeaff4e53fdb242e731fdea245dc0ea8c6446bf8402c0dd98b5e0132c4b4",
   "asset_policy_version": 1,
   "external_dependencies": [
@@ -23,8 +23,8 @@
       "sha256": "35c986e12412bdf7601b42b49ad0d2c77f5c00a74dea07e28f0090484daf0943"
     },
     "app.js": {
-      "bytes": 1965992,
-      "sha256": "52ec3128cd343453b14142b038506793e1b7ff089d0e986421b208023c0324bc"
+      "bytes": 1970443,
+      "sha256": "d9ab88934552478d6d04265ac84f2b73819086a9cc0bf4671d055ff6382d4f28"
     },
     "apple-touch-icon.png": {
       "bytes": 8918,
@@ -63,8 +63,8 @@
       "sha256": "7dbb634a09c9e4d7496a74b9a4fcccb483ca0d4eb056aa7c27d9d547f0e39978"
     },
     "index.html": {
-      "bytes": 479286,
-      "sha256": "9528e3d3e77d29ef6838de9bb8863eae0f9da3c23fa587af9929e5bb0f2241bf"
+      "bytes": 479305,
+      "sha256": "1d1120f61fe5ae1433ac15544c88ddfa4573ac5ffdfac5481fbc82d87b7e9bd7"
     },
     "mail-merge-pdf.mjs": {
       "bytes": 5914,
@@ -180,7 +180,7 @@
     },
     "offline-sw.js": {
       "bytes": 3484,
-      "sha256": "77c2bf046d7ff5d0e1b76c96b14c7338e9ee5cfb6daf266d939a82fefde26407"
+      "sha256": "6589195d6c4fb54b3e1f137ec66864bd47944ffe2b386c1a31f6a68fb2170e04"
     },
     "offline-vault.js": {
       "bytes": 5688,
@@ -227,16 +227,16 @@
       "sha256": "388a158dd96891f27fd58d3191606f0c53707673c9e9557b36d345be37027b87"
     },
     "styles.css": {
-      "bytes": 492813,
-      "sha256": "b2740a94d815c3b37c733d9df81a975f56dad5b5f9876f3f3f63d7d73fce6672"
+      "bytes": 492908,
+      "sha256": "4a6873e27aadf5e82fa348e836281c5f24d07e7d72dafe2fc33c9d5bbe5a89d3"
     },
     "supabase-config.js": {
       "bytes": 227,
       "sha256": "bcd6ce976c86acde00d16fa7ca5120caa0be721d436b6a622b9b0bb7bf048c7f"
     },
     "sync-layer.js": {
-      "bytes": 2248,
-      "sha256": "07ca08034f593f21dd3b34e23fb8789a4253910e4d15bed7cc3002487b12b361"
+      "bytes": 2709,
+      "sha256": "594f0330aab74af0f50f269b6f0c07487fdef8a698cdbf0b899c8d723d791006"
     },
     "tasks.js": {
       "bytes": 13563,

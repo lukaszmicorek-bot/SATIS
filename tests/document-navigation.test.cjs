@@ -47,7 +47,7 @@ function setup() {
   context.tinnitusForms = {render: kind => {context.renderCounts[kind] = (context.renderCounts[kind] || 0) + 1;}};
   for (const name of ['hideWorkTimeHourlyPreview', 'hideVacationPeriodPreview', 'updateCustomerRelationsPanelVisibility', 'renderCustomerRelations', 'setCurrentYearTitle',
     'renderTinnitusProcedure', 'renderPricingOfferDeviceList', 'renderPricingOffer', 'renderPricingLoan', 'renderPricingReceipt', 'renderPricingRodo', 'renderPricingPcprList', 'renderPricingOrder', 'renderPricingComplaint',
-    'renderPricingDocumentHistory', 'renderPricingRecords', 'updateStats', 'renderRepairRecords', 'renderDataControlView', 'renderDemoRecords',
+    'renderPricingDocumentHistory', 'checkSharedDocuments', 'renderPricingRecords', 'updateStats', 'renderRepairRecords', 'renderDataControlView', 'renderDemoRecords',
     'renderStockView', 'renderDeviceViews', 'updateCapdScope', 'renderCapdHistory', 'renderVacationModule',
     'renderWorkTimeModule', 'loadWorkTimeRecords']) {
     context[name] = () => { context.renderCounts[name] = (context.renderCounts[name] || 0) + 1; };

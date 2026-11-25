@@ -23,6 +23,7 @@ async function verifyGeneralOffer({ page, context, pageErrors }) {
   assert.equal(await page.locator('#printPricingOfferBtn').isEnabled(), true);
   assert.equal(await page.evaluate(() => validatePricingOfferForAction()), true);
   assert.doesNotMatch(await page.locator('#offerMeta').textContent(), /Data oferty|Ważna do/);
+  assert.match(await page.locator('#offerMeta').textContent(), /63 \| Data wydruku: \d{2}\.\d{2}\.\d{4}/);
   await page.locator('#offerNotesInput').fill(notes);
   assert.equal(await page.locator('#offerGeneralNotesPrint span').textContent(), notes);
   const geometry = () => content.evaluate(node => ({
@@ -51,6 +52,7 @@ async function verifyGeneralOffer({ page, context, pageErrors }) {
   assert.ok(headings.every(heading => text.includes(heading)));
   assert.ok(text.includes(notes));
   assert.doesNotMatch(text, /Data oferty|Ważna do|Jak wygląda współpraca|Przedział cenowy/);
+  assert.match(await output.locator('.offer-meta').textContent(), /63 \| Data wydruku: \d{2}\.\d{2}\.\d{4}/);
   assert.equal(await output.locator('.offer-description').isVisible(), false);
   if (process.env.SATIS_QA_DIR) {
     const pdf = path.join(process.env.SATIS_QA_DIR, 'satis-informacja-ogolna.pdf');
@@ -58,10 +60,11 @@ async function verifyGeneralOffer({ page, context, pageErrors }) {
     assert.match(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }), /Pages:\s+1\b/);
     const printed = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
     assert.ok(printed.includes('Uwagi:') && printed.includes(notes));
+    assert.match(printed, /63 \| Data wydruku: \d{2}\.\d{2}\.\d{4}/);
     assert.doesNotMatch(printed, /Data oferty|Ważna do|Jak wygląda współpraca/);
   }
   assert.deepEqual(pageErrors, []);
-  console.log('Informacja ogólna: typy aparatów, koszty, uwagi i brak dat; sprawdzono podgląd oraz wydruk offline.');
+  console.log('Informacja ogólna: typy aparatów, koszty, uwagi i data wydruku po adresie; sprawdzono podgląd oraz wydruk offline.');
 }
 
 runInSyntheticApp(verifyGeneralOffer).catch(error => { console.error(error); process.exitCode = 1; });

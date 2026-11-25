@@ -5630,13 +5630,13 @@ h2 {
   object-fit: contain;
 }
 
-#pricingOfferPrint .offer-document-head {
+.offer-document-head:has(> .offer-meta) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px 18px;
 }
 
-#pricingOfferPrint #offerMeta {
+.offer-document-head > .offer-meta {
   grid-column: 1 / -1;
   display: block;
   min-width: 0;
@@ -5646,6 +5646,8 @@ h2 {
   font-size: 0.72rem;
   line-height: 1.4;
 }
+
+.offer-general-document .offer-document-head > .offer-meta { white-space: normal; }
 
 .offer-locations {
   display: grid;
@@ -15025,11 +15027,11 @@ textarea {
     font-size: 8.5pt;
   }
 
-  body.pricing-offer-print #pricingOfferPrint .offer-document-head {
+  body.pricing-offer-print .offer-document-head:has(> .offer-meta) {
     gap: 1.5mm 3mm;
   }
 
-  body.pricing-offer-print #pricingOfferPrint #offerMeta {
+  body.pricing-offer-print .offer-document-head > .offer-meta {
     overflow: visible;
     font-size: 8pt;
   }

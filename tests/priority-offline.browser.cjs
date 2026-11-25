@@ -52,6 +52,32 @@ async function runInSyntheticApp(verify) {
 }
 
 async function verifyOffline({ page, context, pageErrors }) {
+  await page.locator('#loanTab').click();
+  await page.locator('#loanCustomerInput').fill('Lokalny Szkic');
+  const checkRemote = async (customer, revision) => {
+    await page.evaluate(async ({customer, revision}) => {
+      const today = todayInputValue();
+      __qa.changeDocument('loan_contracts', 'qa-remote-loan', customer ? {
+        customer, date: today, periodFrom: today, periodTo: addDaysToIsoDate(today, 14),
+        number: '99/11/2026', city: 'Bielsko-Biała, ul. Partyzantów 63',
+        rightDevice: { model: 'Model testowy', serial: 'QA-REMOTE-LOAN' }
+      } : null);
+      if (sharedDocumentCheckPending) await sharedDocumentCheckPending;
+      sharedDocumentCheckedAt = 0;
+      await checkSharedDocuments();
+    }, {customer, revision});
+    await page.waitForFunction(({customer, revision}) => {
+      const found = pricingLoanHistory.find(entry => entry.id === 'qa-remote-loan');
+      return customer ? found?.customer === customer && satisDataStore.revision('loan_contracts','qa-remote-loan') === revision : !found;
+    }, {customer, revision});
+    assert.equal(await page.locator('#loanCustomerInput').inputValue(), 'Lokalny Szkic');
+  };
+  await checkRemote('Zdalna Umowa', 1);
+  await checkRemote('Zdalna Korekta', 2);
+  await checkRemote('', null);
+  await page.evaluate(() => startNewPricingLoan());
+  console.log('Historia umów odzyskuje pominięte zmiany bez nadpisania wypełnianego formularza.');
+
   await page.locator('#offlineFormsLauncher').click();
   await page.locator('#offlineWorkspace').waitFor({ state: 'visible', timeout: 25000 });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);

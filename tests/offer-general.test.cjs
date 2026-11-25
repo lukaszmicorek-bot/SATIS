@@ -18,6 +18,7 @@ function setup() {
   const controls = () => ({ disabled: true });
   const c = vm.createContext({
     collator: new Intl.Collator('pl'),
+    Date: class extends Date { constructor() { super('2026-11-24T23:15:00Z'); } },
     normalize: value => String(value || '').trim().toLowerCase(),
     normalizeLoanHistoryText: value => String(value ?? '').trim(), titleCaseName: value => value,
     normalizeDocumentLocationValue: value => value, isoDateForSave: value => value || '',
@@ -51,10 +52,10 @@ test('general offer contains only the two information sections followed by notes
   assert.doesNotMatch(block, /offer-general-table|Jak wygląda współpraca/);
 });
 
-test('general offer shows notes and place without dates or a priced catalogue', () => {
+test('general offer shows the print date immediately after the place, without an offer date or catalogue', () => {
   const { c, notes, notesText, content } = setup();
-  c.renderPricingGeneralOffer(content, 'Osoba Testowa', 'P63');
-  assert.equal(c.offerMeta.textContent, 'Miejsce: P63');
+  c.renderPricingGeneralOffer(content, 'Osoba Testowa', 'Bielsko-Biała, ul. Partyzantów 63');
+  assert.equal(c.offerMeta.textContent, 'Miejsce: Bielsko-Biała, ul. Partyzantów 63 | Data wydruku: 25.11.2026');
   assert.equal(c.offerContent.hidden, true);
   assert.equal(c.offerEmptyState.hidden, true);
   assert.equal(c.savePricingOfferBtn.disabled, false);

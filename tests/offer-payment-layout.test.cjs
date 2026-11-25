@@ -35,10 +35,10 @@ const devices=[{kind:'device',slot:1,record:{model:'Długi model aparatu P',nfzC
 const items=[...devices,{kind:'charger',record:{model:'Charger'}},{kind:'earmold',record:{model:'Wkładka'}}];
 const totals={nfz:4050,pfron:1000,patient:2000,pfronEnabled:true,withoutNfz:false};
 test('offer dates and place share a full-width single line below the heading and logo',()=>{
-  assert.match(html,/<h2 id="offerTitle">[^<]*<\/h2>\s*<\/div>\s*<img[^>]+>\s*<span id="offerMeta">/);
-  assert.match(css,/#pricingOfferPrint \.offer-document-head \{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/);
-  assert.match(css,/#pricingOfferPrint #offerMeta \{[^}]*grid-column: 1 \/ -1;[^}]*overflow-x: auto;[^}]*white-space: nowrap;/);
-  assert.match(css,/body\.pricing-offer-print #pricingOfferPrint #offerMeta \{[^}]*overflow: visible;[^}]*font-size: 8pt;/);
+  assert.match(html,/<h2 id="offerTitle">[^<]*<\/h2>\s*<\/div>\s*<img[^>]+>\s*<span id="offerMeta" class="offer-meta">/);
+  assert.match(css,/\.offer-document-head:has\(> \.offer-meta\) \{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/);
+  assert.match(css,/\.offer-document-head > \.offer-meta \{[^}]*grid-column: 1 \/ -1;[^}]*overflow-x: auto;[^}]*white-space: nowrap;/);
+  assert.match(css,/body\.pricing-offer-print \.offer-document-head > \.offer-meta \{[^}]*overflow: visible;[^}]*font-size: 8pt;/);
   assert.match(source,/offerMeta\.textContent = `Data oferty: \$\{formatDate\(offerDate\)\} \| Miejsce: \$\{offerLocation\} \| Ważna do: \$\{formatDate\(validUntil\)\} \(\$\{PRICING_OFFER_VALID_DAYS\} dni\)`/);
 });
 test('funding lines separate each ear, model and NFZ limit, with unchanged payment amounts',()=>{
