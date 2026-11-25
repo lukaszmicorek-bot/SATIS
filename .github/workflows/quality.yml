@@ -33,6 +33,7 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           node tests/priority-offline.browser.cjs
+          node tests/offer-general.browser.cjs
       - name: Verify published assets
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node ci/verify-release.cjs

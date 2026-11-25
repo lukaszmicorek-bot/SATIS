@@ -1,85 +1,67 @@
-// Real offer markup and rendering functions, synthetic catalog, no external requests.
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
-const {execFileSync}=require('node:child_process'),{chromium}=require('playwright');
-const root=path.join(__dirname,'..'),source=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const markup=html.slice(html.indexOf('<section id="pricingOfferView"'),html.indexOf('<section id="pricingLoanView"'));
-function extract(name){const start=source.indexOf(`function ${name}(`);assert.ok(start>=0,name);const rest=source.slice(start);return rest.slice(0,rest.slice(1).search(/\n(?:async )?function /)+1);}
-const names=['normalizePricingPrice','normalizePricingManufacturerName','normalizePricingNfzCode','pricingOfferAccessoryKind','isPricingModelUnavailable',
- 'normalizeAudibelTradeName','repairShiftedPricingModel','repairPricingRecordColumns','normalizePricingRecordForUse','normalizePricingRecordsForUse',
- 'pricingGeneralOfferBrand','normalizePricingGeneralRanges','pricingGeneralOfferRanges','currentPricingGeneralCatalog','currentPricingGeneralRanges','appendOfferCell','formatPricingAmount','formatPricingPrice',
- 'renderPricingGeneralOffer','renderPricingOffer','normalizePricingOfferHistoryItem','pricingOfferHistoryEntryHasContent','normalizePricingOfferHistoryEntry',
- 'currentPricingOfferSnapshot','restorePricingOfferFromHistory','resetOfferChargerPrice','selectedPricingOfferItems','setPricingOfferPatientGroup','pricingOfferPatientGroup','pricingOfferHistoryPatientGroup'];
-const bindings=['pricingOfferView','offerGeneralInput','offerCustomerInput','offerLocationInput','offerDeviceInput1','offerDeviceInput2','offerTransferSidesBtn','offerChargerInput','offerChargerPriceInput','offerEarmoldInput','offerPfronInput','offerPfronEnabledInput','offerNoNfzInput','offerNotesInput','offerNotesText','offerNotesPrint','offerAgeWarning','offerEmptyState','offerContent','savePricingOfferBtn','printPricingOfferBtn','offerTitle','offerMeta','offerGrossTotal','offerPatientTotal','offerItemsBody','offerPaymentsBody','offerDateInput','pricingOfferDeviceList'];
-const brands=['Audibel','Audio Service','Beltone','Bernafon','Oticon','Philips','Phonak','ReSound','Signia','Sonic','Starkey'];
-const seed={window:{}};vm.runInNewContext(fs.readFileSync(path.join(root,'pricing-data.js'),'utf8'),seed);
-async function run(){
- const browser=await chromium.launch({headless:true,...(process.env.SATIS_CHROMIUM?{executablePath:process.env.SATIS_CHROMIUM}:{})});
- try{
-  const page=await browser.newPage({viewport:{width:1366,height:1000}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.route('**/*',route=>{
-   const url=new URL(route.request().url()),name=url.pathname.slice(1);if(url.origin!=='http://satis.test')return route.abort();
-   if(!name)return route.fulfill({contentType:'text/html',body:`<!doctype html><html lang="pl"><head><meta charset="utf-8"><link rel="stylesheet" href="styles.css"></head><body><main class="app-shell"><section id="pricingNotebook"><section class="pricing-panel">${markup}</section></section></main><script>
-    ${bindings.map(id=>`const ${id}=document.getElementById('${id}');`).join('\n')}
-    const offerPatientGroupInputs=[...document.querySelectorAll('input[name="offerPatientGroup"]')],collator=new Intl.Collator('pl'),documentSaveLocks=new Map(),PRICING_OFFER_VALID_DAYS=30;
-    const pricingFields=['idProduct','nfzCode','tradeName','model','manufacturer','orderIndex','grossPrice','swdCode'];
-    const currentSupabaseUser={email:'owner@example.invalid'};
-    let pricingGeneralOfferSavedRanges=null,pricingGeneralOfferSavedPeriod='',catalogPeriod='2026-11',pricingRecords=${JSON.stringify(brands.flatMap((manufacturer,index)=>[1000,6000].map(price=>({manufacturer,tradeName:manufacturer+' aparat',model:manufacturer+' model',nfzCode:'P.01.01.00',grossPrice:price+index*100}))))};
-    function pricingUpdatedDateTime(){return catalogPeriod;}
-    const normalize=value=>String(value??'').toLowerCase().trim(),normalizeLoanHistoryText=value=>String(value??'').trim(),titleCaseName=value=>value;
-    const isoDateForSave=value=>value||'',normalizeDocumentLocationValue=value=>value||'',makeId=()=> 'synthetic-offer',currentWorkstationName=()=> 'P63';
-    const ensurePricingOfferDate=()=>offerDateInput.value||'2026-11-18',ensurePricingOfferLocation=()=> 'P63',addDaysToIsoDate=()=> '2026-12-18',formatDate=value=>value;
-    function updateDocumentLocationAccent(){}function bindDocumentDraft(){}function renderPricingOfferDeviceList(){}function switchPricingView(){}function markAgreementDraftSaved(){}function markAgreementDraftDirty(){}
-    function setDateInputValue(input,value){input.value=value;}function pricingOfferDeviceLabel(record){return record.model;}
-    function findPricingOfferRecord(value){return pricingRecords.find(row=>row.model===value)||null;}function findPricingOfferAccessoryRecord(){return null;}
-    function selectedPricingOfferAllItems(){return selectedPricingOfferItems().map(item=>({...item,kind:'device'}));}function selectedPricingOfferAccessoryItems(){return [];}
-    function updateOfferDevicePriceLabels(){}function pricingOfferNfzAmount(){return 1050;}function pricingOfferPfronAmount(){return 0;}
-    function createPricingPriceElement(value){const node=document.createElement('span');node.textContent=value+' zł';return node;}
-    function renderPricingOfferItems(items){offerItemsBody.replaceChildren(...items.map(item=>{const row=document.createElement('tr');appendOfferCell(row,item.record.model);return row;}));}
-    function renderPricingOfferPayments(){offerPaymentsBody.replaceChildren();}function renderPricingOfferAgeWarning(){offerAgeWarning.hidden=true;}
-    ${names.map(extract).join('\n')}
-    pricingOfferView.hidden=false;offerCustomerInput.value='Osoba Testowa';offerDateInput.value='2026-11-18';offerDeviceInput1.value='Phonak model';offerPatientGroupInputs[0].checked=true;
-    offerGeneralInput.addEventListener('change',()=>{pricingGeneralOfferSavedRanges=null;renderPricingOffer();});
-    renderPricingOffer();
-   </script></body></html>`});
-   if(!['styles.css','satis-monogram.png','InterVariable.woff2','InterVariable-Italic.woff2'].includes(name))return route.abort();
-   return route.fulfill({body:fs.readFileSync(path.join(root,name)),contentType:name.endsWith('.css')?'text/css':name.endsWith('.png')?'image/png':'font/woff2'});
-  });
-  await page.goto('http://satis.test');
-  assert.equal(await page.locator('#offerGeneralContent').isVisible(),false);
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const { runInSyntheticApp } = require('./priority-offline.browser.cjs');
+
+const notes = 'Przymiarka w gabinecie. Dodatkowy termin testowania.';
+const headings = ['Jakie modele możesz u nas wypróbować?', 'Ile kosztuje aparat słuchowy?'];
+
+async function verifyGeneralOffer({ page, context, pageErrors }) {
+  await page.locator('#offerTab').click();
+  assert.match(await page.locator('#offerMeta').textContent(), /Data oferty:.*Ważna do:/);
+  await page.evaluate(() => { pricingRecords = []; });
+  await page.locator('#offerCustomerInput').fill('Osoba Testowa');
   await page.locator('#offerGeneralInput').check();
-  assert.equal(await page.locator('.offer-side-devices').isVisible(),false);assert.equal(await page.locator('.offer-patient-group').isVisible(),false);
-  assert.equal(await page.locator('#printPricingOfferBtn').isEnabled(),true,'general offer needs no age group or selected model');
-  assert.equal(await page.locator('#offerGeneralRows tr').count(),11);assert.equal(await page.locator('.offer-payments-table').isVisible(),false);
-  assert.equal(await page.locator('.offer-items-table').isVisible(),false);assert.equal(await page.locator('.offer-total-line').isVisible(),false);
-  const snapshot=await page.evaluate(()=>normalizePricingOfferHistoryEntry(currentPricingOfferSnapshot()));
-  assert.equal(snapshot.items.length,0);assert.equal(snapshot.generalInformation,true);assert.equal(snapshot.priceRanges.length,11);
-  await page.evaluate(saved=>{pricingRecords=[];restorePricingOfferFromHistory(saved);},snapshot);
-  assert.equal(await page.locator('#offerGeneralRows tr').count(),11,'history keeps the original price ranges after catalog deletion');
-  await page.evaluate(saved=>{pricingRecords=saved.priceRanges.map(range=>({model:range.manufacturer+' aparat',manufacturer:range.manufacturer,nfzCode:'P.01.01.00',grossPrice:range.min+500}));catalogPeriod='2027-02';renderPricingOffer();},snapshot);
-  assert.equal(await page.evaluate(()=>currentPricingOfferSnapshot().priceRanges[0].min),snapshot.priceRanges[0].min+500);
-  assert.ok((await page.locator('#offerGeneralUpdated').textContent()).includes('luty 2027'),'the displayed catalog date follows a new edition');
-  await page.evaluate(()=>{catalogPeriod='2026-10';renderPricingOffer();});
-  assert.equal(await page.evaluate(()=>currentPricingOfferSnapshot().priceRanges[0].min),snapshot.priceRanges[0].min,'an older cache cannot replace a newer saved edition');
-  await page.evaluate(()=>{catalogPeriod='2026-11';});
-  await page.evaluate(()=>{const output=document.createElement('div');output.id='clone';const copy=document.getElementById('pricingOfferPrint').cloneNode(true);copy.removeAttribute('id');output.append(copy);document.body.append(output);});
-  assert.equal(await page.locator('#clone .offer-payments-table').isVisible(),false,'offline clone retains general-only presentation');
-  await page.locator('#clone').evaluate(node=>node.remove());
-  await page.locator('#pricingOfferPrint').scrollIntoViewIfNeeded();
-  if(process.env.SATIS_QA_DIR)await page.locator('#pricingOfferPrint').screenshot({path:path.join(process.env.SATIS_QA_DIR,'offer-general-desktop.png')});
-  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  if(process.env.SATIS_QA_DIR)await page.locator('#pricingOfferPrint').screenshot({path:path.join(process.env.SATIS_QA_DIR,'offer-general-mobile.png')});
-  await page.setViewportSize({width:1366,height:1000});
-  await page.evaluate(records=>{pricingRecords=normalizePricingRecordsForUse(records);pricingGeneralOfferSavedRanges=null;offerNotesInput.value='Dodatkowe ustalenia dotyczące doboru i testowania aparatów. '.repeat(6).slice(0,300);renderPricingOffer();},seed.window.PRICING_SEED_RECORDS);
-  assert.equal(await page.locator('#offerGeneralRows tr').count(),11,'only the eleven brands with offer logos are shown');
-  assert.deepEqual(await page.locator('#offerGeneralRows tr td:first-child').allTextContents(),[...brands].sort((a,b)=>a.localeCompare(b,'pl')));
-  await page.evaluate(()=>document.body.classList.add('pricing-offer-print'));await page.emulateMedia({media:'print'});await page.evaluate(()=>document.fonts.ready);
-  if(process.env.SATIS_QA_DIR){const pdf=path.join(process.env.SATIS_QA_DIR,'offer-general.pdf');await page.pdf({path:pdf,format:'A4',printBackground:true,preferCSSPageSize:true});
-   const info=execFileSync(process.env.SATIS_PDFINFO||'pdfinfo',[pdf],{encoding:'utf8'});assert.match(info,/Pages:\s+1\b/,'general offer fits on a single A4 page');}
-  await page.emulateMedia({media:'screen'});await page.evaluate(()=>document.body.classList.remove('pricing-offer-print'));
-  await page.locator('#offerGeneralInput').uncheck();assert.equal(await page.locator('.offer-side-devices').isVisible(),true);assert.equal(await page.locator('#offerGeneralContent').isVisible(),false);
-  assert.equal(await page.locator('.offer-items-table').isVisible(),false,'restored general history does not secretly create product rows');
-  await page.evaluate(()=>{pricingRecords=[];});await page.locator('#offerGeneralInput').check();assert.equal(await page.locator('#printPricingOfferBtn').isDisabled(),true,'empty catalog cannot produce made-up prices');
-  assert.deepEqual(errors,[]);console.log('OK: general offer, 11 firms, no models or payment totals, history round trip, empty catalog, offline clone, mobile and single A4 print.');
- }finally{await browser.close();}
+  const content = page.locator('#offerGeneralContent');
+  await content.waitFor({ state: 'visible' });
+  assert.deepEqual(await content.locator('h3').allTextContents(), headings);
+  assert.deepEqual(await content.locator('h4').allTextContents(), ['Ładowalne', 'Na baterie', 'Dyskretne']);
+  assert.equal(await page.locator('#offerNotesInput').isVisible(), true);
+  assert.equal(await page.locator('#offerDateInput').isVisible(), false);
+  assert.equal(await page.locator('#offerGeneralNotesPrint').isVisible(), false);
+  assert.equal(await page.locator('#offerContent').isVisible(), false);
+  assert.equal(await page.locator('#printPricingOfferBtn').isEnabled(), true);
+  assert.equal(await page.evaluate(() => validatePricingOfferForAction()), true);
+  assert.doesNotMatch(await page.locator('#offerMeta').textContent(), /Data oferty|Ważna do/);
+  await page.locator('#offerNotesInput').fill(notes);
+  assert.equal(await page.locator('#offerGeneralNotesPrint span').textContent(), notes);
+  const geometry = () => content.evaluate(node => ({
+    width: node.clientWidth, used: node.scrollWidth, right: node.getBoundingClientRect().right,
+    viewport: innerWidth
+  }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobile = await geometry();
+  assert.ok(mobile.used <= mobile.width + 1 && mobile.right <= mobile.viewport + 1, JSON.stringify(mobile));
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.locator('#offerGeneralInput').uncheck();
+  assert.match(await page.locator('#offerMeta').textContent(), /Data oferty:.*Ważna do:/);
+  assert.equal(await page.locator('#offerDateInput').isVisible(), true);
+  await page.locator('#offerGeneralInput').check();
+
+  await page.locator('#offlineFormsLauncher').click();
+  await page.locator('#offlineWorkspace').waitFor({ state: 'visible', timeout: 25000 });
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await context.setOffline(true);
+  await page.evaluate(() => { window.print = () => { window.qaGeneralPrint = true; }; });
+  await page.locator('[data-offline=print]').click();
+  await page.waitForFunction(() => window.qaGeneralPrint === true);
+  await page.emulateMedia({ media: 'print' });
+  const output = page.locator('#offlinePrint');
+  const text = await output.innerText();
+  assert.ok(headings.every(heading => text.includes(heading)));
+  assert.ok(text.includes(notes));
+  assert.doesNotMatch(text, /Data oferty|Ważna do|Jak wygląda współpraca|Przedział cenowy/);
+  assert.equal(await output.locator('.offer-description').isVisible(), false);
+  if (process.env.SATIS_QA_DIR) {
+    const pdf = path.join(process.env.SATIS_QA_DIR, 'satis-informacja-ogolna.pdf');
+    await page.pdf({ path: pdf, format: 'A4', printBackground: true, preferCSSPageSize: true });
+    assert.match(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }), /Pages:\s+1\b/);
+    const printed = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+    assert.ok(printed.includes('Uwagi:') && printed.includes(notes));
+    assert.doesNotMatch(printed, /Data oferty|Ważna do|Jak wygląda współpraca/);
+  }
+  assert.deepEqual(pageErrors, []);
+  console.log('Informacja ogólna: typy aparatów, koszty, uwagi i brak dat; sprawdzono podgląd oraz wydruk offline.');
 }
-run().catch(error=>{console.error(error);process.exitCode=1;});
+
+runInSyntheticApp(verifyGeneralOffer).catch(error => { console.error(error); process.exitCode = 1; });

@@ -27,26 +27,31 @@ const server = createServer((req, res) => {
   res.end(data);
 });
 
-async function main() {
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  origin = `http://127.0.0.1:${server.address().port}`;
-  browser = await chromium.launch({ executablePath: process.env.BROWSER_EXECUTABLE });
-  const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
-  const page = await context.newPage();
-  const pageErrors = [];
-  page.on('pageerror', error => pageErrors.push(error.message));
-  page.on('dialog', dialog => dialog.accept());
-  page.setDefaultTimeout(12000);
-  await page.goto(origin);
-  await page.waitForFunction(() => supabasePrimaryDataReady && records.length === 10000 && repairRecords.length === 160);
-  assert.equal(await page.locator('#authDialog').evaluate(dialog => dialog.open), false);
-  assert.equal(await page.evaluate(() => supabaseInitialDataReady), false);
-  assert.equal(await page.locator('.devices-table thead th').first().evaluate(el => getComputedStyle(el).position), 'sticky');
-  await page.evaluate(() => qaReleasePricing());
-  await page.waitForFunction(() => supabaseInitialDataReady);
-  assert.equal(await page.locator('.offer-items-table thead th').first().evaluate(el => getComputedStyle(el).position), 'static');
-  console.log('Aparaty i Serwis widoczne przed cennikiem; zapis po potwierdzonym odczycie.');
+async function runInSyntheticApp(verify) {
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch({ executablePath: process.env.BROWSER_EXECUTABLE });
+    const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    page.on('dialog', dialog => dialog.accept());
+    page.setDefaultTimeout(12000);
+    await page.goto(origin);
+    await page.waitForFunction(() => supabasePrimaryDataReady && records.length === 10000 && repairRecords.length === 160);
+    assert.equal(await page.locator('#authDialog').evaluate(dialog => dialog.open), false);
+    assert.equal(await page.evaluate(() => supabaseInitialDataReady), false);
+    assert.equal(await page.locator('.devices-table thead th').first().evaluate(el => getComputedStyle(el).position), 'sticky');
+    await page.evaluate(() => qaReleasePricing());
+    await page.waitForFunction(() => supabaseInitialDataReady);
+    assert.equal(await page.locator('.offer-items-table thead th').first().evaluate(el => getComputedStyle(el).position), 'static');
+    console.log('Aparaty i Serwis widoczne przed cennikiem; zapis po potwierdzonym odczycie.');
+    await verify({ page, context, pageErrors });
+  } finally { await browser?.close(); server.close(); }
+}
 
+async function verifyOffline({ page, context, pageErrors }) {
   await page.locator('#offlineFormsLauncher').click();
   await page.locator('#offlineWorkspace').waitFor({ state: 'visible', timeout: 25000 });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
@@ -73,7 +78,7 @@ async function main() {
   console.log('Bez internetu: otwarcie bez hasła, zachowany szkic, walidacja i wydruk roboczy.');
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
-  await browser?.close();
-  server.close();
+if (require.main === module) runInSyntheticApp(verifyOffline).catch(error => {
+  console.error(error); process.exitCode = 1;
 });
+module.exports = { runInSyntheticApp };
