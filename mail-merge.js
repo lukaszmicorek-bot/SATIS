@@ -141,7 +141,7 @@
   }
   function validate(data, validPesel) {
     const errors = [...correspondenceIssues(data, true),...disabilityIssues(data,true)];
-    for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["middleName", "Drugie imię (lub Brak)"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["postOffice", "Poczta"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
+    for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["postOffice", "Poczta"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
     if (!validPesel(data.pesel)) errors.push({field: "pesel", text: "Wpisz poprawny PESEL (11 cyfr i prawidłowa suma kontrolna)."});
@@ -288,7 +288,7 @@
   function create(a) {
     const document = a.document, host = document.getElementById("mailMergeNotebook"), fields = new Map(), labels = new Map(), choiceGroups = new Map(), disabilityChecks=[];
     const checklist = new Map();
-    let checklistPreviouslySaved = false;
+    let checklistPreviouslySaved = false, checklistValidationRequested = false;
     let geoPromise = null, geoIndex = null, postalSequence = 0, deferredPostal = false, rows = [], total = 0, offset = 0, editingId = "", editingRevision = null, newId = "";
     let dirty = false, busy = false, ready = false, printBusy = false, cleanupPrint = null, pendingPrint = null;
     let generation = 0, session = 0, readSequence = 0, geoSequence = 0, previewTimer, searchTimer, writeRequest = null;
@@ -350,7 +350,12 @@
     }
     function updateSubmissionChecklist() {
       let count=0;
-      for(const input of checklist.values()){input.disabled=busy;if(input.checked)count++;}
+      for(const input of checklist.values()){
+        input.disabled=busy;
+        if(input.checked)count++;
+        if(checklistValidationRequested&&!input.checked)input.setAttribute("aria-invalid","true");
+        else input.removeAttribute("aria-invalid");
+      }
       q("mailMergeChecklistProgress").textContent=`Sprawdzone: ${count} / ${checklist.size}`;
       const dial=q("mailMergeReferralCall"),phone=patientPhoneHref(fields.get("phone").value);
       dial.hidden=!phone||busy;
@@ -603,6 +608,18 @@
       if(full)for(const item of placements(data))if(!fitText(item.text,item.width,item.height,a.measure,item.fit))errors.push({field:item.field,text:"Tekst nie mieści się w polu oryginalnego wniosku. Skróć go przed wydrukiem."});
       return errors;
     }
+    function printIssues(data) {
+      return [...issues(data,true),...submissionChecks
+        .filter(([key])=>data.submissionChecklist?.[key]!==true)
+        .map(([field,label])=>({field,text:`Przed wydrukiem potwierdź: ${label}.`}))];
+    }
+    function validateCurrentPrint(data) {
+      checklistValidationRequested=true;
+      updateSubmissionChecklist();
+      const errors=printIssues(data);
+      markIssues(errors);
+      return !errors.length;
+    }
     function markIssues(errors) {
       fields.forEach((input,key)=>{const error=errors.find(item=>item.field===key);input.setCustomValidity(error?.text||"");input.setAttribute("aria-invalid",String(Boolean(error)));});
       for(const [key,{group,radios}]of choiceGroups){
@@ -610,8 +627,9 @@
       }
       if(errors.length){
         message([...new Set(errors.map(item=>item.text))].join("\n"));
-        const target=choiceGroups.get(errors[0].field)?.radios[0]||fields.get(errors[0].field);target?.focus();target?.reportValidity();
+        const target=choiceGroups.get(errors[0].field)?.radios[0]||fields.get(errors[0].field)||checklist.get(errors[0].field);target?.focus();target?.reportValidity();
       }
+      else message("");
     }
     function dirtyState(value=true) {
       dirty=value;q("mailMergeSave").classList.toggle("mail-merge-unsaved",value);
@@ -652,9 +670,14 @@
     function renderPreview() {
       clearTimeout(previewTimer);if(!authorized())return;
       updateAmounts();updateCertificateNotice();updateBankNotice();updateRequiredHints();
-      q("mailMergePreviewPages").replaceChildren(pages(read(),true));
-      q("mailMergeCompleteness").textContent=`Kompletność do wydruku: ${new Set(issues(read(),true).map(error=>error.field)).size} pól wymaga sprawdzenia.`;
-      q("mailMergePreviewTitle").textContent=read().firstName?`Wniosek · ${read().firstName} ${read().surname}`:"Wniosek · pusty wzór";
+      const data=read();
+      q("mailMergePreviewPages").replaceChildren(pages(data,true));
+      updatePrintCompleteness(data);
+      q("mailMergePreviewTitle").textContent=data.firstName?`Wniosek · ${data.firstName} ${data.surname}`:"Wniosek · pusty wzór";
+    }
+    function updatePrintCompleteness(data=read()) {
+      const remaining=new Set(printIssues(data).map(error=>error.field)).size;
+      q("mailMergeCompleteness").textContent=remaining?`Pola i potwierdzenia do sprawdzenia przed wydrukiem: ${remaining}.`:"Wniosek gotowy do wydruku.";
     }
     function changed() {if(!authorized() || busy)return;dirtyState();updateBirth();updateConditionalFields();updateAmounts();clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,180);}
     function setItemCount(value){
@@ -673,10 +696,11 @@
       generation++;geoSequence++;postalSequence++;deferredPostal=false;editingId="";editingRevision=null;newId="";writeRequest=null;autoPostal="";autoPostOffice="";addressPostal="";autoGender="";periodicDate="";
       fields.forEach(input=>{input.value="";if(input.type==="checkbox")input.checked=false;input.setCustomValidity("");input.removeAttribute("aria-invalid");});
       for(const input of disabilityChecks){input.checked=false;input.setCustomValidity("");}
-      checklistPreviouslySaved=false;for(const input of checklist.values())input.checked=false;
+      checklistPreviouslySaved=false;checklistValidationRequested=false;for(const input of checklist.values())input.checked=false;
       fields.get("personRole").value="applicant";fields.get("itemCount").value="1";
       fields.get("subject").value="Aparaty słuchowe";fields.get("sameAddress").checked=true;fields.get("paymentMode").value="transfer";updateConditionalFields();
       q("mailMergeMatches").replaceChildren();q("mailMergeGeoChoices").replaceChildren();q("mailMergeSearch").value="";q("mailMergePostalChoices").replaceChildren();
+      q("mailMergeBatchPrintStatus").textContent="";
       dirtyState(false);message("");updateAmounts();renderPreview();
     }
     function load(entry) {
@@ -785,21 +809,23 @@
     }
     async function print(mode="selected") {
       if(!authorized()||busy||printBusy||cleanupPrint)return;
-      if(candidateTemplate){message("Najpierw zatwierdź albo anuluj podgląd nowego wzoru PDF.");return;}
+      const report=mode==="selected"?text=>{q("mailMergeBatchPrintStatus").textContent=text;}:message;
+      report("");
+      if(candidateTemplate){report("Najpierw zatwierdź albo anuluj podgląd nowego wzoru PDF.");return;}
       const epoch=session,account=a.user(),count=printPages;printBusy=true;
       try{
         let documents=[];
         if(mode==="blank")documents=[{}];
         else if(mode==="current"){
-          if(normalizeFields())dirtyState();updateBirth();const data=read(),errors=issues(data,true);markIssues(errors);if(errors.length)return;documents=[data];
+          if(normalizeFields())dirtyState();updateBirth();const data=read();if(!validateCurrentPrint(data))return;documents=[data];
         }else{
           const selected=rows.filter(row=>row.selected);
-          if(!selected.length){message("Zaznacz osoby w tabeli albo wybierz Drukuj wniosek pod formularzem.");return;}
-          if(selected.length>25){message("Jednorazowo wybierz maksymalnie 25 osób do wydruku.");return;}
+          if(!selected.length){report("Zaznacz osoby w tabeli albo wybierz Drukuj wniosek pod formularzem.");return;}
+          if(selected.length>25){report("Jednorazowo wybierz maksymalnie 25 osób do wydruku.");return;}
           if(dirty&&!a.confirm("Wydrukować zapisane dane z tabeli? Niezapisane zmiany w formularzu nie zostaną uwzględnione."))return;
           for(const entry of selected){
-            const saved=await rpc("satis_mail_merge_detail",{p_id:entry.id}),data=enrich(saved.data),errors=issues(data,true);
-            if(errors.length){message(`${data.firstName} ${data.surname}: ${[...new Set(errors.map(error=>error.text))].join(" ")}`);return;}documents.push(data);
+            const saved=await rpc("satis_mail_merge_detail",{p_id:entry.id}),data=enrich(saved.data),errors=printIssues(data);
+            if(errors.length){report(`${data.firstName} ${data.surname}: ${[...new Set(errors.map(error=>error.text))].join(" ")}`);return;}documents.push(data);
           }
         }
         await document.fonts?.ready;if(!authorized()||epoch!==session||account!==a.user())return;
@@ -810,7 +836,7 @@
         document.body.classList.add("mail-merge-print");
         const cleanup=()=>{output.remove();pendingPrint=null;document.body.classList.remove("mail-merge-print");a.window.removeEventListener("afterprint",cleanup);cleanupPrint=null;};
         cleanupPrint=cleanup;a.window.addEventListener("afterprint",cleanup,{once:true});await a.print(cleanup);
-      }catch(error){pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();if(authorized()&&epoch===session)message(error.message||"Nie udało się przygotować wydruku.");}finally{if(epoch===session)printBusy=false;}
+      }catch(error){pendingPrint?.remove();pendingPrint=null;cleanupPrint?.();if(authorized()&&epoch===session)report(error.message||"Nie udało się przygotować wydruku.");}finally{if(epoch===session)printBusy=false;}
     }
     const header=node("header","mail-merge-header");header.append(node("h2","","PCPR Żywiec"),node("p","document-form-note","Wniosek PCPR Żywiec · 7 stron. Dane opiekuna, pozostałe sekcje i podpisy uzupełnij osobno. Sprawdź właściwość urzędu dla miejsca zamieszkania."));
     const editor=node("form","mail-merge-editor");editor.noValidate=true;
@@ -819,7 +845,7 @@
     const search=node("input","satis-private-search");search.id="mailMergeSearch";search.type="search";search.autocomplete="off";search.placeholder="Uzupełnij z historii lub PCPR P50 · imię i nazwisko…";
     const matches=node("div","mail-merge-matches");matches.id="mailMergeMatches";editor.append(search,matches);
     const sections=[
-      ["Dane personalne","person",[["firstName","Imię *"],["middleName","Drugie imię"],["surname","Nazwisko *"],["pesel","PESEL"],["birthDate","Data urodzenia z PESEL-u"],["gender","Płeć (z PESEL-u)",[["","Wybierz…"],["male","Mężczyzna"],["female","Kobieta"]]],["personRole","Dane dotyczą",[["applicant","Wnioskodawcy"],["ward","Podopiecznego / mocodawcy"]]]]],
+      ["Dane personalne","person",[["firstName","Imię *"],["middleName","Drugie imię (opcjonalnie)"],["surname","Nazwisko *"],["pesel","PESEL"],["birthDate","Data urodzenia z PESEL-u"],["gender","Płeć (z PESEL-u)",[["","Wybierz…"],["male","Mężczyzna"],["female","Kobieta"]]],["personRole","Dane dotyczą",[["applicant","Wnioskodawcy"],["ward","Podopiecznego / mocodawcy"]]]]],
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Adres korespondencyjny","correspondence",[["correspondenceStreet","Ulica"],["correspondenceHouse","Nr domu"],["correspondenceFlat","Nr lokalu (opcjonalnie)"],["correspondencePostal","Kod pocztowy"],["correspondenceCity","Miejscowość"],["correspondencePostOffice","Poczta"],["correspondenceMunicipality","Gmina"],["correspondenceCounty","Powiat"],["correspondenceProvince","Województwo"]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
@@ -883,7 +909,7 @@
           }
           choiceGroups.set(key,{group:controls,radios});label.append(controls);
         }
-        const absent={middleName:"Brak",flat:"Brak",street:"Nie dotyczy",correspondenceStreet:"Nie dotyczy",email:"Brak e-maila"}[key];
+        const absent={flat:"Brak",street:"Nie dotyczy",correspondenceStreet:"Nie dotyczy",email:"Brak e-maila"}[key];
         if(absent){const blank=button(absent,()=>{input.value="-";input.setCustomValidity("");changed();renderPreview();},"mail-merge-absent");blank.setAttribute("aria-label",`${title}: ${absent}`);label.append(blank);}
         if(key==="bankAccount"){
           const warning=node("span","mail-merge-message");warning.id="mailMergeBankWarning";warning.hidden=true;warning.setAttribute("role","status");warning.setAttribute("aria-live","polite");label.append(warning);
@@ -922,7 +948,7 @@
           input.addEventListener("input",event=>event.stopPropagation?.());
           input.addEventListener("change",event=>{
             event.stopPropagation?.();if(!authorized()||busy)return;
-            dirtyState();updateSubmissionChecklist();
+            dirtyState();updateSubmissionChecklist();updatePrintCompleteness();
           });
           label.append(input,node("span","",text));checks.append(label);
           if(key==="referralCallDone"){
@@ -950,18 +976,19 @@
       for(const count of [5,7]){q(`mailMergePrint${count}`).setAttribute("aria-pressed",String(printPages===count));q(`mailMergePrint${count}`).disabled=busy||count>available;}
       q("mailMergePrintNotice").textContent=printPages===5?available===7?"Wydruk stron 1–5 z oryginału. Pomija dalszą część oświadczenia, klauzulę informacyjną i wykaz załączników. Pełny wzór ma 7 stron.":"Wybrany wzór ma 5 stron. Sprawdź, czy zawiera wszystkie wymagane oświadczenia i załączniki.":"";
     }
-    const actions=node("div","mail-merge-actions mail-merge-main-actions");actions.append(button("Zapisz roboczo",()=>saveDraft(true)),save,button("Sprawdź kompletność",()=>{normalizeFields();updateBirth();markIssues(issues(read(),true));renderPreview();}),button("Drukuj wniosek / PDF",()=>print("current")),button("Drukuj pusty wzór",()=>print("blank")));
-    editor.append(own,node("p","document-form-note","Zapisz roboczo — imię i nazwisko wystarczą. Zapisz i wydruk wypełnionego wniosku — wszystkie właściwe pola muszą być uzupełnione; przy braku danych wybierz Brak lub Nie dotyczy."),completeness,status,printMode,printNotice,actions);
+    const actions=node("div","mail-merge-actions mail-merge-main-actions");actions.append(button("Zapisz roboczo",()=>saveDraft(true)),save,button("Sprawdź kompletność",()=>{normalizeFields();updateBirth();validateCurrentPrint(read());renderPreview();}),button("Drukuj wniosek / PDF",()=>print("current")),button("Drukuj pusty wzór",()=>print("blank")));
+    editor.append(own,node("p","document-form-note","Zapisz roboczo — imię i nazwisko wystarczą. Wydruk wypełnionego wniosku wymaga uzupełnienia pól i zaznaczenia wszystkich pięciu punktów w sekcji Przed złożeniem wniosku."),completeness,status,printMode,printNotice,actions);
     const database=node("section","mail-merge-batch"),tools=node("div","mail-merge-list-tools"),listSearch=node("input");listSearch.id="mailMergeListSearch";listSearch.type="search";listSearch.autocomplete="off";listSearch.maxLength=160;listSearch.placeholder="Szukaj w bazie · osoba, telefon, PESEL, nr zlecenia, przedmiot…";
     tools.append(listSearch,button("Odśwież listę",()=>refresh()),button("Drukuj wybrane / PDF",()=>print()));
     const databaseStatus=node("p","document-form-note");databaseStatus.id="mailMergeDatabaseStatus";databaseStatus.setAttribute("role","status");
+    const batchPrintStatus=node("p","mail-merge-message");batchPrintStatus.id="mailMergeBatchPrintStatus";batchPrintStatus.setAttribute("role","status");
     const count=node("p","document-form-note");count.id="mailMergeCount";
     const table=node("table","mail-merge-table"),thead=node("thead"),row=node("tr");
     ["Wybierz","Osoba","Telefon","Miejscowość","Stopień","Przedmiot","Akcje"].forEach(text=>{const cell=node("th","",text);cell.scope="col";row.append(cell);});thead.append(row);
     const body=node("tbody");body.id="mailMergeQueue";table.append(thead,body);const scroll=node("div","mail-merge-table-scroll");scroll.append(table);
     const empty=node("p","document-form-note","Brak zapisanych osób dla wybranego wyszukiwania.");empty.id="mailMergeEmpty";
     const paging=node("div","mail-merge-actions"),previous=button("Poprzednie",()=>{offset=Math.max(0,offset-50);return refresh();}),next=button("Następne",()=>{offset+=50;return refresh();});previous.id="mailMergePrevious";next.id="mailMergeNext";paging.append(previous,next);
-    database.append(node("h3","","Baza osób"),tools,databaseStatus,count,scroll,empty,paging);
+    database.append(node("h3","","Baza osób"),tools,databaseStatus,batchPrintStatus,count,scroll,empty,paging);
     const preview=node("section","mail-merge-preview"),previewTitle=node("h3");previewTitle.id="mailMergePreviewTitle";
     const previewNotice=node("p","mail-merge-message");previewNotice.id="mailMergePreviewNotice";
     const previewPages=node("div","mail-merge-preview-pages");previewPages.id="mailMergePreviewPages";preview.append(previewTitle,previewNotice,previewPages);

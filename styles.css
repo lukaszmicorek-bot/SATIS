@@ -5040,6 +5040,7 @@ h2 {
 }
 @media print {
   @page mailMerge { size: A4 portrait; margin: 0; }
+  #mailMergeNotebook { display: none !important; }
   body.mail-merge-print > :not(#mailMergePrint) { display: none !important; }
   body.mail-merge-print #mailMergePrint { display: block; margin: 0; padding: 0; }
   .mail-merge-page { page: mailMerge; width: 210mm; height: 297mm; max-width: none; margin: 0; padding: 0; break-inside: avoid; break-after: page; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
@@ -5061,6 +5062,7 @@ h2 {
 .mail-merge-submission { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px 12px; }
 .mail-merge-submission .mail-merge-submission-item { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
 .mail-merge-submission-item input[type="checkbox"] { width: 17px; height: 17px; flex: 0 0 17px; margin: 0; accent-color: #007b7d; }
+.mail-merge-submission-item input[aria-invalid="true"] + span { color: #9b3f50; font-weight: 650; }
 .mail-merge-submission .mail-merge-submission-item:has(#mailMergeCheck-referralCallDone) { grid-column: 1; }
 .mail-merge-submission-phone { grid-column: 2; grid-row: 2; font-size: 12px; }
 .mail-merge-phone-link { color: #00646b; text-decoration: underline; text-underline-offset: 2px; }

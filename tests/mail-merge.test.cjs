@@ -9,6 +9,7 @@ const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surnam
   province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
   careHome:'no',householdType:'shared',paymentMode:'transfer',bankOwner:'Jan Adam Testowy',bankName:'Bank testowy',bankAccount:'61109010140000071219812874',certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:'TEST-1; TEST-2',cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
 const correspondenceExample={correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
+const submissionKeys=['referralValid','referralCallDone','hearingTestCurrent','nfzOrderAvailable','certificatePrinted'];
 test('amounts use integer cents and reject invalid grants or malformed money',()=>{
   assert.equal(m.parseMoney('1 234,56 zł'),123456);assert.equal(m.parseMoney('0'),0);
   for(const value of ['',null,'-2','abc','12.345','9'.repeat(400)]) assert.equal(m.parseMoney(value),null);
@@ -93,6 +94,7 @@ function fixture(overrides={}) {
   const buttons=()=>host.querySelectorAll('button');
   return {api,nodes,body,window,stored,owner(value){owner=value;},prints:()=>prints,saveCalls:()=>saveCalls,
     fail(code){failure=code;},pause(promise){pauseSave=promise;},
+    async confirmChecklist(keys=submissionKeys){for(const key of keys){const input=nodes.get('mailMergeCheck-'+key);input.checked=true;await input.emit('change');}},
     fill(data=example){for(const [key,value]of Object.entries(data)){if(['disabilityType','disabilityTypes'].includes(key)){const selected=Array.isArray(value)?value:[value];for(const input of host.querySelectorAll('input').filter(item=>item.id?.startsWith('mergeDisability-')))input.checked=selected.includes(input.value);}const input=nodes.get('merge'+key);if(input)input.value=value;}},
     click(text){const target=['Zapisz','Zapisz zmiany'].includes(text)?nodes.get('mailMergeSave'):buttons().find(button=>button.textContent===text || button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
@@ -167,7 +169,7 @@ test('schema eight supports a single legacy selection but blocks combined or mul
 });
 test('submission checklist stores independent internal checks and reuses the patient phone',async()=>{
   const t=fixture();t.api.open();await tick();
-  const keys=['referralValid','referralCallDone','hearingTestCurrent','nfzOrderAvailable','certificatePrinted'];
+  const keys=submissionKeys;
   assert.ok(keys.every(key=>!t.nodes.get('mailMergeCheck-'+key).checked));
   t.fill({firstName:'Jan',surname:'Testowy',phone:'500 600 700'});
   for(const key of keys.slice(0,3)){
@@ -188,6 +190,38 @@ test('submission checklist stores independent internal checks and reuses the pat
   for(const key of keys)t.nodes.get('mailMergeCheck-'+key).checked=false;
   await t.click('Zapisz roboczo');assert.deepEqual(t.stored.get(entry.id).data.submissionChecklist,{});
   t.api.clear();assert.equal(dial.hidden,true);
+});
+test('a filled application can be saved with four checks but prints only after the fifth',async()=>{
+  const t=fixture();t.fill();await t.confirmChecklist(submissionKeys.slice(0,4));
+  await t.click('Zapisz');
+  assert.equal(t.stored.size,1);
+  await t.click('Drukuj wniosek');
+  assert.equal(t.prints(),0);
+  assert.match(t.nodes.get('mailMergeMessage').textContent,/Orzeczenie jest wydrukowane/);
+  assert.equal(t.nodes.get('mailMergeCheck-certificatePrinted').attributes['aria-invalid'],'true');
+  await t.confirmChecklist(['certificatePrinted']);
+  assert.equal(t.nodes.get('mailMergeCheck-certificatePrinted').attributes['aria-invalid'],undefined);
+  await t.click('Drukuj wniosek');
+  assert.equal(t.prints(),1);assert.equal(t.nodes.get('mailMergeMessage').textContent,'');
+  t.api.clear();
+});
+test('batch print rejects the whole selection when a saved checklist is missing a check',async()=>{
+  const t=fixture();t.fill();await t.confirmChecklist();await t.click('Zapisz');
+  await t.click('Nowy wniosek');t.fill({...example,firstName:'Adam',pesel:'90010112355'});
+  await t.confirmChecklist(submissionKeys.filter(key=>key!=='referralCallDone'));await t.click('Zapisz');
+  const checks=t.nodes.get('mailMergeQueue').querySelectorAll('input');
+  assert.equal(checks.length,2);
+  for(const check of checks){check.checked=true;await check.emit('change');}
+  await t.confirmChecklist(['referralCallDone']);
+  await t.click('Drukuj wybrane');
+  assert.equal(t.prints(),0,'unsaved confirmation cannot authorize a batch print');
+  assert.match(t.nodes.get('mailMergeBatchPrintStatus').textContent,/Adam Testowy:.*telefon do pacjenta/);
+  await t.click('Zapisz');
+  await t.click('Drukuj wybrane');
+  assert.equal(t.prints(),1);
+  assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,14);
+  assert.equal(t.nodes.get('mailMergeBatchPrintStatus').textContent,'');
+  t.api.clear();
 });
 test('existing PCPR writes work on schema 9, but checked items require schema 10',async()=>{
   let saves=0;
@@ -212,6 +246,7 @@ test('persistent people accept incomplete drafts and reopen after clearing the s
 });
 test('live preview, saved-person batch printing, duplicate PESEL and owner session cleanup',async()=>{
   const t=fixture();t.fill();await t.nodes.get('mergefirstName').emit('blur');
+  await t.confirmChecklist();
   assert.match(t.nodes.get('mailMergePreviewPages').textContent,/Testowy/);
   await t.click('Zapisz');assert.equal(t.stored.size,1);
   const row=t.api.queue()[0];assert.equal(row.data.birthDate,undefined);
@@ -294,11 +329,23 @@ test('ambiguous addresses require a choice and do not overwrite manually entered
 });
 
 test('all applicable fields are required for a completed application but absence may be explicit',()=>{
-  for(const key of ['middleName','street','postOffice','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
+  for(const key of ['street','postOffice','certificateNumber','certificateValidity','gender','localityType','invalidityGroup']){
     assert.ok(m.validate({...example,[key]:''},()=>true).some(error=>error.field===key),key);
   }
   assert.equal(m.validate({...example,middleName:'-',street:'-',flat:'-',email:'-',applicationNumber:'-'},()=>true).length,0);
   assert.equal(m.draftValidate({firstName:'Jan',surname:'Testowy'},()=>true).length,0);
+});
+test('middle name is optional for save and print, and a filled name still prints',async()=>{
+  const t=fixture();const data={...example,middleName:'',bankOwner:'Jan Testowy'};
+  assert.equal(m.validate(data,()=>true).length,0);
+  assert.equal(m.placements(data).some(item=>item.field==='middleName'),false);
+  assert.equal(m.placements(example).find(item=>item.field==='middleName').text,'Adam');
+  assert.match(t.nodes.get('mergemiddleName').parent.textContent,/opcjonalnie/);
+  t.fill(data);await t.confirmChecklist();await t.click('Zapisz');
+  assert.equal([...t.stored.values()][0].data.middleName,'');
+  await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
+  assert.doesNotMatch(t.nodes.get('mailMergePrint').textContent,/Adam/);
+  t.api.clear();
 });
 test('GUS resolves city and rural municipality kind without guessing between namesakes',()=>{
   const index=m.geographyIndex(JSON.parse(fs.readFileSync(path.join(root,'mail-merge/geography.json'),'utf8')));
@@ -322,7 +369,7 @@ test('page selection changes blank, current and batch print count and warns abou
   assert.match(t.nodes.get('mailMergePrintNotice').textContent,/oświadczenia/);
   assert.equal(t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-page').length,5);
   await t.click('Drukuj pusty');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
-  t.fill();await t.click('Drukuj wniosek');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
+  t.fill();await t.confirmChecklist();await t.click('Drukuj wniosek');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
   await t.click('Zapisz');const check=t.nodes.get('mailMergeQueue').querySelectorAll('input')[0];check.checked=true;await check.emit('change');
   await t.click('Drukuj wybrane');assert.equal(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-page').length,5);t.window.events.afterprint();
   await t.click('7 stron');assert.equal(t.nodes.get('mailMergePrintNotice').textContent,'');
@@ -559,8 +606,8 @@ test('certificate warning updates immediately on typing, selection, loading, res
 
 test('required empty fields have a gentle hint that disappears immediately when filled',async()=>{
   const t=fixture(),hint=key=>t.nodes.get('merge'+key).className.includes('mail-merge-required-empty');
-  for(const key of ['firstName','middleName','surname','pesel','postal','city','phone','degree','certificateNumber','cost','monthlyIncome','householdSize'])assert.equal(hint(key),true,key);
-  for(const key of ['birthDate','own','personRole','itemCount','certificateUntil','subject2','orderNumber2'])assert.equal(hint(key),false,key);
+  for(const key of ['firstName','surname','pesel','postal','city','phone','degree','certificateNumber','cost','monthlyIncome','householdSize'])assert.equal(hint(key),true,key);
+  for(const key of ['middleName','birthDate','own','personRole','itemCount','certificateUntil','subject2','orderNumber2'])assert.equal(hint(key),false,key);
   t.fill({firstName:'Jan'});await t.nodes.get('mergefirstName').emit('input');assert.equal(hint('firstName'),false);
   t.fill({firstName:'   '});await t.nodes.get('mergefirstName').emit('input');assert.equal(hint('firstName'),true);
   t.fill({degree:'moderate'});await t.nodes.get('mergedegree').emit('change');assert.equal(hint('degree'),false);
@@ -599,7 +646,7 @@ test('email and apartment number are optional without empty-field highlighting b
   assert.ok(m.draftValidate({...data,email:'bledny-adres'},()=>true).some(error=>error.field==='email'));
   const t=fixture();
   for(const key of ['email','flat'])assert.doesNotMatch(t.nodes.get('merge'+key).className,/mail-merge-required-empty/);
-  t.fill(data);await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
+  t.fill(data);await t.confirmChecklist();await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   const printed=t.nodes.get('mailMergePrint').textContent;assert.match(printed,/Testowy/);
   assert.equal(m.placements(data).some(item=>['email','flat'].includes(item.field)),false);t.api.clear();
 });
@@ -652,7 +699,7 @@ test('transfer is selected by default, account validation updates on paste, and 
 
 test('gabinet can open, save, edit and print PCPR but cannot delete or replace templates',async()=>{
   const t=fixture({access:()=>true});t.owner(false);assert.equal(t.api.open(),true);await tick();
-  t.fill();await t.click('Zapisz');assert.equal(t.stored.size,1);assert.equal(t.api.queue().length,1);
+  t.fill();await t.confirmChecklist();await t.click('Zapisz');assert.equal(t.stored.size,1);assert.equal(t.api.queue().length,1);
   await t.click('Edytuj');await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   assert.equal(t.nodes.get('mailMergeQueue').querySelectorAll('button').some(button=>button.textContent==='Usuń'),false);
   assert.equal(t.nodes.get('mailMergeTemplateFile').disabled,true);assert.equal(t.nodes.get('mailMergeTemplateApply').disabled,true);t.api.clear();
@@ -702,6 +749,7 @@ test('preview and printing use identical compact fitting for two products, witho
   const preview=t.nodes.get('mailMergePreviewPages').querySelectorAll('.mail-merge-fitted-items');assert.equal(preview.length,2);
   assert.deepEqual(preview.map(item=>item.textContent.split('\n').length),[1,2]);assert.ok(preview.every(item=>item.style.height));
   assert.equal(preview[0].textContent,'Aparat słuchowy / model testowy');
+  await t.confirmChecklist();
   await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   const printed=t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-fitted-items');
   assert.deepEqual(printed.map(item=>[item.textContent,item.style.fontSize,item.style.height]),preview.map(item=>[item.textContent,item.style.fontSize,item.style.height]));
@@ -724,6 +772,7 @@ test('two order numbers use a fixed number column, equal font size and aligned t
   assert.equal(rows[0].style.gridTemplateColumns,rows[1].style.gridTemplateColumns);
   assert.deepEqual(rows.map(row=>row.children[0].textContent),['1. ','2. ']);
   assert.deepEqual(rows.map(row=>row.children[1].textContent),['111111/2026','222222/2026']);
+  await t.confirmChecklist();
   await t.click('Drukuj wniosek');assert.equal(t.prints(),1);
   assert.deepEqual(t.nodes.get('mailMergePrint').querySelectorAll('.mail-merge-order-line').map(row=>row.style.gridTemplateColumns),rows.map(row=>row.style.gridTemplateColumns));t.api.clear();
 });
@@ -755,6 +804,7 @@ test('short choices are visible exclusive native radios, sync defaults and autom
   await choose('certificateValidity','periodic');assert.equal(t.nodes.get('mergecertificateUntil').disabled,false);
   await choose('certificateValidity','indefinite');assert.equal(t.nodes.get('mergecertificateUntil').disabled,true);
   await choose('paymentMode','contractor');assert.equal(t.nodes.get('mailMergeContractorAccount').checked,true);assert.equal(t.nodes.get('mergebankAccount').disabled,true);
+  await t.confirmChecklist();
   await t.click('Zapisz');await t.click('Nowy wniosek');assert.equal(t.nodes.get('mergeChoice-paymentMode-transfer').checked,true);
   await t.click('Edytuj');assert.equal(t.nodes.get('mergeChoice-paymentMode-contractor').checked,true);assert.equal(t.nodes.get('mergeChoice-householdType-individual').checked,true);
   await t.click('Drukuj wniosek');assert.equal(t.prints(),1);t.api.clear();
