@@ -8,6 +8,14 @@
   const correspondenceFields = ["correspondenceStreet", "correspondenceHouse", "correspondenceFlat", "correspondencePostal", "correspondenceCity", "correspondencePostOffice", "correspondenceMunicipality", "correspondenceCounty", "correspondenceProvince"];
   const uppercaseFields = ["certificateNumber", "orderNumber", "orderNumber2", "bankName", "correspondenceHouse", "correspondenceFlat"];
   const orderNumberFields = ["orderNumber", "orderNumber2"];
+  const incapacityOptions = [
+    ["total-dependent", "Osoby całkowicie niezdolne do pracy i niezdolne do samodzielnej egzystencji", 501],
+    ["farm-allowance", "Osoby długotrwale niezdolne do pracy w gospodarstwie rolnym, którym przysługuje zasiłek pielęgnacyjny", 528.6],
+    ["total", "Osoby całkowicie niezdolne do pracy", 556.2],
+    ["partial", "Osoby częściowo niezdolne do pracy", 570],
+    ["farm", "Osoby stale lub długotrwale niezdolne do pracy w gospodarstwie rolnym", 583.8],
+    ["none", "Nie dotyczy", 611.4]
+  ];
   const disabilityTypes = [
     ["01-U", "Niepełnosprawność intelektualna", 65],
     ["02-P", "Choroby psychiczne", 78.8],
@@ -45,7 +53,11 @@
       return "Sprawdź dane z orzeczeniem: zaznaczone rodzaje i liczba przyczyn mogą być niespójne.";
     return "";
   }
-  const personal = ["gender", "localityType", "invalidityGroup", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "disabilityType", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
+  const personal = ["gender", "localityType", "invalidityGroup", "incapacity", "personRole", "firstName", "middleName", "surname", "pesel", "birthDate", "province", "county", "municipality", "city", "street", "house", "flat", "postal", "postOffice", "phone", "email", "degree", "disabilityType", "certificateNumber", "certificateValidity", "certificateUntil", "subject", "orderNumber", "subject2", "orderNumber2", "itemCount", "cost", "nfz", "requested", "monthlyIncome", "householdSize", "careHome", "householdType", "paymentMode", "bankOwner", "bankName", "bankAccount", ...correspondenceFields];
+  function incapacityIssues(data, required = false) {
+    return (required || data.incapacity) && !incapacityOptions.some(([key]) => key === data.incapacity)
+      ? [{field:"incapacity",text:"Wybierz opcję w polu Niezdolność zgodnie z orzeczeniem albo wybierz „Nie dotyczy”."}] : [];
+  }
   function shortChoices(options){
     const choices=(options||[]).filter(([value])=>value!=="");
     return choices.length>=2&&choices.length<=4?choices:null;
@@ -140,8 +152,8 @@
     if (data.correspondencePostal && !/^\d{2}-\d{3}$/u.test(data.correspondencePostal)) errors.push({field:"correspondencePostal",text:"Adres korespondencyjny: kod pocztowy powinien mieć format 00-000."});
     return errors;
   }
-  function validate(data, validPesel) {
-    const errors = [...correspondenceIssues(data, true),...disabilityIssues(data,true),...nfzOrderNumberIssues(data)];
+  function validate(data, validPesel, requireIncapacity = true) {
+    const errors = [...correspondenceIssues(data, true),...disabilityIssues(data,true),...nfzOrderNumberIssues(data),...incapacityIssues(data,requireIncapacity)];
     for (const [key, label] of [["monthlyIncome", "Średni miesięczny dochód netto na osobę"], ["householdSize", "Liczba osób w gospodarstwie"], ["firstName", "Imię"], ["surname", "Nazwisko"], ["birthDate", "Data urodzenia"], ["gender", "Płeć"], ["localityType", "Rodzaj miejscowości"], ["invalidityGroup", "Grupa inwalidzka"], ["street", "Ulica (lub Nie dotyczy)"], ["postOffice", "Poczta"], ["certificateNumber", "Nr orzeczenia"], ["certificateValidity", "Ważność orzeczenia"], ["city", "Miejscowość"], ["house", "Nr domu"], ["province", "Województwo"], ["county", "Powiat"], ["municipality", "Gmina"], ["degree", "Stopień niepełnosprawności"], ["subject", "Przedmiot wniosku"], ["orderNumber", "Numer zlecenia"]]) {
       if (!String(data[key] || "").trim()) errors.push({field: key, text: `Uzupełnij: ${label}.`});
     }
@@ -237,6 +249,8 @@
     }
     const groupY={I:440.3,II:454.1,III:467.9,none:481.7};
     if (groupY[data.invalidityGroup]) tick(3,"invalidityGroup",201.8,groupY[data.invalidityGroup]);
+    const incapacity=incapacityOptions.find(([key])=>key===data.incapacity);
+    if (incapacity) tick(3,"incapacity",201.8,incapacity[2]);
     const degreeY = {severe: 312.9, moderate: 326.7, mild: 340.5, none: 354.3};
     if (degreeY[data.degree]) tick(3,"degree",201.8,degreeY[data.degree]);
     if (data.certificateValidity === "indefinite") tick(3,"certificateValidity",201.8,373.6);
@@ -292,7 +306,7 @@
     return null;
   }
   function draftValidate(data, validPesel) {
-    const errors = [...correspondenceIssues(data),...disabilityIssues(data),...nfzOrderNumberIssues(data)];
+    const errors = [...correspondenceIssues(data),...disabilityIssues(data),...nfzOrderNumberIssues(data),...incapacityIssues(data)];
     for (const key of ["firstName", "surname"]) if (!String(data[key] || "").trim()) errors.push({field:key,text:"Wpisz imię i nazwisko osoby."});
     for (const key of ["firstName","surname"]) if (data[key] && !/[\p{L}]/u.test(data[key])) errors.push({field:key,text:"Wpisz poprawne imię i nazwisko."});
     if (data.gender && !["male","female"].includes(data.gender)) errors.push({field:"gender",text:"Sprawdź oznaczenie płci."});
@@ -426,7 +440,7 @@
       updateBankNotice();updateRequiredHints();
     }
     function updateRequiredHints(){
-      const data=read(),missing=new Set(validate(data,a.validPesel).filter(error=>!String(data[error.field]??"").trim()).map(error=>error.field));
+      const data=read(),missing=new Set(validate(data,a.validPesel,schemaVersion>=14).filter(error=>!String(data[error.field]??"").trim()).map(error=>error.field));
       for(const [key,label]of labels){
         const input=fields.get(key),active=!label.hidden&&!input.readOnly&&(key!=="certificateUntil"||data.certificateValidity==="periodic")&&(!["bankOwner","bankName","bankAccount"].includes(key)||data.paymentMode==="transfer");
         input.classList.toggle("mail-merge-required-empty",active&&missing.has(key));
@@ -643,7 +657,7 @@
       q("mailMergeOwn").textContent=sums.remaining===null?"—":`${money(sums.remaining)} zł`;
     }
     function issues(data, full=false) {
-      const errors=full?[...draftValidate(data,a.validPesel),...validate(data,a.validPesel)]:draftValidate(data,a.validPesel);
+      const errors=full?[...draftValidate(data,a.validPesel),...validate(data,a.validPesel,schemaVersion===0||schemaVersion>=14)]:draftValidate(data,a.validPesel);
       if(data.pesel && a.validPesel(data.pesel) && a.age(data.pesel)<0)errors.push({field:"pesel",text:"Data urodzenia z PESEL-u nie może być w przyszłości."});
       if(data.certificateValidity!=="indefinite" && data.certificateUntil && !a.iso(data.certificateUntil))errors.push({field:"certificateUntil",text:"Wybierz prawidłową datę ważności orzeczenia."});
       if(full && data.personRole==="applicant" && a.validPesel(data.pesel) && a.age(data.pesel)<18)errors.push({field:"personRole",text:"Dla osoby niepełnoletniej wybierz dane podopiecznego. Dane opiekuna uzupełnij osobno."});
@@ -837,7 +851,9 @@
         if(sequence!==readSequence||epoch!==session)return;
         ready=true;schemaVersion=Number(result.schemaVersion||1);const selected=new Set(rows.filter(row=>row.selected).map(row=>row.id));
         rows=result.rows.map(row=>({...row,selected:selected.has(row.id)}));total=Number(result.total);renderRows();
-        q("mailMergeDatabaseStatus").textContent=schemaVersion>=13?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+        updateRequiredHints();
+        q("mailMergeDatabaseStatus").textContent=schemaVersion>=14?"Zapis w bazie · dostęp dla SATIS i gabinetu"
+          :schemaVersion===13?"Zapis pola Niezdolność wymaga uruchomienia aktualnego pliku supabase-mail-merge.sql w Supabase."
           :schemaVersion===12?"Aby zapisywać datę złożenia, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :schemaVersion===11?"Aby zapisywać status złożenia wniosku, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
           :schemaVersion===10?"Aby wyświetlić numery zleceń w tabeli, uruchom aktualny plik supabase-mail-merge.sql i kliknij Odśwież listę."
@@ -883,9 +899,10 @@
       updateBirth();const data=read(),errors=issues(data,!draft);markIssues(errors);if(errors.length)return;
       lock(true);const epoch=session,wasEditing=Boolean(editingId);
       try{
-        const requiredSchema=data.submissionChecklist?10:data.disabilityTypes||data.combinedDisability||data.disabilityCauseCount?9:data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
+        const requiredSchema=data.incapacity?14:data.submissionChecklist?10:data.disabilityTypes||data.combinedDisability||data.disabilityCauseCount?9:data.disabilityType?8:correspondenceFields.some(key=>Boolean(data[key]))?7:6;
         if(schemaVersion<requiredSchema){await refresh();if(schemaVersion<requiredSchema){message("Przed zapisem nowych pól uruchom aktualny plik supabase-mail-merge.sql w Supabase, a następnie kliknij Odśwież listę.");return;}}
         newId||=a.id();const stored={...data};delete stored.birthDate;delete stored.role;
+        if(schemaVersion<14)delete stored.incapacity;
         const result=await write("SAVE",editingId||newId,editingRevision,stored);
         checklistPreviouslySaved=Boolean(Object.keys(data.submissionChecklist||{}).length);
         editingId=result.id;editingRevision=result.revision;writeRequest=null;newId="";rememberAddress(data);dirtyState(false);renderPreview();
@@ -943,7 +960,7 @@
       ["Adres zamieszkania","address",[["street","Ulica"],["house","Nr domu"],["flat","Nr lokalu (opcjonalnie)"],["postal","Kod pocztowy"],["city","Miejscowość"],["postOffice","Poczta"],["municipality","Gmina"],["county","Powiat"],["province","Województwo"],["localityType","Rodzaj miejscowości (GUS)",[["","Wybierz…"],["city","Miasto"],["village","Wieś"]]]]],
       ["Adres korespondencyjny","correspondence",[["correspondenceStreet","Ulica"],["correspondenceHouse","Nr domu"],["correspondenceFlat","Nr lokalu (opcjonalnie)"],["correspondencePostal","Kod pocztowy"],["correspondenceCity","Miejscowość"],["correspondencePostOffice","Poczta"],["correspondenceMunicipality","Gmina"],["correspondenceCounty","Powiat"],["correspondenceProvince","Województwo"]]],
       ["Kontakt","contact",[["phone","Telefon"],["email","E-mail (opcjonalnie)"]]],
-      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["disabilityType","Rodzaj niepełnosprawności — wybierz wszystkie z orzeczenia",[["","Wybierz zgodnie z orzeczeniem…"],...disabilityTypes.map(([code,label])=>[code,`${code} — ${label}`])]],["combinedDisability","Niepełnosprawność sprzężona",[["","Wybierz…"],["yes","Tak"],["no","Nie"]]],["disabilityCauseCount","Liczba przyczyn (wg orzeczenia)",[["","Wybierz…"],["2","2 przyczyny"],["3","3 przyczyny"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
+      ["Wniosek i orzeczenie","certificate",[["degree","Stopień niepełnosprawności",[["","Wybierz…"],["severe","Znaczny"],["moderate","Umiarkowany"],["mild","Lekki"],["none","Nie dotyczy"]]],["invalidityGroup","Grupa inwalidzka",[["","Wybierz…"],["I","I grupa"],["II","II grupa"],["III","III grupa"],["none","Nie dotyczy"]]],["incapacity","Niezdolność (zgodnie z orzeczeniem)",[["","Wybierz…"],...incapacityOptions.map(([key,label])=>[key,label])]],["disabilityType","Rodzaj niepełnosprawności — wybierz wszystkie z orzeczenia",[["","Wybierz zgodnie z orzeczeniem…"],...disabilityTypes.map(([code,label])=>[code,`${code} — ${label}`])]],["combinedDisability","Niepełnosprawność sprzężona",[["","Wybierz…"],["yes","Tak"],["no","Nie"]]],["disabilityCauseCount","Liczba przyczyn (wg orzeczenia)",[["","Wybierz…"],["2","2 przyczyny"],["3","3 przyczyny"]]],["certificateNumber","Nr orzeczenia"],["certificateValidity","Ważność orzeczenia",[["","Wybierz…"],["indefinite","Bezterminowo"],["periodic","Do wskazanej daty"]]],["certificateUntil","Ważne do"]]],
       ["Dochód i gospodarstwo domowe","income",[["monthlyIncome","Średni miesięczny dochód netto na osobę (zł)"],["careHome","Pobyt w domu pomocy społecznej (DPS)",[["","Wybierz…"],["yes","Tak"],["no","Nie"],["unknown","Brak informacji"]]],["householdType","Gospodarstwo domowe",[["","Wybierz…"],["individual","Indywidualne"],["shared","Wspólne"]]],["householdSize","Liczba osób w gospodarstwie"]]],
       ["Przedmiot wniosku","subject",[["itemCount","Liczba przedmiotów",[["1","1 przedmiot"],["2","2 przedmioty"]]],["subject","Przedmiot wniosku 1 / nazwa produktu"],["orderNumber","Numer zlecenia NFZ 1"],["subject2","Przedmiot wniosku 2 / nazwa produktu"],["orderNumber2","Numer zlecenia NFZ 2"]]],
       ["Dofinansowanie","funding",[["cost","Całkowity koszt zakupu (zł)"],["nfz","Dofinansowanie NFZ (zł)"],["own","Udział własny przed dofinansowaniem PCPR (zł)"],["requested","Wnioskowana kwota PCPR (zł)"]]],

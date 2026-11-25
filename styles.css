@@ -18280,6 +18280,7 @@ body.offline-form-mode #offlineWorkspace .pricing-view-section { margin: 0; }
 }
 
 .mail-merge-filled-line { background: #fff; }
+.mail-merge-group-certificate > label:has(#mergeincapacity) { grid-column: 1 / -1; min-width: 0; }
 .mail-merge-group-funding label > span { min-height: 32px; }
 @media screen and (min-width: 901px) {
   .mail-merge-group-income > label:has(#mergemonthlyIncome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergecareHome), .mail-merge-group-income > .mail-merge-choice-field:has(#mergehouseholdType), .mail-merge-group-income > label:has(#mergehouseholdSize) { grid-column: span 6; }

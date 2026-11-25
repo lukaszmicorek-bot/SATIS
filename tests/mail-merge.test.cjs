@@ -7,7 +7,7 @@ const m = require(process.env.SATIS_MODULE || path.join(root,'mail-merge.js'));
 const firstOrder='5-NFZAPZZ26-00000001',secondOrder='5-AB12CD34-00000002',paperOrder='0-19-000000001-2';
 const example = {personRole:'applicant',firstName:'Jan',middleName:'Adam',surname:'Testowy',pesel:'90010112349',birthDate:'01.01.1990',
   city:'Żywiec',street:'Testowa',house:'12',flat:'3',postal:'34-300',postOffice:'Żywiec',monthlyIncome:'2 500,50',householdSize:'3',phone:'500 600 700',email:'-',applicationNumber:'-',gender:'female',localityType:'city',invalidityGroup:'none',
-  province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',certificateValidity:'indefinite',
+  province:'śląskie',county:'żywiecki',municipality:'Żywiec',degree:'moderate',incapacity:'none',certificateValidity:'indefinite',
   careHome:'no',householdType:'shared',paymentMode:'transfer',bankOwner:'Jan Adam Testowy',bankName:'Bank testowy',bankAccount:'61109010140000071219812874',certificateNumber:'TEST/2026',subject:'Aparaty słuchowe, 2 szt.',orderNumber:firstOrder,cost:'8 000,00',nfz:'2100',requested:'3 000',role:'we własnym imieniu'};
 const correspondenceExample={correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
 const submissionKeys=['referralValid','referralCallDone','hearingTestCurrent','nfzOrderAvailable','certificatePrinted'];
@@ -32,7 +32,7 @@ test('GUS dictionary is limited to Żywiec county and stays small enough for imm
 });
 test('checkbox marks fit realistic font widths without blocking valid printouts',()=>{
   const marks=m.placements({...example,gender:'female',sameAddress:true}).filter(item=>item.text==='X');
-  assert.equal(marks.length,9);
+  assert.equal(marks.length,10);
   for(const mark of marks) assert.ok(m.fitText(mark.text,mark.width,mark.height,(text,size)=>text.length*size*0.72),mark.field);
 });
 test('placements retain original blank sections and map applicant or ward fields to their own cells',()=>{
@@ -85,7 +85,7 @@ function fixture(overrides={}) {
     measure:(text,size)=>text.length*size*0.5,loadGeography:async()=>({units:{},places:[]}),print:async()=>{prints++;},
     rpc:async(name,args)=>{
       if(failure)return {error:{code:failure}};
-      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:13}};
+      if(name==='satis_mail_merge_list')return {data:{rows:[...stored.values()].map(entry=>({...entry})),total:stored.size,schemaVersion:14}};
       if(name==='satis_mail_merge_detail')return {data:stored.get(args.p_id)};
       if(args.p_action==='DELETE'){stored.delete(args.p_id);return {data:{id:args.p_id,deleted:true}};}
       const previous=stored.get(args.p_id);
@@ -107,6 +107,35 @@ function fixture(overrides={}) {
     click(text){const target=['Zapisz','Zapisz zmiany'].includes(text)?nodes.get('mailMergeSave'):buttons().find(button=>button.textContent===text || button.textContent.startsWith(text));assert.ok(target,text);return target.emit('click');}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+test('incapacity options mark the corresponding checkbox on page 3 only',()=>{
+  for(const [incapacity,y] of Object.entries({'total-dependent':501,'farm-allowance':528.6,total:556.2,partial:570,farm:583.8,none:611.4})){
+    assert.deepEqual(m.placements({incapacity}).filter(item=>item.field==='incapacity'),[{page:3,field:'incapacity',x:201.8,y,width:10,height:11,text:'X'}]);
+  }
+  for(const incapacity of ['', 'incorrect']){
+    assert.equal(m.placements({incapacity}).length,0);
+    assert.ok(m.validate({...example,incapacity},()=>true).some(error=>error.field==='incapacity'));
+  }
+});
+test('incapacity is editable, validated and restored from a saved application',async()=>{
+  const t=fixture();t.api.open();await tick();
+  const control=t.nodes.get('mergeincapacity');
+  assert.equal(control.tag,'select');assert.equal(control.children.length,7);assert.equal(control.value,'');
+  t.fill({...example,incapacity:''});
+  await t.click('Zapisz');assert.equal(t.saveCalls(),0);assert.match(t.nodes.get('mailMergeMessage').textContent,/Niezdolność/);
+  control.value='partial';await control.emit('change');await t.click('Zapisz');
+  assert.equal([...t.stored.values()][0].data.incapacity,'partial');
+  await t.click('Nowy wniosek');assert.equal(control.value,'');
+  await t.click('Edytuj');assert.equal(control.value,'partial');
+  t.api.clear();
+});
+test('the previous schema keeps draft saves available but guards the new field',async()=>{
+  const writes=[],t=fixture({rpc:async(name,args)=>name==='satis_mail_merge_list'?{data:{rows:[],total:0,schemaVersion:13}}:(writes.push(args.p_data),{data:{id:args.p_id,revision:writes.length}})});
+  await t.api.open();t.fill({firstName:'Jan',surname:'Testowy'});
+  await t.click('Zapisz roboczo');assert.equal(writes.length,1);assert.equal(Object.hasOwn(writes[0],'incapacity'),false);
+  t.fill({incapacity:'partial'});await t.click('Zapisz roboczo');
+  assert.equal(writes.length,1);assert.match(t.nodes.get('mailMergeMessage').textContent,/supabase-mail-merge.sql/);
+  t.api.clear();
+});
 test('people table headers have dark contrast, static positioning and column semantics',()=>{
   const t=fixture(),heads=t.nodes.get('mailMergeNotebook').querySelectorAll('th');
   assert.equal(heads.length,8);assert.ok(heads.every(head=>head.scope==='col'));

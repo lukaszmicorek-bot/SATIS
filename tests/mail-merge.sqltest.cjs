@@ -46,7 +46,7 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     assert.equal(detail.data.careHome,'no');assert.equal(detail.data.householdType,'shared');assert.equal(detail.data.paymentMode,'transfer');assert.equal(detail.data.bankAccount,'61109010140000071219812874');assert.equal(detail.data.bankOwner,'Jan Testowy');
     assert.equal(detail.data.monthlyIncome,'2500.50');assert.equal(detail.data.householdSize,'3');assert.equal(detail.data.requested,'3000');assert.equal(detail.data.certificateNumber,'TEST/AB/2026');assert.equal(detail.data.certificateUntil,'');assert.equal(detail.data.subject2,'Aparat L');assert.equal(detail.data.orderNumber2,'NFZ-2');assert.equal(detail.data.gender,'female');assert.equal(detail.data.invalidityGroup,'none');assert.equal(detail.data.email,'-');assert.equal(detail.data.pesel,complete.pesel);assert.equal(detail.data.cost,'8000.00');
     const list=(await db.query("select satis_mail_merge_list('Testowy',0) result")).rows[0].result;
-    assert.equal(list.schemaVersion,13);assert.equal(list.total,1);assert.equal(list.rows[0].submitted,false);assert.equal(list.rows[0].submitted_date,null);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);for(const field of ['bankAccount','bankOwner','bankName','careHome','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount'])assert.equal(list.rows[0].data[field],undefined);
+    assert.equal(list.schemaVersion,14);assert.equal(list.total,1);assert.equal(list.rows[0].submitted,false);assert.equal(list.rows[0].submitted_date,null);assert.equal(list.rows[0].pesel_tail,'2349');assert.equal(list.rows[0].data.pesel,undefined);for(const field of ['bankAccount','bankOwner','bankName','careHome','disabilityType','disabilityTypes','combinedDisability','disabilityCauseCount'])assert.equal(list.rows[0].data[field],undefined);
     assert.equal(list.rows[0].data.orderNumber,complete.orderNumber);
     assert.equal(list.rows[0].data.orderNumber2,'NFZ-2');
     const correspondence={...basic,sameAddress:false,correspondenceStreet:'Testowa',correspondenceHouse:'14A',correspondenceFlat:'2B',correspondencePostal:'34-300',correspondenceCity:'Żywiec',correspondencePostOffice:'Żywiec',correspondenceMunicipality:'Żywiec',correspondenceCounty:'Żywiecki',correspondenceProvince:'Śląskie'};
@@ -62,6 +62,18 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     const cleared=(await db.query('select satis_mail_merge_detail($1) result',[other])).rows[0].result.data;
     assert.equal(cleared.disabilityType,undefined);assert.equal(cleared.disabilityCauseCount,undefined);
     await write(id(),'DELETE',other,2,{});
+    const getIncapacity=async()=>(await db.query('select satis_mail_merge_detail($1) result',[other])).rows[0].result.data.incapacity;
+    for(const incapacity of ['unknown',true,null,['partial']]){
+      await denied(write(id(),'SAVE',other,null,{...basic,incapacity}),'22023');
+    }
+    await write(id(),'SAVE',other,null,{...basic,incapacity:'partial'});
+    assert.equal(await getIncapacity(),'partial');
+    assert.ok((await db.query("select satis_mail_merge_list('',0) result")).rows[0].result.rows.every(row=>!Object.hasOwn(row.data,'incapacity')));
+    await write(id(),'SAVE',other,1,basic);
+    assert.equal(await getIncapacity(),'partial','older clients do not erase a saved choice');
+    await write(id(),'SAVE',other,2,{...basic,incapacity:''});
+    assert.equal(await getIncapacity(),undefined);
+    await write(id(),'DELETE',other,3,{});
     const checklist={referralValid:true,referralCallDone:true,hearingTestCurrent:true,nfzOrderAvailable:true,certificatePrinted:true};
     for(const invalid of [null,[],{referralCallDone:'true'},{referralCallDone:false},{notes:'extra'}]){
       await denied(write(id(),'SAVE',other,null,{...basic,submissionChecklist:invalid}),'22023');
