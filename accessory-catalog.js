@@ -3,6 +3,13 @@
   const demant=["Sonic","Philips"],demantAll=["Sonic","Philips","Oticon"];
   const rows=[];
   const discounted=(price,percent)=>Math.round(Math.round(price*100)*(100-percent)/100)/100;
+  function calculateSavings(regularPrice, offerPrice) {
+    if (!Number.isFinite(regularPrice) || !Number.isFinite(offerPrice) || offerPrice < 0) return null;
+    const regular = Math.round(regularPrice * 100);
+    const savings = regular - Math.round(offerPrice * 100);
+    if (regular <= 0 || savings <= 0) return null;
+    return { amount: savings / 100, percent: Math.round(savings * 10000 / regular) / 100 };
+  }
   function add(brands,kind,name,values={}){rows.push({id:`accessory-${rows.length+1}`,brands,kind,name,notes:[],warnings:[],...values});}
   function charger(brands,name,price,vat,values={}){
     add(brands,"charger",name,{price,vat,onePrice:price==null?null:discounted(price,50),twoPrice:price==null?null:discounted(price,70),
@@ -101,7 +108,7 @@
     host.classList.add("accessory-catalog");
     host.innerHTML=`<div class="accessory-catalog-toolbar"><label class="search-box"><span>Szukaj</span><input id="accessoryCatalogSearch" type="search" autocomplete="off" placeholder="Model, producent, zgodność..."></label><label><span>Producent</span><select id="accessoryCatalogBrand"><option value="">Wszyscy</option></select></label><div class="accessory-kind-filter" role="group" aria-label="Rodzaj akcesoriów"><button type="button" data-accessory-kind="" aria-pressed="false">Wszystkie</button><button type="button" data-accessory-kind="charger" aria-pressed="true">Ładowarki</button><button type="button" data-accessory-kind="accessory" aria-pressed="false">Akcesoria</button><button type="button" data-accessory-kind="cros" aria-pressed="false">CROS</button></div></div>
       <div class="accessory-catalog-meta"><strong>Ładowarki i akcesoria · 2026</strong><span>Ceny brutto · zł</span><span data-accessory-count role="status" aria-live="polite"></span></div>
-      <p class="accessory-catalog-hint">Cena przy 1 lub 2 aparatach dotyczy jednej ładowarki lub jednego akcesorium, nie całego zestawu. Rabaty są możliwe na warunkach podanych w szczegółach.</p>
+      <p class="accessory-catalog-hint">Ceny przy 1 lub 2 aparatach dotyczą jednej ładowarki lub jednego akcesorium. Rabat liczony jest od ceny regularnej, jeśli ją podano. Pozycje oznaczone „Do potwierdzenia” sprawdź przed wyceną.</p>
       <div class="accessory-catalog-scroll" tabindex="0" aria-label="Cennik ładowarek i akcesoriów"><table class="accessory-catalog-table"><thead><tr><th>Producent</th><th>Produkt</th><th>Cena regularna</th><th>Przy 1 aparacie</th><th>Przy 2 aparatach</th><th>Szczegóły</th></tr></thead><tbody></tbody></table></div>
       <p class="empty-state" data-accessory-empty hidden>Brak pasujących pozycji.</p>
       <details class="accessory-warranties"><summary>Gwarancje i warunki producentów</summary><div data-accessory-warranties></div></details>
@@ -109,7 +116,9 @@
     const find=selector=>host.querySelector(selector);
     const search=find("#accessoryCatalogSearch"),brand=find("#accessoryCatalogBrand");
     let kind="charger";const open=new Set();
-    const format=value=>new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN"}).format(value);
+    const format=new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN"}).format;
+    const formatPercent=new Intl.NumberFormat("pl-PL",{style:"percent",maximumFractionDigits:2}).format;
+    const formatSavings=savings=>`−${format(savings.amount)} (${formatPercent(savings.percent/100)})`;
     const node=(tag,text,cls)=>{const item=doc.createElement(tag);if(text!==undefined)item.textContent=text;if(cls)item.className=cls;return item;};
     const brands=[...new Set(rows.flatMap(row=>row.brands))].sort((a,b)=>a.localeCompare(b,"pl"));
     for(const value of brands){const option=node("option",value);option.value=value;brand.append(option);}
@@ -135,12 +144,19 @@
         const product=node("td");product.append(node("strong",item.name,"accessory-product-name"));
         product.append(node("span",item.warranty?`Gwarancja: ${item.warranty} mies.`:"Gwarancja: nie podano","accessory-product-caption"));
         if(item.warnings.length)product.append(node("span","Do potwierdzenia","accessory-price-warning"));
-        if(item.patientPrice!=null)product.append(node("span",`Dla naszych pacjentów: ${format(item.patientPrice)}`,"accessory-patient-price"));
+        const regularPrice=item.priceLabel?null:item.price;
+        if(item.patientPrice!=null){
+          const savings=calculateSavings(regularPrice,item.patientPrice);
+          product.append(node("span",`Dla naszych pacjentów: ${format(item.patientPrice)}${savings?` · ${formatSavings(savings)}`:""}`,"accessory-patient-price"));
+        }
         if(item.refundable===false)product.append(node("span","Bez refundacji","accessory-product-caption"));
         row.append(product);
         for(const [index,value]of [item.price??item.specialPrice,item.onePrice,item.twoPrice].entries()){
           const cell=node("td",undefined,"accessory-price");cell.append(node("span",value==null?"Nie podano":format(value)));
-          if(index===0&&item.priceLabel)cell.append(node("small",item.priceLabel));row.append(cell);
+          if(index===0&&item.priceLabel)cell.append(node("small",item.priceLabel));
+          const savings=index>0?calculateSavings(regularPrice,value):null;
+          if(savings)cell.append(node("small",formatSavings(savings),"accessory-savings"));
+          row.append(cell);
         }
         const actions=node("td"),button=node("button","Szczegóły","reset-filters-btn");button.type="button";button.setAttribute("aria-expanded",String(!detailsRow.hidden));button.setAttribute("aria-controls",detailsRow.id);button.setAttribute("aria-label",`Szczegóły: ${item.brands.join(" / ")} · ${item.name}`);
         button.addEventListener("click",()=>{detailsRow.hidden=!detailsRow.hidden;button.setAttribute("aria-expanded",String(!detailsRow.hidden));detailsRow.hidden?open.delete(item.id):open.add(item.id);});actions.append(button);row.append(actions);
@@ -161,5 +177,5 @@
     host.querySelectorAll("[data-accessory-kind]").forEach(button=>button.addEventListener("click",()=>{kind=button.dataset.accessoryKind;render();}));
     render();return {render};
   }
-  return {rows,warrantyGroups,sourceNotes,discounted,filterRows,create};
+  return {rows,warrantyGroups,sourceNotes,discounted,calculateSavings,filterRows,create};
 });

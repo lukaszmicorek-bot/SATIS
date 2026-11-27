@@ -36,6 +36,20 @@ test('disputed source values remain visible with arithmetic warnings instead of 
   assert.ok(ambiguous.every(row=>row.warnings.length));
   assert.match(catalog.sourceNotes.join(' '),/Audeo I-R: 3800/);
 });
+test('savings use regular and displayed prices in cents, even for conflicting source values',()=>{
+  const savings=catalog.calculateSavings;
+  assert.deepEqual(savings(960,480),{amount:480,percent:50});
+  assert.deepEqual(savings(960,288),{amount:672,percent:70});
+  assert.deepEqual(savings(1050,892.5),{amount:157.5,percent:15});
+  assert.deepEqual(savings(750,370),{amount:380,percent:50.67});
+  assert.deepEqual(savings(700,350),{amount:350,percent:50});
+  assert.deepEqual(savings(950,807),{amount:143,percent:15.05});
+  assert.deepEqual(savings(950,807.5),{amount:142.5,percent:15});
+  assert.deepEqual(savings(19.99,12.59),{amount:7.4,percent:37.02});
+  for(const [regular,offer]of [[undefined,450],[null,250],[0,0],[700,null],[700,700],[700,750],[700,-0.01]]){
+    assert.equal(savings(regular,offer),null);
+  }
+});
 test('missing prices, VAT and guarantee terms are not fabricated',()=>{
   const silk=find('Signia','Ładowarka przenośna · Silk');
   assert.equal(silk.price,null);assert.equal(silk.vat,undefined);assert.equal(silk.warranty,36);

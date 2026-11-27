@@ -4299,6 +4299,7 @@ h2 {
 .accessory-price { text-align: right; color: #183d4a; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .accessory-price > span { white-space: nowrap; }
 .accessory-price > small { display: block; margin-top: 4px; color: #697a80; font-size: 10px; font-weight: 400; }
+.accessory-price > .accessory-savings { color: #356b58; font-size: 11px; font-weight: 600; overflow-wrap: normal; }
 .accessory-catalog-table .reset-filters-btn { min-height: 30px; padding: 6px 8px; white-space: nowrap; font-size: 11px; }
 .accessory-detail-row[hidden] { display: none; }
 .accessory-catalog-table .accessory-detail-row > td { padding: 0; background: #f4f9f8; }
