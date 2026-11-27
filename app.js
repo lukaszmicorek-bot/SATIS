@@ -5759,6 +5759,68 @@ function isDeviceCharger(record) {
   return /ładowar|ladowar|charger/iu.test(String(record?.deviceName ?? ""));
 }
 
+function serialAccessoryKind(model) {
+  if (/(?:^|[^\p{L}\p{N}])(?:[łl]adowar|(?:smart\s*)?charger)/iu.test(model || "")) return "charger";
+  if (/\bcros(?:\d+)?\b|\bnadajnik\s+envision\b/iu.test(model || "")) return "cros";
+  return "";
+}
+
+function findSerialAccessoryModel(serial, { excludeRepairId = "" } = {}) {
+  const key = serialDuplicateKey(serial);
+  if (!key || /^(?:BRAK(?:NUMERU)?|NIEDOTYCZY|NIEZNANY)$/u.test(key)) return null;
+  const matches = serialIndex.get(key) || [];
+  const makeMatch = (value, source, kind) => {
+    const model = normalizeDeviceName(value);
+    if (repairDeviceNameNeedsBackfill(model)) return null;
+    const detectedKind = serialAccessoryKind(model);
+    if (kind && detectedKind && kind !== detectedKind) return null;
+    return { model, source, kind: kind || detectedKind };
+  };
+  const inventory = matches.filter(match => match.source !== "repairs")
+    .map(match => makeMatch(match.deviceName, match.source === "demo" ? "Demo" : "Bazy")).filter(Boolean);
+  if (inventory.some(match => !match.kind)) return null;
+
+  const generic = match => /^(?:ładowarka|ladowarka|charger|cros|nadajnik cros)$/iu.test(match.model);
+  const unique = (names) => [...new Map(names.map(match => [normalize(match.model), match])).values()];
+  const specificInventory = unique(inventory.filter(match => !generic(match)));
+  if (specificInventory.length > 1 || new Set(inventory.map(match => match.kind)).size > 1) return null;
+  if (specificInventory.length === 1) return specificInventory[0];
+
+  // Historical documents supply a model, never customer or sale details.
+  const history = [];
+  const add = (value, model, source, kind) => {
+    if (serialDuplicateKey(value) !== key) return;
+    const match = makeMatch(model, source, kind);
+    if (match?.kind) history.push(match);
+  };
+  for (const entry of pricingLoanHistory) {
+    add(entry.chargerSerial, entry.charger, "historii umów", "charger");
+    for (const item of [entry.rightDevice, entry.leftDevice]) add(item?.serial, item?.model, "historii umów");
+  }
+  for (const entry of pricingComplaintHistory) {
+    for (const item of entry.items || []) {
+      add(item.serial, item.productName, "historii reklamacji", item.productType === "ŁADOWARKA" ? "charger" : "");
+    }
+  }
+  for (const id of new Set(matches.filter(match => match.source === "repairs").map(match => match.id))) {
+    if (String(id) === String(excludeRepairId)) continue;
+    const record = repairRecords.find(record => record.id === id);
+    if (!record) continue;
+    if (record.orderItems?.length) {
+      for (const item of record.orderItems) {
+        for (const value of item.serialNumbers || []) add(value, item.description, "Serwisu", item.type === "ŁADOWARKA" ? "charger" : "");
+      }
+    } else {
+      const serials = repairSerialNumbers(record);
+      if (serials.length === 1) add(serials[0], record.deviceName, "Serwisu");
+    }
+  }
+  const all = [...inventory, ...history];
+  if (new Set(all.map(match => match.kind)).size > 1) return null;
+  const specific = unique(all.filter(match => !generic(match)));
+  return specific.length === 1 ? specific[0] : specific.length === 0 ? all[0] || null : null;
+}
+
 function deviceEzwmStatus(record) {
   if (String(record?.type ?? "").trim().toLocaleUpperCase("pl-PL") === "ZWROT") return "";
   return isDeviceCharger(record) ? "BEZ REFUNDACJI" : normalizeEzwmStatus(record?.ezwm);
@@ -8397,6 +8459,7 @@ function rebuildSerialIndex() {
       source: "demo",
       id: record.id,
       notebook: "Aparaty demo",
+      deviceName: record.deviceName,
       label: [
         normalizeDemoPurpose(record.purpose) === DEMO_PURPOSE_REPLACEMENT ? "Zastępczy" : "Demo",
         record.manufacturer,
@@ -10257,6 +10320,7 @@ function resetPricingReceipt() {
     input.setCustomValidity("");
     input.removeAttribute("aria-invalid");
     delete input.dataset.receiptAuto;
+    delete input.dataset.receiptAccessorySerial;
   });
   if (pricingReceiptView) delete pricingReceiptView.dataset.receiptCustomer;
   if (pricingReceiptView) delete pricingReceiptView.dataset.receiptManualSides;
@@ -10283,7 +10347,7 @@ function receiptDeviceForSerial(serial, source) {
 function transferReceiptSides() {
   const snapshots = ["P", "L"].map((side) => ["receiptModel", "receiptSerial"].map((prefix) => {
     const input = document.getElementById(`${prefix}${side}`);
-    return { value: input.value, auto: input.dataset.receiptAuto };
+    return { value: input.value, auto: input.dataset.receiptAuto, accessorySerial: input.dataset.receiptAccessorySerial };
   }));
   if (!snapshots.flat().some((entry) => entry.value.trim())) return;
   ["P", "L"].forEach((side, sideIndex) => {
@@ -10293,6 +10357,8 @@ function transferReceiptSides() {
       input.value = data.value;
       if (data.auto === undefined) delete input.dataset.receiptAuto;
       else input.dataset.receiptAuto = data.auto;
+      if (data.accessorySerial === undefined) delete input.dataset.receiptAccessorySerial;
+      else input.dataset.receiptAccessorySerial = data.accessorySerial;
       input.setCustomValidity("");
     });
   });
@@ -10339,6 +10405,7 @@ function applyReceiptPurchase(group, preferredSide = "P", preferredSerial = "") 
       const input = document.getElementById(`${prefix}${side}`);
       if (input.dataset.receiptAuto === input.value) input.value = "";
       delete input.dataset.receiptAuto;
+      delete input.dataset.receiptAccessorySerial;
     }
   }
   ordered.forEach((entry, index) => {
@@ -10392,6 +10459,11 @@ function completeReceiptCustomer({ preferredSide = "P", preferredSerial = "", se
 function completeReceiptSerial(side) {
   const serial = document.getElementById(`receiptSerial${side}`);
   serial.value = normalizeSerialNumber(serial.value);
+  const model = document.getElementById(`receiptModel${side}`);
+  if (serial.dataset.receiptAccessorySerial && serial.dataset.receiptAccessorySerial !== serial.value) {
+    if (model.value === model.dataset.receiptAuto) model.value = "";
+    delete serial.dataset.receiptAccessorySerial;
+  }
   const match = receiptDeviceForSerial(serial.value, records);
   const status = document.getElementById("receiptStatus");
   status.textContent = "";
@@ -10410,7 +10482,16 @@ function completeReceiptSerial(side) {
       completeReceiptCustomer({ preferredSide: side, preferredSerial: serial.value });
     }
   } else if (serial.value) {
-    status.textContent = "Brak jednoznacznego powiązania numeru w Bazie. Uzupełnij i sprawdź dane ręcznie.";
+    const accessory = findSerialAccessoryModel(serial.value);
+    if (accessory?.kind === "cros") {
+      receiptAutofillField(`receiptModel${side}`, accessory.model);
+      serial.dataset.receiptAccessorySerial = serial.value;
+      status.textContent = "Znaleziono nadajnik CROS po numerze. Sprawdź pozostałe dane odbioru.";
+    } else {
+      status.textContent = accessory?.kind === "charger"
+        ? "Ten numer dotyczy ładowarki. W tym formularzu wpisz numer aparatu lub CROS."
+        : "Brak jednoznacznego powiązania numeru w Bazie. Uzupełnij i sprawdź dane ręcznie.";
+    }
   }
   renderPricingReceipt();
 }
@@ -14770,7 +14851,7 @@ function rememberCopiedSerialNumber(serialText) {
   updateLoanSerialPasteHints();
 }
 
-function fillLoanDeviceFromSerial(side, overwrite = true) {
+function fillLoanDeviceFromSerial(side, overwrite = true, allowHistory = true) {
   const inputs = loanDeviceInputs(side);
   const serial = normalizeSerialNumber(inputs.serial?.value);
   const serialKey = serialDuplicateKey(serial);
@@ -14792,15 +14873,20 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   }
 
   if (inputs.serial && inputs.serial.value !== serial) inputs.serial.value = serial;
-  const match = findLoanDeviceBySerial(serial);
-  if (!match) {
+  const isCharger = side === "charger";
+  const inventoryMatch = isCharger ? null : findLoanDeviceBySerial(serial);
+  const accessory = allowHistory && (!inventoryMatch || repairDeviceNameNeedsBackfill(inventoryMatch.model)) ? findSerialAccessoryModel(serial) : null;
+  const match = isCharger
+    ? (accessory?.kind === "charger" ? accessory : null)
+    : (accessory?.kind === "cros" ? accessory : inventoryMatch);
+  if (!match || (!isCharger && serialAccessoryKind(match.model) === "charger")) {
     updateLoanDemoPurposeField(side);
     updateLoanSerialPasteHint(side);
     if (previousKey) renderPricingLoan();
     return false;
   }
 
-  const replace = overwrite && previousKey !== serialKey;
+  const replace = !isCharger && overwrite && previousKey !== serialKey;
   setLoanMatchedInputValue(inputs.device, match.model, replace);
   setLoanMatchedInputValue(inputs.manufacturer, match.manufacturer, replace);
   setLoanMatchedInputValue(inputs.value, match.value ? formatPricingPrice(match.value) : "", replace);
@@ -14808,7 +14894,7 @@ function fillLoanDeviceFromSerial(side, overwrite = true) {
   const previousPhone = loanPhoneInput?.value;
   autofillDocumentCustomerFromSerial(loanCustomerInput, loanPhoneInput, match.customer, match.phone);
   if (loanPhoneInput?.value !== previousPhone) rememberLoanContactAutofill(loanPhoneInput);
-  if (inputs.serial) inputs.serial.title = `Uzupełniono z ${match.source}`;
+  if (inputs.serial) inputs.serial.title = `Dopasowanie z ${match.source}: ${match.model}`;
   updateLoanDemoPurposeField(side);
   updateLoanSerialPasteHint(side);
   renderPricingLoan();
@@ -17578,7 +17664,9 @@ function normalizePricingComplaintProductType(value) {
 
 function complaintProductTypeFromName(value) {
   const text = String(value || "").toLocaleLowerCase("pl-PL").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l");
-  if (/\b(?:ladowark[a-z]*|chargers?)\b/.test(text)) return "ŁADOWARKA";
+  const accessory = serialAccessoryKind(value);
+  if (accessory === "charger") return "ŁADOWARKA";
+  if (accessory === "cros") return "INNE";
   if (/\b(?:wkladk[a-z]*|earmoulds?|earmolds?)\b/.test(text)) {
     return /przeciwwod|wodoodpor|waterproof|swim/.test(text) ? "WKŁADKA PRZECIWWODNA" : "WKŁADKA USZNA";
   }
@@ -17918,6 +18006,7 @@ function setComplaintItemFields(slot = 1, item = {}) {
   if (inputs.serial) {
     inputs.serial.value = normalizedItem.serial || "";
     inputs.serial.dataset.complaintAutofilled = "";
+    delete inputs.serial.dataset.complaintLookupSerial;
   }
   if (inputs.purchaseDocument) {
     inputs.purchaseDocument.value = normalizedItem.purchaseDocument || "";
@@ -18449,18 +18538,43 @@ function syncPricingComplaintFromCustomer() {
 function syncComplaintItemFromSerial(slot = 1) {
   const inputs = complaintItemInputs(slot);
   const serial = complaintInputValue(inputs.serial);
+  const key = serialDuplicateKey(serial);
+  if (inputs.serial?.dataset.complaintLookupSerial && inputs.serial.dataset.complaintLookupSerial !== key) {
+    for (const input of [inputs.productName, inputs.productType, inputs.purchaseDocument, inputs.purchaseDate]) {
+      if (input?.dataset.complaintAutofilled !== "1") continue;
+      if (input === inputs.purchaseDate) setDateInputValue(input, "");
+      else input.value = input === inputs.productType ? PRICING_COMPLAINT_PRODUCT_TYPES[0] : "";
+      delete input.dataset.complaintAutofilled;
+    }
+    delete inputs.serial.dataset.complaintLookupSerial;
+  }
   if (!serial) {
+    updateComplaintCustomerMatchHint(0);
     updateComplaintWarrantyHints();
     renderPricingComplaint();
     return false;
   }
   const match = soldDeviceMatchesForSerial(serial)[0];
   if (!match) {
+    const accessory = findSerialAccessoryModel(serial);
+    const changed = accessory && setComplaintAutofillValue(inputs.productName, accessory.model);
+    if (changed) {
+      if (inputs.productType) {
+        inputs.productType.value = accessory.kind === "charger" ? "ŁADOWARKA" : "INNE";
+        inputs.productType.dataset.complaintAutofilled = "1";
+      }
+      inputs.serial.dataset.complaintLookupSerial = key;
+      if (complaintCustomerMatchHint) {
+        complaintCustomerMatchHint.textContent = `Uzupełniono nazwę: ${accessory.model}. Sprawdź dane zakupu.`;
+        complaintCustomerMatchHint.hidden = false;
+      }
+    } else updateComplaintCustomerMatchHint(0);
     updateComplaintWarrantyHints();
     renderPricingComplaint();
-    return false;
+    return Boolean(changed);
   }
   const changed = fillComplaintFromDeviceRecord(match, slot);
+  inputs.serial.dataset.complaintLookupSerial = key;
   updateComplaintCustomerMatchHint(1, [match], changed);
   syncComplaintRequestFromWarranty();
   renderPricingComplaint();
@@ -18621,6 +18735,7 @@ function resetPricingComplaintForm() {
     if (input) {
       input.value = "";
       input.dataset.complaintAutofilled = "";
+      delete input.dataset.complaintLookupSerial;
     }
   });
   if (complaintLocationInput) {
@@ -26927,6 +27042,28 @@ function renderRepairOrderItems(record) {
     serial.spellcheck = false;
     serial.placeholder = Number(item.quantity) > 1 ? "NR1, NR2" : "Numer seryjny";
     serial.addEventListener("input", syncUppercaseTextInput);
+    const syncModel = () => {
+      if (!["ŁADOWARKA", "APARAT SŁUCHOWY"].includes(item.type)) return;
+      const values = serial.value.split(/[,;\n]+/u).map(value => value.trim()).filter(Boolean);
+      const matches = values.map(value => findSerialAccessoryModel(value, { excludeRepairId: record?.id }));
+      const first = matches[0];
+      if (!first || first.kind !== (item.type === "ŁADOWARKA" ? "charger" : "cros")
+        || !matches.every(match => match && normalize(match.model) === normalize(first.model))) {
+        if (model.dataset.serialAutofilled === model.value) model.value = "";
+        delete model.dataset.serialAutofilled;
+        return;
+      }
+      if (model.value.trim() && model.dataset.serialAutofilled !== model.value
+        && !repairDeviceNameNeedsBackfill(model.value) && !/^(?:ładowarka|charger|cros)$/iu.test(model.value.trim())) return;
+      model.value = first.model;
+      model.dataset.serialAutofilled = model.value;
+    };
+    serial.addEventListener("input", debounce(() => {
+      if (!serial.isConnected) return;
+      syncModel();
+      syncRepairOrderItemSummary();
+    }, SEARCH_DEBOUNCE_MS));
+    serial.addEventListener("change", () => { syncModel(); syncRepairOrderItemSummary(); });
     serialLabel.append(serialTitle, serial);
     setupSerialInputTools(serial, { multiple: true });
     for (const input of [model, serial]) input.addEventListener("input", () => {
@@ -27395,7 +27532,7 @@ function syncRepairPhoneOwner() {
 
 function syncRepairSerialInput(event) {
   syncDemoUppercaseInput(event);
-  syncRepairDeviceNameFromSerials();
+  syncRepairDeviceNameFromSerials({ includeAccessoryHistory: event.type === "change" || event.inputType === "insertFromPaste" });
   syncRepairModelRequirement();
   if (validateRepairDateOrder()) updateRepairWarrantyHint();
   syncRepairDialogHeaderMeta();
@@ -27430,16 +27567,22 @@ function updateRepairReturnSerialPrompt({ focus = false } = {}) {
   }, 0);
 }
 
-function syncRepairDeviceNameFromSerials() {
+function syncRepairDeviceNameFromSerials({ includeAccessoryHistory = false } = {}) {
   const deviceNameInput = document.querySelector("#repairDeviceName");
   const repairId = document.querySelector("#repairId")?.value || "";
   if (!deviceNameInput) return;
 
-  const inferredName = inferredRepairDeviceName({
+  const record = {
     id: repairId,
     serialNumber: document.querySelector("#repairSerialNumber")?.value,
     serialNumber2: document.querySelector("#repairSerialNumber2")?.value
-  });
+  };
+  const known = knownRepairModelsBySerial(repairId);
+  if (includeAccessoryHistory) for (const serial of repairSerialNumbers(record)) {
+    const accessory = findSerialAccessoryModel(serial, { excludeRepairId: repairId });
+    if (accessory) known.set(serialDuplicateKey(serial), { name: accessory.model });
+  }
+  const inferredName = inferredRepairDeviceName(record, known);
   const currentName = normalizeDeviceName(deviceNameInput.value);
   const mayReplace = !currentName || repairDeviceNameNeedsBackfill(currentName) || deviceNameInput.dataset.autoFromSerial === "1";
   if (!inferredName || !mayReplace) return;
@@ -30568,15 +30711,16 @@ loanAddressInput?.addEventListener("blur", (event) => {
     event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
   });
 });
-[loanRightSerialInput, loanLeftSerialInput].forEach((input) => {
-  input?.addEventListener("input", () => fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true));
+[loanRightSerialInput, loanLeftSerialInput, loanChargerSerialInput].forEach((input) => {
+  input?.addEventListener("input", (event) => {
+    const isPaste = event.inputType === "insertFromPaste";
+    if (input !== loanChargerSerialInput || isPaste) fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true, isPaste);
+  });
   input?.addEventListener("change", () => fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true));
   input?.addEventListener("blur", () => fillLoanDeviceFromSerial(loanSideFromSerialInput(input), true));
   input?.addEventListener("focus", () => updateLoanSerialPasteHint(loanSideFromSerialInput(input)));
   input?.addEventListener("mouseenter", () => updateLoanSerialPasteHint(loanSideFromSerialInput(input)));
 });
-loanChargerSerialInput?.addEventListener("focus", () => updateLoanSerialPasteHint("charger"));
-loanChargerSerialInput?.addEventListener("mouseenter", () => updateLoanSerialPasteHint("charger"));
 loanSerialFields.forEach((field) => {
   field.addEventListener("mouseenter", () => updateLoanSerialPasteHint(field.dataset.loanSerialField));
 });
@@ -30812,6 +30956,9 @@ complaintUseDeviceItem2Btn?.addEventListener("click", () => useComplaintCustomer
     renderPricingComplaint();
   });
   inputs.serial?.addEventListener("change", () => syncComplaintItemFromSerial(slot));
+  inputs.serial?.addEventListener("input", (event) => {
+    if (event.inputType === "insertFromPaste") syncComplaintItemFromSerial(slot);
+  });
   inputs.serial?.addEventListener("blur", () => syncComplaintItemFromSerial(slot));
   inputs.purchaseDocument?.addEventListener("input", (event) => {
     event.target.value = event.target.value.toLocaleUpperCase("pl-PL");
@@ -31055,6 +31202,8 @@ document.querySelector("#repairLocation").addEventListener("change", (event) => 
 document.querySelector("#repairLocation").addEventListener("change", syncRepairDialogHeaderMeta);
 document.querySelector("#repairSerialNumber").addEventListener("input", syncRepairSerialInput);
 document.querySelector("#repairSerialNumber2").addEventListener("input", syncRepairSerialInput);
+document.querySelector("#repairSerialNumber").addEventListener("change", syncRepairSerialInput);
+document.querySelector("#repairSerialNumber2").addEventListener("change", syncRepairSerialInput);
 document.querySelector("#repairDeviceName").addEventListener("input", markRepairDeviceNameManualChange);
 document.querySelector("#repairDeviceName").addEventListener("change", syncRepairServiceCostSuggestion);
 addRepairSerial2Btn.addEventListener("click", () => setRepairSerial2Visibility(true, { focus: true }));

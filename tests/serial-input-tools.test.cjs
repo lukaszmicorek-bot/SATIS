@@ -108,3 +108,40 @@ test('serial tools are installed for all serial-bearing editors and dynamic orde
   assert.match(extract('setupSerialInputTools'), /serialToolsBound/);
   assert.match(extract('setupSerialInputTools'), /input\.readOnly/);
 });
+
+test('accessory serials use specific names from stock or history without guessing between conflicting matches', () => {
+  const record = (source, deviceName, id) => ({source, deviceName, id});
+  const c = vm.createContext({
+    serialIndex: new Map([
+      ['CH111', [record('devices', 'SmartCharger MiniRITE')]],
+      ['CR111', [record('demo', 'Nadajnik CROS II')]],
+      ['CH222', [record('devices', 'Ładowarka')]],
+      ['CH333', [record('devices', 'Charger Plus'), record('demo', 'Charger Go')]],
+      ['CH444', [record('devices', 'Audéo I70')]],
+      ['CH555', [record('repairs', 'Zamówienie', 'order')]],
+      ['CH666', [record('repairs', 'Charger RIC / aparat', 'group')]]
+    ]),
+    pricingLoanHistory: [
+      {chargerSerial:'CH222',charger:'Charger Go',customer:'Nie przenoś',phone:'123456789'},
+      {chargerSerial:'CH444',charger:'Charger Go'},
+      {leftDevice:{serial:'CR222',model:'Nadajnik Envision'}},
+      {chargerSerial:'CH777',charger:'Charger Case'},
+      {chargerSerial:'CH777',charger:'Charger Go'}
+    ],
+    pricingComplaintHistory: [{items:[{serial:'CH888',productName:'Ładowarka Premium',productType:'ŁADOWARKA'}]}],
+    repairRecords: [
+      {id:'order',orderItems:[{type:'ŁADOWARKA',description:'MiniRITE Plus',serialNumbers:['CH555']}]},
+      {id:'group',serialNumber:'CH666',serialNumber2:'CR666',deviceName:'Charger RIC / Nadajnik CROS'}
+    ]
+  });
+  for (const name of ['normalize','normalizeSerialNumber','serialDuplicateKey','repairSerialNumbers','normalizeDeviceName',
+    'repairDeviceNameNeedsBackfill','isDeviceCharger','serialAccessoryKind','findSerialAccessoryModel']) vm.runInContext(extract(name), c);
+  assert.equal(c.findSerialAccessoryModel(' ch-111 ').model,'SmartCharger MiniRITE');
+  assert.equal(c.findSerialAccessoryModel('cr111').kind,'cros');
+  assert.deepEqual({...c.findSerialAccessoryModel('CH222')},{model:'Charger Go',kind:'charger',source:'historii umów'});
+  assert.equal(c.findSerialAccessoryModel('CR222').model,'Nadajnik Envision');
+  assert.equal(c.findSerialAccessoryModel('CH555').model,'MiniRITE Plus');
+  assert.equal(c.findSerialAccessoryModel('CH888').model,'Ładowarka Premium');
+  assert.equal(c.findSerialAccessoryModel('CH555',{excludeRepairId:'order'}),null);
+  for (const serial of ['CH333','CH444','CH666','CH777','unknown','brak numeru']) assert.equal(c.findSerialAccessoryModel(serial),null,serial);
+});
