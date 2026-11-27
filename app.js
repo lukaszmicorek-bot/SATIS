@@ -29146,14 +29146,17 @@ function createCurrentDateCalendar(date = new Date()) {
     }
     if (dayEvents.length) {
       item.classList.add("has-events");
-      const markers = document.createElement("span");
-      markers.className = "current-date-event-markers";
-      [...new Set(dayEvents.map(event => event.kind))].slice(0, 4).forEach(kind => {
-        const marker = document.createElement("i");
-        marker.className = kind;
-        markers.append(marker);
-      });
-      item.append(markers);
+      const markerKinds = [...new Set(dayEvents.map(event => event.kind))].filter(kind => kind !== "demo-manufacturer").slice(0, 4);
+      if (markerKinds.length) {
+        const markers = document.createElement("span");
+        markers.className = "current-date-event-markers";
+        markerKinds.forEach(kind => {
+          const marker = document.createElement("i");
+          marker.className = kind;
+          markers.append(marker);
+        });
+        item.append(markers);
+      }
       item.dataset.currentDateTooltip = [holiday?.name, currentDateEventSummary(dayEvents)].filter(Boolean).join("\n");
       item.tabIndex = 0;
       attachTableHoverTooltip(item, "currentDateTooltip");

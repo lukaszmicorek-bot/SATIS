@@ -109,6 +109,15 @@ test('return popup is disabled independently of hourly storage while calendar ev
   assert.match(extract('refreshDemoReturnReminders'), /rebuildDemoDerivedData\(\)/);
 });
 
+test('manufacturer returns have no calendar dot but stay in day details and the event list', () => {
+  const render = extract('createCurrentDateCalendar');
+  assert.match(render, /dayEvents\.map\(event => event\.kind\)\)\]\.filter\(kind => kind !== "demo-manufacturer"\)\.slice\(0, 4\)/);
+  assert.match(render, /if \(markerKinds\.length\) \{[\s\S]*item\.append\(markers\)/);
+  assert.match(render, /item\.dataset\.currentDateTooltip = \[[^\n]*currentDateEventSummary\(dayEvents\)/);
+  assert.match(css, /\.current-date-upcoming-row\.demo-manufacturer::before/);
+  assert.doesNotMatch(css, /\.current-date-event-markers i\.demo-manufacturer/);
+});
+
 test('Header calendar limits clinic workstations and gives ML all events with a filter', () => {
   const state = { workstation: 'P63_gabinet', owner: false };
   const context = vm.createContext({

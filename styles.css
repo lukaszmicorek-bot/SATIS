@@ -510,7 +510,6 @@ html { scrollbar-gutter: stable; }
 }
 
 .current-date-event-markers i.demo-client { background: #cf725d; }
-.current-date-event-markers i.demo-manufacturer { background: #808b4f; }
 .current-date-event-markers i.vacation { background: #8c71a1; }
 .current-date-calendar-grid .today .current-date-event-markers i { outline: 1px solid rgba(255, 255, 255, 0.8); }
 
